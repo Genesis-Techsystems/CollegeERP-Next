@@ -1,5 +1,7 @@
-﻿import { AffiliatedRoutePage } from '../_components/AffiliatedRoutePage'
+﻿"use client";
+
+import { StudentExamRegistrationSummaryPage } from "../_components/StudentExamRegistrationSummaryPage";
 
 export default function Page() {
-  return <AffiliatedRoutePage slug="student-exam-registration-summary" />
+  return <StudentExamRegistrationSummaryPage />;
 }

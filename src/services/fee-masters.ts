@@ -108,6 +108,19 @@ function splitProcFilterGroups(groups: AnyRow[][]): {
     if (batchGroup?.length) batchesData = batchGroup;
   }
 
+  if (regulationData.length === 0) {
+    const regulationGroup = groups.find((g) => {
+      if (!Array.isArray(g) || g.length === 0) return false;
+      const sample = g.find(
+        (r) =>
+          Number(r?.fk_regulation_id ?? r?.regulationId ?? 0) > 0 &&
+          String(r?.regulation_code ?? r?.regulationCode ?? "").trim() !== "",
+      );
+      return Boolean(sample);
+    });
+    if (regulationGroup?.length) regulationData = regulationGroup;
+  }
+
   return { filtersData, academicData, batchesData, regulationData };
 }
 

@@ -9,6 +9,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import type { ColDef } from "ag-grid-community";
 import { DataTable, TableCard } from "@/common/components/table";
 import { FormModal } from "@/common/components/feedback";
 import { FilteredPage } from "@/components/layout";
@@ -17,32 +18,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
-  getAffiliatedStudentUploadTemplate,
-  importAffiliatedStudentFile,
+  getAffiliatedExamRegistrationUploadTemplate,
+  importAffiliatedExamRegistrationFile,
   resolveAffiliatedEmployeeId,
-  submitAffiliatedStudentUpload,
-  verifyAffiliatedStudentUpload,
+  submitAffiliatedExamRegistrationUpload,
+  verifyAffiliatedExamRegistrationUpload,
 } from "@/services";
 import { pickAffiliatedText } from "../_lib/enrich-affiliated-summary-rows";
 import {
-  AFFILIATED_STUDENT_LOADED_COLS,
-  AFFILIATED_STUDENT_STAGING_COLS,
-  AFFILIATED_STUDENT_VERIFY_COLS,
-} from "../_lib/affiliated-student-upload-columns";
+  AFFILIATED_EXAM_REG_LOADED_COLS,
+  AFFILIATED_EXAM_REG_VERIFY_COLS,
+  buildAffiliatedExamRegStagingColDefs,
+} from "../_lib/affiliated-exam-reg-upload-columns";
 import {
-  buildAffiliatedStudentTemplateMeta,
-  downloadAffiliatedExistingStudentsExcel,
-  downloadAffiliatedStudentDictionaryExcel,
-  downloadAffiliatedStudentTemplateExcel,
-  enrichAffiliatedStudentTemplate,
-  getAffiliatedExistingStudentsMeta,
-  pickAffiliatedExistingStudentsCount,
-} from "../_lib/affiliated-student-upload-excel";
+  downloadAffiliatedExamRegistrationTemplateExcel,
+  pivotAffiliatedExamRegStagingRows,
+  type AffiliatedExamRegPivotRow,
+} from "../_lib/affiliated-exam-reg-upload-excel";
 import {
-  contextToInitialSelection,
-  readAffiliatedSummaryContext,
-  saveAffiliatedSummaryContext,
-} from "../_lib/affiliated-summary-context";
+  contextToExamRegInitialSelection,
+  readAffiliatedExamRegSummaryContext,
+  saveAffiliatedExamRegSummaryContext,
+} from "../_lib/affiliated-exam-reg-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
 
@@ -51,16 +48,6 @@ type AnyRow = Record<string, unknown>;
 function numParam(sp: URLSearchParams, key: string): number {
   const n = Number(sp.get(key) ?? 0);
   return Number.isFinite(n) ? n : 0;
-}
-
-function pickUploadFileId(rows: AnyRow[]): number {
-  const first = rows[0] ?? {};
-  return Number(
-    first.univUploadFilesId ??
-      first.univ_uploadfile_id ??
-      first.univUploadFileId ??
-      0,
-  );
 }
 
 function pickFilterRowId(row: AnyRow | undefined, keys: string[]): number {
@@ -72,10 +59,35 @@ function pickFilterRowId(row: AnyRow | undefined, keys: string[]): number {
   return 0;
 }
 
-export function CollegeStudentBulkUploadPage() {
+function pickUploadFileId(rows: AnyRow[]): number {
+  const first = rows[0] ?? {};
+  const keys = [
+    "univUploadFileId",
+    "univUploadFilesId",
+    "univ_uploadfile_id",
+    "univUploadfileId",
+    "pk_univ_uploadfile_id",
+  ];
+  for (const key of keys) {
+    const n = Number(first[key]);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  for (const [key, value] of Object.entries(first)) {
+    if (/univ.?upload.?file.?id/i.test(key)) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
+  return 0;
+}
+
+export function CollegeStudentExamFeeRegistrationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const summaryContext = useMemo(() => readAffiliatedSummaryContext(), []);
+  const summaryContext = useMemo(
+    () => readAffiliatedExamRegSummaryContext(),
+    [],
+  );
   const fromSummary =
     searchParams.has("collegeId") || (summaryContext?.fk_college_id ?? 0) > 0;
 
@@ -87,21 +99,28 @@ export function CollegeStudentBulkUploadPage() {
         courseId: numParam(searchParams, "courseId"),
         courseGroupId: numParam(searchParams, "courseGroupId"),
         courseYearId: numParam(searchParams, "courseYearId"),
+        examId: numParam(searchParams, "examId"),
       };
     }
-    if (summaryContext) return contextToInitialSelection(summaryContext);
+    if (summaryContext) {
+      return contextToExamRegInitialSelection(summaryContext);
+    }
     return undefined;
   }, [searchParams, summaryContext]);
 
   const cascade = useAffiliatedCascade({
     allowAllGroupYear: true,
     autoSelectFirst: !fromSummary,
+    examFilters: true,
+    examFirstCascade: true,
     initialSelection: fromSummary ? initialSelection : undefined,
   });
 
   const [templateData, setTemplateData] = useState<unknown[][] | null>(null);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [stagingRows, setStagingRows] = useState<AnyRow[]>([]);
+  const [pivotRows, setPivotRows] = useState<AffiliatedExamRegPivotRow[]>([]);
+  const [subjectCodes, setSubjectCodes] = useState<string[]>([]);
   const [loadedRows, setLoadedRows] = useState<AnyRow[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -119,6 +138,7 @@ export function CollegeStudentBulkUploadPage() {
       courseId: cascade.courseId ?? 0,
       courseGroupId: cascade.courseGroupId ?? 0,
       courseYearId: cascade.courseYearId ?? 0,
+      examId: cascade.examId ?? 0,
     }),
     [
       cascade.collegeId,
@@ -126,86 +146,11 @@ export function CollegeStudentBulkUploadPage() {
       cascade.courseId,
       cascade.courseGroupId,
       cascade.courseYearId,
+      cascade.examId,
     ],
   );
 
   const importMeta = useMemo(() => {
-    const college = cascade.colleges.find(
-      (c) => Number(c.fk_college_id ?? c.collegeId) === cascade.collegeId,
-    );
-    const academicYear = cascade.academicYears.find(
-      (a) =>
-        Number(a.fk_academic_year_id ?? a.academicYearId) ===
-        cascade.academicYearId,
-    );
-    const course = cascade.courses.find(
-      (c) => Number(c.fk_course_id ?? c.courseId) === cascade.courseId,
-    );
-    const courseGroup = cascade.courseGroups.find(
-      (g) =>
-        Number(g.fk_course_group_id ?? g.courseGroupId) ===
-        cascade.courseGroupId,
-    );
-    const courseYear = cascade.courseYears.find(
-      (y) =>
-        Number(y.fk_course_year_id ?? y.courseYearId) === cascade.courseYearId,
-    );
-    const collegeCode = pickAffiliatedText(college, [
-      "college_code",
-      "collegeCode",
-    ]);
-    const academicYearLabel = pickAffiliatedText(academicYear, [
-      "academic_year",
-      "academicYear",
-    ]);
-    const courseCode = pickAffiliatedText(course, [
-      "course_code",
-      "courseCode",
-    ]);
-    const courseGroupLabel =
-      cascade.courseGroupId === 0
-        ? "All"
-        : pickAffiliatedText(courseGroup, [
-            "group_code",
-            "groupCode",
-            "group_name",
-            "groupName",
-          ]);
-    const courseYearLabel =
-      cascade.courseYearId === 0
-        ? "All"
-        : pickAffiliatedText(courseYear, [
-            "course_year_name",
-            "courseYearName",
-          ]);
-    // Angular fileDescription format (exact label spacing, including missing space before courseCode)
-    const fileDescription = `collegeCode : ${collegeCode} academicYear : ${academicYearLabel}courseCode : ${courseCode} courseGroup : ${courseGroupLabel} courseYear : ${courseYearLabel}`;
-    return {
-      universityCode: pickAffiliatedText(college, [
-        "university_code",
-        "universityCode",
-      ]),
-      collegeCode,
-      courseCode,
-      fileDescription,
-      fileUploadedByEmpId: resolveAffiliatedEmployeeId(),
-      ...filterParams,
-    };
-  }, [
-    cascade.colleges,
-    cascade.academicYears,
-    cascade.courses,
-    cascade.courseGroups,
-    cascade.courseYears,
-    cascade.collegeId,
-    cascade.academicYearId,
-    cascade.courseId,
-    cascade.courseGroupId,
-    cascade.courseYearId,
-    filterParams,
-  ]);
-
-  const templateMeta = useMemo(() => {
     const college = cascade.colleges.find(
       (c) =>
         pickFilterRowId(c as AnyRow, ["fk_college_id", "collegeId"]) ===
@@ -232,77 +177,116 @@ export function CollegeStudentBulkUploadPage() {
     );
     const courseYear = cascade.courseYears.find(
       (y) =>
-        pickFilterRowId(y as AnyRow, ["fk_course_year_id", "courseYearId"]) ===
-        cascade.courseYearId,
+        pickFilterRowId(y as AnyRow, [
+          "fk_course_year_id",
+          "courseYearId",
+        ]) === cascade.courseYearId,
     );
-    return buildAffiliatedStudentTemplateMeta({
-      universityCode: pickAffiliatedText(college, [
-        "university_code",
-        "universityCode",
-      ]),
-      collegeCode: pickAffiliatedText(college, ["college_code", "collegeCode"]),
-      academicYear: pickAffiliatedText(academicYear, [
-        "academic_year",
-        "academicYear",
-      ]),
-      courseCode: pickAffiliatedText(course, ["course_code", "courseCode"]),
-      courseGroup: pickAffiliatedText(courseGroup, ["group_code", "groupCode"]),
-      courseYear: pickAffiliatedText(courseYear, [
-        "course_year_name",
-        "courseYearName",
-      ]),
-    });
+    const exam = cascade.exams.find(
+      (e) =>
+        pickFilterRowId(e as AnyRow, ["fk_exam_id", "examId"]) ===
+        cascade.examId,
+    );
+
+    const collegeCode = pickAffiliatedText(college as AnyRow, [
+      "college_code",
+      "collegeCode",
+    ]);
+    const academicYearLabel = pickAffiliatedText(academicYear as AnyRow, [
+      "academic_year",
+      "academicYear",
+    ]);
+    const courseCode = pickAffiliatedText(course as AnyRow, [
+      "course_code",
+      "courseCode",
+    ]);
+    const groupCode = pickAffiliatedText(courseGroup as AnyRow, [
+      "group_code",
+      "groupCode",
+    ]);
+    const courseYearLabel = pickAffiliatedText(courseYear as AnyRow, [
+      "course_year_name",
+      "courseYearName",
+    ]);
+    const examName = pickAffiliatedText(exam as AnyRow, [
+      "exam_name",
+      "examName",
+    ]);
+
+    const fileDescription = [
+      collegeCode ? `collegeCode : ${collegeCode}` : "",
+      academicYearLabel ? ` academicYear : ${academicYearLabel}` : "",
+      courseCode ? `courseCode : ${courseCode}` : "",
+      groupCode ? ` courseGroup : ${groupCode}` : "",
+      courseYearLabel ? ` courseYear : ${courseYearLabel}` : "",
+      examName ? ` exam : ${examName}` : "",
+    ]
+      .filter(Boolean)
+      .join("");
+
+    return {
+      collegeCode,
+      courseCode,
+      fileDescription,
+      collegeId: filterParams.collegeId,
+      academicYearId: filterParams.academicYearId,
+      courseId: filterParams.courseId,
+      courseGroupId: filterParams.courseGroupId,
+      courseYearId: filterParams.courseYearId,
+      examId: filterParams.examId,
+      fileUploadedByEmpId: resolveAffiliatedEmployeeId(),
+    };
   }, [
     cascade.colleges,
     cascade.academicYears,
     cascade.courses,
     cascade.courseGroups,
     cascade.courseYears,
+    cascade.exams,
     cascade.collegeId,
     cascade.academicYearId,
     cascade.courseId,
     cascade.courseGroupId,
     cascade.courseYearId,
+    cascade.examId,
+    filterParams,
   ]);
 
-  const existingStudentsMeta = useMemo(
-    () => getAffiliatedExistingStudentsMeta(templateData),
-    [templateData],
-  );
-
-  const existingCount = useMemo(
-    () => pickAffiliatedExistingStudentsCount(existingStudentsMeta),
-    [existingStudentsMeta],
-  );
-
-  const loadTemplate = useCallback(async () => {
-    if (!cascade.filtersValid) return;
-    setTemplateLoading(true);
-    try {
-      const result = await getAffiliatedStudentUploadTemplate(filterParams);
-      if (!Array.isArray(result) || result.length === 0 || !result[0]) {
+  const loadTemplate = useCallback(
+    async (params: typeof filterParams) => {
+      if (!params.examId) return;
+      setTemplateLoading(true);
+      try {
+        const result = await getAffiliatedExamRegistrationUploadTemplate(params);
+        if (!Array.isArray(result) || result.length === 0) {
+          setTemplateData(null);
+          return;
+        }
+        setTemplateData(result);
+      } catch (err) {
+        toastError(getErrorMessage(err));
         setTemplateData(null);
-        toastInfo("No template data returned for the selected filters.");
-        return;
+      } finally {
+        setTemplateLoading(false);
       }
-      setTemplateData(enrichAffiliatedStudentTemplate(result, templateMeta));
-    } catch (err) {
-      toastError(getErrorMessage(err));
-    } finally {
-      setTemplateLoading(false);
-    }
-  }, [cascade.filtersValid, filterParams, templateMeta]);
+    },
+    [],
+  );
 
   useEffect(() => {
-    if (!cascade.filtersValid) return;
-    void loadTemplate();
+    if (!cascade.filtersValid || cascade.isLoading || !filterParams.examId) {
+      return;
+    }
+    void loadTemplate(filterParams);
   }, [
     cascade.filtersValid,
+    cascade.isLoading,
     filterParams.collegeId,
     filterParams.academicYearId,
     filterParams.courseId,
     filterParams.courseGroupId,
     filterParams.courseYearId,
+    filterParams.examId,
     loadTemplate,
   ]);
 
@@ -311,12 +295,17 @@ export function CollegeStudentBulkUploadPage() {
       numParam(searchParams, "collegeId") ||
       (summaryContext?.fk_college_id ?? 0);
     if (collegeId <= 0) {
-      router.replace("/affiliated-colleges/student-summary");
+      router.replace("/affiliated-colleges/student-exam-registration-summary");
     }
   }, [searchParams, summaryContext, router]);
 
+  const stagingColumnDefs = useMemo<ColDef<AffiliatedExamRegPivotRow>[]>(
+    () => buildAffiliatedExamRegStagingColDefs(subjectCodes),
+    [subjectCodes],
+  );
+
   async function onUploadFile(selected: File) {
-    if (!cascade.filtersValid) {
+    if (!cascade.filtersValid || !filterParams.examId) {
       toastError("Select all filters before uploading.");
       return;
     }
@@ -330,13 +319,34 @@ export function CollegeStudentBulkUploadPage() {
     setUploading(true);
     setLoadedRows([]);
     try {
-      const rows = await importAffiliatedStudentFile(selected, importMeta);
+      const rows = await importAffiliatedExamRegistrationFile(
+        selected,
+        importMeta,
+      );
       setStagingRows(rows);
+      const pivot = pivotAffiliatedExamRegStagingRows(rows);
+      setPivotRows(pivot.rows);
+      setSubjectCodes(pivot.subjectCodes);
       setFile(selected);
-      toastSuccess("File uploaded. Review staged students and click Verify.");
+      if (rows.length === 0) {
+        toastInfo(
+          "Upload succeeded but no staged rows were returned. Try re-uploading the file.",
+        );
+      } else if (pivot.rows.length === 0) {
+        toastInfo(
+          "Upload succeeded but staged rows could not be displayed. You can still try Verify if upload id exists.",
+        );
+      } else {
+        toastSuccess(
+          "File uploaded. Review staged exam registration and click Verify.",
+        );
+      }
     } catch (err) {
       toastError(getErrorMessage(err));
       setFile(null);
+      setStagingRows([]);
+      setPivotRows([]);
+      setSubjectCodes([]);
     } finally {
       setUploading(false);
     }
@@ -350,7 +360,7 @@ export function CollegeStudentBulkUploadPage() {
     }
     setVerifying(true);
     try {
-      const result = await verifyAffiliatedStudentUpload({
+      const result = await verifyAffiliatedExamRegistrationUpload({
         ...filterParams,
         univUploadfileId: uploadId,
       });
@@ -379,18 +389,20 @@ export function CollegeStudentBulkUploadPage() {
     }
     setSubmitting(true);
     try {
-      const loaded = await submitAffiliatedStudentUpload({
+      const loaded = await submitAffiliatedExamRegistrationUpload({
         ...filterParams,
         univUploadfileId: uploadId,
         comments,
       });
       setLoadedRows(loaded);
       setStagingRows([]);
+      setPivotRows([]);
+      setSubjectCodes([]);
       setFile(null);
       setSubmitOpen(false);
       setComments("");
       if (inputRef.current) inputRef.current.value = "";
-      toastSuccess("Students submitted to university successfully.");
+      toastSuccess("Exam registration submitted to university successfully.");
     } catch (err) {
       toastError(getErrorMessage(err));
     } finally {
@@ -398,98 +410,62 @@ export function CollegeStudentBulkUploadPage() {
     }
   }
 
-  const downloadBaseName = `${importMeta.collegeCode || "college"}_${importMeta.courseCode || "course"}`;
+  const downloadBaseName = `${importMeta.collegeCode || "college"}_${importMeta.courseCode || "course"}_Std_Exam_Reg`;
+  const showUploadCard = Boolean(templateData?.length) && !templateLoading;
 
-  function onDownloadSampleExcel() {
-    if (!templateData) {
-      toastInfo("Template is still loading. Please wait and try again.");
+  function onDownloadTemplateExcel() {
+    if (templateLoading) return;
+    // Angular: if (sampleExcelData && sampleExcelData.length > 0) download; else "No Students"
+    if (!templateData || templateData.length === 0) {
+      toastInfo("No Students");
       return;
     }
-    const result = downloadAffiliatedStudentTemplateExcel(
+    const result = downloadAffiliatedExamRegistrationTemplateExcel(
       templateData,
-      `${downloadBaseName}_Students.xlsx`,
+      `${downloadBaseName}.xlsx`,
     );
-    if (!result.ok) toastInfo(result.message);
-  }
-
-  function onDownloadExistingStudentsExcel() {
-    if (!templateData) return;
-    const result = downloadAffiliatedExistingStudentsExcel(
-      templateData,
-      `${downloadBaseName}_existingStudents.xlsx`,
-    );
-    if (!result.ok) toastInfo(result.message);
-  }
-
-  function onDownloadDictionaryExcel() {
-    if (!templateData) return;
-    const result = downloadAffiliatedStudentDictionaryExcel(templateData);
     if (!result.ok) toastInfo(result.message);
   }
 
   return (
     <FilteredPage
-      title="College Student Bulk Upload"
+      title="College Student Exam Fee Registration"
       filtersCollapsible={false}
       filters={
         <AffiliatedCollegeFilters
-          title="Students Data Upload"
+          title="Student Exam Registration Bulk Upload"
           cascade={cascade}
-          onGetDetails={() => void loadTemplate()}
+          onGetDetails={() => {}}
           loadingDetails={templateLoading}
           allowAllGroupYear
           readOnly
+          showExam
+          examFirst
           hideGetDetails
           showBack
           onBack={() => {
-            saveAffiliatedSummaryContext({
+            saveAffiliatedExamRegSummaryContext({
               fk_college_id: filterParams.collegeId,
               fk_academic_year_id: filterParams.academicYearId,
               fk_course_id: filterParams.courseId,
               fk_course_group_id: filterParams.courseGroupId,
               fk_course_year_id: filterParams.courseYearId,
+              fk_exam_id: filterParams.examId,
             });
-            router.push("/affiliated-colleges/student-summary");
+            router.push(
+              "/affiliated-colleges/student-exam-registration-summary",
+            );
           }}
-          footerExtra={
-            <div className="flex flex-wrap items-center gap-2 mr-auto">
-              {existingStudentsMeta ? (
-                <p className="text-sm text-muted-foreground">
-                  Existing Students Count&nbsp;:&nbsp;{existingCount}
-                </p>
-              ) : null}
-              {existingStudentsMeta ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!templateData}
-                  onClick={onDownloadExistingStudentsExcel}
-                >
-                  Download Existing Students Data
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!templateData}
-                onClick={onDownloadDictionaryExcel}
-              >
-                Download Data Dictionary
-              </Button>
-            </div>
-          }
           bare
         />
       }
     >
-      {templateData ? (
+      {showUploadCard ? (
         <div className="app-card">
           <div className="flex items-center gap-2 border-b px-4 py-3">
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-base">
-              Download &amp; Upload — Students Data
+              Download &amp; Upload — Exam Registration
             </h2>
           </div>
           <div className="p-4 space-y-4">
@@ -498,16 +474,17 @@ export function CollegeStudentBulkUploadPage() {
                 type="button"
                 variant="outline"
                 className="gap-2"
-                onClick={onDownloadSampleExcel}
+                disabled={templateLoading}
+                onClick={() => void onDownloadTemplateExcel()}
               >
                 <Download className="h-4 w-4" />
-                Download Sample Excel
+                {templateLoading ? "Loading…" : "Download Excel"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 className="gap-2"
-                disabled={uploading}
+                disabled={uploading || templateLoading}
                 onClick={() => inputRef.current?.click()}
               >
                 <Upload className="h-4 w-4" />
@@ -537,6 +514,8 @@ export function CollegeStudentBulkUploadPage() {
                     onClick={() => {
                       setFile(null);
                       setStagingRows([]);
+                      setPivotRows([]);
+                      setSubjectCodes([]);
                       if (inputRef.current) inputRef.current.value = "";
                     }}
                     className="inline-flex h-5 w-5 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100 shrink-0"
@@ -551,17 +530,25 @@ export function CollegeStudentBulkUploadPage() {
         </div>
       ) : null}
 
-      {stagingRows.length > 0 ? (
+      {pivotRows.length > 0 || stagingRows.length > 0 ? (
         <div className="space-y-2">
           <TableCard withHeaderBorder={false}>
             <DataTable
               title={
                 cascade.contextLabel
-                  ? `Verify — Students Data : ${cascade.contextLabel}`
-                  : "Verify — Students Data"
+                  ? `Verify — Exam Registration : ${cascade.contextLabel}`
+                  : "Verify — Exam Registration"
               }
-              rowData={stagingRows}
-              columnDefs={AFFILIATED_STUDENT_STAGING_COLS}
+              rowData={
+                pivotRows.length > 0
+                  ? pivotRows
+                  : stagingRows
+              }
+              columnDefs={
+                pivotRows.length > 0
+                  ? stagingColumnDefs
+                  : AFFILIATED_EXAM_REG_LOADED_COLS
+              }
               subtitle=""
               toolbar={{ search: true, columnPicker: false, exportPdf: false }}
             />
@@ -570,7 +557,7 @@ export function CollegeStudentBulkUploadPage() {
             <Button
               type="button"
               onClick={() => void onVerify()}
-              disabled={verifying}
+              disabled={verifying || stagingRows.length === 0}
             >
               {verifying ? "Verifying…" : "Verify"}
             </Button>
@@ -584,11 +571,11 @@ export function CollegeStudentBulkUploadPage() {
             <DataTable
               title={
                 cascade.contextLabel
-                  ? `Uploaded — Students Data : ${cascade.contextLabel}`
-                  : "Uploaded — Students Data"
+                  ? `Uploaded — Exam Registration : ${cascade.contextLabel}`
+                  : "Uploaded — Exam Registration"
               }
               rowData={loadedRows}
-              columnDefs={AFFILIATED_STUDENT_LOADED_COLS}
+              columnDefs={AFFILIATED_EXAM_REG_LOADED_COLS}
               subtitle=""
               toolbar={{ search: true, columnPicker: false, exportPdf: false }}
             />
@@ -599,8 +586,7 @@ export function CollegeStudentBulkUploadPage() {
       <FormModal
         open={verifyProblems != null}
         onClose={() => setVerifyProblems(null)}
-        title="Verify Student Upload"
-        submitLabel="Close"
+        title="Verify Exam Registration Upload"
         cancelLabel="Close"
         onSubmit={(e) => {
           e.preventDefault();
@@ -611,7 +597,7 @@ export function CollegeStudentBulkUploadPage() {
         <DataTable
           title=""
           rowData={verifyProblems ?? []}
-          columnDefs={AFFILIATED_STUDENT_VERIFY_COLS}
+          columnDefs={AFFILIATED_EXAM_REG_VERIFY_COLS}
           subtitle=""
           height="auto"
           pagination
@@ -621,8 +607,7 @@ export function CollegeStudentBulkUploadPage() {
       <FormModal
         open={submitOpen}
         onClose={() => setSubmitOpen(false)}
-        title="Verify Students Upload"
-        // cancelLabel="Close"
+        title="Load Exam Registration"
         submitLabel="Submit To University"
         isSubmitting={submitting}
         onSubmit={(e) => {

@@ -14,23 +14,19 @@ import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
-import { getAffiliatedUploadSummary } from "@/services";
+import { getAffiliatedExamMarksSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { getAffiliatedConfig } from "../_lib/route-config";
+import { pickAffiliatedText } from "../_lib/enrich-affiliated-summary-rows";
 import {
-  enrichAffiliatedSummaryRows,
-  pickAffiliatedText,
-} from "../_lib/enrich-affiliated-summary-rows";
-import {
-  buildAffiliatedSummaryContext,
-  contextToInitialSelection,
-  readAffiliatedSummaryContext,
-  saveAffiliatedSummaryContext,
-} from "../_lib/affiliated-summary-context";
+  buildAffiliatedExamMarksSummaryContext,
+  contextToExamMarksInitialSelection,
+  readAffiliatedExamMarksSummaryContext,
+  saveAffiliatedExamMarksSummaryContext,
+  type AffiliatedExamMarksKind,
+} from "../_lib/affiliated-exam-marks-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
-
-type AnyRow = Record<string, unknown>;
 
 function summaryText(
   p: ValueGetterParams<AffiliatedSummaryRow>,
@@ -41,7 +37,7 @@ function summaryText(
 
 const COL_DEFS = {
   siNo: {
-    headerName: "SI.No",
+    headerName: "SNo",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
@@ -57,38 +53,65 @@ const COL_DEFS = {
     valueGetter: (p) =>
       summaryText(p, "regulation_code", "regulationCode", "regulationcode"),
   } as ColDef<AffiliatedSummaryRow>,
-  batch: {
-    headerName: "Batch",
-    minWidth: 90,
-    valueGetter: (p) => summaryText(p, "batch_name", "batchName"),
-  } as ColDef<AffiliatedSummaryRow>,
-  year: {
-    field: "course_year_code",
-    headerName: "Course Year",
-    minWidth: 110,
-  } as ColDef<AffiliatedSummaryRow>,
-  group: {
-    headerName: "Group",
-    minWidth: 90,
+  groupCode: {
+    headerName: "Course Group Code",
+    minWidth: 150,
     valueGetter: (p) =>
-      summaryText(p, "group_name", "groupName", "group_code", "groupCode"),
+      summaryText(p, "group_code", "groupCode", "group_name", "groupName"),
   } as ColDef<AffiliatedSummaryRow>,
-  count: {
-    field: "uploaded_students_count",
-    headerName: "Students",
-    minWidth: 90,
-    flex: 0,
-  } as ColDef<AffiliatedSummaryRow>,
-  uploaded: {
-    field: "total_students_with_uploads",
-    headerName: "Students Uploaded",
+  courseYearCode: {
+    field: "course_year_code",
+    headerName: "Course Year Code",
     minWidth: 130,
   } as ColDef<AffiliatedSummaryRow>,
+  totalStudents: {
+    headerName: "Total Students",
+    minWidth: 120,
+    valueGetter: (p) =>
+      summaryText(p, "total_student_count", "totalStudentCount"),
+  } as ColDef<AffiliatedSummaryRow>,
+  registeredSubjects: {
+    headerName: "Registered Subjects",
+    minWidth: 140,
+    valueGetter: (p) =>
+      summaryText(p, "total_student_subjects", "totalStudentSubjects"),
+  } as ColDef<AffiliatedSummaryRow>,
+  enrolledInExam: {
+    headerName: "Student Enrolled In Exam",
+    minWidth: 160,
+    valueGetter: (p) =>
+      summaryText(
+        p,
+        "total_student_enrolled_in_exam",
+        "totalStudentEnrolledInExam",
+      ),
+  } as ColDef<AffiliatedSummaryRow>,
+  subjectsEnrolled: {
+    headerName: "Student Subjects Enrolled In Exam",
+    minWidth: 200,
+    valueGetter: (p) =>
+      summaryText(
+        p,
+        "total_student_subjects_enrolled_in_exam",
+        "totalStudentSubjectsEnrolledInExam",
+      ),
+  } as ColDef<AffiliatedSummaryRow>,
+  marksUpdated: {
+    headerName: "Marks Entered Count",
+    minWidth: 140,
+    valueGetter: (p) =>
+      summaryText(p, "total_marks_updated", "totalMarksUpdated"),
+  } as ColDef<AffiliatedSummaryRow>,
+  marksDue: {
+    headerName: "Marks Due Count",
+    minWidth: 130,
+    valueGetter: (p) => summaryText(p, "total_marks_due", "totalMarksDue"),
+  } as ColDef<AffiliatedSummaryRow>,
   actions: {
-    headerName: "Action",
+    headerName: "Status",
     minWidth: 100,
     flex: 0,
-    width: 100,
+    width: 110,
   } as ColDef<AffiliatedSummaryRow>,
 };
 
@@ -97,9 +120,8 @@ function makeUploadRenderer(
   router: ReturnType<typeof useRouter>,
   collegeId: number | null,
   academicYearId: number | null,
-  regulationData: AnyRow[],
-  filtersData: AnyRow[],
-  selectedRegulationId: number | null,
+  examId: number | null,
+  kind: AffiliatedExamMarksKind,
 ) {
   return (p: ICellRendererParams<AffiliatedSummaryRow>) => {
     if (!uploadPath) return null;
@@ -109,36 +131,23 @@ function makeUploadRenderer(
         size="sm"
         variant="default"
         onClick={() => {
-          if (!row || !collegeId || !academicYearId) return;
-          const collegeRow = filtersData.find(
-            (c) =>
-              Number(c.fk_college_id ?? c.collegeId ?? 0) === collegeId,
-          );
-          const universityId = Number(
-            collegeRow?.fk_university_id ?? collegeRow?.universityId ?? 0,
-          );
-          const ctx = buildAffiliatedSummaryContext(
+          if (!row || !collegeId || !academicYearId || !examId) return;
+          const ctx = buildAffiliatedExamMarksSummaryContext(
             row,
             collegeId,
             academicYearId,
-            {
-              regulationData,
-              filtersData,
-              universityId,
-              selectedRegulationId: selectedRegulationId ?? undefined,
-            },
+            examId,
+            kind,
           );
-          saveAffiliatedSummaryContext(ctx);
+          saveAffiliatedExamMarksSummaryContext(ctx);
           const q = new URLSearchParams({
             collegeId: String(ctx.fk_college_id),
             academicYearId: String(ctx.fk_academic_year_id),
             courseId: String(ctx.fk_course_id),
             courseGroupId: String(ctx.fk_course_group_id),
             courseYearId: String(ctx.fk_course_year_id),
+            examId: String(ctx.fk_exam_id),
           });
-          if (ctx.fk_regulation_id) {
-            q.set("regulationId", String(ctx.fk_regulation_id));
-          }
           router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`);
         }}
       >
@@ -148,21 +157,35 @@ function makeUploadRenderer(
   };
 }
 
-type AffiliatedSummaryPageProps = { slug: string };
+const SUMMARY_SLUG: Record<AffiliatedExamMarksKind, string> = {
+  internal: "student-internal-maks-summary",
+  external: "student-external-marks-summary",
+};
 
-export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
-  const config = getAffiliatedConfig(slug);
-  const trackRegulation = config.trackRegulation === true;
+type StudentExamMarksSummaryPageProps = {
+  kind: AffiliatedExamMarksKind;
+};
+
+export function StudentExamMarksSummaryPage({
+  kind,
+}: StudentExamMarksSummaryPageProps) {
+  const config = getAffiliatedConfig(SUMMARY_SLUG[kind]);
   const router = useRouter();
-  const summaryContext = useMemo(() => readAffiliatedSummaryContext(), []);
+  const summaryContext = useMemo(
+    () => readAffiliatedExamMarksSummaryContext(kind),
+    [kind],
+  );
   const cascade = useAffiliatedCascade({
     allowAllGroupYear: true,
     autoSelectFirst: !summaryContext,
-    trackRegulation,
+    examFilters: true,
+    courseFirstCascade: true,
+    examKind: kind,
     initialSelection: summaryContext
-      ? contextToInitialSelection(summaryContext)
+      ? contextToExamMarksInitialSelection(summaryContext)
       : undefined,
   });
+
   const [loadKey, setLoadKey] = useState<string | null>(null);
 
   const {
@@ -170,40 +193,36 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
     isFetching,
     error,
   } = useQuery({
-    queryKey: QK.affiliatedColleges.uploadSummary(
+    queryKey: QK.affiliatedColleges.examMarksSummary(
       loadKey ? (JSON.parse(loadKey) as Record<string, number>) : {},
     ),
-    queryFn: () =>
-      getAffiliatedUploadSummary(
-        JSON.parse(loadKey!) as Parameters<
-          typeof getAffiliatedUploadSummary
-        >[0],
-        trackRegulation ? { subjectsSummary: true } : undefined,
-      ),
+    queryFn: () => {
+      const parsed = JSON.parse(loadKey!) as {
+        collegeId: number;
+        academicYearId: number;
+        courseId: number;
+        courseGroupId: number;
+        courseYearId: number;
+        examId: number;
+      };
+      return getAffiliatedExamMarksSummary(parsed);
+    },
     enabled: loadKey != null,
   });
-
-  const rows = useMemo(
-    () =>
-      enrichAffiliatedSummaryRows(
-        rawRows,
-        cascade.filtersData,
-        cascade.batchesData,
-        cascade.regulationData,
-      ),
-    [rawRows, cascade.filtersData, cascade.batchesData, cascade.regulationData],
-  );
 
   const columnDefs = useMemo<ColDef<AffiliatedSummaryRow>[]>(
     () => [
       COL_DEFS.siNo,
       COL_DEFS.courseCode,
       COL_DEFS.regulation,
-      COL_DEFS.batch,
-      COL_DEFS.year,
-      COL_DEFS.group,
-      COL_DEFS.count,
-      COL_DEFS.uploaded,
+      COL_DEFS.groupCode,
+      COL_DEFS.courseYearCode,
+      COL_DEFS.totalStudents,
+      COL_DEFS.registeredSubjects,
+      COL_DEFS.enrolledInExam,
+      COL_DEFS.subjectsEnrolled,
+      COL_DEFS.marksDue,
+      COL_DEFS.marksUpdated,
       {
         ...COL_DEFS.actions,
         cellRenderer: makeUploadRenderer(
@@ -211,9 +230,8 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
           router,
           cascade.collegeId,
           cascade.academicYearId,
-          cascade.regulationData,
-          cascade.filtersData,
-          cascade.regulationId,
+          cascade.examId,
+          kind,
         ),
       },
     ],
@@ -222,18 +240,15 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
       router,
       cascade.collegeId,
       cascade.academicYearId,
-      cascade.regulationData,
-      cascade.filtersData,
-      cascade.regulationId,
+      cascade.examId,
+      kind,
     ],
   );
 
   function handleGetDetails() {
     if (!cascade.filtersValid) {
       toastError(
-        trackRegulation
-          ? "Select college, academic year, course, regulation, group, and year."
-          : "Select college, academic year, course, group, and year.",
+        "Select course, exam year, exam, college, group, and year.",
       );
       return;
     }
@@ -257,7 +272,8 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
           onGetDetails={handleGetDetails}
           loadingDetails={isFetching}
           allowAllGroupYear
-          showRegulation={trackRegulation}
+          showExam
+          courseFirst
           showBack={config.showBackToHub}
           onBack={() =>
             router.push("/affiliated-colleges/college-bulk-uploads")
@@ -265,7 +281,7 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
           bare
         />
       }
-      rowData={showTable ? rows : []}
+      rowData={showTable ? rawRows : []}
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}

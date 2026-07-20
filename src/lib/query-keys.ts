@@ -527,8 +527,23 @@ export const QK = {
       ["AffiliatedColleges", "collegeFilters", orgId, empId] as const,
     examFilters: (orgId: number, empId: number) =>
       ["AffiliatedColleges", "examFilters", orgId, empId] as const,
+    timetableFilters: (orgId: number, empId: number) =>
+      ["AffiliatedColleges", "timetableFilters", orgId, empId] as const,
     uploadSummary: (filters: Record<string, number>) =>
       ["AffiliatedColleges", "uploadSummary", filters] as const,
+    attendanceUploadSummary: (filters: Record<string, string | number>) =>
+      ["AffiliatedColleges", "attendanceUploadSummary", filters] as const,
+    examRegistrationSummary: (filters: Record<string, number>) =>
+      ["AffiliatedColleges", "examRegistrationSummary", filters] as const,
+    examMarksSummary: (filters: Record<string, number>) =>
+      ["AffiliatedColleges", "examMarksSummary", filters] as const,
+    additionalDetailsSummary: (flag: string, filters: Record<string, number>) =>
+      [
+        "AffiliatedColleges",
+        "additionalDetailsSummary",
+        flag,
+        filters,
+      ] as const,
     dostUploadSummary: (filters: Record<string, number>) =>
       ["AffiliatedColleges", "dostUploadSummary", filters] as const,
     uploadsApprovalSummary: (filters: Record<string, number>) =>

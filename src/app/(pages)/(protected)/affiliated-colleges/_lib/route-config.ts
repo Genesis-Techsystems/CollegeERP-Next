@@ -9,6 +9,8 @@ export type AffiliatedPageConfig = {
   /** Stored proc `in_flag` for `s_get_affilated_college_summary_details` (report pages). */
   summaryProcFlag?: string
   showBackToHub?: boolean
+  /** Student subject summary — regulation filter + `s_pop_univ_upload_std_subjects`. */
+  trackRegulation?: boolean
 }
 
 export const AFFILIATED_HUB_CARDS: {
@@ -45,32 +47,43 @@ const SUMMARY_UPLOAD: Record<string, string> = {
   'student-photo-summary': 'photos-signature-bulk-upload',
 }
 
-function summaryPage(slug: string, title: string): AffiliatedPageConfig {
+function summaryPage(
+  slug: string,
+  title: string,
+  extras?: Partial<AffiliatedPageConfig>,
+): AffiliatedPageConfig {
   return {
     slug,
     title,
     kind: 'summary',
     uploadPath: SUMMARY_UPLOAD[slug],
     showBackToHub: true,
+    ...extras,
   }
 }
 
 export const AFFILIATED_PAGE_CONFIG: Record<string, AffiliatedPageConfig> = {
   'college-bulk-uploads': { slug: 'college-bulk-uploads', title: 'Affiliated College Bulk Uploads', kind: 'summary' },
   ...Object.fromEntries(
-    [
-      ['student-summary', 'Student Summary'],
-      ['student-dost-upload-summary', 'Student Dost Upload Summary'],
-      ['student-subject-summary', 'Student Subject Summary'],
-      ['student-attendance-summary', 'Student Attendance Summary'],
-      ['student-exam-registration-summary', 'Student Exam Registration Summary'],
-      ['student-exam-fee-summary', 'Student Exam Fee Summary'],
-      ['student-internal-maks-summary', 'Student Internal Marks Summary'],
-      ['student-external-marks-summary', 'Student External Marks Summary'],
-      ['student-signature-summary', 'Student Signature Summary'],
-      ['student-examform-summary', 'Student Exam Form Summary'],
-      ['student-photo-summary', 'Student Photo Summary'],
-    ].map(([slug, title]) => [slug, summaryPage(slug, title)]),
+    (
+      [
+        ['student-summary', 'Student Summary'],
+        ['student-dost-upload-summary', 'Student Dost Upload Summary'],
+        [
+          'student-subject-summary',
+          'Student Subject Summary',
+          { trackRegulation: true },
+        ],
+        ['student-attendance-summary', 'Student Attendance Summary'],
+        ['student-exam-registration-summary', 'Student Exam Registration Summary'],
+        ['student-exam-fee-summary', 'Student Exam Fee Summary'],
+        ['student-internal-maks-summary', 'Student Internal Marks Summary'],
+        ['student-external-marks-summary', 'Student External Marks Summary'],
+        ['student-signature-summary', 'Student Signature Summary'],
+        ['student-examform-summary', 'Student Exam Form Summary'],
+        ['student-photo-summary', 'Student Photo Summary'],
+      ] as [string, string, Partial<AffiliatedPageConfig>?][]
+    ).map(([slug, title, extras]) => [slug, summaryPage(slug, title, extras)]),
   ),
   'affiliated-college-exam-payments': {
     slug: 'affiliated-college-exam-payments',

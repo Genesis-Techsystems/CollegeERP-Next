@@ -3,6 +3,24 @@ import { pickAffiliatedText } from './enrich-affiliated-summary-rows'
 
 type AnyRow = Record<string, unknown>
 
+export type AffiliatedExcelDownloadResult =
+  | { ok: true }
+  | { ok: false; message: string }
+
+function pickFirstRow(group: unknown): AnyRow | null {
+  if (Array.isArray(group)) {
+    const first = group[0]
+    if (first && typeof first === 'object' && !Array.isArray(first)) return first as AnyRow
+    return null
+  }
+  if (group && typeof group === 'object') return group as AnyRow
+  return null
+}
+
+function sanitizeExcelFileName(fileName: string): string {
+  return fileName.replace(/[\\/:*?"<>|]+/g, '_').trim()
+}
+
 export type AffiliatedStudentTemplateMeta = {
   organization: string
   universityCode: string
@@ -47,15 +65,11 @@ export function enrichAffiliatedStudentTemplate(
 
 function getTemplateHeaders(sampleExcelData: unknown[][]): string[] {
   const raw = sampleExcelData[0]
-  if (!Array.isArray(raw) || raw.length === 0) return []
-  const first = raw[0]
-  if (first && typeof first === 'object' && !Array.isArray(first)) {
-    return Object.keys(first as AnyRow)
-  }
-  if (typeof first === 'string') {
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'string') {
     return raw.map((cell) => String(cell ?? ''))
   }
-  return []
+  const headerRow = pickFirstRow(raw)
+  return headerRow ? Object.keys(headerRow) : []
 }
 
 function pickHallTicketText(ht: AnyRow, keys: string[]): string {
@@ -75,15 +89,42 @@ function applyHallTicketAutofill(template: AnyRow, headers: string[], ht: AnyRow
   }
 }
 
-function downloadXlsx(fileName: string, rows: string[][], sheetName = 'Sheet1'): void {
-  if (typeof window === 'undefined') return
+/** Browser download — Angular uses `saveAs(blob)`; `XLSX.writeFile` is Node-only in this build. */
+function downloadXlsx(
+  fileName: string,
+  rows: string[][],
+  sheetName = 'Sheet1',
+): AffiliatedExcelDownloadResult {
+  if (typeof window === 'undefined') {
+    return { ok: false, message: 'Download is only available in the browser.' }
+  }
+  if (rows.length === 0 || rows[0]?.length === 0) {
+    return { ok: false, message: 'No template columns available to export.' }
+  }
+
   const ws = XLSX.utils.aoa_to_sheet(rows)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, sheetName)
-  const outName = fileName.toLowerCase().endsWith('.xlsx')
-    ? fileName
-    : fileName.replace(/\.xls$/i, '.xlsx')
-  XLSX.writeFile(wb, outName.endsWith('.xlsx') ? outName : `${outName}.xlsx`)
+
+  const safeBase = sanitizeExcelFileName(fileName)
+  const outName = safeBase.toLowerCase().endsWith('.xlsx')
+    ? safeBase
+    : `${safeBase.replace(/\.xls$/i, '')}.xlsx`
+
+  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([excelBuffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = outName
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
+  return { ok: true }
 }
 
 /** Angular `sampleExcelData[2]` — existing students count metadata group. */
@@ -125,30 +166,41 @@ export function buildAffiliatedStudentTemplateMeta(input: {
 export function downloadAffiliatedStudentTemplateExcel(
   sampleExcelData: unknown[][],
   fileName: string,
-): void {
+): AffiliatedExcelDownloadResult {
   const headers = getTemplateHeaders(sampleExcelData)
+  if (headers.length === 0) {
+    return { ok: false, message: 'Template headers missing. Reload details and try again.' }
+  }
+
   const dataRows = asRows(sampleExcelData[10])
-  const count = Number(dataRows[0]?.count ?? 1)
+  const count = Number(dataRows[0]?.count ?? 0)
   const body: string[][] = [headers]
   for (let i = 0; i < count; i++) {
     const template = { ...(dataRows[0] ?? {}) } as AnyRow
     delete template.count
     body.push(headers.map((key) => String(template[key] ?? '')))
   }
-  downloadXlsx(fileName, body, 'Student Data')
+  return downloadXlsx(fileName, body, 'Student Data')
 }
 
 /** Angular `getExistingStudents` — hall tickets with batch/regulation/group prefilled. */
 export function downloadAffiliatedExistingStudentsExcel(
   sampleExcelData: unknown[][],
   fileName: string,
-): void {
+): AffiliatedExcelDownloadResult {
   const headers = getTemplateHeaders(sampleExcelData)
+  if (headers.length === 0) {
+    return { ok: false, message: 'Template headers missing. Reload details and try again.' }
+  }
+
   const dataRows = asRows(sampleExcelData[10])
   const hallTicketData = asRows(sampleExcelData[3])
   const body: string[][] = [headers]
 
   const rowCount = hallTicketData.length > 0 ? hallTicketData.length : dataRows[0] ? 1 : 0
+  if (rowCount === 0) {
+    return { ok: false, message: 'No existing student rows available to export.' }
+  }
 
   for (let i = 0; i < rowCount; i++) {
     const template = { ...(dataRows[0] ?? {}) } as AnyRow
@@ -159,11 +211,13 @@ export function downloadAffiliatedExistingStudentsExcel(
     body.push(headers.map((key) => String(template[key] ?? '')))
   }
 
-  downloadXlsx(fileName, body, 'Student Data')
+  return downloadXlsx(fileName, body, 'Student Data')
 }
 
 /** Angular `dictionary` — quota, gender, regulation, batch lookup sheet. */
-export function downloadAffiliatedStudentDictionaryExcel(sampleExcelData: unknown[][]): void {
+export function downloadAffiliatedStudentDictionaryExcel(
+  sampleExcelData: unknown[][],
+): AffiliatedExcelDownloadResult {
   const quota = asRows(sampleExcelData[4])
   const gender = asRows(sampleExcelData[5])
   const regulation = asRows(sampleExcelData[6])
@@ -203,5 +257,5 @@ export function downloadAffiliatedStudentDictionaryExcel(sampleExcelData: unknow
     ])
   }
 
-  downloadXlsx('Dictionary Data.xlsx', body, 'Dictionary Data')
+  return downloadXlsx('Dictionary Data.xlsx', body, 'Dictionary Data')
 }

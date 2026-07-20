@@ -27,6 +27,7 @@ import { PerformanceAssessmentPage } from './PerformanceAssessmentPage'
 import { ReportingManagerPage } from './ReportingManagerPage'
 import { SelfAppraisalPage } from './SelfAppraisalPage'
 import { BiometricEmployeesPage } from './BiometricEmployeesPage'
+import { EmployeeEnrollmentPage } from './EmployeeEnrollmentPage'
 
 const LIST_PAGES: Record<string, () => React.ReactElement> = {
   'department-heads': () => <DepartmentHeadsPage />,
@@ -74,6 +75,14 @@ export function HrPayrollRoutePage({ slug }: HrPayrollRoutePageProps) {
 
   if (slug === 'employee/biometric-employees') {
     return <BiometricEmployeesPage />
+  }
+
+  if (slug === 'employee/employee-enrollement') {
+    return <EmployeeEnrollmentPage mode="create" />
+  }
+
+  if (slug === 'employee/edit-enrollement') {
+    return <EmployeeEnrollmentPage mode="edit" />
   }
 
   if (slug === 'payroll/add-payroll-category') {
