@@ -31,6 +31,7 @@ import { AssignEmployeeToGroupPage } from "./AssignEmployeeToGroupPage";
 import { EmployeePayrollAssignPage } from "./EmployeePayrollAssignPage";
 import { EditAssignedEmployeePage } from "./EditAssignedEmployeePage";
 import { EmployeeEnrollmentPage } from "./EmployeeEnrollmentPage";
+import { EmployeeIdCardsPage } from "./EmployeeIdCardsPage";
 
 const LIST_PAGES: Record<string, () => React.ReactElement> = {
   "department-heads": () => <DepartmentHeadsPage />,
@@ -80,6 +81,10 @@ export function HrPayrollRoutePage({ slug }: HrPayrollRoutePageProps) {
 
   if (slug === "employee/biometric-employees") {
     return <BiometricEmployeesPage />;
+  }
+
+  if (slug === "employee/id-cards") {
+    return <EmployeeIdCardsPage />;
   }
 
   if (slug === "employee/employee-enrollement") {

@@ -1,19 +1,19 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { FormModal } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormModal } from "@/common/components/feedback";
+import { Select, type SelectOption } from "@/common/components/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   LIBRARY_FIELD_LABEL_CLASS,
   LIBRARY_INPUT_CLASS,
   LIBRARY_MODAL_TITLE_CLASS,
-} from '../_lib/modal-styles'
+} from "../_lib/modal-styles";
 import {
   createLibraryDetail,
   listCampusesByOrganization,
@@ -21,28 +21,41 @@ import {
   listOrganizations,
   listRooms,
   updateLibraryDetail,
-} from '@/services'
-import type { LibraryDetail } from '@/types/library'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import type { LibraryDetail } from "@/types/library";
+import { toastError, toastSuccess } from "@/lib/toast";
+
+function requiredId(label: string) {
+  const message = `${label} is required`;
+  return z.preprocess(
+    (value) => {
+      if (value === "" || value === null || value === undefined)
+        return undefined;
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    },
+    z.number({ error: message }).min(1, message),
+  );
+}
 
 const schema = z.object({
-  organizationId: z.coerce.number().min(1, 'Organization is required'),
-  campusId: z.coerce.number().min(1, 'Campus is required'),
-  collegeId: z.coerce.number().min(1, 'College is required'),
-  roomId: z.coerce.number().min(1, 'Room is required'),
-  libraryName: z.string().min(1, 'Library name is required'),
+  organizationId: requiredId("Organization"),
+  campusId: requiredId("Campus"),
+  collegeId: requiredId("College"),
+  roomId: requiredId("Room"),
+  libraryName: z.string().min(1, "Library name is required"),
   libraryCode: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface LibraryDetailsModalProps {
-  open: boolean
-  onClose: () => void
-  row: LibraryDetail | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: LibraryDetail | null;
+  onSaved: () => void;
 }
 
 export function LibraryDetailsModal({
@@ -51,13 +64,13 @@ export function LibraryDetailsModal({
   row,
   onSaved,
 }: Readonly<LibraryDetailsModalProps>) {
-  const isEditing = row != null
-  const [organizations, setOrganizations] = useState<SelectOption[]>([])
-  const [campuses, setCampuses] = useState<SelectOption[]>([])
-  const [colleges, setColleges] = useState<SelectOption[]>([])
-  const [rooms, setRooms] = useState<SelectOption[]>([])
-  const [loadingCampuses, setLoadingCampuses] = useState(false)
-  const [loadingColleges, setLoadingColleges] = useState(false)
+  const isEditing = row != null;
+  const [organizations, setOrganizations] = useState<SelectOption[]>([]);
+  const [campuses, setCampuses] = useState<SelectOption[]>([]);
+  const [colleges, setColleges] = useState<SelectOption[]>([]);
+  const [rooms, setRooms] = useState<SelectOption[]>([]);
+  const [loadingCampuses, setLoadingCampuses] = useState(false);
+  const [loadingColleges, setLoadingColleges] = useState(false);
 
   const {
     register,
@@ -74,18 +87,18 @@ export function LibraryDetailsModal({
       campusId: undefined,
       collegeId: undefined,
       roomId: undefined,
-      libraryName: '',
-      libraryCode: '',
+      libraryName: "",
+      libraryCode: "",
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
-  const organizationId = watch('organizationId')
-  const campusId = watch('campusId')
+  const organizationId = watch("organizationId");
+  const campusId = watch("campusId");
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     void Promise.all([listOrganizations(), listRooms()])
       .then(([orgs, roomRows]) => {
         setOrganizations(
@@ -93,17 +106,17 @@ export function LibraryDetailsModal({
             value: String(o.organizationId),
             label: o.orgCode ?? o.orgName ?? String(o.organizationId),
           })),
-        )
+        );
         setRooms(
           roomRows.map((r) => ({
             value: String(r.roomId),
             label: r.roomName ?? r.roomCode ?? String(r.roomId),
           })),
-        )
+        );
       })
       .catch((err) => {
-        toastError(err, 'Failed to load form options')
-      })
+        toastError(err, "Failed to load form options");
+      });
     reset(
       row
         ? {
@@ -111,30 +124,30 @@ export function LibraryDetailsModal({
             campusId: row.campusId,
             collegeId: row.collegeId,
             roomId: row.roomId,
-            libraryName: row.libraryName ?? '',
-            libraryCode: row.libraryCode ?? '',
+            libraryName: row.libraryName ?? "",
+            libraryCode: row.libraryCode ?? "",
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             organizationId: undefined,
             campusId: undefined,
             collegeId: undefined,
             roomId: undefined,
-            libraryName: '',
-            libraryCode: '',
+            libraryName: "",
+            libraryCode: "",
             isActive: true,
-            reason: 'active',
+            reason: "active",
           },
-    )
-  }, [open, row, reset])
+    );
+  }, [open, row, reset]);
 
   useEffect(() => {
     if (!organizationId) {
-      setCampuses([])
-      return
+      setCampuses([]);
+      return;
     }
-    setLoadingCampuses(true)
+    setLoadingCampuses(true);
     void listCampusesByOrganization(organizationId)
       .then((rows) => {
         setCampuses(
@@ -142,18 +155,18 @@ export function LibraryDetailsModal({
             value: String(c.campusId),
             label: c.campusCode ?? c.campusName ?? String(c.campusId),
           })),
-        )
+        );
       })
-      .catch((err) => toastError(err, 'Failed to load campuses'))
-      .finally(() => setLoadingCampuses(false))
-  }, [organizationId])
+      .catch((err) => toastError(err, "Failed to load campuses"))
+      .finally(() => setLoadingCampuses(false));
+  }, [organizationId]);
 
   useEffect(() => {
     if (!campusId) {
-      setColleges([])
-      return
+      setColleges([]);
+      return;
     }
-    setLoadingColleges(true)
+    setLoadingColleges(true);
     void listCollegesByCampus(campusId)
       .then((rows) => {
         setColleges(
@@ -161,29 +174,30 @@ export function LibraryDetailsModal({
             value: String(c.collegeId),
             label: String(c.collegeCode ?? c.collegeName ?? c.collegeId),
           })),
-        )
+        );
       })
-      .catch((err) => toastError(err, 'Failed to load colleges'))
-      .finally(() => setLoadingColleges(false))
-  }, [campusId])
+      .catch((err) => toastError(err, "Failed to load colleges"))
+      .finally(() => setLoadingColleges(false));
+  }, [campusId]);
 
   async function onSubmit(data: FormValues) {
     const payload = {
       ...data,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+      ...(isEditing && row?.libraryId ? { libraryId: row.libraryId } : {}),
+    };
     try {
       if (isEditing && row?.libraryId) {
-        await updateLibraryDetail(row.libraryId, payload)
-        toastSuccess('Library details updated')
+        await updateLibraryDetail(row.libraryId, payload);
+        toastSuccess("Library details updated");
       } else {
-        await createLibraryDetail(payload)
-        toastSuccess('Library details created')
+        await createLibraryDetail(payload);
+        toastSuccess("Library details created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, `Failed to ${isEditing ? 'update' : 'create'} library`)
+      toastError(err, `Failed to ${isEditing ? "update" : "create"} library`);
     }
   }
 
@@ -191,15 +205,15 @@ export function LibraryDetailsModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Library Details' : 'Add Library Details'}
+      title={isEditing ? "Edit Library Details" : "Add Library Details"}
       titleClassName={LIBRARY_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
       submitLabel="Save"
-      cancelLabel="Close"
+      cancelLabel="Cancel"
       isSubmitting={isSubmitting}
       size="xl"
     >
@@ -213,9 +227,9 @@ export function LibraryDetailsModal({
                 label="Organization *"
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => {
-                  field.onChange(v ? Number(v) : undefined)
-                  setValue('campusId', undefined as unknown as number)
-                  setValue('collegeId', undefined as unknown as number)
+                  field.onChange(v ? Number(v) : undefined);
+                  setValue("campusId", undefined as unknown as number);
+                  setValue("collegeId", undefined as unknown as number);
                 }}
                 options={organizations}
                 placeholder="Select organization"
@@ -232,8 +246,8 @@ export function LibraryDetailsModal({
                 label="Campus *"
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => {
-                  field.onChange(v ? Number(v) : undefined)
-                  setValue('collegeId', undefined as unknown as number)
+                  field.onChange(v ? Number(v) : undefined);
+                  setValue("collegeId", undefined as unknown as number);
                 }}
                 options={campuses}
                 placeholder="Select campus"
@@ -268,16 +282,28 @@ export function LibraryDetailsModal({
             <Label htmlFor="libraryName" className={LIBRARY_FIELD_LABEL_CLASS}>
               Library Name *
             </Label>
-            <Input id="libraryName" className={LIBRARY_INPUT_CLASS} {...register('libraryName')} />
+            <Input
+              id="libraryName"
+              className={LIBRARY_INPUT_CLASS}
+              placeholder="Enter library name"
+              {...register("libraryName")}
+            />
             {errors.libraryName ? (
-              <p className="text-xs text-destructive">{errors.libraryName.message}</p>
+              <p className="text-xs text-destructive">
+                {errors.libraryName.message}
+              </p>
             ) : null}
           </div>
           <div className="space-y-1">
             <Label htmlFor="libraryCode" className={LIBRARY_FIELD_LABEL_CLASS}>
               Library Code
             </Label>
-            <Input id="libraryCode" className={LIBRARY_INPUT_CLASS} {...register('libraryCode')} />
+            <Input
+              id="libraryCode"
+              className={LIBRARY_INPUT_CLASS}
+              placeholder="Enter library code"
+              {...register("libraryCode")}
+            />
           </div>
           <Controller
             name="roomId"
@@ -307,24 +333,32 @@ export function LibraryDetailsModal({
                   checked={field.value}
                   onCheckedChange={field.onChange}
                 />
-                <Label htmlFor="libraryIsActive" className={LIBRARY_FIELD_LABEL_CLASS}>
+                <Label
+                  htmlFor="libraryIsActive"
+                  className={LIBRARY_FIELD_LABEL_CLASS}
+                >
                   Active
                 </Label>
               </div>
               {!field.value ? (
                 <div className="max-w-md space-y-1">
-                  <Label htmlFor="libraryReason" className={LIBRARY_FIELD_LABEL_CLASS}>
+                  <Label
+                    htmlFor="libraryReason"
+                    className={LIBRARY_FIELD_LABEL_CLASS}
+                  >
                     Reason *
                   </Label>
                   <Input
                     id="libraryReason"
                     className={LIBRARY_INPUT_CLASS}
-                    value={watch('reason') ?? ''}
-                    onChange={(e) => setValue('reason', e.target.value)}
+                    value={watch("reason") ?? ""}
+                    onChange={(e) => setValue("reason", e.target.value)}
                     placeholder="Reason for deactivation"
                   />
                   {errors.reason ? (
-                    <p className="text-xs text-destructive">{errors.reason.message}</p>
+                    <p className="text-xs text-destructive">
+                      {errors.reason.message}
+                    </p>
                   ) : null}
                 </div>
               ) : null}
@@ -333,5 +367,5 @@ export function LibraryDetailsModal({
         />
       </div>
     </FormModal>
-  )
+  );
 }

@@ -169,6 +169,8 @@ export interface DataTableProps<T> {
    * instead of being squeezed by `sizeColumnsToFit`. Default **true**.
    */
   fitColumnsToWidth?: boolean;
+  /** AG Grid row height in pixels. */
+  rowHeight?: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -390,6 +392,7 @@ export function DataTable<T>({
   exportCsv = false,
   onGridApiReady,
   fitColumnsToWidth = true,
+  rowHeight,
 }: DataTableProps<T>) {
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp]);
 
@@ -417,7 +420,6 @@ export function DataTable<T>({
   const resolvedTitle = title ?? inferredTitle;
 
   const [filtersInternalOpen, setFiltersInternalOpen] =
-   
     useState(filtersDefaultOpen);
   const [contentOpen, setContentOpen] = useState(contentDefaultOpen);
   const filtersOpen = filters
@@ -767,48 +769,50 @@ export function DataTable<T>({
             </div>
           )}
 
-      <div
-        className={cn(
-          rightRail && "grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-start",
-        )}
-      >
-        <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
           <div
             className={cn(
-              "ag-theme-quartz",
-              isGridEmpty && "app-data-table-grid-empty",
+              rightRail &&
+                "grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-start",
             )}
-            style={isAutoHeight ? undefined : { height }}
           >
-            <AgGridReact<T>
-              ref={gridRef}
-              context={{ __rowNumberOffset: rowNumberOffset }}
-              rowData={pagedRowData}
-              columnDefs={resolvedColumnDefs}
-              defaultColDef={defaultColDef}
-              domLayout={isAutoHeight ? "autoHeight" : undefined}
-              loading={loading}
-              // suppressCellFocus={true}
-              overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
-              onGridReady={handleGridReady}
-              onFirstDataRendered={(e) => fitColumns(e.api)}
-              onRowDataUpdated={(e) => fitColumns(e.api)}
-              onGridSizeChanged={(e) => fitColumns(e.api)}
-              alwaysShowHorizontalScroll={!fitColumnsToWidth}
-              enableCellTextSelection
-              ensureDomOrder
-              getRowId={getRowId}
-              onCellClicked={onCellClicked}
-              onRowClicked={onRowClick ? handleRowClicked : undefined}
-              popupParent={popupParent}
-              animateRows
-            />
+            <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
+              <div
+                className={cn(
+                  "ag-theme-quartz",
+                  isGridEmpty && "app-data-table-grid-empty",
+                )}
+                style={isAutoHeight ? undefined : { height }}
+              >
+                <AgGridReact<T>
+                  ref={gridRef}
+                  context={{ __rowNumberOffset: rowNumberOffset }}
+                  rowData={pagedRowData}
+                  columnDefs={resolvedColumnDefs}
+                  defaultColDef={defaultColDef}
+                  domLayout={isAutoHeight ? "autoHeight" : undefined}
+                  rowHeight={rowHeight}
+                  loading={loading}
+                  // suppressCellFocus={true}
+                  overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
+                  onGridReady={handleGridReady}
+                  onFirstDataRendered={(e) => fitColumns(e.api)}
+                  onRowDataUpdated={(e) => fitColumns(e.api)}
+                  onGridSizeChanged={(e) => fitColumns(e.api)}
+                  alwaysShowHorizontalScroll={!fitColumnsToWidth}
+                  enableCellTextSelection
+                  ensureDomOrder
+                  getRowId={getRowId}
+                  onCellClicked={onCellClicked}
+                  onRowClicked={onRowClick ? handleRowClicked : undefined}
+                  popupParent={popupParent}
+                  animateRows
+                />
+              </div>
+            </div>
+            {rightRail ? (
+              <div className="min-w-0 lg:col-span-4">{rightRail}</div>
+            ) : null}
           </div>
-        </div>
-        {rightRail ? (
-          <div className="min-w-0 lg:col-span-4">{rightRail}</div>
-        ) : null}
-      </div>
 
           {clientPaginationEnabled && (
             <DataTableFooter

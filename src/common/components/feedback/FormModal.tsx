@@ -48,6 +48,8 @@ export interface FormModalProps {
   showHeaderDivider?: boolean;
   /** Render a full-width divider above footer buttons. Defaults to true. */
   showFooterDivider?: boolean;
+  /** Show the secondary cancel button. Defaults to true. */
+  showCancelButton?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -72,6 +74,7 @@ export function FormModal({
   showCloseButton = true,
   showHeaderDivider = false,
   showFooterDivider = true,
+  showCancelButton = true,
 }: Readonly<FormModalProps>) {
   return (
     <Dialog
@@ -129,16 +132,18 @@ export function FormModal({
               showFooterDivider && "border-t border-border/60",
             )}
           >
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 min-w-[5.5rem]"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              {cancelLabel}
-            </Button>
+            {showCancelButton ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 min-w-[5.5rem]"
+                onClick={onClose}
+                disabled={isSubmitting}
+              >
+                {cancelLabel}
+              </Button>
+            ) : null}
             <Button
               type="submit"
               size="sm"

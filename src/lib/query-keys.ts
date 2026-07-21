@@ -720,6 +720,7 @@ export const QK = {
     booksSearch: (term: string) => ["Library", "booksSearch", term] as const,
     settings: () => ["Library", "settings"] as const,
     bookDetails: () => ["Library", "bookDetails"] as const,
+    booksWithoutBarcode: () => ["Library", "booksWithoutBarcode"] as const,
     fineCollection: (date: string, collegeId: number) =>
       ["Library", "fineCollection", date, collegeId] as const,
   },
@@ -774,7 +775,10 @@ export const QK = {
     vehicleDrivers: () => ["Transport", "vehicleDrivers"] as const,
     vehicleRoutes: () => ["Transport", "vehicleRoutes"] as const,
     distanceFees: () => ["Transport", "distanceFees"] as const,
-    distanceFeesByTransport: (transportDetailId: number, feeFrequencyId: number) =>
+    distanceFeesByTransport: (
+      transportDetailId: number,
+      feeFrequencyId: number,
+    ) =>
       ["Transport", "distanceFees", transportDetailId, feeFrequencyId] as const,
     allocations: (forType: "S" | "E") =>
       ["Transport", "allocations", forType] as const,

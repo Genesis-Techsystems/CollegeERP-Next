@@ -1020,6 +1020,39 @@ export async function getPerformanceAssessmentQuestions(): Promise<AnyRow[]> {
   return normalizeListPayload(data);
 }
 
+/** Angular `staffSubjects?employeeId=&status=true&classDate=`. */
+export async function listPerformanceAssessmentStaffSubjects(
+  employeeId: number,
+  classDate: string,
+): Promise<AnyRow[]> {
+  if (!employeeId) return [];
+  const data = await fetchDetails<unknown>(EMPLOYEE_API.STAFF_SUBJECTS, {
+    employeeId,
+    status: "true",
+    classDate,
+  });
+  return Array.isArray(data) ? (data as AnyRow[]) : normalizeListPayload(data);
+}
+
+/** Angular `listDetailsById(EmpPerfAssessmentFeedback, id, assessmentFeedbackId)`. */
+export async function getPerformanceAssessmentFeedback(
+  assessmentFeedbackId: number,
+): Promise<AnyRow | null> {
+  if (!assessmentFeedbackId) return null;
+  const rows = await domainList<AnyRow>(
+    ENTITIES.EMP_PERF_ASSESSMENT_FEEDBACK.name,
+    buildQuery({ assessmentFeedbackId }),
+  );
+  return rows[0] ?? null;
+}
+
+/** Angular `POST addFeedback` for both create and update. */
+export async function savePerformanceAssessmentFeedback(
+  payload: AnyRow,
+): Promise<unknown> {
+  return postDetails(HR_PAYROLL_API.ADD_ASSESSMENT_FEEDBACK, payload);
+}
+
 export async function listRoomsByRoomType(
   roomTypeId: number,
 ): Promise<AnyRow[]> {
