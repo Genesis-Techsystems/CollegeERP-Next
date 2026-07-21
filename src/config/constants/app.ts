@@ -41,6 +41,31 @@ export const USER_ROLES = {
 
 export type UserRoleType = typeof USER_ROLES[keyof typeof USER_ROLES]
 
+/**
+ * Default two-factor code accepted for evaluator logins.
+ *
+ * The evaluator vertical (ported from the standalone ExamDigit app) gates login
+ * behind an OTP step. Until the Spring backend issues real OTPs, any evaluator
+ * account is verified against this fixed code. Swap this for the real backend
+ * OTP-verification call (see AUTH_API `userLoginOtpVerification`) later.
+ */
+export const DEFAULT_LOGIN_OTP = process.env.DEFAULT_LOGIN_OTP ?? '123456'
+
+/**
+ * True when the authenticated account is an evaluator-type user, i.e. login must
+ * pass through the OTP step. Evaluated server-side from the authorization DTO so
+ * normal staff/student logins are never affected.
+ */
+export function isEvaluatorRole(userRole?: string | null, roleName?: string | null): boolean {
+  const role = (userRole ?? '').toUpperCase()
+  const name = (roleName ?? '').toUpperCase()
+  return (
+    role === USER_ROLES.OFFLINE_EVALUATION ||
+    role.includes('EVALUAT') ||
+    name.includes('EVALUAT')
+  )
+}
+
 /** Date format constants -- matches Angular CONSTANTS.dateFormate */
 export const DATE_FORMATS = {
   /** Display format for dates: "1 Jan, 2024" */

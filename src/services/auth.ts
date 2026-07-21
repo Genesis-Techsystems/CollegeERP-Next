@@ -17,6 +17,15 @@ import { fetchDetails } from './crud'
 export interface LoginCredentials {
   usernameOrEmail: string
   password: string
+  /** Second-phase OTP for evaluator logins. Omit on the first (credentials) call. */
+  otp?: string
+}
+
+export interface LoginResult {
+  /** Present when authentication completed (non-evaluator, or verified evaluator). */
+  user?: SessionUser
+  /** True when an evaluator account still needs its OTP verified. */
+  otpRequired?: boolean
 }
 
 let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`
@@ -30,11 +39,15 @@ let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`
  * cookie. Returns the parsed JSON body (including `user`) or throws on
  * non-OK responses.
  */
-export async function login(credentials: LoginCredentials): Promise<any> {
+export async function login(credentials: LoginCredentials): Promise<LoginResult> {
   const res = await fetch(NEXT_API.AUTH.LOGIN, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ usernameOrEmail: credentials.usernameOrEmail, password: credentials.password }),
+    body: JSON.stringify({
+      usernameOrEmail: credentials.usernameOrEmail,
+      password: credentials.password,
+      ...(credentials.otp ? { otp: credentials.otp } : {}),
+    }),
   })
 
   if (!res.ok) {

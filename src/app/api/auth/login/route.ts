@@ -21,7 +21,7 @@ import { z } from 'zod'
 import { sessionOptions } from '@/lib/session'
 import { springLogin, springGetUserDetails, springGetEmployeeByUserId, springGetStudentByUserId } from '@/integrations/spring-api'
 import type { IronSessionData, SessionUser } from '@/types/user'
-import { APP_CONFIG } from '@/config/constants/app'
+import { APP_CONFIG, DEFAULT_LOGIN_OTP, isEvaluatorRole } from '@/config/constants/app'
 
 // In-memory rate limiter: max 10 requests per minute per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
@@ -29,6 +29,8 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1),
   password: z.string().min(1),
+  // Present only on the second (verify) phase of an evaluator OTP login.
+  otp: z.string().optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -64,14 +66,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 })
   }
 
-  const { usernameOrEmail, password } = parsed.data
+  const { usernameOrEmail, password, otp } = parsed.data
 
   try {
-    // 3. Call springLogin() → JWT
+    // 3. Call springLogin() → JWT (also validates the password)
     const jwt = await springLogin(usernameOrEmail, password)
 
     // 4. Call springGetUserDetails(jwt) → UserDTO
     const userDto = await springGetUserDetails(jwt)
+
+    // 4a. Evaluator accounts must clear an OTP step before a session is created.
+    // Password is already validated above, so a wrong OTP is reported distinctly
+    // from bad credentials. Non-evaluator logins skip this entirely.
+    // NOTE: for evaluator accounts this route is called twice (credentials phase,
+    // then verify phase) — the browser re-sends the credentials with the code.
+    // See DEFAULT_LOGIN_OTP; swap for the real backend OTP verification later.
+    if (isEvaluatorRole(userDto.userRole, userDto.roleName)) {
+      if (!otp) {
+        // Phase 1: credentials valid → prompt for the code. No session saved yet.
+        return NextResponse.json({ otpRequired: true })
+      }
+      if (otp !== DEFAULT_LOGIN_OTP) {
+        // Phase 2: wrong/expired code.
+        return NextResponse.json({ message: 'Invalid verification code', otpRequired: true }, { status: 401 })
+      }
+      // Phase 2 success falls through to the normal session-creation path below.
+    }
 
     // 5. Build SessionUser with derived flags
     const userRole = userDto.userRole ?? ''
@@ -106,7 +126,9 @@ export async function POST(request: NextRequest) {
       isManagement:
         userTypeCode.toUpperCase().includes('MGNT') ||
         roleName.toUpperCase().includes('MANAGEMENT'),
-      defaultDashboardPath: '/dashboard',
+      // Evaluator accounts (which cleared the OTP step above) land on the
+      // dedicated evaluator portal; everyone else on the standard dashboard.
+      defaultDashboardPath: isEvaluatorRole(userRole, roleName) ? '/evaluator' : '/dashboard',
     }
 
     // /api/authorization returns employeeId=null. Angular login getEmployee()

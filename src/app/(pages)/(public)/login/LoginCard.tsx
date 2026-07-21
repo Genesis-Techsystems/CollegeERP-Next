@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,6 +9,7 @@ import Image from 'next/image'
 import { Eye, EyeOff, Mail, AlertCircle, Loader2 } from 'lucide-react'
 import logo from '@/assets/images/logo.jpg'
 import { login } from '@/services/auth'
+import { OtpStep } from './OtpStep'
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1, 'Username is required'),
@@ -22,6 +23,11 @@ export function LoginCard() {
   const [showPassword, setShowPw] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
+  // 'credentials' → username/password form; 'otp' → evaluator two-factor step.
+  const [phase, setPhase] = useState<'credentials' | 'otp'>('credentials')
+  // Credentials held in memory only between the OTP prompt and its verification.
+  // Never persisted — cleared once the challenge resolves or is cancelled.
+  const pendingCreds = useRef<{ usernameOrEmail: string; password: string } | null>(null)
 
   const {
     register,
@@ -34,15 +40,44 @@ export function LoginCard() {
   const onSubmit = async (data: LoginFormData) => {
     setError(null)
     try {
-      const { user } = await login({
+      const result = await login({
         usernameOrEmail: data.usernameOrEmail,
         password: data.password,
       })
+      if (result.otpRequired) {
+        // Evaluator account — hold creds in memory and switch to the OTP step.
+        pendingCreds.current = { usernameOrEmail: data.usernameOrEmail, password: data.password }
+        setPhase('otp')
+        return
+      }
       setIsPending(true)
-      router.push(user.defaultDashboardPath || '/dashboard')
+      router.push(result.user?.defaultDashboardPath || '/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid username or password')
     }
+  }
+
+  const verifyOtp = async (code: string) => {
+    const creds = pendingCreds.current
+    if (!creds) throw new Error('Your session timed out. Please sign in again.')
+    const result = await login({ ...creds, otp: code })
+    if (!result.user) throw new Error('Invalid or expired code. Please try again.')
+    pendingCreds.current = null
+    setIsPending(true)
+    router.push(result.user.defaultDashboardPath || '/dashboard')
+  }
+
+  const resendOtp = async () => {
+    const creds = pendingCreds.current
+    if (!creds) throw new Error('Your session timed out. Please sign in again.')
+    // Re-run the credentials phase; issues a fresh challenge (real OTP once wired).
+    await login(creds)
+  }
+
+  const backToCredentials = () => {
+    pendingCreds.current = null
+    setError(null)
+    setPhase('credentials')
   }
 
   const inputBase =
@@ -73,7 +108,17 @@ export function LoginCard() {
         </h1>
       </div>
 
-      {/* Form */}
+      {phase === 'otp' ? (
+        <div className="px-8 pb-8">
+          <OtpStep
+            target={pendingCreds.current?.usernameOrEmail ?? ''}
+            onVerify={verifyOtp}
+            onResend={resendOtp}
+            onBack={backToCredentials}
+          />
+        </div>
+      ) : (
+      /* Form */
       <div className="px-8 pb-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
 
@@ -177,6 +222,7 @@ export function LoginCard() {
 
         </form>
       </div>
+      )}
     </div>
   )
 }
