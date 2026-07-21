@@ -1,32 +1,39 @@
-'use client'
+"use client";
 
-import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form'
-import { Select } from '@/common/components/select'
-import { useTransportOrgCascade } from '../_lib/use-transport-org-cascade'
+import {
+  Controller,
+  type Control,
+  type FieldValues,
+  type Path,
+} from "react-hook-form";
+import { Select } from "@/common/components/select";
+import { useTransportOrgCascade } from "../_lib/use-transport-org-cascade";
 
 type TransportOrgFieldsProps<T extends FieldValues> = {
-  control: Control<T>
-  organizationId?: number
-  orgField?: Path<T>
-  transportField?: Path<T>
-  onOrganizationChange?: () => void
-  orgError?: string
-  transportError?: string
-  transportRequired?: boolean
-}
+  control: Control<T>;
+  organizationId?: number;
+  orgField?: Path<T>;
+  transportField?: Path<T>;
+  onOrganizationChange?: () => void;
+  onTransportChange?: () => void;
+  orgError?: string;
+  transportError?: string;
+  transportRequired?: boolean;
+};
 
 export function TransportOrgFields<T extends FieldValues>({
   control,
   organizationId,
-  orgField = 'organizationId' as Path<T>,
-  transportField = 'transportDetailId' as Path<T>,
+  orgField = "organizationId" as Path<T>,
+  transportField = "transportDetailId" as Path<T>,
   onOrganizationChange,
+  onTransportChange,
   orgError,
   transportError,
   transportRequired = true,
 }: Readonly<TransportOrgFieldsProps<T>>) {
   const { organizations, transportDetails, loadingOrgs, loadingTransport } =
-    useTransportOrgCascade(organizationId)
+    useTransportOrgCascade(organizationId);
 
   return (
     <>
@@ -38,8 +45,8 @@ export function TransportOrgFields<T extends FieldValues>({
             label="Organization *"
             value={field.value != null ? String(field.value) : null}
             onChange={(v) => {
-              field.onChange(v ? Number(v) : undefined)
-              onOrganizationChange?.()
+              field.onChange(v ? Number(v) : undefined);
+              onOrganizationChange?.();
             }}
             options={organizations}
             placeholder="Select organization"
@@ -54,9 +61,14 @@ export function TransportOrgFields<T extends FieldValues>({
         control={control}
         render={({ field }) => (
           <Select
-            label={transportRequired ? 'Transport Details *' : 'Transport Details'}
+            label={
+              transportRequired ? "Transport Details *" : "Transport Details"
+            }
             value={field.value != null ? String(field.value) : null}
-            onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+            onChange={(v) => {
+              field.onChange(v ? Number(v) : undefined);
+              onTransportChange?.();
+            }}
             options={transportDetails}
             placeholder="Select transport"
             searchable
@@ -67,5 +79,5 @@ export function TransportOrgFields<T extends FieldValues>({
         )}
       />
     </>
-  )
+  );
 }

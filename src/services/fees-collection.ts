@@ -335,17 +335,22 @@ export async function createStudentWiseParticulars(
   return data ? [data] : [];
 }
 
-/** Angular `transportallocationforstudent` — bus pay screen route info. */
+/** Angular `transportallocationforstudent` — current student/employee route info. */
 export async function listTransportAllocationForStudent(params: {
-  studentId: number;
-  academicYearId: number;
+  studentId?: number;
+  employeeId?: number;
+  academicYearId?: number;
   date: string;
 }): Promise<TransportAllocationRow[]> {
-  const { studentId, academicYearId, date } = params;
-  if (!studentId || !academicYearId || !date) return [];
+  const { studentId, employeeId, academicYearId, date } = params;
+  if ((!studentId && !employeeId) || !date) return [];
+  const query: Record<string, string | number> = { date };
+  if (studentId) query.studentId = studentId;
+  if (employeeId) query.employeeId = employeeId;
+  if (academicYearId) query.academicYearId = academicYearId;
   const data = await fetchDetails<
     TransportAllocationRow[] | TransportAllocationRow
-  >(TRANSPORT_API.TRANSPORT_ALLOCATION, { studentId, academicYearId, date });
+  >(TRANSPORT_API.TRANSPORT_ALLOCATION, query);
   if (Array.isArray(data)) return data;
   return data ? [data] : [];
 }
@@ -416,15 +421,15 @@ export async function printStudentFeeReceiptDownload(
 export async function searchStudentsInCollege(
   collegeId: number,
   term: string,
-  options?: { courseId?: number; courseGroupId?: number },
+  options?: { courseId?: number; courseGroupId?: number; includeActive?: boolean },
 ): Promise<StudentFeeSearchRow[]> {
   const q = term.trim();
   if (!collegeId || q.length < 5) return [];
   const params: Record<string, string> = {
     collegeId: String(collegeId),
     q,
-    isActive: "true",
   };
+  if (options?.includeActive !== false) params.isActive = "true";
   if (options?.courseId) params.courseId = String(options.courseId);
   if (options?.courseGroupId)
     params.courseGroupId = String(options.courseGroupId);
@@ -756,15 +761,18 @@ export async function listFeeConcessions(params: {
 
 export async function searchEmployeesForTransport(
   term: string,
+  collegeId?: number,
 ): Promise<EmployeeSearchRow[]> {
   const q = term.trim();
   if (q.length < 5) return [];
+  const params: Record<string, string | number> = {
+    q,
+    empStatus: "ACTV",
+  };
+  if (collegeId) params.collegeId = collegeId;
   const data = await fetchDetails<EmployeeSearchRow[]>(
     FEE_API.EMPLOYEE_SEARCH,
-    {
-      q,
-      empStatus: "ACTV",
-    },
+    params,
   );
   return Array.isArray(data) ? data : [];
 }

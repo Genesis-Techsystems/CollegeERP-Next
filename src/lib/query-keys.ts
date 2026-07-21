@@ -768,11 +768,14 @@ export const QK = {
     drivers: () => ["Transport", "drivers"] as const,
     helpers: () => ["Transport", "helpers"] as const,
     routes: () => ["Transport", "routes"] as const,
+    route: (routeId: number) => ["Transport", "route", routeId] as const,
     routeStops: (routeId: number) =>
       ["Transport", "routeStops", routeId] as const,
     vehicleDrivers: () => ["Transport", "vehicleDrivers"] as const,
     vehicleRoutes: () => ["Transport", "vehicleRoutes"] as const,
     distanceFees: () => ["Transport", "distanceFees"] as const,
+    distanceFeesByTransport: (transportDetailId: number, feeFrequencyId: number) =>
+      ["Transport", "distanceFees", transportDetailId, feeFrequencyId] as const,
     allocations: (forType: "S" | "E") =>
       ["Transport", "allocations", forType] as const,
     studentTransport: (params: Record<string, string | number>) =>

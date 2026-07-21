@@ -125,6 +125,7 @@ export interface RouteStop {
   transportDetailId?: number
   stopName?: string
   distanceFromSchoolKm?: number
+  distanceFeeId?: number
   pickTime?: string
   dropTime?: string
   amount?: number
@@ -197,9 +198,12 @@ export interface TransportAllocation {
   studentId?: number
   firstName?: string
   stdFirstName?: string
+  rollNumber?: string
   employeeId?: number
+  empNumber?: string
   transportDetailId?: number
   routeId?: number
+  routeCode?: string
   pickupRouteStopId?: number
   pickupRouteStopName?: string
   dropRouteStopId?: number
