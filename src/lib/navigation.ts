@@ -1251,7 +1251,15 @@ export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
 function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
   const labelLower = (item.label ?? "").toLowerCase();
 
-  if (labelLower.includes("room detail")) return "/admin/room-details";
+  if (labelLower.includes("room detail")) {
+    const hrefLower = (item.href ?? "").toLowerCase();
+    if (hrefLower.includes("/hostel/") || hrefLower.includes("hostel")) {
+      return "/hostel/view-room-details";
+    }
+    if (hrefLower.includes("/admin/") || hrefLower.includes("institutional")) {
+      return "/admin/room-details";
+    }
+  }
   if (
     (labelLower.includes("college courses") && labelLower.includes("group")) ||
     (labelLower.includes("college subject") && labelLower.includes("group"))

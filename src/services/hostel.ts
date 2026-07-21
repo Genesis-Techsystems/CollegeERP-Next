@@ -2,9 +2,9 @@
  * Hostel module — mirrors Angular `apps/hostel/`.
  */
 
-import { ENTITIES } from '@/config/constants/entities'
-import { HOSTEL_API } from '@/config/constants/api'
-import { GM_CODES } from '@/config/constants/ui'
+import { ENTITIES } from "@/config/constants/entities";
+import { HOSTEL_API } from "@/config/constants/api";
+import { GM_CODES } from "@/config/constants/ui";
 import type {
   HostelDetail,
   HostelDiscount,
@@ -15,9 +15,9 @@ import type {
   HostelRoomAllocationRow,
   HostelRoomAllocationSearchRow,
   HostelVisitor,
-} from '@/types/hostel'
-import type { GeneralDetail } from '@/types/exam-master'
-import { format } from 'date-fns'
+} from "@/types/hostel";
+import type { GeneralDetail } from "@/types/exam-master";
+import { format } from "date-fns";
 import {
   domainCreate,
   domainList,
@@ -25,20 +25,20 @@ import {
   fetchDetails,
   getAllRecords,
   postDetails,
-} from './crud'
-import { buildQuery } from './query'
-import { getGeneralDetails } from './exam-master'
+} from "./crud";
+import { buildQuery } from "./query";
+import { getGeneralDetails } from "./exam-master";
 
 // ─── Hostel types ────────────────────────────────────────────────────────────
 
 export async function listHostelTypes(): Promise<HostelType[]> {
-  return domainList<HostelType>(ENTITIES.HOSTEL_TYPE.name)
+  return domainList<HostelType>(ENTITIES.HOSTEL_TYPE.name);
 }
 
 export async function createHostelType(
-  data: Omit<HostelType, 'hostelTypeId' | 'orgCode' | 'orgName'>,
+  data: Omit<HostelType, "hostelTypeId" | "orgCode" | "orgName">,
 ): Promise<HostelType> {
-  return domainCreate<HostelType>(ENTITIES.HOSTEL_TYPE.name, data)
+  return domainCreate<HostelType>(ENTITIES.HOSTEL_TYPE.name, data);
 }
 
 export async function updateHostelType(
@@ -50,36 +50,71 @@ export async function updateHostelType(
     ENTITIES.HOSTEL_TYPE.pk,
     hostelTypeId,
     { hostelTypeId, ...data },
-  )
+  );
 }
 
 // ─── Hostel details ──────────────────────────────────────────────────────────
 
 export async function listHostelDetails(): Promise<HostelDetail[]> {
-  return domainList<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name)
+  return domainList<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name);
 }
 
-export async function listHostelsByOrganization(organizationId: number): Promise<HostelDetail[]> {
-  if (!organizationId) return []
+export async function listHostelsByOrganization(
+  organizationId: number,
+): Promise<HostelDetail[]> {
+  if (!organizationId) return [];
   const queries = [
-    buildQuery({ 'Organization.organizationId': organizationId, isActive: true }),
+    buildQuery({
+      "Organization.organizationId": organizationId,
+      isActive: true,
+    }),
     buildQuery({ organizationId, isActive: true }),
-  ]
+  ];
   for (const query of queries) {
     try {
-      const rows = await domainList<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name, query)
-      if (rows.length > 0) return rows
+      const rows = await domainList<HostelDetail>(
+        ENTITIES.HOSTEL_DETAIL.name,
+        query,
+      );
+      if (rows.length > 0) return rows;
     } catch {
       // try next
     }
   }
-  return domainList<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name)
+  return domainList<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name);
+}
+
+/** Exact Angular Hostel Register filter query. */
+export async function listHostelsForRegister(
+  organizationId: number,
+): Promise<HostelDetail[]> {
+  if (!organizationId) return [];
+  return domainList<HostelDetail>(
+    ENTITIES.HOSTEL_DETAIL.name,
+    buildQuery({
+      "Organization.organizationId": organizationId,
+      isActive: true,
+    }),
+  );
+}
+
+/** Angular Monthly Visitor Summary Report hostel filter. */
+export async function listActiveHostelsForVisitorReport(): Promise<
+  HostelDetail[]
+> {
+  return domainList<HostelDetail>(
+    ENTITIES.HOSTEL_DETAIL.name,
+    buildQuery({ isActive: true }),
+  );
 }
 
 export async function createHostelDetail(
-  data: Omit<HostelDetail, 'hostelId' | 'hostelTypeCode' | 'hstlForCatdetCode' | 'orgCode'>,
+  data: Omit<
+    HostelDetail,
+    "hostelId" | "hostelTypeCode" | "hstlForCatdetCode" | "orgCode"
+  >,
 ): Promise<HostelDetail> {
-  return domainCreate<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name, data)
+  return domainCreate<HostelDetail>(ENTITIES.HOSTEL_DETAIL.name, data);
 }
 
 export async function updateHostelDetail(
@@ -91,19 +126,25 @@ export async function updateHostelDetail(
     ENTITIES.HOSTEL_DETAIL.pk,
     hostelId,
     { hostelId, ...data },
-  )
+  );
 }
 
 // ─── Room charges ────────────────────────────────────────────────────────────
 
 export async function listHostelRoomCharges(): Promise<HostelRoomCharge[]> {
-  return domainList<HostelRoomCharge>(ENTITIES.HOSTEL_ROOM_CHARGE.name)
+  return domainList<HostelRoomCharge>(ENTITIES.HOSTEL_ROOM_CHARGE.name);
 }
 
 export async function createHostelRoomCharge(
-  data: Omit<HostelRoomCharge, 'hstlRoomChargesId' | 'hostelCode' | 'roomTypeCatdetCode' | 'paymentFrequencyCatdetCode'>,
+  data: Omit<
+    HostelRoomCharge,
+    | "hstlRoomChargesId"
+    | "hostelCode"
+    | "roomTypeCatdetCode"
+    | "paymentFrequencyCatdetCode"
+  >,
 ): Promise<HostelRoomCharge> {
-  return domainCreate<HostelRoomCharge>(ENTITIES.HOSTEL_ROOM_CHARGE.name, data)
+  return domainCreate<HostelRoomCharge>(ENTITIES.HOSTEL_ROOM_CHARGE.name, data);
 }
 
 export async function updateHostelRoomCharge(
@@ -115,32 +156,54 @@ export async function updateHostelRoomCharge(
     ENTITIES.HOSTEL_ROOM_CHARGE.pk,
     hstlRoomChargesId,
     { hstlRoomChargesId, ...data },
-  )
+  );
 }
 
 // ─── Rooms ───────────────────────────────────────────────────────────────────
 
-export async function listHostelRoomsByHostel(hostelId: number): Promise<HostelRoom[]> {
-  if (!hostelId) return []
+export async function listHostelRoomsByHostel(
+  hostelId: number,
+): Promise<HostelRoom[]> {
+  if (!hostelId) return [];
   const queries = [
-    buildQuery({ 'HostelDetail.hostelId': hostelId }),
+    buildQuery({ "HostelDetail.hostelId": hostelId }),
     buildQuery({ hostelId }),
-  ]
+  ];
   for (const query of queries) {
     try {
-      const rows = await domainList<HostelRoom>(ENTITIES.HOSTEL_ROOM.name, query)
-      if (rows.length > 0) return rows
+      const rows = await domainList<HostelRoom>(
+        ENTITIES.HOSTEL_ROOM.name,
+        query,
+      );
+      if (rows.length > 0) return rows;
     } catch {
       // try next
     }
   }
-  return []
+  return [];
+}
+
+/** Exact Angular View Room Details room-filter query. */
+export async function listActiveHostelRoomsForDetails(
+  hostelId: number,
+): Promise<HostelRoom[]> {
+  if (!hostelId) return [];
+  return domainList<HostelRoom>(
+    ENTITIES.HOSTEL_ROOM.name,
+    buildQuery({
+      "HostelDetail.hostelId": hostelId,
+      isActive: true,
+    }),
+  );
 }
 
 export async function createHostelRoom(
-  data: Omit<HostelRoom, 'hstlRoomId' | 'allotedBeds' | 'availableBeds' | 'roomTypeCode'> & { hostelId: number },
+  data: Omit<
+    HostelRoom,
+    "hstlRoomId" | "allotedBeds" | "availableBeds" | "roomTypeCode"
+  > & { hostelId: number },
 ): Promise<HostelRoom> {
-  return domainCreate<HostelRoom>(ENTITIES.HOSTEL_ROOM.name, data)
+  return domainCreate<HostelRoom>(ENTITIES.HOSTEL_ROOM.name, data);
 }
 
 export async function updateHostelRoom(
@@ -152,19 +215,19 @@ export async function updateHostelRoom(
     ENTITIES.HOSTEL_ROOM.pk,
     hstlRoomId,
     { hstlRoomId, ...data },
-  )
+  );
 }
 
 // ─── Discounts ───────────────────────────────────────────────────────────────
 
 export async function listHostelDiscounts(): Promise<HostelDiscount[]> {
-  return domainList<HostelDiscount>(ENTITIES.HOSTEL_DISCOUNT.name)
+  return domainList<HostelDiscount>(ENTITIES.HOSTEL_DISCOUNT.name);
 }
 
 export async function createHostelDiscount(
-  data: Omit<HostelDiscount, 'hstlDiscountId' | 'hostelCode'>,
+  data: Omit<HostelDiscount, "hstlDiscountId" | "hostelCode">,
 ): Promise<HostelDiscount> {
-  return domainCreate<HostelDiscount>(ENTITIES.HOSTEL_DISCOUNT.name, data)
+  return domainCreate<HostelDiscount>(ENTITIES.HOSTEL_DISCOUNT.name, data);
 }
 
 export async function updateHostelDiscount(
@@ -176,47 +239,53 @@ export async function updateHostelDiscount(
     ENTITIES.HOSTEL_DISCOUNT.pk,
     hstlDiscountId,
     { hstlDiscountId, ...data },
-  )
+  );
 }
 
 // ─── Register & visitors ─────────────────────────────────────────────────────
 
-export async function listHostelRegistersByHostel(hostelId: number): Promise<HostelRegister[]> {
-  if (!hostelId) return []
+export async function listHostelRegistersByHostel(
+  hostelId: number,
+): Promise<HostelRegister[]> {
+  if (!hostelId) return [];
+  const rows = await domainList<HostelRegister>(
+    ENTITIES.HOSTEL_REGISTER.name,
+    buildQuery({
+      "HostelDetail.hostelId": hostelId,
+      isActive: true,
+    }),
+  );
+  return rows.sort(
+    (a, b) => Number(b.hstlRegisterId) - Number(a.hstlRegisterId),
+  );
+}
+
+export async function listHostelVisitorsByHostel(
+  hostelId: number,
+): Promise<HostelVisitor[]> {
+  if (!hostelId) return [];
   const queries = [
-    buildQuery({ 'HostelDetail.hostelId': hostelId }),
+    buildQuery({ "HostelDetail.hostelId": hostelId }),
     buildQuery({ hostelId }),
-  ]
+  ];
   for (const query of queries) {
     try {
-      const rows = await domainList<HostelRegister>(ENTITIES.HOSTEL_REGISTER.name, query)
-      if (rows.length > 0) return rows
+      const rows = await domainList<HostelVisitor>(
+        ENTITIES.HOSTEL_VISITOR.name,
+        query,
+      );
+      if (rows.length > 0) return rows;
     } catch {
       // try next
     }
   }
-  return []
+  return [];
 }
 
-export async function listHostelVisitorsByHostel(hostelId: number): Promise<HostelVisitor[]> {
-  if (!hostelId) return []
-  const queries = [
-    buildQuery({ 'HostelDetail.hostelId': hostelId }),
-    buildQuery({ hostelId }),
-  ]
-  for (const query of queries) {
-    try {
-      const rows = await domainList<HostelVisitor>(ENTITIES.HOSTEL_VISITOR.name, query)
-      if (rows.length > 0) return rows
-    } catch {
-      // try next
-    }
-  }
-  return []
-}
-
-export async function createHostelRegister(data: Partial<HostelRegister>): Promise<HostelRegister> {
-  return domainCreate<HostelRegister>(ENTITIES.HOSTEL_REGISTER.name, data)
+export async function createHostelRegister(
+  data: Partial<HostelRegister>,
+): Promise<HostelRegister> {
+  return domainCreate<HostelRegister>(ENTITIES.HOSTEL_REGISTER.name, data);
 }
 
 export async function updateHostelRegister(
@@ -228,11 +297,13 @@ export async function updateHostelRegister(
     ENTITIES.HOSTEL_REGISTER.pk,
     hstlRegisterId,
     { hstlRegisterId, ...data },
-  )
+  );
 }
 
-export async function createHostelVisitor(data: Partial<HostelVisitor>): Promise<HostelVisitor> {
-  return domainCreate<HostelVisitor>(ENTITIES.HOSTEL_VISITOR.name, data)
+export async function createHostelVisitor(
+  data: Partial<HostelVisitor>,
+): Promise<HostelVisitor> {
+  return domainCreate<HostelVisitor>(ENTITIES.HOSTEL_VISITOR.name, data);
 }
 
 export async function updateHostelVisitor(
@@ -244,37 +315,47 @@ export async function updateHostelVisitor(
     ENTITIES.HOSTEL_VISITOR.pk,
     hstlVisitorId,
     { hstlVisitorId, ...data },
-  )
+  );
 }
 
 // ─── General master lookups ──────────────────────────────────────────────────
 
 export async function listHostelForOptions(): Promise<GeneralDetail[]> {
-  return getGeneralDetails(GM_CODES.HOSTEL_FOR)
+  return getGeneralDetails(GM_CODES.HOSTEL_FOR);
 }
 
 export async function listHostelRoomTypeOptions(): Promise<GeneralDetail[]> {
-  return getGeneralDetails(GM_CODES.HOSTEL_ROOM_TYPE)
+  return getGeneralDetails(GM_CODES.HOSTEL_ROOM_TYPE);
 }
 
 export async function listPaymentFrequencyOptions(): Promise<GeneralDetail[]> {
-  return getGeneralDetails(GM_CODES.PAYMENT_TYPE_FREQ)
+  return getGeneralDetails(GM_CODES.PAYMENT_TYPE_FREQ);
 }
 
 export async function listRelationOptions(): Promise<GeneralDetail[]> {
-  return getGeneralDetails(GM_CODES.RELATION)
+  return getGeneralDetails(GM_CODES.RELATION);
 }
 
-function normalizeRoomAllocationSearchRows(data: unknown): HostelRoomAllocationSearchRow[] {
-  if (Array.isArray(data)) return data as HostelRoomAllocationSearchRow[]
-  if (data && typeof data === 'object') {
-    const obj = data as Record<string, unknown>
-    for (const key of ['resultList', 'content', 'data', 'result', 'list', 'rows']) {
-      const nested = obj[key]
-      if (Array.isArray(nested)) return nested as HostelRoomAllocationSearchRow[]
+function normalizeRoomAllocationSearchRows(
+  data: unknown,
+): HostelRoomAllocationSearchRow[] {
+  if (Array.isArray(data)) return data as HostelRoomAllocationSearchRow[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of [
+      "resultList",
+      "content",
+      "data",
+      "result",
+      "list",
+      "rows",
+    ]) {
+      const nested = obj[key];
+      if (Array.isArray(nested))
+        return nested as HostelRoomAllocationSearchRow[];
     }
   }
-  return []
+  return [];
 }
 
 /** Angular `roomAllocationSearch?hostelId=&q=` — hosteler lookup for register/visitor. */
@@ -282,81 +363,97 @@ export async function searchHostelRoomAllocations(
   hostelId: number,
   q: string,
 ): Promise<HostelRoomAllocationSearchRow[]> {
-  const term = q.trim()
-  if (!hostelId || term.length < 4) return []
+  const term = q.trim();
+  if (!hostelId || term.length < 5) return [];
 
-  try {
-    const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_SEARCH, {
-      hostelId,
-      q: term,
-    })
-    return normalizeRoomAllocationSearchRows(data)
-  } catch {
-    return []
-  }
+  const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_SEARCH, {
+    hostelId,
+    q: term,
+  });
+  return normalizeRoomAllocationSearchRows(data);
 }
 
 // ─── Room allocations (payment / occupancy) ───────────────────────────────────
 
-function normalizeHostelRoomAllocationRows(data: unknown): HostelRoomAllocationRow[] {
-  if (Array.isArray(data)) return data as HostelRoomAllocationRow[]
-  if (data && typeof data === 'object') {
-    const obj = data as Record<string, unknown>
-    for (const key of ['content', 'data', 'result', 'list', 'rows']) {
-      const nested = obj[key]
-      if (Array.isArray(nested)) return nested as HostelRoomAllocationRow[]
+function normalizeHostelRoomAllocationRows(
+  data: unknown,
+): HostelRoomAllocationRow[] {
+  if (Array.isArray(data)) return data as HostelRoomAllocationRow[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    for (const key of [
+      "resultList",
+      "content",
+      "data",
+      "result",
+      "list",
+      "rows",
+    ]) {
+      const nested = obj[key];
+      if (Array.isArray(nested)) return nested as HostelRoomAllocationRow[];
     }
   }
-  return []
+  return [];
 }
 
 /** Angular `GET cms/hstlroomallocation?hstlRoomId=&isActive=true` (hostel payment screen). */
 export async function listHostelRoomAllocationsByRoom(
   hstlRoomId: number,
 ): Promise<HostelRoomAllocationRow[]> {
-  if (!hstlRoomId) return []
+  if (!hstlRoomId) return [];
 
-  try {
-    const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_LIST, {
-      hstlRoomId,
-      isActive: 'true',
-    })
-    return normalizeHostelRoomAllocationRows(data)
-  } catch {
-    return []
-  }
+  const data = await fetchDetails<unknown>(HOSTEL_API.ROOM_ALLOCATION_LIST, {
+    hstlRoomId,
+    isActive: "true",
+  });
+  return normalizeHostelRoomAllocationRows(data);
+}
+
+/** Angular `updateDetails(HostelRoomAllocation, ..., hstlRoomAllotId)`. */
+export async function updateHostelRoomAllocation(
+  hstlRoomAllotId: number,
+  payload: Partial<HostelRoomAllocationRow>,
+): Promise<HostelRoomAllocationRow> {
+  return domainUpdate<HostelRoomAllocationRow>(
+    "HostelRoomAllocation",
+    "hstlRoomAllotId",
+    hstlRoomAllotId,
+    { ...payload, hstlRoomAllotId },
+  );
 }
 
 // ─── Transactions & reports ────────────────────────────────────────────────────
 
-export async function postHostelRoomAllocation(payload: unknown): Promise<void> {
-  await postDetails(HOSTEL_API.ROOM_ALLOCATION, payload)
+export async function postHostelRoomAllocation(
+  payload: unknown,
+): Promise<void> {
+  await postDetails(HOSTEL_API.ROOM_ALLOCATION, payload);
 }
 
-export async function postHostelAllocationForStudent(payload: unknown): Promise<void> {
-  await postDetails(HOSTEL_API.HOSTEL_ALLOCATION, payload)
+export async function postHostelAllocationForStudent(
+  payload: unknown,
+): Promise<void> {
+  await postDetails(HOSTEL_API.HOSTEL_ALLOCATION, payload);
 }
 
 export async function getVisitorsSummaryReport(params: {
-  hostelId: number
-  fromDate: string
-  toDate: string
+  hostelId: number;
+  fromDate: string;
+  toDate: string;
 }): Promise<Record<string, unknown>[]> {
-  const { hostelId, fromDate, toDate } = params
-  if (!hostelId) return []
-  try {
-    const data = await getAllRecords<{ result?: Record<string, unknown>[][] }>(
-      HOSTEL_API.GET_VISITORS_REPORT,
-      { in_hostel_id: hostelId, in_from_date: fromDate, in_to_date: toDate },
-    )
-    const rows = data?.result?.[0]
-    return Array.isArray(rows) ? rows : []
-  } catch {
-    return []
-  }
+  const { hostelId, fromDate, toDate } = params;
+  if (!hostelId) return [];
+  const data = await getAllRecords<{ result?: Record<string, unknown>[][] }>(
+    HOSTEL_API.GET_VISITORS_REPORT,
+    { in_hstl_id: hostelId, in_from_date: fromDate, in_to_date: toDate },
+  );
+  const rows = data?.result?.[0];
+  return Array.isArray(rows) ? rows : [];
 }
 
-export function toHostelApiDate(d: Date | null | undefined): string | undefined {
-  if (!d) return undefined
-  return format(d, 'yyyy-MM-dd')
+export function toHostelApiDate(
+  d: Date | null | undefined,
+): string | undefined {
+  if (!d) return undefined;
+  return format(d, "yyyy-MM-dd");
 }

@@ -1,99 +1,117 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
-import { FormModal } from '@/common/components/feedback'
-import { ActiveStatusField, TimePicker } from '@/common/components/forms'
-import { DatePicker } from '@/common/components/date-picker'
-import { Select } from '@/common/components/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
+import { FormModal } from "@/common/components/feedback";
+import { ActiveStatusField, TimePicker } from "@/common/components/forms";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select } from "@/common/components/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   createHostelRegister,
-  listHostelDetails,
   listRelationOptions,
   searchHostelRoomAllocations,
-  toHostelApiDate,
   updateHostelRegister,
-} from '@/services'
-import type { HostelRegister, HostelRoomAllocationSearchRow } from '@/types/hostel'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import type {
+  HostelRegister,
+  HostelRoomAllocationSearchRow,
+} from "@/types/hostel";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   HOSTEL_FIELD_LABEL_CLASS,
   HOSTEL_INPUT_CLASS,
   HOSTEL_MODAL_TITLE_CLASS,
   HOSTEL_SELECT_CLASS,
-} from '../_lib/modal-styles'
+} from "../_lib/modal-styles";
 
 const phoneSchema = z
   .string()
-  .min(1, 'Mobile number is required')
-  .regex(/^\d{10}$/, 'Enter a valid 10-digit mobile number')
+  .min(1, "Mobile number is required")
+  .regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit mobile number");
 
 const schema = z.object({
   hstlRoomAllotId: z.coerce.number().optional(),
-  attendeesName: z.string().min(1, 'Attendee name is required'),
-  relationCatdetId: z.coerce.number().min(1, 'Relation is required'),
+  attendeesName: z.string().min(1, "Attendee name is required"),
+  relationCatdetId: z.coerce.number().min(1, "Relation is required"),
   mobileNumber: phoneSchema,
-  outingDate: z.date({ message: 'Outing date is required' }),
-  outingTime: z.string().min(1, 'Outing time is required'),
-  inDate: z.date({ message: 'In date is required' }),
-  inTime: z.string().min(1, 'In time is required'),
+  outingDate: z.date({ message: "Outing date is required" }),
+  outingTime: z.string().min(1, "Outing time is required"),
+  inDate: z.date({ message: "In date is required" }),
+  inTime: z.string().min(1, "In time is required"),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 function hostelerLabel(row: HostelRoomAllocationSearchRow): string {
-  const name = row.stdFirstName ?? row.empFirstName ?? 'Hosteler'
-  const id = row.rollNumber ?? row.empNumber
-  return id ? `${name} (${id})` : name
+  const name = row.stdFirstName ?? row.empFirstName ?? "Hosteler";
+  const id = row.rollNumber ?? row.empNumber;
+  return id ? `${name} (${id})` : name;
 }
 
 function parseApiDate(value?: string): Date | null {
-  if (!value) return null
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function parseApiTime(value?: string): string {
-  if (!value) return '09:00:00'
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})/)
-  if (!match) return '09:00:00'
-  return `${match[1].padStart(2, '0')}:${match[2]}:00`
+  if (!value) return "09:00:00";
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "09:00:00";
+  return `${match[1].padStart(2, "0")}:${match[2]}:00`;
 }
 
-function combineDateTime(date: Date, time: string): number {
-  const match = time.match(/^(\d{1,2}):(\d{2})/)
-  const hours = match ? Number(match[1]) : 0
-  const minutes = match ? Number(match[2]) : 0
-  const combined = new Date(date)
-  combined.setHours(hours, minutes, 0, 0)
-  return combined.getTime()
+function timeInMinutes(time: string): number {
+  const match = time.match(/^(\d{1,2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
+}
+
+function toAngularTime(time: string): string {
+  const match = time.match(/^(\d{1,2}):(\d{2})/);
+  return match ? `${Number(match[1])}:${Number(match[2])}:00` : time;
+}
+
+function currentApplicationDate(): Date {
+  const raw = String(localStorage.getItem("presentDate") ?? "").trim();
+  const match = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!match) return new Date();
+  const date = new Date(
+    Number(match[3]),
+    Number(match[2]) - 1,
+    Number(match[1]),
+  );
+  return Number.isNaN(date.getTime()) ? new Date() : date;
 }
 
 interface HostelRegisterModalProps {
-  open: boolean
-  onClose: () => void
-  hostelId: number
-  row: HostelRegister | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  hostelId: number;
+  organizationId: string;
+  row: HostelRegister | null;
+  onSaved: () => void;
 }
 
 export function HostelRegisterModal({
   open,
   onClose,
   hostelId,
+  organizationId,
   row,
   onSaved,
 }: Readonly<HostelRegisterModalProps>) {
-  const isEditing = row != null
-  const [hostelers, setHostelers] = useState<HostelRoomAllocationSearchRow[]>([])
-  const [searchingHostelers, setSearchingHostelers] = useState(false)
+  const isEditing = row != null;
+  const [hostelers, setHostelers] = useState<HostelRoomAllocationSearchRow[]>(
+    [],
+  );
+  const [searchingHostelers, setSearchingHostelers] = useState(false);
 
   const {
     register,
@@ -107,28 +125,36 @@ export function HostelRegisterModal({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       isActive: true,
-      reason: 'active',
-      outingTime: '09:00:00',
-      inTime: '10:00:00',
+      reason: "active",
+      outingTime: "09:00:00",
+      inTime: "10:00:00",
       outingDate: new Date(),
       inDate: new Date(),
     },
-  })
+  });
 
-  const { data: relations = [] } = useQuery({
-    queryKey: ['Hostel', 'relations'],
+  const { data: relations = [], error: relationError } = useQuery({
+    queryKey: ["Hostel", "relations"],
     queryFn: listRelationOptions,
     enabled: open,
-  })
+  });
+
+  useEffect(() => {
+    if (relationError) toastError(relationError, "Failed to load relations");
+  }, [relationError]);
 
   const relationOptions = useMemo(
     () =>
       relations.map((r) => ({
         value: String(r.generalDetailId),
-        label: String(r.generalDetailDisplayName ?? r.generalDetailCode ?? r.generalDetailId),
+        label: String(
+          r.generalDetailDisplayName ??
+            r.generalDetailCode ??
+            r.generalDetailId,
+        ),
       })),
     [relations],
-  )
+  );
 
   const hostelerOptions = useMemo(
     () =>
@@ -137,90 +163,99 @@ export function HostelRegisterModal({
         label: hostelerLabel(h),
       })),
     [hostelers],
-  )
+  );
 
   const onHostelerSearch = useCallback(
     async (term: string) => {
-      const q = term.trim()
-      if (q.length < 4) {
-        setHostelers([])
-        return
+      if (term.length < 5) {
+        setHostelers([]);
+        return;
       }
-      setSearchingHostelers(true)
+      setSearchingHostelers(true);
       try {
-        const rows = await searchHostelRoomAllocations(hostelId, q)
-        setHostelers(rows)
+        const rows = await searchHostelRoomAllocations(hostelId, term);
+        setHostelers(rows);
+      } catch (error) {
+        setHostelers([]);
+        toastError(error, "Failed to search hostelers");
       } finally {
-        setSearchingHostelers(false)
+        setSearchingHostelers(false);
       }
     },
     [hostelId],
-  )
+  );
 
   useEffect(() => {
-    if (!open) return
-    const today = new Date()
+    if (!open) return;
+    const today = currentApplicationDate();
     reset(
       row
         ? {
-            attendeesName: row.attendeesName ?? '',
+            attendeesName: row.attendeesName ?? "",
             relationCatdetId: row.relationCatdetId ?? 0,
-            mobileNumber: row.mobileNumber ?? '',
+            mobileNumber: String(row.mobileNumber ?? ""),
             outingDate: parseApiDate(row.inDate) ?? today,
             inDate: parseApiDate(row.outDate) ?? today,
             outingTime: parseApiTime(row.inTime),
             inTime: parseApiTime(row.outTime),
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             isActive: true,
-            reason: 'active',
-            outingTime: '09:00:00',
-            inTime: '10:00:00',
+            reason: "active",
+            outingTime: "09:00:00",
+            inTime: "10:00:00",
             outingDate: today,
             inDate: today,
           },
-    )
-    setHostelers([])
-  }, [open, row, reset])
+    );
+    setHostelers([]);
+  }, [open, row, reset]);
 
   async function onSubmit(data: FormValues) {
     if (!isEditing && !data.hstlRoomAllotId) {
-      toastError(new Error('Select a hosteler'), 'Hosteler is required')
-      return
+      toastError(new Error("Select a hosteler"), "Hosteler is required");
+      return;
     }
 
-    const outingMs = combineDateTime(data.outingDate, data.outingTime)
-    const inMs = combineDateTime(data.inDate, data.inTime)
-    if (inMs <= outingMs) {
-      toastError(new Error('In time must be after outing time'), 'Invalid times')
-      return
+    if (timeInMinutes(data.inTime) <= timeInMinutes(data.outingTime)) {
+      toastError(
+        new Error("In time must be after outing time"),
+        "Invalid times",
+      );
+      return;
     }
 
-    const selected = hostelers.find((h) => h.hstlRoomAllotId === data.hstlRoomAllotId)
+    const selected = hostelers.find(
+      (h) => h.hstlRoomAllotId === data.hstlRoomAllotId,
+    );
     const payload: Partial<HostelRegister> = {
       attendeesName: data.attendeesName,
       relationCatdetId: data.relationCatdetId,
-      mobileNumber: data.mobileNumber,
-      inDate: toHostelApiDate(data.outingDate),
-      outDate: toHostelApiDate(data.inDate),
-      inTime: data.outingTime,
-      outTime: data.inTime,
+      mobileNumber: Number(data.mobileNumber),
+      inDate: data.outingDate.toISOString(),
+      outDate: data.inDate.toISOString(),
+      inTime: toAngularTime(data.outingTime),
+      outTime: toAngularTime(data.inTime),
       isActive: data.isActive,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
+      reason: data.reason ?? null,
       hostelId,
-    }
+    };
 
     if (!isEditing && selected) {
+      payload.studentId = null;
+      payload.employeeId = null;
       if (selected.rollNumber) {
-        payload.studentId = selected.studentId
+        payload.studentId = selected.studentId ?? null;
       } else {
-        payload.employeeId = selected.employeeId
+        payload.employeeId = selected.employeeId ?? null;
       }
-      payload.hstlRoomAllotId = selected.hstlRoomAllotId
+      payload.hstlRoomAllotId = selected.hstlRoomAllotId;
     }
 
+    // Angular closes the dialog before persistence starts.
+    onClose();
     try {
       if (isEditing && row) {
         await updateHostelRegister(row.hstlRegisterId, {
@@ -229,44 +264,45 @@ export function HostelRegisterModal({
           studentId: row.studentId,
           employeeId: row.employeeId,
           organizationId: row.organizationId,
-        })
-        toastSuccess('Outing pass updated')
+        });
+        toastSuccess("Outing pass updated");
       } else {
-        const details = await listHostelDetails()
-        const hostel = details.find((h) => h.hostelId === hostelId)
         await createHostelRegister({
           ...payload,
-          organizationId: hostel?.organizationId,
-        })
-        toastSuccess('Outing pass issued')
+          organizationId,
+        });
+        toastSuccess("Outing pass issued");
       }
-      onSaved()
-      onClose()
+      onSaved();
     } catch (e) {
-      toastError(e, isEditing ? 'Update failed' : 'Could not issue outing pass')
+      toastError(
+        e,
+        isEditing ? "Update failed" : "Could not issue outing pass",
+      );
     }
   }
 
   const hostelerName =
-    row?.stdFirstName ?? row?.empFirstName ?? (row ? 'Hosteler' : '')
+    row?.stdFirstName ?? row?.empFirstName ?? (row ? "Hosteler" : "");
 
   return (
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Issuing Outing Pass' : 'Issuing Outing Pass'}
+      title={isEditing ? "Edit Issuesing Outing Pass" : "Issuesing Outing Pass"}
       titleClassName={HOSTEL_MODAL_TITLE_CLASS}
       size="xl"
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
       isSubmitting={isSubmitting}
       submitLabel="Save"
     >
       {isEditing ? (
         <p className="mb-3 text-[12px] text-muted-foreground">
-          Hosteller name: <span className="font-medium text-foreground">{hostelerName}</span>
+          Hosteller name:{" "}
+          <span className="font-medium text-foreground">{hostelerName}</span>
         </p>
       ) : (
         <Controller
@@ -283,7 +319,7 @@ export function HostelRegisterModal({
               searchable
               onSearch={(term) => void onHostelerSearch(term)}
               isLoading={searchingHostelers}
-              placeholder="Search by name (min 4 characters)"
+              placeholder="Search by name (min 5 characters)"
               error={errors.hstlRoomAllotId?.message}
             />
           )}
@@ -293,9 +329,14 @@ export function HostelRegisterModal({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-1">
           <Label className={HOSTEL_FIELD_LABEL_CLASS}>Attendees name</Label>
-          <Input className={HOSTEL_INPUT_CLASS} {...register('attendeesName')} />
+          <Input
+            className={HOSTEL_INPUT_CLASS}
+            {...register("attendeesName")}
+          />
           {errors.attendeesName ? (
-            <p className="text-[11px] text-destructive">{errors.attendeesName.message}</p>
+            <p className="text-[11px] text-destructive">
+              {errors.attendeesName.message}
+            </p>
           ) : null}
         </div>
 
@@ -318,9 +359,16 @@ export function HostelRegisterModal({
 
         <div className="space-y-1">
           <Label className={HOSTEL_FIELD_LABEL_CLASS}>Mobile number</Label>
-          <Input className={HOSTEL_INPUT_CLASS} type="tel" maxLength={10} {...register('mobileNumber')} />
+          <Input
+            className={HOSTEL_INPUT_CLASS}
+            type="tel"
+            maxLength={10}
+            {...register("mobileNumber")}
+          />
           {errors.mobileNumber ? (
-            <p className="text-[11px] text-destructive">{errors.mobileNumber.message}</p>
+            <p className="text-[11px] text-destructive">
+              {errors.mobileNumber.message}
+            </p>
           ) : null}
         </div>
 
@@ -329,7 +377,7 @@ export function HostelRegisterModal({
           control={control}
           render={({ field }) => (
             <DatePicker
-              label="Outing date"
+              label={isEditing ? "In date" : "Outing date"}
               value={field.value ?? null}
               onChange={(d) => field.onChange(d ?? new Date())}
               className={HOSTEL_SELECT_CLASS}
@@ -354,7 +402,7 @@ export function HostelRegisterModal({
           control={control}
           render={({ field }) => (
             <DatePicker
-              label="In date"
+              label={isEditing ? "Out date" : "In date"}
               value={field.value ?? null}
               onChange={(d) => field.onChange(d ?? new Date())}
               className={HOSTEL_SELECT_CLASS}
@@ -366,19 +414,23 @@ export function HostelRegisterModal({
           name="inTime"
           control={control}
           render={({ field }) => (
-            <TimePicker label="In time" value={field.value} onChange={field.onChange} />
+            <TimePicker
+              label="In time"
+              value={field.value}
+              onChange={field.onChange}
+            />
           )}
         />
       </div>
 
       <div className="mt-3">
         <ActiveStatusField
-          isActive={watch('isActive')}
-          reason={watch('reason') ?? ''}
-          onActiveChange={(v) => setValue('isActive', v === true)}
-          onReasonChange={(v) => setValue('reason', v)}
+          isActive={watch("isActive")}
+          reason={watch("reason") ?? ""}
+          onActiveChange={(v) => setValue("isActive", v === true)}
+          onReasonChange={(v) => setValue("reason", v)}
         />
       </div>
     </FormModal>
-  )
+  );
 }

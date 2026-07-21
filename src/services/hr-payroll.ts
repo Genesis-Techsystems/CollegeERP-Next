@@ -15,7 +15,9 @@ import {
   fetchDetails,
   getAllRecords,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
+  putDetailsEnvelope,
   uploadFile,
 } from "./crud";
 import { listGeneralDetailsByCode } from "./student-information";
@@ -185,6 +187,21 @@ export async function listPayslipSettings(): Promise<AnyRow[]> {
     buildQuery({ isActive: true }),
   );
   return data;
+}
+
+/** Angular `listDetailsById(PayslipBranchSetting, 'true', 'isActive')`. */
+export async function listActivePayslipBranchSettings(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    HR_PAYROLL_API.PAYSLIP_BRANCH_SETTING,
+    buildQuery({ isActive: true }),
+  );
+}
+
+/** Angular `add(payslipbrsetting, settings)` — saves enabled and disabled fields. */
+export async function savePayslipBranchSettings(
+  settings: AnyRow[],
+): Promise<unknown> {
+  return postDetails(HR_PAYROLL_API.PAYSLIPBR_SETTING, settings);
 }
 
 export async function listDepartmentHeads(): Promise<AnyRow[]> {
@@ -554,6 +571,28 @@ export async function listEmployeePayrollGroupByPayrollGroup(
   return normalizeListPayload(data);
 }
 
+/** Exact Angular employee-loss-of-pay request (no pagination parameter). */
+export async function listEmployeePayrollGroupForLossOfPay(
+  payrollGroupId: number,
+): Promise<AnyRow[]> {
+  const data = await fetchDetails<unknown>(
+    HR_PAYROLL_API.EMPLOYEE_PAYROLL_GROUP,
+    {
+      payrollGroupId,
+      isActive: "true",
+    },
+  );
+  return normalizeListPayload(data);
+}
+
+/** Exact Angular active payslip query used by employee-loss-of-pay. */
+export async function listActivePayslipsForLossOfPay(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    "EmployeePayslipGeneration",
+    buildQuery({ isActive: true }),
+  );
+}
+
 /** POST employeepayrollgroup — Angular add() for assign/update/remove (isActive:false). */
 export async function saveEmployeePayrollGroup(
   payload: AnyRow,
@@ -679,6 +718,55 @@ export async function listEmployeePayrollGroupByCollege(
   return normalizeListPayload(data);
 }
 
+/** Angular payslip list pagination (`collegeId` on page 0, `college.collegeId` afterwards). */
+export async function listEmployeePayrollGroupPage(params: {
+  collegeId: number;
+  page: number;
+  size?: number;
+}): Promise<{ rows: AnyRow[]; totalCount: number }> {
+  const { collegeId, page, size = 50 } = params;
+  if (!collegeId) return { rows: [], totalCount: 0 };
+  const query = new URLSearchParams({
+    isActive: "true",
+    page: String(page),
+    size: String(size),
+  });
+  query.set(page === 0 ? "collegeId" : "college.collegeId", String(collegeId));
+
+  const response = await fetch(
+    `${NEXT_API.PROXY(HR_PAYROLL_API.EMPLOYEE_PAYROLL_GROUP)}?${query}`,
+    { cache: "no-store", credentials: "include" },
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to load payroll employees (${response.status})`);
+  }
+  const envelope = (await response.json()) as {
+    success?: boolean;
+    message?: string;
+    totalCount?: number;
+    data?: unknown;
+  };
+  if (envelope.success === false) {
+    throw new Error(envelope.message || "Failed to load payroll employees");
+  }
+  const rows = normalizeListPayload(envelope.data);
+  const dataObject =
+    envelope.data &&
+    typeof envelope.data === "object" &&
+    !Array.isArray(envelope.data)
+      ? (envelope.data as AnyRow)
+      : null;
+  return {
+    rows,
+    totalCount: Number(
+      envelope.totalCount ??
+        dataObject?.totalCount ??
+        dataObject?.totalElements ??
+        rows.length,
+    ),
+  };
+}
+
 export async function listEmployeePayslipGenerations(): Promise<AnyRow[]> {
   try {
     const data = await fetchDetails<{ resultList?: AnyRow[] }>(
@@ -722,6 +810,65 @@ export async function listEmployeePayslipGenerationsByCollege(
   });
 }
 
+/** Exact Angular list query for the Payslips For Employees page. */
+export async function listEmployeePayslipGenerationsForEmployeeList(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId) return [];
+  return domainList<AnyRow>(
+    "EmployeePayslipGeneration",
+    buildQuery({ "college.collegeId": collegeId, isActive: true }),
+  );
+}
+
+/** Angular employee payslip history query. */
+export async function listEmployeePayslipHistory(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  if (!employeeId) return [];
+  return domainList<AnyRow>(
+    "EmployeePayslipGeneration",
+    buildQuery({ "employeeDetail.employeeId": employeeId, isActive: true }),
+  );
+}
+
+export async function listPayslipStatuses(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    "GeneralDetail",
+    buildQuery({
+      "GeneralMaster.generalMasterCode": "PAYSLIPSTATUS",
+      isActive: true,
+    }),
+  );
+}
+
+export async function listActivePayrollCategoriesForPayslip(): Promise<
+  AnyRow[]
+> {
+  return domainList<AnyRow>("PayrollCategory", buildQuery({ isActive: true }));
+}
+
+/** Angular `add(employeewisepayslipgenerations, payload)`. */
+export async function generateEmployeePayslip(payload: AnyRow) {
+  return postDetailsEnvelope(
+    EMPLOYEE_API.EMPLOYEE_WISE_PAYSLIP_GENERATIONS,
+    payload,
+  );
+}
+
+/** Angular soft delete of an EmployeePayslipGeneration row. */
+export async function deactivateEmployeePayslip(
+  empPayslipGenerationId: number,
+  payload: AnyRow,
+): Promise<unknown> {
+  return domainUpdate(
+    "EmployeePayslipGeneration",
+    "empPayslipGenerationId",
+    empPayslipGenerationId,
+    { ...payload, isActive: false },
+  );
+}
+
 export async function listEmployeePayslipGenerationsByDate(
   payslipGenerationDate: string,
 ): Promise<AnyRow[]> {
@@ -738,7 +885,11 @@ export function enrichEmployeesWithPayslipMonths(
 ): AnyRow[] {
   return employees.map((emp) => {
     const employeeId = Number(emp.employeeId);
-    const slip = payslips.find((p) => Number(p.employeeId) === employeeId);
+    let slip: AnyRow | undefined;
+    // Angular loops the full list and the final matching payslip wins.
+    for (const candidate of payslips) {
+      if (Number(candidate.employeeId) === employeeId) slip = candidate;
+    }
     return { ...emp, generatedDate: slip?.payslipMonth ?? null };
   });
 }
@@ -749,11 +900,15 @@ export function enrichEmployeesWithLop(employees: AnyRow[]): AnyRow[] {
     const structures = Array.isArray(emp.employeeSalaryStructure)
       ? (emp.employeeSalaryStructure as AnyRow[])
       : [];
-    const lop = structures.find((s) => String(s.payrollCategoryCode) === "LOP");
+    let lop: AnyRow | undefined;
+    // Angular scans every structure; the final exact LOP match wins.
+    for (const structure of structures) {
+      if (String(structure.payrollCategoryCode) === "LOP") lop = structure;
+    }
     return {
       ...emp,
       empSalaryStructureId: lop ? Number(lop.empSalaryStructureId) : undefined,
-      Lopamount: lop != null ? Number(lop.amount ?? 0) : 0,
+      Lopamount: lop?.amount,
     };
   });
 }
@@ -775,6 +930,8 @@ export function enrichMonthlyPayslipEmployees(
     let netAmount: unknown = null;
     let empPayslipGenerationId: unknown;
     if (slip?.payslipMonth) {
+      // Angular assigns the generation id before checking whether the month matches.
+      empPayslipGenerationId = slip.empPayslipGenerationId;
       const d = new Date(String(slip.payslipMonth));
       if (
         !Number.isNaN(d.getTime()) &&
@@ -784,7 +941,6 @@ export function enrichMonthlyPayslipEmployees(
         generatedDate = slip.payslipMonth;
         grossPay = slip.grossPay;
         netAmount = slip.netPay;
-        empPayslipGenerationId = slip.empPayslipGenerationId;
       }
     }
     return {
@@ -798,23 +954,44 @@ export function enrichMonthlyPayslipEmployees(
 }
 
 export async function updateEmployeeLossOfPay(
-  rows: { empSalaryStructureId: number; amount: number }[],
-): Promise<unknown> {
-  return putDetails(HR_PAYROLL_API.UPDATE_LOP, rows);
+  rows: {
+    empSalaryStructureId?: number;
+    amount?: string | number;
+  }[],
+) {
+  return putDetailsEnvelope(HR_PAYROLL_API.UPDATE_LOP, rows);
 }
 
-export async function generateMonthlyPayslips(
-  payload: AnyRow,
-): Promise<unknown> {
-  return postDetails(HR_PAYROLL_API.PAYSLIP_GENERATIONS, payload);
+export async function generateMonthlyPayslips(payload: AnyRow) {
+  return postDetailsEnvelope(HR_PAYROLL_API.PAYSLIP_GENERATIONS, payload);
 }
 
-export async function sendPayslipEmails(payload: AnyRow): Promise<unknown> {
-  return postDetails(HR_PAYROLL_API.PAYSLIP_EMAIL, payload);
+export async function sendPayslipEmails(payload: AnyRow) {
+  return postDetailsEnvelope(HR_PAYROLL_API.PAYSLIP_EMAIL, payload);
+}
+
+/** Angular `listDetailsById(EmployeePayslipDetail, id, employeePayslipGeneration.empPayslipGenerationId)`. */
+export async function listEmployeePayslipDetails(
+  empPayslipGenerationId: number,
+): Promise<AnyRow[]> {
+  if (!empPayslipGenerationId) return [];
+  return domainList<AnyRow>(
+    "EmployeePayslipDetail",
+    buildQuery({
+      "employeePayslipGeneration.empPayslipGenerationId":
+        empPayslipGenerationId,
+    }),
+  );
 }
 
 export async function listEmployeeCategoriesForPayroll(): Promise<AnyRow[]> {
-  return listGeneralDetailsByCode(GM_CODES.EMPLOYEE_CATEGORY);
+  return domainList<AnyRow>(
+    "GeneralDetail",
+    buildQuery({
+      "GeneralMaster.generalMasterCode": GM_CODES.EMPLOYEE_CATEGORY,
+      isActive: true,
+    }),
+  );
 }
 
 const HR_EXCLUDED_ROLES = new Set(["SUPERADMIN", "ADMIN", "SECURITY"]);
