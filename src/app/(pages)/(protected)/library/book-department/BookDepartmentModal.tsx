@@ -1,38 +1,51 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { FormModal } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Label } from '@/components/ui/label'
-import { LIBRARY_MODAL_TITLE_CLASS } from '../_lib/modal-styles'
-import { useLibraryOrgLibraryOptions } from '../_hooks/use-library-org-library'
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActiveStatusField } from "@/common/components/forms";
+import { FormModal } from "@/common/components/feedback";
+import { Select, type SelectOption } from "@/common/components/select";
+import { LIBRARY_MODAL_TITLE_CLASS } from "../_lib/modal-styles";
 import {
   createLibraryBookCategory,
-  listLibraryCategories,
+  listActiveOrganizationsForLibrary,
+  listLibraryCategoriesByOrganization,
+  listLibraryDetailsByOrganization,
   updateLibraryBookCategory,
-} from '@/services'
-import type { LibraryBookCategory } from '@/types/library'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import type { LibraryBookCategory } from "@/types/library";
+import { toastError, toastSuccess } from "@/lib/toast";
+
+function requiredId(label: string) {
+  const message = `${label} is required`;
+  return z.preprocess(
+    (value) => {
+      if (value === "" || value === null || value === undefined)
+        return undefined;
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    },
+    z.number({ error: message }).min(1, message),
+  );
+}
 
 const schema = z.object({
-  organizationId: z.coerce.number().min(1, 'Organization is required'),
-  libraryId: z.coerce.number().min(1, 'Library is required'),
-  libCategoryId: z.coerce.number().min(1, 'Category is required'),
+  organizationId: requiredId("Organization"),
+  libraryId: requiredId("Library"),
+  libCategoryId: requiredId("Library category"),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface BookDepartmentModalProps {
-  open: boolean
-  onClose: () => void
-  row: LibraryBookCategory | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: LibraryBookCategory | null;
+  onSaved: () => void;
 }
 
 export function BookDepartmentModal({
@@ -41,8 +54,11 @@ export function BookDepartmentModal({
   row,
   onSaved,
 }: Readonly<BookDepartmentModalProps>) {
-  const isEditing = row != null
-  const [categories, setCategories] = useState<SelectOption[]>([])
+  const isEditing = row != null;
+  const [organizations, setOrganizations] = useState<SelectOption[]>([]);
+  const [libraries, setLibraries] = useState<SelectOption[]>([]);
+  const [categories, setCategories] = useState<SelectOption[]>([]);
+  const [loadingLibraries, setLoadingLibraries] = useState(false);
 
   const {
     handleSubmit,
@@ -58,23 +74,28 @@ export function BookDepartmentModal({
       libraryId: undefined,
       libCategoryId: undefined,
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
-  const organizationId = watch('organizationId')
-  const { organizations, libraries, loadingLibraries } = useLibraryOrgLibraryOptions(organizationId)
+  const organizationId = watch("organizationId");
 
   useEffect(() => {
-    if (!open) return
-    void listLibraryCategories().then((rows) => {
-      setCategories(
-        rows.map((c) => ({
-          value: String(c.libCategoryId),
-          label: `${c.bookCategoryCode ?? ''} — ${c.bookCategoryName ?? c.libCategoryId}`,
-        })),
-      )
-    })
+    if (!open) return;
+    void listActiveOrganizationsForLibrary()
+      .then((rows) => {
+        setOrganizations(
+          rows.map((organization) => ({
+            value: String(organization.organizationId),
+            label: String(
+              organization.orgCode ??
+                organization.orgName ??
+                organization.organizationId,
+            ),
+          })),
+        );
+      })
+      .catch((error) => toastError(error, "Failed to load organizations"));
     reset(
       row
         ? {
@@ -82,35 +103,70 @@ export function BookDepartmentModal({
             libraryId: row.libraryId,
             libCategoryId: row.libCategoryId,
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             organizationId: undefined,
             libraryId: undefined,
             libCategoryId: undefined,
             isActive: true,
-            reason: 'active',
+            reason: "active",
           },
-    )
-  }, [open, row, reset])
+    );
+  }, [open, row, reset]);
+
+  useEffect(() => {
+    if (!open || !organizationId) {
+      setLibraries([]);
+      setCategories([]);
+      return;
+    }
+    setLoadingLibraries(true);
+    void Promise.all([
+      listLibraryDetailsByOrganization(organizationId),
+      listLibraryCategoriesByOrganization(organizationId),
+    ])
+      .then(([libraryRows, categoryRows]) => {
+        setLibraries(
+          libraryRows.map((library) => ({
+            value: String(library.libraryId),
+            label: String(
+              library.libraryCode ?? library.libraryName ?? library.libraryId,
+            ),
+          })),
+        );
+        setCategories(
+          categoryRows.map((category) => ({
+            value: String(category.libCategoryId),
+            label: String(category.bookCategoryCode ?? category.libCategoryId),
+          })),
+        );
+      })
+      .catch((error) => toastError(error, "Failed to load library options"))
+      .finally(() => setLoadingLibraries(false));
+  }, [open, organizationId]);
 
   async function onSubmit(data: FormValues) {
     const payload = {
       ...data,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+      ...(isEditing && row?.bookcatId ? { bookcatId: row.bookcatId } : {}),
+    };
     try {
       if (isEditing && row?.bookcatId) {
-        await updateLibraryBookCategory(row.bookcatId, payload)
-        toastSuccess('Book department updated')
+        await updateLibraryBookCategory(row.bookcatId, payload);
+        toastSuccess("Book department updated");
       } else {
-        await createLibraryBookCategory(payload)
-        toastSuccess('Book department created')
+        await createLibraryBookCategory(payload);
+        toastSuccess("Book department created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, `Failed to ${isEditing ? 'update' : 'create'} book department`)
+      toastError(
+        err,
+        `Failed to ${isEditing ? "update" : "create"} book department`,
+      );
     }
   }
 
@@ -118,62 +174,62 @@ export function BookDepartmentModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Book Department' : 'Add Book Department'}
+      title={isEditing ? "Edit Book Department" : "Add Book Department"}
       titleClassName={LIBRARY_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
-      submitLabel={isEditing ? 'Update' : 'Save'}
+      submitLabel="Save"
       cancelLabel="Cancel"
       isSubmitting={isSubmitting}
       size="lg"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Organization</Label>
+        <Select
+          label="Organization"
+          required
+          value={organizationId ? String(organizationId) : null}
+          onChange={(value) => {
+            setValue("organizationId", value ? Number(value) : 0);
+            setValue("libraryId", 0);
+            setValue("libCategoryId", 0);
+          }}
+          options={organizations}
+          placeholder="Select organization"
+          searchable
+          error={errors.organizationId?.message}
+        />
+        <Select
+          label="Library"
+          required
+          value={watch("libraryId") ? String(watch("libraryId")) : null}
+          onChange={(value) => setValue("libraryId", value ? Number(value) : 0)}
+          options={libraries}
+          placeholder="Select library"
+          searchable
+          isLoading={loadingLibraries}
+          disabled={!organizationId}
+          error={errors.libraryId?.message}
+        />
+        <div className="sm:col-span-2">
           <Select
-            value={organizationId ? String(organizationId) : ''}
-            onChange={(v) => {
-              setValue('organizationId', Number(v))
-              setValue('libraryId', undefined as unknown as number)
-            }}
-            options={organizations}
-            placeholder="Select organization"
-            searchable
-          />
-          {errors.organizationId && (
-            <p className="text-xs text-destructive">{errors.organizationId.message}</p>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label>Library</Label>
-          <Select
-            value={watch('libraryId') ? String(watch('libraryId')) : ''}
-            onChange={(v) => setValue('libraryId', Number(v))}
-            options={libraries}
-            placeholder="Select library"
-            searchable
-            isLoading={loadingLibraries}
-            disabled={!organizationId}
-          />
-          {errors.libraryId && (
-            <p className="text-xs text-destructive">{errors.libraryId.message}</p>
-          )}
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Library Category</Label>
-          <Select
-            value={watch('libCategoryId') ? String(watch('libCategoryId')) : ''}
-            onChange={(v) => setValue('libCategoryId', Number(v))}
+            label="Library Category"
+            required
+            value={
+              watch("libCategoryId") ? String(watch("libCategoryId")) : null
+            }
+            onChange={(value) =>
+              setValue("libCategoryId", value ? Number(value) : 0)
+            }
             options={categories}
             placeholder="Select category"
             searchable
+            isLoading={loadingLibraries}
+            disabled={!organizationId}
+            error={errors.libCategoryId?.message}
           />
-          {errors.libCategoryId && (
-            <p className="text-xs text-destructive">{errors.libCategoryId.message}</p>
-          )}
         </div>
         <div className="sm:col-span-2">
           <Controller
@@ -182,9 +238,9 @@ export function BookDepartmentModal({
             render={({ field }) => (
               <ActiveStatusField
                 isActive={field.value}
-                reason={watch('reason') ?? ''}
+                reason={watch("reason") ?? ""}
                 onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', String(v))}
+                onReasonChange={(v) => setValue("reason", String(v))}
                 reasonError={errors.reason?.message}
               />
             )}
@@ -192,5 +248,5 @@ export function BookDepartmentModal({
         </div>
       </div>
     </FormModal>
-  )
+  );
 }

@@ -1,42 +1,42 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { useQuery } from '@tanstack/react-query'
-import { FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
-import { Select } from '@/common/components/select'
-import { StatusBadge } from '@/common/components/data-display'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listHostelDetails, listHostelRoomsByHostel } from '@/services'
-import type { HostelDetail, HostelRoom } from '@/types/hostel'
-import { useHostelSelect } from '../_lib/use-hostel-select'
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { useQuery } from "@tanstack/react-query";
+import { FILTER_CARD_SELECT_CLASS } from "@/common/components/feedback";
+import { Select } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listHostelDetails, listHostelRoomsByHostel } from "@/services";
+import type { HostelDetail, HostelRoom } from "@/types/hostel";
+import { useHostelSelect } from "../_lib/use-hostel-select";
 
 function floorRenderer(p: ICellRendererParams<HostelRoom>) {
-  const row = p.data
-  if (!row) return '—'
-  const floorNo = row.floorNo ?? ''
-  const floorName = row.floorName
-  if (floorName) return `${floorNo} (${floorName})`
-  return String(floorNo || '—')
+  const row = p.data;
+  if (!row) return "—";
+  const floorNo = row.floorNo ?? "";
+  const floorName = row.floorName;
+  if (floorName) return `${floorNo} (${floorName})`;
+  return String(floorNo || "—");
 }
 
 function buildAllocationUrl(row: HostelRoom, hostel?: HostelDetail) {
-  const params = new URLSearchParams()
-  params.set('hostelId', String(row.hostelId ?? hostel?.hostelId ?? ''))
-  params.set('hstlRoomId', String(row.hstlRoomId))
-  params.set('hostelName', hostel?.hostelName ?? '')
-  params.set('hostelCode', hostel?.hostelCode ?? '')
-  params.set('floorNo', String(row.floorNo ?? ''))
-  if (row.floorName) params.set('floorName', row.floorName)
-  params.set('roomNumber', row.roomNumber ?? '')
-  if (row.roomTypeCode) params.set('roomTypeCode', row.roomTypeCode)
-  params.set('availableBeds', String(row.availableBeds ?? 0))
-  params.set('amount', String(row.amount ?? ''))
-  return `/hostel/room-allocation?${params.toString()}`
+  const params = new URLSearchParams();
+  params.set("hostelId", String(row.hostelId ?? hostel?.hostelId ?? ""));
+  params.set("hstlRoomId", String(row.hstlRoomId));
+  params.set("hostelName", hostel?.hostelName ?? "");
+  params.set("hostelCode", hostel?.hostelCode ?? "");
+  params.set("floorNo", String(row.floorNo ?? ""));
+  if (row.floorName) params.set("floorName", row.floorName);
+  params.set("roomNumber", row.roomNumber ?? "");
+  if (row.roomTypeCode) params.set("roomTypeCode", row.roomTypeCode);
+  params.set("availableBeds", String(row.availableBeds ?? 0));
+  params.set("amount", String(row.amount ?? ""));
+  return `/hostel/room-allocation?${params.toString()}`;
 }
 
 function makeAllocateRenderer(
@@ -44,17 +44,23 @@ function makeAllocateRenderer(
   hostelById: Map<number, HostelDetail>,
 ) {
   return (p: ICellRendererParams<HostelRoom>) => {
-    const row = p.data
-    if (!row) return null
-    const available = Number(row.availableBeds ?? 0)
+    const row = p.data;
+    if (!row) return null;
+    const available = Number(row.availableBeds ?? 0);
     if (available <= 0) {
       return (
-        <Button type="button" size="sm" variant="outline" disabled className="h-[30px] text-[12px]">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled
+          className="h-[30px] text-[12px]"
+        >
           No beds available
         </Button>
-      )
+      );
     }
-    const hostel = hostelById.get(Number(row.hostelId))
+    const hostel = hostelById.get(Number(row.hostelId));
     return (
       <Button
         type="button"
@@ -64,54 +70,68 @@ function makeAllocateRenderer(
       >
         Allocate room
       </Button>
-    )
-  }
+    );
+  };
 }
 
 export default function HostelRoomAllocationPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const initialHostelId = searchParams.get('hostelId')
-  const [hostelId, setHostelId] = useState<string | null>(initialHostelId)
-  const { hostels, loadingHostels } = useHostelSelect()
-  const hostelNum = Number(hostelId ?? 0)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialHostelId = searchParams.get("hostelId");
+  const [hostelId, setHostelId] = useState<string | null>(initialHostelId);
+  const { hostels, loadingHostels } = useHostelSelect();
+  const hostelNum = Number(hostelId ?? 0);
 
   const { data: hostelRows = [] } = useQuery({
     queryKey: QK.hostel.details(),
     queryFn: listHostelDetails,
-  })
+  });
 
   const hostelById = useMemo(() => {
-    const map = new Map<number, HostelDetail>()
+    const map = new Map<number, HostelDetail>();
     for (const h of hostelRows) {
-      if (h.hostelId) map.set(h.hostelId, h)
+      if (h.hostelId) map.set(h.hostelId, h);
     }
-    return map
-  }, [hostelRows])
+    return map;
+  }, [hostelRows]);
 
   useEffect(() => {
-    if (hostelId || hostels.length === 0) return
-    setHostelId(hostels[0]?.value ?? null)
-  }, [hostelId, hostels])
+    if (hostelId || hostels.length === 0) return;
+    setHostelId(hostels[0]?.value ?? null);
+  }, [hostelId, hostels]);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: QK.hostel.rooms(hostelNum),
     queryFn: () => listHostelRoomsByHostel(hostelNum),
     enabled: hostelNum > 0,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<HostelRoom>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 },
-      { field: 'roomNumber', headerName: 'Room number', minWidth: 110 },
-      { field: 'noOfBeds', headerName: 'No. of beds', width: 100, flex: 0 },
-      { field: 'allotedBeds', headerName: 'Allotted beds', width: 110, flex: 0 },
-      { headerName: 'Floor number', minWidth: 130, cellRenderer: floorRenderer },
-      { field: 'availableBeds', headerName: 'Available beds', width: 120, flex: 0 },
-      { field: 'amount', headerName: 'Room amount', minWidth: 110 },
+      { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+      { field: "roomNumber", headerName: "Room number", minWidth: 110 },
+      { field: "noOfBeds", headerName: "No. of beds", width: 100, flex: 0 },
       {
-        field: 'isActive',
-        headerName: 'Status',
+        field: "allotedBeds",
+        headerName: "Allotted beds",
+        width: 110,
+        flex: 0,
+      },
+      {
+        headerName: "Floor number",
+        minWidth: 130,
+        cellRenderer: floorRenderer,
+      },
+      {
+        field: "availableBeds",
+        headerName: "Available beds",
+        width: 120,
+        flex: 0,
+      },
+      { field: "amount", headerName: "Room amount", minWidth: 110 },
+      {
+        field: "isActive",
+        headerName: "Status",
         minWidth: 100,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<HostelRoom>) => (
@@ -119,7 +139,7 @@ export default function HostelRoomAllocationPage() {
         ),
       },
       {
-        headerName: 'Actions',
+        headerName: "Actions",
         minWidth: 140,
         width: 140,
         flex: 0,
@@ -127,23 +147,25 @@ export default function HostelRoomAllocationPage() {
       },
     ],
     [router, hostelById],
-  )
+  );
 
   return (
     <FilteredListPage
       title="Hostel room allocation"
-      filters={(
-        <Select
-          label="Hostel"
-          className={FILTER_CARD_SELECT_CLASS}
-          value={hostelId}
-          onChange={setHostelId}
-          options={hostels}
-          placeholder="Select hostel"
-          searchable
-          isLoading={loadingHostels}
-        />
-      )}
+      filters={
+        <div className="w-full max-w-sm">
+          <Select
+            label="Hostel"
+            className={FILTER_CARD_SELECT_CLASS}
+            value={hostelId}
+            onChange={setHostelId}
+            options={hostels}
+            placeholder="Select hostel"
+            searchable
+            isLoading={loadingHostels}
+          />
+        </div>
+      }
       rowData={rows}
       columnDefs={columnDefs}
       loading={isLoading}
@@ -151,10 +173,10 @@ export default function HostelRoomAllocationPage() {
       height="auto"
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search rooms…',
+        searchPlaceholder: "Search rooms…",
         exportPdf: true,
-        pdfDocumentTitle: 'Hostel Room Allocation',
+        pdfDocumentTitle: "Hostel Room Allocation",
       }}
     />
-  )
+  );
 }

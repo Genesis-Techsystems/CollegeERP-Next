@@ -10,9 +10,16 @@ export function formatTransportTime(time: string | null | undefined): string {
 }
 
 export function toApiDate(date: Date | null | undefined): string | undefined {
-  if (!date) return undefined
+  if (!date || Number.isNaN(date.getTime())) return undefined
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+/** Normalize HTML time input (HH:mm) to Angular-style `HH:mm:00` for API payloads. */
+export function toApiTime(time: string | null | undefined): string | undefined {
+  if (!time) return undefined
+  if (/^\d{1,2}:\d{2}$/.test(time)) return `${time}:00`
+  return time
 }

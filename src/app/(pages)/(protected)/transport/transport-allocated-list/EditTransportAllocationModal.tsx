@@ -1,45 +1,43 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { FormModal } from '@/common/components/feedback'
-import { ActiveStatusField } from '@/common/components/forms'
-import { DatePicker } from '@/common/components/date-picker'
-import { Select, type SelectOption } from '@/common/components/select'
-import {
-  TRANSPORT_MODAL_TITLE_CLASS,
-} from '../_lib/modal-styles'
-import { TransportOrgFields } from '../_components/TransportOrgFields'
-import { toApiDate } from '../_lib/format-transport-time'
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormModal } from "@/common/components/feedback";
+import { ActiveStatusField } from "@/common/components/forms";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select, type SelectOption } from "@/common/components/select";
+import { TRANSPORT_MODAL_TITLE_CLASS } from "../_lib/modal-styles";
+import { TransportOrgFields } from "../_components/TransportOrgFields";
+import { toApiDate } from "../_lib/format-transport-time";
 import {
   listRouteStopsByRoute,
   listRoutesByTransportDetail,
   updateTransportAllocation,
-} from '@/services'
-import type { TransportAllocation } from '@/types/transport'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import type { TransportAllocation } from "@/types/transport";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 const schema = z.object({
   organizationId: z.coerce.number().optional(),
-  transportDetailId: z.coerce.number().min(1, 'Transport is required'),
-  routeId: z.coerce.number().min(1, 'Route is required'),
-  pickupRouteStopId: z.coerce.number().min(1, 'Pickup stop is required'),
-  dropRouteStopId: z.coerce.number().min(1, 'Drop stop is required'),
-  fromDate: z.date({ message: 'From date is required' }),
+  transportDetailId: z.coerce.number().min(1, "Transport is required"),
+  routeId: z.coerce.number().min(1, "Route is required"),
+  pickupRouteStopId: z.coerce.number().min(1, "Pickup stop is required"),
+  dropRouteStopId: z.coerce.number().min(1, "Drop stop is required"),
+  fromDate: z.date({ message: "From date is required" }),
   toDate: z.date().optional().nullable(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface EditTransportAllocationModalProps {
-  open: boolean
-  onClose: () => void
-  row: TransportAllocation | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: TransportAllocation | null;
+  onSaved: () => void;
 }
 
 export function EditTransportAllocationModal({
@@ -57,17 +55,17 @@ export function EditTransportAllocationModal({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
-    defaultValues: { isActive: true, reason: 'active' },
-  })
+    defaultValues: { isActive: true, reason: "active" },
+  });
 
-  const organizationId = watch('organizationId')
-  const transportDetailId = watch('transportDetailId')
-  const routeId = watch('routeId')
-  const [routes, setRoutes] = useState<SelectOption[]>([])
-  const [stops, setStops] = useState<SelectOption[]>([])
+  const organizationId = watch("organizationId");
+  const transportDetailId = watch("transportDetailId");
+  const routeId = watch("routeId");
+  const [routes, setRoutes] = useState<SelectOption[]>([]);
+  const [stops, setStops] = useState<SelectOption[]>([]);
 
   useEffect(() => {
-    if (!open || !row) return
+    if (!open || !row) return;
     reset({
       organizationId: row.organizationId,
       transportDetailId: row.transportDetailId,
@@ -77,31 +75,33 @@ export function EditTransportAllocationModal({
       fromDate: row.fromDate ? new Date(row.fromDate) : new Date(),
       toDate: row.toDate ? new Date(row.toDate) : null,
       isActive: row.isActive ?? true,
-      reason: row.reason ?? 'active',
-    })
-  }, [open, row, reset])
+      reason: row.reason ?? "active",
+    });
+  }, [open, row, reset]);
 
   useEffect(() => {
     if (!transportDetailId) {
-      setRoutes([])
-      return
+      setRoutes([]);
+      return;
     }
     void listRoutesByTransportDetail(transportDetailId)
       .then((r) =>
         setRoutes(
           r.map((x) => ({
             value: String(x.routeId),
-            label: `${x.serviceNumber ?? ''} ${x.routeCode ?? ''}`.trim() || String(x.routeId),
+            label:
+              `${x.serviceNumber ?? ""} ${x.routeCode ?? ""}`.trim() ||
+              String(x.routeId),
           })),
         ),
       )
-      .catch((err) => toastError(err, 'Failed to load routes'))
-  }, [transportDetailId])
+      .catch((err) => toastError(err, "Failed to load routes"));
+  }, [transportDetailId]);
 
   useEffect(() => {
     if (!routeId) {
-      setStops([])
-      return
+      setStops([]);
+      return;
     }
     void listRouteStopsByRoute(routeId)
       .then((s) =>
@@ -112,24 +112,24 @@ export function EditTransportAllocationModal({
           })),
         ),
       )
-      .catch((err) => toastError(err, 'Failed to load route stops'))
-  }, [routeId])
+      .catch((err) => toastError(err, "Failed to load route stops"));
+  }, [routeId]);
 
   async function onSubmit(data: FormValues) {
-    if (!row?.transportAllocationId) return
+    if (!row?.transportAllocationId) return;
     const payload = {
       ...data,
       fromDate: toApiDate(data.fromDate),
       toDate: toApiDate(data.toDate ?? undefined),
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+    };
     try {
-      await updateTransportAllocation(row.transportAllocationId, payload)
-      toastSuccess('Transport allocation updated')
-      onSaved()
-      onClose()
+      await updateTransportAllocation(row.transportAllocationId, payload);
+      toastSuccess("Transport allocation updated");
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, 'Failed to update allocation')
+      toastError(err, "Failed to update allocation");
     }
   }
 
@@ -141,8 +141,8 @@ export function EditTransportAllocationModal({
       titleClassName={TRANSPORT_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
       submitLabel="Save"
       cancelLabel="Close"
@@ -156,8 +156,15 @@ export function EditTransportAllocationModal({
             organizationId={organizationId}
             transportError={errors.transportDetailId?.message}
             onOrganizationChange={() => {
-              setValue('transportDetailId', undefined as unknown as number)
-              setValue('routeId', undefined as unknown as number)
+              setValue("transportDetailId", undefined as unknown as number);
+              setValue("routeId", undefined as unknown as number);
+              setValue("pickupRouteStopId", undefined as unknown as number);
+              setValue("dropRouteStopId", undefined as unknown as number);
+            }}
+            onTransportChange={() => {
+              setValue("routeId", undefined as unknown as number);
+              setValue("pickupRouteStopId", undefined as unknown as number);
+              setValue("dropRouteStopId", undefined as unknown as number);
             }}
           />
         </div>
@@ -169,9 +176,9 @@ export function EditTransportAllocationModal({
               label="Route *"
               value={field.value != null ? String(field.value) : null}
               onChange={(v) => {
-                field.onChange(v ? Number(v) : undefined)
-                setValue('pickupRouteStopId', undefined as unknown as number)
-                setValue('dropRouteStopId', undefined as unknown as number)
+                field.onChange(v ? Number(v) : undefined);
+                setValue("pickupRouteStopId", undefined as unknown as number);
+                setValue("dropRouteStopId", undefined as unknown as number);
               }}
               options={routes}
               placeholder="Select route"
@@ -232,7 +239,11 @@ export function EditTransportAllocationModal({
             name="toDate"
             control={control}
             render={({ field }) => (
-              <DatePicker label="To Date" value={field.value ?? null} onChange={field.onChange} />
+              <DatePicker
+                label="To Date"
+                value={field.value ?? null}
+                onChange={field.onChange}
+              />
             )}
           />
         </div>
@@ -242,13 +253,13 @@ export function EditTransportAllocationModal({
           render={({ field }) => (
             <ActiveStatusField
               isActive={field.value}
-              reason={watch('reason') ?? ''}
+              reason={watch("reason") ?? ""}
               onActiveChange={field.onChange}
-              onReasonChange={(v) => setValue('reason', v)}
+              onReasonChange={(v) => setValue("reason", v)}
             />
           )}
         />
       </div>
     </FormModal>
-  )
+  );
 }

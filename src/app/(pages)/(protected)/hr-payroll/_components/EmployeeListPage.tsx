@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { MailIcon, PencilIcon, PlusIcon } from "lucide-react";
-import { DataTable, TableCard } from "@/common/components/table";
 import { StatusBadge } from "@/common/components/data-display";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { Select, type SelectOption } from "@/common/components/select";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
@@ -25,6 +24,8 @@ type EmpRow = Record<string, unknown>;
 type ListMode = "search" | "all";
 type MailTarget = { kind: "single"; row: EmpRow } | { kind: "bulk" } | null;
 
+const DEFAULT_EMPLOYEE_PHOTO = "/assets/images/avatars/default_Student.png";
+
 const COL_DEFS = {
   siNo: {
     headerName: "Sl.No",
@@ -35,7 +36,7 @@ const COL_DEFS = {
   photo: {
     field: "photoPath",
     headerName: "Photo",
-    width: 80,
+    width: 90,
     flex: 0,
     sortable: false,
     filter: false,
@@ -102,25 +103,20 @@ function statusRenderer(p: ICellRendererParams<EmpRow>) {
 }
 
 function photoRenderer(p: ICellRendererParams<EmpRow>) {
-  const src = String(p.data?.photoPath ?? "").trim();
-  if (!src) {
-    return (
-      <div className="flex h-full items-center justify-center py-1">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-muted text-[10px] text-muted-foreground">
-          —
-        </div>
-      </div>
-    );
-  }
+  const src = String(p.data?.photoPath ?? "").trim() || DEFAULT_EMPLOYEE_PHOTO;
+
   return (
     <div className="flex h-full items-center justify-center py-1">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""
-        className="h-9 w-9 rounded-full border object-cover"
+        className="h-[50px] w-[50px] shrink-0 rounded-full object-cover"
         onError={(e) => {
-          e.currentTarget.style.display = "none";
+          const image = e.currentTarget;
+          if (!image.src.endsWith("default_Student.png")) {
+            image.src = DEFAULT_EMPLOYEE_PHOTO;
+          }
         }}
       />
     </div>
@@ -313,31 +309,39 @@ export function EmployeeListPage() {
       : "Send Credentials To : All Employees";
 
   return (
-    <PageContainer className="space-y-5">
-      {/* Angular radio group — no separate title card */}
-      <div className="flex flex-wrap items-center gap-6 px-1">
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="employee-list-mode"
-            checked={mode === "search"}
-            onChange={() => handleModeChange("search")}
-          />
-          Search By Employee
-        </label>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="radio"
-            name="employee-list-mode"
-            checked={mode === "all"}
-            onChange={() => handleModeChange("all")}
-          />
-          All Employees
-        </label>
-      </div>
-
-      {mode === "search" ? (
-        <div className="app-card overflow-hidden p-4">
+    <FilteredListPage
+      title="Employee Profile"
+      notice={
+        <>
+          <div className="flex flex-wrap items-center gap-6 px-1">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="employee-list-mode"
+                checked={mode === "search"}
+                onChange={() => handleModeChange("search")}
+              />
+              Search By Employee
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="employee-list-mode"
+                checked={mode === "all"}
+                onChange={() => handleModeChange("all")}
+              />
+              All Employees
+            </label>
+          </div>
+          {error && mode === "all" ? (
+            <p className="px-1 text-sm text-destructive">
+              {getErrorMessage(error)}
+            </p>
+          ) : null}
+        </>
+      }
+      filters={
+        mode === "search" ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full max-w-md">
               <Select
@@ -364,58 +368,53 @@ export function EmployeeListPage() {
               New Employee Admission
             </Button>
           </div>
-        </div>
-      ) : null}
-
-      {error && mode === "all" ? (
-        <p className="px-1 text-sm text-destructive">
-          {getErrorMessage(error)}
-        </p>
-      ) : null}
-
-      {showTable ? (
-        <TableCard withHeaderBorder={false}>
-          <DataTable
-            rowData={displayRows}
-            columnDefs={columnDefs}
-            loading={mode === "all" ? isFetching : false}
-            pagination
-            toolbar={{
+        ) : null
+      }
+      filtersCollapsible={false}
+      rowData={showTable ? displayRows : []}
+      columnDefs={showTable ? columnDefs : undefined}
+      body={showTable ? undefined : null}
+      bodyClassName="border-t-0"
+      loading={mode === "all" ? isFetching : false}
+      pagination={showTable}
+      rowHeight={60}
+      toolbar={
+        showTable
+          ? {
               search: true,
               searchPlaceholder: "Employee Search",
               pdfDocumentTitle: "Employee List",
-            }}
-            toolbarTrailing={
-              mode === "all" ? (
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-[30px] px-3 text-[12px]"
-                    onClick={() => setMailTarget({ kind: "bulk" })}
-                  >
-                    <MailIcon className="mr-1.5 h-3.5 w-3.5" />
-                    Send Employee Credentials
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-[30px] px-3 text-[12px]"
-                    onClick={() =>
-                      router.push("/hr-payroll/employee/employee-enrollement")
-                    }
-                  >
-                    <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-                    New Employee Admission
-                  </Button>
-                </div>
-              ) : undefined
             }
-          />
-        </TableCard>
-      ) : null}
-
+          : undefined
+      }
+      toolbarTrailing={
+        showTable && mode === "all" ? (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => setMailTarget({ kind: "bulk" })}
+            >
+              <MailIcon className="mr-1.5 h-3.5 w-3.5" />
+              Send Employee Credentials
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() =>
+                router.push("/hr-payroll/employee/employee-enrollement")
+              }
+            >
+              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+              New Employee Admission
+            </Button>
+          </div>
+        ) : undefined
+      }
+    >
       <ConfirmDialog
         open={mailTarget != null}
         title="Send Credentials"
@@ -429,6 +428,6 @@ export function EmployeeListPage() {
         }}
         isLoading={mailSending}
       />
-    </PageContainer>
+    </FilteredListPage>
   );
 }

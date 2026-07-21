@@ -14,10 +14,11 @@ import { PayrollCategoryPage } from "./PayrollCategoryPage";
 import { PayrollCategoryFormPage } from "./PayrollCategoryFormPage";
 import { PayrollGroupPage } from "./PayrollGroupPage";
 import { PayrollGroupFormPage } from "./PayrollGroupFormPage";
-import { PayrollSettingsPage } from "./PayrollSettingsPage";
+import { PayslipSettingsPage } from "./PayslipSettingsPage";
 import { EnterLossOfPayPage } from "./EnterLossOfPayPage";
-import { PayslipForEmployeesPage } from "./PayslipForEmployeesPage";
+import { PayslipForEmployeesPage } from "@/app/(pages)/(protected)/hr-payroll/_components/PayslipForEmployeesPage";
 import { MonthlyPayslipPage } from "./MonthlyPayslipPage";
+import { ViewMonthlyPayslipPage } from "./ViewMonthlyPayslipPage";
 import { PrePayrollAuditReportPage } from "./PrePayrollAuditReportPage";
 import { MonthlyPayrollReportPage } from "./MonthlyPayrollReportPage";
 import { PayrollReportsPage } from "./PayrollReportsPage";
@@ -31,6 +32,7 @@ import { AssignEmployeeToGroupPage } from "./AssignEmployeeToGroupPage";
 import { EmployeePayrollAssignPage } from "./EmployeePayrollAssignPage";
 import { EditAssignedEmployeePage } from "./EditAssignedEmployeePage";
 import { EmployeeEnrollmentPage } from "./EmployeeEnrollmentPage";
+import { EmployeeIdCardsPage } from "./EmployeeIdCardsPage";
 
 const LIST_PAGES: Record<string, () => React.ReactElement> = {
   "department-heads": () => <DepartmentHeadsPage />,
@@ -38,7 +40,7 @@ const LIST_PAGES: Record<string, () => React.ReactElement> = {
   "employee/reporting-manager": () => <ReportingManagerPage />,
   "payroll/payroll-category": () => <PayrollCategoryPage />,
   "payroll/payroll-group": () => <PayrollGroupPage />,
-  "payroll/payroll-settings": () => <PayrollSettingsPage />,
+  "payroll/payroll-settings": () => <PayslipSettingsPage />,
   "payroll/enter-loss-of-pay": () => <EnterLossOfPayPage />,
   "payroll/payslip-for-employees": () => <PayslipForEmployeesPage />,
   "payroll/monthly-playslip": () => <MonthlyPayslipPage />,
@@ -82,6 +84,10 @@ export function HrPayrollRoutePage({ slug }: HrPayrollRoutePageProps) {
     return <BiometricEmployeesPage />;
   }
 
+  if (slug === "employee/id-cards") {
+    return <EmployeeIdCardsPage />;
+  }
+
   if (slug === "employee/employee-enrollement") {
     return <EmployeeEnrollmentPage mode="create" />;
   }
@@ -118,6 +124,14 @@ export function HrPayrollRoutePage({ slug }: HrPayrollRoutePageProps) {
 
   if (slug === "payroll/payroll-group/assigned-employees/edit-employee") {
     return <EditAssignedEmployeePage />;
+  }
+
+  if (slug === "payroll/monthly-playslip/view-monthly-payslip") {
+    return <ViewMonthlyPayslipPage />;
+  }
+
+  if (slug === "payroll/payslip-for-employees/view-employee-payslip") {
+    return <ViewMonthlyPayslipPage backMode="history" />;
   }
 
   const ListPage = LIST_PAGES[slug];

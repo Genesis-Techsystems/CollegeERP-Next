@@ -1,54 +1,69 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
-import { Trash2Icon } from 'lucide-react'
-import { Controller, useForm } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { FormModal } from '@/common/components/feedback'
-import { StatusBadge } from '@/common/components/data-display'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { prepareSelfAppraisalFormDetailsPayload, saveSelfAppraisalFormDetails } from '@/services'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { Trash2Icon } from "lucide-react";
+import { Controller, useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActiveStatusField } from "@/common/components/forms";
+import { FormModal } from "@/common/components/feedback";
+import { StatusBadge } from "@/common/components/data-display";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  prepareSelfAppraisalFormDetailsPayload,
+  saveSelfAppraisalFormDetails,
+} from "@/services";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 const detailSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
+  title: z.string().min(1, "Title is required"),
   serialNumber: z.string().optional(),
   subSerialNumber: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type DetailFormValues = z.infer<typeof detailSchema>
+type DetailFormValues = z.infer<typeof detailSchema>;
 
-type FormRow = Record<string, unknown>
-type DetailRow = Record<string, unknown>
+type FormRow = Record<string, unknown>;
+type DetailRow = Record<string, unknown>;
 
 function formatDisplayDate(value: unknown): string {
-  if (value == null || value === '') return '—'
-  const d = new Date(String(value))
-  if (Number.isNaN(d.getTime())) return String(value)
-  return format(d, 'dd MMM, yyyy')
+  if (value == null || value === "") return "—";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return String(value);
+  return format(d, "dd MMM, yyyy");
+}
+
+function appraisalDetails(row: FormRow): DetailRow[] {
+  const candidates = [
+    row.empSelfappraisalFormDetailDTOS,
+    row.empSelfAppraisalFormDetailDTOS,
+    row.empSelfappraisalFormDetailsDTOs,
+  ];
+  const match = candidates.find(Array.isArray);
+  return Array.isArray(match) ? (match as DetailRow[]) : [];
 }
 
 interface SelfAppraisalFormDetailsModalProps {
-  open: boolean
-  onClose: () => void
-  formRow: FormRow | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  formRow: FormRow | null;
+  collegeId: number;
+  onSaved: () => void;
 }
 
 export function SelfAppraisalFormDetailsModal({
   open,
   onClose,
   formRow,
+  collegeId,
   onSaved,
 }: Readonly<SelfAppraisalFormDetailsModalProps>) {
-  const [details, setDetails] = useState<DetailRow[]>([])
+  const [details, setDetails] = useState<DetailRow[]>([]);
 
   const {
     register,
@@ -61,37 +76,35 @@ export function SelfAppraisalFormDetailsModal({
   } = useForm<DetailFormValues>({
     resolver: zodResolver(detailSchema),
     defaultValues: {
-      title: '',
-      serialNumber: '',
-      subSerialNumber: '',
+      title: "",
+      serialNumber: "",
+      subSerialNumber: "",
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
   useEffect(() => {
-    if (!open || !formRow) return
-    const existing = formRow.empSelfappraisalFormDetailDTOS
-    const list = Array.isArray(existing) ? (existing as DetailRow[]) : []
-    setDetails(list)
+    if (!open || !formRow) return;
+    setDetails(appraisalDetails(formRow));
     reset({
-      title: '',
-      serialNumber: '',
-      subSerialNumber: '',
+      title: String(formRow.title ?? ""),
+      serialNumber: "",
+      subSerialNumber: "",
       isActive: true,
-      reason: 'active',
-    })
-  }, [open, formRow, reset])
+      reason: "active",
+    });
+  }, [open, formRow, reset]);
 
   const summary = useMemo(() => {
-    if (!formRow) return null
+    if (!formRow) return null;
     return {
-      collegeCode: String(formRow.collegeCode ?? ''),
-      title: String(formRow.title ?? ''),
+      collegeCode: String(formRow.collegeCode ?? ""),
+      title: String(formRow.title ?? ""),
       startDate: formatDisplayDate(formRow.startDate),
       endDate: formatDisplayDate(formRow.endDate),
-    }
-  }, [formRow])
+    };
+  }, [formRow]);
 
   function addDetailLine(data: DetailFormValues) {
     setDetails((prev) => [
@@ -101,59 +114,63 @@ export function SelfAppraisalFormDetailsModal({
         serialNumber: data.serialNumber?.trim() || undefined,
         subSerialNumber: data.subSerialNumber?.trim() || undefined,
         isActive: data.isActive,
-        reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
       },
-    ])
+    ]);
     reset({
-      title: '',
-      serialNumber: '',
-      subSerialNumber: '',
+      title: String(formRow?.title ?? ""),
+      serialNumber: "",
+      subSerialNumber: "",
       isActive: true,
-      reason: 'active',
-    })
+      reason: "active",
+    });
   }
 
   function removeDetailLine(visibleIndex: number) {
     setDetails((prev) => {
-      const visible = prev.filter((d) => d.isActive !== false)
-      const item = visible[visibleIndex]
-      if (!item) return prev
-      return prev.map((d) => (d === item ? { ...d, isActive: false } : d))
-    })
+      const visible = prev.filter((d) => d.isActive !== false);
+      const item = visible[visibleIndex];
+      if (!item) return prev;
+      return prev.map((d) => (d === item ? { ...d, isActive: false } : d));
+    });
   }
 
   const visibleDetails = useMemo(
     () => details.filter((d) => d.isActive !== false),
     [details],
-  )
+  );
 
   async function saveAll() {
     if (!formRow || details.length === 0) {
-      onClose()
-      return
+      onClose();
+      return;
     }
+    const payloadRow = {
+      ...formRow,
+      collegeId: Number(formRow.collegeId ?? collegeId),
+    };
+    const payload = prepareSelfAppraisalFormDetailsPayload(payloadRow, details);
+    // Angular closes the dialog first; the parent then performs the POST.
+    onClose();
     try {
-      const payload = prepareSelfAppraisalFormDetailsPayload(formRow, details)
-      await saveSelfAppraisalFormDetails(payload)
-      toastSuccess('Form details saved')
-      onSaved()
-      onClose()
+      await saveSelfAppraisalFormDetails(payload);
+      toastSuccess("Form details saved");
+      onSaved();
     } catch (err) {
-      toastError(err, 'Failed to save form details')
+      toastError(err, "Failed to save form details");
     }
   }
 
-  if (!formRow) return null
+  if (!formRow) return null;
 
   return (
     <FormModal
       open={open}
       onClose={onClose}
-      title="Add Appraisal Form Details"
-      titleClassName="text-[15px] font-semibold leading-none text-[#5da394]"
+      title="Edit Appraisal Form Details"
+      titleClassName="text-[15px] font-semibold leading-none text-primary"
       onSubmit={(e) => {
-        e.preventDefault()
-        void saveAll()
+        e.preventDefault();
+        void saveAll();
       }}
       submitLabel="Save"
       isSubmitting={isSubmitting}
@@ -164,7 +181,9 @@ export function SelfAppraisalFormDetailsModal({
           <div className="rounded border border-border/60 bg-muted/30 px-3 py-2 space-y-1">
             <p>
               <span className="text-muted-foreground">College: </span>
-              <span className="font-medium text-[hsl(var(--primary))]">{summary.collegeCode}</span>
+              <span className="font-medium text-[hsl(var(--primary))]">
+                {summary.collegeCode}
+              </span>
             </p>
             <p>
               <span className="text-muted-foreground">Appraisal Title: </span>
@@ -184,19 +203,33 @@ export function SelfAppraisalFormDetailsModal({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 items-end">
           <div className="sm:col-span-3 space-y-1">
             <Label className="text-[12px]">Serial Number</Label>
-            <Input className="h-9 text-[12px]" {...register('serialNumber')} />
+            <Input
+              placeholder="Enter serial number"
+              className="h-9 text-[12px]"
+              {...register("serialNumber")}
+            />
           </div>
           <div className="sm:col-span-3 space-y-1">
             <Label className="text-[12px]">Sub Serial Number</Label>
-            <Input className="h-9 text-[12px]" {...register('subSerialNumber')} />
+            <Input
+              placeholder="Enter sub serial number"
+              className="h-9 text-[12px]"
+              {...register("subSerialNumber")}
+            />
           </div>
           <div className="sm:col-span-4 space-y-1">
             <Label className="text-[12px]">
               Title <span className="text-destructive">*</span>
             </Label>
-            <Input className="h-9 text-[12px]" {...register('title')} />
+            <Input
+              placeholder="Enter appraisal detail title"
+              className="h-9 text-[12px]"
+              {...register("title")}
+            />
             {errors.title ? (
-              <p className="text-[11px] text-destructive">{errors.title.message}</p>
+              <p className="text-[11px] text-destructive">
+                {errors.title.message}
+              </p>
             ) : null}
           </div>
           <div className="sm:col-span-2 flex flex-col gap-2">
@@ -206,9 +239,9 @@ export function SelfAppraisalFormDetailsModal({
               render={({ field }) => (
                 <ActiveStatusField
                   isActive={field.value}
-                  reason={watch('reason') ?? ''}
+                  reason={watch("reason") ?? ""}
                   onActiveChange={(v) => field.onChange(v === true)}
-                  onReasonChange={(v) => setValue('reason', v)}
+                  onReasonChange={(v) => setValue("reason", v)}
                 />
               )}
             />
@@ -237,10 +270,17 @@ export function SelfAppraisalFormDetailsModal({
               </thead>
               <tbody>
                 {visibleDetails.map((row, index) => (
-                  <tr key={`${String(row.title)}-${index}`} className="border-b last:border-0">
-                    <td className="px-2 py-1.5">{String(row.title ?? '')}</td>
-                    <td className="px-2 py-1.5">{String(row.serialNumber ?? '')}</td>
-                    <td className="px-2 py-1.5">{String(row.subSerialNumber ?? '')}</td>
+                  <tr
+                    key={`${String(row.title)}-${index}`}
+                    className="border-b last:border-0"
+                  >
+                    <td className="px-2 py-1.5">{String(row.title ?? "")}</td>
+                    <td className="px-2 py-1.5">
+                      {String(row.serialNumber ?? "")}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {String(row.subSerialNumber ?? "")}
+                    </td>
                     <td className="px-2 py-1.5">
                       <StatusBadge status={row.isActive !== false} />
                     </td>
@@ -263,5 +303,5 @@ export function SelfAppraisalFormDetailsModal({
         ) : null}
       </div>
     </FormModal>
-  )
+  );
 }

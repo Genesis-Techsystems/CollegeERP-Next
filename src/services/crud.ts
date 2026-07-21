@@ -15,97 +15,113 @@
  *   import { domainList, buildQuery } from '@/services/crud'
  */
 
-import { AppError, parseApiError } from '@/lib/errors'
-import type { ApiResponse } from '@/types/api'
-import { DOMAIN } from '@/config/constants/api'
+import { AppError, parseApiError } from "@/lib/errors";
+import type { ApiResponse } from "@/types/api";
+import { DOMAIN } from "@/config/constants/api";
 
-export { buildQuery } from './query'
-export type { OrderBy } from './query'
+export { buildQuery } from "./query";
+export type { OrderBy } from "./query";
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
 interface PageResponse<T> {
-  resultList: T[] | T | null
-  totalCount: number
+  resultList: T[] | T | null;
+  totalCount: number;
+  page?: number;
+}
+
+export interface DomainPage<T> {
+  rows: T[];
+  totalCount: number;
+  page: number;
 }
 
 /** Normalizes Spring list payloads: `data`, top-level `resultList`, `resultList` page, or `Page.content`. */
-function domainListRows<T>(body: ApiResponse<unknown> & { resultList?: unknown }): T[] {
-  const raw = body.data
+function domainListRows<T>(
+  body: ApiResponse<unknown> & { resultList?: unknown },
+): T[] {
+  const raw = body.data;
   if (raw == null) {
-    if (Array.isArray(body.resultList)) return body.resultList as T[]
-    return []
+    if (Array.isArray(body.resultList)) return body.resultList as T[];
+    return [];
   }
-  if (Array.isArray(raw)) return raw as T[]
-  if (raw && typeof raw === 'object' && 'resultList' in raw) {
-    const page = raw as PageResponse<T>
-    const list = page.resultList
-    if (list == null) return []
-    if (Array.isArray(list)) return list
-    return [list as unknown as T]
+  if (Array.isArray(raw)) return raw as T[];
+  if (raw && typeof raw === "object" && "resultList" in raw) {
+    const page = raw as PageResponse<T>;
+    const list = page.resultList;
+    if (list == null) return [];
+    if (Array.isArray(list)) return list;
+    return [list as unknown as T];
   }
-  if (raw && typeof raw === 'object' && 'content' in raw) {
-    const content = (raw as { content?: unknown }).content
-    if (Array.isArray(content)) return content as T[]
+  if (raw && typeof raw === "object" && "content" in raw) {
+    const content = (raw as { content?: unknown }).content;
+    if (Array.isArray(content)) return content as T[];
   }
-  return [raw as T]
+  return [raw as T];
 }
 
 /** Strip accidental `getAllRecords/` prefix — `getAllRecords()` adds it via DOMAIN.PROC. */
 function normalizeProcName(procName: string): string {
-  return procName.startsWith('getAllRecords/') ? procName.slice('getAllRecords/'.length) : procName
+  return procName.startsWith("getAllRecords/")
+    ? procName.slice("getAllRecords/".length)
+    : procName;
 }
 
 /** Stable key for deduping stored-proc GETs (param order–independent). */
-function procGetCacheKey(procName: string, params: Record<string, string | number>): string {
-  const keys = Object.keys(params).sort()
-  const parts = keys.map((k) => `${k}=${String(params[k])}`)
-  return `${procName}::${parts.join('&')}`
+function procGetCacheKey(
+  procName: string,
+  params: Record<string, string | number>,
+): string {
+  const keys = Object.keys(params).sort();
+  const parts = keys.map((k) => `${k}=${String(params[k])}`);
+  return `${procName}::${parts.join("&")}`;
 }
 
 type ProcGetCacheEntry = {
-  promise?: Promise<unknown>
+  promise?: Promise<unknown>;
   /** JSON snapshot so cached reads do not share mutable objects across callers */
-  dataJson?: string
-  freshUntil?: number
-}
+  dataJson?: string;
+  freshUntil?: number;
+};
 
 // ─── CrudService class ────────────────────────────────────────────────────────
 
 class CrudService {
-  private readonly base = '/api/proxy'
+  private readonly base = "/api/proxy";
 
   /**
    * In-flight dedupe for identical `domain/list` URLs (parallel page loads + Strict Mode).
    * Cleared when the request settles; does not cache completed responses.
    */
-  private readonly listInflight = new Map<string, Promise<unknown[]>>()
+  private readonly listInflight = new Map<string, Promise<unknown[]>>();
 
   /**
    * Dedupes identical `getAllRecords` URLs: shares one in-flight request, and briefly
    * reuses the last success (exam filter cascades + React Strict Mode duplicate effects).
    */
-  private readonly procGetDedupe = new Map<string, ProcGetCacheEntry>()
-  private static readonly PROC_GET_FRESH_MS = 900
+  private readonly procGetDedupe = new Map<string, ProcGetCacheEntry>();
+  private static readonly PROC_GET_FRESH_MS = 900;
 
   /** Drop cached getAllRecords responses (e.g. after upload/create so list refresh hits the network). */
   clearProcGetCache(procName?: string): void {
     if (!procName) {
-      this.procGetDedupe.clear()
-      return
+      this.procGetDedupe.clear();
+      return;
     }
-    const prefix = `${normalizeProcName(procName)}::`
+    const prefix = `${normalizeProcName(procName)}::`;
     for (const key of [...this.procGetDedupe.keys()]) {
-      if (key.startsWith(prefix)) this.procGetDedupe.delete(key)
+      if (key.startsWith(prefix)) this.procGetDedupe.delete(key);
     }
   }
 
   private toQueryString(params?: Record<string, string | number>): string {
-    if (!params || Object.keys(params).length === 0) return ''
+    if (!params || Object.keys(params).length === 0) return "";
     const searchParams = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-    )
-    return `?${searchParams}`
+      Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ),
+    );
+    return `?${searchParams}`;
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
@@ -117,41 +133,50 @@ class CrudService {
    * @param entity - entity class name (e.g. 'ExamSession')
    * @param query  - optional filter/sort string, built with {@link buildQuery}
    */
-  private async listAtPath<T>(listPath: string, entity: string, query?: string): Promise<T[]> {
+  private async listAtPath<T>(
+    listPath: string,
+    entity: string,
+    query?: string,
+  ): Promise<T[]> {
     const url = query
       ? `${this.base}/${listPath}/${entity}?size=99999&query=${encodeURIComponent(query)}`
-      : `${this.base}/${listPath}/${entity}?size=99999`
+      : `${this.base}/${listPath}/${entity}?size=99999`;
 
-    let inflight = this.listInflight.get(url) as Promise<T[]> | undefined
+    let inflight = this.listInflight.get(url) as Promise<T[]> | undefined;
     if (!inflight) {
       inflight = (async (): Promise<T[]> => {
-        const res = await fetch(url, { cache: 'no-store', credentials: 'include' })
+        const res = await fetch(url, {
+          cache: "no-store",
+          credentials: "include",
+        });
 
         if (!res.ok) {
-          const body = await res.json().catch(() => null)
-          throw parseApiError(res, body)
+          const body = await res.json().catch(() => null);
+          throw parseApiError(res, body);
         }
 
-        const body = (await res.json()) as ApiResponse<unknown> & { resultList?: unknown }
+        const body = (await res.json()) as ApiResponse<unknown> & {
+          resultList?: unknown;
+        };
 
         if (!body.success) {
-          const queryPart = query ? ` (query: ${query})` : ''
+          const queryPart = query ? ` (query: ${query})` : "";
           throw new AppError(
-            'API_ERROR',
+            "API_ERROR",
             body.message
               ? `Failed to list ${entity}${queryPart}: ${body.message}`
               : `Failed to list ${entity}${queryPart}`,
-          )
+          );
         }
 
-        return domainListRows<T>(body)
+        return domainListRows<T>(body);
       })().finally(() => {
-        this.listInflight.delete(url)
-      })
-      this.listInflight.set(url, inflight)
+        this.listInflight.delete(url);
+      });
+      this.listInflight.set(url, inflight);
     }
 
-    return inflight
+    return inflight;
   }
 
   /**
@@ -160,15 +185,109 @@ class CrudService {
    * @param entity - entity class name (e.g. 'ExamSession')
    * @param query  - optional filter/sort string, built with {@link buildQuery}
    */
-  async list<T = Record<string, unknown>>(entity: string, query?: string): Promise<T[]> {
-    return this.listAtPath<T>(DOMAIN.LIST, entity, query)
+  async list<T = Record<string, unknown>>(
+    entity: string,
+    query?: string,
+  ): Promise<T[]> {
+    return this.listAtPath<T>(DOMAIN.LIST, entity, query);
+  }
+
+  /** Domain list with an Angular-style unescaped `query` expression. */
+  async listRawQuery<T>(
+    entity: string,
+    query: string,
+    queryFirst = false,
+  ): Promise<T[]> {
+    const params = queryFirst
+      ? `query=${query}&size=99999`
+      : `size=99999&query=${query}`;
+    const url = `${this.base}/${DOMAIN.LIST}/${entity}?${params}`;
+    let inflight = this.listInflight.get(url) as Promise<T[]> | undefined;
+    if (!inflight) {
+      inflight = (async () => {
+        const res = await fetch(url, {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw parseApiError(res, body);
+        }
+        const body = (await res.json()) as ApiResponse<unknown> & {
+          resultList?: unknown;
+        };
+        if (!body.success) {
+          throw new AppError(
+            "API_ERROR",
+            body.message ?? `Failed to list ${entity}`,
+          );
+        }
+        return domainListRows<T>(body);
+      })().finally(() => {
+        this.listInflight.delete(url);
+      });
+      this.listInflight.set(url, inflight);
+    }
+    return inflight;
+  }
+
+  /** Angular `crudService.getDetailsBy*` with an unescaped domain query. */
+  async getRawQuery<T>(entity: string, query: string): Promise<T> {
+    const url = `${this.base}/${DOMAIN.GET}/${entity}?query=${query}`;
+    const res = await fetch(url, { cache: "no-store", credentials: "include" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
+    }
+    const body = (await res.json()) as ApiResponse<T>;
+    if (!body.success) {
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Failed to get ${entity}`,
+      );
+    }
+    return body.data as T;
+  }
+
+  /** Paginated domain list matching Angular `paginatorByTwoIds/ThreeIds`. */
+  async listPaginated<T>(
+    entity: string,
+    page: number,
+    size: number,
+    query?: string,
+  ): Promise<DomainPage<T>> {
+    const queryPart = query ? `&query=${query}` : "";
+    const url = `${this.base}/${DOMAIN.LIST}/${entity}?page=${page}&size=${size}${queryPart}`;
+    const res = await fetch(url, { cache: "no-store", credentials: "include" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
+    }
+    const body = (await res.json()) as ApiResponse<unknown> & {
+      resultList?: unknown;
+    };
+    if (!body.success) {
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Failed to list ${entity}`,
+      );
+    }
+    const data =
+      body.data && typeof body.data === "object"
+        ? (body.data as Partial<PageResponse<T>>)
+        : undefined;
+    return {
+      rows: domainListRows<T>(body),
+      totalCount: Number(data?.totalCount ?? domainListRows<T>(body).length),
+      page: Number(data?.page ?? page),
+    };
   }
 
   /**
    * CMS-prefixed domain list (`/cms/domain/list/{Entity}`) — matches Spring paths like staff User listing.
    */
   async listCms<T>(entity: string, query?: string): Promise<T[]> {
-    return this.listAtPath<T>(DOMAIN.CMS_LIST, entity, query)
+    return this.listAtPath<T>(DOMAIN.CMS_LIST, entity, query);
   }
 
   // ── Create ────────────────────────────────────────────────────────────────
@@ -181,45 +300,51 @@ class CrudService {
    */
   async create<T>(entity: string, data: unknown): Promise<T> {
     const res = await fetch(`${this.base}/${DOMAIN.CREATE}/${entity}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
 
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `Failed to create ${entity}`)
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Failed to create ${entity}`,
+      );
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   /** POST `cms/domain/create/{Entity}` — mirrors {@link create} for CMS-prefixed Spring apps. */
   async createCms<T>(entity: string, data: unknown): Promise<T> {
     const res = await fetch(`${this.base}/${DOMAIN.CMS_CREATE}/${entity}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
 
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `Failed to create ${entity} (cms)`)
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Failed to create ${entity} (cms)`,
+      );
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
@@ -241,34 +366,36 @@ class CrudService {
     const res = await fetch(
       `${this.base}/${DOMAIN.UPDATE}/${entity}?query=${pkField}==${pkValue}`,
       {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       },
-    )
+    );
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
 
     if (!body.success) {
       const detail =
-        body.data != null && typeof body.data === 'object'
+        body.data != null && typeof body.data === "object"
           ? JSON.stringify(body.data)
-          : typeof body.data === 'string' && body.data.trim()
+          : typeof body.data === "string" && body.data.trim()
             ? body.data
-            : null
+            : null;
       throw new AppError(
-        'API_ERROR',
-        detail ? `${body.message ?? `Failed to update ${entity}`} (${detail})` : (body.message ?? `Failed to update ${entity}`),
+        "API_ERROR",
+        detail
+          ? `${body.message ?? `Failed to update ${entity}`} (${detail})`
+          : (body.message ?? `Failed to update ${entity}`),
         body,
-      )
+      );
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   /** PUT `cms/domain/update/{Entity}?query={pkField}=={pkValue}` — same contract as {@link update}. */
@@ -281,24 +408,27 @@ class CrudService {
     const res = await fetch(
       `${this.base}/${DOMAIN.CMS_UPDATE}/${entity}?query=${pkField}==${pkValue}`,
       {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       },
-    )
+    );
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
 
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `Failed to update ${entity} (cms)`)
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Failed to update ${entity} (cms)`,
+      );
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   // ── Soft Delete ───────────────────────────────────────────────────────────
@@ -307,8 +437,12 @@ class CrudService {
    * Deactivate an entity record (sets `isActive: false`).
    * Data is preserved on the server; the record is hidden from active queries.
    */
-  async softDelete(entity: string, pkField: string, pkValue: string | number): Promise<void> {
-    await this.update(entity, pkField, pkValue, { isActive: false })
+  async softDelete(
+    entity: string,
+    pkField: string,
+    pkValue: string | number,
+  ): Promise<void> {
+    await this.update(entity, pkField, pkValue, { isActive: false });
   }
 
   // ── Stored Procedure ──────────────────────────────────────────────────────
@@ -322,70 +456,85 @@ class CrudService {
    * @param params   - query parameters passed to the procedure
    * @returns the raw `data` field from the response
    */
-  async getAllRecords<T>(procName: string, params: Record<string, string | number>): Promise<T> {
-    procName = normalizeProcName(procName)
-    const key = procGetCacheKey(procName, params)
-    const now = Date.now()
-    const bucket = this.procGetDedupe.get(key) ?? {}
+  async getAllRecords<T>(
+    procName: string,
+    params: Record<string, string | number>,
+  ): Promise<T> {
+    procName = normalizeProcName(procName);
+    const key = procGetCacheKey(procName, params);
+    const now = Date.now();
+    const bucket = this.procGetDedupe.get(key) ?? {};
 
-    if (bucket.dataJson != null && bucket.freshUntil != null && now < bucket.freshUntil) {
+    if (
+      bucket.dataJson != null &&
+      bucket.freshUntil != null &&
+      now < bucket.freshUntil
+    ) {
       try {
-        return JSON.parse(bucket.dataJson) as T
+        return JSON.parse(bucket.dataJson) as T;
       } catch {
-        this.procGetDedupe.delete(key)
+        this.procGetDedupe.delete(key);
       }
     }
 
     if (bucket.promise) {
-      return bucket.promise as Promise<T>
+      return bucket.promise as Promise<T>;
     }
 
     const searchParams = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-    )
+      Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ),
+    );
 
     const promise = (async (): Promise<T> => {
-      const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      })
+      const res = await fetch(
+        `${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`,
+        {
+          cache: "no-store",
+          credentials: "include",
+        },
+      );
 
       if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw parseApiError(res, body)
+        const body = await res.json().catch(() => null);
+        throw parseApiError(res, body);
       }
 
-      const body: ApiResponse<T> = await res.json()
+      const body: ApiResponse<T> = await res.json();
 
       if (!body.success) {
-        throw new AppError('API_ERROR', body.message ?? `Failed to call ${procName}`)
+        throw new AppError(
+          "API_ERROR",
+          body.message ?? `Failed to call ${procName}`,
+        );
       }
 
-      const data = body.data as T
-      let snapshot: string
+      const data = body.data as T;
+      let snapshot: string;
       try {
-        snapshot = JSON.stringify(data)
+        snapshot = JSON.stringify(data);
       } catch {
-        snapshot = ''
+        snapshot = "";
       }
       if (snapshot) {
         this.procGetDedupe.set(key, {
           dataJson: snapshot,
           freshUntil: Date.now() + CrudService.PROC_GET_FRESH_MS,
-        })
+        });
       }
-      return data
-    })()
+      return data;
+    })();
 
-    this.procGetDedupe.set(key, { ...bucket, promise })
+    this.procGetDedupe.set(key, { ...bucket, promise });
 
     try {
-      return await promise
+      return await promise;
     } finally {
-      const latest = this.procGetDedupe.get(key)
+      const latest = this.procGetDedupe.get(key);
       if (latest?.promise === promise) {
-        latest.promise = undefined
-        if (!latest.dataJson) this.procGetDedupe.delete(key)
+        latest.promise = undefined;
+        if (!latest.dataJson) this.procGetDedupe.delete(key);
       }
     }
   }
@@ -403,22 +552,27 @@ class CrudService {
     procName: string,
     params: Record<string, string | number>,
   ): Promise<ApiResponse<T>> {
-    procName = normalizeProcName(procName)
+    procName = normalizeProcName(procName);
     const searchParams = new URLSearchParams(
-      Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-    )
+      Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ),
+    );
 
-    const res = await fetch(`${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`, {
-      cache: 'no-store',
-      credentials: 'include',
-    })
+    const res = await fetch(
+      `${this.base}/${DOMAIN.PROC}/${procName}?${searchParams}`,
+      {
+        cache: "no-store",
+        credentials: "include",
+      },
+    );
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    return (await res.json()) as ApiResponse<T>
+    return (await res.json()) as ApiResponse<T>;
   }
 
   // ── Proxy Helpers ─────────────────────────────────────────────────────────
@@ -429,25 +583,28 @@ class CrudService {
    * @param path   - API path constant (e.g. EXAM_API.EXAM_TIMETABLE_DETAILS)
    * @param params - optional query parameters
    */
-  async fetchDetails<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    const query = this.toQueryString(params)
-    let attemptedPath = path
-    let res = await fetch(`${this.base}/${attemptedPath}${query}`)
+  async fetchDetails<T>(
+    path: string,
+    params?: Record<string, string | number>,
+  ): Promise<T> {
+    const query = this.toQueryString(params);
+    let attemptedPath = path;
+    let res = await fetch(`${this.base}/${attemptedPath}${query}`);
     if (res.status === 404 && /[A-Z]/.test(path)) {
-      attemptedPath = path.toLowerCase()
-      res = await fetch(`${this.base}/${attemptedPath}${query}`)
+      attemptedPath = path.toLowerCase();
+      res = await fetch(`${this.base}/${attemptedPath}${query}`);
     }
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `GET ${path} failed`)
+      throw new AppError("API_ERROR", body.message ?? `GET ${path} failed`);
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   /**
@@ -456,23 +613,26 @@ class CrudService {
    * @example GET /api/proxy/timingsets/340
    */
   async fetchDetailsById<T>(path: string, id: string | number): Promise<T> {
-    let attemptedPath = path
-    let res = await fetch(`${this.base}/${attemptedPath}/${id}`)
+    let attemptedPath = path;
+    let res = await fetch(`${this.base}/${attemptedPath}/${id}`);
     if (res.status === 404 && /[A-Z]/.test(path)) {
-      attemptedPath = path.toLowerCase()
-      res = await fetch(`${this.base}/${attemptedPath}/${id}`)
+      attemptedPath = path.toLowerCase();
+      res = await fetch(`${this.base}/${attemptedPath}/${id}`);
     }
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `GET ${path}/${id} failed`)
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `GET ${path}/${id} failed`,
+      );
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   /**
@@ -483,22 +643,22 @@ class CrudService {
    */
   async postDetails<T = void>(path: string, data: unknown): Promise<T> {
     const res = await fetch(`${this.base}/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body: ApiResponse<T> = await res.json()
+    const body: ApiResponse<T> = await res.json();
     if (!body.success) {
-      throw new AppError('API_ERROR', body.message ?? `POST ${path} failed`)
+      throw new AppError("API_ERROR", body.message ?? `POST ${path} failed`);
     }
 
-    return body.data as T
+    return body.data as T;
   }
 
   /**
@@ -508,19 +668,22 @@ class CrudService {
    * the backend returns with success:false + data). `postDetails` throws on
    * success:false and discards that data, which is wrong for those flows.
    */
-  async postDetailsEnvelope<T = unknown>(path: string, data: unknown): Promise<ApiResponse<T>> {
+  async postDetailsEnvelope<T = unknown>(
+    path: string,
+    data: unknown,
+  ): Promise<ApiResponse<T>> {
     const res = await fetch(`${this.base}/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    return (await res.json()) as ApiResponse<T>
+    return (await res.json()) as ApiResponse<T>;
   }
 
   /**
@@ -533,30 +696,32 @@ class CrudService {
     data: unknown,
     params?: Record<string, string | number>,
   ): Promise<ApiResponse<T>> {
-    let url = `${this.base}/${path}`
+    let url = `${this.base}/${path}`;
     if (params && Object.keys(params).length > 0) {
       const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      )
-      url += `?${qs}`
+        Object.fromEntries(
+          Object.entries(params).map(([k, v]) => [k, String(v)]),
+        ),
+      );
+      url += `?${qs}`;
     }
 
     const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const text = await res.text()
+    const text = await res.text();
     if (!text) {
-      return { statusCode: 200, success: true, message: '', data: null }
+      return { statusCode: 200, success: true, message: "", data: null };
     }
-    return JSON.parse(text) as ApiResponse<T>
+    return JSON.parse(text) as ApiResponse<T>;
   }
 
   /**
@@ -572,34 +737,36 @@ class CrudService {
     data: unknown,
     params?: Record<string, string | number>,
   ): Promise<T> {
-    let url = `${this.base}/${path}`
+    let url = `${this.base}/${path}`;
     if (params && Object.keys(params).length > 0) {
       const qs = new URLSearchParams(
-        Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-      )
-      url += `?${qs}`
+        Object.fromEntries(
+          Object.entries(params).map(([k, v]) => [k, String(v)]),
+        ),
+      );
+      url += `?${qs}`;
     }
 
     const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
     // Many PUT endpoints return 200 with no body or an empty success wrapper
-    const text = await res.text()
-    if (!text) return undefined as T
-    const body = JSON.parse(text) as ApiResponse<T>
+    const text = await res.text();
+    if (!text) return undefined as T;
+    const body = JSON.parse(text) as ApiResponse<T>;
     if (body?.success === false) {
-      throw new AppError('API_ERROR', body.message ?? `PUT ${path} failed`)
+      throw new AppError("API_ERROR", body.message ?? `PUT ${path} failed`);
     }
 
-    return (body?.data ?? undefined) as T
+    return (body?.data ?? undefined) as T;
   }
 
   /**
@@ -611,101 +778,135 @@ class CrudService {
    */
   async uploadFile(path: string, formData: FormData): Promise<unknown> {
     const res = await fetch(`${this.base}/${path}`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
-    })
+    });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      throw parseApiError(res, body)
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
     }
 
-    const body = await res.json().catch(() => null)
+    const body = await res.json().catch(() => null);
     if (body?.success === false) {
-      throw new AppError('API_ERROR', body.message ?? `Upload to ${path} failed`)
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Upload to ${path} failed`,
+      );
     }
     // Return the parsed response body so callers can read the stored file path
     // (e.g. extractUploadedPath). Previously returned void → uploaded path was
     // always undefined → UI showed "File not found" on every successful upload.
-    return body
+    return body;
   }
 }
 
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
-export const crud = new CrudService()
+export const crud = new CrudService();
 
 // ─── Backward-compatible standalone exports ───────────────────────────────────
 
-export const domainList = <T = Record<string, unknown>>(entity: string, query?: string): Promise<T[]> =>
-  crud.list<T>(entity, query)
+export const domainList = <T = Record<string, unknown>>(
+  entity: string,
+  query?: string,
+): Promise<T[]> => crud.list<T>(entity, query);
 
-export const cmsDomainList = <T>(entity: string, query?: string): Promise<T[]> =>
-  crud.listCms<T>(entity, query)
+export const domainListPaginated = <T>(
+  entity: string,
+  page: number,
+  size: number,
+  query?: string,
+): Promise<DomainPage<T>> => crud.listPaginated<T>(entity, page, size, query);
+
+export const domainListRawQuery = <T>(
+  entity: string,
+  query: string,
+  queryFirst = false,
+): Promise<T[]> => crud.listRawQuery<T>(entity, query, queryFirst);
+
+export const domainGetRawQuery = <T>(
+  entity: string,
+  query: string,
+): Promise<T> => crud.getRawQuery<T>(entity, query);
+
+export const cmsDomainList = <T>(
+  entity: string,
+  query?: string,
+): Promise<T[]> => crud.listCms<T>(entity, query);
 
 export const domainCreate = <T>(entity: string, data: unknown): Promise<T> =>
-  crud.create<T>(entity, data)
+  crud.create<T>(entity, data);
 
 export const cmsDomainCreate = <T>(entity: string, data: unknown): Promise<T> =>
-  crud.createCms<T>(entity, data)
+  crud.createCms<T>(entity, data);
 
 export const domainUpdate = <T>(
   entity: string,
   pkField: string,
   pkValue: string | number,
   data: unknown,
-): Promise<T> => crud.update<T>(entity, pkField, pkValue, data)
+): Promise<T> => crud.update<T>(entity, pkField, pkValue, data);
 
 export const cmsDomainUpdate = <T>(
   entity: string,
   pkField: string,
   pkValue: string | number,
   data: unknown,
-): Promise<T> => crud.updateCms<T>(entity, pkField, pkValue, data)
+): Promise<T> => crud.updateCms<T>(entity, pkField, pkValue, data);
 
 export const domainSoftDelete = (
   entity: string,
   pkField: string,
   pkValue: string | number,
-): Promise<void> => crud.softDelete(entity, pkField, pkValue)
+): Promise<void> => crud.softDelete(entity, pkField, pkValue);
 
 export const getAllRecords = <T>(
   procName: string,
   params: Record<string, string | number>,
-): Promise<T> => crud.getAllRecords<T>(procName, params)
+): Promise<T> => crud.getAllRecords<T>(procName, params);
 
-export const clearProcGetCache = (procName?: string): void => crud.clearProcGetCache(procName)
+export const clearProcGetCache = (procName?: string): void =>
+  crud.clearProcGetCache(procName);
 
 export const getAllRecordsEnvelope = <T = unknown>(
   procName: string,
   params: Record<string, string | number>,
-): Promise<ApiResponse<T>> => crud.getAllRecordsEnvelope<T>(procName, params)
+): Promise<ApiResponse<T>> => crud.getAllRecordsEnvelope<T>(procName, params);
 
 export const fetchDetails = <T>(
   path: string,
   params?: Record<string, string | number>,
-): Promise<T> => crud.fetchDetails<T>(path, params)
+): Promise<T> => crud.fetchDetails<T>(path, params);
 
-export const fetchDetailsById = <T>(path: string, id: string | number): Promise<T> =>
-  crud.fetchDetailsById<T>(path, id)
+export const fetchDetailsById = <T>(
+  path: string,
+  id: string | number,
+): Promise<T> => crud.fetchDetailsById<T>(path, id);
 
-export const postDetails = <T = void>(path: string, data: unknown): Promise<T> =>
-  crud.postDetails<T>(path, data)
+export const postDetails = <T = void>(
+  path: string,
+  data: unknown,
+): Promise<T> => crud.postDetails<T>(path, data);
 
-export const postDetailsEnvelope = <T = unknown>(path: string, data: unknown): Promise<ApiResponse<T>> =>
-  crud.postDetailsEnvelope<T>(path, data)
+export const postDetailsEnvelope = <T = unknown>(
+  path: string,
+  data: unknown,
+): Promise<ApiResponse<T>> => crud.postDetailsEnvelope<T>(path, data);
 
 export const putDetailsEnvelope = <T = unknown>(
   path: string,
   data: unknown,
   params?: Record<string, string | number>,
-): Promise<ApiResponse<T>> => crud.putDetailsEnvelope<T>(path, data, params)
+): Promise<ApiResponse<T>> => crud.putDetailsEnvelope<T>(path, data, params);
 
 export const putDetails = <T = void>(
   path: string,
   data: unknown,
   params?: Record<string, string | number>,
-): Promise<T> => crud.putDetails<T>(path, data, params)
+): Promise<T> => crud.putDetails<T>(path, data, params);
 
-export const uploadFile = (path: string, formData: FormData): Promise<unknown> =>
-  crud.uploadFile(path, formData)
+export const uploadFile = (
+  path: string,
+  formData: FormData,
+): Promise<unknown> => crud.uploadFile(path, formData);

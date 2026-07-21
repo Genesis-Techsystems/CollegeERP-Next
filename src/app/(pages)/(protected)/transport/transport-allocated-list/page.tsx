@@ -1,49 +1,126 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { PencilIcon } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { EmptyState } from '@/common/components/feedback'
-import { StatusBadge } from '@/common/components/data-display'
-import { formatDate } from '@/common/generic-functions'
-import { getErrorMessage } from '@/lib/errors'
-import { ListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listTransportAllocations } from '@/services'
-import type { TransportAllocation, TransportAllocationFor } from '@/types/transport'
-import { EditTransportAllocationModal } from './EditTransportAllocationModal'
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { EmptyState } from "@/common/components/feedback";
+import { StatusBadge } from "@/common/components/data-display";
+import { formatDate } from "@/common/generic-functions";
+import { getErrorMessage } from "@/lib/errors";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listTransportAllocations } from "@/services";
+import type {
+  TransportAllocation,
+  TransportAllocationFor,
+} from "@/types/transport";
+import { EditTransportAllocationModal } from "./EditTransportAllocationModal";
 
-const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<TransportAllocation>,
-  firstName: {
-    field: 'firstName',
-    headerName: 'Name',
-    minWidth: 150,
-    valueGetter: (p) => p.data?.firstName ?? p.data?.stdFirstName ?? '—',
-  } as ColDef<TransportAllocation>,
-  allocationFor: { field: 'allocationFor', headerName: 'For', minWidth: 70, flex: 0 } as ColDef<TransportAllocation>,
-  academicYear: { field: 'academicYear', headerName: 'Academic Year', minWidth: 120 } as ColDef<TransportAllocation>,
-  pickupRouteStopName: {
-    field: 'pickupRouteStopName',
-    headerName: 'Pickup Stop',
-    minWidth: 140,
-  } as ColDef<TransportAllocation>,
-  fromDate: {
-    field: 'fromDate',
-    headerName: 'From',
-    minWidth: 110,
-    valueFormatter: (p) => formatDate(p.value),
-  } as ColDef<TransportAllocation>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<TransportAllocation>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<TransportAllocation>,
+function travelerNameGetter(row?: TransportAllocation) {
+  if (!row) return "—";
+  if (row.employeeId != null && row.studentId == null) {
+    const name = row.firstName ?? "—";
+    return row.empNumber ? `${name} (${row.empNumber})` : name;
+  }
+  const name = row.stdFirstName ?? row.firstName ?? "—";
+  return row.rollNumber ? `${name} (${row.rollNumber})` : name;
 }
 
+function travelerNameRenderer(p: ICellRendererParams<TransportAllocation>) {
+  const row = p.data;
+  if (!row) return "—";
+  const isEmployee = row.employeeId != null && row.studentId == null;
+  const name = isEmployee ? row.firstName : (row.stdFirstName ?? row.firstName);
+  const number = isEmployee ? row.empNumber : row.rollNumber;
+  return (
+    <span>
+      {name ?? "—"}
+      {number ? (
+        <span className="ml-1 font-medium text-primary">({number})</span>
+      ) : null}
+    </span>
+  );
+}
+
+function allocationForGetter(row?: TransportAllocation) {
+  if (row?.allocationFor === "E") return "Employee";
+  if (row?.allocationFor === "S") return "Student";
+  return "—";
+}
+
+function stopGetter(row?: TransportAllocation) {
+  if (!row) return "—";
+  const pickup = row.pickupRouteStopName ?? "—";
+  const drop = row.dropRoutestopName ?? "—";
+  const routeCode = row.routeCode ? ` (${row.routeCode})` : "";
+  return `${pickup} - ${drop}${routeCode}`;
+}
+
+function durationGetter(row?: TransportAllocation) {
+  const from = formatDate(row?.fromDate);
+  const to = formatDate(row?.toDate);
+  if (from === "—" && to === "—") return "—";
+  return `${from} - ${to}`;
+}
+
+const COL_DEFS = {
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<TransportAllocation>,
+  firstName: {
+    field: "firstName",
+    headerName: "Traveller Name",
+    minWidth: 220,
+    valueGetter: (p) => travelerNameGetter(p.data),
+  } as ColDef<TransportAllocation>,
+  allocationFor: {
+    field: "allocationFor",
+    headerName: "Traveller Type",
+    minWidth: 125,
+    flex: 0,
+    valueGetter: (p) => allocationForGetter(p.data),
+  } as ColDef<TransportAllocation>,
+  academicYear: {
+    field: "academicYear",
+    headerName: "Academic Year",
+    minWidth: 130,
+  } as ColDef<TransportAllocation>,
+  pickupRouteStopName: {
+    field: "pickupRouteStopName",
+    headerName: "Pick Up Point - Drop Point",
+    minWidth: 300,
+    valueGetter: (p) => stopGetter(p.data),
+  } as ColDef<TransportAllocation>,
+  fromDate: {
+    field: "fromDate",
+    headerName: "From Date - To Date",
+    minWidth: 210,
+    valueGetter: (p) => durationGetter(p.data),
+  } as ColDef<TransportAllocation>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 100,
+    flex: 0,
+  } as ColDef<TransportAllocation>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<TransportAllocation>,
+};
+
 function statusRenderer(p: ICellRendererParams<TransportAllocation>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -57,78 +134,112 @@ function makeActionsRenderer(
       className="h-8 w-8 p-0"
       aria-label="Edit allocation"
       onClick={() => {
-        setEditing(p.data ?? null)
-        setModalOpen(true)
+        setEditing(p.data ?? null);
+        setModalOpen(true);
       }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function TransportAllocatedListPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const forType: TransportAllocationFor =
-    searchParams.get('check') === '2' ? 'E' : 'S'
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<TransportAllocation | null>(null)
+    searchParams.get("check") === "2" ? "E" : "S";
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<TransportAllocation | null>(null);
 
-  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: rows = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: QK.transport.allocations(forType),
     queryFn: () => listTransportAllocations(forType),
-  })
+  });
 
   const columnDefs = useMemo<ColDef<TransportAllocation>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.firstName,
+      { ...COL_DEFS.firstName, cellRenderer: travelerNameRenderer },
       COL_DEFS.allocationFor,
       COL_DEFS.academicYear,
       COL_DEFS.pickupRouteStopName,
       COL_DEFS.fromDate,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditing, setModalOpen),
+      },
     ],
     [],
-  )
+  );
 
   return (
     <ListPage
       title="Transport Allocated List"
+      notice={
+        <RadioGroup
+          value={forType}
+          onValueChange={(value) =>
+            router.push(
+              `/transport/transport-allocated-list?check=${value === "E" ? 2 : 1}`,
+            )
+          }
+          className="flex items-center gap-6"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="S" id="transport-student-list" />
+            <label
+              htmlFor="transport-student-list"
+              className="cursor-pointer text-sm"
+            >
+              Students List
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="E" id="transport-employee-list" />
+            <label
+              htmlFor="transport-employee-list"
+              className="cursor-pointer text-sm"
+            >
+              Employee List
+            </label>
+          </div>
+        </RadioGroup>
+      }
       rowData={isError ? [] : rows}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search allocations…',
-        pdfDocumentTitle: 'Transport Allocations',
+        searchPlaceholder: "Search allocations…",
+        pdfDocumentTitle: "Transport Allocations",
       }}
       toolbarTrailing={
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={forType === 'S' ? 'default' : 'outline'}
-            onClick={() => router.push('/transport/transport-allocated-list?check=1')}
-          >
-            Students
-          </Button>
-          <Button
-            size="sm"
-            variant={forType === 'E' ? 'default' : 'outline'}
-            onClick={() => router.push('/transport/transport-allocated-list?check=2')}
-          >
-            Employees
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          onClick={() =>
+            router.push(
+              `/transport/transport-allocation?check=${forType === "S" ? 1 : 2}`,
+            )
+          }
+        >
+          <PlusIcon className="mr-1 h-4 w-4" />
+          Allocate Transport
+        </Button>
       }
       emptyState={
         isError ? (
           <EmptyState
             title="Could not load allocations"
             description={getErrorMessage(error)}
-            action={{ label: 'Retry', onClick: () => void refetch() }}
+            action={{ label: "Retry", onClick: () => void refetch() }}
           />
         ) : undefined
       }
@@ -136,12 +247,12 @@ export default function TransportAllocatedListPage() {
       <EditTransportAllocationModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          setModalOpen(false);
+          setEditing(null);
         }}
         row={editing}
         onSaved={() => void refetch()}
       />
     </ListPage>
-  )
+  );
 }

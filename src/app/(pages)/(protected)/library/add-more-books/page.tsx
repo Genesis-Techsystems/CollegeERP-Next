@@ -1,76 +1,86 @@
-'use client'
+"use client";
 
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { useQuery } from '@tanstack/react-query'
-import { BookOpen, Receipt } from 'lucide-react'
-import { DatePicker } from '@/common/components/date-picker'
-import { Select, type SelectOption } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
+import { BookOpen, Receipt } from "lucide-react";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select, type SelectOption } from "@/common/components/select";
+import { PageContainer } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   addMoreBooks,
   getLibraryBookById,
-  getLibrarySettingValueByName,
+  getLibraryBookSetting,
   listBookRegistrationTypes,
   listLibraryCurrencyTypes,
-} from '@/services'
-import type { GeneralDetail } from '@/types/exam-master'
-import { LIBRARY_FIELD_LABEL_CLASS, LIBRARY_INPUT_CLASS } from '../_lib/modal-styles'
+} from "@/services";
+import type { GeneralDetail } from "@/types/exam-master";
+import {
+  LIBRARY_FIELD_LABEL_CLASS,
+  LIBRARY_INPUT_CLASS,
+} from "../_lib/modal-styles";
 
 type AddMoreBooksForm = {
-  bookregTypeId: string | null
-  valueLstAccNo: string
-  noofcopies: string
-  bookAmount: string
-  currencyId: string | null
-  amount: string
-  purchaseSource: string
-  purchaseReceiptNo: string
-  dateOfPurchase: Date | undefined
-}
+  bookregTypeId: string | null;
+  valueLstAccNo: string;
+  noofcopies: string;
+  bookAmount: string;
+  currencyId: string | null;
+  amount: string;
+  purchaseSource: string;
+  purchaseReceiptNo: string;
+  dateOfPurchase: Date | undefined;
+};
 
 function gdOptions(rows: GeneralDetail[]): SelectOption[] {
   return rows.map((r) => ({
-    value: String(r.generalDetailId ?? ''),
-    label: String(r.generalDetailDisplayName ?? r.generalDetailCode ?? r.generalDetailId ?? ''),
-  }))
+    value: String(r.generalDetailId ?? ""),
+    label: String(
+      r.generalDetailDisplayName ??
+        r.generalDetailCode ??
+        r.generalDetailId ??
+        "",
+    ),
+  }));
 }
 
 export default function AddMoreBooksPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const bookId = Number(searchParams.get('bookId') ?? 0)
-  const collegeId = searchParams.get('collegeId') ?? ''
-  const libraryId = searchParams.get('libraryId') ?? ''
-  const bookcatId = searchParams.get('bookcatId') ?? ''
-  const bookTitle = searchParams.get('bookTitle') ?? ''
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const bookId = Number(searchParams.get("bookId") ?? 0);
+  const collegeId = searchParams.get("collegeId") ?? "";
+  const libraryId = searchParams.get("libraryId") ?? "";
+  const bookcatId = searchParams.get("bookcatId") ?? "";
+  const bookTitle = searchParams.get("bookTitle") ?? "";
+  const check = searchParams.get("check") ?? "";
 
-  const [submitting, setSubmitting] = useState(false)
-  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [submitting, setSubmitting] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [bookTypeSettingId, setBookTypeSettingId] = useState<number>();
 
   const { data: book, isLoading: loadingBook } = useQuery({
-    queryKey: ['Library', 'book', bookId],
+    queryKey: ["Library", "book", bookId],
     queryFn: () => getLibraryBookById(bookId),
     enabled: bookId > 0,
-  })
+  });
 
   const { data: regTypes = [] } = useQuery({
-    queryKey: ['Library', 'bookRegTypes'],
+    queryKey: ["Library", "bookRegTypes"],
     queryFn: listBookRegistrationTypes,
-  })
+  });
 
   const { data: currencies = [] } = useQuery({
-    queryKey: ['Library', 'currencyTypes'],
+    queryKey: ["Library", "currencyTypes"],
     queryFn: listLibraryCurrencyTypes,
-  })
+  });
 
-  const regTypeOptions = useMemo(() => gdOptions(regTypes), [regTypes])
-  const currencyOptions = useMemo(() => gdOptions(currencies), [currencies])
+  const regTypeOptions = useMemo(() => gdOptions(regTypes), [regTypes]);
+  const currencyOptions = useMemo(() => gdOptions(currencies), [currencies]);
 
   const {
     register,
@@ -81,66 +91,80 @@ export default function AddMoreBooksPage() {
   } = useForm<AddMoreBooksForm>({
     defaultValues: {
       bookregTypeId: null,
-      valueLstAccNo: '',
-      noofcopies: '',
-      bookAmount: '',
+      valueLstAccNo: "",
+      noofcopies: "",
+      bookAmount: "",
       currencyId: null,
-      amount: '',
-      purchaseSource: '',
-      purchaseReceiptNo: '',
+      amount: "",
+      purchaseSource: "",
+      purchaseReceiptNo: "",
       dateOfPurchase: new Date(),
     },
-  })
+  });
 
-  const bookregTypeId = watch('bookregTypeId')
+  const bookregTypeId = watch("bookregTypeId");
+  const effectiveLibraryId = Number(book?.libraryId ?? libraryId ?? 0);
 
   useEffect(() => {
-    if (!bookregTypeId) return
-    const picked = regTypes.find((r) => String(r.generalDetailId) === bookregTypeId)
-    const code = picked?.generalDetailCode
-    if (!code) return
-    void getLibrarySettingValueByName(String(code)).then((val) => {
-      if (val) setValue('valueLstAccNo', val)
-    })
-  }, [bookregTypeId, regTypes, setValue])
+    register("bookregTypeId", {
+      required: "Book registration type is required",
+    });
+    register("currencyId", { required: "Currency type is required" });
+  }, [register]);
 
-  const displayTitle = String(book?.title ?? book?.bookTitle ?? bookTitle ?? '—')
-  const displayLibrary = String(book?.libraryCode ?? '—')
-  const displayAvailable = String(book?.availableCopies ?? '—')
+  useEffect(() => {
+    if (!bookregTypeId || !effectiveLibraryId) return;
+    const picked = regTypes.find(
+      (r) => String(r.generalDetailId) === bookregTypeId,
+    );
+    const code = picked?.generalDetailCode;
+    if (!code) return;
+    void getLibraryBookSetting(String(code), effectiveLibraryId).then(
+      (setting) => {
+        setValue("valueLstAccNo", String(setting?.value ?? ""));
+        setBookTypeSettingId(
+          Number(setting?.libSettingCatdetId ?? 0) || undefined,
+        );
+      },
+    );
+  }, [bookregTypeId, effectiveLibraryId, regTypes, setValue]);
+
+  const displayTitle = String(
+    book?.title ?? book?.bookTitle ?? bookTitle ?? "—",
+  );
+  const displayLibrary = String(book?.libraryCode ?? "—");
+  const displayAvailable = String(book?.availableCopies ?? "—");
 
   function goBack() {
-    const qs = new URLSearchParams()
-    if (bookId) qs.set('bookId', String(bookId))
-    if (collegeId) qs.set('collegeId', collegeId)
-    if (libraryId) qs.set('libraryId', libraryId)
-    if (bookcatId) qs.set('bookcatId', bookcatId)
-    if (bookTitle) qs.set('bookTitle', bookTitle)
-    const q = qs.toString()
-    router.push(q ? `/library/books?${q}` : '/library/books')
+    const qs = new URLSearchParams();
+    if (bookId) qs.set("bookId", String(bookId));
+    if (collegeId) qs.set("collegeId", collegeId);
+    if (libraryId) qs.set("libraryId", libraryId);
+    if (bookcatId) qs.set("bookcatId", bookcatId);
+    if (bookTitle) qs.set("bookTitle", bookTitle);
+    if (check) qs.set("check", check);
+    const q = qs.toString();
+    router.push(q ? `/library/books?${q}` : "/library/books");
   }
 
   async function onSubmit(values: AddMoreBooksForm) {
     if (!bookId || !book) {
-      toastError('Book not loaded.')
-      return
+      toastError("Book not loaded.");
+      return;
     }
-    if (!values.bookregTypeId) {
-      toastError('Book Registration Type is required.')
-      return
-    }
-
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       const bookDetail = {
         ...values,
-        bookregTypeId: Number(values.bookregTypeId),
+        bookregTypeId: bookTypeSettingId,
         noofcopies: values.noofcopies ? Number(values.noofcopies) : undefined,
         bookAmount: values.bookAmount ? Number(values.bookAmount) : undefined,
         bookTitle: book.title ?? book.bookTitle,
-        libraryId: book.libraryId ?? (libraryId ? Number(libraryId) : undefined),
+        libraryId:
+          book.libraryId ?? (libraryId ? Number(libraryId) : undefined),
         isActive: true,
         availabilityStatus: 1,
-      }
+      };
 
       const bookPurchaseDetails = {
         amount: values.amount ? Number(values.amount) : undefined,
@@ -151,25 +175,25 @@ export default function AddMoreBooksPage() {
         noOfBooks: values.noofcopies ? Number(values.noofcopies) : undefined,
         purchaseReceiptNo: values.purchaseReceiptNo,
         purchaseSource: values.purchaseSource,
-      }
+      };
 
       await addMoreBooks({
         ...book,
         bookId,
         bookDetail: [bookDetail],
         bookPurchaseDetails: [bookPurchaseDetails],
-      })
+      });
 
       if (receiptFile) {
         // Receipt upload wired when backend multipart endpoint is confirmed
       }
 
-      toastSuccess('Books added successfully')
-      router.push('/library/books')
+      toastSuccess("Books added successfully");
+      router.push("/library/books");
     } catch (e) {
-      toastError(e, 'Could not add books')
+      toastError(e, "Could not add books");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
@@ -182,21 +206,26 @@ export default function AddMoreBooksPage() {
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="app-card space-y-6 p-4">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="app-card space-y-6 p-4"
+      >
         {loadingBook ? (
           <p className="text-sm text-muted-foreground">Loading book…</p>
         ) : (
           <div className="grid gap-3 rounded-md border bg-muted/20 p-4 sm:grid-cols-3">
             <p className="text-[13px]">
-              <span className="font-medium text-foreground">Book :</span>{' '}
+              <span className="font-medium text-foreground">Book :</span>{" "}
               <span className="text-muted-foreground">{displayTitle}</span>
             </p>
             <p className="text-[13px]">
-              <span className="font-medium text-foreground">Available Copies :</span>{' '}
+              <span className="font-medium text-foreground">
+                Available Copies :
+              </span>{" "}
               <span className="text-muted-foreground">{displayAvailable}</span>
             </p>
             <p className="text-[13px]">
-              <span className="font-medium text-foreground">Library :</span>{' '}
+              <span className="font-medium text-foreground">Library :</span>{" "}
               <span className="text-muted-foreground">{displayLibrary}</span>
             </p>
           </div>
@@ -207,23 +236,66 @@ export default function AddMoreBooksPage() {
             label="Book Registration Type"
             required
             value={bookregTypeId}
-            onChange={(v) => setValue('bookregTypeId', v)}
+            onChange={(v) =>
+              setValue("bookregTypeId", v, { shouldValidate: true })
+            }
             options={regTypeOptions}
             placeholder="Select type"
             searchable
-            error={errors.bookregTypeId ? 'Required' : undefined}
+            error={errors.bookregTypeId?.message}
           />
           <div className="space-y-1">
-            <Label className={LIBRARY_FIELD_LABEL_CLASS}>Last Accession Number</Label>
-            <Input className={LIBRARY_INPUT_CLASS} {...register('valueLstAccNo')} readOnly />
+            <Label className={LIBRARY_FIELD_LABEL_CLASS}>
+              Last Accession Number
+            </Label>
+            <Input
+              className={LIBRARY_INPUT_CLASS}
+              {...register("valueLstAccNo")}
+              readOnly
+            />
           </div>
           <div className="space-y-1">
-            <Label className={LIBRARY_FIELD_LABEL_CLASS}>No of Copies</Label>
-            <Input type="number" min={1} className={LIBRARY_INPUT_CLASS} {...register('noofcopies')} />
+            <Label className={LIBRARY_FIELD_LABEL_CLASS}>No of Copies *</Label>
+            <Input
+              type="number"
+              min={1}
+              className={LIBRARY_INPUT_CLASS}
+              {...register("noofcopies", {
+                required: "No of copies is required",
+                min: {
+                  value: 1,
+                  message: "No of copies must be greater than 0",
+                },
+              })}
+            />
+            {errors.noofcopies && (
+              <p className="text-xs text-destructive">
+                {errors.noofcopies.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
-            <Label className={LIBRARY_FIELD_LABEL_CLASS}>Each Book Cost</Label>
-            <Input type="number" min={0} className={LIBRARY_INPUT_CLASS} {...register('bookAmount')} />
+            <Label className={LIBRARY_FIELD_LABEL_CLASS}>
+              Each Book Cost *
+            </Label>
+            <Input
+              type="number"
+              min={0.01}
+              step="any"
+              className={LIBRARY_INPUT_CLASS}
+              {...register("bookAmount", {
+                required: "Each book cost is required",
+                min: {
+                  value: 0.01,
+                  message: "Each book cost must be greater than 0",
+                },
+              })}
+            />
+            {errors.bookAmount && (
+              <p className="text-xs text-destructive">
+                {errors.bookAmount.message}
+              </p>
+            )}
           </div>
         </div>
 
@@ -235,29 +307,60 @@ export default function AddMoreBooksPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select
               label="Currency Types"
-              value={watch('currencyId')}
-              onChange={(v) => setValue('currencyId', v)}
+              required
+              value={watch("currencyId")}
+              onChange={(v) =>
+                setValue("currencyId", v, { shouldValidate: true })
+              }
               options={currencyOptions}
               placeholder="Select currency"
               searchable
               clearable
+              error={errors.currencyId?.message}
             />
             <div className="space-y-1">
-              <Label className={LIBRARY_FIELD_LABEL_CLASS}>Total Amount</Label>
-              <Input type="number" min={0} className={LIBRARY_INPUT_CLASS} {...register('amount')} />
+              <Label className={LIBRARY_FIELD_LABEL_CLASS}>
+                Total Amount *
+              </Label>
+              <Input
+                type="number"
+                min={0.01}
+                step="any"
+                className={LIBRARY_INPUT_CLASS}
+                {...register("amount", {
+                  required: "Total amount is required",
+                  min: {
+                    value: 0.01,
+                    message: "Total amount must be greater than 0",
+                  },
+                })}
+              />
+              {errors.amount && (
+                <p className="text-xs text-destructive">
+                  {errors.amount.message}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
-              <Label className={LIBRARY_FIELD_LABEL_CLASS}>Purchase Source</Label>
-              <Input className={LIBRARY_INPUT_CLASS} {...register('purchaseSource')} />
+              <Label className={LIBRARY_FIELD_LABEL_CLASS}>
+                Purchase Source
+              </Label>
+              <Input
+                className={LIBRARY_INPUT_CLASS}
+                {...register("purchaseSource")}
+              />
             </div>
             <div className="space-y-1">
               <Label className={LIBRARY_FIELD_LABEL_CLASS}>Receipt No</Label>
-              <Input className={LIBRARY_INPUT_CLASS} {...register('purchaseReceiptNo')} />
+              <Input
+                className={LIBRARY_INPUT_CLASS}
+                {...register("purchaseReceiptNo")}
+              />
             </div>
             <DatePicker
               label="Date Of Purchase"
-              value={watch('dateOfPurchase') ?? null}
-              onChange={(d) => setValue('dateOfPurchase', d ?? undefined)}
+              value={watch("dateOfPurchase") ?? null}
+              onChange={(d) => setValue("dateOfPurchase", d ?? undefined)}
             />
             <div className="space-y-1">
               <Label className={LIBRARY_FIELD_LABEL_CLASS}>Receipt file</Label>
@@ -272,14 +375,25 @@ export default function AddMoreBooksPage() {
         </div>
 
         <div className="flex justify-end gap-2 border-t pt-4">
-          <Button type="button" variant="outline" size="sm" className="h-9 px-4" onClick={goBack}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 px-4"
+            onClick={goBack}
+          >
             Back
           </Button>
-          <Button type="submit" size="sm" className="h-9 px-4" disabled={submitting || !book}>
+          <Button
+            type="submit"
+            size="sm"
+            className="h-9 px-4"
+            disabled={submitting || !book}
+          >
             Submit
           </Button>
         </div>
       </form>
     </PageContainer>
-  )
+  );
 }

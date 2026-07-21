@@ -1,38 +1,96 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { PencilIcon, PlusIcon } from 'lucide-react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { EmptyState } from '@/common/components/feedback'
-import { StatusBadge } from '@/common/components/data-display'
-import { formatDate } from '@/common/generic-functions'
-import { getErrorMessage } from '@/lib/errors'
-import { ListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listDrivers } from '@/services'
-import type { Driver } from '@/types/transport'
-import { DriverModal } from './DriverModal'
+import { useMemo, useState } from "react";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { EmptyState } from "@/common/components/feedback";
+import { StatusBadge } from "@/common/components/data-display";
+import { formatDate } from "@/common/generic-functions";
+import { getErrorMessage } from "@/lib/errors";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listDrivers } from "@/services";
+import type { Driver } from "@/types/transport";
+import { DriverModal } from "./DriverModal";
+import {
+  DEFAULT_TRANSPORT_PASSPORT_PHOTO,
+  resolveTransportPhotoSrc,
+} from "../_lib/transport-photo";
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Driver>,
-  driverName: { field: 'driverName', headerName: 'Driver Name', minWidth: 150 } as ColDef<Driver>,
-  mobileNumber: { field: 'mobileNumber', headerName: 'Mobile', minWidth: 120 } as ColDef<Driver>,
-  licenseNumber: { field: 'licenseNumber', headerName: 'License', minWidth: 120 } as ColDef<Driver>,
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<Driver>,
+  photo: {
+    field: "photoPath",
+    headerName: "Photo",
+    width: 80,
+    flex: 0,
+    sortable: false,
+    filter: false,
+  } as ColDef<Driver>,
+  driverName: {
+    field: "driverName",
+    headerName: "Driver Name",
+    minWidth: 150,
+  } as ColDef<Driver>,
+  mobileNumber: {
+    field: "mobileNumber",
+    headerName: "Mobile",
+    minWidth: 120,
+  } as ColDef<Driver>,
+  licenseNumber: {
+    field: "licenseNumber",
+    headerName: "License Number",
+    minWidth: 120,
+  } as ColDef<Driver>,
   licenseValidUpto: {
-    field: 'licenseValidUpto',
-    headerName: 'License Valid',
+    field: "licenseValidUpto",
+    headerName: "License Valid",
     minWidth: 120,
     valueFormatter: (p) => formatDate(p.value),
   } as ColDef<Driver>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<Driver>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Driver>,
-}
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 100,
+    flex: 0,
+  } as ColDef<Driver>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<Driver>,
+};
 
 function statusRenderer(p: ICellRendererParams<Driver>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
+}
+
+function photoRenderer(p: ICellRendererParams<Driver>) {
+  return (
+    <div className="flex h-full items-center justify-center py-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={resolveTransportPhotoSrc(p.data?.photoPath)}
+        alt=""
+        className="h-9 w-9 rounded-full border object-cover"
+        onError={(e) => {
+          const img = e.currentTarget;
+          if (!img.src.includes("default_Student.png")) {
+            img.src = DEFAULT_TRANSPORT_PASSPORT_PHOTO;
+          }
+        }}
+      />
+    </div>
+  );
 }
 
 function makeActionsRenderer(
@@ -46,36 +104,47 @@ function makeActionsRenderer(
       className="h-8 w-8 p-0"
       aria-label="Edit driver"
       onClick={() => {
-        setEditing(p.data ?? null)
-        setModalOpen(true)
+        setEditing(p.data ?? null);
+        setModalOpen(true);
       }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function DriverPage() {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Driver | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Driver | null>(null);
 
-  const { data: rows, isLoading, isError, error, refetch, invalidate } = useCrudList({
+  const {
+    data: rows,
+    isLoading,
+    isError,
+    error,
+    refetch,
+    invalidate,
+  } = useCrudList({
     queryKey: QK.transport.drivers(),
     queryFn: listDrivers,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<Driver>[]>(
     () => [
       COL_DEFS.siNo,
+      { ...COL_DEFS.photo, cellRenderer: photoRenderer },
       COL_DEFS.driverName,
       COL_DEFS.mobileNumber,
       COL_DEFS.licenseNumber,
       COL_DEFS.licenseValidUpto,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditing, setModalOpen),
+      },
     ],
     [],
-  )
+  );
 
   return (
     <ListPage
@@ -86,27 +155,27 @@ export default function DriverPage() {
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search drivers…',
-        pdfDocumentTitle: 'Drivers',
+        searchPlaceholder: "Search drivers…",
+        pdfDocumentTitle: "Drivers",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <Button
           size="sm"
           onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
+            setEditing(null);
+            setModalOpen(true);
           }}
         >
           <PlusIcon className="h-4 w-4 mr-1" />
           Add Driver
         </Button>
-      )}
+      }
       emptyState={
         isError ? (
           <EmptyState
             title="Could not load drivers"
             description={getErrorMessage(error)}
-            action={{ label: 'Retry', onClick: () => void refetch() }}
+            action={{ label: "Retry", onClick: () => void refetch() }}
           />
         ) : undefined
       }
@@ -114,12 +183,12 @@ export default function DriverPage() {
       <DriverModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          setModalOpen(false);
+          setEditing(null);
         }}
         row={editing}
         onSaved={invalidate}
       />
     </ListPage>
-  )
+  );
 }

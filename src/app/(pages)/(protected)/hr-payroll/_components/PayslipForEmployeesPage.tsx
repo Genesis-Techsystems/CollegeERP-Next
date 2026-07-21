@@ -1,165 +1,246 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { format, differenceInMonths, startOfMonth } from 'date-fns'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { DataTable, TableCard } from '@/common/components/table'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { getErrorMessage } from '@/lib/errors'
-import { toastError } from '@/lib/toast'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { format } from "date-fns";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { Select, type SelectOption } from "@/common/components/select";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError } from "@/lib/toast";
 import {
   enrichEmployeesWithPayslipMonths,
   listActiveCollegesForGeneralSettings,
-  listEmployeePayrollGroupByCollege,
-  listEmployeePayslipGenerationsByCollege,
-} from '@/services'
-import { rowIndexGetter } from '@/lib/utils'
+  listEmployeePayrollGroupPage,
+  listEmployeePayslipGenerationsForEmployeeList,
+} from "@/services";
+import { rowIndexGetter } from "@/lib/utils";
 
-type EmpRow = Record<string, unknown>
-
-function payslipExistsThisMonth(generatedDate: unknown): boolean {
-  if (generatedDate == null) return false
-  const d = new Date(String(generatedDate))
-  if (Number.isNaN(d.getTime())) return false
-  return differenceInMonths(startOfMonth(new Date()), startOfMonth(d)) === 0
-}
+type EmpRow = Record<string, unknown>;
+const PAGE_SIZE = 50;
 
 function makePayslipActionsRenderer(collegeId: number) {
-  return (p: ICellRendererParams<EmpRow>) => {
-    const empPayrollGroupId = Number(p.data?.empPayrollGroupId ?? 0)
-    const employeeId = Number(p.data?.employeeId ?? 0)
-    const payrollGroupId = Number(p.data?.payrollGroupId ?? 0)
-    if (!empPayrollGroupId || !employeeId || !payrollGroupId || !collegeId) return null
-    const isAlreadyExists = payslipExistsThisMonth(p.data?.generatedDate) ? 'true' : 'false'
-    const q = new URLSearchParams({
+  return (params: ICellRendererParams<EmpRow>) => {
+    const row = params.data;
+    const empPayrollGroupId = Number(row?.empPayrollGroupId ?? 0);
+    const employeeId = Number(row?.employeeId ?? 0);
+    const payrollGroupId = Number(row?.payrollGroupId ?? 0);
+    if (!empPayrollGroupId || !employeeId || !payrollGroupId) return null;
+
+    // Angular calculates this flag but always sends false from this page.
+    const query = new URLSearchParams({
       empPayrollGroupId: String(empPayrollGroupId),
       employeeId: String(employeeId),
       payrollGroupId: String(payrollGroupId),
       collegeId: String(collegeId),
-      isAlreadyExists,
-    })
-    const genHref = `/hr-payroll/payroll/payslip-for-employees/generate-payslip?${q}`
-    const viewHref = `/hr-payroll/payroll/payslip-for-employees/view-payslip?${q}`
+      isAlreadyExists: "false",
+    });
+
     return (
-      <div className="flex gap-1">
-        <Button asChild size="sm" variant="ghost">
-          <Link href={genHref}>Generate</Link>
+      <div className="flex items-center gap-1">
+        <Button asChild size="sm" variant="ghost" className="h-7 px-2">
+          <Link
+            href={`/hr-payroll/payroll/payslip-for-employees/generate-payslip?${query}`}
+          >
+            Generate
+          </Link>
         </Button>
-        {p.data?.generatedDate != null ? (
-          <Button asChild size="sm" variant="ghost">
-            <Link href={viewHref}>View</Link>
-          </Button>
-        ) : null}
+        <span className="text-muted-foreground">|</span>
+        <Button asChild size="sm" variant="ghost" className="h-7 px-2">
+          <Link
+            href={`/hr-payroll/payroll/payslip-for-employees/view-payslip?${query}`}
+          >
+            View
+          </Link>
+        </Button>
       </div>
-    )
-  }
+    );
+  };
 }
 
 export function PayslipForEmployeesPage() {
-  const searchParams = useSearchParams()
-  const initialCollegeId = Number(searchParams.get('collegeId') ?? 0)
-
-  const [collegeId, setCollegeId] = useState<number | null>(initialCollegeId || null)
-  const [colleges, setColleges] = useState<SelectOption[]>([])
-  const [rows, setRows] = useState<EmpRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [collegesLoading, setCollegesLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams();
+  const initialCollegeId = Number(searchParams.get("collegeId") ?? 0);
+  const [collegeId, setCollegeId] = useState<number | null>(
+    initialCollegeId || null,
+  );
+  const [colleges, setColleges] = useState<SelectOption[]>([]);
+  const [rows, setRows] = useState<EmpRow[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [fetchEnabled, setFetchEnabled] = useState(initialCollegeId > 0);
+  const [requestId, setRequestId] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [collegesLoading, setCollegesLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
-      setCollegesLoading(true)
+      setCollegesLoading(true);
       try {
-        const list = await listActiveCollegesForGeneralSettings()
+        const list = await listActiveCollegesForGeneralSettings();
         setColleges(
-          list.map((c) => ({
-            value: String(c.collegeId),
-            label: String(c.collegeCode ?? c.collegeName ?? c.collegeId),
+          list.map((college) => ({
+            value: String(college.collegeId),
+            label: String(
+              college.collegeCode ?? college.collegeName ?? college.collegeId,
+            ),
           })),
-        )
-        if (!collegeId && list.length > 0) {
-          const cid = initialCollegeId || Number(list[0]!.collegeId)
-          setCollegeId(cid)
-        }
-      } catch (e) {
-        toastError(e, 'Failed to load colleges')
+        );
+      } catch (loadError) {
+        toastError(loadError, "Failed to load colleges");
       } finally {
-        setCollegesLoading(false)
+        setCollegesLoading(false);
       }
-    })()
-  }, [initialCollegeId])
+    })();
+  }, []);
 
-  const loadEmployees = useCallback(async (cid: number) => {
-    setLoading(true)
-    setError(null)
+  const loadEmployees = useCallback(async () => {
+    if (!collegeId || !fetchEnabled) return;
+    setLoading(true);
+    setError(null);
     try {
-      const [employees, payslips] = await Promise.all([
-        listEmployeePayrollGroupByCollege(cid),
-        listEmployeePayslipGenerationsByCollege(cid),
-      ])
-      setRows(enrichEmployeesWithPayslipMonths(employees, payslips))
-    } catch (e) {
-      setError(getErrorMessage(e))
-      toastError(e, 'Failed to load employees')
+      const [employeePage, payslips] = await Promise.all([
+        listEmployeePayrollGroupPage({
+          collegeId,
+          page,
+          size: PAGE_SIZE,
+        }),
+        listEmployeePayslipGenerationsForEmployeeList(collegeId),
+      ]);
+      setRows(enrichEmployeesWithPayslipMonths(employeePage.rows, payslips));
+      setTotalCount(employeePage.totalCount);
+    } catch (loadError) {
+      setError(getErrorMessage(loadError));
+      setRows([]);
+      setTotalCount(0);
+      toastError(loadError, "Failed to load employees");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, [collegeId, fetchEnabled, page]);
 
   useEffect(() => {
-    if (collegeId) void loadEmployees(collegeId)
-  }, [collegeId, loadEmployees])
+    void loadEmployees();
+  }, [loadEmployees, requestId]);
 
   const columnDefs = useMemo<ColDef<EmpRow>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 },
-      { field: 'firstName', headerName: 'Employee', minWidth: 150 },
-      { field: 'departmentCode', headerName: 'Department', minWidth: 110 },
-      { field: 'payrollGroupName', headerName: 'Payroll Group', minWidth: 140 },
-      { field: 'paymentFrequency', headerName: 'Frequency', minWidth: 100 },
       {
-        field: 'generatedDate',
-        headerName: 'Payslip',
-        minWidth: 110,
-        valueFormatter: (p) =>
-          p.value ? format(new Date(String(p.value)), 'MMM d, yyyy') : 'Not generated',
+        headerName: "SI.No",
+        valueGetter: rowIndexGetter,
+        width: 70,
+        flex: 0,
       },
       {
-        headerName: 'Actions',
+        field: "firstName",
+        headerName: "Employee",
+        minWidth: 180,
+        valueFormatter: (params) => {
+          const name = String(params.data?.firstName ?? "");
+          const number = String(params.data?.empNumber ?? "");
+          return number ? `${name} (${number})` : name;
+        },
+      },
+      {
+        field: "departmentCode",
+        headerName: "Department",
+        minWidth: 120,
+      },
+      {
+        field: "payrollGroupName",
+        headerName: "Payroll Group",
+        minWidth: 150,
+      },
+      {
+        field: "paymentFrequencyCode",
+        headerName: "Frequency",
+        minWidth: 110,
+      },
+      {
+        field: "generatedDate",
+        headerName: "Payslip",
+        minWidth: 130,
+        valueFormatter: (params) =>
+          params.value
+            ? format(new Date(String(params.value)), "MMM d, yyyy")
+            : "—",
+      },
+      {
+        headerName: "Actions",
         minWidth: 160,
         flex: 0,
-        cellRenderer: collegeId ? makePayslipActionsRenderer(collegeId) : undefined,
+        cellRenderer: collegeId
+          ? makePayslipActionsRenderer(collegeId)
+          : undefined,
       },
     ],
     [collegeId],
-  )
+  );
 
   return (
-    <PageContainer className="space-y-4">
-      <PageHeader title="Payslip For Employees" />
-      <FilterCard title="Filters">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Select
-            label="College"
-            required
-            className={FILTER_CARD_SELECT_CLASS}
-            value={collegeId != null ? String(collegeId) : ''}
-            onChange={(v) => setCollegeId(v ? Number(v) : null)}
-            options={colleges}
-            isLoading={collegesLoading}
-            placeholder="Select college"
-          />
-        </div>
-      </FilterCard>
-      {error ? <p className="text-sm text-destructive px-1">{error}</p> : null}
-      <TableCard withHeaderBorder={false}>
-        <DataTable rowData={rows} columnDefs={columnDefs} loading={loading} />
-      </TableCard>
-    </PageContainer>
-  )
+    <FilteredListPage<EmpRow>
+      title="Payslips for Employees"
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="College *">
+            <Select
+              value={collegeId != null ? String(collegeId) : null}
+              onChange={(value) => {
+                setCollegeId(value ? Number(value) : null);
+                setRows([]);
+                setTotalCount(0);
+                setPage(0);
+                setFetchEnabled(false);
+              }}
+              options={colleges}
+              isLoading={collegesLoading}
+              placeholder="Select college"
+              clearable={false}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label={"\u00a0"}>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9"
+              disabled={!collegeId || loading}
+              onClick={() => {
+                setPage(0);
+                setFetchEnabled(true);
+                setRequestId((value) => value + 1);
+              }}
+            >
+              {loading ? "Loading…" : "Get List"}
+            </Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      rowData={fetchEnabled ? rows : []}
+      columnDefs={columnDefs}
+      loading={loading}
+      serverSide
+      totalCount={totalCount}
+      currentPage={page}
+      paginationPageSize={PAGE_SIZE}
+      onPageChange={(nextPage) => {
+        setPage(nextPage);
+        setFetchEnabled(true);
+      }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        columnPicker: true,
+        exportExcel: true,
+        exportPdf: true,
+        pdfDocumentTitle: "Payslips for Employees",
+      }}
+    />
+  );
 }
