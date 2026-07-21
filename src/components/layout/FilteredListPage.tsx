@@ -52,7 +52,7 @@ export function FilteredListPage<T>({
   ...tableProps
 }: FilteredListPageProps<T>) {
   const navLabel = usePageNavLabel();
-  const displayTitle = navLabel ?? title ?? "Page";
+  const displayTitle = title ?? navLabel ?? "Page";
   const hasTable = Array.isArray(columnDefs) && columnDefs.length > 0;
 
   // Custom-body pages (dual lists, etc.): same chrome, no empty AG Grid.

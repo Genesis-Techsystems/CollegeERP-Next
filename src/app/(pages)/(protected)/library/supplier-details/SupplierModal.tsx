@@ -1,42 +1,67 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { FormModal } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { LIBRARY_FIELD_LABEL_CLASS, LIBRARY_INPUT_CLASS, LIBRARY_MODAL_TITLE_CLASS } from '../_lib/modal-styles'
-import { createLibrarySupplier, listOrganizations, updateLibrarySupplier } from '@/services'
-import type { LibrarySupplier } from '@/types/library'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActiveStatusField } from "@/common/components/forms";
+import { FormModal } from "@/common/components/feedback";
+import { Select, type SelectOption } from "@/common/components/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { LIBRARY_MODAL_TITLE_CLASS } from "../_lib/modal-styles";
+import {
+  createLibrarySupplier,
+  listOrganizations,
+  updateLibrarySupplier,
+} from "@/services";
+import type { LibrarySupplier } from "@/types/library";
+import { toastError, toastSuccess } from "@/lib/toast";
+
+const requiredOrganizationId = z.preprocess(
+  (value) => {
+    if (value === "" || value === null || value === undefined) return undefined;
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  },
+  z
+    .number({ error: "Organization is required" })
+    .min(1, "Organization is required"),
+);
 
 const schema = z.object({
-  organizationId: z.coerce.number().min(1, 'Organization is required'),
-  suppliername: z.string().min(1, 'Supplier name is required'),
-  suppliercode: z.string().min(1, 'Supplier code is required'),
+  organizationId: requiredOrganizationId,
+  suppliername: z.string().min(1, "Supplier name is required"),
+  suppliercode: z.string().min(1, "Supplier code is required"),
   contactPersonName: z.string().optional(),
   address: z.string().optional(),
-  phoneNo: z.string().optional(),
+  phoneNo: z
+    .union([
+      z.literal(""),
+      z.string().regex(/^[6-9][0-9]{9}$/, "Enter 10 digit number"),
+    ])
+    .optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface SupplierModalProps {
-  open: boolean
-  onClose: () => void
-  row: LibrarySupplier | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: LibrarySupplier | null;
+  onSaved: () => void;
 }
 
-export function SupplierModal({ open, onClose, row, onSaved }: Readonly<SupplierModalProps>) {
-  const isEditing = row != null
-  const [organizations, setOrganizations] = useState<SelectOption[]>([])
+export function SupplierModal({
+  open,
+  onClose,
+  row,
+  onSaved,
+}: Readonly<SupplierModalProps>) {
+  const isEditing = row != null;
+  const [organizations, setOrganizations] = useState<SelectOption[]>([]);
 
   const {
     register,
@@ -50,68 +75,69 @@ export function SupplierModal({ open, onClose, row, onSaved }: Readonly<Supplier
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       organizationId: undefined,
-      suppliername: '',
-      suppliercode: '',
-      contactPersonName: '',
-      address: '',
-      phoneNo: '',
+      suppliername: "",
+      suppliercode: "",
+      contactPersonName: "",
+      address: "",
+      phoneNo: "",
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     void listOrganizations().then((rows) => {
       setOrganizations(
         rows.map((o) => ({
           value: String(o.organizationId),
           label: o.orgCode ?? o.orgName ?? String(o.organizationId),
         })),
-      )
-    })
+      );
+    });
     reset(
       row
         ? {
             organizationId: row.organizationId,
-            suppliername: row.suppliername ?? '',
-            suppliercode: row.suppliercode ?? '',
-            contactPersonName: row.contactPersonName ?? '',
-            address: row.address ?? '',
-            phoneNo: row.phoneNo ?? '',
+            suppliername: row.suppliername ?? "",
+            suppliercode: row.suppliercode ?? "",
+            contactPersonName: row.contactPersonName ?? "",
+            address: row.address ?? "",
+            phoneNo: row.phoneNo ?? "",
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             organizationId: undefined,
-            suppliername: '',
-            suppliercode: '',
-            contactPersonName: '',
-            address: '',
-            phoneNo: '',
+            suppliername: "",
+            suppliercode: "",
+            contactPersonName: "",
+            address: "",
+            phoneNo: "",
             isActive: true,
-            reason: 'active',
+            reason: "active",
           },
-    )
-  }, [open, row, reset])
+    );
+  }, [open, row, reset]);
 
   async function onSubmit(data: FormValues) {
     const payload = {
       ...data,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+      ...(isEditing && row?.supplierId ? { supplierId: row.supplierId } : {}),
+    };
     try {
       if (isEditing && row?.supplierId) {
-        await updateLibrarySupplier(row.supplierId, payload)
-        toastSuccess('Supplier updated')
+        await updateLibrarySupplier(row.supplierId, payload);
+        toastSuccess("Supplier updated");
       } else {
-        await createLibrarySupplier(payload)
-        toastSuccess('Supplier created')
+        await createLibrarySupplier(payload);
+        toastSuccess("Supplier created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, `Failed to ${isEditing ? 'update' : 'create'} supplier`)
+      toastError(err, `Failed to ${isEditing ? "update" : "create"} supplier`);
     }
   }
 
@@ -119,68 +145,97 @@ export function SupplierModal({ open, onClose, row, onSaved }: Readonly<Supplier
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Supplier' : 'Add Supplier'}
+      title={isEditing ? "Edit Supplier Details" : "Add Supplier Details"}
       titleClassName={LIBRARY_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
-      submitLabel={isEditing ? 'Update' : 'Save'}
+      submitLabel="Save"
       cancelLabel="Cancel"
       isSubmitting={isSubmitting}
       size="lg"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Organization</Label>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="space-y-1.5">
           <Select
-            value={watch('organizationId') ? String(watch('organizationId')) : ''}
-            onChange={(v) => setValue('organizationId', Number(v))}
+            label="Organization"
+            required
+            value={
+              watch("organizationId") ? String(watch("organizationId")) : null
+            }
+            onChange={(v) => setValue("organizationId", v ? Number(v) : 0)}
             options={organizations}
             placeholder="Select organization"
             searchable
+            error={errors.organizationId?.message}
           />
-          {errors.organizationId && (
-            <p className="text-xs text-destructive">{errors.organizationId.message}</p>
-          )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="suppliername">Supplier Name</Label>
-          <Input id="suppliername" {...register('suppliername')} />
+          <Label htmlFor="suppliername">Supplier Name *</Label>
+          <Input
+            id="suppliername"
+            placeholder="Enter supplier name"
+            {...register("suppliername")}
+          />
           {errors.suppliername && (
-            <p className="text-xs text-destructive">{errors.suppliername.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.suppliername.message}
+            </p>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="suppliercode">Supplier Code</Label>
-          <Input id="suppliercode" {...register('suppliercode')} />
+          <Label htmlFor="suppliercode">Supplier Code *</Label>
+          <Input
+            id="suppliercode"
+            placeholder="Enter supplier code"
+            {...register("suppliercode")}
+          />
           {errors.suppliercode && (
-            <p className="text-xs text-destructive">{errors.suppliercode.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.suppliercode.message}
+            </p>
           )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="contactPersonName">Contact Person</Label>
-          <Input id="contactPersonName" {...register('contactPersonName')} />
+          <Input
+            id="contactPersonName"
+            placeholder="Enter contact person name"
+            {...register("contactPersonName")}
+          />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="phoneNo">Phone</Label>
-          <Input id="phoneNo" {...register('phoneNo')} />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="address">Address</Label>
-          <Input id="address" {...register('address')} />
+          <Input
+            id="address"
+            placeholder="Enter address"
+            {...register("address")}
+          />
         </div>
-        <div className="sm:col-span-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="phoneNo">Phone Number</Label>
+          <Input
+            id="phoneNo"
+            type="number"
+            placeholder="Enter phone number"
+            {...register("phoneNo")}
+          />
+          {errors.phoneNo ? (
+            <p className="text-xs text-destructive">{errors.phoneNo.message}</p>
+          ) : null}
+        </div>
+        <div className="md:col-span-3">
           <Controller
             name="isActive"
             control={control}
             render={({ field }) => (
               <ActiveStatusField
                 isActive={field.value}
-                reason={watch('reason') ?? ''}
+                reason={watch("reason") ?? ""}
                 onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', String(v))}
+                onReasonChange={(v) => setValue("reason", String(v))}
                 reasonError={errors.reason?.message}
               />
             )}
@@ -188,5 +243,5 @@ export function SupplierModal({ open, onClose, row, onSaved }: Readonly<Supplier
         </div>
       </div>
     </FormModal>
-  )
+  );
 }

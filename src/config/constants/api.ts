@@ -12,6 +12,7 @@
 
 export const DOMAIN = {
   LIST: "domain/list",
+  GET: "domain/get",
   /** Spring CMS-prefixed domain list (e.g. staff users by college + user type code). */
   CMS_LIST: "cms/domain/list",
   CREATE: "domain/create",
@@ -1067,6 +1068,8 @@ export const LIBRARY_API = {
   MEMBERSHIP: "MemberShip",
   MEMBERSHIP_BY_ID: "MemberShipId",
   MEMBER_SEARCH: "libraryMemberSearch",
+  STUDENT_SEARCH: "studentsearch",
+  EMPLOYEE_SEARCH: "employeesearch",
   NO_MEMBERSHIP: "nolibmembership",
   EMPLOYEES_LIB_MEMBERSHIP: "employeesLibmemberShip",
   SUPPLIER: "LibSupplierDetail",
@@ -1103,6 +1106,7 @@ export const LIBRARY_API = {
   LIBRARY_SETTING: "LibrarySetting",
   LIB_SETTINGS_BY_ID: "libSettingsId",
   LIBRARY_SETTINGS_ALT: "libraryssettings",
+  GET_BOOKS_BARCODE_NOT_GENERATED_RECORDS: "getBooksBarcodeNotGeneratedRecords",
   GENERATE_BOOK_BARCODE: "generateBarcodeForBooks",
   GENERATE_MEMBER_BARCODE: "generateLibMemebrBarcode",
   FINE_COLLECTION: "getAllRecords/s_rep_lib_fee_collection",

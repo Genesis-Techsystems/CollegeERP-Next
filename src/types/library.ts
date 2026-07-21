@@ -1,173 +1,214 @@
 /** Library module types — mirrors Angular models under `apps/library`. */
 
 export interface LibraryDetail {
-  libraryId?: number
-  organizationId?: number
-  campusId?: number
-  collegeId?: number
-  roomId?: number
-  orgCode?: string
-  campusCode?: string
-  collegeCode?: string
-  libraryCode?: string
-  libraryName?: string
-  roomName?: string
-  isActive?: boolean
-  reason?: string
+  libraryId?: number;
+  organizationId?: number;
+  campusId?: number;
+  collegeId?: number;
+  roomId?: number;
+  orgCode?: string;
+  campusCode?: string;
+  collegeCode?: string;
+  libraryCode?: string;
+  libraryName?: string;
+  roomName?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibraryDetailPayload = Pick<
   LibraryDetail,
-  'organizationId' | 'campusId' | 'collegeId' | 'roomId' | 'libraryCode' | 'libraryName' | 'isActive' | 'reason'
->
+  | "organizationId"
+  | "campusId"
+  | "collegeId"
+  | "roomId"
+  | "libraryCode"
+  | "libraryName"
+  | "isActive"
+  | "reason"
+>;
 
 export interface LibraryAuthor {
-  authorId?: number
-  organizationId?: number
-  libraryId?: number
-  orgCode?: string
-  libraryName?: string
-  firstName?: string
-  lastName?: string
-  shortName?: string
-  pseudonym?: string
-  isActive?: boolean
-  reason?: string
+  authorId?: number;
+  organizationId?: number;
+  libraryId?: number;
+  orgCode?: string;
+  libraryCode?: string;
+  libraryName?: string;
+  firstName?: string;
+  lastName?: string;
+  shortName?: string;
+  pseudonym?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibraryAuthorPayload = Pick<
   LibraryAuthor,
-  'organizationId' | 'libraryId' | 'firstName' | 'lastName' | 'shortName' | 'pseudonym' | 'isActive' | 'reason'
->
+  | "organizationId"
+  | "libraryId"
+  | "firstName"
+  | "lastName"
+  | "shortName"
+  | "pseudonym"
+  | "isActive"
+  | "reason"
+> &
+  Pick<LibraryAuthor, "authorId">;
 
 export interface LibraryPublisher {
-  publisherId?: number
-  libraryId?: number
-  libraryName?: string
-  publishername?: string
-  shortName?: string
-  date?: string
-  isActive?: boolean
-  reason?: string
+  publisherId?: number;
+  libraryId?: number;
+  libraryCode?: string;
+  libraryName?: string;
+  publishername?: string;
+  shortName?: string;
+  date?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibraryPublisherPayload = Pick<
   LibraryPublisher,
-  'libraryId' | 'publishername' | 'shortName' | 'date' | 'isActive' | 'reason'
->
+  "libraryId" | "publishername" | "shortName" | "date" | "isActive" | "reason"
+> &
+  Pick<LibraryPublisher, "publisherId">;
 
 export interface LibraryRack {
-  shelveId?: number
-  organizationId?: number
-  libraryId?: number
-  orgCode?: string
-  libraryName?: string
-  shelveName?: string
-  shelveCode?: string
-  noOfRows?: number
-  noOfColumns?: number
-  blockCapacity?: number
-  totalCapacity?: number
-  location?: string
-  isActive?: boolean
-  reason?: string
+  shelveId?: number;
+  organizationId?: number;
+  libraryId?: number;
+  orgCode?: string;
+  libraryName?: string;
+  shelveName?: string;
+  shelveCode?: string;
+  noOfRows?: number;
+  noOfColumns?: number;
+  blockCapacity?: number;
+  totalCapacity?: number;
+  location?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibraryRackPayload = Pick<
   LibraryRack,
-  | 'organizationId'
-  | 'libraryId'
-  | 'shelveName'
-  | 'shelveCode'
-  | 'noOfRows'
-  | 'noOfColumns'
-  | 'blockCapacity'
-  | 'totalCapacity'
-  | 'location'
-  | 'isActive'
-  | 'reason'
->
+  | "organizationId"
+  | "libraryId"
+  | "shelveName"
+  | "shelveCode"
+  | "noOfRows"
+  | "noOfColumns"
+  | "blockCapacity"
+  | "totalCapacity"
+  | "location"
+  | "isActive"
+  | "reason"
+>;
 
 export interface LibraryBookCategory {
-  bookcatId?: number
-  organizationId?: number
-  libraryId?: number
-  libCategoryId?: number
-  orgCode?: string
-  libraryName?: string
-  bookCategoryCode?: string
-  bookCategoryName?: string
-  isActive?: boolean
-  reason?: string
+  bookcatId?: number;
+  organizationId?: number;
+  libraryId?: number;
+  libCategoryId?: number;
+  orgCode?: string;
+  libraryCode?: string;
+  libraryName?: string;
+  bookCategoryCode?: string;
+  bookCategoryName?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibraryBookCategoryPayload = Pick<
   LibraryBookCategory,
-  'organizationId' | 'libraryId' | 'libCategoryId' | 'isActive' | 'reason'
->
+  "organizationId" | "libraryId" | "libCategoryId" | "isActive" | "reason"
+>;
 
 export interface LibraryCategory {
-  libCategoryId?: number
-  bookCategoryCode?: string
-  bookCategoryName?: string
-  deptNo?: string
-  inBarcode?: string
-  orgCode?: string
-  isActive?: boolean
-  reason?: string
+  libCategoryId?: number;
+  bookCategoryCode?: string;
+  bookCategoryName?: string;
+  deptNo?: string;
+  inBarcode?: string;
+  orgCode?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibraryCategoryPayload = Pick<
   LibraryCategory,
-  'bookCategoryCode' | 'bookCategoryName' | 'deptNo' | 'inBarcode' | 'isActive' | 'reason'
->
+  | "bookCategoryCode"
+  | "bookCategoryName"
+  | "deptNo"
+  | "inBarcode"
+  | "isActive"
+  | "reason"
+>;
 
 export interface LibrarySupplier {
-  supplierId?: number
-  organizationId?: number
-  orgCode?: string
-  suppliername?: string
-  suppliercode?: string
-  contactPersonName?: string
-  address?: string
-  phoneNo?: string
-  isActive?: boolean
-  reason?: string
+  supplierId?: number;
+  organizationId?: number;
+  orgCode?: string;
+  suppliername?: string;
+  suppliercode?: string;
+  contactPersonName?: string;
+  address?: string;
+  phoneNo?: string;
+  isActive?: boolean;
+  reason?: string;
 }
 
 export type LibrarySupplierPayload = Pick<
   LibrarySupplier,
-  | 'organizationId'
-  | 'suppliername'
-  | 'suppliercode'
-  | 'contactPersonName'
-  | 'address'
-  | 'phoneNo'
-  | 'isActive'
-  | 'reason'
->
+  | "organizationId"
+  | "suppliername"
+  | "suppliercode"
+  | "contactPersonName"
+  | "address"
+  | "phoneNo"
+  | "isActive"
+  | "reason"
+>;
 
 export interface LibraryMembership {
-  memberShipId?: number
-  membershipNo?: string
-  membershipId?: string
-  memberName?: string
-  firstName?: string
-  lastName?: string
-  memberType?: string
-  studentId?: number
-  employeeId?: number
-  hallticketNumber?: string
-  rollNumber?: string
-  empNumber?: string
-  collegeCode?: string
-  collegeName?: string
-  libraryName?: string
-  isActive?: boolean
-  reason?: string
-  [key: string]: unknown
+  libMemberId?: number;
+  memberShipId?: number;
+  memberCode?: string;
+  membershipNo?: string;
+  membershipId?: string;
+  memberName?: string;
+  membertype?: "S" | "E" | string;
+  firstName?: string;
+  lastName?: string;
+  memberType?: string;
+  studentId?: number;
+  employeeId?: number;
+  hallticketNumber?: string;
+  rollNumber?: string;
+  empNumber?: string;
+  empDeptName?: string;
+  collegeCode?: string;
+  collegeName?: string;
+  organizationId?: number;
+  libraryId?: number;
+  libraryCode?: string;
+  libraryName?: string;
+  noOfMaxBooks?: number;
+  noOfBorrowedBooks?: number;
+  memberFromDt?: string;
+  memberToDt?: string;
+  memberBarcode?: string | null;
+  isFeepaid?: boolean;
+  comments?: string;
+  studentDetail?: Record<string, unknown> | null;
+  employeeDetail?: Record<string, unknown> | null;
+  isActive?: boolean;
+  reason?: string;
+  [key: string]: unknown;
 }
 
-export type LibraryMembershipPayload = Partial<
-  Pick<LibraryMembership, 'memberName' | 'memberType' | 'studentId' | 'employeeId' | 'isActive' | 'reason'>
->
+export type LibraryMembershipPayload = Partial<LibraryMembership> & {
+  student?: Record<string, unknown>[] | null;
+  employee?: Record<string, unknown>[] | null;
+};

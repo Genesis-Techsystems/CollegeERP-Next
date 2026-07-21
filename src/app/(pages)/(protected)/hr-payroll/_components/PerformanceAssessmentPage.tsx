@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { BookOpen, PlusIcon } from 'lucide-react'
+import { PlusIcon } from 'lucide-react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { useQuery } from '@tanstack/react-query'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
 import { Select, type SelectOption } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { QK } from '@/lib/query-keys'
 import { getErrorMessage } from '@/lib/errors'
@@ -46,6 +44,14 @@ function employeeOptionLabel(row: Record<string, unknown>): string {
   const name = row.firstName != null ? ` (${String(row.firstName)})` : ''
   const meta = [row.collegeCode, row.empDeptName, row.designation].filter(Boolean).join(' / ')
   return [num + name, meta].filter(Boolean).join(' — ') || String(row.employeeId ?? '')
+}
+
+/** Angular passes `firstName(empNumber)` to the assessment/history page. */
+function assessmentEmployeeLabel(row: Record<string, unknown>): string {
+  const name = String(row.firstName ?? '').trim()
+  const number = String(row.empNumber ?? '').trim()
+  if (name && number) return `${name} (${number})`
+  return name || number || String(row.employeeId ?? '')
 }
 
 function formatFeedbackDate(value: unknown): string {
@@ -94,7 +100,7 @@ export function PerformanceAssessmentPage() {
     const id = Number(row.employeeId)
     setSelectedEmployeeId(id)
     setSelectedEmployee(row)
-    setEmpDisplayName(employeeOptionLabel(row))
+    setEmpDisplayName(assessmentEmployeeLabel(row))
   }, [])
 
   useEffect(() => {
@@ -206,19 +212,11 @@ export function PerformanceAssessmentPage() {
   )
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard
-        title={(
-          <span className="inline-flex items-center gap-2">
-            <BookOpen className="h-4 w-4 shrink-0" aria-hidden />
-            Faculty Performance Assessment
-          </span>
-        )}
-        defaultOpen
-      >
+    <FilteredListPage
+      title="Performance Assessment"
+      filters={
         <div className="max-w-xl">
           <Select
-            className={FILTER_CARD_SELECT_CLASS}
             label="Employee"
             value={selectedEmployeeId ? String(selectedEmployeeId) : null}
             onChange={handleEmployeeChange}
@@ -231,48 +229,47 @@ export function PerformanceAssessmentPage() {
             clearable={!staffLocked}
           />
         </div>
-      </FilterCard>
-
-      {selectedEmployeeId ? (
-        <>
-          <div className="app-card overflow-hidden px-4 py-3">
-            <h2 className="text-[15px] font-semibold leading-tight text-[hsl(var(--card-title))]">
-              Faculty Performance History
-            </h2>
-          </div>
-
-          {error ? (
-            <p className="text-sm text-destructive px-1">{getErrorMessage(error)}</p>
-          ) : null}
-
-          <TableCard withHeaderBorder={false}>
-            <DataTable
-              rowData={history}
-              columnDefs={columnDefs}
-              loading={isFetching}
-              pagination
-              toolbar={{
+      }
+      notice={
+        error ? (
+          <p className="px-1 text-sm text-destructive">{getErrorMessage(error)}</p>
+        ) : null
+      }
+      rowData={selectedEmployeeId ? history : []}
+      columnDefs={selectedEmployeeId ? columnDefs : undefined}
+      body={selectedEmployeeId ? undefined : null}
+      bodyClassName="border-t-0"
+      loading={isFetching}
+      pagination={Boolean(selectedEmployeeId)}
+      toolbar={
+        selectedEmployeeId
+          ? {
                 search: true,
                 searchPlaceholder: 'Search',
                 pdfDocumentTitle: 'Faculty Performance History',
-              }}
-              toolbarTrailing={
-                !isPrincipal ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-[30px] px-3 text-[12px]"
-                    onClick={() => openAssessment()}
-                  >
-                    <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-                    Take Assessment
-                  </Button>
-                ) : null
-              }
-            />
-          </TableCard>
-        </>
-      ) : null}
-    </PageContainer>
+            }
+          : undefined
+      }
+      toolbarLeading={
+        selectedEmployeeId ? (
+          <p className="text-[13px] font-semibold text-foreground">
+            Faculty Performance History
+          </p>
+        ) : undefined
+      }
+      toolbarTrailing={
+        selectedEmployeeId && !isPrincipal ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            onClick={() => openAssessment()}
+          >
+            <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+            Take Assessment
+          </Button>
+        ) : undefined
+      }
+    />
   )
 }

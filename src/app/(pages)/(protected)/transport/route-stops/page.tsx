@@ -1,51 +1,80 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeftIcon, PencilIcon, PlusIcon } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { EmptyState } from '@/common/components/feedback'
-import { StatusBadge } from '@/common/components/data-display'
-import { getErrorMessage } from '@/lib/errors'
-import { ListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listRouteStopsByRoute } from '@/services'
-import type { RouteStop } from '@/types/transport'
-import { formatTransportTime } from '../_lib/format-transport-time'
-import { RouteStopModal } from './RouteStopModal'
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftIcon, PencilIcon, PlusIcon } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { EmptyState } from "@/common/components/feedback";
+import { StatusBadge } from "@/common/components/data-display";
+import { getErrorMessage } from "@/lib/errors";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { getRouteById, listRouteStopsByRoute } from "@/services";
+import type { RouteStop } from "@/types/transport";
+import { formatTransportTime } from "../_lib/format-transport-time";
+import { RouteStopModal } from "./RouteStopModal";
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<RouteStop>,
-  stopName: { field: 'stopName', headerName: 'Stop', minWidth: 140 } as ColDef<RouteStop>,
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<RouteStop>,
+  stopName: {
+    field: "stopName",
+    headerName: "Stop",
+    minWidth: 140,
+  } as ColDef<RouteStop>,
   distanceFromSchoolKm: {
-    field: 'distanceFromSchoolKm',
-    headerName: 'Distance (km)',
+    field: "distanceFromSchoolKm",
+    headerName: "Distance (km)",
     minWidth: 110,
     flex: 0,
   } as ColDef<RouteStop>,
   pickTime: {
-    field: 'pickTime',
-    headerName: 'Pick',
+    field: "pickTime",
+    headerName: "Pick",
     minWidth: 90,
     valueFormatter: (p) => formatTransportTime(p.value),
   } as ColDef<RouteStop>,
   dropTime: {
-    field: 'dropTime',
-    headerName: 'Drop',
+    field: "dropTime",
+    headerName: "Drop",
     minWidth: 90,
     valueFormatter: (p) => formatTransportTime(p.value),
   } as ColDef<RouteStop>,
-  feeFrequencyCode: { field: 'feeFrequencyCode', headerName: 'Frequency', minWidth: 100 } as ColDef<RouteStop>,
-  amount: { field: 'amount', headerName: 'Amount', minWidth: 90, flex: 0 } as ColDef<RouteStop>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<RouteStop>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<RouteStop>,
-}
+  feeFrequencyCode: {
+    headerName: "Frequency",
+    minWidth: 120,
+    valueGetter: (p) =>
+      p.data?.feeFrequencyDisplayName ?? p.data?.feeFrequencyCode ?? "",
+  } as ColDef<RouteStop>,
+  amount: {
+    field: "amount",
+    headerName: "Amount",
+    minWidth: 90,
+    flex: 0,
+  } as ColDef<RouteStop>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 100,
+    flex: 0,
+  } as ColDef<RouteStop>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<RouteStop>,
+};
 
 function statusRenderer(p: ICellRendererParams<RouteStop>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -59,27 +88,40 @@ function makeActionsRenderer(
       className="h-8 w-8 p-0"
       aria-label="Edit route stop"
       onClick={() => {
-        setEditing(p.data ?? null)
-        setModalOpen(true)
+        setEditing(p.data ?? null);
+        setModalOpen(true);
       }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function RouteStopsPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const routeId = Number(searchParams.get('routeId') ?? 0)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<RouteStop | null>(null)
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const routeId = Number(searchParams.get("routeId") ?? 0);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<RouteStop | null>(null);
 
-  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
+  const {
+    data: rows = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: QK.transport.routeStops(routeId),
     queryFn: () => listRouteStopsByRoute(routeId),
     enabled: routeId > 0,
-  })
+  });
+
+  const { data: parentRoute } = useQuery({
+    queryKey: QK.transport.route(routeId),
+    queryFn: () => getRouteById(routeId),
+    enabled: routeId > 0,
+  });
 
   const columnDefs = useMemo<ColDef<RouteStop>[]>(
     () => [
@@ -91,10 +133,13 @@ export default function RouteStopsPage() {
       COL_DEFS.feeFrequencyCode,
       COL_DEFS.amount,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditing, setModalOpen),
+      },
     ],
     [],
-  )
+  );
 
   if (!routeId) {
     return (
@@ -106,26 +151,29 @@ export default function RouteStopsPage() {
           <EmptyState
             title="No route selected"
             description="Open route stops from the Route list using the map icon."
-            action={{ label: 'Go to Routes', onClick: () => router.push('/transport/route') }}
+            action={{
+              label: "Go to Routes",
+              onClick: () => router.push("/transport/route"),
+            }}
           />
         }
       />
-    )
+    );
   }
 
   return (
     <ListPage
-      title={`Route Stops (Route #${routeId})`}
+      title="Route Stops"
       rowData={isError ? [] : rows}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search stops…',
-        pdfDocumentTitle: 'Route Stops',
+        searchPlaceholder: "Search stops…",
+        pdfDocumentTitle: "Route Stops",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => router.back()}>
             <ArrowLeftIcon className="h-3.5 w-3.5 mr-1" />
@@ -134,21 +182,21 @@ export default function RouteStopsPage() {
           <Button
             size="sm"
             onClick={() => {
-              setEditing(null)
-              setModalOpen(true)
+              setEditing(null);
+              setModalOpen(true);
             }}
           >
             <PlusIcon className="h-4 w-4 mr-1" />
             Add Stop
           </Button>
         </div>
-      )}
+      }
       emptyState={
         isError ? (
           <EmptyState
             title="Could not load route stops"
             description={getErrorMessage(error)}
-            action={{ label: 'Retry', onClick: () => void refetch() }}
+            action={{ label: "Retry", onClick: () => void refetch() }}
           />
         ) : undefined
       }
@@ -156,13 +204,19 @@ export default function RouteStopsPage() {
       <RouteStopModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          setModalOpen(false);
+          setEditing(null);
         }}
         row={editing}
         routeId={routeId}
-        onSaved={() => void refetch()}
+        parentRoute={parentRoute ?? null}
+        onSaved={async () => {
+          await refetch();
+          await queryClient.invalidateQueries({
+            queryKey: QK.transport.routes(),
+          });
+        }}
       />
     </ListPage>
-  )
+  );
 }

@@ -28,7 +28,8 @@ export const TRANSPORT_MODULE: ErpModuleMirrorConfig = {
     transportdistancefee: 'distance-fee',
     transportdetails: 'transport-details',
     transportallocatedlist: 'transport-allocated-list',
-    transportallocation: 'transport-allocation',
+    // The Angular menu opens the allocated list first; its button opens the form.
+    transportallocation: 'transport-allocated-list',
     studenttransportdetails: 'student-transport-details',
     vehicledrivers: 'vehicle-drivers',
     vehiclemap: 'vehicle-map',

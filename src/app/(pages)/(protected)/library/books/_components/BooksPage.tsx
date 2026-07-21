@@ -1,22 +1,22 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PlusIcon, PencilIcon } from 'lucide-react'
-import { DataTable, TableCard } from '@/common/components/table'
-import { FilterCard, FILTER_CARD_SELECT_CLASS } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { StatusBadge } from '@/common/components/data-display'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { useSessionContext } from '@/context/SessionContext'
-import { getErrorMessage } from '@/lib/errors'
-import { QK } from '@/lib/query-keys'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { rowIndexGetter } from '@/lib/utils'
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PlusIcon, PencilIcon } from "lucide-react";
+import { Select, type SelectOption } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSessionContext } from "@/context/SessionContext";
+import { getErrorMessage } from "@/lib/errors";
+import { QK } from "@/lib/query-keys";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   generateBooksBarcode,
   getLibraryBookById,
@@ -25,21 +25,40 @@ import {
   listCollegesForLibrary,
   listLibrariesByCollege,
   searchBooksInLibraryCategory,
-} from '@/services'
-import type { LibraryRow } from '@/services'
-import { LibraryScreenShell } from '../../_components/LibraryScreenShell'
-import { EditBookModal } from './EditBookModal'
+} from "@/services";
+import type { LibraryRow } from "@/services";
+import { EditBookModal } from "./EditBookModal";
 
-type SearchMode = 'book' | 'all'
+type SearchMode = "book" | "all";
 
 function bookOptionLabel(b: LibraryRow): string {
-  const title = String(b.bookTitle ?? b.title ?? 'Book').trim()
-  const lib = String(b.libraryCode ?? '').trim()
-  return lib ? `${title} (${lib})` : title
+  const title = String(b.bookTitle ?? b.title ?? "Book").trim();
+  const lib = String(b.libraryCode ?? "").trim();
+  const copies =
+    b.availableCopies == null || b.availableCopies === ""
+      ? "Not Available"
+      : `Available: ${String(b.availableCopies)}`;
+  const authors = Array.isArray(b.authors)
+    ? b.authors.join(", ")
+    : String(b.authors ?? "");
+  const publishers = Array.isArray(b.publisher)
+    ? b.publisher.join(", ")
+    : String(b.publisher ?? "");
+  const category = String(b.bookCategoryCode ?? "");
+  return [
+    title,
+    copies,
+    lib ? `(${lib})` : "",
+    authors ? `Authors: ${authors}` : "",
+    publishers ? `Publishers: ${publishers}` : "",
+    category ? `Category: ${category}` : "",
+  ]
+    .filter(Boolean)
+    .join(" — ");
 }
 
 function statusRenderer(p: ICellRendererParams<LibraryRow>) {
-  return <StatusBadge status={Boolean(p.data?.isActive)} />
+  return <StatusBadge status={Boolean(p.data?.isActive)} />;
 }
 
 function makeActionsRenderer(
@@ -50,20 +69,21 @@ function makeActionsRenderer(
   onEdit: (row: LibraryRow) => void,
 ) {
   return (p: ICellRendererParams<LibraryRow>) => {
-    const row = p.data
-    if (!row?.bookId) return null
+    const row = p.data;
+    if (!row?.bookId) return null;
     const qs = new URLSearchParams({
       bookId: String(row.bookId),
-      bookTitle: String(row.bookTitle ?? row.title ?? ''),
-      noofcopies: String(row.noofcopies ?? ''),
-      availableCopies: String(row.availableCopies ?? ''),
-      issuedCopies: String(row.issuedCopies ?? ''),
-    })
-    if (collegeId) qs.set('collegeId', collegeId)
-    if (libraryId) qs.set('libraryId', libraryId)
-    if (bookcatId) qs.set('bookcatId', bookcatId)
-    if (searchMode === 'book') qs.set('check', '1')
-    if (searchMode === 'all') qs.set('check', '2')
+      bookTitle: String(row.bookTitle ?? row.title ?? ""),
+      bookCode: String(row.bookCode ?? ""),
+      noofcopies: String(row.noofcopies ?? ""),
+      availableCopies: String(row.availableCopies ?? ""),
+      issuedCopies: String(row.issuedCopies ?? ""),
+    });
+    if (collegeId) qs.set("collegeId", collegeId);
+    if (libraryId) qs.set("libraryId", libraryId);
+    if (bookcatId) qs.set("bookcatId", bookcatId);
+    if (searchMode === "book") qs.set("check", "1");
+    if (searchMode === "all") qs.set("check", "2");
     return (
       <div className="flex min-h-[3rem] flex-wrap items-center gap-x-2 gap-y-1 py-2 text-[12px] leading-snug">
         <Link
@@ -92,49 +112,63 @@ function makeActionsRenderer(
           <PencilIcon className="h-3.5 w-3.5" />
         </Button>
       </div>
-    )
-  }
+    );
+  };
 }
 
 export function BooksPage() {
-  const { user } = useSessionContext()
-  const queryClient = useQueryClient()
-  const defaultCollegeId = user?.collegeId ?? 0
+  const { user } = useSessionContext();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const defaultCollegeId = user?.collegeId ?? 0;
+  const organizationId = Number(user?.organizationId ?? 0);
+  const employeeId = Number(user?.employeeId ?? 0);
+  const requestedCollegeId = searchParams.get("collegeId");
+  const requestedLibraryId = searchParams.get("libraryId");
+  const requestedCategoryId = searchParams.get("bookcatId");
+  const requestedBookId = searchParams.get("bookId");
+  const requestedBookTitle = searchParams.get("bookTitle") ?? "";
+  const requestedCheck = searchParams.get("check");
 
-  const [searchMode, setSearchMode] = useState<SearchMode>('book')
-  const [editBookRow, setEditBookRow] = useState<LibraryRow | null>(null)
-  const [editBookOpen, setEditBookOpen] = useState(false)
+  const [searchMode, setSearchMode] = useState<SearchMode>(
+    requestedCheck === "2" ? "all" : "book",
+  );
+  const [editBookRow, setEditBookRow] = useState<LibraryRow | null>(null);
+  const [editBookOpen, setEditBookOpen] = useState(false);
   const [collegeId, setCollegeId] = useState<string | null>(
-    defaultCollegeId ? String(defaultCollegeId) : null,
-  )
-  const [libraryId, setLibraryId] = useState<string | null>(null)
-  const [bookcatId, setBookcatId] = useState<string | null>(null)
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null)
-  const [bookSuggestions, setBookSuggestions] = useState<LibraryRow[]>([])
-  const [bookSearchLoading, setBookSearchLoading] = useState(false)
-  const [generatingBarcode, setGeneratingBarcode] = useState(false)
+    requestedCollegeId ?? (defaultCollegeId ? String(defaultCollegeId) : null),
+  );
+  const [libraryId, setLibraryId] = useState<string | null>(requestedLibraryId);
+  const [bookcatId, setBookcatId] = useState<string | null>(
+    requestedCategoryId,
+  );
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
+  const [bookSuggestions, setBookSuggestions] = useState<LibraryRow[]>([]);
+  const [bookSearchLoading, setBookSearchLoading] = useState(false);
+  const [generatingBarcode, setGeneratingBarcode] = useState(false);
+  const restoredBookRef = useRef(false);
 
-  const collegeNum = collegeId ? Number(collegeId) : 0
-  const libraryNum = libraryId ? Number(libraryId) : 0
-  const bookcatNum = bookcatId ? Number(bookcatId) : 0
-  const filtersReady = collegeNum > 0 && libraryNum > 0 && bookcatNum > 0
+  const collegeNum = collegeId ? Number(collegeId) : 0;
+  const libraryNum = libraryId ? Number(libraryId) : 0;
+  const bookcatNum = bookcatId ? Number(bookcatId) : 0;
+  const filtersReady = collegeNum > 0 && libraryNum > 0 && bookcatNum > 0;
 
   const { data: colleges = [] } = useQuery({
-    queryKey: QK.library.collegesForLibrary(),
-    queryFn: listCollegesForLibrary,
-  })
+    queryKey: [...QK.library.collegesForLibrary(), organizationId, employeeId],
+    queryFn: () => listCollegesForLibrary(organizationId, employeeId),
+  });
 
   const { data: libraries = [], isLoading: loadingLibraries } = useQuery({
     queryKey: QK.library.librariesByCollege(collegeNum),
     queryFn: () => listLibrariesByCollege(collegeNum),
     enabled: collegeNum > 0,
-  })
+  });
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery({
     queryKey: QK.library.bookCategoriesByLibrary(libraryNum),
     queryFn: () => listBookCategoriesByLibrary(libraryNum),
     enabled: libraryNum > 0,
-  })
+  });
 
   const {
     data: categoryBooks = [],
@@ -144,17 +178,19 @@ export function BooksPage() {
   } = useQuery({
     queryKey: QK.library.booksByCategory(libraryNum, bookcatNum),
     queryFn: () => listBooksByLibraryAndCategory(libraryNum, bookcatNum),
-    enabled: searchMode === 'all' && filtersReady,
-  })
+    enabled: searchMode === "all" && filtersReady,
+  });
 
   const collegeOptions = useMemo<SelectOption[]>(
     () =>
       colleges.map((c) => ({
-        value: String(c.collegeId ?? c.fk_college_id ?? ''),
-        label: String(c.collegeCode ?? c.college_code ?? c.collegeName ?? c.collegeId ?? ''),
+        value: String(c.collegeId ?? c.fk_college_id ?? ""),
+        label: String(
+          c.collegeCode ?? c.college_code ?? c.collegeName ?? c.collegeId ?? "",
+        ),
       })),
     [colleges],
-  )
+  );
 
   const libraryOptions = useMemo<SelectOption[]>(
     () =>
@@ -163,164 +199,223 @@ export function BooksPage() {
         label: lib.libraryCode ?? lib.libraryName ?? String(lib.libraryId),
       })),
     [libraries],
-  )
+  );
 
   const categoryOptions = useMemo<SelectOption[]>(
     () =>
       categories.map((cat) => ({
         value: String(cat.bookcatId),
-        label: cat.bookCategoryCode ?? cat.bookCategoryName ?? String(cat.bookcatId),
+        label:
+          cat.bookCategoryCode ?? cat.bookCategoryName ?? String(cat.bookcatId),
       })),
     [categories],
-  )
+  );
 
   const bookOptions = useMemo<SelectOption[]>(() => {
     const base = bookSuggestions.map((b) => ({
-      value: String(b.bookId ?? ''),
+      value: String(b.bookId ?? ""),
       label: bookOptionLabel(b),
-    }))
+    }));
     if (selectedBookId && !base.some((o) => o.value === selectedBookId)) {
-      const picked = bookSuggestions.find((b) => String(b.bookId) === selectedBookId)
-      if (picked) return [{ value: selectedBookId, label: bookOptionLabel(picked) }, ...base]
+      const picked = bookSuggestions.find(
+        (b) => String(b.bookId) === selectedBookId,
+      );
+      if (picked)
+        return [
+          { value: selectedBookId, label: bookOptionLabel(picked) },
+          ...base,
+        ];
     }
-    return base
-  }, [bookSuggestions, selectedBookId])
+    return base;
+  }, [bookSuggestions, selectedBookId]);
 
   const selectedBook = useMemo(
-    () => bookSuggestions.find((b) => String(b.bookId) === selectedBookId) ?? null,
+    () =>
+      bookSuggestions.find((b) => String(b.bookId) === selectedBookId) ?? null,
     [bookSuggestions, selectedBookId],
-  )
+  );
 
   const tableRows = useMemo(() => {
-    if (searchMode === 'book') {
-      return selectedBook ? [selectedBook] : []
+    if (searchMode === "book") {
+      return selectedBook ? [selectedBook] : [];
     }
-    return categoryBooks
-  }, [searchMode, selectedBook, categoryBooks])
+    return categoryBooks;
+  }, [searchMode, selectedBook, categoryBooks]);
 
   const onBookSearch = useCallback(
     async (term: string) => {
       if (!filtersReady || term.trim().length < 4) {
-        setBookSuggestions([])
-        return
+        setBookSuggestions([]);
+        return;
       }
-      setBookSearchLoading(true)
+      setBookSearchLoading(true);
       try {
-        const found = await searchBooksInLibraryCategory(libraryNum, bookcatNum, term)
-        setBookSuggestions(found)
+        const found = await searchBooksInLibraryCategory(
+          libraryNum,
+          bookcatNum,
+          term,
+        );
+        setBookSuggestions(found);
       } catch (e) {
-        toastError(e, 'Book search failed')
-        setBookSuggestions([])
+        toastError(e, "Book search failed");
+        setBookSuggestions([]);
       } finally {
-        setBookSearchLoading(false)
+        setBookSearchLoading(false);
       }
     },
     [filtersReady, libraryNum, bookcatNum],
-  )
+  );
 
   useEffect(() => {
-    if (collegeNum > 0 && !collegeId && collegeOptions.length > 0) {
-      setCollegeId(collegeOptions[0]!.value)
+    if (!collegeId && collegeOptions.length > 0) {
+      setCollegeId(collegeOptions[0]!.value);
     }
-  }, [collegeNum, collegeId, collegeOptions])
+  }, [collegeId, collegeOptions]);
 
   useEffect(() => {
-    if (libraryOptions.length === 1 && !libraryId) {
-      setLibraryId(libraryOptions[0]!.value)
+    if (
+      libraryOptions.length > 0 &&
+      (!libraryId || !libraryOptions.some((o) => o.value === libraryId))
+    ) {
+      setLibraryId(libraryOptions[0]!.value);
     }
-  }, [libraryOptions, libraryId])
+  }, [libraryOptions, libraryId]);
 
   useEffect(() => {
-    if (categoryOptions.length === 1 && !bookcatId) {
-      setBookcatId(categoryOptions[0]!.value)
+    if (
+      categoryOptions.length > 0 &&
+      (!bookcatId || !categoryOptions.some((o) => o.value === bookcatId))
+    ) {
+      setBookcatId(categoryOptions[0]!.value);
     }
-  }, [categoryOptions, bookcatId])
+  }, [categoryOptions, bookcatId]);
 
-  function resetCascade(from: 'college' | 'library' | 'category') {
-    if (from === 'college') {
-      setLibraryId(null)
-      setBookcatId(null)
-    } else if (from === 'library') {
-      setBookcatId(null)
+  useEffect(() => {
+    if (
+      restoredBookRef.current ||
+      searchMode !== "book" ||
+      !filtersReady ||
+      !requestedBookId ||
+      requestedBookTitle.trim().length < 4
+    )
+      return;
+    restoredBookRef.current = true;
+    void searchBooksInLibraryCategory(
+      libraryNum,
+      bookcatNum,
+      requestedBookTitle,
+    )
+      .then((rows) => {
+        setBookSuggestions(rows);
+        if (rows.some((row) => String(row.bookId) === requestedBookId)) {
+          setSelectedBookId(requestedBookId);
+        }
+      })
+      .catch((error) => toastError(error, "Could not restore selected book"));
+  }, [
+    bookcatNum,
+    filtersReady,
+    libraryNum,
+    requestedBookId,
+    requestedBookTitle,
+    searchMode,
+  ]);
+
+  function resetCascade(from: "college" | "library" | "category") {
+    if (from === "college") {
+      setLibraryId(null);
+      setBookcatId(null);
+    } else if (from === "library") {
+      setBookcatId(null);
     }
-    setSelectedBookId(null)
-    setBookSuggestions([])
+    setSelectedBookId(null);
+    setBookSuggestions([]);
   }
 
   function handleCollegeChange(value: string | null) {
-    setCollegeId(value)
-    resetCascade('college')
+    setCollegeId(value);
+    resetCascade("college");
   }
 
   function handleLibraryChange(value: string | null) {
-    setLibraryId(value)
-    resetCascade('library')
+    setLibraryId(value);
+    resetCascade("library");
   }
 
   function handleCategoryChange(value: string | null) {
-    setBookcatId(value)
-    setSelectedBookId(null)
-    setBookSuggestions([])
+    setBookcatId(value);
+    setSelectedBookId(null);
+    setBookSuggestions([]);
   }
 
   function handleBookChange(value: string | null) {
-    setSelectedBookId(value)
-    if (!value) return
-    const picked = bookSuggestions.find((b) => String(b.bookId) === value)
+    setSelectedBookId(value);
+    if (!value) return;
+    const picked = bookSuggestions.find((b) => String(b.bookId) === value);
   }
 
   const handleEditBook = useCallback((row: LibraryRow) => {
-    setEditBookRow(row)
-    setEditBookOpen(true)
-  }, [])
+    setEditBookRow(row);
+    setEditBookOpen(true);
+  }, []);
 
   function handleBookSaved() {
     void queryClient.invalidateQueries({
       queryKey: QK.library.booksByCategory(libraryNum, bookcatNum),
-    })
-    const savedId = editBookRow?.bookId
-    if (!savedId) return
+    });
+    const savedId = editBookRow?.bookId;
+    if (!savedId) return;
     void getLibraryBookById(Number(savedId)).then((updated) => {
-      if (!updated) return
-      const id = String(updated.bookId)
+      if (!updated) return;
+      const id = String(updated.bookId);
       setBookSuggestions((prev) => {
-        const mapped = prev.map((b) => (String(b.bookId) === id ? updated : b))
-        return mapped.some((b) => String(b.bookId) === id) ? mapped : prev
-      })
-    })
+        const mapped = prev.map((b) => (String(b.bookId) === id ? updated : b));
+        return mapped.some((b) => String(b.bookId) === id) ? mapped : prev;
+      });
+    });
   }
 
   async function handleGenerateBarcode() {
-    setGeneratingBarcode(true)
+    setGeneratingBarcode(true);
     try {
-      await generateBooksBarcode()
-      toastSuccess('Book barcodes generated')
+      await generateBooksBarcode();
+      toastSuccess("Book barcodes generated");
     } catch (e) {
-      toastError(e, 'Could not generate book barcodes')
+      toastError(e, "Could not generate book barcodes");
     } finally {
-      setGeneratingBarcode(false)
+      setGeneratingBarcode(false);
     }
   }
 
   const columnDefs = useMemo<ColDef<LibraryRow>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 },
+      { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
       {
-        field: 'title',
-        headerName: 'Title',
+        field: "title",
+        headerName: "Title",
         minWidth: 220,
         flex: 1,
         wrapText: true,
         autoHeight: true,
         valueGetter: (p) => p.data?.title ?? p.data?.bookTitle,
       },
-      { field: 'libraryCode', headerName: 'Library', minWidth: 120 },
-      { field: 'noofcopies', headerName: 'No of copies', minWidth: 110 },
-      { field: 'availableCopies', headerName: 'Available Copies', minWidth: 120 },
-      { field: 'issuedCopies', headerName: 'Issued Copies', minWidth: 110 },
-      { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0, cellRenderer: statusRenderer },
+      { field: "libraryCode", headerName: "Library", minWidth: 120 },
+      { field: "noofcopies", headerName: "No of copies", minWidth: 110 },
       {
-        headerName: 'Actions',
+        field: "availableCopies",
+        headerName: "Available Copies",
+        minWidth: 120,
+      },
+      { field: "issuedCopies", headerName: "Issued Copies", minWidth: 110 },
+      {
+        field: "isActive",
+        headerName: "Status",
+        minWidth: 100,
+        flex: 0,
+        cellRenderer: statusRenderer,
+      },
+      {
+        headerName: "Actions",
         minWidth: 220,
         width: 220,
         flex: 0,
@@ -337,53 +432,45 @@ export function BooksPage() {
       },
     ],
     [collegeId, libraryId, bookcatId, searchMode, handleEditBook],
-  )
+  );
 
-  const showTable = searchMode === 'all' ? filtersReady && categoryBooks.length >= 0 : !!selectedBook
-  const tableLoading = searchMode === 'all' ? loadingCategoryBooks : false
+  const tableLoading = searchMode === "all" ? loadingCategoryBooks : false;
 
   return (
-    <LibraryScreenShell
+    <FilteredListPage
       title="Books"
-      action={
-        <Button asChild size="sm" className="h-8 px-3 text-[12px]">
-          <Link href="/library/add-books">
-            <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-            Add Books
-          </Link>
-        </Button>
-      }
-    >
-      <div className="space-y-4">
-        <div className="app-card px-4 py-3">
+      filters={
+        <div className="space-y-4">
           <RadioGroup
             value={searchMode}
             onValueChange={(v) => {
-              setSearchMode(v as SearchMode)
-              setSelectedBookId(null)
-              setBookSuggestions([])
+              setSearchMode(v as SearchMode);
+              setSelectedBookId(null);
+              setBookSuggestions([]);
             }}
             className="flex flex-wrap gap-x-6 gap-y-2"
           >
             <div className="flex items-center gap-2">
               <RadioGroupItem value="book" id="lib-books-mode-book" />
-              <Label htmlFor="lib-books-mode-book" className="text-[13px] font-normal">
+              <Label
+                htmlFor="lib-books-mode-book"
+                className="text-[13px] font-normal"
+              >
                 Search By Book
               </Label>
             </div>
             <div className="flex items-center gap-2">
               <RadioGroupItem value="all" id="lib-books-mode-all" />
-              <Label htmlFor="lib-books-mode-all" className="text-[13px] font-normal">
+              <Label
+                htmlFor="lib-books-mode-all"
+                className="text-[13px] font-normal"
+              >
                 All
               </Label>
             </div>
           </RadioGroup>
-        </div>
-
-        <FilterCard title={searchMode === 'book' ? 'Book Search' : 'Book Details'}>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Select
-              className={FILTER_CARD_SELECT_CLASS}
               label="College"
               required
               value={collegeId}
@@ -393,7 +480,6 @@ export function BooksPage() {
               searchable
             />
             <Select
-              className={FILTER_CARD_SELECT_CLASS}
               label="Library"
               required
               value={libraryId}
@@ -405,7 +491,6 @@ export function BooksPage() {
               disabled={!collegeId}
             />
             <Select
-              className={FILTER_CARD_SELECT_CLASS}
               label="Book category"
               required
               value={bookcatId}
@@ -416,9 +501,8 @@ export function BooksPage() {
               isLoading={loadingCategories}
               disabled={!libraryId}
             />
-            {searchMode === 'book' ? (
+            {searchMode === "book" ? (
               <Select
-                className={FILTER_CARD_SELECT_CLASS}
                 label="Search Book"
                 value={selectedBookId}
                 onChange={handleBookChange}
@@ -432,64 +516,55 @@ export function BooksPage() {
               />
             ) : null}
           </div>
-        </FilterCard>
-
-        {showTable ? (
-          <TableCard withHeaderBorder={false}>
-            {isError && searchMode === 'all' ? (
-              <p className="px-4 py-6 text-center text-sm text-destructive">{getErrorMessage(error)}</p>
-            ) : (
-              <DataTable
-                rowData={tableRows}
-                columnDefs={columnDefs}
-                loading={tableLoading}
-                pagination
-                height="auto"
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: 'Search',
-                  pdfDocumentTitle: 'Books',
-                }}
-                toolbarTrailing={
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-[30px] px-3 text-[12px]"
-                    disabled={generatingBarcode || tableRows.length === 0}
-                    onClick={() => void handleGenerateBarcode()}
-                  >
-                    Generate Book BarCode
-                  </Button>
-                }
-              />
-            )}
-            {!tableLoading && tableRows.length === 0 ? (
-              <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">
-                {searchMode === 'book'
-                  ? filtersReady
-                    ? 'Search and select a book (type at least 4 characters).'
-                    : 'Select college, library, and book category first.'
-                  : 'No books in this category.'}
-              </p>
-            ) : null}
-          </TableCard>
-        ) : searchMode === 'book' && filtersReady && !selectedBook ? (
-          <p className="text-sm text-muted-foreground px-1">
-            Type at least 4 characters in Search Book, then pick a title from the list.
-          </p>
-        ) : null}
-      </div>
-
+        </div>
+      }
+      filtersCollapsible
+      filtersDefaultOpen
+      rowData={tableRows}
+      columnDefs={columnDefs}
+      loading={tableLoading}
+      pagination
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        pdfDocumentTitle: "Books",
+      }}
+      toolbarTrailing={
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            disabled={generatingBarcode || tableRows.length === 0}
+            onClick={() => void handleGenerateBarcode()}
+          >
+            Generate Book BarCode
+          </Button>
+          <Button asChild size="sm" className="h-[30px] px-3 text-[12px]">
+            <Link href="/library/add-books">
+              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+              Add Books
+            </Link>
+          </Button>
+        </div>
+      }
+      notice={
+        isError && searchMode === "all" ? (
+          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        ) : undefined
+      }
+    >
       <EditBookModal
         open={editBookOpen}
         onClose={() => {
-          setEditBookOpen(false)
-          setEditBookRow(null)
+          setEditBookOpen(false);
+          setEditBookRow(null);
         }}
         row={editBookRow}
         onSaved={handleBookSaved}
       />
-    </LibraryScreenShell>
-  )
+    </FilteredListPage>
+  );
 }
