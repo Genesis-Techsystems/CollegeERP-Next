@@ -4,21 +4,36 @@ import type { ApiResponse } from '@/types/api'
 import { AUTH_API } from '@/config/constants/api'
 
 /**
- * Calls Spring Boot login endpoint, returns JWT string on success.
- * Throws a generic error on failure — never exposes backend details.
+ * Result of the Spring `/api/auth/login` call. The backend's login is two-phase
+ * for 2FA accounts: a password-only call sends an OTP and returns
+ * `data: { twoFactorRequired: true }` (no token); a password + `otp` call
+ * validates the code and returns the JWT string in `data`. Non-2FA accounts get
+ * a JWT straight from the password call.
+ */
+export type SpringLoginResult =
+  | { status: 'authenticated'; jwt: string }
+  | { status: 'otp_required' }
+
+/**
+ * Calls the Spring Boot login endpoint. Pass `otp` to complete the second
+ * (verify) phase for a 2FA account. Returns a discriminated result; throws a
+ * generic error on failure — never exposes backend details.
  */
 export async function springLogin(
   usernameOrEmail: string,
   password: string,
-): Promise<string> {
+  otp?: string,
+): Promise<SpringLoginResult> {
   const url = `${process.env.SPRING_API_URL}/${AUTH_API.LOGIN}`
+  const payload: Record<string, unknown> = { usernameOrEmail, password, isMobile: false }
+  if (otp) payload.otp = otp
 
   let res: Response
   try {
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usernameOrEmail, password, isMobile: false }),
+      body: JSON.stringify(payload),
     })
   } catch {
     throw new Error('Login service unavailable')
@@ -28,18 +43,32 @@ export async function springLogin(
     throw new Error('Authentication failed')
   }
 
-  let body: ApiResponse<string>
+  let body: ApiResponse<unknown>
   try {
     body = await res.json()
   } catch {
     throw new Error('Authentication failed')
   }
 
-  if (!body.success || !body.data) {
+  if (!body.success) {
     throw new Error('Authentication failed')
   }
 
-  return body.data
+  // 2FA challenge: password accepted, backend sent an OTP (no token yet).
+  if (
+    body.data &&
+    typeof body.data === 'object' &&
+    (body.data as { twoFactorRequired?: boolean }).twoFactorRequired === true
+  ) {
+    return { status: 'otp_required' }
+  }
+
+  // A JWT comes back as a non-empty string in `data`.
+  if (typeof body.data === 'string' && body.data.length > 0) {
+    return { status: 'authenticated', jwt: body.data }
+  }
+
+  throw new Error('Authentication failed')
 }
 
 /**

@@ -42,27 +42,21 @@ export const USER_ROLES = {
 export type UserRoleType = typeof USER_ROLES[keyof typeof USER_ROLES]
 
 /**
- * Default two-factor code accepted for evaluator logins.
- *
- * The evaluator vertical (ported from the standalone ExamDigit app) gates login
- * behind an OTP step. Until the Spring backend issues real OTPs, any evaluator
- * account is verified against this fixed code. Swap this for the real backend
- * OTP-verification call (see AUTH_API `userLoginOtpVerification`) later.
- */
-export const DEFAULT_LOGIN_OTP = process.env.DEFAULT_LOGIN_OTP ?? '123456'
-
-/**
- * True when the authenticated account is an evaluator-type user, i.e. login must
- * pass through the OTP step. Evaluated server-side from the authorization DTO so
- * normal staff/student logins are never affected.
+ * True when the authenticated account is an evaluator-type user. Used only to
+ * route evaluators to the /evaluator portal after login — the OTP step itself is
+ * driven by the Spring backend's own 2FA (`twoFactorRequired`), not this flag.
  */
 export function isEvaluatorRole(userRole?: string | null, roleName?: string | null): boolean {
   const role = (userRole ?? '').toUpperCase()
   const name = (roleName ?? '').toUpperCase()
+  // Match genuine evaluators only — role/name contains "EVALUATOR" (Online/Offline/
+  // Chief Evaluator) or the OFFLINEEVALUATION role. Deliberately NOT "EVALUAT", which
+  // also caught Evaluation Admin/Scanner/Officer/Support — non-evaluator exam roles.
   return (
     role === USER_ROLES.OFFLINE_EVALUATION ||
-    role.includes('EVALUAT') ||
-    name.includes('EVALUAT')
+    name === USER_ROLES.OFFLINE_EVALUATION ||
+    role.includes('EVALUATOR') ||
+    name.includes('EVALUATOR')
   )
 }
 
