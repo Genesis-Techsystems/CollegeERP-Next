@@ -1,56 +1,57 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { FormModal } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormModal } from "@/common/components/feedback";
+import { Select, type SelectOption } from "@/common/components/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   LIBRARY_FIELD_LABEL_CLASS,
   LIBRARY_INPUT_CLASS,
   LIBRARY_MODAL_TITLE_CLASS,
-} from '../_lib/modal-styles'
+} from "../_lib/modal-styles";
 import {
   createLibraryCategory,
   listActiveOrganizationsForLibrary,
   updateLibraryCategory,
-} from '@/services'
-import type { LibraryCategory } from '@/types/library'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import type { LibraryCategory } from "@/types/library";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 function requiredId(label: string) {
-  const message = `${label} is required`
+  const message = `${label} is required`;
   return z.preprocess(
     (value) => {
-      if (value === '' || value === null || value === undefined) return undefined
-      const parsed = Number(value)
-      return Number.isNaN(parsed) ? undefined : parsed
+      if (value === "" || value === null || value === undefined)
+        return undefined;
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? undefined : parsed;
     },
     z.number({ error: message }).min(1, message),
-  )
+  );
 }
 
 const schema = z.object({
-  orgId: requiredId('Organization'),
-  bookCategoryName: z.string().min(1, 'Book Department Name is required'),
-  bookCategoryCode: z.string().min(1, 'Book Department Code is required'),
+  orgId: requiredId("Organization"),
+  bookCategoryName: z.string().min(1, "Book Department Name is required"),
+  bookCategoryCode: z.string().min(1, "Book Department Code is required"),
   deptNo: z.string().optional(),
   inBarcode: z.boolean(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface DepartmentDetailsModalProps {
-  open: boolean
-  onClose: () => void
-  row: LibraryCategory | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: LibraryCategory | null;
+  onSaved: () => void;
 }
 
 export function DepartmentDetailsModal({
@@ -59,8 +60,8 @@ export function DepartmentDetailsModal({
   row,
   onSaved,
 }: Readonly<DepartmentDetailsModalProps>) {
-  const isEditing = row != null
-  const [organizations, setOrganizations] = useState<SelectOption[]>([])
+  const isEditing = row != null;
+  const [organizations, setOrganizations] = useState<SelectOption[]>([]);
 
   const {
     register,
@@ -73,17 +74,17 @@ export function DepartmentDetailsModal({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       orgId: undefined,
-      bookCategoryName: '',
-      bookCategoryCode: '',
-      deptNo: '',
+      bookCategoryName: "",
+      bookCategoryCode: "",
+      deptNo: "",
       inBarcode: false,
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     void listActiveOrganizationsForLibrary()
       .then((rows) => {
         setOrganizations(
@@ -95,32 +96,32 @@ export function DepartmentDetailsModal({
                 organization.organizationId,
             ),
           })),
-        )
+        );
       })
-      .catch((error) => toastError(error, 'Failed to load organizations'))
+      .catch((error) => toastError(error, "Failed to load organizations"));
 
     reset(
       row
         ? {
             orgId: row.orgId,
-            bookCategoryName: row.bookCategoryName ?? '',
-            bookCategoryCode: row.bookCategoryCode ?? '',
-            deptNo: row.deptNo ?? '',
+            bookCategoryName: row.bookCategoryName ?? "",
+            bookCategoryCode: row.bookCategoryCode ?? "",
+            deptNo: row.deptNo ?? "",
             inBarcode: Boolean(row.inBarcode),
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             orgId: undefined,
-            bookCategoryName: '',
-            bookCategoryCode: '',
-            deptNo: '',
+            bookCategoryName: "",
+            bookCategoryCode: "",
+            deptNo: "",
             inBarcode: false,
             isActive: true,
-            reason: 'active',
+            reason: "active",
           },
-    )
-  }, [open, row, reset])
+    );
+  }, [open, row, reset]);
 
   async function onSubmit(data: FormValues) {
     // Angular closes the dialog with form.value as-is
@@ -128,27 +129,30 @@ export function DepartmentDetailsModal({
       orgId: data.orgId,
       bookCategoryName: data.bookCategoryName,
       bookCategoryCode: data.bookCategoryCode,
-      deptNo: data.deptNo ?? '',
+      deptNo: data.deptNo ?? "",
       inBarcode: data.inBarcode,
       isActive: data.isActive,
-      reason: data.isActive ? (data.reason || 'active') : (data.reason ?? ''),
-    }
+      reason: data.isActive ? data.reason || "active" : (data.reason ?? ""),
+    };
     try {
       if (isEditing && row?.libCategoryId) {
         // Angular: details.libCategoryId = data.libCategoryId before updateDetails
         await updateLibraryCategory(row.libCategoryId, {
           ...payload,
           libCategoryId: row.libCategoryId,
-        })
-        toastSuccess('Department details updated')
+        });
+        toastSuccess("Department details updated");
       } else {
-        await createLibraryCategory(payload)
-        toastSuccess('Department details created')
+        await createLibraryCategory(payload);
+        toastSuccess("Department details created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, `Failed to ${isEditing ? 'update' : 'create'} department details`)
+      toastError(
+        err,
+        `Failed to ${isEditing ? "update" : "create"} department details`,
+      );
     }
   }
 
@@ -156,12 +160,12 @@ export function DepartmentDetailsModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Department Details' : 'Add Department Details'}
+      title={isEditing ? "Edit Department Details" : "Add Department Details"}
       titleClassName={LIBRARY_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
       submitLabel="Save"
       cancelLabel="Close"
@@ -186,30 +190,40 @@ export function DepartmentDetailsModal({
         />
 
         <div className="space-y-1.5">
-          <Label htmlFor="bookCategoryName" className={LIBRARY_FIELD_LABEL_CLASS}>
+          <Label
+            htmlFor="bookCategoryName"
+            className={LIBRARY_FIELD_LABEL_CLASS}
+          >
             Book Department Name *
           </Label>
           <Input
             id="bookCategoryName"
             className={LIBRARY_INPUT_CLASS}
-            {...register('bookCategoryName')}
+            {...register("bookCategoryName")}
           />
           {errors.bookCategoryName && (
-            <p className="text-xs text-destructive">{errors.bookCategoryName.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.bookCategoryName.message}
+            </p>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bookCategoryCode" className={LIBRARY_FIELD_LABEL_CLASS}>
+          <Label
+            htmlFor="bookCategoryCode"
+            className={LIBRARY_FIELD_LABEL_CLASS}
+          >
             Book Department Code *
           </Label>
           <Input
             id="bookCategoryCode"
             className={LIBRARY_INPUT_CLASS}
-            {...register('bookCategoryCode')}
+            {...register("bookCategoryCode")}
           />
           {errors.bookCategoryCode && (
-            <p className="text-xs text-destructive">{errors.bookCategoryCode.message}</p>
+            <p className="text-xs text-destructive">
+              {errors.bookCategoryCode.message}
+            </p>
           )}
         </div>
 
@@ -217,7 +231,11 @@ export function DepartmentDetailsModal({
           <Label htmlFor="deptNo" className={LIBRARY_FIELD_LABEL_CLASS}>
             Dept No
           </Label>
-          <Input id="deptNo" className={LIBRARY_INPUT_CLASS} {...register('deptNo')} />
+          <Input
+            id="deptNo"
+            className={LIBRARY_INPUT_CLASS}
+            {...register("deptNo")}
+          />
         </div>
 
         <Controller
@@ -246,15 +264,20 @@ export function DepartmentDetailsModal({
                 <Checkbox
                   id="deptIsActive"
                   checked={field.value}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  onCheckedChange={(checked) =>
+                    field.onChange(checked === true)
+                  }
                 />
-                <Label htmlFor="deptIsActive" className={LIBRARY_FIELD_LABEL_CLASS}>
+                <Label
+                  htmlFor="deptIsActive"
+                  className={LIBRARY_FIELD_LABEL_CLASS}
+                >
                   Active
                 </Label>
               </div>
             )}
           />
-          {!watch('isActive') ? (
+          {!watch("isActive") ? (
             <div className="max-w-md space-y-1.5">
               <Label htmlFor="deptReason" className={LIBRARY_FIELD_LABEL_CLASS}>
                 Reason
@@ -262,12 +285,12 @@ export function DepartmentDetailsModal({
               <Input
                 id="deptReason"
                 className={LIBRARY_INPUT_CLASS}
-                {...register('reason')}
+                {...register("reason")}
               />
             </div>
           ) : null}
         </div>
       </div>
     </FormModal>
-  )
+  );
 }
