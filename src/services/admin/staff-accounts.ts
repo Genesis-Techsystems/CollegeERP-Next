@@ -18,6 +18,7 @@ function staffUsersByCollegeQuery(collegeId: number): string {
 
 export interface StaffAccount {
   userId: number
+  userTypeId?: number
   firstName?: string
   lastName?: string
   userName?: string
@@ -25,6 +26,8 @@ export interface StaffAccount {
   mobileNumber?: string
   password?: string
   passwordConfirm?: string
+  passwordExpDate?: string | Date
+  employeeId?: number
   departmentId?: number
   collegeId?: number
   collegeCode?: string
