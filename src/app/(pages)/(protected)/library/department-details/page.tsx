@@ -15,17 +15,32 @@ import { DepartmentDetailsModal } from './DepartmentDetailsModal'
 
 const COL_DEFS = {
   siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<LibraryCategory>,
-  orgCode: { field: 'orgCode', headerName: 'Org', minWidth: 90 } as ColDef<LibraryCategory>,
-  bookCategoryCode: { field: 'bookCategoryCode', headerName: 'Code', minWidth: 100 } as ColDef<LibraryCategory>,
-  bookCategoryName: { field: 'bookCategoryName', headerName: 'Name', minWidth: 140 } as ColDef<LibraryCategory>,
+  orgCode: { field: 'orgCode', headerName: 'Organization', minWidth: 120 } as ColDef<LibraryCategory>,
+  bookCategoryCode: {
+    field: 'bookCategoryCode',
+    headerName: 'Book Department Code',
+    minWidth: 160,
+  } as ColDef<LibraryCategory>,
+  bookCategoryName: {
+    field: 'bookCategoryName',
+    headerName: 'Book Department Name',
+    minWidth: 160,
+  } as ColDef<LibraryCategory>,
   deptNo: { field: 'deptNo', headerName: 'Dept No', minWidth: 90 } as ColDef<LibraryCategory>,
-  inBarcode: { field: 'inBarcode', headerName: 'Barcode', minWidth: 100 } as ColDef<LibraryCategory>,
+  inBarcode: { field: 'inBarcode', headerName: 'In Barcode', minWidth: 110 } as ColDef<LibraryCategory>,
   isActive: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<LibraryCategory>,
   actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<LibraryCategory>,
 }
 
 function statusRenderer(p: ICellRendererParams<LibraryCategory>) {
   return <StatusBadge status={p.data?.isActive ?? false} />
+}
+
+function inBarcodeRenderer(p: ICellRendererParams<LibraryCategory>) {
+  const value = p.data?.inBarcode
+  if (value === true) return 'true'
+  if (value === false) return 'false'
+  return ''
 }
 
 function makeActionsRenderer(
@@ -64,7 +79,7 @@ export default function DepartmentDetailsPage() {
       COL_DEFS.bookCategoryCode,
       COL_DEFS.bookCategoryName,
       COL_DEFS.deptNo,
-      COL_DEFS.inBarcode,
+      { ...COL_DEFS.inBarcode, cellRenderer: inBarcodeRenderer },
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditing, setModalOpen) },
     ],
@@ -78,9 +93,10 @@ export default function DepartmentDetailsPage() {
       columnDefs={columnDefs}
       loading={loading}
       pagination
+      paginationPageSize={10}
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search departments…',
+        searchPlaceholder: 'Search',
         pdfDocumentTitle: 'Library Department Details',
       }}
       toolbarTrailing={(
@@ -92,7 +108,7 @@ export default function DepartmentDetailsPage() {
           }}
         >
           <PlusIcon className="h-4 w-4 mr-1" />
-          Add Department
+          Add Department Details
         </Button>
       )}
     >

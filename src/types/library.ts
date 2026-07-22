@@ -127,10 +127,13 @@ export type LibraryBookCategoryPayload = Pick<
 
 export interface LibraryCategory {
   libCategoryId?: number;
+  /** Angular form field name on create/update (not organizationId). */
+  orgId?: number;
   bookCategoryCode?: string;
   bookCategoryName?: string;
   deptNo?: string;
-  inBarcode?: string;
+  /** Checkbox on Angular add/edit modal. */
+  inBarcode?: boolean;
   orgCode?: string;
   isActive?: boolean;
   reason?: string;
@@ -138,13 +141,17 @@ export interface LibraryCategory {
 
 export type LibraryCategoryPayload = Pick<
   LibraryCategory,
+  | "orgId"
   | "bookCategoryCode"
   | "bookCategoryName"
   | "deptNo"
   | "inBarcode"
   | "isActive"
   | "reason"
->;
+> & {
+  /** Set on update only — Angular assigns before `updateDetails`. */
+  libCategoryId?: number;
+};
 
 export interface LibrarySupplier {
   supplierId?: number;

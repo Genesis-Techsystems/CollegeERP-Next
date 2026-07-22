@@ -371,8 +371,15 @@ export async function listLibraryBookCategories(): Promise<
   );
 }
 
+/**
+ * Angular `listAllDetails(libraryCategoryUrl)`:
+ * GET domain/list/LibraryCategory?query=order(createdDt=desc)&size=99999
+ */
 export async function listLibraryCategories(): Promise<LibraryCategory[]> {
-  return domainList<LibraryCategory>(ENTITIES.LIB_LIBRARY_CATEGORY.name);
+  return domainList<LibraryCategory>(
+    ENTITIES.LIB_LIBRARY_CATEGORY.name,
+    "order(createdDt=desc)",
+  );
 }
 
 export async function listLibraryCategoriesByOrganization(
