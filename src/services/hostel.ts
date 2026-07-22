@@ -221,7 +221,10 @@ export async function updateHostelRoom(
 // ─── Discounts ───────────────────────────────────────────────────────────────
 
 export async function listHostelDiscounts(): Promise<HostelDiscount[]> {
-  return domainList<HostelDiscount>(ENTITIES.HOSTEL_DISCOUNT.name);
+  return domainList<HostelDiscount>(
+    ENTITIES.HOSTEL_DISCOUNT.name,
+    buildQuery({}, { field: "createdDt", direction: "DESC" }),
+  );
 }
 
 export async function createHostelDiscount(

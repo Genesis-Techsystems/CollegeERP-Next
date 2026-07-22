@@ -50,6 +50,9 @@ export interface SelectProps {
   wrapOptionLabels?: boolean;
   /** Extra classes for the scrollable options list (e.g. `max-h-40` to shorten the panel). */
   listClassName?: string;
+  /** Preferred dropdown direction. Radix may flip it unless avoidCollisions is false. */
+  side?: "top" | "right" | "bottom" | "left";
+  avoidCollisions?: boolean;
   className?: string;
 }
 
@@ -128,6 +131,8 @@ export function Select({
   clearable = false,
   wrapOptionLabels = false,
   listClassName,
+  side,
+  avoidCollisions,
   className,
 }: SelectProps) {
   const id = useId();
@@ -283,6 +288,8 @@ export function Select({
         {/* Dropdown */}
         <PopoverContent
           align="start"
+          side={side}
+          avoidCollisions={avoidCollisions}
           sideOffset={4}
           className="w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
           onWheel={(e) => scrollListOnWheel(e, listRef.current)}

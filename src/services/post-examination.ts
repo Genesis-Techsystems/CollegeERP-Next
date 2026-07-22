@@ -7,7 +7,7 @@ import {
   putDetails,
   uploadFile,
 } from "@/services/crud";
-import { EXAM_EVAL_API } from "@/config/constants/api";
+import { EXAM_API, EXAM_EVAL_API, NEXT_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import {
   getUnivExamFiltersByType,
@@ -1186,7 +1186,7 @@ export async function getSecureMarksSubjects(params: {
 
 export async function generateMarksEntrySecretCode(
   userId: number,
-): Promise<void> {
+): Promise<string> {
   // Angular: this.http.post(MAINAPI + 'api/generateSecretCodeForMarksEntry' + '/' + userId, ' ')
   // → POST cms/api/generateSecretCodeForMarksEntry/{userId} (NOT GET, and the
   // `api/` segment is required — without it Spring 404s).
@@ -1198,12 +1198,20 @@ export async function generateMarksEntrySecretCode(
       body: '" "',
     },
   );
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
+  const body = await res.json().catch(() => null);
+  if (
+    !res.ok ||
+    body?.success === false ||
+    (body?.statusCode != null && Number(body.statusCode) !== 200)
+  ) {
     throw new Error(
       body?.message ?? `Failed to generate secret code (${res.status})`,
     );
   }
+  if (!body?.data) {
+    throw new Error(body?.message ?? "Failed to generate secret code");
+  }
+  return body?.message ?? "Secret code generated successfully";
 }
 
 export async function validateMarksEntrySecretCode(
@@ -1218,6 +1226,69 @@ export async function validateMarksEntrySecretCode(
   );
   const body = await res.json().catch(() => null);
   return body?.data === true || body?.data === "true";
+}
+
+/** Angular `exammarksdownloadUrl` — downloadable secure-marks import template. */
+export async function downloadSecureMarksTemplate(params: {
+  collegeId: number;
+  subjectId: number;
+  examId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  examdate: string;
+}): Promise<Blob> {
+  const search = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [key, String(value)]),
+    ),
+  );
+  const res = await fetch(
+    `${NEXT_API.PROXY(EXAM_API.EXAMMARKSDOWNLOAD)}?${search.toString()}`,
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      body?.message ?? `Failed to download marks sheet (${res.status})`,
+    );
+  }
+  return res.blob();
+}
+
+/** Angular `uploadexammarksUrl` — validate and merge marks from an XLSX file. */
+export async function uploadSecureExamMarks(params: {
+  file: File;
+  collegeId: number;
+  courseId: number;
+  courseYearId: number;
+  subjectId: number;
+  examId: number;
+  regulationId: number;
+  subjectCategoryId: number;
+  subjectTypeId: number;
+}): Promise<{ rows: AnyRow[]; message: string }> {
+  const formData = new FormData();
+  formData.append("file", params.file, params.file.name);
+  formData.append("collegeId", String(params.collegeId));
+  formData.append("courseId", String(params.courseId));
+  formData.append("courseYearId", String(params.courseYearId));
+  formData.append("subjectId", String(params.subjectId));
+  formData.append("examId", String(params.examId));
+  formData.append("regulationId", String(params.regulationId));
+  formData.append("subjectCategoryId", String(params.subjectCategoryId));
+  formData.append("subjectTypeId", String(params.subjectTypeId));
+
+  const response = (await uploadFile(
+    EXAM_API.UPLOADEXAMMARKS,
+    formData,
+  )) as {
+    data?: AnyRow[];
+    message?: string;
+  } | null;
+
+  return {
+    rows: Array.isArray(response?.data) ? response.data : [],
+    message: response?.message ?? "Marks uploaded successfully",
+  };
 }
 
 export async function getExamMarksEntryFilters(
@@ -1387,6 +1458,30 @@ export async function getExamTypeMarkDetails(params: {
   examDate: string;
   examTypeId: number;
 }): Promise<AnyRow[]> {
+  const bundle = await getExamTypeMarkDetailsBundle(params);
+  return bundle.students;
+}
+
+/**
+ * Angular exam-marks-entry uses all three result sets from the by-type marks
+ * procedure: students, external evaluators, and internal evaluators.
+ */
+export async function getExamTypeMarkDetailsBundle(params: {
+  collegeId: number;
+  courseId: number;
+  examId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number;
+  subjectId: number;
+  labBatchId: number;
+  examDate: string;
+  examTypeId: number;
+}): Promise<{
+  students: AnyRow[];
+  externalEvaluators: AnyRow[];
+  internalEvaluators: AnyRow[];
+}> {
   const payload = {
     in_flag: "marks_entry",
     in_college_id: params.collegeId,
@@ -1410,18 +1505,35 @@ export async function getExamTypeMarkDetails(params: {
     try {
       const data = await getAllRecords<{ result: AnyRow[][] }>(proc, payload);
       const groups = data?.result ?? [];
-      const students =
+      const rawStudents =
         groups.find(
           (g) =>
             Array.isArray(g) &&
             g.some((row) => row?.hallticketNumber || row?.studentId),
         ) ?? firstNonEmptyGroup(groups);
-      if (students.length > 0) return students;
+      if (rawStudents.length > 0) {
+        const studentsByHallTicket = new Map<string, AnyRow>();
+        for (const student of rawStudents) {
+          studentsByHallTicket.set(
+            String(
+              student.hallticketNumber ??
+                student.hallticket_number ??
+                student.studentId,
+            ),
+            student,
+          );
+        }
+        return {
+          students: Array.from(studentsByHallTicket.values()),
+          externalEvaluators: Array.isArray(groups[1]) ? groups[1] : [],
+          internalEvaluators: Array.isArray(groups[2]) ? groups[2] : [],
+        };
+      }
     } catch {
       // try next procedure
     }
   }
-  return [];
+  return { students: [], externalEvaluators: [], internalEvaluators: [] };
 }
 
 export async function getInternalAttendanceRestFilters(params: {

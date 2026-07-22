@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { GraduationCap } from "lucide-react";
+import { Download, GraduationCap, Upload } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select as CommonSelect } from "@/common/components/select";
 import {
+  downloadSecureMarksTemplate,
+  getCollegeById,
   getExamMarksEntryFilters,
   getExamMarksEntryRestFilters,
   getExamMarksEntrySubjects,
-  getExamTypeMarkDetails,
+  getExamTypeMarkDetailsBundle,
+  listExamFeeTypes,
   saveInternalMarksEntry,
-} from "@/services/post-examination";
+  uploadSecureExamMarks,
+} from "@/services";
+import { MINIO_URL } from "@/config/constants/api";
 import { toastError, toastSuccess } from "@/lib/toast";
-import { listExamFeeTypes } from "@/services/pre-examination";
+import { useSecureMarksPrint } from "../secure-exam-marks-entry/_print/useSecureMarksPrint";
 
 type AnyRow = Record<string, any>;
 
@@ -89,6 +95,14 @@ export default function ExamMarksEntryPage() {
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [allExamFeeTypes, setAllExamFeeTypes] = useState<AnyRow[]>([]);
+  const [marksView, setMarksView] = useState<"list" | "import">("list");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [internalEvaluators, setInternalEvaluators] = useState<AnyRow[]>([]);
+  const [externalEvaluators, setExternalEvaluators] = useState<AnyRow[]>([]);
+  const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null);
 
   const [courseId, setCourseId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -104,6 +118,24 @@ export default function ExamMarksEntryPage() {
   const [examDate, setExamDate] = useState("");
 
   const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber;
+  const selectedCourseFilter = allFilters.find(
+    (row) => Number(row.fk_course_id) === Number(courseId),
+  );
+  const universityCode = String(
+    selectedCourseFilter?.university_code ??
+      selectedCourseFilter?.universityCode ??
+      globalThis?.localStorage?.getItem("universityCode") ??
+      "",
+  );
+  const orgCode = globalThis?.localStorage?.getItem("orgCode") ?? "";
+  const { printMode, printButton, printView } = useSecureMarksPrint({
+    students: rows,
+    internalEvaluators,
+    externalEvaluators,
+    logoUrl: collegeLogoUrl,
+    orgCode,
+    universityCode,
+  });
 
   const courses = useMemo(
     () => dedupeBy(allFilters, "fk_course_id"),
@@ -289,6 +321,33 @@ export default function ExamMarksEntryPage() {
     }
     void run();
   }, [employeeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!collegeId) {
+      setCollegeLogoUrl(null);
+      return;
+    }
+    getCollegeById(collegeId)
+      .then((college) => {
+        if (cancelled) return;
+        const logo = String(college?.logo ?? "");
+        setCollegeLogoUrl(
+          logo
+            ? /^(https?:\/\/|data:)/i.test(logo)
+              ? logo
+              : `${MINIO_URL}${logo.replace(/^\/+/, "")}`
+            : null,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setCollegeLogoUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collegeId]);
+
   useEffect(() => {
     if (courses[0]?.fk_course_id) setCourseId(Number(courses[0].fk_course_id));
   }, [courses]);
@@ -403,8 +462,19 @@ export default function ExamMarksEntryPage() {
     if (id > 0) setSubjectId(id);
   }, [subjects]);
   useEffect(() => {
-    setExamDate(String(subjects[0]?.exam_date ?? "").slice(0, 10));
-  }, [subjects]);
+    const selected = subjects.find(
+      (subject) =>
+        numFrom(subject, [
+          "fk_subject_id",
+          "subjectId",
+          "subject_id",
+          "fk_sub_id",
+        ]) === Number(subjectId),
+    );
+    setExamDate(
+      String(selected?.exam_date ?? selected?.examDate ?? "").slice(0, 10),
+    );
+  }, [subjects, subjectId]);
 
   function onMarkChange(target: AnyRow, marks: number) {
     const sid = Number(target.studentId ?? target.fk_student_id ?? 0);
@@ -443,7 +513,7 @@ export default function ExamMarksEntryPage() {
     setLoading(true);
     setHasFetched(true);
     try {
-      const data = await getExamTypeMarkDetails({
+      const bundle = await getExamTypeMarkDetailsBundle({
         collegeId,
         courseId,
         examId,
@@ -454,15 +524,121 @@ export default function ExamMarksEntryPage() {
         labBatchId,
         examDate,
         examTypeId,
-      }).catch(() => []);
+      }).catch(() => ({
+        students: [],
+        externalEvaluators: [],
+        internalEvaluators: [],
+      }));
       setRows(
-        (Array.isArray(data) ? data : []).map((r) => ({
+        (Array.isArray(bundle.students) ? bundle.students : []).map((r) => ({
           ...r,
           marks: Number(r.marks ?? 0),
         })),
       );
+      setExternalEvaluators(bundle.externalEvaluators ?? []);
+      setInternalEvaluators(bundle.internalEvaluators ?? []);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onDownloadImportTemplate() {
+    if (
+      !collegeId ||
+      !subjectId ||
+      !examId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !examDate
+    )
+      return;
+
+    setDownloadingTemplate(true);
+    try {
+      const blob = await downloadSecureMarksTemplate({
+        collegeId,
+        subjectId,
+        examId,
+        courseGroupId,
+        courseYearId,
+        examdate: examDate,
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "Marks Sheet";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toastError(error, "Failed to download marks sheet");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
+
+  async function onUploadImportMarks() {
+    if (!importFile) {
+      toastError("Please choose a file.");
+      return;
+    }
+    if (
+      !collegeId ||
+      !courseId ||
+      !courseYearId ||
+      !subjectId ||
+      !examId ||
+      !regulationId ||
+      !subjectTypeId
+    )
+      return;
+
+    const subjectCategoryId = numFrom(selectedSubject ?? {}, [
+      "fk_subjectcategory_catdet_id",
+      "subjectCategoryId",
+    ]);
+    setImporting(true);
+    try {
+      const result = await uploadSecureExamMarks({
+        file: importFile,
+        collegeId,
+        courseId,
+        courseYearId,
+        subjectId,
+        examId,
+        regulationId,
+        subjectCategoryId,
+        subjectTypeId,
+      });
+      const uploadedByStudent = new Map(
+        result.rows.map((item) => [
+          numFrom(item, ["studentId", "fk_student_id"]),
+          item,
+        ]),
+      );
+      setRows((current) =>
+        current.map((row) => {
+          const uploaded = uploadedByStudent.get(
+            numFrom(row, ["studentId", "fk_student_id"]),
+          );
+          if (!uploaded) return row;
+          return {
+            ...row,
+            marks: Number(
+              uploaded.examMarks ?? uploaded.marks ?? row.marks ?? 0,
+            ),
+            isvalidate: uploaded.isvalidate,
+            reason: uploaded.reason,
+            color: uploaded.isvalidate === false ? "#ff7070" : null,
+          };
+        }),
+      );
+      toastSuccess(result.message);
+      setImportFile(null);
+      if (importInputRef.current) importInputRef.current.value = "";
+    } catch (error) {
+      toastError(error, "Failed to upload marks");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -709,17 +885,20 @@ export default function ExamMarksEntryPage() {
       {
         field: "hallticketNumber",
         headerName: "Hallticket Number",
-        minWidth: 140,
+        minWidth: 190,
+        flex: 1,
       },
-      { field: "firstName", headerName: "Student", minWidth: 240, flex: 1 },
+      { field: "firstName", headerName: "Student", minWidth: 240, flex: 2 },
       {
         headerName: "Attendance Status",
-        minWidth: 140,
+        minWidth: 170,
+        flex: 1,
         valueGetter: (p: any) => attendanceText(p.data),
       },
       {
         headerName: "Marks",
-        minWidth: 120,
+        minWidth: 170,
+        flex: 1,
         cellRenderer: MarksInputRenderer,
         cellRendererParams: { maxMarks, onChange: onMarkChange },
       },
@@ -727,31 +906,35 @@ export default function ExamMarksEntryPage() {
     [maxMarks],
   );
 
+  if (printMode) return <>{printView}</>;
+
   return (
     <FilteredListPage
       title="Exam Marks Entry"
       filters={
         <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-            <div className="space-y-1 md:col-span-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[repeat(16,minmax(0,1fr))] items-end">
+            <div className="space-y-1 md:col-span-3">
               <Label>Course *</Label>
               <CommonSelect
                 value={courseId ? String(courseId) : null}
                 onChange={(v) => setCourseId(v ? Number(v) : null)}
                 options={courseOptions}
                 placeholder="Course"
+                searchable
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-3">
               <Label>Academic Year *</Label>
               <CommonSelect
                 value={academicYearId ? String(academicYearId) : null}
                 onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
                 options={academicYearOptions}
                 placeholder="Academic Year"
+                searchable
               />
             </div>
-            <div className="space-y-1 md:col-span-6">
+            <div className="space-y-1 md:col-span-8">
               <Label>Exam *</Label>
               <CommonSelect
                 value={examId ? String(examId) : null}
@@ -768,24 +951,27 @@ export default function ExamMarksEntryPage() {
                 onChange={(v) => setExamTypeId(Number(v || 0))}
                 options={examTypeOptions}
                 placeholder="Exam Type"
+                searchable
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Faculty *</Label>
+            <div className="space-y-1 md:col-span-3">
+              <Label>College *</Label>
               <CommonSelect
                 value={collegeId ? String(collegeId) : null}
                 onChange={(v) => setCollegeId(v ? Number(v) : null)}
                 options={collegeOptions}
-                placeholder="Faculty"
+                placeholder="College"
+                searchable
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-3">
               <Label>Course Group *</Label>
               <CommonSelect
                 value={courseGroupId ? String(courseGroupId) : null}
                 onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
                 options={groupOptions}
                 placeholder="Course Group"
+                searchable
               />
             </div>
             <div className="space-y-1 md:col-span-2">
@@ -795,6 +981,7 @@ export default function ExamMarksEntryPage() {
                 onChange={(v) => setCourseYearId(v ? Number(v) : null)}
                 options={courseYearOptions}
                 placeholder="Course Year"
+                searchable
               />
             </div>
             <div className="space-y-1 md:col-span-2">
@@ -804,6 +991,7 @@ export default function ExamMarksEntryPage() {
                 onChange={(v) => setRegulationId(v ? Number(v) : null)}
                 options={regulationOptions}
                 placeholder="Regulation"
+                searchable
               />
             </div>
             <div className="space-y-1 md:col-span-2">
@@ -813,9 +1001,10 @@ export default function ExamMarksEntryPage() {
                 onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
                 options={subjectTypeOptions}
                 placeholder="Subject Type"
+                searchable
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
+            <div className="space-y-1 md:col-span-4">
               <Label>Subject</Label>
               <CommonSelect
                 value={subjectId ? String(subjectId) : null}
@@ -833,6 +1022,7 @@ export default function ExamMarksEntryPage() {
                   onChange={(v) => setLabBatchId(Number(v || 0))}
                   options={labBatchOptions}
                   placeholder="All"
+                  searchable
                 />
               </div>
             )}
@@ -841,18 +1031,20 @@ export default function ExamMarksEntryPage() {
               <Input
                 className="h-8 text-[12px]"
                 value={employeeDisplay}
-                readOnly
+                disabled
               />
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Date</Label>
-              <Input
-                className="h-8 text-[12px]"
-                type="date"
-                value={examDate}
-                onChange={(e) => setExamDate(e.target.value)}
-              />
-            </div>
+            {subjectId && (
+              <div className="space-y-1 md:col-span-2">
+                <Label>Exam Date</Label>
+                <Input
+                  className="h-8 text-[12px]"
+                  type="date"
+                  value={examDate}
+                  disabled
+                />
+              </div>
+            )}
             <div className="md:col-span-2">
               <Button
                 className="h-8 text-[12px] w-full"
@@ -863,6 +1055,71 @@ export default function ExamMarksEntryPage() {
               </Button>
             </div>
           </div>
+          {hasFetched && rows.length > 0 && (
+            <RadioGroup
+              className="flex items-center gap-5 px-1 py-1"
+              value={marksView}
+              onValueChange={(value) =>
+                setMarksView(value as "list" | "import")
+              }
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="exam-marks-list" value="list" />
+                <Label
+                  htmlFor="exam-marks-list"
+                  className="cursor-pointer font-normal"
+                >
+                  List Of Marks
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="exam-marks-import" value="import" />
+                <Label
+                  htmlFor="exam-marks-import"
+                  className="cursor-pointer font-normal"
+                >
+                  Import Marks
+                </Label>
+              </div>
+            </RadioGroup>
+          )}
+          {hasFetched && rows.length > 0 && marksView === "import" && (
+            <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+              <div className="min-w-64 flex-1 space-y-1">
+                <Label htmlFor="exam-marks-import-file">Upload Marks :</Label>
+                <Input
+                  ref={importInputRef}
+                  id="exam-marks-import-file"
+                  type="file"
+                  accept=".xlsx"
+                  className="h-8 text-[12px]"
+                  onChange={(event) =>
+                    setImportFile(event.target.files?.[0] ?? null)
+                  }
+                />
+              </div>
+              <Button
+                className="h-8 text-[12px]"
+                onClick={() => void onUploadImportMarks()}
+                disabled={importing}
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                {importing ? "Uploading..." : "Upload"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 text-[12px]"
+                onClick={() => void onDownloadImportTemplate()}
+                disabled={downloadingTemplate}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                {downloadingTemplate
+                  ? "Downloading..."
+                  : "Download Sample Excel"}
+              </Button>
+            </div>
+          )}
           {hasFetched ? (
             <div className="overflow-hidden rounded-md border border-[#c3d9ff]">
               <div className="flex items-start gap-4 p-3">
@@ -872,6 +1129,10 @@ export default function ExamMarksEntryPage() {
                 <div className="space-y-1 text-[13px]">
                   <p className="text-slate-700">
                     {selectedExam?.exam_name ?? "-"}{" "}
+                    <span className="text-muted-foreground">
+                      ({String(selectedExam?.from_date ?? "").slice(0, 10)} -{" "}
+                      {String(selectedExam?.to_date ?? "").slice(0, 10)})
+                    </span>{" "}
                     {examDate ? (
                       <span className="text-blue-700">({examDate})</span>
                     ) : null}
@@ -890,6 +1151,10 @@ export default function ExamMarksEntryPage() {
                     {selectedRegulation?.regulation_code ?? "-"}) -{" "}
                     <span className="text-blue-700">
                       {selectedSubject?.subject_type ?? "-"}
+                    </span>{" "}
+                    <span>
+                      ({selectedExam?.is_internal_exam ? "Internal" : "Regular"}
+                      )
                     </span>
                   </p>
                 </div>
@@ -915,8 +1180,8 @@ export default function ExamMarksEntryPage() {
         searchPlaceholder: "Search…",
         pdfDocumentTitle: "Exam Marks Entry",
       }}
-      toolbarLeading={
-        <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+      toolbarTrailing={
+        <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
           Max Marks : <span className="font-semibold">{maxMarks || "-"}</span>
         </div>
       }
@@ -930,13 +1195,7 @@ export default function ExamMarksEntryPage() {
           >
             {saving ? "Saving..." : "Save Marks"}
           </Button>
-          <Button
-            className="h-8 text-[12px]"
-            variant="outline"
-            onClick={() => globalThis?.print?.()}
-          >
-            Print
-          </Button>
+          {printButton}
         </div>
       )}
     </FilteredListPage>
