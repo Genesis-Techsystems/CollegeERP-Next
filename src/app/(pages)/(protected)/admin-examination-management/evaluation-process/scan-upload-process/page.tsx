@@ -1,26 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/common/components/search";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import {
-  runEvaluationProc,
+  extractExamOmrUploadPath,
+  getScanUploadAnswerPaperSummary,
+  getScanUploadTimetableFilters,
   uploadExamOmr,
 } from "@/services/evaluation-process-admin";
-import { MINIO_URL, NEXT_API } from "@/config/constants/api";
-import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
+import { MINIO_URL } from "@/config/constants/api";
+import { num, txt } from "@/common/utils/data-helpers";
 import { toDateStr } from "@/common/generic-functions";
-import { toastError } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
 
 type UploadedFileRow = {
+  /** Angular `fileName` — webkitRelativePath segment [1] (often the file name). */
   fileName: string;
   folder: string;
   status: "Pending" | "Progress" | "Success" | "File not found";
@@ -28,96 +34,65 @@ type UploadedFileRow = {
   file: File;
 };
 
-const text = txt;
-
 function parseExamDate(value: unknown): Date | null {
-  const raw = text(value);
+  const raw = txt(value);
   if (!raw) return null;
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-async function getProcResult(
-  params: Record<string, string | number>,
-): Promise<AnyRow[][]> {
-  const procCandidates = [
-    "s_get_collegeexamdetails_bycode",
-    "s_get_collegewisedetails_bycode",
-    "s_get_exam_assignments",
-    "s_get_exam_filters_bycode",
-  ];
-  for (const proc of procCandidates) {
-    try {
-      const data = await runEvaluationProc<{
-        result?: AnyRow[][];
-        data?: { result?: AnyRow[][] };
-      }>(proc, params);
-      const result = data?.result ?? data?.data?.result ?? [];
-      if (Array.isArray(result) && result.length > 0) return result;
-    } catch {
-      // try next proc candidate
-    }
+function formatMonthYearLabel(value: unknown): string {
+  const d = parseExamDate(value);
+  if (!d) return txt(value);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+/** Angular last-occurrence distinct (keep last row per key). */
+function distinctLastBy<T>(rows: T[], keyFn: (row: T) => string | number): T[] {
+  const keys = rows.map(keyFn);
+  return rows.filter((row, index) => {
+    const key = keyFn(row);
+    if (key === "" || key === null || key === undefined) return false;
+    return !keys.includes(key, index + 1);
+  });
+}
+
+function openStoredFile(path: string) {
+  if (!path) return;
+  const url = /^https?:\/\//i.test(path)
+    ? path
+    : `${MINIO_URL.replace(/\/$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Angular submit handler: Success when path has segment[5]; else
+ * "File not found" using first token + `.pdf`.
+ */
+function applyUploadResultToRows(
+  rows: UploadedFileRow[],
+  uploadedPath: string,
+): UploadedFileRow[] {
+  const path = String(uploadedPath ?? "").trim();
+  if (!path) return rows;
+
+  const segments = path.split("/");
+  if (segments[5] != null && segments[5] !== "") {
+    const name = segments[5];
+    return rows.map((row) =>
+      row.fileName === name ? { ...row, status: "Success", view: path } : row,
+    );
   }
 
-  const directCandidates = [
-    "getAllRecords/s_get_collegeexamdetails_bycode",
-    "getAllRecords/s_get_collegewisedetails_bycode",
-    "getAllRecords/s_get_exam_assignments",
-    "getCollegeExamDetails",
-    "getAnswerPaperUpload",
-  ];
-  const search = new URLSearchParams(
-    Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
+  const fileNamePdf = `${path.split(" ")[0]}.pdf`;
+  return rows.map((row) =>
+    row.fileName === fileNamePdf
+      ? { ...row, status: "File not found", view: "" }
+      : row,
   );
-  for (const path of directCandidates) {
-    try {
-      const res = await fetch(`${NEXT_API.PROXY(path)}?${search.toString()}`);
-      if (!res.ok) continue;
-      const body = await res.json().catch(() => null);
-      const result =
-        body?.data?.result ?? body?.result ?? body?.data?.data?.result ?? [];
-      if (Array.isArray(result) && result.length > 0) return result;
-    } catch {
-      // try next direct path candidate
-    }
-  }
-  return [];
-}
-
-function pickFlagGroup(groups: AnyRow[][], flag: string): AnyRow[] {
-  const direct = groups.find((g) => (g?.[0]?.flag ?? "") === flag);
-  if (direct) return direct;
-  const flat = groups.flatMap((g) => (Array.isArray(g) ? g : []));
-  if (flat.some((r) => String(r?.flag ?? "") === flag)) {
-    return flat.filter((r) => String(r?.flag ?? "") === flag);
-  }
-  return flat;
-}
-
-async function uploadExamOmrWithPath(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("file", file, file.name);
-  const body = (await uploadExamOmr(form).catch(() => null)) as {
-    success?: boolean;
-    message?: string;
-    data?: unknown;
-  } | null;
-  if (body?.success === false) {
-    throw new Error(body?.message ?? "Upload failed");
-  }
-
-  const data = body?.data as
-    | { result?: unknown[]; path?: unknown }
-    | unknown[]
-    | string
-    | undefined;
-  if (typeof data === "string") return data;
-  if (Array.isArray(data) && typeof data[0] === "string") return data[0];
-  const dataObj = data as { result?: unknown[]; path?: unknown } | undefined;
-  if (Array.isArray(dataObj?.result) && typeof dataObj.result[0] === "string")
-    return dataObj.result[0];
-  if (typeof dataObj?.path === "string") return dataObj.path;
-  return "";
 }
 
 export default function ScanUploadProcessPage() {
@@ -131,7 +106,7 @@ export default function ScanUploadProcessPage() {
   const [allRows, setAllRows] = useState<AnyRow[]>([]);
   const [summaryRow, setSummaryRow] = useState<AnyRow | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFileRow[]>([]);
-  const [folderPath, setFolderPath] = useState("");
+  const [folderPathDisplay, setFolderPathDisplay] = useState("");
 
   const [collegeId, setCollegeId] = useState<number>(0);
   const [examMonthYear, setExamMonthYear] = useState<string>("");
@@ -139,13 +114,15 @@ export default function ScanUploadProcessPage() {
   const [subjectId, setSubjectId] = useState<number>(0);
   const [examDate, setExamDate] = useState<Date | null>(null);
   const [examTimetableId, setExamTimetableId] = useState<number>(0);
+  /** Angular `dateConvert` — YYYY-MM-DD for getList. */
+  const [dateConvert, setDateConvert] = useState("");
 
   const organizationId = Number(
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
 
   const colleges = useMemo(
-    () => dedupeBy(allRows, (r) => num(r.fk_college_id)),
+    () => distinctLastBy(allRows, (r) => num(r.fk_college_id)),
     [allRows],
   );
 
@@ -154,7 +131,8 @@ export default function ScanUploadProcessPage() {
       collegeId === 0
         ? allRows
         : allRows.filter((r) => num(r.fk_college_id) === collegeId);
-    return dedupeBy(scoped, (r) => text(r.exam_month_yr)).sort(
+    const distinct = distinctLastBy(scoped, (r) => txt(r.exam_month_yr));
+    return [...distinct].sort(
       (a, b) =>
         new Date(String(b.exam_month_yr)).getTime() -
         new Date(String(a.exam_month_yr)).getTime(),
@@ -164,15 +142,16 @@ export default function ScanUploadProcessPage() {
   const exams = useMemo(() => {
     const scoped = allRows.filter((r) => {
       const collegeOk = collegeId === 0 || num(r.fk_college_id) === collegeId;
-      const monthOk = !examMonthYear || text(r.exam_month_yr) === examMonthYear;
+      const monthOk = !examMonthYear || txt(r.exam_month_yr) === examMonthYear;
       return collegeOk && monthOk;
     });
-    return dedupeBy(scoped, (r) => num(r.fk_exam_id));
+    return distinctLastBy(scoped, (r) => num(r.fk_exam_id));
   }, [allRows, collegeId, examMonthYear]);
 
   const subjects = useMemo(() => {
+    // Angular selectedExam: subjects from filtersData where fk_exam_id == examId
     const scoped = allRows.filter((r) => num(r.fk_exam_id) === examId);
-    return dedupeBy(scoped, (r) => num(r.fk_subject_id));
+    return distinctLastBy(scoped, (r) => num(r.fk_subject_id));
   }, [allRows, examId]);
 
   const selectedExam = useMemo(
@@ -183,20 +162,51 @@ export default function ScanUploadProcessPage() {
     () => subjects.find((s) => num(s.fk_subject_id) === subjectId) ?? null,
     [subjects, subjectId],
   );
+
   const collegeOptions = useMemo(
-    () => [{ value: "0", label: "All" }, ...colleges.map((c) => ({ value: String(num(c.fk_college_id)), label: text(c.college_code) }))],
+    () => [
+      { value: "0", label: "All" },
+      ...colleges.map((c) => ({
+        value: String(num(c.fk_college_id)),
+        label: txt(c.college_code),
+      })),
+    ],
     [colleges],
   );
   const monthYearOptions = useMemo(
-    () => monthYears.map((m) => ({ value: text(m.exam_month_yr), label: text(m.exam_month_yr) })),
+    () =>
+      monthYears.map((m) => ({
+        value: txt(m.exam_month_yr),
+        label: formatMonthYearLabel(m.exam_month_yr),
+      })),
     [monthYears],
   );
   const examOptions = useMemo(
-    () => [{ value: "0", label: "All" }, ...exams.map((e) => ({ value: String(num(e.fk_exam_id)), label: `${text(e.exam_name)} ${text(e.exam_date)}` }))],
+    () => [
+      { value: "0", label: "All" },
+      ...exams.map((e) => {
+        const d = parseExamDate(e.exam_date);
+        const dateLabel = d
+          ? d.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : txt(e.exam_date);
+        return {
+          value: String(num(e.fk_exam_id)),
+          label: `${txt(e.exam_name)} ${dateLabel}`.trim(),
+        };
+      }),
+    ],
     [exams],
   );
   const subjectOptions = useMemo(
-    () => subjects.map((s) => ({ value: String(num(s.fk_subject_id)), label: `${text(s.subject_name)} (${text(s.subject_code)})` })),
+    () =>
+      subjects.map((s) => ({
+        value: String(num(s.fk_subject_id)),
+        label: `${txt(s.subject_name)} (${txt(s.subject_code)})`,
+      })),
     [subjects],
   );
 
@@ -204,7 +214,7 @@ export default function ScanUploadProcessPage() {
     const q = searchText.trim().toLowerCase();
     if (!q) return uploadedFiles;
     return uploadedFiles.filter((row) =>
-      `${row.fileName} ${row.folder} ${row.status}`.toLowerCase().includes(q),
+      `${row.fileName} ${row.status}`.toLowerCase().includes(q),
     );
   }, [uploadedFiles, searchText]);
 
@@ -212,24 +222,17 @@ export default function ScanUploadProcessPage() {
     async function loadFilters() {
       setLoading(true);
       try {
-        const groups = await getProcResult({
-          in_flag: "exam_timetable_details",
-          in_org_id: organizationId || 0,
-          in_college_id: 0,
-          in_academic_year_id: 0,
-          in_isadmin: "",
-          in_exam_id: 0,
-          in_timetable_id: 0,
-          in_exam_date: "1990-01-01",
-          in_subject_id: 0,
-          in_loginuser_empid: 0,
-          in_loginuser_roleid: 0,
-        });
-        const source = pickFlagGroup(groups, "exam_timetable_details");
+        const source = await getScanUploadTimetableFilters(organizationId);
         setAllRows(source);
-
-        const firstCollege = num(source[0]?.fk_college_id);
-        if (firstCollege > 0) setCollegeId(firstCollege);
+        // Angular: auto-select first distinct college, then cascade
+        const firstCollege = distinctLastBy(source, (r) =>
+          num(r.fk_college_id),
+        )[0];
+        const cid = num(firstCollege?.fk_college_id);
+        if (cid > 0) setCollegeId(cid);
+      } catch (e) {
+        toastError(e, "Failed to load scan-upload filters");
+        setAllRows([]);
       } finally {
         setLoading(false);
       }
@@ -237,66 +240,76 @@ export default function ScanUploadProcessPage() {
     void loadFilters();
   }, [organizationId]);
 
+  // Angular selectedCollege → selectedMonthyr cascade
   useEffect(() => {
-    setExamMonthYear(text(monthYears[0]?.exam_month_yr));
+    setExamMonthYear(txt(monthYears[0]?.exam_month_yr));
   }, [monthYears]);
 
+  // Angular selectedMonthyr → selectedExam cascade
   useEffect(() => {
     const firstExamId = num(exams[0]?.fk_exam_id);
     setExamId(firstExamId);
   }, [exams]);
 
+  // Angular selectedExam → subjects + examDate + timetableId
   useEffect(() => {
     const firstSubjectId = num(subjects[0]?.fk_subject_id);
     setSubjectId(firstSubjectId);
-  }, [subjects]);
-
-  useEffect(() => {
-    const fromSubject = parseExamDate(selectedSubject?.exam_date);
     const fromExam = parseExamDate(selectedExam?.exam_date);
-    setExamDate(fromSubject ?? fromExam);
+    if (fromExam) {
+      setExamDate(fromExam);
+      setDateConvert(toDateStr(fromExam));
+    }
     setExamTimetableId(num(selectedExam?.fk_exam_timetable_id));
-  }, [selectedExam, selectedSubject]);
+    setShowResult(false);
+    setSummaryRow(null);
+  }, [subjects, selectedExam]);
+
+  // Angular selectedSubject → examDate from subject row + dateConvert
+  useEffect(() => {
+    if (!selectedSubject) return;
+    const fromSubject = parseExamDate(selectedSubject.exam_date);
+    if (fromSubject) {
+      setExamDate(fromSubject);
+      setDateConvert(toDateStr(fromSubject));
+    }
+    setShowResult(false);
+    setSummaryRow(null);
+  }, [selectedSubject]);
+
+  const canGetList =
+    examId > 0 && subjectId > 0 && Boolean(examDate) && !loading;
 
   async function getList() {
-    if (!subjectId || !examDate) return;
+    if (!canGetList) return;
     setLoading(true);
     setShowResult(true);
     setSummaryRow(null);
     try {
-      const examDateParam = toDateStr(examDate) || "";
-      const groups = await getProcResult({
-        in_flag: "exam_timetable_answerpaper_details",
-        in_org_id: organizationId || 0,
-        in_college_id: 0,
-        in_academic_year_id: 0,
-        in_isadmin: 0,
-        in_exam_id: 0,
-        in_timetable_id: examTimetableId || 0,
-        in_exam_date: examDateParam,
-        in_subject_id: subjectId,
-        in_loginuser_empid: 0,
-        in_loginuser_roleid: 0,
+      const examDateParam = dateConvert || toDateStr(examDate) || "1990-01-01";
+      const summaryList = await getScanUploadAnswerPaperSummary({
+        organizationId,
+        timetableId: examTimetableId,
+        examDate: examDateParam,
+        subjectId,
       });
-      if (groups.length === 0) {
-        // Every candidate endpoint failed / returned nothing — surface it so an
-        // empty page is distinguishable from a genuine "no answer papers" result.
-        toastError("Unable to load answer paper details. Please try again.");
+      // Angular: summaryDetailsList[0]
+      setSummaryRow(summaryList[0] ?? null);
+      if (!summaryList[0]) {
+        toastSuccess("No answer paper summary found");
       }
-      const summaryGroup = pickFlagGroup(
-        groups,
-        "exam_timetable_answerpaper_details",
-      );
-      const first = summaryGroup[0] ?? null;
-      setSummaryRow(first);
+    } catch (e) {
+      toastError(e, "Failed to load answer paper details");
+      setSummaryRow(null);
     } finally {
       setLoading(false);
     }
   }
 
+  /** Angular uploadFiles(files) — webkitdirectory relative path parsing. */
   function onPickFiles(files: FileList | null) {
     if (!files || files.length === 0) {
-      setFolderPath("");
+      setFolderPathDisplay("");
       setUploadedFiles([]);
       return;
     }
@@ -307,99 +320,203 @@ export default function ScanUploadProcessPage() {
         (file as File & { webkitRelativePath?: string }).webkitRelativePath ??
           "",
       );
-      const parts = path.split("/");
-      const currentFolder = parts[1] || file.name;
-      parts.pop();
+      const pathPieces = path.split("/");
+      const currentFolder = pathPieces[1] || file.name;
+      pathPieces.pop();
       nextRows.push({
         fileName: currentFolder,
-        folder: parts[0] ?? "",
+        folder: pathPieces[0] ?? "",
         status: "Pending",
         view: "",
         file,
       });
     }
     setUploadedFiles(nextRows);
-    setFolderPath(nextRows[0]?.folder ?? "");
+    // Angular binds Folder Path input to `file` (single selected name) — show first file name
+    setFolderPathDisplay(files[0]?.name ?? nextRows[0]?.folder ?? "");
   }
 
+  /** Angular submit() — parallel uploads via forkJoin, then getList(). */
   async function submitUpload() {
-    if (uploadedFiles.length === 0) return;
+    if (uploadedFiles.length === 0 || !fileInputRef.current?.files?.length) {
+      return;
+    }
+    const nativeFiles = Array.from(fileInputRef.current.files);
     setUploading(true);
-    try {
-      const mutable = [...uploadedFiles];
-      for (const [idx, row] of mutable.entries()) {
-        mutable[idx] = { ...row, status: "Progress" };
-        setUploadedFiles([...mutable]);
 
-        try {
-          const uploadedPath = await uploadExamOmrWithPath(row.file);
-          mutable[idx] = { ...row, status: "Success", view: uploadedPath };
-        } catch {
-          mutable[idx] = { ...row, status: "File not found", view: "" };
+    // Angular: mark Progress when uploadedFiles.fileName === files[i].name
+    setUploadedFiles((prev) =>
+      prev.map((row) =>
+        nativeFiles.some((f) => f.name === row.fileName)
+          ? { ...row, status: "Progress" }
+          : row,
+      ),
+    );
+
+    try {
+      const responses = await Promise.all(
+        nativeFiles.map(async (file) => {
+          const form = new FormData();
+          form.append("file", file, file.name);
+          return uploadExamOmr(form);
+        }),
+      );
+
+      setUploadedFiles((prev) => {
+        let next = prev.map((row) =>
+          nativeFiles.some((f) => f.name === row.fileName)
+            ? { ...row, status: "Progress" as const }
+            : row,
+        );
+        for (const res of responses) {
+          next = applyUploadResultToRows(next, extractExamOmrUploadPath(res));
         }
-        setUploadedFiles([...mutable]);
-      }
+        return next;
+      });
+      toastSuccess("Files uploaded");
       await getList();
       if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (e) {
+      toastError(e, "Failed to upload files");
     } finally {
       setUploading(false);
     }
   }
 
-  const examLabel = text(selectedExam?.exam_name);
-  const subjectCodeLabel = text(selectedSubject?.subject_code);
+  function goBack() {
+    // Angular HTML calls goBack() — hide result panels and clear picked files
+    setShowResult(false);
+    setSummaryRow(null);
+    setUploadedFiles([]);
+    setFolderPathDisplay("");
+    setSearchText("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const examLabel = txt(selectedExam?.exam_name);
+  const subjectCodeLabel = txt(selectedSubject?.subject_code);
+  // Angular selectedDetails: examName + ' / ' + subjectCode
   const detailsLabel =
-    examLabel + (subjectCodeLabel ? ` / ${subjectCodeLabel}` : "");
+    examLabel && subjectCodeLabel
+      ? `${examLabel} / ${subjectCodeLabel}`
+      : examLabel || subjectCodeLabel || "-";
+
   const totalStudents = num(summaryRow?.total_students);
   const attendanceMarked = num(summaryRow?.attendance_marked);
   const uploadedCount = num(summaryRow?.no_oof_answerpaper_uploaded);
-  const notUploaded = Math.max(totalStudents - uploadedCount, 0);
+  // Angular: total_students - no_oof_answerpaper_uploaded
+  const notUploaded = totalStudents - uploadedCount;
 
   return (
     <FilteredPage
       title="Upload Scanned Answer Papers"
-      filters={(
+      filters={
         <>
           <GlobalFilterBarRow>
             <GlobalFilterField label="Faculty">
-              <Select value={String(collegeId)} onChange={(v) => setCollegeId(num(v))} options={collegeOptions} placeholder="Faculty" />
+              <Select
+                value={String(collegeId)}
+                onChange={(v) => setCollegeId(num(v))}
+                options={collegeOptions}
+                placeholder="Faculty"
+              />
             </GlobalFilterField>
             <GlobalFilterField label="Exam Month Year">
-              <Select value={examMonthYear || null} onChange={(v) => setExamMonthYear(v ?? "")} options={monthYearOptions} placeholder="Exam Month Year" />
+              <Select
+                value={examMonthYear || null}
+                onChange={(v) => setExamMonthYear(v ?? "")}
+                options={monthYearOptions}
+                placeholder="Exam Month Year"
+              />
             </GlobalFilterField>
             <GlobalFilterField label="Exam">
-              <Select value={String(examId)} onChange={(v) => setExamId(num(v))} options={examOptions} placeholder="Exam" searchable />
+              <Select
+                value={String(examId)}
+                onChange={(v) => setExamId(num(v))}
+                options={examOptions}
+                placeholder="Exam"
+                searchable
+              />
             </GlobalFilterField>
-            <GlobalFilterField label="Subject">
-              <Select value={String(subjectId)} onChange={(v) => setSubjectId(num(v))} options={subjectOptions} placeholder="Subject" searchable />
+            <GlobalFilterField label="Subjects">
+              <Select
+                value={subjectId > 0 ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(num(v))}
+                options={subjectOptions}
+                placeholder="Subjects"
+                searchable
+              />
             </GlobalFilterField>
             {subjectId > 0 && (
               <GlobalFilterField label="Exam Date">
-                <DatePicker value={examDate} onChange={setExamDate} displayFormat="yyyy-MM-dd" clearable={false} placeholder="Select exam date" />
+                <DatePicker
+                  value={examDate}
+                  onChange={(d) => {
+                    setExamDate(d);
+                    setDateConvert(toDateStr(d));
+                    setShowResult(false);
+                  }}
+                  displayFormat="dd/MM/yyyy"
+                  clearable={false}
+                  placeholder="Exam Date"
+                />
               </GlobalFilterField>
             )}
-            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
-              <Button type="button" className="h-[30px] px-4 text-[12px]" disabled={!subjectId || !examDate || loading} onClick={getList}>Get List</Button>
+            <GlobalFilterField
+              label="Action"
+              className="global-filter-field--shrink global-filter-field--action"
+            >
+              <Button
+                type="button"
+                className="h-[30px] px-4 text-[12px]"
+                disabled={!canGetList}
+                onClick={() => void getList()}
+              >
+                Get List
+              </Button>
             </GlobalFilterField>
           </GlobalFilterBarRow>
+
           {showResult && (
             <div className="px-5 pb-3 grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
               <GlobalFilterField label="Folder Path" className="md:col-span-4">
-                <Input value={folderPath} readOnly placeholder="Folder Path" className="h-8 text-[12px]" />
+                <Input
+                  value={folderPathDisplay}
+                  readOnly
+                  disabled
+                  placeholder="Folder Path"
+                  className="h-8 text-[12px]"
+                />
               </GlobalFilterField>
               <div className="md:col-span-2">
-                <input ref={fileInputRef} type="file" className="hidden" webkitdirectory="" multiple onChange={(e) => onPickFiles(e.target.files)} />
-                <Button type="button" className="h-8 px-4 text-[12px] w-full bg-sky-600 hover:bg-sky-700" onClick={() => fileInputRef.current?.click()}>Browse</Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={(e) => onPickFiles(e.target.files)}
+                  {...({ webkitdirectory: "", directory: "" } as Record<
+                    string,
+                    string
+                  >)}
+                />
+                <Button
+                  type="button"
+                  className="h-8 px-4 text-[12px] w-full bg-sky-600 hover:bg-sky-700"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Browse
+                </Button>
               </div>
             </div>
           )}
         </>
-      )}
+      }
     >
       {showResult && (
         <div className="app-card p-3 space-y-3">
           <div className="px-1 app-card-title">
-            Upload Scanned Answer Papers - ({detailsLabel || "-"})
+            Upload Scanned Answer Papers - ({detailsLabel})
           </div>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
             <div className="md:col-span-3 rounded border bg-muted/40 p-2 text-[13px]">
@@ -407,8 +524,8 @@ export default function ScanUploadProcessPage() {
               <span className="text-blue-700">{totalStudents}</span>
             </div>
             <div className="md:col-span-6 px-2">
-              <div className="h-3 bg-sky-100 rounded">
-                <div className="h-3 bg-sky-500 rounded w-3/5" />
+              <div className="h-2 overflow-hidden rounded bg-sky-100">
+                <div className="h-full w-full animate-pulse bg-sky-500/80" />
               </div>
             </div>
             <div className="md:col-span-3 rounded border bg-muted/40 p-2 text-[13px]">
@@ -433,13 +550,13 @@ export default function ScanUploadProcessPage() {
       {showResult && (
         <div className="app-card p-3 space-y-3">
           <div className="px-1 app-card-title">
-            Scanned Files - {detailsLabel || "-"}
+            Scanned Files - {detailsLabel}
           </div>
           <div className="w-full max-w-sm">
             <SearchInput
               value={searchText}
               onChange={setSearchText}
-              placeholder="Search…"
+              placeholder="Search"
               className="w-full max-w-sm"
             />
           </div>
@@ -450,9 +567,8 @@ export default function ScanUploadProcessPage() {
                 <tr>
                   <th className="px-2 py-1 text-left">SI.No</th>
                   <th className="px-2 py-1 text-left">File Name</th>
-                  <th className="px-2 py-1 text-left">Folder Name</th>
                   <th className="px-2 py-1 text-left">Status</th>
-                  <th className="px-2 py-1 text-left">View</th>
+                  <th className="px-2 py-1 text-center">View</th>
                 </tr>
               </thead>
               <tbody>
@@ -463,22 +579,31 @@ export default function ScanUploadProcessPage() {
                   >
                     <td className="px-2 py-1">{i + 1}</td>
                     <td className="px-2 py-1">{row.fileName}</td>
-                    <td className="px-2 py-1">{row.folder || "-"}</td>
-                    <td className="px-2 py-1">{row.status}</td>
                     <td className="px-2 py-1">
+                      <span className="inline-flex items-center gap-1.5">
+                        {row.status === "Progress" && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-600" />
+                        )}
+                        <span
+                          className={
+                            row.status === "Success"
+                              ? "text-emerald-600 font-medium"
+                              : undefined
+                          }
+                        >
+                          {row.status}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="px-2 py-1 text-center">
                       {row.view ? (
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1 text-blue-700 hover:underline"
-                          onClick={() => {
-                            const resolvedUrl = /^https?:\/\//i.test(row.view)
-                              ? row.view
-                              : MINIO_URL + row.view;
-                            window.open(resolvedUrl, "_blank");
-                          }}
+                          className="inline-flex items-center justify-center text-blue-700 hover:underline"
+                          title="View"
+                          onClick={() => openStoredFile(row.view)}
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
+                          <Eye className="h-4 w-4" />
                         </button>
                       ) : (
                         "-"
@@ -490,7 +615,7 @@ export default function ScanUploadProcessPage() {
                   <tr className="border-t">
                     <td
                       className="px-2 py-4 text-center text-muted-foreground"
-                      colSpan={5}
+                      colSpan={4}
                     >
                       No files selected
                     </td>
@@ -505,11 +630,7 @@ export default function ScanUploadProcessPage() {
               type="button"
               variant="outline"
               className="h-8 px-4 text-[12px]"
-              onClick={() => {
-                setUploadedFiles([]);
-                setFolderPath("");
-                if (fileInputRef.current) fileInputRef.current.value = "";
-              }}
+              onClick={goBack}
             >
               Back
             </Button>
@@ -517,7 +638,7 @@ export default function ScanUploadProcessPage() {
               type="button"
               className="h-8 px-4 text-[12px]"
               disabled={uploadedFiles.length === 0 || uploading}
-              onClick={submitUpload}
+              onClick={() => void submitUpload()}
             >
               {uploading ? "Uploading..." : "Upload"}
             </Button>

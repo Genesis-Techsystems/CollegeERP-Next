@@ -73,6 +73,70 @@ function formatReceiptDate(value: string): string {
     year: "numeric",
   });
 }
+
+/** Parse `CODE-Name^^ISEM^^15731` → readable subject + course year. */
+function parseSubjectDetails(raw: string): {
+  subjectLabel: string;
+  courseYear: string;
+} {
+  const text = String(raw ?? "").trim();
+  if (!text) return { subjectLabel: "", courseYear: "" };
+  const parts = text.split("^^").map((p) => p.trim());
+  if (parts.length >= 2) {
+    const head = parts[0] ?? "";
+    // Prefer "CODE - Name" when head is "CODE-Name"
+    const dash = head.indexOf("-");
+    const subjectLabel =
+      dash > 0
+        ? `${head.slice(0, dash).trim()} - ${head.slice(dash + 1).trim()}`
+        : head;
+    return { subjectLabel, courseYear: parts[1] ?? "" };
+  }
+  return { subjectLabel: text, courseYear: "" };
+}
+
+function receiptSubjectLabel(row: AnyRow): string {
+  const details = strFrom(row, ["subject_details", "subjectDetails"]);
+  if (details) {
+    const parsed = parseSubjectDetails(details);
+    if (parsed.subjectLabel) return parsed.subjectLabel;
+  }
+  const code = strFrom(row, ["subject_code", "subjectCode"]);
+  const name = strFrom(row, ["subject_name", "subjectName"]);
+  if (code && name) return `${code} - ${name}`;
+  return code || name || "-";
+}
+
+function receiptCourseYearLabel(row: AnyRow): string {
+  const direct = strFrom(row, [
+    "course_year_code",
+    "courseYearCode",
+    "course_year_name",
+    "courseYearName",
+  ]);
+  if (direct) return direct;
+  const details = strFrom(row, ["subject_details", "subjectDetails"]);
+  return parseSubjectDetails(details).courseYear || "-";
+}
+
+function receiptNoOf(row: AnyRow): string {
+  return strFrom(row, [
+    "receipt_no",
+    "fee_receipt_no",
+    "addt_receipt_no",
+    "receiptNo",
+    "feeReceiptNo",
+  ]);
+}
+
+function receiptIdOf(row: AnyRow): number {
+  return numFrom(row, [
+    "fk_exam_fee_receipt_id",
+    "fkExamFeeReceiptId",
+    "exam_fee_receipt_id",
+    "examFeeReceiptId",
+  ]);
+}
 function todayYmd(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -256,9 +320,10 @@ export default function ReEvaluationFeeCollectionPage() {
   const [photocopyOpen, setPhotocopyOpen] = useState(false);
   const [photocopyData, setPhotocopyData] = useState<AnyRow[]>([]);
 
-  // viewDetails modal (Receipt Details)
+  // Receipt Details modal (eye icon) — subjects for the clicked receipt
   const [viewSubjOpen, setViewSubjOpen] = useState(false);
   const [viewSubjRows, setViewSubjRows] = useState<AnyRow[]>([]);
+  const [viewReceiptNo, setViewReceiptNo] = useState("");
 
   const eachCourseFee = Number(coursesYearList[0]?.fee ?? 0);
   const examFeeAmount = duplicateSelectedList.length * eachCourseFee;
@@ -418,18 +483,29 @@ export default function ReEvaluationFeeCollectionPage() {
 
     setLoading(true);
     try {
-      const [bundle, paymentDetails] = await Promise.all([
-        getExamRevisionStdDetailsBundle({ examId, studentId }),
-        getStudentRevisionPaymentDetails({ examId, studentId }).catch(() => []),
-      ]);
+      // Angular: first examrevision_std_details, then callRevisionHistory(student_revision_request)
+      const bundle = await getExamRevisionStdDetailsBundle({
+        examId,
+        studentId,
+      });
       const details = Array.isArray(bundle.detailsList)
         ? bundle.detailsList
         : [];
       setDetailsList(details);
-      // Angular callRevisionHistory → full rows + deduped history list
-      const paymentRows = Array.isArray(paymentDetails) ? paymentDetails : [];
-      setRevisionPaymentDetails(paymentRows);
-      setRevisionHistory(dedupeRevisionHistoryRows(paymentRows));
+
+      let paymentRows: AnyRow[] = [];
+      try {
+        paymentRows = await getStudentRevisionPaymentDetails({
+          examId,
+          studentId,
+        });
+      } catch (histErr) {
+        toastError(histErr, "Failed to load revision history");
+        paymentRows = [];
+      }
+      const rows = Array.isArray(paymentRows) ? paymentRows : [];
+      setRevisionPaymentDetails(rows);
+      setRevisionHistory(dedupeRevisionHistoryRows(rows));
 
       // setCourseYear(): distinct course-years for this exam + revision type
       const courses = details.filter(
@@ -661,13 +737,36 @@ export default function ReEvaluationFeeCollectionPage() {
     setPhotocopyOpen(true);
   }
 
-  /** Angular viewDetails(row): filter revisionPaymentDetails by fk_exam_fee_receipt_id */
+  /** Eye icon: show subjects that belong to the clicked receipt only. */
   function openViewDetails(row: AnyRow) {
-    const receiptId = numFrom(row, ["fk_exam_fee_receipt_id"]);
-    const data = revisionPaymentDetails.filter(
-      (x) => numFrom(x, ["fk_exam_fee_receipt_id"]) === receiptId,
-    );
-    setViewSubjRows(data.length > 0 ? data : [row]);
+    const receiptId = receiptIdOf(row);
+    const receiptNo = receiptNoOf(row);
+
+    let matched = revisionPaymentDetails.filter((x) => {
+      const xId = receiptIdOf(x);
+      if (receiptId > 0 && xId > 0) return xId === receiptId;
+      const xNo = receiptNoOf(x);
+      if (receiptNo && xNo) return xNo === receiptNo;
+      return false;
+    });
+
+    // Prefer one row per subject when the API repeats lines
+    if (matched.length > 1) {
+      const seen = new Set<string>();
+      matched = matched.filter((x) => {
+        const key =
+          strFrom(x, ["fk_subject_id", "subject_id", "subjectId"]) ||
+          strFrom(x, ["subject_details", "subjectDetails"]) ||
+          `${receiptSubjectLabel(x)}|${receiptCourseYearLabel(x)}`;
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    setViewReceiptNo(receiptNo);
+    setViewSubjRows(matched);
     setViewSubjOpen(true);
   }
 
@@ -1159,29 +1258,16 @@ export default function ReEvaluationFeeCollectionPage() {
                       ]) || "-"}
                     </td>
                     <td className="px-3 py-2 text-center">
-                      {isPhotoCopy ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-[hsl(var(--primary))]"
-                          title="View photocopy"
-                          onClick={() => void openPhotocopy()}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-[hsl(var(--primary))]"
-                          title="View details"
-                          onClick={() => openViewDetails(r)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-[hsl(var(--primary))]"
+                        title="View subjects for this receipt"
+                        onClick={() => openViewDetails(r)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))
@@ -1255,11 +1341,24 @@ export default function ReEvaluationFeeCollectionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Angular ViewSubjectDetails — Receipt Details */}
-      <Dialog open={viewSubjOpen} onOpenChange={setViewSubjOpen}>
+      {/* Receipt Details — subjects for the selected receipt */}
+      <Dialog
+        open={viewSubjOpen}
+        onOpenChange={(open) => {
+          setViewSubjOpen(open);
+          if (!open) {
+            setViewSubjRows([]);
+            setViewReceiptNo("");
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Receipt Details</DialogTitle>
+            <DialogTitle>
+              {viewReceiptNo
+                ? `Receipt Details — ${viewReceiptNo}`
+                : "Receipt Details"}
+            </DialogTitle>
           </DialogHeader>
           <div className="overflow-auto rounded border">
             <table className="w-full text-[12px]">
@@ -1272,29 +1371,13 @@ export default function ReEvaluationFeeCollectionPage() {
               </thead>
               <tbody>
                 {viewSubjRows.map((s, i) => (
-                  <tr key={`vs-${i}`} className="border-t">
+                  <tr
+                    key={`vs-${receiptIdOf(s) || viewReceiptNo}-${i}`}
+                    className="border-t"
+                  >
                     <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {strFrom(s, [
-                        "course_year_code",
-                        "courseYearCode",
-                        "course_year_name",
-                      ]) || "-"}
-                    </td>
-                    <td className="px-2 py-1">
-                      {strFrom(s, [
-                        "subject_details",
-                        "subject_name",
-                        "subjectName",
-                      ]) ||
-                        [
-                          strFrom(s, ["subject_code", "subjectCode"]),
-                          strFrom(s, ["subject_name", "subjectName"]),
-                        ]
-                          .filter(Boolean)
-                          .join(" - ") ||
-                        "-"}
-                    </td>
+                    <td className="px-2 py-1">{receiptCourseYearLabel(s)}</td>
+                    <td className="px-2 py-1">{receiptSubjectLabel(s)}</td>
                   </tr>
                 ))}
                 {viewSubjRows.length === 0 && (
@@ -1303,7 +1386,7 @@ export default function ReEvaluationFeeCollectionPage() {
                       colSpan={3}
                       className="px-2 py-6 text-center text-muted-foreground"
                     >
-                      No subjects found.
+                      No subjects found for this receipt.
                     </td>
                   </tr>
                 )}

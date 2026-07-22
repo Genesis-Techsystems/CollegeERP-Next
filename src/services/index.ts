@@ -62,7 +62,18 @@ export * from "./admin/student-accounts";
 export * from "./admin/bulk-upload";
 export * from "./evaluation";
 export * from "./evaluation-process";
-export * from "./evaluators-bank-copy-report";
+export * from "./evaluation-process-admin";
+export {
+  getBankCopyBaseFilters,
+  getBankCopyRestAndRegulations,
+  getBankCopySubjects,
+  getBankCopyEvaluators,
+  getEvaluatorsBankCopyReport,
+  groupBankCopyByEvaluatorProfile,
+  type BankCopySubjectLine,
+  type BankCopyProfileReport,
+} from "./evaluators-bank-copy-report";
+// AnyRow omitted — conflicts with pre-examination AnyRow; import from the module path if needed.
 export * from "./exam-evaluation-report";
 export * from "./exam-evaluation-un-assigned-report";
 export * from "./daily-evaluated-report";
@@ -194,6 +205,7 @@ export type {
 } from "./seating-plan";
 export * from "./post-examination";
 export * from "./result-processing";
+export * from "./re-evaluation";
 export * from "./scholarship";
 export * from "./admission";
 export * from "./e-office";
@@ -203,6 +215,7 @@ export * from "./timetable-management";
 export * from "./library";
 export * from "./transport";
 export * from "./tc-no-due";
+export * from "./certificates";
 export * from "./hostel";
 export * from "./campus-maintenance";
 export * from "./trainings";

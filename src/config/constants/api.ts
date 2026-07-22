@@ -442,6 +442,12 @@ export const EXAM_EVAL_API = {
   EVALUATORS: "ExamEvaluators",
   /** POST: upload exam OMR */
   UPLOAD_EXAM_OMR: "uploadExamOmr",
+  /**
+   * Angular `getCollegeExamDetails` —
+   * GET getAllRecords/s_get_collegeexamdetails_bycode
+   * (scan-upload filters + answer-paper summary)
+   */
+  GET_COLLEGE_EXAM_DETAILS: "s_get_collegeexamdetails_bycode",
   /** GET: `getAllRecords/s_get_answerpaperupload_details` — Angular getAnswerPaperUploadUrl (Check Upload Status) */
   ANSWER_PAPER_UPLOAD_DETAILS: "s_get_answerpaperupload_details",
   /** GET: generatePresignedUrls?answerPaperPath=… — presigned S3 URL for answer sheet preview */
@@ -576,6 +582,11 @@ export const EXAM_REVAL_API = {
   /** GET: exam student revised details */
   GET_STUDENT_REVISED_DETAILS:
     "getAllRecords/s_get_exam_student_revised_details",
+  /**
+   * Angular `studentFeeRevaluationUrl` —
+   * GET getAllRecords/s_get_student_fee_revaluation (revision history / photocopy details)
+   */
+  GET_STUDENT_FEE_REVALUATION: "getAllRecords/s_get_student_fee_revaluation",
   /** POST: add exam additional fee receipt */
   ADD_ADDITIONAL_FEE_RECEIPT: "addExamAdditionalFeeReceipt",
   /** PUT: update exam student details for revaluation marks */
