@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSessionContext } from "@/context/SessionContext";
-import { getErrorMessage } from "@/lib/errors";
 import { QK } from "@/lib/query-keys";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
@@ -176,14 +175,25 @@ export function BooksPage() {
     isError,
     error,
   } = useQuery({
-    queryKey: QK.library.booksByCategory(libraryNum, bookcatNum),
-    queryFn: () => listBooksByLibraryAndCategory(libraryNum, bookcatNum),
-    enabled: searchMode === "all" && filtersReady,
+    queryKey: QK.library.booksByCategory(libraryNum, bookcatNum || 0),
+    queryFn: () =>
+      listBooksByLibraryAndCategory(
+        libraryNum,
+        bookcatNum > 0 ? bookcatNum : null,
+      ),
+    // Angular clearData(All) → selectcategory() even when bookcatId is undefined
+    enabled: searchMode === "all" && libraryNum > 0,
   });
+
+  useEffect(() => {
+    if (searchMode === "all" && isError && error) {
+      toastError(error, "Failed to load books");
+    }
+  }, [searchMode, isError, error]);
 
   const collegeOptions = useMemo<SelectOption[]>(
     () =>
-      colleges.map((c) => ({
+      (Array.isArray(colleges) ? colleges : []).map((c) => ({
         value: String(c.collegeId ?? c.fk_college_id ?? ""),
         label: String(
           c.collegeCode ?? c.college_code ?? c.collegeName ?? c.collegeId ?? "",
@@ -194,7 +204,7 @@ export function BooksPage() {
 
   const libraryOptions = useMemo<SelectOption[]>(
     () =>
-      libraries.map((lib) => ({
+      (Array.isArray(libraries) ? libraries : []).map((lib) => ({
         value: String(lib.libraryId),
         label: lib.libraryCode ?? lib.libraryName ?? String(lib.libraryId),
       })),
@@ -203,7 +213,7 @@ export function BooksPage() {
 
   const categoryOptions = useMemo<SelectOption[]>(
     () =>
-      categories.map((cat) => ({
+      (Array.isArray(categories) ? categories : []).map((cat) => ({
         value: String(cat.bookcatId),
         label:
           cat.bookCategoryCode ?? cat.bookCategoryName ?? String(cat.bookcatId),
@@ -239,7 +249,7 @@ export function BooksPage() {
     if (searchMode === "book") {
       return selectedBook ? [selectedBook] : [];
     }
-    return categoryBooks;
+    return Array.isArray(categoryBooks) ? categoryBooks : [];
   }, [searchMode, selectedBook, categoryBooks]);
 
   const onBookSearch = useCallback(
@@ -267,25 +277,30 @@ export function BooksPage() {
   );
 
   useEffect(() => {
-    if (!collegeId && collegeOptions.length > 0) {
+    if (
+      collegeOptions.length > 0 &&
+      (!collegeId || !collegeOptions.some((o) => o.value === collegeId))
+    ) {
       setCollegeId(collegeOptions[0]!.value);
     }
   }, [collegeId, collegeOptions]);
 
   useEffect(() => {
-    if (
-      libraryOptions.length > 0 &&
-      (!libraryId || !libraryOptions.some((o) => o.value === libraryId))
-    ) {
+    if (libraryOptions.length === 0) {
+      if (libraryId) setLibraryId(null);
+      return;
+    }
+    if (!libraryId || !libraryOptions.some((o) => o.value === libraryId)) {
       setLibraryId(libraryOptions[0]!.value);
     }
   }, [libraryOptions, libraryId]);
 
   useEffect(() => {
-    if (
-      categoryOptions.length > 0 &&
-      (!bookcatId || !categoryOptions.some((o) => o.value === bookcatId))
-    ) {
+    if (categoryOptions.length === 0) {
+      if (bookcatId) setBookcatId(null);
+      return;
+    }
+    if (!bookcatId || !categoryOptions.some((o) => o.value === bookcatId)) {
       setBookcatId(categoryOptions[0]!.value);
     }
   }, [categoryOptions, bookcatId]);
@@ -406,7 +421,13 @@ export function BooksPage() {
         headerName: "Available Copies",
         minWidth: 120,
       },
-      { field: "issuedCopies", headerName: "Issued Copies", minWidth: 110 },
+      {
+        field: "issuedCopies",
+        headerName: "Issued Copies",
+        minWidth: 110,
+        valueGetter: (p) =>
+          p.data?.issuedCopies == null ? 0 : p.data.issuedCopies,
+      },
       {
         field: "isActive",
         headerName: "Status",
@@ -444,9 +465,19 @@ export function BooksPage() {
           <RadioGroup
             value={searchMode}
             onValueChange={(v) => {
-              setSearchMode(v as SearchMode);
+              const next = v as SearchMode;
+              setSearchMode(next);
               setSelectedBookId(null);
               setBookSuggestions([]);
+              // Angular clearData(All) → selectcategory() even if bookcatId is undefined
+              if (next === "all" && libraryNum > 0) {
+                void queryClient.invalidateQueries({
+                  queryKey: QK.library.booksByCategory(
+                    libraryNum,
+                    bookcatNum || 0,
+                  ),
+                });
+              }
             }}
             className="flex flex-wrap gap-x-6 gap-y-2"
           >
@@ -549,11 +580,6 @@ export function BooksPage() {
             </Link>
           </Button>
         </div>
-      }
-      notice={
-        isError && searchMode === "all" ? (
-          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
-        ) : undefined
       }
     >
       <EditBookModal

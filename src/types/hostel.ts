@@ -64,9 +64,11 @@ export interface HostelDiscount {
   hstlDiscountId: number;
   organizationId?: number;
   hostelId?: number;
+  hstlRoomId?: number;
   hstlDiscountName?: string;
   discountType?: string;
   discountValue?: number;
+  noofmonths?: number;
   hostelCode?: string;
   validFrom?: string;
   validTo?: string;

@@ -1418,12 +1418,12 @@ export async function listUnivExamRegionalCentersByUniversity(
   universityId: number,
 ): Promise<AnyRow[]> {
   if (!universityId) return [];
+  // Angular regional-centers list page: `Universities.universityId=={id}` — no isActive filter.
   const queries = [
-    buildQuery({ "Universities.universityId": universityId, isActive: true }),
-    buildQuery({ "University.universityId": universityId, isActive: true }),
-    buildQuery({ "university.universityId": universityId, isActive: true }),
-    buildQuery({ universityId, isActive: true }),
     buildQuery({ "Universities.universityId": universityId }),
+    buildQuery({ "University.universityId": universityId }),
+    buildQuery({ "university.universityId": universityId }),
+    buildQuery({ universityId }),
   ];
   let firstErr: unknown;
   for (const q of queries) {
@@ -1435,6 +1435,34 @@ export async function listUnivExamRegionalCentersByUniversity(
   }
   if (firstErr instanceof Error) throw firstErr;
   throw new AppError("API_ERROR", "Failed to list exam regional centers");
+}
+
+/**
+ * Angular Add Exam Centers modal:
+ * `Universities.universityId=={id}.and.isActive==true`
+ */
+export async function listActiveUnivExamRegionalCentersByUniversity(
+  universityId: number,
+): Promise<AnyRow[]> {
+  if (!universityId) return [];
+  const queries = [
+    buildQuery({ "Universities.universityId": universityId, isActive: true }),
+    buildQuery({ "University.universityId": universityId, isActive: true }),
+    buildQuery({ "university.universityId": universityId, isActive: true }),
+  ];
+  let firstErr: unknown;
+  for (const q of queries) {
+    try {
+      return await domainList<AnyRow>(UNIV_EXAM_CENTER_API.REGIONAL_CENTERS, q);
+    } catch (e) {
+      if (firstErr === undefined) firstErr = e;
+    }
+  }
+  if (firstErr instanceof Error) throw firstErr;
+  throw new AppError(
+    "API_ERROR",
+    "Failed to list active exam regional centers",
+  );
 }
 
 export async function createUnivExamRegionalCenter(
@@ -1679,7 +1707,8 @@ export async function getUnivEcStudentsByCodeGroups(args: {
     UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
     {
       in_flag: args.flag,
-      in_flag_type: args.flagType ?? (args.flag === "ec_std_list" ? "" : "REGSUP"),
+      in_flag_type:
+        args.flagType ?? (args.flag === "ec_std_list" ? "" : "REGSUP"),
       in_univ_examcenter_id: args.univExamcenterId ?? 0,
       in_exam_group_id: args.examGroupId ?? 0,
       in_college_id: args.collegeId ?? 0,
@@ -2105,11 +2134,50 @@ export async function createExamGroupExamLine(
 }
 
 /**
- * Remove a line — soft delete (`isActive: false`) on `UnivExamGroupDetails`.
+ * Soft-remove one exam from a group — Angular `deleteRow` + `submit`:
+ * set `isActive: false` on the matching line, then POST the full details array to
+ * `saveUnivExamGroupDetails`, then caller should refresh via {@link listExamGroupExamLines}.
+ */
+export async function saveUnivExamGroupDetails(
+  rows: Record<string, unknown>[],
+): Promise<AnyRow[]> {
+  if (!rows.length) return [];
+  const data = await postDetails<AnyRow[] | null>(
+    UNIV_EXAM_CENTER_API.SAVE_UNIV_EXAM_GROUP_DETAILS,
+    rows,
+  );
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Angular delete on cross icon: mark the line inactive and persist the whole list.
+ */
+export async function deactivateExamGroupExamLine(args: {
+  lines: AnyRow[];
+  examId: number;
+}): Promise<AnyRow[]> {
+  const examId = num(args.examId);
+  if (!examId || !args.lines.length) {
+    throw new AppError("VALIDATION_ERROR", "Missing exam line to remove");
+  }
+  const payload = args.lines.map((item) => {
+    const rowExamId = pickLineExamId(item);
+    if (rowExamId === examId) {
+      return { ...item, isActive: false };
+    }
+    return { ...item };
+  });
+  return saveUnivExamGroupDetails(payload);
+}
+
+/**
+ * @deprecated Prefer {@link deactivateExamGroupExamLine} (Angular `saveUnivExamGroupDetails`).
+ * Soft delete via domain update — kept for callers that still use PK soft-delete.
  */
 export async function removeExamGroupExamLine(lineId: number): Promise<void> {
   if (!lineId) return;
   const pkCandidates = [
+    "univExamGroupDetId",
     "univExamGroupDetailsId",
     "univ_exam_group_details_id",
     "univExamGroupExamId",
@@ -2134,7 +2202,9 @@ export async function removeExamGroupExamLine(lineId: number): Promise<void> {
 
 export function pickExamGroupLineId(row: AnyRow): number {
   return num(
-    row.univExamGroupDetailsId ??
+    row.univExamGroupDetId ??
+      row.univ_exam_group_det_id ??
+      row.univExamGroupDetailsId ??
       row.univ_exam_group_details_id ??
       row.univExamGroupExamId ??
       row.univ_exam_group_exam_id ??

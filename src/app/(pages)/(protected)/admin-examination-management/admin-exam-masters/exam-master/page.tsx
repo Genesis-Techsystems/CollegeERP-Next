@@ -1,101 +1,136 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
-import type { ColDef, CellClickedEvent, ICellRendererParams } from 'ag-grid-community'
-import { PlusIcon, Download, Tag, Pencil, Building2, Calendar, GraduationCap } from 'lucide-react'
-import { useSessionContext } from '@/context/SessionContext'
-import type { ExamMaster, CollegeWiseFilterRow } from '@/types/exam-master'
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import type {
+  ColDef,
+  CellClickedEvent,
+  ICellRendererParams,
+} from "ag-grid-community";
+import {
+  PlusIcon,
+  Download,
+  Pencil,
+  Building2,
+  Calendar,
+  GraduationCap,
+} from "lucide-react";
+import { useSessionContext } from "@/context/SessionContext";
+import type { ExamMaster, CollegeWiseFilterRow } from "@/types/exam-master";
 import {
   getCollegeFilters,
   fetchExamsByUniversity as fetchExamsByUniversityService,
   fetchExamsByCollege as fetchExamsByCollegeService,
-} from '@/services/exam-master'
-import { distinct } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Select } from '@/common/components/select'
-import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import ExamMasterModal from './ExamMasterModal'
-import { StatusBadge } from '@/common/components/data-display'
-import { FilteredListPage } from '@/components/layout'
+} from "@/services/exam-master";
+import { distinct } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/common/components/select";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import ExamMasterModal from "./ExamMasterModal";
+import { StatusBadge } from "@/common/components/data-display";
+import { FilteredListPage } from "@/components/layout";
 
 export default function ExamMasterPage() {
-  const router = useRouter()
-  const { user } = useSessionContext()
+  const router = useRouter();
+  const { user } = useSessionContext();
 
-  const [mode, setMode] = useState<1 | 2>(1)
-  const [filtersdata, setFiltersdata] = useState<CollegeWiseFilterRow[]>([])
-  const [academicData, setAcademicData] = useState<CollegeWiseFilterRow[]>([])
-  const [universities, setUniversities] = useState<CollegeWiseFilterRow[]>([])
-  const [selectedUniversityId, setSelectedUniversityId] = useState<number | null>(null)
-  const [courses, setCourses] = useState<CollegeWiseFilterRow[]>([])
-  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
-  const [academicYears, setAcademicYears] = useState<CollegeWiseFilterRow[]>([])
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<number | null>(null)
-  const [colleges, setColleges] = useState<CollegeWiseFilterRow[]>([])
-  const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
-  const [examsList, setExamsList] = useState<ExamMaster[]>([])
-  const [loadingFilters, setLoadingFilters] = useState(true)
-  const [loadingExams, setLoadingExams] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingExam, setEditingExam] = useState<ExamMaster | null>(null)
+  const [mode, setMode] = useState<1 | 2>(1);
+  const [filtersdata, setFiltersdata] = useState<CollegeWiseFilterRow[]>([]);
+  const [academicData, setAcademicData] = useState<CollegeWiseFilterRow[]>([]);
+  const [universities, setUniversities] = useState<CollegeWiseFilterRow[]>([]);
+  const [selectedUniversityId, setSelectedUniversityId] = useState<
+    number | null
+  >(null);
+  const [courses, setCourses] = useState<CollegeWiseFilterRow[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [academicYears, setAcademicYears] = useState<CollegeWiseFilterRow[]>(
+    [],
+  );
+  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<
+    number | null
+  >(null);
+  const [colleges, setColleges] = useState<CollegeWiseFilterRow[]>([]);
+  const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(
+    null,
+  );
+  const [examsList, setExamsList] = useState<ExamMaster[]>([]);
+  const [loadingFilters, setLoadingFilters] = useState(true);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState<ExamMaster | null>(null);
   const fetchFilterDetails = useCallback(async () => {
-    setLoadingFilters(true)
+    setLoadingFilters(true);
     try {
-      const orgIdFromStorage = Number(globalThis.localStorage?.getItem('organizationId') ?? 0)
-      const empIdFromStorage = Number(globalThis.localStorage?.getItem('employeeId') ?? 0)
-      const orgIdFromSession = Number(user?.organizationId ?? 0)
-      const empIdFromSession = Number(user?.employeeId ?? 0)
+      const orgIdFromStorage = Number(
+        globalThis.localStorage?.getItem("organizationId") ?? 0,
+      );
+      const empIdFromStorage = Number(
+        globalThis.localStorage?.getItem("employeeId") ?? 0,
+      );
+      const orgIdFromSession = Number(user?.organizationId ?? 0);
+      const empIdFromSession = Number(user?.employeeId ?? 0);
 
-      const orgId = orgIdFromStorage || orgIdFromSession || 1
-      const empId = empIdFromStorage || empIdFromSession || 31754
-      const { filtersData: filters, academicData: academic } = await getCollegeFilters(orgId, empId)
+      const orgId = orgIdFromStorage || orgIdFromSession || 1;
+      const empId = empIdFromStorage || empIdFromSession || 31754;
+      const { filtersData: filters, academicData: academic } =
+        await getCollegeFilters(orgId, empId);
 
-      setFiltersdata(filters)
-      setAcademicData(academic)
+      setFiltersdata(filters);
+      setAcademicData(academic);
 
-      const unis = distinct(filters, (r) => r.fk_university_id)
-      setUniversities(unis)
+      const unis = distinct(filters, (r) => r.fk_university_id);
+      setUniversities(unis);
 
       if (unis.length > 0) {
-        const firstUniId = unis[0].fk_university_id
-        setSelectedUniversityId(firstUniId)
-        handleUniversityChange(firstUniId, filters, academic)
+        const firstUniId = unis[0].fk_university_id;
+        setSelectedUniversityId(firstUniId);
+        handleUniversityChange(firstUniId, filters, academic);
       }
     } finally {
-      setLoadingFilters(false)
+      setLoadingFilters(false);
     }
-  }, [user?.organizationId, user?.employeeId])
+  }, [user?.organizationId, user?.employeeId]);
 
   useEffect(() => {
-    fetchFilterDetails()
-  }, [fetchFilterDetails])
+    fetchFilterDetails();
+  }, [fetchFilterDetails]);
 
   function handleUniversityChange(
     universityId: number,
     filtersRef = filtersdata,
     academicRef = academicData,
-    modeOverride?: 1 | 2
+    modeOverride?: 1 | 2,
   ) {
-    setSelectedUniversityId(universityId)
-    setSelectedCourseId(null)
-    setSelectedAcademicYearId(null)
-    setSelectedCollegeId(null)
-    setCourses([])
-    setAcademicYears([])
-    setColleges([])
-    setExamsList([])
+    setSelectedUniversityId(universityId);
+    setSelectedCourseId(null);
+    setSelectedAcademicYearId(null);
+    setSelectedCollegeId(null);
+    setCourses([]);
+    setAcademicYears([]);
+    setColleges([]);
+    setExamsList([]);
 
-    const filtered = filtersRef.filter((r) => r.fk_university_id === universityId)
-    const distinctCourses = distinct(filtered, (r) => r.fk_course_id)
-    setCourses(distinctCourses)
+    const filtered = filtersRef.filter(
+      (r) => r.fk_university_id === universityId,
+    );
+    const distinctCourses = distinct(filtered, (r) => r.fk_course_id);
+    setCourses(distinctCourses);
 
     if (distinctCourses.length > 0) {
-      const firstCourseId = distinctCourses[0].fk_course_id
-      setSelectedCourseId(firstCourseId)
-      handleCourseChange(firstCourseId, universityId, academicRef, filtersRef, modeOverride)
+      const firstCourseId = distinctCourses[0].fk_course_id;
+      setSelectedCourseId(firstCourseId);
+      handleCourseChange(
+        firstCourseId,
+        universityId,
+        academicRef,
+        filtersRef,
+        modeOverride,
+      );
     }
   }
 
@@ -104,32 +139,42 @@ export default function ExamMasterPage() {
     universityId = selectedUniversityId!,
     academicRef = academicData,
     filtersRef = filtersdata,
-    modeOverride?: 1 | 2
+    modeOverride?: 1 | 2,
   ) {
-    setSelectedCourseId(courseId)
-    setSelectedAcademicYearId(null)
-    setSelectedCollegeId(null)
-    setAcademicYears([])
-    setColleges([])
-    setExamsList([])
+    setSelectedCourseId(courseId);
+    setSelectedAcademicYearId(null);
+    setSelectedCollegeId(null);
+    setAcademicYears([]);
+    setColleges([]);
+    setExamsList([]);
 
-    const filtered = academicRef.filter((r) => r.fk_university_id === universityId)
-    const distinctAY = distinct(filtered, (r) => r.fk_academic_year_id ?? 0)
+    const filtered = academicRef.filter(
+      (r) => r.fk_university_id === universityId,
+    );
+    const distinctAY = distinct(filtered, (r) => r.fk_academic_year_id ?? 0);
 
-    const sorted = [...distinctAY].sort((a, b) => (b.is_curr_ay ?? 0) - (a.is_curr_ay ?? 0))
-    const currentAY = sorted[0]
+    const sorted = [...distinctAY].sort(
+      (a, b) => (b.is_curr_ay ?? 0) - (a.is_curr_ay ?? 0),
+    );
+    const currentAY = sorted[0];
 
     const displayList = [...distinctAY].sort((a, b) => {
-      const aYear = parseInt(a.academic_year ?? '0', 10)
-      const bYear = parseInt(b.academic_year ?? '0', 10)
-      return bYear - aYear
-    })
-    setAcademicYears(displayList)
+      const aYear = parseInt(a.academic_year ?? "0", 10);
+      const bYear = parseInt(b.academic_year ?? "0", 10);
+      return bYear - aYear;
+    });
+    setAcademicYears(displayList);
 
     if (currentAY?.fk_academic_year_id) {
-      const ayId = currentAY.fk_academic_year_id
-      setSelectedAcademicYearId(ayId)
-      handleAcademicYearChange(ayId, universityId, courseId, filtersRef, modeOverride)
+      const ayId = currentAY.fk_academic_year_id;
+      setSelectedAcademicYearId(ayId);
+      handleAcademicYearChange(
+        ayId,
+        universityId,
+        courseId,
+        filtersRef,
+        modeOverride,
+      );
     }
   }
 
@@ -138,89 +183,108 @@ export default function ExamMasterPage() {
     universityId = selectedUniversityId!,
     courseId = selectedCourseId!,
     filtersRef = filtersdata,
-    modeOverride?: 1 | 2
+    modeOverride?: 1 | 2,
   ) {
-    setSelectedAcademicYearId(academicYearId)
-    setColleges([])
-    setExamsList([])
+    setSelectedAcademicYearId(academicYearId);
+    setColleges([]);
+    setExamsList([]);
 
-    const effectiveMode = modeOverride ?? mode
+    const effectiveMode = modeOverride ?? mode;
     if (effectiveMode === 1) {
       // For university mode, table loads only when "Get List" is clicked.
     } else {
       const filtered = filtersRef.filter(
-        (r) => r.fk_university_id === universityId && r.fk_course_id === courseId
-      )
-      const distinctColleges = distinct(filtered, (r) => r.fk_college_id ?? 0)
-      setColleges(distinctColleges)
+        (r) =>
+          r.fk_university_id === universityId && r.fk_course_id === courseId,
+      );
+      const distinctColleges = distinct(filtered, (r) => r.fk_college_id ?? 0);
+      setColleges(distinctColleges);
     }
   }
 
   async function fetchExamsByUniversity(
     uniId = selectedUniversityId!,
     courseId = selectedCourseId!,
-    ayId = selectedAcademicYearId!
+    ayId = selectedAcademicYearId!,
   ) {
-    setLoadingExams(true)
+    setLoadingExams(true);
     try {
-      const results = await fetchExamsByUniversityService(uniId, courseId, ayId)
-      setExamsList(results)
+      const results = await fetchExamsByUniversityService(
+        uniId,
+        courseId,
+        ayId,
+      );
+      setExamsList(results);
     } finally {
-      setLoadingExams(false)
+      setLoadingExams(false);
     }
   }
 
   async function fetchExamsByCollege(
     colId = selectedCollegeId!,
     courseId = selectedCourseId!,
-    ayId = selectedAcademicYearId!
+    ayId = selectedAcademicYearId!,
   ) {
-    setLoadingExams(true)
+    setLoadingExams(true);
     try {
-      const results = await fetchExamsByCollegeService(colId, courseId, ayId)
-      setExamsList(results)
+      const results = await fetchExamsByCollegeService(colId, courseId, ayId);
+      setExamsList(results);
     } finally {
-      setLoadingExams(false)
+      setLoadingExams(false);
     }
   }
 
   function handleCollegeChange(collegeId: number) {
-    setSelectedCollegeId(collegeId)
-    setExamsList([])
+    setSelectedCollegeId(collegeId);
+    setExamsList([]);
   }
 
   async function handleGetList() {
-    if (!selectedUniversityId || !selectedCourseId || !selectedAcademicYearId) return
-    if (mode === 2 && !selectedCollegeId) return
+    if (!selectedUniversityId || !selectedCourseId || !selectedAcademicYearId)
+      return;
+    if (mode === 2 && !selectedCollegeId) return;
 
     if (mode === 1) {
-      await fetchExamsByUniversity(selectedUniversityId, selectedCourseId, selectedAcademicYearId)
+      await fetchExamsByUniversity(
+        selectedUniversityId,
+        selectedCourseId,
+        selectedAcademicYearId,
+      );
     } else {
-      await fetchExamsByCollege(selectedCollegeId!, selectedCourseId, selectedAcademicYearId)
+      await fetchExamsByCollege(
+        selectedCollegeId!,
+        selectedCourseId,
+        selectedAcademicYearId,
+      );
     }
   }
 
   function handleModeChange(newMode: 1 | 2) {
-    setMode(newMode)
-    setSelectedCourseId(null)
-    setSelectedAcademicYearId(null)
-    setSelectedCollegeId(null)
-    setCourses([])
-    setAcademicYears([])
-    setColleges([])
-    setExamsList([])
+    setMode(newMode);
+    setSelectedCourseId(null);
+    setSelectedAcademicYearId(null);
+    setSelectedCollegeId(null);
+    setCourses([]);
+    setAcademicYears([]);
+    setColleges([]);
+    setExamsList([]);
 
     if (selectedUniversityId) {
       setTimeout(() => {
-        handleUniversityChange(selectedUniversityId!, filtersdata, academicData, newMode)
-      }, 0)
+        handleUniversityChange(
+          selectedUniversityId!,
+          filtersdata,
+          academicData,
+          newMode,
+        );
+      }, 0);
     }
   }
 
   const columnDefs = useMemo<ColDef<ExamMaster>[]>(
     () => [
       {
-        headerName: 'SI.No',
+        headerName: "SI.No",
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
         width: 70,
         minWidth: 70,
@@ -228,65 +292,68 @@ export default function ExamMasterPage() {
         flex: 0,
       },
       {
-        field: 'examName',
-        headerName: 'Exam Name',
+        field: "examName",
+        headerName: "Exam Name",
         minWidth: 140,
         flex: 1.6,
-        tooltipField: 'examName',
-        cellClass: 'app-cell-ellipsis',
+        tooltipField: "examName",
+        cellClass: "app-cell-ellipsis",
       },
       {
-        field: 'examShortName',
-        headerName: 'Short Name',
+        field: "examShortName",
+        headerName: "Short Name",
         minWidth: 110,
         flex: 1,
-        tooltipField: 'examShortName',
-        cellClass: 'app-cell-ellipsis',
+        tooltipField: "examShortName",
+        cellClass: "app-cell-ellipsis",
       },
       {
-        headerName: 'Exam Type',
+        headerName: "Exam Type",
         minWidth: 110,
         flex: 1,
         tooltipValueGetter: (p) => {
-          const types: string[] = []
-          if (p.data?.isRegularExam) types.push('Regular')
-          if (p.data?.isSupplyExam) types.push('Supple')
-          if (p.data?.isInternalExam) types.push('Internal')
-          return types.join(' / ') || '—'
+          const types: string[] = [];
+          if (p.data?.isRegularExam) types.push("Regular");
+          if (p.data?.isSupplyExam) types.push("Supple");
+          if (p.data?.isInternalExam) types.push("Internal");
+          return types.join(" / ") || "—";
         },
         valueGetter: (p) => {
-          const types: string[] = []
-          if (p.data?.isRegularExam) types.push('Regular')
-          if (p.data?.isSupplyExam) types.push('Supple')
-          if (p.data?.isInternalExam) types.push('Internal')
-          return types.join(' / ') || '—'
+          const types: string[] = [];
+          if (p.data?.isRegularExam) types.push("Regular");
+          if (p.data?.isSupplyExam) types.push("Supple");
+          if (p.data?.isInternalExam) types.push("Internal");
+          return types.join(" / ") || "—";
         },
-        cellClass: 'app-cell-ellipsis',
+        cellClass: "app-cell-ellipsis",
       },
       {
-        field: 'examMonthYr',
-        headerName: 'Month/Year',
+        field: "examMonthYr",
+        headerName: "Month/Year",
         minWidth: 100,
         flex: 0.7,
-        valueFormatter: (p) => (p.value ? format(new Date(p.value), 'MM/yyyy') : '—'),
+        valueFormatter: (p) =>
+          p.value ? format(new Date(p.value), "MM/yyyy") : "—",
       },
       {
-        field: 'fromDate',
-        headerName: 'From Date',
+        field: "fromDate",
+        headerName: "From Date",
         minWidth: 100,
         flex: 0.7,
-        valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
+        valueFormatter: (p) =>
+          p.value ? format(new Date(p.value), "dd/MM/yyyy") : "—",
       },
       {
-        field: 'toDate',
-        headerName: 'To Date',
+        field: "toDate",
+        headerName: "To Date",
         minWidth: 100,
         flex: 0.7,
-        valueFormatter: (p) => (p.value ? format(new Date(p.value), 'dd/MM/yyyy') : '—'),
+        valueFormatter: (p) =>
+          p.value ? format(new Date(p.value), "dd/MM/yyyy") : "—",
       },
       {
-        headerName: 'Fee Notif.',
-        headerTooltip: 'Fee Notification',
+        headerName: "Fee Notif.",
+        headerTooltip: "Fee Notification",
         minWidth: 90,
         maxWidth: 110,
         flex: 0,
@@ -307,8 +374,8 @@ export default function ExamMasterPage() {
           ),
       },
       {
-        headerName: 'Notif.',
-        headerTooltip: 'Notification',
+        headerName: "Notif.",
+        headerTooltip: "Notification",
         minWidth: 80,
         maxWidth: 100,
         flex: 0,
@@ -329,32 +396,37 @@ export default function ExamMasterPage() {
           ),
       },
       {
-        headerName: 'Labels',
-        headerTooltip: 'Exam Labels',
-        minWidth: 80,
-        maxWidth: 100,
+        headerName: "Labels",
+        headerTooltip: "Exam Labels",
+        minWidth: 150,
+        maxWidth: 180,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) => (
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-[11px] whitespace-nowrap"
             onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              if (p.data) sessionStorage.setItem('examMasterDetails', JSON.stringify(p.data))
+              e.preventDefault();
+              e.stopPropagation();
+              if (p.data)
+                sessionStorage.setItem(
+                  "examMasterDetails",
+                  JSON.stringify(p.data),
+                );
               router.push(
-                `/admin-examination-management/admin-exam-masters/exam-master/exam-master-details?examId=${p.data?.examId}`
-              )
+                `/admin-examination-management/admin-exam-masters/exam-master/exam-master-details?examId=${p.data?.examId}`,
+              );
             }}
-            aria-label="Create label"
-            className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-muted/40 text-slate-700 hover:bg-slate-100"
           >
-            <Tag className="h-4 w-4" />
-          </button>
+            Create Exam Label
+          </Button>
         ),
       },
       {
-        field: 'isActive',
-        headerName: 'Status',
+        field: "isActive",
+        headerName: "Status",
         minWidth: 90,
         maxWidth: 110,
         flex: 0,
@@ -363,7 +435,7 @@ export default function ExamMasterPage() {
         ),
       },
       {
-        headerName: 'Actions',
+        headerName: "Actions",
         minWidth: 80,
         maxWidth: 90,
         flex: 0,
@@ -373,10 +445,10 @@ export default function ExamMasterPage() {
             size="icon"
             variant="ghost"
             onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setEditingExam(p.data ?? null)
-              setModalOpen(true)
+              e.preventDefault();
+              e.stopPropagation();
+              setEditingExam(p.data ?? null);
+              setModalOpen(true);
             }}
             aria-label="Edit"
           >
@@ -386,29 +458,33 @@ export default function ExamMasterPage() {
       },
     ],
     [router],
-  )
+  );
 
   const onCellClicked = useCallback(
     (event: CellClickedEvent<ExamMaster>) => {
-      const header = event.colDef.headerName
-      if (header === 'Labels' || header === 'Exam Labels') {
-        if (event.data) sessionStorage.setItem('examMasterDetails', JSON.stringify(event.data))
+      const header = event.colDef.headerName;
+      if (header === "Labels" || header === "Exam Labels") {
+        if (event.data)
+          sessionStorage.setItem(
+            "examMasterDetails",
+            JSON.stringify(event.data),
+          );
         router.push(
-          `/admin-examination-management/admin-exam-masters/exam-master/exam-master-details?examId=${event.data?.examId}`
-        )
+          `/admin-examination-management/admin-exam-masters/exam-master/exam-master-details?examId=${event.data?.examId}`,
+        );
       }
-      if (header === 'Actions') {
-        setEditingExam(event.data ?? null)
-        setModalOpen(true)
+      if (header === "Actions") {
+        setEditingExam(event.data ?? null);
+        setModalOpen(true);
       }
     },
-    [router]
-  )
+    [router],
+  );
 
   return (
     <FilteredListPage
       title="Create Exam Notification"
-      filters={(
+      filters={
         <div className="space-y-3">
           <RadioGroup
             value={String(mode)}
@@ -427,11 +503,15 @@ export default function ExamMasterPage() {
           <GlobalFilterBarRow>
             <GlobalFilterField label="University" icon={Building2}>
               <Select
-                value={selectedUniversityId != null ? String(selectedUniversityId) : null}
+                value={
+                  selectedUniversityId != null
+                    ? String(selectedUniversityId)
+                    : null
+                }
                 onChange={(v) => v && handleUniversityChange(Number(v))}
                 options={universities.map((u) => ({
                   value: String(u.fk_university_id),
-                  label: u.university_name ?? '',
+                  label: u.university_name ?? "",
                 }))}
                 placeholder="All universities"
                 disabled={loadingFilters}
@@ -441,11 +521,13 @@ export default function ExamMasterPage() {
 
             <GlobalFilterField label="Course" icon={GraduationCap}>
               <Select
-                value={selectedCourseId != null ? String(selectedCourseId) : null}
+                value={
+                  selectedCourseId != null ? String(selectedCourseId) : null
+                }
                 onChange={(v) => v && handleCourseChange(Number(v))}
                 options={courses.map((c) => ({
                   value: String(c.fk_course_id),
-                  label: c.course_name ?? '',
+                  label: c.course_name ?? "",
                 }))}
                 placeholder="All courses"
                 disabled={courses.length === 0}
@@ -454,11 +536,15 @@ export default function ExamMasterPage() {
 
             <GlobalFilterField label="Academic Year" icon={Calendar}>
               <Select
-                value={selectedAcademicYearId != null ? String(selectedAcademicYearId) : null}
+                value={
+                  selectedAcademicYearId != null
+                    ? String(selectedAcademicYearId)
+                    : null
+                }
                 onChange={(v) => v && handleAcademicYearChange(Number(v))}
                 options={academicYears.map((ay) => ({
                   value: String(ay.fk_academic_year_id),
-                  label: ay.academic_year ?? '',
+                  label: ay.academic_year ?? "",
                 }))}
                 placeholder="All academic years"
                 disabled={academicYears.length === 0}
@@ -468,11 +554,13 @@ export default function ExamMasterPage() {
             {mode === 2 && (
               <GlobalFilterField label="College" icon={Building2}>
                 <Select
-                  value={selectedCollegeId != null ? String(selectedCollegeId) : null}
+                  value={
+                    selectedCollegeId != null ? String(selectedCollegeId) : null
+                  }
                   onChange={(v) => v && handleCollegeChange(Number(v))}
                   options={colleges.map((c) => ({
                     value: String(c.fk_college_id),
-                    label: c.college_name ?? '',
+                    label: c.college_name ?? "",
                   }))}
                   placeholder="All colleges"
                   disabled={colleges.length === 0}
@@ -480,7 +568,10 @@ export default function ExamMasterPage() {
               </GlobalFilterField>
             )}
 
-            <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+            <GlobalFilterField
+              label="Action"
+              className="global-filter-field--shrink global-filter-field--action"
+            >
               <Button
                 onClick={handleGetList}
                 disabled={
@@ -498,7 +589,7 @@ export default function ExamMasterPage() {
             </GlobalFilterField>
           </GlobalFilterBarRow>
         </div>
-      )}
+      }
       rowData={examsList}
       columnDefs={columnDefs}
       loading={loadingExams}
@@ -506,21 +597,28 @@ export default function ExamMasterPage() {
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search exams…',
-        pdfDocumentTitle: 'Create Exam Notification',
+        searchPlaceholder: "Search exams…",
+        pdfDocumentTitle: "Create Exam Notification",
       }}
-      toolbarTrailing={(
-        <Button size="sm" className="h-[30px] px-3 text-[12px]" onClick={() => { setEditingExam(null); setModalOpen(true) }}>
+      toolbarTrailing={
+        <Button
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={() => {
+            setEditingExam(null);
+            setModalOpen(true);
+          }}
+        >
           <PlusIcon className="mr-1 h-3.5 w-3.5" />
           Add Exam
         </Button>
-      )}
+      }
     >
       <ExamMasterModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditingExam(null)
+          setModalOpen(false);
+          setEditingExam(null);
         }}
         exam={editingExam}
         context={{
@@ -530,11 +628,10 @@ export default function ExamMasterPage() {
           academicYearId: selectedAcademicYearId,
         }}
         onSaved={() => {
-          if (mode === 1) fetchExamsByUniversity()
-          else if (selectedCollegeId) fetchExamsByCollege()
+          if (mode === 1) fetchExamsByUniversity();
+          else if (selectedCollegeId) fetchExamsByCollege();
         }}
       />
     </FilteredListPage>
-  )
+  );
 }
-

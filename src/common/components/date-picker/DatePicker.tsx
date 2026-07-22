@@ -1,33 +1,41 @@
-'use client'
+"use client";
 
-import { useId, useState } from 'react'
-import { format } from 'date-fns'
-import { Calendar as CalendarIcon, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Calendar } from '@/components/ui/calendar'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useId, useState } from "react";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+const currentYear = new Date().getFullYear();
+const DEFAULT_START_MONTH = new Date(currentYear - 100, 0, 1);
+const DEFAULT_END_MONTH = new Date(currentYear + 100, 11, 31);
 
 export interface DatePickerProps {
-  value: Date | null
-  onChange: (date: Date | null) => void
-  placeholder?: string
-  label?: string
-  required?: boolean
-  error?: string
-  disabled?: boolean
-  minDate?: Date
-  maxDate?: Date
-  clearable?: boolean
+  value: Date | null;
+  onChange: (date: Date | null) => void;
+  placeholder?: string;
+  label?: string;
+  required?: boolean;
+  error?: string;
+  disabled?: boolean;
+  minDate?: Date;
+  maxDate?: Date;
+  clearable?: boolean;
   /** date-fns format string for the trigger label. Defaults to long text (`PPP`). */
-  displayFormat?: string
-  className?: string
+  displayFormat?: string;
+  className?: string;
 }
 
 export function DatePicker({
   value,
   onChange,
-  placeholder = 'Pick a date',
+  placeholder = "Pick a date",
   label,
   required = false,
   error,
@@ -35,31 +43,31 @@ export function DatePicker({
   minDate,
   maxDate,
   clearable = true,
-  displayFormat = 'PPP',
+  displayFormat = "PPP",
   className,
 }: Readonly<DatePickerProps>) {
-  const id = useId()
-  const [open, setOpen] = useState(false)
+  const id = useId();
+  const [open, setOpen] = useState(false);
 
   function handleSelect(date: Date | undefined) {
-    onChange(date ?? null)
-    setOpen(false)
+    onChange(date ?? null);
+    setOpen(false);
   }
 
   function handleClear(e: React.MouseEvent) {
-    e.stopPropagation()
-    onChange(null)
-    setOpen(false)
+    e.stopPropagation();
+    onChange(null);
+    setOpen(false);
   }
 
   function isDisabled(date: Date): boolean {
-    if (minDate && date < minDate) return true
-    if (maxDate && date > maxDate) return true
-    return false
+    if (minDate && date < minDate) return true;
+    if (maxDate && date > maxDate) return true;
+    return false;
   }
 
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
         <label htmlFor={id} className="text-[12px] font-medium">
           {label}
@@ -75,9 +83,9 @@ export function DatePicker({
             disabled={disabled}
             aria-required={required || undefined}
             className={cn(
-              'h-8 w-full justify-start text-left text-[12px] font-normal',
-              !value && 'text-muted-foreground',
-              error && 'border-destructive focus-visible:ring-destructive',
+              "h-8 w-full justify-start text-left text-[12px] font-normal",
+              !value && "text-muted-foreground",
+              error && "border-destructive focus-visible:ring-destructive",
             )}
           >
             <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
@@ -99,26 +107,29 @@ export function DatePicker({
             selected={value ?? undefined}
             onSelect={handleSelect}
             disabled={isDisabled}
-            startMonth={minDate}
-            endMonth={maxDate}
+            startMonth={minDate ?? DEFAULT_START_MONTH}
+            endMonth={maxDate ?? DEFAULT_END_MONTH}
             captionLayout="dropdown"
             className="p-2"
             classNames={{
-              month_caption: 'flex justify-center pt-1 relative items-center text-xs font-medium',
-              button_previous: 'absolute left-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100',
-              button_next: 'absolute right-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100',
-              weekday: 'text-muted-foreground rounded-md w-7 font-normal text-[10px]',
-              day: 'relative p-0 text-center text-xs focus-within:relative focus-within:z-20',
-              day_button: 'h-7 w-7 p-0 text-[11px] font-normal aria-selected:opacity-100',
+              month_caption:
+                "flex justify-center pt-1 relative items-center text-xs font-medium",
+              button_previous:
+                "absolute left-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100",
+              button_next:
+                "absolute right-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100",
+              weekday:
+                "text-muted-foreground rounded-md w-7 font-normal text-[10px]",
+              day: "relative p-0 text-center text-xs focus-within:relative focus-within:z-20",
+              day_button:
+                "h-7 w-7 p-0 text-[11px] font-normal aria-selected:opacity-100",
             }}
             autoFocus
           />
         </PopoverContent>
       </Popover>
 
-      {error && (
-        <p className="mt-1 text-[11px] text-destructive">{error}</p>
-      )}
+      {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
     </div>
-  )
+  );
 }

@@ -1,34 +1,48 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { FormModal } from '@/common/components/feedback'
-import { Select } from '@/common/components/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { LIBRARY_FIELD_LABEL_CLASS, LIBRARY_INPUT_CLASS, LIBRARY_MODAL_TITLE_CLASS } from '../_lib/modal-styles'
-import { useLibraryOrgLibraryOptions } from '../_hooks/use-library-org-library'
-import { createLibraryRack, updateLibraryRack } from '@/services'
-import type { LibraryRack } from '@/types/library'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { useEffect } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActiveStatusField } from "@/common/components/forms";
+import { FormModal } from "@/common/components/feedback";
+import { Select } from "@/common/components/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  LIBRARY_FIELD_LABEL_CLASS,
+  LIBRARY_INPUT_CLASS,
+  LIBRARY_MODAL_TITLE_CLASS,
+} from "../_lib/modal-styles";
+import { useLibraryOrgLibraryOptions } from "../_hooks/use-library-org-library";
+import { createLibraryRack, updateLibraryRack } from "@/services";
+import type { LibraryRack } from "@/types/library";
+import { toastError, toastSuccess } from "@/lib/toast";
 
-const optionalNumber = z.preprocess(
-  (value) => {
-    if (value === '' || value === null || value === undefined) return undefined
-    const n = Number(value)
-    return Number.isNaN(n) ? undefined : n
-  },
-  z.number().optional(),
-)
+function requiredId(label: string) {
+  const message = `${label} is required`;
+  return z.preprocess(
+    (value) => {
+      if (value === "" || value === null || value === undefined)
+        return undefined;
+      const parsed = Number(value);
+      return Number.isNaN(parsed) ? undefined : parsed;
+    },
+    z.number({ error: message }).min(1, message),
+  );
+}
+
+const optionalNumber = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) return undefined;
+  const n = Number(value);
+  return Number.isNaN(n) ? undefined : n;
+}, z.number().optional());
 
 const schema = z.object({
-  organizationId: z.coerce.number().min(1, 'Organization is required'),
-  libraryId: z.coerce.number().min(1, 'Library is required'),
-  shelveName: z.string().min(1, 'Shelve name is required'),
-  shelveCode: z.string().min(1, 'Shelve code is required'),
+  organizationId: requiredId("Organization"),
+  libraryId: requiredId("Library"),
+  shelveName: z.string().min(1, "Shelf Name is required"),
+  shelveCode: z.string().min(1, "Shelf Code is required"),
   noOfRows: optionalNumber,
   noOfColumns: optionalNumber,
   blockCapacity: optionalNumber,
@@ -36,19 +50,24 @@ const schema = z.object({
   location: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface RackModalProps {
-  open: boolean
-  onClose: () => void
-  row: LibraryRack | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: LibraryRack | null;
+  onSaved: () => void;
 }
 
-export function RackModal({ open, onClose, row, onSaved }: Readonly<RackModalProps>) {
-  const isEditing = row != null
+export function RackModal({
+  open,
+  onClose,
+  row,
+  onSaved,
+}: Readonly<RackModalProps>) {
+  const isEditing = row != null;
   const {
     register,
     handleSubmit,
@@ -62,61 +81,74 @@ export function RackModal({ open, onClose, row, onSaved }: Readonly<RackModalPro
     defaultValues: {
       organizationId: undefined,
       libraryId: undefined,
-      shelveName: '',
-      shelveCode: '',
+      shelveName: "",
+      shelveCode: "",
+      noOfRows: undefined,
+      noOfColumns: undefined,
+      blockCapacity: undefined,
+      totalCapacity: undefined,
+      location: "",
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
-  const organizationId = watch('organizationId')
-  const { organizations, libraries, loadingLibraries } = useLibraryOrgLibraryOptions(organizationId)
+  const organizationId = watch("organizationId");
+  const { organizations, libraries, loadingLibraries } =
+    useLibraryOrgLibraryOptions(organizationId, row?.libraryId, open);
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     reset(
       row
         ? {
             organizationId: row.organizationId,
             libraryId: row.libraryId,
-            shelveName: row.shelveName ?? '',
-            shelveCode: row.shelveCode ?? '',
+            shelveName: row.shelveName ?? "",
+            shelveCode: row.shelveCode ?? "",
             noOfRows: row.noOfRows,
             noOfColumns: row.noOfColumns,
             blockCapacity: row.blockCapacity,
             totalCapacity: row.totalCapacity,
-            location: row.location ?? '',
+            location: row.location ?? "",
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             organizationId: undefined,
             libraryId: undefined,
-            shelveName: '',
-            shelveCode: '',
+            shelveName: "",
+            shelveCode: "",
+            noOfRows: undefined,
+            noOfColumns: undefined,
+            blockCapacity: undefined,
+            totalCapacity: undefined,
+            location: "",
             isActive: true,
-            reason: 'active',
+            reason: "active",
           },
-    )
-  }, [open, row, reset])
+    );
+  }, [open, row, reset]);
 
   async function onSubmit(data: FormValues) {
     const payload = {
       ...data,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      location: data.location?.trim() ?? "",
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+      ...(isEditing && row?.shelveId ? { shelveId: row.shelveId } : {}),
+    };
     try {
       if (isEditing && row?.shelveId) {
-        await updateLibraryRack(row.shelveId, payload)
-        toastSuccess('Rack updated')
+        await updateLibraryRack(row.shelveId, payload);
+        toastSuccess("Rack updated");
       } else {
-        await createLibraryRack(payload)
-        toastSuccess('Rack created')
+        await createLibraryRack(payload);
+        toastSuccess("Rack created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, `Failed to ${isEditing ? 'update' : 'create'} rack`)
+      toastError(err, `Failed to ${isEditing ? "update" : "create"} rack`);
     }
   }
 
@@ -124,90 +156,155 @@ export function RackModal({ open, onClose, row, onSaved }: Readonly<RackModalPro
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Rack' : 'Add Rack'}
+      title={isEditing ? "Edit Rack" : "Add Rack"}
       titleClassName={LIBRARY_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
-      submitLabel={isEditing ? 'Update' : 'Save'}
+      submitLabel="Save"
       cancelLabel="Cancel"
       isSubmitting={isSubmitting}
       size="lg"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Organization</Label>
+      {/* Angular layout: Org | Library | Shelf Name | Shelf Code | Block Cap | Total Cap | Rows | Columns | Location */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-12">
+        <div className="md:col-span-6">
           <Select
-            value={organizationId ? String(organizationId) : ''}
+            label="Organization"
+            required
+            value={organizationId ? String(organizationId) : null}
             onChange={(v) => {
-              setValue('organizationId', Number(v))
-              setValue('libraryId', undefined as unknown as number)
+              setValue("organizationId", v ? Number(v) : 0, {
+                shouldValidate: true,
+              });
+              setValue("libraryId", 0);
             }}
             options={organizations}
-            placeholder="Select organization"
+            placeholder="Organization"
             searchable
+            error={errors.organizationId?.message}
           />
-          {errors.organizationId && (
-            <p className="text-xs text-destructive">{errors.organizationId.message}</p>
-          )}
         </div>
-        <div className="space-y-1.5">
-          <Label>Library</Label>
+        <div className="md:col-span-6">
           <Select
-            value={watch('libraryId') ? String(watch('libraryId')) : ''}
-            onChange={(v) => setValue('libraryId', Number(v))}
+            label="Library"
+            required
+            value={watch("libraryId") ? String(watch("libraryId")) : null}
+            onChange={(v) =>
+              setValue("libraryId", v ? Number(v) : 0, { shouldValidate: true })
+            }
             options={libraries}
-            placeholder="Select library"
+            placeholder="Library"
             searchable
             isLoading={loadingLibraries}
             disabled={!organizationId}
+            error={errors.libraryId?.message}
           />
-          {errors.libraryId && (
-            <p className="text-xs text-destructive">{errors.libraryId.message}</p>
+        </div>
+
+        <div className="space-y-1.5 md:col-span-3">
+          <Label htmlFor="shelveName" className={LIBRARY_FIELD_LABEL_CLASS}>
+            Shelf Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="shelveName"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Shelf Name"
+            {...register("shelveName")}
+          />
+          {errors.shelveName && (
+            <p className="text-xs text-destructive">
+              {errors.shelveName.message}
+            </p>
           )}
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="shelveName">Shelve Name</Label>
-          <Input id="shelveName" {...register('shelveName')} />
-          {errors.shelveName && <p className="text-xs text-destructive">{errors.shelveName.message}</p>}
+        <div className="space-y-1.5 md:col-span-3">
+          <Label htmlFor="shelveCode" className={LIBRARY_FIELD_LABEL_CLASS}>
+            Shelf Code <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            id="shelveCode"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Shelf Code"
+            {...register("shelveCode")}
+          />
+          {errors.shelveCode && (
+            <p className="text-xs text-destructive">
+              {errors.shelveCode.message}
+            </p>
+          )}
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="shelveCode">Shelve Code</Label>
-          <Input id="shelveCode" {...register('shelveCode')} />
-          {errors.shelveCode && <p className="text-xs text-destructive">{errors.shelveCode.message}</p>}
+        <div className="space-y-1.5 md:col-span-3">
+          <Label htmlFor="blockCapacity" className={LIBRARY_FIELD_LABEL_CLASS}>
+            Block Capacity
+          </Label>
+          <Input
+            id="blockCapacity"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Block Capacity"
+            {...register("blockCapacity")}
+          />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="noOfRows">No. of Rows</Label>
-          <Input id="noOfRows" type="number" {...register('noOfRows')} />
+        <div className="space-y-1.5 md:col-span-3">
+          <Label htmlFor="totalCapacity" className={LIBRARY_FIELD_LABEL_CLASS}>
+            Total Capacity
+          </Label>
+          <Input
+            id="totalCapacity"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Total Capacity"
+            {...register("totalCapacity")}
+          />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="noOfColumns">No. of Columns</Label>
-          <Input id="noOfColumns" type="number" {...register('noOfColumns')} />
+
+        <div className="space-y-1.5 md:col-span-4">
+          <Label htmlFor="noOfRows" className={LIBRARY_FIELD_LABEL_CLASS}>
+            No Of Rows
+          </Label>
+          <Input
+            id="noOfRows"
+            type="number"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="No Of Rows"
+            {...register("noOfRows")}
+          />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="blockCapacity">Block Capacity</Label>
-          <Input id="blockCapacity" type="number" {...register('blockCapacity')} />
+        <div className="space-y-1.5 md:col-span-4">
+          <Label htmlFor="noOfColumns" className={LIBRARY_FIELD_LABEL_CLASS}>
+            No Of Columns
+          </Label>
+          <Input
+            id="noOfColumns"
+            type="number"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="No Of Columns"
+            {...register("noOfColumns")}
+          />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="totalCapacity">Total Capacity</Label>
-          <Input id="totalCapacity" type="number" {...register('totalCapacity')} />
+        <div className="space-y-1.5 md:col-span-4">
+          <Label htmlFor="location" className={LIBRARY_FIELD_LABEL_CLASS}>
+            Location
+          </Label>
+          <Input
+            id="location"
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Location"
+            {...register("location")}
+          />
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="location">Location</Label>
-          <Input id="location" {...register('location')} />
-        </div>
-        <div className="sm:col-span-2">
+
+        <div className="md:col-span-12">
           <Controller
             name="isActive"
             control={control}
             render={({ field }) => (
               <ActiveStatusField
                 isActive={field.value}
-                reason={watch('reason') ?? ''}
+                reason={watch("reason") ?? ""}
                 onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', String(v))}
+                onReasonChange={(v) => setValue("reason", String(v))}
                 reasonError={errors.reason?.message}
               />
             )}
@@ -215,5 +312,5 @@ export function RackModal({ open, onClose, row, onSaved }: Readonly<RackModalPro
         </div>
       </div>
     </FormModal>
-  )
+  );
 }

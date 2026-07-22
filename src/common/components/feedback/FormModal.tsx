@@ -96,8 +96,8 @@ export function FormModal({
       >
         <DialogHeader
           className={cn(
-            "shrink-0 text-left sm:text-left",
-            showHeaderDivider && "border-b border-border pb-3",
+            "shrink-0 items-center text-left sm:text-left",
+            showHeaderDivider && "border-b border-border",
           )}
         >
           <DialogTitle className={cn("text-left", titleClassName)}>

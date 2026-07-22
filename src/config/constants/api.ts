@@ -1120,7 +1120,11 @@ export const LIBRARY_API = {
   GET_BOOKS_BARCODE_NOT_GENERATED_RECORDS: "getBooksBarcodeNotGeneratedRecords",
   GENERATE_BOOK_BARCODE: "generateBarcodeForBooks",
   GENERATE_MEMBER_BARCODE: "generateLibMemebrBarcode",
+  /** Angular `libFineCollectionUrl` */
+  LIB_FINE_COLLECTION: "LibFineCollection",
   FINE_COLLECTION: "getAllRecords/s_rep_lib_fee_collection",
+  /** Angular `print()` / `download()` — `getAllRecordsPDFDownload/s_rep_lib_fee_collection` */
+  FINE_COLLECTION_PDF: "getAllRecordsPDFDownload/s_rep_lib_fee_collection",
   BOOK: "Book",
   /** Angular `subjectBookCrudUrl` */
   SUBJECT_BOOK: "SubjectBook",

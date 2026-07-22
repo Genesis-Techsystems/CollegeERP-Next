@@ -17,6 +17,7 @@ import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { utcMidnightIso } from "@/common/generic-functions";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   createLibraryBook,
@@ -233,7 +234,11 @@ export default function AddBooksPage() {
       (row) => Number(row.generalDetailId) === bookregTypeId,
     );
     const code = selected?.generalDetailCode;
-    if (!code) return;
+    if (!code) {
+      setValue("valueLstAccNo", "");
+      setBookTypeSettingId(undefined);
+      return;
+    }
     void getLibraryBookSetting(String(code), libraryId)
       .then((setting) => {
         setValue("valueLstAccNo", String(setting?.value ?? ""));
@@ -241,7 +246,11 @@ export default function AddBooksPage() {
           Number(setting?.libSettingCatdetId ?? 0) || undefined,
         );
       })
-      .catch((error) => toastError(error, "Could not load accession setting"));
+      .catch((error) => {
+        setValue("valueLstAccNo", "");
+        setBookTypeSettingId(undefined);
+        toastError(error, "Could not load accession setting");
+      });
   }, [bookregTypeId, libraryId, registrationTypes, setValue]);
 
   async function goNext() {
@@ -258,24 +267,31 @@ export default function AddBooksPage() {
     const copies = Number(values.noofcopies);
     const eachBookCost = Number(values.bookAmount);
     const totalAmount = Number(values.amount);
-    const payload = {
+    const publisherIds = Array.isArray(values.publisherIds)
+      ? values.publisherIds
+      : [];
+    const authorIds = Array.isArray(values.authorIds) ? values.authorIds : [];
+    const dateOfPurchase = values.dateOfPurchase
+      ? utcMidnightIso(values.dateOfPurchase)
+      : "";
+    // Angular builds publisherIds/authorIds only when MultiSelect has values;
+    // empty selection leaves those fields unset (not empty string).
+    const payload: Record<string, unknown> = {
       libraryId: values.libraryId,
       title: values.title,
       languageId: values.languageId,
-      bindingTypeId: values.bindingTypeId ? Number(values.bindingTypeId) : null,
-      libraryRefPrefix: values.libraryRefPrefix,
-      tags: values.tags,
-      customTags: values.customTags,
-      vol: values.vol,
-      noOfPages: values.noOfPages ? Number(values.noOfPages) : null,
-      year: values.year ? Number(values.year) : null,
-      isbn: values.isbn,
-      edition: values.edition,
+      bindingTypeId: values.bindingTypeId ? Number(values.bindingTypeId) : "",
+      libraryRefPrefix: values.libraryRefPrefix ?? "",
+      tags: values.tags ?? "",
+      customTags: values.customTags ?? "",
+      vol: values.vol ?? "",
+      noOfPages: values.noOfPages ?? "",
+      year: values.year ?? "",
+      isbn: values.isbn ?? "",
+      edition: values.edition ?? "",
       bookcatId: values.bookcatId,
-      subjectHeadings: values.subjectHeadings,
-      callNumber: values.callNumber,
-      publisherIds: values.publisherIds.join(","),
-      authorIds: values.authorIds.join(","),
+      subjectHeadings: values.subjectHeadings ?? "",
+      callNumber: values.callNumber ?? "",
       issuedCopies: 0,
       availableCopies: copies,
       noofcopies: copies,
@@ -285,15 +301,18 @@ export default function AddBooksPage() {
         {
           noofcopies: copies,
           bookregTypeId: bookTypeSettingId,
+          bookbarCode: "",
+          libraryRefNumber: "",
           bookAmount: eachBookCost,
+          noOfBooks: "",
           currencyId: values.currencyId,
           amount: totalAmount,
-          purchaseSource: values.purchaseSource,
-          purchaseReceiptNo: values.purchaseReceiptNo,
-          dateOfPurchase: values.dateOfPurchase,
+          purchaseSource: values.purchaseSource ?? "",
+          purchaseReceiptNo: values.purchaseReceiptNo ?? "",
+          dateOfPurchase,
           availabilityStatus: 1,
           bookTitle: values.title,
-          bookVol: values.vol,
+          bookVol: values.vol ?? "",
           isActive: true,
           libraryId: values.libraryId,
         },
@@ -303,14 +322,20 @@ export default function AddBooksPage() {
           amount: totalAmount,
           bookAmount: eachBookCost,
           currencyId: values.currencyId,
-          dateOfPurchase: values.dateOfPurchase,
+          dateOfPurchase,
           isActive: true,
           noOfBooks: copies,
-          purchaseReceiptNo: values.purchaseReceiptNo,
-          purchaseSource: values.purchaseSource,
+          purchaseReceiptNo: values.purchaseReceiptNo ?? "",
+          purchaseSource: values.purchaseSource ?? "",
         },
       ],
     };
+    if (publisherIds.length > 0) {
+      payload.publisherIds = publisherIds.join(",");
+    }
+    if (authorIds.length > 0) {
+      payload.authorIds = authorIds.join(",");
+    }
 
     try {
       await createLibraryBook(payload);

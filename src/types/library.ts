@@ -79,6 +79,7 @@ export interface LibraryRack {
   organizationId?: number;
   libraryId?: number;
   orgCode?: string;
+  libraryCode?: string;
   libraryName?: string;
   shelveName?: string;
   shelveCode?: string;
@@ -104,7 +105,8 @@ export type LibraryRackPayload = Pick<
   | "location"
   | "isActive"
   | "reason"
->;
+> &
+  Pick<LibraryRack, "shelveId">;
 
 export interface LibraryBookCategory {
   bookcatId?: number;
@@ -219,3 +221,48 @@ export type LibraryMembershipPayload = Partial<LibraryMembership> & {
   student?: Record<string, unknown>[] | null;
   employee?: Record<string, unknown>[] | null;
 };
+
+export interface LibrarySetting {
+  libSettingsId?: number;
+  organizationId?: number;
+  orgCode?: string;
+  orgName?: string;
+  libraryId?: number;
+  libraryCode?: string;
+  libraryName?: string;
+  settingName?: string;
+  value?: string;
+  libSettingCatdetId?: number;
+  libSettingCatdetCode?: string;
+  libSettingCatdetDisplayName?: string;
+  isIssue?: boolean;
+  isFine?: boolean;
+  isActive?: boolean;
+  reason?: string;
+  [key: string]: unknown;
+}
+
+export type LibrarySettingPayload = Pick<
+  LibrarySetting,
+  | "organizationId"
+  | "libraryId"
+  | "settingName"
+  | "value"
+  | "libSettingCatdetId"
+  | "isIssue"
+  | "isFine"
+  | "isActive"
+  | "reason"
+> &
+  Pick<LibrarySetting, "libSettingsId">;
+
+export interface LibraryFineCollectionRow {
+  Roll_Number?: string;
+  Student_Name?: string;
+  Accession_No?: string;
+  Employee_Name?: string;
+  Fine_Collected_Date?: string;
+  Fine_Collected_Amount?: number;
+  Fine_Remarks?: string;
+  [key: string]: unknown;
+}

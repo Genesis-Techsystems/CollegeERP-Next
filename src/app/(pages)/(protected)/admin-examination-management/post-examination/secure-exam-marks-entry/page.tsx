@@ -1,434 +1,530 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { GraduationCap } from 'lucide-react'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select as CommonSelect } from '@/common/components/select'
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Download, GraduationCap, Upload } from "lucide-react";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select as CommonSelect } from "@/common/components/select";
+import {
+  downloadSecureMarksTemplate,
   generateMarksEntrySecretCode,
+  getCollegeById,
   getMarksEntryStudentsBundle,
   getSecureMarksFilters,
   getSecureMarksRestFilters,
   getSecureMarksSubjects,
+  listExamMarksSetup,
+  listGroupYearRegulationSubjects,
   saveInternalMarksEntry,
+  uploadSecureExamMarks,
   validateMarksEntrySecretCode,
-} from '@/services/post-examination'
-import { getCollegeById } from '@/services'
-import { MINIO_URL } from '@/config/constants/api'
-import { useSessionContext } from '@/context/SessionContext'
-import { useSecureMarksPrint } from './_print/useSecureMarksPrint'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import { MINIO_URL } from "@/config/constants/api";
+import { useSessionContext } from "@/context/SessionContext";
+import { useSecureMarksPrint } from "./_print/useSecureMarksPrint";
+import { toastError, toastSuccess } from "@/lib/toast";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
-    const n = Number(row?.[key])
-    if (Number.isFinite(n) && n > 0) return n
+    const n = Number(row?.[key]);
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  return 0
+  return 0;
 }
 
 function strFrom(row: AnyRow, keys: string[]): string {
   for (const key of keys) {
-    const v = String(row?.[key] ?? '').trim()
-    if (v) return v
+    const v = String(row?.[key] ?? "").trim();
+    if (v) return v;
   }
-  return ''
+  return "";
 }
 
 function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
-  const seen = new Set<number>()
-  const out: AnyRow[] = []
+  const seen = new Set<number>();
+  const out: AnyRow[] = [];
   for (const row of rows) {
-    const id = numFrom(row, keys)
-    if (!id || seen.has(id)) continue
-    seen.add(id)
-    out.push(row)
+    const id = numFrom(row, keys);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
   }
-  return out
+  return out;
 }
 
 function asBool(v: unknown): boolean {
-  return v === true || v === 1 || v === '1' || v === 'true'
+  return v === true || v === 1 || v === "1" || v === "true";
 }
 
 /** Angular grade-memo / secure-marks exam option: name (from - to) + type badges. */
 function formatExamLabel(row: AnyRow): string {
-  const name = strFrom(row, ['exam_name', 'examName']) || 'Exam'
-  const from = strFrom(row, ['from_date', 'fromDate']).slice(0, 10)
-  const to = strFrom(row, ['to_date', 'toDate']).slice(0, 10)
-  const range = from && to ? ` (${from} - ${to})` : ''
-  const badges: string[] = []
-  if (asBool(row.is_internal_exam ?? row.isInternalExam)) badges.push('Internal')
-  if (asBool(row.is_regular_exam ?? row.isRegularExam)) badges.push('Regular')
-  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) badges.push('Supple')
-  const badgeText = badges.length > 0 ? ` (${badges.join(', ')})` : ''
-  return `${name}${range}${badgeText}`
+  const name = strFrom(row, ["exam_name", "examName"]) || "Exam";
+  const from = strFrom(row, ["from_date", "fromDate"]).slice(0, 10);
+  const to = strFrom(row, ["to_date", "toDate"]).slice(0, 10);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const badges: string[] = [];
+  if (asBool(row.is_internal_exam ?? row.isInternalExam))
+    badges.push("Internal");
+  if (asBool(row.is_regular_exam ?? row.isRegularExam)) badges.push("Regular");
+  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) badges.push("Supple");
+  const badgeText = badges.length > 0 ? ` (${badges.join(", ")})` : "";
+  return `${name}${range}${badgeText}`;
 }
 
 function formatSubjectLabel(row: AnyRow): string {
-  const name = strFrom(row, ['subject_name', 'subjectName'])
-  const code = strFrom(row, ['subject_code', 'subjectCode'])
-  const reg = strFrom(row, ['regulation_code', 'regulationCode'])
-  const examType = strFrom(row, ['ttd_exam_type', 'ttdExamType', 'exam_type', 'examType', 'subject_type'])
-  let label = name
-  if (code) label += ` - ${code}`
-  if (reg) label += ` (${reg})`
-  if (examType) label += ` (${examType})`
-  return label || code || 'Subject'
+  const name = strFrom(row, ["subject_name", "subjectName"]);
+  const code = strFrom(row, ["subject_code", "subjectCode"]);
+  const reg = strFrom(row, ["regulation_code", "regulationCode"]);
+  const examType = strFrom(row, [
+    "ttd_exam_type",
+    "ttdExamType",
+    "exam_type",
+    "examType",
+    "subject_type",
+  ]);
+  let label = name;
+  if (code) label += ` - ${code}`;
+  if (reg) label += ` (${reg})`;
+  if (examType) label += ` (${examType})`;
+  return label || code || "Subject";
 }
 
 function MarksInputRenderer(
-  params: ICellRendererParams<AnyRow> & { maxMarks?: number; onChange: (row: AnyRow, value: number) => void; readOnly: boolean },
+  params: ICellRendererParams<AnyRow> & {
+    maxMarks?: number;
+    onChange: (row: AnyRow, value: number) => void;
+    readOnly: boolean;
+  },
 ) {
-  const value = Number(params.data?.marks ?? 0)
-  const disabled = params.readOnly || params.data?.isPresent !== true
-  const max = params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined
+  const value = Number(params.data?.marks ?? 0);
+  const disabled = params.readOnly || params.data?.isPresent !== true;
+  const max =
+    params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined;
   return (
     <Input
       type="number"
       min={0}
       max={max}
       className="h-8 text-[12px]"
-      value={Number.isFinite(value) ? String(value) : '0'}
+      value={Number.isFinite(value) ? String(value) : "0"}
       disabled={disabled}
-      onChange={(e) => params.data && params.onChange(params.data, Number(e.target.value || 0))}
+      onChange={(e) =>
+        params.data && params.onChange(params.data, Number(e.target.value || 0))
+      }
     />
-  )
+  );
 }
 
 export default function SecureExamMarksEntryPage() {
-  const { user } = useSessionContext()
+  const { user } = useSessionContext();
   // The approve/save action's acting identity must come from the authenticated
   // session (httpOnly iron-session), NOT client-writable localStorage — otherwise a
   // user could overwrite employeeId/userRole and approve as/for someone else.
-  const employeeId = Number(user?.employeeId ?? globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const userId = Number(user?.userId ?? globalThis?.localStorage?.getItem('userId') ?? 0)
-  const userRole = String(user?.userRole ?? globalThis?.localStorage?.getItem('userRole') ?? '')
-  const empNumber = String(globalThis?.localStorage?.getItem('empNumber') ?? '') // display-only; not on SessionUser
-  const userName = String(user?.userName ?? globalThis?.localStorage?.getItem('userName') ?? '')
+  const employeeId = Number(
+    user?.employeeId ?? globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
+  const userId = Number(
+    user?.userId ?? globalThis?.localStorage?.getItem("userId") ?? 0,
+  );
+  const userRole = String(
+    user?.userRole ?? globalThis?.localStorage?.getItem("userRole") ?? "",
+  );
+  const empNumber = String(
+    globalThis?.localStorage?.getItem("empNumber") ?? "",
+  ); // display-only; not on SessionUser
+  const userName = String(
+    user?.userName ?? globalThis?.localStorage?.getItem("userName") ?? "",
+  );
 
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [hasFetched, setHasFetched] = useState(false)
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
-  const [allFilters, setAllFilters] = useState<AnyRow[]>([])
-  const [restFilters, setRestFilters] = useState<AnyRow[]>([])
-  const [regRows, setRegRows] = useState<AnyRow[]>([])
-  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
-  const [rows, setRows] = useState<AnyRow[]>([])
+  const [allFilters, setAllFilters] = useState<AnyRow[]>([]);
+  const [restFilters, setRestFilters] = useState<AnyRow[]>([]);
+  const [regRows, setRegRows] = useState<AnyRow[]>([]);
+  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
+  const [curriculumMarks, setCurriculumMarks] = useState<AnyRow[]>([]);
+  const [marksSetupRows, setMarksSetupRows] = useState<AnyRow[]>([]);
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [marksView, setMarksView] = useState<"list" | "import">("list");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [regulationId, setRegulationId] = useState<number | null>(null)
-  const [subjectTypeId, setSubjectTypeId] = useState<number | null>(null)
-  const [subjectId, setSubjectId] = useState<number | null>(null)
-  const [labBatchId, setLabBatchId] = useState(0)
-  const [examDate, setExamDate] = useState('')
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [examId, setExamId] = useState<number | null>(null);
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
+  const [courseYearId, setCourseYearId] = useState<number | null>(null);
+  const [regulationId, setRegulationId] = useState<number | null>(null);
+  const [subjectTypeId, setSubjectTypeId] = useState<number | null>(null);
+  const [subjectId, setSubjectId] = useState<number | null>(null);
+  const [labBatchId, setLabBatchId] = useState(0);
+  const [examDate, setExamDate] = useState("");
 
-  const [saveUnlocked, setSaveUnlocked] = useState(false)
-  const [codeDialogOpen, setCodeDialogOpen] = useState(false)
-  const [secretCodeInput, setSecretCodeInput] = useState('')
-  const [validatingCode, setValidatingCode] = useState(false)
+  const [saveUnlocked, setSaveUnlocked] = useState(false);
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [secretCodeInput, setSecretCodeInput] = useState("");
+  const [validatingCode, setValidatingCode] = useState(false);
 
   // Print sheet data: evaluator names (result[1]/[2]) + selected college logo.
-  const [internalEvaluators, setInternalEvaluators] = useState<AnyRow[]>([])
-  const [externalEvaluators, setExternalEvaluators] = useState<AnyRow[]>([])
-  const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null)
+  const [internalEvaluators, setInternalEvaluators] = useState<AnyRow[]>([]);
+  const [externalEvaluators, setExternalEvaluators] = useState<AnyRow[]>([]);
+  const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null);
 
   // Resolve the SELECTED college's logo (MinIO); fall back to the login DTO logo.
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const sessionLogo = user?.collegeLogo
-      ? (/^(https?:\/\/|data:)/i.test(user.collegeLogo) ? user.collegeLogo : `${MINIO_URL}${user.collegeLogo.replace(/^\/+/, '')}`)
-      : null
+      ? /^(https?:\/\/|data:)/i.test(user.collegeLogo)
+        ? user.collegeLogo
+        : `${MINIO_URL}${user.collegeLogo.replace(/^\/+/, "")}`
+      : null;
     if (!collegeId) {
-      setCollegeLogoUrl(sessionLogo)
-      return
+      setCollegeLogoUrl(sessionLogo);
+      return;
     }
     getCollegeById(collegeId)
       .then((college) => {
-        if (cancelled) return
-        const logo = college?.logo
-        setCollegeLogoUrl(logo ? `${MINIO_URL}${String(logo).replace(/^\/+/, '')}` : sessionLogo)
+        if (cancelled) return;
+        const logo = college?.logo;
+        setCollegeLogoUrl(
+          logo
+            ? `${MINIO_URL}${String(logo).replace(/^\/+/, "")}`
+            : sessionLogo,
+        );
       })
-      .catch(() => { if (!cancelled) setCollegeLogoUrl(sessionLogo) })
-    return () => { cancelled = true }
-  }, [collegeId, user?.collegeLogo])
+      .catch(() => {
+        if (!cancelled) setCollegeLogoUrl(sessionLogo);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collegeId, user?.collegeLogo]);
 
   const { printMode, printButton, printView } = useSecureMarksPrint({
     students: rows,
     internalEvaluators,
     externalEvaluators,
     logoUrl: collegeLogoUrl,
-  })
+  });
 
-  const isExternalEvaluator = userRole === 'EXTERNAL EVALUATOR' || userRole === 'Offline External Evaluator'
-  const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber
-  let saveButtonText = 'Save Marks'
-  if (isExternalEvaluator) saveButtonText = 'Approve'
-  if (saving) saveButtonText = 'Saving...'
+  const isExternalEvaluator =
+    userRole === "EXTERNAL EVALUATOR" ||
+    userRole === "Offline External Evaluator";
+  const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber;
+  let saveButtonText = "Save Marks";
+  if (isExternalEvaluator) saveButtonText = "Approve";
+  if (saving) saveButtonText = "Saving...";
 
-  const courses = useMemo(() => dedupeBy(allFilters, ['fk_course_id', 'courseId']), [allFilters])
+  const courses = useMemo(
+    () => dedupeBy(allFilters, ["fk_course_id", "courseId"]),
+    [allFilters],
+  );
   const academicYears = useMemo(
     () =>
       dedupeBy(
-        allFilters.filter((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)),
-        ['fk_academic_year_id', 'academicYearId'],
+        allFilters.filter(
+          (x) => numFrom(x, ["fk_course_id", "courseId"]) === Number(courseId),
+        ),
+        ["fk_academic_year_id", "academicYearId"],
       ),
     [allFilters, courseId],
-  )
+  );
   const exams = useMemo(
     () =>
       dedupeBy(
         allFilters.filter(
           (x) =>
-            numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId) &&
-            numFrom(x, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId),
+            numFrom(x, ["fk_course_id", "courseId"]) === Number(courseId) &&
+            numFrom(x, ["fk_academic_year_id", "academicYearId"]) ===
+              Number(academicYearId),
         ),
-        ['fk_exam_id', 'examId'],
+        ["fk_exam_id", "examId"],
       ),
     [allFilters, courseId, academicYearId],
-  )
-  const colleges = useMemo(() => dedupeBy(restFilters, ['fk_college_id', 'collegeId']), [restFilters])
+  );
+  const colleges = useMemo(
+    () => dedupeBy(restFilters, ["fk_college_id", "collegeId"]),
+    [restFilters],
+  );
   const courseGroups = useMemo(
     () =>
       dedupeBy(
-        restFilters.filter((x) => numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId)),
-        ['fk_course_group_id', 'courseGroupId'],
+        restFilters.filter(
+          (x) =>
+            numFrom(x, ["fk_college_id", "collegeId"]) === Number(collegeId),
+        ),
+        ["fk_course_group_id", "courseGroupId"],
       ),
     [restFilters, collegeId],
-  )
+  );
   const courseYears = useMemo(
     () =>
       dedupeBy(
         restFilters.filter(
           (x) =>
-            numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
-            numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId),
+            numFrom(x, ["fk_college_id", "collegeId"]) === Number(collegeId) &&
+            numFrom(x, ["fk_course_group_id", "courseGroupId"]) ===
+              Number(courseGroupId),
         ),
-        ['fk_course_year_id', 'courseYearId'],
+        ["fk_course_year_id", "courseYearId"],
       ),
     [restFilters, collegeId, courseGroupId],
-  )
+  );
   const regulations = useMemo(() => {
-    const direct = dedupeBy(regRows, ['fk_regulation_id', 'regulationId'])
-    if (direct.length > 0) return direct
+    const direct = dedupeBy(regRows, ["fk_regulation_id", "regulationId"]);
+    if (direct.length > 0) return direct;
     return dedupeBy(
-      restFilters.filter((x) => numFrom(x, ['fk_regulation_id', 'regulationId']) > 0),
-      ['fk_regulation_id', 'regulationId'],
-    )
-  }, [regRows, restFilters])
+      restFilters.filter(
+        (x) => numFrom(x, ["fk_regulation_id", "regulationId"]) > 0,
+      ),
+      ["fk_regulation_id", "regulationId"],
+    );
+  }, [regRows, restFilters]);
   const subjectTypes = useMemo(
     () =>
       dedupeBy(
-        subjectRows.filter((x) => numFrom(x, ['fk_regulation_id', 'regulationId']) === Number(regulationId)),
-        ['fk_subjecttype_catdet_id', 'subjectTypeId'],
+        subjectRows.filter(
+          (x) =>
+            numFrom(x, ["fk_regulation_id", "regulationId"]) ===
+            Number(regulationId),
+        ),
+        ["fk_subjecttype_catdet_id", "subjectTypeId"],
       ),
     [subjectRows, regulationId],
-  )
+  );
   const subjects = useMemo(
     () =>
       dedupeBy(
         subjectRows.filter(
           (x) =>
-            numFrom(x, ['fk_regulation_id', 'regulationId']) === Number(regulationId) &&
-            numFrom(x, ['fk_subjecttype_catdet_id', 'subjectTypeId']) === Number(subjectTypeId),
+            numFrom(x, ["fk_regulation_id", "regulationId"]) ===
+              Number(regulationId) &&
+            numFrom(x, ["fk_subjecttype_catdet_id", "subjectTypeId"]) ===
+              Number(subjectTypeId),
         ),
-        ['fk_subject_id', 'subjectId'],
+        ["fk_subject_id", "subjectId"],
       ),
     [subjectRows, regulationId, subjectTypeId],
-  )
+  );
   const labBatches = useMemo(
     () =>
       dedupeBy(
         subjectRows.filter(
           (x) =>
-            numFrom(x, ['fk_subject_id', 'subjectId']) === Number(subjectId) &&
-            numFrom(x, ['fk_exam_labbatch_id', 'examLabbatchId']) > 0,
+            numFrom(x, ["fk_subject_id", "subjectId"]) === Number(subjectId) &&
+            numFrom(x, ["fk_exam_labbatch_id", "examLabbatchId"]) > 0,
         ),
-        ['fk_exam_labbatch_id', 'examLabbatchId'],
+        ["fk_exam_labbatch_id", "examLabbatchId"],
       ),
     [subjectRows, subjectId],
-  )
+  );
 
   const courseOptions = useMemo(
     () =>
       courses
         .map((x) => ({
-          value: String(numFrom(x, ['fk_course_id', 'courseId'])),
-          label: strFrom(x, ['course_code', 'courseCode']),
+          value: String(numFrom(x, ["fk_course_id", "courseId"])),
+          label: strFrom(x, ["course_code", "courseCode"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [courses],
-  )
+  );
   const yearOptions = useMemo(
     () =>
       academicYears
         .map((x) => ({
-          value: String(numFrom(x, ['fk_academic_year_id', 'academicYearId'])),
-          label: strFrom(x, ['academic_year', 'academicYear']),
+          value: String(numFrom(x, ["fk_academic_year_id", "academicYearId"])),
+          label: strFrom(x, ["academic_year", "academicYear"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [academicYears],
-  )
+  );
   const examOptions = useMemo(
     () =>
       exams
         .map((x) => ({
-          value: String(numFrom(x, ['fk_exam_id', 'examId'])),
+          value: String(numFrom(x, ["fk_exam_id", "examId"])),
           label: formatExamLabel(x),
         }))
-        .filter((o) => o.value !== '0'),
+        .filter((o) => o.value !== "0"),
     [exams],
-  )
+  );
   const collegeOptions = useMemo(
     () =>
       colleges
         .map((x) => ({
-          value: String(numFrom(x, ['fk_college_id', 'collegeId'])),
-          label: strFrom(x, ['college_code', 'collegeCode']),
+          value: String(numFrom(x, ["fk_college_id", "collegeId"])),
+          label: strFrom(x, ["college_code", "collegeCode"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [colleges],
-  )
+  );
   const groupOptions = useMemo(
     () =>
       courseGroups
         .map((x) => ({
-          value: String(numFrom(x, ['fk_course_group_id', 'courseGroupId'])),
-          label: strFrom(x, ['group_code', 'groupCode']),
+          value: String(numFrom(x, ["fk_course_group_id", "courseGroupId"])),
+          label: strFrom(x, ["group_code", "groupCode"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [courseGroups],
-  )
+  );
   const courseYearOptions = useMemo(
     () =>
       courseYears
         .map((x) => ({
-          value: String(numFrom(x, ['fk_course_year_id', 'courseYearId'])),
-          label: strFrom(x, ['course_year_code', 'courseYearName', 'courseYearCode']),
+          value: String(numFrom(x, ["fk_course_year_id", "courseYearId"])),
+          label: strFrom(x, [
+            "course_year_code",
+            "courseYearName",
+            "courseYearCode",
+          ]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [courseYears],
-  )
+  );
   const regulationOptions = useMemo(
     () =>
       regulations
         .map((x) => ({
-          value: String(numFrom(x, ['fk_regulation_id', 'regulationId'])),
-          label: strFrom(x, ['regulation_code', 'regulationCode']),
+          value: String(numFrom(x, ["fk_regulation_id", "regulationId"])),
+          label: strFrom(x, ["regulation_code", "regulationCode"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [regulations],
-  )
+  );
   const subjectTypeOptions = useMemo(
     () =>
       subjectTypes
         .map((x) => ({
-          value: String(numFrom(x, ['fk_subjecttype_catdet_id', 'subjectTypeId'])),
-          label: strFrom(x, ['subject_type', 'subjectType']),
+          value: String(
+            numFrom(x, ["fk_subjecttype_catdet_id", "subjectTypeId"]),
+          ),
+          label: strFrom(x, ["subject_type", "subjectType"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     [subjectTypes],
-  )
+  );
   const subjectOptions = useMemo(
     () =>
       subjects
         .map((x) => ({
-          value: String(numFrom(x, ['fk_subject_id', 'subjectId'])),
+          value: String(numFrom(x, ["fk_subject_id", "subjectId"])),
           label: formatSubjectLabel(x),
         }))
-        .filter((o) => o.value !== '0'),
+        .filter((o) => o.value !== "0"),
     [subjects],
-  )
+  );
   const labBatchOptions = useMemo(
     () => [
-      { value: '0', label: 'All' },
+      { value: "0", label: "All" },
       ...labBatches
         .map((x) => ({
-          value: String(numFrom(x, ['fk_exam_labbatch_id', 'examLabbatchId'])),
-          label: strFrom(x, ['labbatch_name', 'labBatchName', 'labbatchName']),
+          value: String(numFrom(x, ["fk_exam_labbatch_id", "examLabbatchId"])),
+          label: strFrom(x, ["labbatch_name", "labBatchName", "labbatchName"]),
         }))
-        .filter((o) => o.value !== '0' && o.label),
+        .filter((o) => o.value !== "0" && o.label),
     ],
     [labBatches],
-  )
+  );
   useEffect(() => {
     async function loadFilters() {
-      setLoading(true)
+      setLoading(true);
       try {
-        const data = await getSecureMarksFilters(employeeId).catch(() => [])
-        setAllFilters(Array.isArray(data) ? data : [])
+        const data = await getSecureMarksFilters(employeeId).catch(() => []);
+        setAllFilters(Array.isArray(data) ? data : []);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    void loadFilters()
-  }, [employeeId])
+    void loadFilters();
+  }, [employeeId]);
 
   useEffect(() => {
-    const first = courses[0]
-    if (first) setCourseId(numFrom(first, ['fk_course_id', 'courseId']))
-  }, [courses])
+    const first = courses[0];
+    if (first) setCourseId(numFrom(first, ["fk_course_id", "courseId"]));
+  }, [courses]);
   useEffect(() => {
-    const first = academicYears[0]
-    if (first) setAcademicYearId(numFrom(first, ['fk_academic_year_id', 'academicYearId']))
-  }, [academicYears])
+    const first = academicYears[0];
+    if (first)
+      setAcademicYearId(
+        numFrom(first, ["fk_academic_year_id", "academicYearId"]),
+      );
+  }, [academicYears]);
   useEffect(() => {
-    const first = exams[0]
-    if (first) setExamId(numFrom(first, ['fk_exam_id', 'examId']))
-  }, [exams])
+    const first = exams[0];
+    if (first) setExamId(numFrom(first, ["fk_exam_id", "examId"]));
+  }, [exams]);
 
   useEffect(() => {
     async function loadRest() {
-      setRestFilters([])
-      setRegRows([])
-      setSubjectRows([])
-      if (!courseId || !academicYearId || !examId) return
+      setRestFilters([]);
+      setRegRows([]);
+      setSubjectRows([]);
+      if (!courseId || !academicYearId || !examId) return;
       const data = await getSecureMarksRestFilters({
         courseId,
         academicYearId,
         examId,
         employeeId,
-      }).catch(() => ({ restFilters: [], regulations: [] }))
-      setRestFilters(Array.isArray(data.restFilters) ? data.restFilters : [])
-      setRegRows(Array.isArray(data.regulations) ? data.regulations : [])
+      }).catch(() => ({ restFilters: [], regulations: [] }));
+      setRestFilters(Array.isArray(data.restFilters) ? data.restFilters : []);
+      setRegRows(Array.isArray(data.regulations) ? data.regulations : []);
     }
-    void loadRest()
-  }, [courseId, academicYearId, examId, employeeId])
+    void loadRest();
+  }, [courseId, academicYearId, examId, employeeId]);
 
   useEffect(() => {
-    const first = colleges[0]
-    if (first) setCollegeId(numFrom(first, ['fk_college_id', 'collegeId']))
-  }, [colleges])
+    const first = colleges[0];
+    if (first) setCollegeId(numFrom(first, ["fk_college_id", "collegeId"]));
+  }, [colleges]);
   useEffect(() => {
-    const first = courseGroups[0]
-    if (first) setCourseGroupId(numFrom(first, ['fk_course_group_id', 'courseGroupId']))
-  }, [courseGroups])
+    const first = courseGroups[0];
+    if (first)
+      setCourseGroupId(numFrom(first, ["fk_course_group_id", "courseGroupId"]));
+  }, [courseGroups]);
   useEffect(() => {
-    const first = courseYears[0]
-    if (first) setCourseYearId(numFrom(first, ['fk_course_year_id', 'courseYearId']))
-  }, [courseYears])
+    const first = courseYears[0];
+    if (first)
+      setCourseYearId(numFrom(first, ["fk_course_year_id", "courseYearId"]));
+  }, [courseYears]);
   useEffect(() => {
-    const first = regulations[0]
-    if (first) setRegulationId(numFrom(first, ['fk_regulation_id', 'regulationId']))
-  }, [regulations])
+    const first = regulations[0];
+    if (first)
+      setRegulationId(numFrom(first, ["fk_regulation_id", "regulationId"]));
+  }, [regulations]);
 
   useEffect(() => {
     async function loadSubjects() {
-      setSubjectRows([])
-      if (!collegeId || !courseId || !courseGroupId || !courseYearId || !examId || !academicYearId || !regulationId) return
+      setSubjectRows([]);
+      if (
+        !collegeId ||
+        !courseId ||
+        !courseGroupId ||
+        !courseYearId ||
+        !examId ||
+        !academicYearId ||
+        !regulationId
+      )
+        return;
       const data = await getSecureMarksSubjects({
         collegeId,
         courseId,
@@ -438,47 +534,104 @@ export default function SecureExamMarksEntryPage() {
         academicYearId,
         regulationId,
         employeeId,
-      }).catch(() => [])
-      setSubjectRows(Array.isArray(data) ? data : [])
+      }).catch(() => []);
+      setSubjectRows(Array.isArray(data) ? data : []);
     }
-    void loadSubjects()
-  }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId, regulationId, employeeId])
+    void loadSubjects();
+  }, [
+    collegeId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    examId,
+    academicYearId,
+    regulationId,
+    employeeId,
+  ]);
 
   useEffect(() => {
-    const first = subjectTypes[0]
-    if (first) setSubjectTypeId(numFrom(first, ['fk_subjecttype_catdet_id', 'subjectTypeId']))
-  }, [subjectTypes])
+    const first = subjectTypes[0];
+    if (first)
+      setSubjectTypeId(
+        numFrom(first, ["fk_subjecttype_catdet_id", "subjectTypeId"]),
+      );
+  }, [subjectTypes]);
   useEffect(() => {
-    const first = subjects[0]
-    if (first) setSubjectId(numFrom(first, ['fk_subject_id', 'subjectId']))
-  }, [subjects])
+    const first = subjects[0];
+    if (first) setSubjectId(numFrom(first, ["fk_subject_id", "subjectId"]));
+  }, [subjects]);
   useEffect(() => {
-    const nextDate = strFrom(subjects[0] ?? {}, ['exam_date', 'examDate']).slice(0, 10)
-    setExamDate(nextDate || '')
-  }, [subjects])
+    const selectedSubject = subjects.find(
+      (subject) =>
+        numFrom(subject, ["fk_subject_id", "subjectId"]) === Number(subjectId),
+    );
+    const nextDate = strFrom(selectedSubject ?? {}, [
+      "exam_date",
+      "examDate",
+    ]).slice(0, 10);
+    setExamDate(nextDate || "");
+  }, [subjects, subjectId]);
+  useEffect(() => {
+    let cancelled = false;
+    setCurriculumMarks([]);
+    setMarksSetupRows([]);
+    if (!courseId || !courseGroupId || !courseYearId || !regulationId) return;
+
+    void Promise.all([
+      listGroupYearRegulationSubjects(
+        courseGroupId,
+        courseYearId,
+        regulationId,
+      ).catch(() => []),
+      listExamMarksSetup(courseId, regulationId, false).catch(() => []),
+    ]).then(([curriculum, setups]) => {
+      if (cancelled) return;
+      setCurriculumMarks(Array.isArray(curriculum) ? curriculum : []);
+      setMarksSetupRows(Array.isArray(setups) ? setups : []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, courseGroupId, courseYearId, regulationId]);
 
   function updateMarks(target: AnyRow, marks: number) {
-    const sid = Number(target.studentId ?? target.fk_student_id ?? 0)
-    let parsed = Number(marks)
-    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0
+    const sid = Number(target.studentId ?? target.fk_student_id ?? 0);
+    let parsed = Number(marks);
+    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0;
     if (maxMarks > 0 && parsed > maxMarks) {
-      parsed = maxMarks
-      toastError(`Entered marks should not exceed ${maxMarks}.`)
+      parsed = maxMarks;
+      toastError(`Entered marks should not exceed ${maxMarks}.`);
     }
     setRows((prev) =>
       prev.map((r) => {
-        const rsid = Number(r.studentId ?? r.fk_student_id ?? 0)
-        if (sid > 0 ? rsid !== sid : String(r.hallticketNumber) !== String(target.hallticketNumber)) return r
-        return { ...r, marks: parsed }
+        const rsid = Number(r.studentId ?? r.fk_student_id ?? 0);
+        if (
+          sid > 0
+            ? rsid !== sid
+            : String(r.hallticketNumber) !== String(target.hallticketNumber)
+        )
+          return r;
+        return { ...r, marks: parsed };
       }),
-    )
+    );
   }
 
   async function onGetList() {
-    if (!collegeId || !courseId || !examId || !courseGroupId || !courseYearId || !regulationId || !subjectId || !examDate) return
-    setLoading(true)
-    setHasFetched(true)
-    setSaveUnlocked(false)
+    if (
+      !collegeId ||
+      !courseId ||
+      !examId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !regulationId ||
+      !subjectId ||
+      !examDate
+    )
+      return;
+    setLoading(true);
+    setHasFetched(true);
+    setSaveUnlocked(false);
     try {
       const bundle = await getMarksEntryStudentsBundle({
         collegeId,
@@ -490,12 +643,120 @@ export default function SecureExamMarksEntryPage() {
         subjectId,
         labBatchId,
         examDate,
-      }).catch(() => ({ students: [], internalEvaluators: [], externalEvaluators: [] }))
-      setRows((Array.isArray(bundle.students) ? bundle.students : []).map((r) => ({ ...r, marks: Number(r.marks ?? 0) })))
-      setInternalEvaluators(bundle.internalEvaluators ?? [])
-      setExternalEvaluators(bundle.externalEvaluators ?? [])
+      }).catch(() => ({
+        students: [],
+        internalEvaluators: [],
+        externalEvaluators: [],
+      }));
+      setRows(
+        (Array.isArray(bundle.students) ? bundle.students : []).map((r) => ({
+          ...r,
+          marks: Number(r.marks ?? 0),
+        })),
+      );
+      setInternalEvaluators(bundle.internalEvaluators ?? []);
+      setExternalEvaluators(bundle.externalEvaluators ?? []);
     } finally {
-      setLoading(false)
+      setLoading(false);
+    }
+  }
+
+  async function onDownloadImportTemplate() {
+    if (
+      !collegeId ||
+      !subjectId ||
+      !examId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !examDate
+    )
+      return;
+    setDownloadingTemplate(true);
+    try {
+      const blob = await downloadSecureMarksTemplate({
+        collegeId,
+        subjectId,
+        examId,
+        courseGroupId,
+        courseYearId,
+        examdate: examDate,
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "Marks Sheet";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toastError(error, "Failed to download marks sheet");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  }
+
+  async function onUploadImportMarks() {
+    if (!importFile) {
+      toastError("Please choose a file.");
+      return;
+    }
+    if (
+      !collegeId ||
+      !courseId ||
+      !courseYearId ||
+      !subjectId ||
+      !examId ||
+      !regulationId ||
+      !subjectTypeId
+    )
+      return;
+
+    const subjectCategoryId = numFrom(selectedSubject ?? {}, [
+      "fk_subjectcategory_catdet_id",
+      "subjectCategoryId",
+    ]);
+    setImporting(true);
+    try {
+      const result = await uploadSecureExamMarks({
+        file: importFile,
+        collegeId,
+        courseId,
+        courseYearId,
+        subjectId,
+        examId,
+        regulationId,
+        subjectCategoryId,
+        subjectTypeId,
+      });
+      const uploadedByStudent = new Map(
+        result.rows.map((item) => [
+          numFrom(item, ["studentId", "fk_student_id"]),
+          item,
+        ]),
+      );
+      setRows((current) =>
+        current.map((row) => {
+          const uploaded = uploadedByStudent.get(
+            numFrom(row, ["studentId", "fk_student_id"]),
+          );
+          if (!uploaded) return row;
+          return {
+            ...row,
+            marks: Number(
+              uploaded.examMarks ?? uploaded.marks ?? row.marks ?? 0,
+            ),
+            isvalidate: uploaded.isvalidate,
+            reason: uploaded.reason,
+            color: uploaded.isvalidate === false ? "#ff7070" : null,
+          };
+        }),
+      );
+      toastSuccess(result.message);
+      setImportFile(null);
+      if (importInputRef.current) importInputRef.current.value = "";
+    } catch (error) {
+      toastError(error, "Failed to upload marks");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -503,43 +764,53 @@ export default function SecureExamMarksEntryPage() {
   // code not working") — use a proper dialog instead.
   async function onGenerateSecretCode() {
     try {
-      await generateMarksEntrySecretCode(userId)
-      setSecretCodeInput('')
-      setCodeDialogOpen(true)
+      await generateMarksEntrySecretCode(userId);
+      setSecretCodeInput("");
+      setCodeDialogOpen(true);
     } catch (error) {
-      toastError(error, 'Failed to generate secret code')
+      toastError(error, "Failed to generate secret code");
     }
   }
 
   async function onValidateSecretCode() {
-    const plain = secretCodeInput.trim()
-    if (!plain) return
-    setValidatingCode(true)
+    const plain = secretCodeInput.trim();
+    if (!plain) return;
+    setValidatingCode(true);
     try {
-      const encoded = btoa(plain)
-      const valid = await validateMarksEntrySecretCode(userId, encoded)
+      const encoded = btoa(plain);
+      const valid = await validateMarksEntrySecretCode(userId, encoded);
       if (!valid) {
-        toastError('Invalid secret code')
-        setSaveUnlocked(false)
-        return
+        toastError("Invalid secret code");
+        setSaveUnlocked(false);
+        return;
       }
-      setSaveUnlocked(true)
-      setCodeDialogOpen(false)
-      toastSuccess('Secret code validated')
+      setSaveUnlocked(true);
+      setCodeDialogOpen(false);
+      toastSuccess("Secret code validated");
     } catch (error) {
-      toastError(error, 'Failed to validate secret code')
+      toastError(error, "Failed to validate secret code");
     } finally {
-      setValidatingCode(false)
+      setValidatingCode(false);
     }
   }
 
   async function onSave() {
-    if (!saveUnlocked || rows.length === 0 || !collegeId || !courseId || !examId || !courseYearId || !subjectId || !regulationId) return
-    setSaving(true)
+    if (
+      !saveUnlocked ||
+      rows.length === 0 ||
+      !collegeId ||
+      !courseId ||
+      !examId ||
+      !courseYearId ||
+      !subjectId ||
+      !regulationId
+    )
+      return;
+    setSaving(true);
     try {
       const payload = rows.map((row) => ({
         examStudentInternalMarkDTO:
-          row.examTypeCode === 'Internal'
+          row.examTypeCode === "Internal"
             ? {
                 examDate,
                 isActive: true,
@@ -552,7 +823,10 @@ export default function SecureExamMarksEntryPage() {
                 subjectId,
                 examId,
                 employeeId,
-                examStdInternalMarkId: row.examStdInternalMarkId ?? row.exam_std_internal_mark_id ?? 0,
+                examStdInternalMarkId:
+                  row.examStdInternalMarkId ??
+                  row.exam_std_internal_mark_id ??
+                  0,
               }
             : null,
         examStudentDetailDTO: {
@@ -562,264 +836,546 @@ export default function SecureExamMarksEntryPage() {
           regulationId,
           subjectTypeId,
           isExtenalpersonApprove: isExternalEvaluator,
-          examEvaluatorProfileId: isExternalEvaluator ? Number(globalThis?.localStorage?.getItem('examEvaluatorProfileId') ?? 0) : null,
+          examEvaluatorProfileId: isExternalEvaluator
+            ? Number(
+                globalThis?.localStorage?.getItem("examEvaluatorProfileId") ??
+                  0,
+              )
+            : null,
           credits: row.isPass ? Number(row.sub_credits ?? 0) : 0,
         },
-      }))
-      await saveInternalMarksEntry(payload)
-      toastSuccess(isExternalEvaluator ? 'Marks approved successfully' : 'Marks saved successfully')
-      await onGetList()
+      }));
+      await saveInternalMarksEntry(payload);
+      toastSuccess(
+        isExternalEvaluator
+          ? "Marks approved successfully"
+          : "Marks saved successfully",
+      );
+      await onGetList();
     } catch (error) {
-      toastError(error, 'Failed to save marks')
+      toastError(error, "Failed to save marks");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  const maxMarks = useMemo(() => {
-    const first = rows.find((r) => Number(r.maxMarks ?? r.externalmarks ?? r.internalmarks ?? 0) > 0)
-    return Number(first?.maxMarks ?? first?.externalmarks ?? first?.internalmarks ?? 0)
-  }, [rows])
-
   const selectedExam = useMemo(
-    () => exams.find((x) => numFrom(x, ['fk_exam_id', 'examId']) === Number(examId)),
+    () =>
+      exams.find(
+        (x) => numFrom(x, ["fk_exam_id", "examId"]) === Number(examId),
+      ),
     [exams, examId],
-  )
+  );
   const selectedCollege = useMemo(
-    () => colleges.find((x) => numFrom(x, ['fk_college_id', 'collegeId']) === Number(collegeId)),
+    () =>
+      colleges.find(
+        (x) => numFrom(x, ["fk_college_id", "collegeId"]) === Number(collegeId),
+      ),
     [colleges, collegeId],
-  )
+  );
   const selectedCourse = useMemo(
-    () => courses.find((x) => numFrom(x, ['fk_course_id', 'courseId']) === Number(courseId)),
+    () =>
+      courses.find(
+        (x) => numFrom(x, ["fk_course_id", "courseId"]) === Number(courseId),
+      ),
     [courses, courseId],
-  )
+  );
   const selectedGroup = useMemo(
-    () => courseGroups.find((x) => numFrom(x, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId)),
+    () =>
+      courseGroups.find(
+        (x) =>
+          numFrom(x, ["fk_course_group_id", "courseGroupId"]) ===
+          Number(courseGroupId),
+      ),
     [courseGroups, courseGroupId],
-  )
+  );
   const selectedYear = useMemo(
-    () => courseYears.find((x) => numFrom(x, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId)),
+    () =>
+      courseYears.find(
+        (x) =>
+          numFrom(x, ["fk_course_year_id", "courseYearId"]) ===
+          Number(courseYearId),
+      ),
     [courseYears, courseYearId],
-  )
+  );
   const selectedRegulation = useMemo(
-    () => regulations.find((x) => numFrom(x, ['fk_regulation_id', 'regulationId']) === Number(regulationId)),
+    () =>
+      regulations.find(
+        (x) =>
+          numFrom(x, ["fk_regulation_id", "regulationId"]) ===
+          Number(regulationId),
+      ),
     [regulations, regulationId],
-  )
+  );
   const selectedSubject = useMemo(
-    () => subjects.find((x) => numFrom(x, ['fk_subject_id', 'subjectId']) === Number(subjectId)),
+    () =>
+      subjects.find(
+        (x) => numFrom(x, ["fk_subject_id", "subjectId"]) === Number(subjectId),
+      ),
     [subjects, subjectId],
-  )
+  );
   const selectedAcademicYear = useMemo(
-    () => academicYears.find((x) => numFrom(x, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId)),
+    () =>
+      academicYears.find(
+        (x) =>
+          numFrom(x, ["fk_academic_year_id", "academicYearId"]) ===
+          Number(academicYearId),
+      ),
     [academicYears, academicYearId],
-  )
+  );
+  const maxMarks = useMemo(() => {
+    const selectedCurriculum = curriculumMarks.find(
+      (item) =>
+        numFrom(item, ["subjectId", "fk_subject_id"]) === Number(subjectId),
+    );
+    const subjectType = numFrom(rows[0] ?? selectedSubject ?? {}, [
+      "subjecttypeId",
+      "subjectTypeId",
+      "fk_subjecttype_catdet_id",
+    ]);
+    const selectedSetup = marksSetupRows.find(
+      (setup) =>
+        numFrom(setup, [
+          "subjectTypeCatId",
+          "subjectTypeId",
+          "subjectCategoryCatDetId",
+          "generalDetailId",
+        ]) === subjectType,
+    );
+    const isInternal =
+      asBool(selectedExam?.is_internal_exam ?? selectedExam?.isInternalExam) ||
+      strFrom(rows[0] ?? {}, ["examTypeCode"]).toLowerCase() === "internal";
+    const candidates = isInternal
+      ? [
+          selectedCurriculum?.internalmarks,
+          selectedCurriculum?.internalMarks,
+          selectedSetup?.internalMarks,
+          selectedSetup?.internalmarks,
+          rows[0]?.maxMarks,
+          rows[0]?.internalmarks,
+        ]
+      : [
+          selectedCurriculum?.externalmarks,
+          selectedCurriculum?.externalMarks,
+          selectedSetup?.externalMarks,
+          selectedSetup?.externalmarks,
+          rows[0]?.maxMarks,
+          rows[0]?.externalmarks,
+        ];
+    return (
+      candidates
+        .map(Number)
+        .find((value) => Number.isFinite(value) && value > 0) ?? 0
+    );
+  }, [
+    curriculumMarks,
+    marksSetupRows,
+    rows,
+    selectedExam,
+    selectedSubject,
+    subjectId,
+  ]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     const toAttendanceText = (isPresent: unknown) => {
-      if (isPresent === true) return 'Present'
-      if (isPresent === false) return 'Absent'
-      return 'Not Marked'
-    }
+      if (isPresent === true) return "Present";
+      if (isPresent === false) return "Absent";
+      return "Not Marked";
+    };
     const toResultText = (isPass: unknown) => {
-      if (isPass == null) return 'Not Posted'
-      return isPass ? 'P' : 'F'
-    }
+      if (isPass == null) return "Not Posted";
+      return isPass ? "P" : "F";
+    };
     return [
-      { headerName: 'SI No', width: 70, flex: 0, valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1 },
-      { field: 'hallticketNumber', headerName: 'Hallticket Number', minWidth: 140 },
-      { field: 'firstName', headerName: 'Student', minWidth: 240, flex: 1 },
       {
-        headerName: 'Attendance Status',
-        minWidth: 140,
+        headerName: "SI No",
+        width: 70,
+        flex: 0,
+        valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
+      },
+      {
+        field: "hallticketNumber",
+        headerName: "Hallticket Number",
+        minWidth: 190,
+        flex: 1,
+      },
+      { field: "firstName", headerName: "Student", minWidth: 240, flex: 2 },
+      {
+        headerName: "Attendance Status",
+        minWidth: 170,
+        flex: 1,
         valueGetter: (p: any) => toAttendanceText(p.data?.isPresent),
       },
       {
-        headerName: 'Marks',
-        minWidth: 120,
+        headerName: "Marks",
+        minWidth: 170,
+        flex: 1,
         cellRenderer: MarksInputRenderer,
-        cellRendererParams: { maxMarks, onChange: updateMarks, readOnly: !saveUnlocked },
+        cellRendererParams: {
+          maxMarks,
+          onChange: updateMarks,
+          readOnly: !saveUnlocked,
+        },
       },
       {
-        headerName: 'Result',
-        minWidth: 100,
-        flex: 0,
+        headerName: "Result",
+        minWidth: 140,
+        flex: 1,
         valueGetter: (p: any) => toResultText(p.data?.isPass),
       },
-    ]
-  }, [saveUnlocked, maxMarks])
+    ];
+  }, [saveUnlocked, maxMarks]);
 
   // While printing, replace the page with the marks sheet (AppShell @media
   // print rules hide the app chrome so only the sheet prints).
-  if (printMode) return <>{printView}</>
+  if (printMode) return <>{printView}</>;
 
   return (
     <FilteredListPage
       title="Secure Marks Entry"
-      notice={hasFetched ? (
-        <div className="app-card overflow-hidden border border-[#c3d9ff]">
-          <div className="flex items-start gap-4 p-3">
-            <div className="flex h-20 w-24 items-center justify-center bg-[#c3d9ff] text-slate-700">
-              <GraduationCap className="h-10 w-10" />
-            </div>
-            <div className="space-y-1 text-[13px]">
-              <p className="text-slate-700">{strFrom(selectedExam ?? {}, ['exam_name', 'examName']) || '-'} {examDate ? <span className="text-blue-700">({examDate})</span> : null}</p>
-              <p className="text-muted-foreground">/ {strFrom(selectedCollege ?? {}, ['college_code', 'collegeCode']) || '-'} / {strFrom(selectedCourse ?? {}, ['course_code', 'courseCode']) || '-'} / {strFrom(selectedGroup ?? {}, ['group_code', 'groupCode']) || '-'} / {strFrom(selectedYear ?? {}, ['course_year_code', 'courseYearName']) || '-'} / <span className="text-blue-700">({strFrom(selectedAcademicYear ?? {}, ['academic_year', 'academicYear']) || '-'})</span></p>
-              <p className="font-semibold text-slate-800">{strFrom(selectedSubject ?? {}, ['subject_name', 'subjectName']) || '-'} ({strFrom(selectedRegulation ?? {}, ['regulation_code', 'regulationCode']) || '-'}) - <span className="text-blue-700">{strFrom(selectedSubject ?? {}, ['subject_type', 'subjectType']) || '-'}</span></p>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      filters={(
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course *</Label>
-            <CommonSelect
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : null)}
-              options={courseOptions}
-              placeholder="Course"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Year *</Label>
-            <CommonSelect
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-              options={yearOptions}
-              placeholder="Exam Year"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-8">
-            <Label>Exam *</Label>
-            <CommonSelect
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : null)}
-              options={examOptions}
-              placeholder="Exam"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>College *</Label>
-            <CommonSelect
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={collegeOptions}
-              placeholder="College"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group *</Label>
-            <CommonSelect
-              value={courseGroupId ? String(courseGroupId) : null}
-              onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-              options={groupOptions}
-              placeholder="Course Group"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Year *</Label>
-            <CommonSelect
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-              options={courseYearOptions}
-              placeholder="Course Year"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Regulation</Label>
-            <CommonSelect
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : null)}
-              options={regulationOptions}
-              placeholder="Regulation"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Subject Type</Label>
-            <CommonSelect
-              value={subjectTypeId ? String(subjectTypeId) : null}
-              onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
-              options={subjectTypeOptions}
-              placeholder="Subject Type"
-              searchable
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Subject</Label>
-            <CommonSelect
-              value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(v ? Number(v) : null)}
-              options={subjectOptions}
-              placeholder="Subject"
-              searchable
-            />
-          </div>
-          {labBatches.length > 0 && (
-            <div className="space-y-1 md:col-span-2">
-              <Label>Lab Batch</Label>
+      filters={
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[repeat(16,minmax(0,1fr))] items-end">
+            <div className="space-y-1 md:col-span-3">
+              <Label>Course *</Label>
               <CommonSelect
-                value={String(labBatchId)}
-                onChange={(v) => setLabBatchId(v ? Number(v) : 0)}
-                options={labBatchOptions}
-                placeholder="All"
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                options={courseOptions}
+                placeholder="Course"
                 searchable
               />
             </div>
+            <div className="space-y-1 md:col-span-3">
+              <Label>Academic Year *</Label>
+              <CommonSelect
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                options={yearOptions}
+                placeholder="Academic Year"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-10">
+              <Label>Exam *</Label>
+              <CommonSelect
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : null)}
+                options={examOptions}
+                placeholder="Exam"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-3">
+              <Label>College *</Label>
+              <CommonSelect
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={collegeOptions}
+                placeholder="College"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-3">
+              <Label>Course Group *</Label>
+              <CommonSelect
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                options={groupOptions}
+                placeholder="Course Group"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course Year *</Label>
+              <CommonSelect
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                options={courseYearOptions}
+                placeholder="Course Year"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Regulation</Label>
+              <CommonSelect
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => setRegulationId(v ? Number(v) : null)}
+                options={regulationOptions}
+                placeholder="Regulation"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Subject Type</Label>
+              <CommonSelect
+                value={subjectTypeId ? String(subjectTypeId) : null}
+                onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
+                options={subjectTypeOptions}
+                placeholder="Subject Type"
+                searchable
+              />
+            </div>
+            <div className="space-y-1 md:col-span-4">
+              <Label>Subject</Label>
+              <CommonSelect
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                options={subjectOptions}
+                placeholder="Subject"
+                searchable
+              />
+            </div>
+            {labBatches.length > 0 && (
+              <div className="space-y-1 md:col-span-2">
+                <Label>Lab Batch</Label>
+                <CommonSelect
+                  value={String(labBatchId)}
+                  onChange={(v) => setLabBatchId(v ? Number(v) : 0)}
+                  options={labBatchOptions}
+                  placeholder="All"
+                  searchable
+                />
+              </div>
+            )}
+            <div className="space-y-1 md:col-span-2">
+              <Label>Employee</Label>
+              <Input
+                className="h-8 text-[12px]"
+                value={employeeDisplay}
+                disabled
+              />
+            </div>
+            {subjectId && (
+              <div className="space-y-1 md:col-span-2">
+                <Label>Exam Date</Label>
+                <Input
+                  className="h-8 text-[12px]"
+                  type="date"
+                  value={examDate}
+                  disabled
+                />
+              </div>
+            )}
+            <div className="md:col-span-2">
+              <Button
+                className="h-8 text-[12px] w-full"
+                onClick={onGetList}
+                disabled={loading}
+              >
+                {loading ? "Loading..." : "Get List"}
+              </Button>
+            </div>
+          </div>
+          {hasFetched && rows.length > 0 && (
+            <RadioGroup
+              className="flex items-center gap-5 px-1 py-1"
+              value={marksView}
+              onValueChange={(value) =>
+                setMarksView(value as "list" | "import")
+              }
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="secure-marks-list" value="list" />
+                <Label
+                  htmlFor="secure-marks-list"
+                  className="cursor-pointer font-normal"
+                >
+                  List Of Marks
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="secure-marks-import" value="import" />
+                <Label
+                  htmlFor="secure-marks-import"
+                  className="cursor-pointer font-normal"
+                >
+                  Import Marks
+                </Label>
+              </div>
+            </RadioGroup>
           )}
-          <div className="space-y-1 md:col-span-2">
-            <Label>Employee</Label>
-            <Input className="h-8 text-[12px]" value={employeeDisplay} readOnly />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Date</Label>
-            <Input className="h-8 text-[12px]" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Button className="h-8 text-[12px] w-full" onClick={onGetList} disabled={loading}>
-              {loading ? 'Loading...' : 'Get List'}
-            </Button>
-          </div>
+          {hasFetched && rows.length > 0 && marksView === "import" && (
+            <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+              <div className="min-w-64 flex-1 space-y-1">
+                <Label htmlFor="secure-marks-import-file">Upload Marks :</Label>
+                <Input
+                  ref={importInputRef}
+                  id="secure-marks-import-file"
+                  type="file"
+                  accept=".xlsx"
+                  className="h-8 text-[12px]"
+                  onChange={(event) =>
+                    setImportFile(event.target.files?.[0] ?? null)
+                  }
+                />
+              </div>
+              <Button
+                className="h-8 text-[12px]"
+                onClick={() => void onUploadImportMarks()}
+                disabled={importing}
+              >
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                {importing ? "Uploading..." : "Upload"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 text-[12px]"
+                onClick={() => void onDownloadImportTemplate()}
+                disabled={downloadingTemplate}
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                {downloadingTemplate
+                  ? "Downloading..."
+                  : "Download Sample Excel"}
+              </Button>
+            </div>
+          )}
+          {hasFetched ? (
+            <div className="overflow-hidden rounded-md border border-[#c3d9ff]">
+              <div className="flex items-start gap-4 p-3">
+                <div className="flex h-20 w-24 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                  <GraduationCap className="h-10 w-10" />
+                </div>
+                <div className="space-y-1 text-[13px]">
+                  <p className="text-slate-700">
+                    {strFrom(selectedExam ?? {}, ["exam_name", "examName"]) ||
+                      "-"}{" "}
+                    <span className="text-muted-foreground">
+                      (
+                      {strFrom(selectedExam ?? {}, [
+                        "from_date",
+                        "fromDate",
+                      ]).slice(0, 10)}{" "}
+                      -{" "}
+                      {strFrom(selectedExam ?? {}, ["to_date", "toDate"]).slice(
+                        0,
+                        10,
+                      )}
+                      )
+                    </span>{" "}
+                    {examDate ? (
+                      <span className="text-blue-700">({examDate})</span>
+                    ) : null}
+                  </p>
+                  <p className="text-muted-foreground">
+                    /{" "}
+                    {strFrom(selectedCollege ?? {}, [
+                      "college_code",
+                      "collegeCode",
+                    ]) || "-"}{" "}
+                    /{" "}
+                    {strFrom(selectedCourse ?? {}, [
+                      "course_code",
+                      "courseCode",
+                    ]) || "-"}{" "}
+                    /{" "}
+                    {strFrom(selectedGroup ?? {}, [
+                      "group_code",
+                      "groupCode",
+                    ]) || "-"}{" "}
+                    /{" "}
+                    {strFrom(selectedYear ?? {}, [
+                      "course_year_code",
+                      "courseYearName",
+                    ]) || "-"}{" "}
+                    /{" "}
+                    <span className="text-blue-700">
+                      (
+                      {strFrom(selectedAcademicYear ?? {}, [
+                        "academic_year",
+                        "academicYear",
+                      ]) || "-"}
+                      )
+                    </span>
+                  </p>
+                  <p className="font-semibold text-slate-800">
+                    {strFrom(selectedSubject ?? {}, [
+                      "subject_name",
+                      "subjectName",
+                    ]) || "-"}{" "}
+                    (
+                    {strFrom(selectedRegulation ?? {}, [
+                      "regulation_code",
+                      "regulationCode",
+                    ]) || "-"}
+                    ) -{" "}
+                    <span className="text-blue-700">
+                      {strFrom(selectedSubject ?? {}, [
+                        "subject_type",
+                        "subjectType",
+                      ]) || "-"}
+                    </span>{" "}
+                    <span>
+                      (
+                      {asBool(
+                        selectedExam?.is_internal_exam ??
+                          selectedExam?.isInternalExam,
+                      )
+                        ? "Internal"
+                        : "Regular"}
+                      )
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
-      getRowId={(p) => String(p.data.studentId ?? p.data.fk_student_id ?? p.data.hallticketNumber ?? '')}
+      getRowId={(p) =>
+        String(
+          p.data.studentId ??
+            p.data.fk_student_id ??
+            p.data.hallticketNumber ??
+            "",
+        )
+      }
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Secure Exam Marks Entry',
+        searchPlaceholder: "Search…",
+        pdfDocumentTitle: "Secure Exam Marks Entry",
       }}
-      toolbarLeading={(
-        <div className="text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-          Max Marks : <span className="font-semibold">{maxMarks || '-'}</span>
+      toolbarTrailing={
+        <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+          Max Marks : <span className="font-semibold">{maxMarks || "-"}</span>
         </div>
-      )}
+      }
     >
       {hasFetched && (
         <div className="flex items-center justify-end gap-2">
           {!saveUnlocked && (
-            <Button className="h-8 text-[12px]" onClick={onGenerateSecretCode} disabled={rows.length === 0}>
+            <Button
+              className="h-8 text-[12px]"
+              onClick={onGenerateSecretCode}
+              disabled={rows.length === 0}
+            >
               Generate Secret Code
             </Button>
           )}
           {saveUnlocked && (
-            <Button className="h-8 text-[12px]" onClick={onSave} disabled={saving || rows.length === 0}>
+            <Button
+              className="h-8 text-[12px]"
+              onClick={onSave}
+              disabled={saving || rows.length === 0}
+            >
               {saveButtonText}
             </Button>
           )}
           {printButton}
         </div>
       )}
-      <Dialog open={codeDialogOpen} onOpenChange={(next) => { if (!next) setCodeDialogOpen(false) }}>
+      <Dialog
+        open={codeDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) setCodeDialogOpen(false);
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-[hsl(var(--primary))]">
@@ -834,21 +1390,31 @@ export default function SecureExamMarksEntryPage() {
               autoFocus
               value={secretCodeInput}
               onChange={(e) => setSecretCodeInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') void onValidateSecretCode() }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void onValidateSecretCode();
+              }}
               placeholder="Enter secret code"
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCodeDialogOpen(false)} disabled={validatingCode}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCodeDialogOpen(false)}
+              disabled={validatingCode}
+            >
               Cancel
             </Button>
-            <Button type="button" onClick={() => void onValidateSecretCode()} disabled={validatingCode || !secretCodeInput.trim()}>
-              {validatingCode ? 'Validating…' : 'Validate'}
+            <Button
+              type="button"
+              onClick={() => void onValidateSecretCode()}
+              disabled={validatingCode || !secretCodeInput.trim()}
+            >
+              {validatingCode ? "Validating…" : "Validate"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </FilteredListPage>
-  )
+  );
 }
-
