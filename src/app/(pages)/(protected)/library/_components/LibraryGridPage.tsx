@@ -22,7 +22,12 @@ export type LibraryGridPageProps = {
   headerAction?: ReactNode;
   toolbarTrailing?: ReactNode;
   showHeaderCard?: boolean;
+  /** Table card title; defaults to `title` when header card is hidden. */
+  tableTitle?: string;
+  /** Pass `""` to hide the default column-filter hint. */
+  subtitle?: string;
   emptyMessage?: string;
+  paginationPageSize?: number;
 };
 
 const SI_NO: ColDef<LibraryRow> = {
@@ -43,7 +48,10 @@ export function LibraryGridPage({
   headerAction,
   toolbarTrailing,
   showHeaderCard = true,
+  tableTitle,
+  subtitle,
   emptyMessage = "No records found.",
+  paginationPageSize = 25,
 }: Readonly<LibraryGridPageProps>) {
   const {
     data: rows = [],
@@ -74,11 +82,13 @@ export function LibraryGridPage({
       ) : (
         <TableCard withHeaderBorder={false}>
           <DataTable
-            title={showHeaderCard ? undefined : title}
+            title={showHeaderCard ? undefined : (tableTitle ?? title)}
+            subtitle={subtitle}
             rowData={rows}
             columnDefs={columnDefs}
             loading={isLoading}
             pagination
+            paginationPageSize={paginationPageSize}
             toolbar={{
               search: true,
               searchPlaceholder,

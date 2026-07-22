@@ -1,9 +1,14 @@
-import { AFFILIATED_COLLEGES_API, LIBRARY_API } from "@/config/constants/api";
+import {
+  AFFILIATED_COLLEGES_API,
+  LIBRARY_API,
+  NEXT_API,
+} from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
 import type { Campus } from "@/types/campus";
 import type { Organization } from "@/types/organization";
 import { GM_CODES } from "@/config/constants/ui";
 import type { GeneralDetail } from "@/types/exam-master";
+import { parseApiError } from "@/lib/errors";
 import {
   buildQuery,
   domainCreate,
@@ -27,12 +32,15 @@ import type {
   LibraryCategoryPayload,
   LibraryDetail,
   LibraryDetailPayload,
+  LibraryFineCollectionRow,
   LibraryMembership,
   LibraryMembershipPayload,
   LibraryPublisher,
   LibraryPublisherPayload,
   LibraryRack,
   LibraryRackPayload,
+  LibrarySetting,
+  LibrarySettingPayload,
   LibrarySupplier,
   LibrarySupplierPayload,
 } from "@/types/library";
@@ -337,8 +345,13 @@ export async function updateLibraryPublisher(
 
 // ── Racks (shelves) ───────────────────────────────────────────────────────────
 
+/** Angular `listAllDetails(LibShelve)` → query=order(createdDt=desc)&size=99999 */
 export async function listLibraryRacks(): Promise<LibraryRack[]> {
-  return domainList<LibraryRack>(ENTITIES.LIB_RACK.name);
+  return domainListRawQuery<LibraryRack>(
+    ENTITIES.LIB_RACK.name,
+    "order(createdDt=desc)",
+    true,
+  );
 }
 
 export async function createLibraryRack(
@@ -353,7 +366,7 @@ export async function updateLibraryRack(
 ): Promise<LibraryRack> {
   return domainUpdate<LibraryRack>(
     ENTITIES.LIB_RACK.name,
-    ENTITIES.LIB_RACK.pk,
+    LIBRARY_API.RACK_BY_ID,
     shelveId,
     data,
   );
@@ -449,6 +462,17 @@ export async function listLibrarySuppliers(): Promise<LibrarySupplier[]> {
   );
 }
 
+/** Angular: SupplierDetails by Organization.organizationId + isActive. */
+export async function listLibrarySuppliersByOrganization(
+  organizationId: number,
+): Promise<LibrarySupplier[]> {
+  if (!organizationId) return [];
+  return domainListOrEmpty<LibrarySupplier>(
+    ENTITIES.LIB_SUPPLIER.name,
+    `Organization.organizationId==${organizationId}.and.isActive==true`,
+  );
+}
+
 export async function createLibrarySupplier(
   data: LibrarySupplierPayload,
 ): Promise<LibrarySupplier> {
@@ -528,6 +552,17 @@ export async function searchLibraryMembers(
 ): Promise<LibraryMembership[]> {
   const term = searchText.trim();
   if (term.length < 5) return [];
+
+  return searchLibraryMemberByQuery(term, libraryId);
+}
+
+/** Deep-link / exact lookup — no minimum length (Angular `?rollNo=`). */
+export async function searchLibraryMemberByQuery(
+  searchText: string,
+  libraryId?: number,
+): Promise<LibraryMembership[]> {
+  const term = searchText.trim();
+  if (!term) return [];
 
   const params: Record<string, string | number> = { q: term };
   if (libraryId) params.libraryId = libraryId;
@@ -680,8 +715,26 @@ function normalizeBookRow(row: AnyRow): LibraryRow {
     libraryCode: String(row.libraryCode ?? ""),
     noofcopies: row.noofcopies ?? row.noOfCopies,
     availableCopies: row.availableCopies,
-    issuedCopies: row.issuedCopies,
+    issuedCopies: row.issuedCopies == null ? 0 : row.issuedCopies,
   };
+}
+
+function isNoRecordsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /no\s+record(?:\(s\)|s)?/i.test(message);
+}
+
+async function domainListOrEmpty<T>(
+  entity: string,
+  query: string,
+  queryFirst = false,
+): Promise<T[]> {
+  try {
+    return await domainListRawQuery<T>(entity, query, queryFirst);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
 }
 
 export async function listCollegesForLibrary(
@@ -742,7 +795,7 @@ export async function listLibrariesByCollege(
   collegeId: number,
 ): Promise<LibraryDetail[]> {
   if (!collegeId) return [];
-  return domainListRawQuery<LibraryDetail>(
+  return domainListOrEmpty<LibraryDetail>(
     ENTITIES.LIBRARY_DETAIL.name,
     buildQuery({ "College.collegeId": collegeId, isActive: true }),
   );
@@ -752,7 +805,7 @@ export async function listBookCategoriesByLibrary(
   libraryId: number,
 ): Promise<LibraryBookCategory[]> {
   if (!libraryId) return [];
-  return domainListRawQuery<LibraryBookCategory>(
+  return domainListOrEmpty<LibraryBookCategory>(
     ENTITIES.LIB_BOOK_CATEGORY.name,
     `LibraryDetail.libraryId==${libraryId}.and.isActive==true`,
   );
@@ -760,12 +813,17 @@ export async function listBookCategoriesByLibrary(
 
 export async function listBooksByLibraryAndCategory(
   libraryId: number,
-  bookcatId: number,
+  bookcatId?: number | null,
 ): Promise<LibraryRow[]> {
-  if (!libraryId || !bookcatId) return [];
-  const rows = await domainListRawQuery<LibraryRow>(
+  if (!libraryId) return [];
+  // Angular listDetailsByTwoIds stringifies a missing bookcatId as "undefined"
+  const categoryKey =
+    bookcatId != null && Number(bookcatId) > 0
+      ? String(bookcatId)
+      : "undefined";
+  const rows = await domainListOrEmpty<LibraryRow>(
     ENTITIES.LIB_BOOK.name,
-    `libraryDetail.libraryId==${libraryId}.and.bookCategory.bookcatId==${bookcatId}`,
+    `libraryDetail.libraryId==${libraryId}.and.bookCategory.bookcatId==${categoryKey}`,
   );
   return rows.map(normalizeBookRow);
 }
@@ -779,12 +837,17 @@ export async function searchBooksInLibraryCategory(
   const q = searchText.trim();
   if (!libraryId || !bookcatId || q.length < 4) return [];
 
-  const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_SEARCH, {
-    libraryId,
-    bookcatId,
-    q,
-  });
-  return unwrapMemberSearchRows(data).map(normalizeBookRow);
+  try {
+    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_SEARCH, {
+      libraryId,
+      bookcatId,
+      q,
+    });
+    return unwrapMemberSearchRows(data).map(normalizeBookRow);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
 }
 
 export async function listLibraryBooks(): Promise<LibraryRow[]> {
@@ -797,25 +860,82 @@ export async function searchLibraryBooks(
 ): Promise<LibraryRow[]> {
   const q = searchText.trim();
   if (q.length < 2) return [];
+  // Angular listByIds(booksearchUrl, value, 'q') → booksearch?q=
   try {
-    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_SEARCH, {
-      isActive: "true",
-      q,
-    });
+    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_SEARCH, { q });
     return unwrapMemberSearchRows(data).map(normalizeBookRow);
   } catch {
-    const all = await listLibraryBooks();
-    const needle = q.toLowerCase();
-    return all.filter((r) => {
-      const title = String(r.title ?? r.bookTitle ?? "").toLowerCase();
-      const code = String(r.libraryCode ?? "").toLowerCase();
-      return title.includes(needle) || code.includes(needle);
-    });
+    try {
+      const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_SEARCH, {
+        isActive: "true",
+        q,
+      });
+      return unwrapMemberSearchRows(data).map(normalizeBookRow);
+    } catch {
+      const all = await listLibraryBooks();
+      const needle = q.toLowerCase();
+      return all.filter((r) => {
+        const title = String(r.title ?? r.bookTitle ?? "").toLowerCase();
+        const code = String(r.libraryCode ?? "").toLowerCase();
+        return title.includes(needle) || code.includes(needle);
+      });
+    }
   }
 }
 
 export async function listLibraryPeriodicals(): Promise<LibraryRow[]> {
-  return domainList<LibraryRow>(ENTITIES.LIB_PERIODICAL.name);
+  // Angular listAllDetails(Periodical): ?query=order(createdDt=desc)&size=99999
+  return domainListOrEmpty<LibraryRow>(
+    ENTITIES.LIB_PERIODICAL.name,
+    "order(createdDt=desc)",
+    true,
+  );
+}
+
+/** Angular `POST periodicals` — create / update periodical with details. */
+export async function saveLibraryPeriodical(
+  payload: Record<string, unknown>,
+): Promise<void> {
+  await postDetails(LIBRARY_API.PERIODICALS, payload);
+}
+
+export async function getLibraryPeriodicalById(
+  periodicalId: number,
+): Promise<LibraryRow | null> {
+  if (!periodicalId) return null;
+  try {
+    const rows = await domainListOrEmpty<LibraryRow>(
+      ENTITIES.LIB_PERIODICAL.name,
+      `periodicalId==${periodicalId}`,
+    );
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Angular: PeriodicalsDetail?size=99999&query=periodical.periodicalId=={id} */
+export async function listPeriodicalDetailsByPeriodicalId(
+  periodicalId: number,
+): Promise<LibraryRow[]> {
+  if (!periodicalId) return [];
+  return domainListOrEmpty<LibraryRow>(
+    ENTITIES.LIB_PERIODICAL_DETAIL.name,
+    `periodical.periodicalId==${periodicalId}`,
+  );
+}
+
+/** Angular updateDetails(PeriodicalsDetail, …, periodicalDetId) */
+export async function updatePeriodicalDetail(
+  periodicalDetId: number,
+  data: Record<string, unknown>,
+): Promise<LibraryRow> {
+  return domainUpdate<LibraryRow>(
+    ENTITIES.LIB_PERIODICAL_DETAIL.name,
+    LIBRARY_API.PERIODICAL_DET_BY_ID,
+    periodicalDetId,
+    data,
+  );
 }
 
 export async function listLibraryBookDetails(): Promise<LibraryRow[]> {
@@ -849,6 +969,34 @@ function dedupeBookDetailsByAccession(rows: LibraryRow[]): LibraryRow[] {
   });
 }
 
+/**
+ * Angular books-search `enteredBook`:
+ * `listByIds(bookDetailSearchUrl, value, 'q')` → `bookdetailsearch?q={value}`
+ * Prefer exact accession matches when present (Angular `searchBooksList` filter).
+ * Min length: Angular `event.target.value.length > 2`.
+ */
+export async function searchBookDetailsForBookSearch(
+  searchText: string,
+): Promise<LibraryRow[]> {
+  const q = searchText.trim();
+  if (q.length <= 2) return [];
+
+  try {
+    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_DETAIL_SEARCH, {
+      q,
+    });
+    const rows = unwrapMemberSearchRows(data).map(normalizeBookDetailRow);
+    const needle = q.toLowerCase();
+    const exact = rows.filter(
+      (r) => String(r.accessionno ?? "").toLowerCase() === needle,
+    );
+    return exact.length > 0 ? exact : rows;
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}
+
 /** `bookdetailsearch` — accession, barcode, or title (Angular book issue / books search). */
 export async function searchLibraryBookDetails(
   searchText: string,
@@ -857,7 +1005,9 @@ export async function searchLibraryBookDetails(
   const q = searchText.trim();
   if (q.length < 2) return [];
 
+  // Angular listByIds(bookDetailSearchUrl, value, 'q') — prefer plain `q` first
   const paramVariants: Record<string, string | number>[] = [
+    { q },
     { isActive: "true", q },
     { q, isActive: "true" },
   ];
@@ -897,14 +1047,20 @@ export async function searchLibraryBookDetails(
   }
 }
 
+/**
+ * Angular reservedbooks-list `listAllDetails(ReserveBook)`:
+ * `domain/list/ReserveBook?query=order(createdDt=desc)&size=99999`
+ */
 export async function listReservedBooks(): Promise<LibraryRow[]> {
   try {
-    const data = await fetchDetails<unknown>(LIBRARY_API.RESERVE_BOOK, {
-      isActive: "true",
-    });
-    return unwrapMemberSearchRows(data);
-  } catch {
-    return [];
+    return await domainListRawQuery<LibraryRow>(
+      LIBRARY_API.RESERVE_BOOK,
+      "order(createdDt=desc)",
+      true,
+    );
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
   }
 }
 
@@ -930,7 +1086,7 @@ export async function searchBookReturn(
   libraryId?: number,
 ): Promise<BookReturnSearchRow[]> {
   const q = searchText.trim();
-  if (q.length < 2) return [];
+  if (q.length < 3) return [];
 
   const paramVariants: Record<string, string | number>[] = [
     { q, isActive: "true" },
@@ -984,7 +1140,30 @@ function normalizeIssuedBookRow(row: AnyRow): LibraryRow {
     isreturned: row.isreturned ?? row.isReturned,
     isrenewaled: row.isrenewaled ?? row.isRenewaled,
     fineTypeCode: row.fineTypeCode,
+    libraryName:
+      row.libraryName ?? (row.library as AnyRow | undefined)?.libraryName,
+    libraryCode:
+      row.libraryCode ?? (row.library as AnyRow | undefined)?.libraryCode,
+    bookDetail: detail ? normalizeBookDetailRow(detail) : detail,
+    bookIssuedetailsHistories:
+      row.bookIssuedetailsHistories ?? row.bookIssuedetailsHistory ?? [],
   };
+}
+
+/** Issued books for a member — Angular `listByIds(bookIssuedetails, libMemberId, 'libMemberId')`. */
+export async function listIssuedBooksByMemberId(
+  libMemberId: number,
+): Promise<LibraryRow[]> {
+  if (!libMemberId) return [];
+  try {
+    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_ISSUE_DETAILS, {
+      libMemberId,
+    });
+    return unwrapMemberSearchRows(data).map(normalizeIssuedBookRow);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
 }
 
 /** Issued books for a member — Angular `BookIssuedetail` by `libMember.memberCode`. */
@@ -993,6 +1172,16 @@ export async function listIssuedBooksByMemberCode(
 ): Promise<LibraryRow[]> {
   const code = memberCode.trim();
   if (!code) return [];
+
+  try {
+    const rows = await domainListOrEmpty<AnyRow>(
+      LIBRARY_API.BOOK_ISSUE_DETAIL,
+      `libMember.memberCode==${code}`,
+    );
+    if (rows.length > 0) return rows.map(normalizeIssuedBookRow);
+  } catch {
+    // fall through to legacy endpoint
+  }
 
   const paramVariants: Record<string, string | number>[] = [
     { "libMember.memberCode": code },
@@ -1015,29 +1204,323 @@ export async function listIssuedBooksByMemberCode(
   return [];
 }
 
+/** Angular `listDetailsById(BookIssuedetail, id, 'bookIssuedetailsId')`. */
+export async function getBookIssueDetailById(
+  bookIssuedetailsId: number,
+): Promise<LibraryRow | null> {
+  if (!bookIssuedetailsId) return null;
+  try {
+    const rows = await domainListOrEmpty<AnyRow>(
+      LIBRARY_API.BOOK_ISSUE_DETAIL,
+      `bookIssuedetailsId==${bookIssuedetailsId}`,
+    );
+    return rows.length > 0 ? normalizeIssuedBookRow(rows[0]!) : null;
+  } catch (error) {
+    if (isNoRecordsError(error)) return null;
+    throw error;
+  }
+}
+
+export type BookReturnUpdatePayload = LibraryRow & {
+  bookIssuedetailsId: number;
+  isreturned: boolean;
+  isrenewaled: boolean;
+  issueFromdate?: string | Date;
+  issueTodate?: string | Date | null;
+  issueDuedate?: string | Date | null;
+  issuedDays?: number;
+  lostDate?: string | Date | null;
+  fineTypeId?: number | null;
+  fineAmount?: number;
+  discountAmount?: number;
+  paidAmount?: number;
+  balanceAmount?: number;
+  receiptNo?: string;
+  fineCollectedAmount?: number;
+  fineCollectedDate?: string | Date;
+  fineCollectedbyEmpId?: number;
+};
+
+/** Angular `addMasterDetails(bookIssuedetails, addedBooks)` — return / renew / lost POST. */
+export async function updateBookIssueDetails(
+  rows: BookReturnUpdatePayload[],
+): Promise<void> {
+  await postDetails(LIBRARY_API.BOOK_ISSUE_DETAILS, rows);
+}
+
+/** Angular `addDetails(LibFineCollection, data)` after return when balance remains. */
+export async function createLibFineCollection(
+  payload: BookReturnUpdatePayload,
+): Promise<void> {
+  await domainCreate(LIBRARY_API.LIB_FINE_COLLECTION, payload);
+}
+
+function unwrapLibraryFineCollectionRows(
+  payload: unknown,
+): LibraryFineCollectionRow[] {
+  if (Array.isArray(payload)) {
+    if (payload.length > 0 && Array.isArray(payload[0])) {
+      return payload[0] as LibraryFineCollectionRow[];
+    }
+    return payload as LibraryFineCollectionRow[];
+  }
+  const obj = (payload ?? {}) as Record<string, unknown>;
+  if (Array.isArray(obj.result)) {
+    const result = obj.result as unknown[];
+    if (Array.isArray(result[0]))
+      return result[0] as LibraryFineCollectionRow[];
+    if (result.length > 0 && typeof result[0] === "object") {
+      return result as LibraryFineCollectionRow[];
+    }
+  }
+  const nestedData = (obj.data ?? {}) as Record<string, unknown>;
+  if (Array.isArray(nestedData.result)) {
+    const result = nestedData.result as unknown[];
+    if (Array.isArray(result[0]))
+      return result[0] as LibraryFineCollectionRow[];
+    if (result.length > 0 && typeof result[0] === "object") {
+      return result as LibraryFineCollectionRow[];
+    }
+  }
+  return [];
+}
+
+/**
+ * Angular `listByTwoIds(libfinecollectionUrl, date, libraryId, 'in_fdate', 'in_libid')`
+ * → `getAllRecords/s_rep_lib_fee_collection?in_fdate=YYYY-MM-DD&in_libid={id}`
+ *
+ * Angular treats `success: false` + "No Records(s) found." as an empty list
+ * (shows success toast), not a hard error.
+ */
+export async function listLibraryFineCollection(params: {
+  dateYmd: string;
+  libraryId: number;
+}): Promise<LibraryFineCollectionRow[]> {
+  const { dateYmd, libraryId } = params;
+  if (!dateYmd || !libraryId) return [];
+  try {
+    const raw = await getAllRecords<unknown>("s_rep_lib_fee_collection", {
+      in_fdate: dateYmd,
+      in_libid: libraryId,
+    });
+    return unwrapLibraryFineCollectionRows(raw);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}
+
+/**
+ * Angular `print()` — GET PDF blob via `getAllRecordsPDFDownload/s_rep_lib_fee_collection`
+ * with `filetype=pdf`, then iframe print.
+ */
+export async function printLibraryFineCollectionReport(params: {
+  dateYmd: string;
+  libraryId: number;
+}): Promise<void> {
+  const { dateYmd, libraryId } = params;
+  const qs = new URLSearchParams({
+    in_fdate: dateYmd,
+    in_libid: String(libraryId),
+    filetype: "pdf",
+  });
+  const res = await fetch(
+    `${NEXT_API.PROXY(LIBRARY_API.FINE_COLLECTION_PDF)}?${qs}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    throw parseApiError(res, await res.json().catch(() => null));
+  }
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = blobUrl;
+  document.body.appendChild(iframe);
+  iframe.onload = () => {
+    iframe.contentWindow?.print();
+  };
+}
+
+/** Angular `libraryssettings?settingCode=BOOKRETGRACEDAY&isActive=true`. */
+export async function getLibrarySettingByCode(
+  settingCode: string,
+): Promise<LibraryRow | null> {
+  const code = settingCode.trim();
+  if (!code) return null;
+
+  const paramVariants: Record<string, string>[] = [
+    { settingCode: code, isActive: "true" },
+    { settingCode: code },
+  ];
+
+  for (const params of paramVariants) {
+    try {
+      const data = await fetchDetails<unknown>(
+        LIBRARY_API.LIBRARY_SETTINGS_ALT,
+        params,
+      );
+      const rows = unwrapMemberSearchRows(data);
+      if (rows.length > 0) return rows[0] as LibraryRow;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        return data as LibraryRow;
+      }
+    } catch (error) {
+      if (isNoRecordsError(error)) continue;
+      throw error;
+    }
+  }
+  return null;
+}
+
+/** Angular `GeneralDetail` where `GeneralMaster.generalMasterCode==LIBFINETYPE`. */
+export async function listLibFineTypes(): Promise<GeneralDetail[]> {
+  return domainListOrEmpty<GeneralDetail>(
+    ENTITIES.GENERAL_DETAIL.name,
+    `GeneralMaster.generalMasterCode==${GM_CODES.LIB_FINE_TYPE}.and.isActive==true`,
+  );
+}
+
+/** Angular `listDetailsById(ReserveBook, libMemberId, 'libMemberId')`. */
+export async function listReservedBooksByMemberId(
+  libMemberId: number,
+): Promise<LibraryRow[]> {
+  if (!libMemberId) return [];
+  return domainListOrEmpty<LibraryRow>(
+    LIBRARY_API.RESERVE_BOOK,
+    `libMemberId==${libMemberId}`,
+  );
+}
+
+export type BookIssuePayload = {
+  bookIssuedOnId: number;
+  issueFromdate: string;
+  issuedDays: number;
+  issueTodate: string;
+  libraryId: number;
+  libMemberId: number;
+  isActive: boolean;
+  bookDetail: LibraryRow;
+  isrenewaled: boolean;
+  isreturned: boolean;
+  accessionno: string;
+};
+
+/** Angular `addMasterDetails(bookIssuedetails, addedBooks)` — batch issue POST. */
+export async function createBookIssues(
+  rows: BookIssuePayload[],
+): Promise<void> {
+  await postDetails(LIBRARY_API.BOOK_ISSUE_DETAILS, rows);
+}
+
+export type ReservedBookPayload = {
+  organizationId: number;
+  libraryId: number;
+  bookId: number;
+  libMemberId: number;
+  priorityCatdetId: number;
+  reservedOn: string;
+  comments?: string;
+  isActive: boolean;
+  reason: string;
+};
+
+/** Angular `addDetails(ReserveBook, details)` */
+export async function createReservedBook(
+  payload: ReservedBookPayload,
+): Promise<void> {
+  await domainCreate(LIBRARY_API.RESERVE_BOOK, payload);
+}
+
+/** Angular `listDetailsByTwoIds(GeneralDetail, BOOKISSUED, true, generalDetailsByCodeUrl, isActive)`. */
+export async function listBookIssuedOnTypes(): Promise<GeneralDetail[]> {
+  return domainListOrEmpty<GeneralDetail>(
+    ENTITIES.GENERAL_DETAIL.name,
+    `GeneralMaster.generalMasterCode==${GM_CODES.BOOK_ISSUED}.and.isActive==true`,
+  );
+}
+
+/** Angular `listDetailsByTwoIds(GeneralDetail, BOOKPRIOR, true, generalDetailsByCodeUrl, isActive)`. */
+export async function listBookPriorityTypes(): Promise<GeneralDetail[]> {
+  return domainListOrEmpty<GeneralDetail>(
+    ENTITIES.GENERAL_DETAIL.name,
+    `GeneralMaster.generalMasterCode==${GM_CODES.BOOK_PRIORITY}.and.isActive==true`,
+  );
+}
+
+/** Angular `calDays(today, issueTodate)` — days past due date. */
+function calcBooksDueDelayDays(issueTodate: unknown): number {
+  const dueRaw = String(issueTodate ?? "").trim();
+  if (!dueRaw) return 0;
+  const dueDate = new Date(dueRaw);
+  const today = new Date();
+  const timeDiff = Math.round(today.getTime() - dueDate.getTime());
+  return Math.ceil(timeDiff / (1000 * 3600 * 24));
+}
+
+function normalizeBooksDueRow(row: AnyRow): LibraryRow {
+  const detail = (row.bookDetail ?? row.book_detail) as AnyRow | undefined;
+  const issueTodate = row.issueTodate ?? row.issueToDate;
+  return {
+    ...row,
+    accessionno: String(
+      row.accessionno ?? detail?.accessionno ?? detail?.accessionNo ?? "",
+    ),
+    bookTitle: String(
+      row.bookTitle ?? detail?.bookTitle ?? detail?.title ?? "",
+    ),
+    issueTodate,
+    delyDays: calcBooksDueDelayDays(issueTodate),
+    bookDetail: detail ? normalizeBookDetailRow(detail) : detail,
+  };
+}
+
 export async function listBooksDue(page = 0, size = 50): Promise<LibraryRow[]> {
   try {
     const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_DUE_LIST, {
       page,
       size,
     });
-    const rows = unwrapMemberSearchRows(data);
-    return rows.map((row) => {
-      const detail = (row.bookDetail ?? row.book_detail) as AnyRow | undefined;
-      return {
-        ...row,
-        accessionno:
-          row.accessionno ?? detail?.accessionno ?? detail?.accessionNo,
-        bookTitle: row.bookTitle ?? detail?.bookTitle ?? detail?.title,
-      };
-    });
-  } catch {
-    return [];
+    return unwrapMemberSearchRows(data).map(normalizeBooksDueRow);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
   }
 }
 
-export async function listLibrarySettings(): Promise<LibraryRow[]> {
-  return domainList<LibraryRow>(ENTITIES.LIB_SETTING.name);
+/** Angular `listAllDetails(LibrarySetting)` → query=order(createdDt=desc)&size=99999 */
+export async function listLibrarySettings(): Promise<LibrarySetting[]> {
+  return domainListRawQuery<LibrarySetting>(
+    ENTITIES.LIB_SETTING.name,
+    "order(createdDt=desc)",
+    true,
+  );
+}
+
+/** Angular `GeneralDetail` where `GeneralMaster.generalMasterCode==LIBSETTING`. */
+export async function listLibrarySettingCategories(): Promise<GeneralDetail[]> {
+  return domainListRawQuery<GeneralDetail>(
+    ENTITIES.GENERAL_DETAIL.name,
+    `GeneralMaster.generalMasterCode==${GM_CODES.LIB_SETTING}.and.isActive==true`,
+  );
+}
+
+export async function createLibrarySetting(
+  data: LibrarySettingPayload,
+): Promise<LibrarySetting> {
+  return domainCreate<LibrarySetting>(ENTITIES.LIB_SETTING.name, data);
+}
+
+export async function updateLibrarySetting(
+  libSettingsId: number,
+  data: Partial<LibrarySettingPayload>,
+): Promise<LibrarySetting> {
+  return domainUpdate<LibrarySetting>(
+    ENTITIES.LIB_SETTING.name,
+    LIBRARY_API.LIB_SETTINGS_BY_ID,
+    libSettingsId,
+    data,
+  );
 }
 
 export async function listBookRegistrationTypes(): Promise<GeneralDetail[]> {
@@ -1061,11 +1544,25 @@ export async function listBookBindTypes(): Promise<GeneralDetail[]> {
   );
 }
 
+export async function listPeriodicalTypes(): Promise<GeneralDetail[]> {
+  return domainListOrEmpty<GeneralDetail>(
+    ENTITIES.GENERAL_DETAIL.name,
+    `GeneralMaster.generalMasterCode==${GM_CODES.PERIODICAL_TYPE}.and.isActive==true`,
+  );
+}
+
+export async function listPeriodicalFrequencies(): Promise<GeneralDetail[]> {
+  return domainListOrEmpty<GeneralDetail>(
+    ENTITIES.GENERAL_DETAIL.name,
+    `GeneralMaster.generalMasterCode==${GM_CODES.PERIODICAL_FREQ}.and.isActive==true`,
+  );
+}
+
 export async function listLibraryAuthorsByLibrary(
   libraryId: number,
 ): Promise<LibraryAuthor[]> {
   if (!libraryId) return [];
-  return domainListRawQuery<LibraryAuthor>(
+  return domainListOrEmpty<LibraryAuthor>(
     ENTITIES.LIB_AUTHOR.name,
     `LibraryDetail.libraryId==${libraryId}.and.isActive==true`,
   );
@@ -1075,7 +1572,7 @@ export async function listLibraryPublishersByLibrary(
   libraryId: number,
 ): Promise<LibraryPublisher[]> {
   if (!libraryId) return [];
-  return domainListRawQuery<LibraryPublisher>(
+  return domainListOrEmpty<LibraryPublisher>(
     ENTITIES.LIB_PUBLISHER.name,
     `LibraryDetail.libraryId==${libraryId}.and.isActive==true`,
   );
@@ -1085,7 +1582,7 @@ export async function listLibraryRacksByLibrary(
   libraryId: number,
 ): Promise<LibraryRack[]> {
   if (!libraryId) return [];
-  return domainListRawQuery<LibraryRack>(
+  return domainListOrEmpty<LibraryRack>(
     ENTITIES.LIB_RACK.name,
     `LibraryDetail.libraryId==${libraryId}.and.isActive==true`,
   );
@@ -1099,7 +1596,7 @@ export async function listReturnBookConditions(): Promise<GeneralDetail[]> {
 }
 
 export async function listActiveLibraryDetails(): Promise<LibraryDetail[]> {
-  return domainListRawQuery<LibraryDetail>(
+  return domainListOrEmpty<LibraryDetail>(
     ENTITIES.LIBRARY_DETAIL.name,
     "isActive==true",
   );
@@ -1119,7 +1616,7 @@ export type UpdateLibraryBookPayload = {
   year?: number | string;
   edition?: string;
   vol?: string;
-  bindingTypeId?: number;
+  bindingTypeId?: number | string;
   subjectHeadings?: string;
   callNumber?: string;
   authorId?: unknown;
@@ -1228,10 +1725,25 @@ export async function listBookDetailsByBookId(
   }
 }
 
+/**
+ * Angular `getDetailsById(BookDetail, bookDetailsId, 'bookDetailsId')`
+ * → `domain/get/BookDetail?query=bookDetailsId=={id}`
+ */
 export async function getLibraryBookDetailById(
   bookDetailsId: number,
 ): Promise<LibraryRow | null> {
   if (!bookDetailsId) return null;
+  try {
+    const data = await domainGetRawQuery<AnyRow>(
+      ENTITIES.LIB_BOOK_DETAIL.name,
+      `bookDetailsId==${bookDetailsId}`,
+    );
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      return normalizeBookDetailRow(data);
+    }
+  } catch {
+    // fall through to legacy shapes
+  }
   try {
     const data = await fetchDetailsById<unknown>(
       LIBRARY_API.BOOK_DETAIL,
@@ -1290,21 +1802,42 @@ export async function getLibrarySettingValueByName(
   return "";
 }
 
+/** Angular add-books: `domain/get/LibrarySetting?query=settingName==….and.LibraryDetail.libraryId==….and.isActive==true` */
 export async function getLibraryBookSetting(
   settingName: string,
   libraryId: number,
 ): Promise<LibraryRow | null> {
   if (!settingName || !libraryId) return null;
-  const setting = await domainGetRawQuery<LibraryRow>(
-    ENTITIES.LIB_SETTING.name,
-    `settingName==${settingName}.and.LibraryDetail.libraryId==${libraryId}.and.isActive==true`,
-  );
-  return setting;
+  try {
+    return await domainGetRawQuery<LibraryRow>(
+      ENTITIES.LIB_SETTING.name,
+      `settingName==${settingName}.and.LibraryDetail.libraryId==${libraryId}.and.isActive==true`,
+    );
+  } catch (error) {
+    if (isNoRecordsError(error)) return null;
+    throw error;
+  }
+}
+
+/** Angular add-more-books: `domain/get/LibrarySetting?query=settingName==….and.isActive==true` */
+export async function getLibraryBookSettingByName(
+  settingName: string,
+): Promise<LibraryRow | null> {
+  if (!settingName) return null;
+  try {
+    return await domainGetRawQuery<LibraryRow>(
+      ENTITIES.LIB_SETTING.name,
+      `settingName==${settingName}.and.isActive==true`,
+    );
+  } catch (error) {
+    if (isNoRecordsError(error)) return null;
+    throw error;
+  }
 }
 
 /** Angular `addbook` — creates a title, copies, and purchase details together. */
 export async function createLibraryBook(
-  bookPayload: LibraryRow,
+  bookPayload: LibraryRow | Record<string, unknown>,
 ): Promise<void> {
   await postDetails(LIBRARY_API.ADD_BOOK, bookPayload);
 }

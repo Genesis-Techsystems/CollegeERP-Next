@@ -715,14 +715,22 @@ export const QK = {
     bookCategoriesByLibrary: (libraryId: number) =>
       ["Library", "bookCategoriesByLibrary", libraryId] as const,
     periodicals: () => ["Library", "periodicals"] as const,
+    periodicalDetails: (periodicalId: number) =>
+      ["Library", "periodicalDetails", periodicalId] as const,
+    periodicalById: (periodicalId: number) =>
+      ["Library", "periodical", periodicalId] as const,
     bookDueList: (page: number) => ["Library", "bookDueList", page] as const,
     reservedBooks: () => ["Library", "reservedBooks"] as const,
     booksSearch: (term: string) => ["Library", "booksSearch", term] as const,
     settings: () => ["Library", "settings"] as const,
     bookDetails: () => ["Library", "bookDetails"] as const,
     booksWithoutBarcode: () => ["Library", "booksWithoutBarcode"] as const,
-    fineCollection: (date: string, collegeId: number) =>
-      ["Library", "fineCollection", date, collegeId] as const,
+    fineCollection: (date: string, libraryId: number) =>
+      ["Library", "fineCollection", date, libraryId] as const,
+    collegesForFineCollection: () =>
+      ["Library", "collegesForFineCollection"] as const,
+    librariesByCollegeForFine: (collegeId: number) =>
+      ["Library", "librariesByCollegeForFine", collegeId] as const,
   },
 
   /** Hostel module */

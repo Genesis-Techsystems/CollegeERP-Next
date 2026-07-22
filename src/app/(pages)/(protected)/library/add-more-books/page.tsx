@@ -11,11 +11,12 @@ import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { utcMidnightIso } from "@/common/generic-functions";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   addMoreBooks,
   getLibraryBookById,
-  getLibraryBookSetting,
+  getLibraryBookSettingByName,
   listBookRegistrationTypes,
   listLibraryCurrencyTypes,
 } from "@/services";
@@ -61,7 +62,6 @@ export default function AddMoreBooksPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [bookTypeSettingId, setBookTypeSettingId] = useState<number>();
 
   const { data: book, isLoading: loadingBook } = useQuery({
     queryKey: ["Library", "book", bookId],
@@ -103,7 +103,6 @@ export default function AddMoreBooksPage() {
   });
 
   const bookregTypeId = watch("bookregTypeId");
-  const effectiveLibraryId = Number(book?.libraryId ?? libraryId ?? 0);
 
   useEffect(() => {
     register("bookregTypeId", {
@@ -113,21 +112,25 @@ export default function AddMoreBooksPage() {
   }, [register]);
 
   useEffect(() => {
-    if (!bookregTypeId || !effectiveLibraryId) return;
+    if (!bookregTypeId) {
+      setValue("valueLstAccNo", "");
+      return;
+    }
     const picked = regTypes.find(
       (r) => String(r.generalDetailId) === bookregTypeId,
     );
     const code = picked?.generalDetailCode;
     if (!code) return;
-    void getLibraryBookSetting(String(code), effectiveLibraryId).then(
-      (setting) => {
+    // Angular add-more: getDetailsByTwoId(LibrarySetting, settingName, isActive)
+    void getLibraryBookSettingByName(String(code))
+      .then((setting) => {
         setValue("valueLstAccNo", String(setting?.value ?? ""));
-        setBookTypeSettingId(
-          Number(setting?.libSettingCatdetId ?? 0) || undefined,
-        );
-      },
-    );
-  }, [bookregTypeId, effectiveLibraryId, regTypes, setValue]);
+      })
+      .catch((error) => {
+        setValue("valueLstAccNo", "");
+        toastError(error, "Could not load accession setting");
+      });
+  }, [bookregTypeId, regTypes, setValue]);
 
   const displayTitle = String(
     book?.title ?? book?.bookTitle ?? bookTitle ?? "—",
@@ -154,12 +157,25 @@ export default function AddMoreBooksPage() {
     }
     setSubmitting(true);
     try {
+      // Angular pushes bookDetailsForm.value and keeps bookregTypeId as
+      // generalDetailId (does not overwrite with libSettingCatdetId).
+      // valueLstAccNo is disabled in Angular so it is omitted from form.value.
+      const dateOfPurchase = values.dateOfPurchase
+        ? utcMidnightIso(values.dateOfPurchase)
+        : "";
       const bookDetail = {
-        ...values,
-        bookregTypeId: bookTypeSettingId,
         noofcopies: values.noofcopies ? Number(values.noofcopies) : undefined,
+        bookregTypeId: values.bookregTypeId
+          ? Number(values.bookregTypeId)
+          : undefined,
         bookAmount: values.bookAmount ? Number(values.bookAmount) : undefined,
+        currencyId: values.currencyId ? Number(values.currencyId) : undefined,
+        amount: values.amount ? Number(values.amount) : undefined,
+        purchaseSource: values.purchaseSource,
+        purchaseReceiptNo: values.purchaseReceiptNo,
+        dateOfPurchase,
         bookTitle: book.title ?? book.bookTitle,
+        bookVol: book.vol,
         libraryId:
           book.libraryId ?? (libraryId ? Number(libraryId) : undefined),
         isActive: true,
@@ -170,7 +186,7 @@ export default function AddMoreBooksPage() {
         amount: values.amount ? Number(values.amount) : undefined,
         bookAmount: values.bookAmount ? Number(values.bookAmount) : undefined,
         currencyId: values.currencyId ? Number(values.currencyId) : undefined,
-        dateOfPurchase: values.dateOfPurchase,
+        dateOfPurchase,
         isActive: true,
         noOfBooks: values.noofcopies ? Number(values.noofcopies) : undefined,
         purchaseReceiptNo: values.purchaseReceiptNo,

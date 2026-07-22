@@ -601,7 +601,7 @@ export function CollegeStudentBulkUploadPage() {
         onClose={() => setVerifyProblems(null)}
         title="Verify Student Upload"
         submitLabel="Close"
-        cancelLabel="Close"
+        showCancelButton={false}
         onSubmit={(e) => {
           e.preventDefault();
           setVerifyProblems(null);
