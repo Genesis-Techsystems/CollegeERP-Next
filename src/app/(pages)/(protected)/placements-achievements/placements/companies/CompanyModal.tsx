@@ -1,178 +1,293 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { createCompany, updateCompany } from '@/services/placements'
-import type { Company } from '@/types/placements'
+/**
+ * Angular parity: company-modal
+ * Required: companyname, location, website, lastParticipatedDate, phoneNumber (pattern [6-9][0-9]{9})
+ * Optional: linkedin, companydescription, primaryContactDetails
+ * Active + conditional reason
+ */
 
-const schema = z.object({
-  companyname: z.string().min(1, 'Company name is required'),
-  location: z.string().min(1, 'Location is required'),
-  website: z.string().min(1, 'Website is required'),
-  linkedin: z.string().optional(),
-  companydescription: z.string().optional(),
-  lastParticipatedDate: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  primaryContactDetails: z.string().optional(),
-  isActive: z.boolean(),
-  reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+import { useEffect } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { ActiveStatusField } from "@/common/components/forms";
+import { FormModal } from "@/common/components/feedback";
+import { DatePicker } from "@/common/components/date-picker";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { createCompany, updateCompany } from "@/services";
+import type { Company } from "@/types/placements";
+import { toastError, toastSuccess } from "@/lib/toast";
 
-function getDefaults(edit?: Company | null): FormValues {
-  return {
-    companyname: edit?.companyname ?? '',
-    location: edit?.location ?? '',
-    website: edit?.website ?? '',
-    linkedin: edit?.linkedin ?? '',
-    companydescription: edit?.companydescription ?? '',
-    lastParticipatedDate: edit?.lastParticipatedDate ?? '',
-    phoneNumber: edit?.phoneNumber ?? '',
-    primaryContactDetails: edit?.primaryContactDetails ?? '',
-    isActive: edit?.isActive ?? true,
-    reason: edit?.reason ?? 'active',
-  }
+/** Angular CONSTANTS.patterns.phNo */
+const PHONE_PATTERN = /^[6-9][0-9]{9}$/;
+
+const schema = z
+  .object({
+    companyname: z.string().min(1, "Company name is required"),
+    location: z.string().min(1, "Location is required"),
+    website: z.string().min(1, "Website is required"),
+    linkedin: z.string().optional(),
+    companydescription: z.string().optional(),
+    lastParticipatedDate: z.date({
+      message: "Last participated date is required",
+    }),
+    phoneNumber: z
+      .string()
+      .min(1, "Phone number is required")
+      .regex(PHONE_PATTERN, "Enter 10 digit number"),
+    primaryContactDetails: z.string().optional(),
+    isActive: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.isActive && !String(values.reason ?? "").trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reason is required when inactive",
+        path: ["reason"],
+      });
+    }
+  });
+
+type FormValues = z.infer<typeof schema>;
+
+function parseDate(value: string | null | undefined): Date {
+  if (!value) return new Date();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  editData: Company | null
-  onSaved: () => void
+export interface CompanyModalProps {
+  open: boolean;
+  onClose: () => void;
+  editData: Company | null;
+  onSaved: () => void;
 }
 
-export default function CompanyModal({ open, onClose, editData, onSaved }: Props) {
-  const [submitError, setSubmitError] = useState<string | null>(null)
+export function CompanyModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Readonly<CompanyModalProps>) {
+  const isEditing = editData != null;
 
   const {
     register,
     handleSubmit,
-    control,
-    watch,
     reset,
+    watch,
+    setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: getDefaults(),
-  })
+    resolver: zodResolver(schema) as Resolver<FormValues>,
+    defaultValues: {
+      companyname: "",
+      location: "",
+      website: "",
+      linkedin: "",
+      companydescription: "",
+      lastParticipatedDate: new Date(),
+      phoneNumber: "",
+      primaryContactDetails: "",
+      isActive: true,
+      reason: "active",
+    },
+  });
 
   useEffect(() => {
-    reset(getDefaults(editData))
-    setSubmitError(null)
-  }, [open, editData, reset])
+    if (!open) return;
+    // Angular: defaults isActive=true, reason='active', lastParticipatedDate=moment()
+    reset(
+      editData
+        ? {
+            companyname: editData.companyname ?? "",
+            location: editData.location ?? "",
+            website: editData.website ?? "",
+            linkedin: editData.linkedin ?? "",
+            companydescription: editData.companydescription ?? "",
+            lastParticipatedDate: parseDate(editData.lastParticipatedDate),
+            phoneNumber: String(editData.phoneNumber ?? ""),
+            primaryContactDetails: editData.primaryContactDetails ?? "",
+            isActive: editData.isActive ?? true,
+            reason: editData.reason ?? "active",
+          }
+        : {
+            companyname: "",
+            location: "",
+            website: "",
+            linkedin: "",
+            companydescription: "",
+            lastParticipatedDate: new Date(),
+            phoneNumber: "",
+            primaryContactDetails: "",
+            isActive: true,
+            reason: "active",
+          },
+    );
+  }, [open, editData, reset]);
 
-  const isActive = watch('isActive')
+  const isActive = watch("isActive");
 
   async function onSubmit(values: FormValues) {
-    setSubmitError(null)
+    const payload: Partial<Company> = {
+      companyname: values.companyname.trim(),
+      location: values.location.trim(),
+      website: values.website.trim(),
+      linkedin: values.linkedin?.trim() || undefined,
+      companydescription: values.companydescription?.trim() || undefined,
+      // Angular momentWithDateFormatYMD
+      lastParticipatedDate: format(values.lastParticipatedDate, "yyyy-MM-dd"),
+      phoneNumber: values.phoneNumber.trim(),
+      primaryContactDetails: values.primaryContactDetails?.trim() || undefined,
+      isActive: values.isActive,
+      reason: values.isActive ? "active" : values.reason?.trim() || "inactive",
+    };
+
+    // Angular edit: preserve createdDt on update payload
+    if (isEditing && editData?.createdDt) {
+      payload.createdDt = editData.createdDt;
+    }
+
     try {
-      const payload: Partial<Company> = {
-        companyname: values.companyname,
-        location: values.location,
-        website: values.website,
-        linkedin: values.linkedin || undefined,
-        companydescription: values.companydescription || undefined,
-        lastParticipatedDate: values.lastParticipatedDate || undefined,
-        phoneNumber: values.phoneNumber || undefined,
-        primaryContactDetails: values.primaryContactDetails || undefined,
-        isActive: values.isActive,
-        reason: values.isActive ? 'active' : (values.reason || 'inactive'),
-      }
-      if (editData) {
-        await updateCompany(editData.companyId, payload)
+      if (isEditing && editData?.companyId) {
+        await updateCompany(editData.companyId, {
+          ...payload,
+          companyId: editData.companyId,
+        });
+        toastSuccess("Company updated successfully");
       } else {
-        await createCompany(payload)
+        await createCompany(payload);
+        toastSuccess("Company created successfully");
       }
-      onSaved()
-      onClose()
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save.')
+      onSaved();
+      onClose();
+    } catch (err) {
+      toastError(err, `Failed to ${isEditing ? "update" : "create"} company`);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Company' : 'Add Company'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5 col-span-2">
-              <Label className="text-xs">Company Name *</Label>
-              <Input className="h-8 text-xs" {...register('companyname')} />
-              {errors.companyname && <p className="text-xs text-red-500">{errors.companyname.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Location *</Label>
-              <Input className="h-8 text-xs" {...register('location')} />
-              {errors.location && <p className="text-xs text-red-500">{errors.location.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Website *</Label>
-              <Input className="h-8 text-xs" {...register('website')} />
-              {errors.website && <p className="text-xs text-red-500">{errors.website.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">LinkedIn</Label>
-              <Input className="h-8 text-xs" {...register('linkedin')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Phone Number</Label>
-              <Input className="h-8 text-xs" {...register('phoneNumber')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Last Participated Date</Label>
-              <Input className="h-8 text-xs" type="date" {...register('lastParticipatedDate')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Primary Contact Details</Label>
-              <Input className="h-8 text-xs" {...register('primaryContactDetails')} />
-            </div>
-            <div className="space-y-0.5 col-span-2">
-              <Label className="text-xs">Description</Label>
-              <Textarea className="text-xs min-h-[56px]" {...register('companydescription')} />
-            </div>
-            <div className="col-span-2">
-              <Controller
-                name="isActive"
-                control={control}
-                render={({ field }) => (
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="coIsActive" checked={field.value} onCheckedChange={field.onChange} />
-                    <label htmlFor="coIsActive" className="text-xs">Active</label>
-                  </div>
-                )}
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={isEditing ? "Edit Company" : "Add Company"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }}
+      isSubmitting={isSubmitting}
+      submitLabel="Save"
+      cancelLabel="Close"
+      size="lg"
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="companyname">Company Name *</Label>
+          <Input id="companyname" {...register("companyname")} />
+          {errors.companyname ? (
+            <p className="text-xs text-destructive">
+              {errors.companyname.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="location">Location *</Label>
+          <Input id="location" {...register("location")} />
+          {errors.location ? (
+            <p className="text-xs text-destructive">
+              {errors.location.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="website">Website *</Label>
+          <Input id="website" {...register("website")} />
+          {errors.website ? (
+            <p className="text-xs text-destructive">{errors.website.message}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="linkedin">Linkedin</Label>
+          <Input id="linkedin" {...register("linkedin")} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="phoneNumber">Phone Number *</Label>
+          <Input
+            id="phoneNumber"
+            type="tel"
+            maxLength={10}
+            inputMode="numeric"
+            {...register("phoneNumber")}
+          />
+          {errors.phoneNumber ? (
+            <p className="text-xs text-destructive">
+              {errors.phoneNumber.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="companydescription">Company Description</Label>
+          <Textarea
+            id="companydescription"
+            rows={3}
+            {...register("companydescription")}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Controller
+            name="lastParticipatedDate"
+            control={control}
+            render={({ field }) => (
+              <DatePicker
+                label="Last Participated Date *"
+                value={field.value ?? null}
+                onChange={(d) => field.onChange(d ?? new Date())}
+                displayFormat="dd/MM/yyyy"
+                clearable={false}
+                error={errors.lastParticipatedDate?.message}
               />
-            </div>
-            {!isActive && (
-              <div className="space-y-0.5 col-span-2">
-                <Label className="text-xs">Reason</Label>
-                <Input className="h-8 text-xs" {...register('reason')} />
-              </div>
             )}
-          </div>
-          {submitError && <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+          />
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="primaryContactDetails">Primary Contact Details</Label>
+          <Textarea
+            id="primaryContactDetails"
+            rows={3}
+            {...register("primaryContactDetails")}
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={(v) => field.onChange(v === true)}
+                onReasonChange={(v) => setValue("reason", v)}
+                reasonError={errors.reason?.message}
+                reasonRequired={!isActive}
+              />
+            )}
+          />
+        </div>
+      </div>
+    </FormModal>
+  );
 }

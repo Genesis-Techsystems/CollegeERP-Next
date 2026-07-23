@@ -1,243 +1,430 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
+/**
+ * Angular parity: placement-modal
+ * Required: campusId, plaecmentTitle, placementCatId
+ * Submit adds organizationId from selected campus; dates as YYYY-MM-DD;
+ * edit includes createdDt; start>end resets end date (calDays).
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { FormModal } from "@/common/components/feedback";
+import { ActiveStatusField } from "@/common/components/forms";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select } from "@/common/components/select";
+import type { SelectOption } from "@/common/components/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { GM_CODES } from "@/config/constants/ui";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { listGeneralDetailsByCode } from '@/services'
-import { createPlacement, updatePlacement } from '@/services/placements'
-import type { Placement } from '@/types/placements'
+  createPlacement,
+  listActiveCampuses,
+  listGeneralDetailsByCode,
+  updatePlacement,
+} from "@/services";
+import type { Campus } from "@/types/campus";
+import type { Placement } from "@/types/placements";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, unknown>;
 
-const schema = z.object({
-  plaecmentTitle: z.string().min(1, 'Placement title is required'),
-  placementCatId: z.string().min(1, 'Status is required'),
-  description: z.string().optional(),
-  placementStartDate: z.string().optional(),
-  placementEndDate: z.string().optional(),
-  contactPerson: z.string().optional(),
-  contactDetails: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  isOffcampus: z.boolean(),
-  offcampusLocation: z.string().optional(),
-  placementStatusComments: z.string().optional(),
-  isActive: z.boolean(),
-  reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+const schema = z
+  .object({
+    campusId: z.string().min(1, "Campus is required"),
+    plaecmentTitle: z.string().min(1, "Placement title is required"),
+    placementCatId: z.string().min(1, "Placement status is required"),
+    description: z.string().optional(),
+    placementStartDate: z.date({ message: "Start date is required" }),
+    placementEndDate: z.date({ message: "End date is required" }),
+    contactPerson: z.string().optional(),
+    contactDetails: z.string().optional(),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    isOffcampus: z.boolean(),
+    offcampusLocation: z.string().optional(),
+    placementStatusComments: z.string().optional(),
+    isActive: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.isActive && !String(values.reason ?? "").trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reason is required when inactive",
+        path: ["reason"],
+      });
+    }
+  });
+
+type FormValues = z.infer<typeof schema>;
+
+function parseDate(value: string | null | undefined): Date {
+  if (!value) return new Date();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+/** Angular `momentWithDateFormatYMD` → YYYY-MM-DD. */
+function toYmd(date: Date | null | undefined): string | null {
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return format(date, "yyyy-MM-dd");
+}
+
+function emptyToNull(value: string | null | undefined): string | null {
+  const raw = String(value ?? "").trim();
+  return raw === "" ? null : raw;
+}
 
 function getDefaults(edit?: Placement | null): FormValues {
   return {
-    plaecmentTitle: edit?.plaecmentTitle ?? '',
-    placementCatId: String(edit?.placementCatId ?? ''),
-    description: edit?.description ?? '',
-    placementStartDate: edit?.placementStartDate ?? '',
-    placementEndDate: edit?.placementEndDate ?? '',
-    contactPerson: edit?.contactPerson ?? '',
-    contactDetails: edit?.contactDetails ?? '',
-    address: edit?.address ?? '',
-    city: edit?.city ?? '',
+    campusId: edit?.campusId != null ? String(edit.campusId) : "",
+    plaecmentTitle: edit?.plaecmentTitle ?? "",
+    placementCatId:
+      edit?.placementCatId != null ? String(edit.placementCatId) : "",
+    description: edit?.description ?? "",
+    placementStartDate: parseDate(edit?.placementStartDate),
+    placementEndDate: parseDate(edit?.placementEndDate),
+    contactPerson: edit?.contactPerson ?? "",
+    contactDetails: edit?.contactDetails ?? "",
+    address: edit?.address ?? "",
+    city: edit?.city ?? "",
     isOffcampus: edit?.isOffcampus ?? false,
-    offcampusLocation: edit?.offcampusLocation ?? '',
-    placementStatusComments: edit?.placementStatusComments ?? '',
+    offcampusLocation: edit?.offcampusLocation ?? "",
+    placementStatusComments: edit?.placementStatusComments ?? "",
     isActive: edit?.isActive ?? true,
-    reason: edit?.reason ?? 'active',
-  }
+    reason: edit?.reason ?? "active",
+  };
 }
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  editData: Placement | null
-  onSaved: () => void
+export interface PlacementModalProps {
+  open: boolean;
+  onClose: () => void;
+  editData: Placement | null;
+  onSaved: () => void;
 }
 
-export default function PlacementModal({ open, onClose, editData, onSaved }: Props) {
-  const [statusList, setStatusList] = useState<AnyRow[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
+export function PlacementModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Readonly<PlacementModalProps>) {
+  const isEditing = editData != null;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [dateInfo, setDateInfo] = useState<string | null>(null);
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [statusList, setStatusList] = useState<AnyRow[]>([]);
 
   const {
     register,
     handleSubmit,
     control,
     watch,
+    setValue,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
-  })
+  });
+
+  const isOffcampus = watch("isOffcampus");
+  const isActive = watch("isActive");
+  const startDate = watch("placementStartDate");
+  const endDate = watch("placementEndDate");
 
   useEffect(() => {
-    if (!open) return
-    listGeneralDetailsByCode('PLCMNTSTS').then(setStatusList).catch(console.error)
-  }, [open])
+    if (!open) return;
+    reset(getDefaults(editData));
+    setSubmitError(null);
+    setDateInfo(null);
 
+    void listActiveCampuses().then(setCampuses).catch(console.error);
+    void listGeneralDetailsByCode(GM_CODES.PLACEMENT_STATUS)
+      .then(setStatusList)
+      .catch(console.error);
+  }, [open, editData, reset]);
+
+  // Angular calDays: start > end → info + set end = start
   useEffect(() => {
-    reset(getDefaults(editData))
-    setSubmitError(null)
-  }, [open, editData, reset])
+    if (!open || !startDate || !endDate) return;
+    if (startDate.getTime() > endDate.getTime()) {
+      setDateInfo("From date should be less then To date.");
+      setValue("placementEndDate", startDate);
+    } else {
+      setDateInfo(null);
+    }
+  }, [open, startDate, endDate, setValue]);
 
-  const isOffcampus = watch('isOffcampus')
-  const isActive = watch('isActive')
+  const campusOptions = useMemo<SelectOption[]>(
+    () =>
+      campuses.map((c) => ({
+        value: String(c.campusId),
+        label: `${c.campusName} - ${c.orgCode}`,
+      })),
+    [campuses],
+  );
+
+  const statusOptions = useMemo<SelectOption[]>(
+    () =>
+      statusList.map((s) => ({
+        value: String(s.generalDetailId ?? s.gd_id ?? ""),
+        label: String(s.generalDetailDisplayName ?? s.gd_name ?? "Status"),
+      })),
+    [statusList],
+  );
 
   async function onSubmit(values: FormValues) {
-    setSubmitError(null)
+    setSubmitError(null);
+
+    const campus = campuses.find((c) => c.campusId === Number(values.campusId));
+    if (!campus) {
+      setSubmitError("Selected campus is invalid.");
+      return;
+    }
+
+    // Angular submit: form value + organizationId + YMD dates (+ createdDt on edit)
+    const payload: Record<string, unknown> = {
+      campusId: Number(values.campusId),
+      organizationId: campus.organizationId,
+      plaecmentTitle: values.plaecmentTitle.trim(),
+      placementCatId: Number(values.placementCatId),
+      description: emptyToNull(values.description),
+      placementStartDate: toYmd(values.placementStartDate),
+      placementEndDate: toYmd(values.placementEndDate),
+      contactPerson: emptyToNull(values.contactPerson),
+      contactDetails: emptyToNull(values.contactDetails),
+      address: emptyToNull(values.address),
+      city: emptyToNull(values.city),
+      isOffcampus: values.isOffcampus,
+      offcampusLocation: values.isOffcampus
+        ? emptyToNull(values.offcampusLocation)
+        : null,
+      placementStatusComments: emptyToNull(values.placementStatusComments),
+      isActive: values.isActive,
+      reason: values.isActive
+        ? "active"
+        : (emptyToNull(values.reason) ?? "inactive"),
+    };
+
     try {
-      const payload: Partial<Placement> = {
-        plaecmentTitle: values.plaecmentTitle,
-        placementCatId: Number(values.placementCatId),
-        description: values.description || undefined,
-        placementStartDate: values.placementStartDate || undefined,
-        placementEndDate: values.placementEndDate || undefined,
-        contactPerson: values.contactPerson || undefined,
-        contactDetails: values.contactDetails || undefined,
-        address: values.address || undefined,
-        city: values.city || undefined,
-        isOffcampus: values.isOffcampus,
-        offcampusLocation: values.isOffcampus ? values.offcampusLocation || undefined : undefined,
-        placementStatusComments: values.placementStatusComments || undefined,
-        isActive: values.isActive,
-        reason: values.isActive ? 'active' : (values.reason || 'inactive'),
-      }
-      if (editData) {
-        await updatePlacement(editData.placementId, payload)
+      if (isEditing && editData?.placementId) {
+        payload.placementId = editData.placementId;
+        payload.createdDt = editData.createdDt ?? null;
+        await updatePlacement(
+          editData.placementId,
+          payload as Partial<Placement>,
+        );
+        toastSuccess("Placement updated successfully");
       } else {
-        await createPlacement(payload)
+        await createPlacement(payload as Partial<Placement>);
+        toastSuccess("Placement created successfully");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save.')
+      const message =
+        e instanceof Error
+          ? e.message
+          : "Unable to process your request at this time, please try again!";
+      setSubmitError(message);
+      toastError(e, "Failed to save placement");
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Placement' : 'Add Placement'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1 max-h-[75vh] overflow-y-auto pr-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5 col-span-2">
-              <Label className="text-xs">Placement Title *</Label>
-              <Input className="h-8 text-xs" {...register('plaecmentTitle')} />
-              {errors.plaecmentTitle && <p className="text-xs text-red-500">{errors.plaecmentTitle.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Status *</Label>
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={isEditing ? "Edit Placement" : "Add Placement"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }}
+      isSubmitting={isSubmitting}
+      submitLabel="Save"
+      cancelLabel="Close"
+      size="xl"
+    >
+      <div className="space-y-4">
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold">Campus Details</h4>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="sm:col-span-2">
               <Controller
-                name="placementCatId"
+                name="campusId"
                 control={control}
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select status" /></SelectTrigger>
-                    <SelectContent>
-                      {statusList.map((s) => (
-                        <SelectItem key={s.generalDetailId ?? s.gd_id} value={String(s.generalDetailId ?? s.gd_id)}>
-                          {s.generalDetailDisplayName ?? s.gd_name ?? 'Status'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Select
+                    label="Campus"
+                    required
+                    value={field.value || null}
+                    onChange={(v) => field.onChange(v ?? "")}
+                    options={campusOptions}
+                    placeholder="Campus"
+                    error={errors.campusId?.message}
+                  />
                 )}
               />
-              {errors.placementCatId && <p className="text-xs text-red-500">{errors.placementCatId.message}</p>}
             </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Contact Person</Label>
-              <Input className="h-8 text-xs" {...register('contactPerson')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Start Date</Label>
-              <Input className="h-8 text-xs" type="date" {...register('placementStartDate')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">End Date</Label>
-              <Input className="h-8 text-xs" type="date" {...register('placementEndDate')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Address</Label>
-              <Input className="h-8 text-xs" {...register('address')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">City</Label>
-              <Input className="h-8 text-xs" {...register('city')} />
-            </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Contact Details</Label>
-              <Input className="h-8 text-xs" {...register('contactDetails')} />
-            </div>
-            <div className="space-y-0.5 col-span-2">
-              <Label className="text-xs">Description</Label>
-              <Textarea className="text-xs min-h-[56px]" {...register('description')} />
-            </div>
-            <div className="space-y-0.5 col-span-2">
-              <Label className="text-xs">Status Comments</Label>
-              <Input className="h-8 text-xs" {...register('placementStatusComments')} />
-            </div>
-            <div>
+            <div className="flex items-end pb-1">
               <Controller
                 name="isOffcampus"
                 control={control}
                 render={({ field }) => (
                   <div className="flex items-center gap-2">
-                    <Checkbox id="plIsOffcampus" checked={field.value} onCheckedChange={field.onChange} />
-                    <label htmlFor="plIsOffcampus" className="text-xs">Off Campus</label>
+                    <Checkbox
+                      id="isOffcampus"
+                      checked={field.value}
+                      onCheckedChange={(v) => field.onChange(v === true)}
+                    />
+                    <label htmlFor="isOffcampus" className="text-sm">
+                      Off Campus
+                    </label>
                   </div>
                 )}
               />
             </div>
-            {isOffcampus && (
-              <div className="space-y-0.5">
-                <Label className="text-xs">Off Campus Location</Label>
-                <Input className="h-8 text-xs" {...register('offcampusLocation')} />
+            {isOffcampus ? (
+              <div className="space-y-1.5 sm:col-span-3">
+                <Label htmlFor="offcampusLocation">Location</Label>
+                <Textarea
+                  id="offcampusLocation"
+                  rows={2}
+                  {...register("offcampusLocation")}
+                />
               </div>
-            )}
-            <div className="col-span-2">
+            ) : null}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold">Placement Details</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="plaecmentTitle">Placement Title *</Label>
+              <Input id="plaecmentTitle" {...register("plaecmentTitle")} />
+              {errors.plaecmentTitle ? (
+                <p className="text-xs text-destructive">
+                  {errors.plaecmentTitle.message}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                rows={2}
+                {...register("description")}
+              />
+            </div>
+            <Controller
+              name="placementStartDate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="Start Date"
+                  value={field.value ?? null}
+                  onChange={(d) => field.onChange(d ?? new Date())}
+                  displayFormat="dd/MM/yyyy"
+                  clearable={false}
+                  error={errors.placementStartDate?.message}
+                />
+              )}
+            />
+            <Controller
+              name="placementEndDate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="End Date"
+                  value={field.value ?? null}
+                  onChange={(d) => field.onChange(d ?? new Date())}
+                  displayFormat="dd/MM/yyyy"
+                  minDate={startDate}
+                  clearable={false}
+                  error={errors.placementEndDate?.message}
+                />
+              )}
+            />
+            {dateInfo ? (
+              <p className="text-xs text-amber-700 sm:col-span-2">{dateInfo}</p>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold">Contact Details</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="contactPerson">Contact Person</Label>
+              <Input id="contactPerson" {...register("contactPerson")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contactDetails">Contact Details</Label>
+              <Input id="contactDetails" {...register("contactDetails")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="address">Address</Label>
+              <Input id="address" {...register("address")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="city">City</Label>
+              <Input id="city" {...register("city")} />
+            </div>
+            <Controller
+              name="placementCatId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Placement Status"
+                  required
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? "")}
+                  options={statusOptions}
+                  placeholder="Placement Status"
+                  error={errors.placementCatId?.message}
+                />
+              )}
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="placementStatusComments">Status Comments</Label>
+              <Input
+                id="placementStatusComments"
+                {...register("placementStatusComments")}
+              />
+            </div>
+            <div className="sm:col-span-2">
               <Controller
                 name="isActive"
                 control={control}
                 render={({ field }) => (
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="plIsActive" checked={field.value} onCheckedChange={field.onChange} />
-                    <label htmlFor="plIsActive" className="text-xs">Active</label>
-                  </div>
+                  <ActiveStatusField
+                    isActive={field.value}
+                    reason={watch("reason") ?? ""}
+                    onActiveChange={(v) => field.onChange(v === true)}
+                    onReasonChange={(v) => setValue("reason", v)}
+                    reasonError={errors.reason?.message}
+                    reasonRequired={!isActive}
+                  />
                 )}
               />
             </div>
-            {!isActive && (
-              <div className="space-y-0.5 col-span-2">
-                <Label className="text-xs">Reason</Label>
-                <Input className="h-8 text-xs" {...register('reason')} />
-              </div>
-            )}
           </div>
-          {submitError && <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+        </section>
+      </div>
+
+      {submitError ? (
+        <p className="mt-2 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+          {submitError}
+        </p>
+      ) : null}
+    </FormModal>
+  );
 }

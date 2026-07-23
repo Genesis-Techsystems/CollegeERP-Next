@@ -201,6 +201,25 @@ function accountsFeesPaymentBreadcrumb(
 }
 
 /**
+ * Assign Regulation to Students lives under Academics in the sidebar (not under a
+ * Subject Mapping parent). URL still contains `/subject-mapping/` — omit that
+ * middle crumb: Home → Academics → Assign Regulation To Students.
+ */
+function assignRegulationToStudentsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/\/academics\/subject-mapping\/assign-regulation-to-students$/i.test(path)
+  ) {
+    return items;
+  }
+
+  return items.filter((item) => !/subject\s*mapping/i.test(item.label));
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -272,6 +291,7 @@ export function useBreadcrumb(
   items = examReportsModuleBreadcrumb(pathname, items);
   items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
+  items = assignRegulationToStudentsBreadcrumb(pathname, items);
 
   if (lastSegmentLabel && items.length > 0) {
     const last = items[items.length - 1];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Settings } from "lucide-react";
 import { EmptyState } from "@/common/components/feedback";
 import { Table, type TableColumn } from "@/common/components/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +10,11 @@ import {
   pickProfileCell,
   type StudentProfileTab,
 } from "@/services";
-import { loadAngularStudentTimetable } from "@/services/student-timetable";
+import {
+  loadAngularStudentTimetable,
+  type AngularStudentTimetable,
+} from "@/services/student-timetable";
+import { TimetableWeeklyGrid } from "../../time-table-management/_components/TimetableWeeklyGrid";
 import { BacklogsTab } from "./BacklogsTab";
 import { BooksTab } from "./BooksTab";
 import { CounselorMeetingsTab } from "./CounselorMeetingsTab";
@@ -172,47 +177,28 @@ function PersonalTab({ student }: { student: AnyRow }) {
 
 function TimetableTab({ student }: { student: AnyRow }) {
   const [loading, setLoading] = useState(true);
-  const [title, setTitle] = useState("");
-  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [timetable, setTimetable] = useState<AngularStudentTimetable | null>(
+    null,
+  );
+  const [fallbackRows, setFallbackRows] = useState<AnyRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       setLoading(true);
+      setTimetable(null);
+      setFallbackRows([]);
       try {
         const angular = await loadAngularStudentTimetable(student).catch(
           () => null,
         );
         if (cancelled) return;
         if (angular?.weekdays?.length) {
-          setTitle(
-            angular.dateRangeLabel
-              ? `Timetable (${angular.dateRangeLabel})`
-              : "Timetable",
-          );
-          const flat: AnyRow[] = [];
-          for (const day of angular.weekdays) {
-            for (const timing of day.timings) {
-              const batch = timing.subBatches?.[0];
-              flat.push({
-                day: day.weekdayName ?? timing.weekdayName,
-                time: `${timing.startTime ?? ""} – ${timing.endTime ?? ""}`,
-                subject:
-                  batch?.shortName ??
-                  batch?.subjectCode ??
-                  timing.classTimingName ??
-                  (timing.isBreak ? "Break" : "—"),
-                staff: batch?.staffName ?? "—",
-                room: batch?.roomName ?? "—",
-              });
-            }
-          }
-          setRows(flat);
+          setTimetable(angular);
           return;
         }
         const fallback = await loadStudentProfileTabData("timetable", student);
-        setRows(fallback);
-        setTitle("Timetable");
+        if (!cancelled) setFallbackRows(fallback);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -222,32 +208,50 @@ function TimetableTab({ student }: { student: AnyRow }) {
     };
   }, [student]);
 
+  if (loading) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+    );
+  }
+
+  if (timetable?.weekdays?.length) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Settings className="h-4 w-4 text-muted-foreground" aria-hidden />
+          <span>
+            Timetable
+            {timetable.dateRangeLabel ? ` - (${timetable.dateRangeLabel})` : ""}
+          </span>
+        </div>
+        <div className="overflow-hidden rounded-md border border-border bg-white p-2 shadow-sm">
+          <TimetableWeeklyGrid timetable={timetable} variant="screen" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-3">
-      {title ? (
-        <p className="text-sm font-medium text-primary">{title}</p>
-      ) : null}
-      <TabPanel
-        loading={loading}
-        rows={rows}
-        columns={columnsFromRows(rows, [
-          { id: "day", label: "Day", keys: ["day", "weekDay", "weekdayName"] },
-          { id: "time", label: "Time", keys: ["time", "startTime", "timing"] },
-          {
-            id: "subject",
-            label: "Subject",
-            keys: ["subject", "subjectCode", "subjectName"],
-          },
-          {
-            id: "staff",
-            label: "Staff",
-            keys: ["staff", "staffName", "employeeName"],
-          },
-          { id: "room", label: "Room", keys: ["room", "roomName"] },
-        ])}
-        emptyText="No timetable found."
-      />
-    </div>
+    <TabPanel
+      loading={false}
+      rows={fallbackRows}
+      columns={columnsFromRows(fallbackRows, [
+        { id: "day", label: "Day", keys: ["day", "weekDay", "weekdayName"] },
+        { id: "time", label: "Time", keys: ["time", "startTime", "timing"] },
+        {
+          id: "subject",
+          label: "Subject",
+          keys: ["subject", "subjectCode", "subjectName"],
+        },
+        {
+          id: "staff",
+          label: "Staff",
+          keys: ["staff", "staffName", "employeeName"],
+        },
+        { id: "room", label: "Room", keys: ["room", "roomName"] },
+      ])}
+      emptyText="No timetable found."
+    />
   );
 }
 
