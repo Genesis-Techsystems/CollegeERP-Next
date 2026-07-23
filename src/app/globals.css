@@ -450,23 +450,23 @@
 }
 
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
-:has([role="combobox"]),
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has([role="combobox"]),
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
-:has(button[data-slot="popover-trigger"]) {
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has(button[data-slot="popover-trigger"]) {
   /* Keep shell; just hide the body. */
 }
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
   :has([role="combobox"])
   > :not(:first-child),
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
   :has(button[data-slot="popover-trigger"])
   > :not(:first-child) {
   display: none !important;
@@ -589,8 +589,17 @@
 }
 
 /* Legacy filter labels — uppercase style */
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
   display: block;
   font-size: 10px !important;
   font-weight: 600 !important;
@@ -600,10 +609,28 @@
   margin-bottom: 0.375rem;
 }
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="combobox"],
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) button[data-slot="popover-trigger"],
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="combobox"],
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) button[data-slot="popover-trigger"] {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  [role="combobox"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  button[data-slot="popover-trigger"],
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  [role="combobox"],
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  button[data-slot="popover-trigger"] {
   min-height: 2.25rem;
   border-radius: 0.5rem;
   border-color: #e5e7eb;
@@ -617,7 +644,7 @@
   --ag-header-height: 42px;
   --ag-row-height: 40px;
   --ag-cell-horizontal-padding: 14px;
-  --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
+  --ag-font-family: var(--font-body), "Manrope", system-ui, sans-serif;
   --ag-background-color: hsl(var(--card));
   --ag-header-background-color: hsl(var(--primary) / 0.06);
   --ag-border-color: hsl(var(--border));
@@ -1466,6 +1493,9 @@ input[type="reset"]:disabled,
   /* Login-specific */
   --animate-login-card-in: login-card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-field-in: field-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Radix Collapsible height animation */
+  --animate-collapsible-down: collapsible-down 0.3s ease-out;
+  --animate-collapsible-up: collapsible-up 0.3s ease-out;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1501,6 +1531,25 @@ input[type="reset"]:disabled,
   }
   to {
     opacity: 1;
+  }
+}
+
+/* Radix Collapsible — smooth height open/close */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
   }
 }
 

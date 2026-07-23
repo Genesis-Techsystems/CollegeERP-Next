@@ -1,162 +1,237 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { listOrganizations } from '@/services/admin/organization'
-import { createAchievementCategory, updateAchievementCategory } from '@/services/placements'
-import type { AchievementCategory } from '@/types/placements'
-import type { Organization } from '@/types/organization'
+/**
+ * Angular parity: placement-categories-modal
+ * Required: organizationId, achievementCategory, achievementCategoryCode
+ * Organizations: active only (orgCode labels). Update includes categoryId.
+ */
 
-const schema = z.object({
-  organizationId: z.string().min(1, 'Organization is required'),
-  achievementCategory: z.string().min(1, 'Category name is required'),
-  achievementCategoryCode: z.string().min(1, 'Category code is required'),
-  isActive: z.boolean(),
-  reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormModal } from "@/common/components/feedback";
+import { ActiveStatusField } from "@/common/components/forms";
+import { Select } from "@/common/components/select";
+import type { SelectOption } from "@/common/components/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toastError, toastSuccess } from "@/lib/toast";
+import {
+  createAchievementCategory,
+  listActiveOrganizations,
+  updateAchievementCategory,
+} from "@/services";
+import type { AchievementCategory } from "@/types/placements";
+import type { Organization } from "@/types/organization";
+
+const schema = z
+  .object({
+    organizationId: z.string().min(1, "Organization is required"),
+    achievementCategory: z.string().min(1, "Achievement category is required"),
+    achievementCategoryCode: z
+      .string()
+      .min(1, "Achievement category code is required"),
+    isActive: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.isActive && !String(values.reason ?? "").trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reason is required when inactive",
+        path: ["reason"],
+      });
+    }
+  });
+
+type FormValues = z.infer<typeof schema>;
 
 function getDefaults(edit?: AchievementCategory | null): FormValues {
   return {
-    organizationId: String(edit?.organizationId ?? ''),
-    achievementCategory: edit?.achievementCategory ?? '',
-    achievementCategoryCode: edit?.achievementCategoryCode ?? '',
+    organizationId:
+      edit?.organizationId != null ? String(edit.organizationId) : "",
+    achievementCategory: edit?.achievementCategory ?? "",
+    achievementCategoryCode: edit?.achievementCategoryCode ?? "",
     isActive: edit?.isActive ?? true,
-    reason: edit?.reason ?? 'active',
-  }
+    reason: edit?.reason ?? "active",
+  };
 }
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  editData: AchievementCategory | null
-  onSaved: () => void
+export interface AchievementCategoryModalProps {
+  open: boolean;
+  onClose: () => void;
+  editData: AchievementCategory | null;
+  onSaved: () => void;
 }
 
-export default function AchievementCategoryModal({ open, onClose, editData, onSaved }: Props) {
-  const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
+export function AchievementCategoryModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Readonly<AchievementCategoryModalProps>) {
+  const isEditing = editData != null;
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     control,
     watch,
+    setValue,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
-  })
+  });
 
   useEffect(() => {
-    if (!open) return
-    listOrganizations().then(setOrganizations).catch(console.error)
-  }, [open])
+    if (!open) return;
+    reset(getDefaults(editData));
+    setSubmitError(null);
+    // Angular: listDetailsById(Organization, true, isActive)
+    void listActiveOrganizations().then(setOrganizations).catch(console.error);
+  }, [open, editData, reset]);
 
-  useEffect(() => {
-    reset(getDefaults(editData))
-    setSubmitError(null)
-  }, [open, editData, reset])
+  const isActive = watch("isActive");
 
-  const isActive = watch('isActive')
+  const organizationOptions = useMemo<SelectOption[]>(
+    () =>
+      organizations.map((o) => ({
+        value: String(o.organizationId),
+        label: o.orgCode || o.orgName || String(o.organizationId),
+      })),
+    [organizations],
+  );
 
   async function onSubmit(values: FormValues) {
-    setSubmitError(null)
+    setSubmitError(null);
+
+    const payload: Record<string, unknown> = {
+      organizationId: Number(values.organizationId),
+      achievementCategory: values.achievementCategory.trim(),
+      achievementCategoryCode: values.achievementCategoryCode.trim(),
+      isActive: values.isActive,
+      reason: values.isActive
+        ? "active"
+        : String(values.reason ?? "").trim() || "inactive",
+    };
+
     try {
-      const payload = {
-        organizationId: Number(values.organizationId),
-        achievementCategory: values.achievementCategory,
-        achievementCategoryCode: values.achievementCategoryCode,
-        isActive: values.isActive,
-        reason: values.isActive ? 'active' : (values.reason || 'inactive'),
-      }
-      if (editData) {
-        await updateAchievementCategory(editData.categoryId, payload)
+      if (isEditing && editData?.categoryId) {
+        // Angular parent: details.categoryId = data.categoryId
+        payload.categoryId = editData.categoryId;
+        await updateAchievementCategory(
+          editData.categoryId,
+          payload as Partial<AchievementCategory>,
+        );
+        toastSuccess("Achievement category updated successfully");
       } else {
-        await createAchievementCategory(payload)
+        await createAchievementCategory(
+          payload as Partial<AchievementCategory>,
+        );
+        toastSuccess("Achievement category created successfully");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save.')
+      const message =
+        e instanceof Error
+          ? e.message
+          : "Unable to process your request at this time, please try again!";
+      setSubmitError(message);
+      toastError(e, "Failed to save achievement category");
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Achievement Category' : 'Add Achievement Category'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="space-y-0.5">
-            <Label className="text-xs">Organization *</Label>
-            <Controller
-              name="organizationId"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select organization" /></SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((o) => (
-                      <SelectItem key={o.organizationId} value={String(o.organizationId)}>{o.orgName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={
+        isEditing ? "Edit Achievement Category" : "Add Achievement Category"
+      }
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }}
+      isSubmitting={isSubmitting}
+      submitLabel="Save"
+      cancelLabel="Close"
+      size="lg"
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Controller
+          name="organizationId"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Organization"
+              required
+              value={field.value || null}
+              onChange={(v) => field.onChange(v ?? "")}
+              options={organizationOptions}
+              placeholder="Organization"
+              searchable
+              error={errors.organizationId?.message}
             />
-            {errors.organizationId && <p className="text-xs text-red-500">{errors.organizationId.message}</p>}
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Category Name *</Label>
-            <Input className="h-8 text-xs" {...register('achievementCategory')} placeholder="Achievement category" />
-            {errors.achievementCategory && <p className="text-xs text-red-500">{errors.achievementCategory.message}</p>}
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Category Code *</Label>
-            <Input className="h-8 text-xs" {...register('achievementCategoryCode')} placeholder="e.g. SPORTS" />
-            {errors.achievementCategoryCode && <p className="text-xs text-red-500">{errors.achievementCategoryCode.message}</p>}
-          </div>
+          )}
+        />
+
+        <div className="space-y-1.5">
+          <Label htmlFor="achievementCategory">Achievement Category *</Label>
+          <Input
+            id="achievementCategory"
+            {...register("achievementCategory")}
+          />
+          {errors.achievementCategory ? (
+            <p className="text-xs text-destructive">
+              {errors.achievementCategory.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="achievementCategoryCode">
+            Achievement Category Code *
+          </Label>
+          <Input
+            id="achievementCategoryCode"
+            {...register("achievementCategoryCode")}
+          />
+          {errors.achievementCategoryCode ? (
+            <p className="text-xs text-destructive">
+              {errors.achievementCategoryCode.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="sm:col-span-2">
           <Controller
             name="isActive"
             control={control}
             render={({ field }) => (
-              <div className="flex items-center gap-2">
-                <Checkbox id="catIsActive" checked={field.value} onCheckedChange={field.onChange} />
-                <label htmlFor="catIsActive" className="text-xs">Active</label>
-              </div>
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={(v) => field.onChange(v === true)}
+                onReasonChange={(v) => setValue("reason", v)}
+                reasonError={errors.reason?.message}
+                reasonRequired={!isActive}
+              />
             )}
           />
-          {!isActive && (
-            <div className="space-y-0.5">
-              <Label className="text-xs">Reason</Label>
-              <Input className="h-8 text-xs" {...register('reason')} />
-            </div>
-          )}
-          {submitError && <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+        </div>
+      </div>
+
+      {submitError ? (
+        <p className="mt-2 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+          {submitError}
+        </p>
+      ) : null}
+    </FormModal>
+  );
 }

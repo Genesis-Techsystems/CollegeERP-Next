@@ -1035,6 +1035,7 @@ export const QK = {
   invInternalIndents: {
     all: ["InvInternalIndent"] as const,
     list: () => ["InvInternalIndent", "list"] as const,
+    detail: (id: number) => ["InvInternalIndent", "detail", id] as const,
   },
   invInternalIssues: {
     all: ["InvInternalIssue"] as const,

@@ -1108,6 +1108,17 @@ export default function ExamQuestionPaperMarksPage() {
         valueGetter: (p) => pickNum(p.data, ["passMarks", "passmarks"]) || "-",
       },
       {
+        headerName: "Prepared By",
+        minWidth: 160,
+        valueGetter: (p) =>
+          pickText(p.data, [
+            "preparedByEmp",
+            "preparedby_emp_name",
+            "PrepareByEmp",
+            "preparedBy",
+          ]) || "-",
+      },
+      {
         headerName: "Question Paper",
         minWidth: 130,
         cellRenderer: (p: { data?: AnyRow }) => {
@@ -1161,7 +1172,8 @@ export default function ExamQuestionPaperMarksPage() {
         headerName: "View Template",
         minWidth: 125,
         cellRenderer: (p: { data?: AnyRow }) => {
-          if (!rowTemplateId(p.data ?? {}))
+          const row = p.data ?? {};
+          if (!rowTemplateId(row))
             return (
               <span className="text-[11px] text-muted-foreground">
                 No Docs Uploaded
@@ -1173,53 +1185,24 @@ export default function ExamQuestionPaperMarksPage() {
               size="sm"
               variant="ghost"
               className="h-7 w-7 p-0"
-              onClick={() => p.data && viewQuestions(p.data)}
+              onClick={() => {
+                const tplId = rowTemplateId(row);
+                const qpId = rowQuestionPaperId(row);
+                const title =
+                  pickText(row, [
+                    "questionPaperTitle",
+                    "questionpaper_title",
+                  ]) ||
+                  pickText(row, ["template_title", "templateTitle"]) ||
+                  "";
+                void openViewTemplateModal(tplId, title, qpId, "template");
+              }}
               aria-label="View template"
             >
               <Eye className="h-4 w-4" />
             </Button>
           );
         },
-      },
-      {
-        headerName: "Prepared By",
-        minWidth: 130,
-        valueGetter: (p) =>
-          pickText(p.data, [
-            "preparedByEmp",
-            "preparedby_emp_name",
-            "preparedBy",
-          ]) || "-",
-      },
-      {
-        headerName: "Prepared Date",
-        minWidth: 130,
-        valueGetter: (p) =>
-          pickText(p.data, ["preparedDate", "prepared_date"]) || "-",
-      },
-      {
-        headerName: "Question Paper Status",
-        minWidth: 150,
-        valueGetter: (p) =>
-          pickText(p.data, ["questionPaperStatus", "question_status"]) || "-",
-      },
-      {
-        headerName: "Status Comments",
-        minWidth: 160,
-        valueGetter: (p) =>
-          pickText(p.data, ["statusComments", "status_comments"]) || "-",
-      },
-      {
-        headerName: "Approved By",
-        minWidth: 130,
-        valueGetter: (p) =>
-          pickText(p.data, ["approvedByEmp", "approvedby_emp_name"]) || "-",
-      },
-      {
-        headerName: "Approved Date",
-        minWidth: 130,
-        valueGetter: (p) =>
-          pickText(p.data, ["approvedDate", "approved_date"]) || "-",
       },
       {
         field: "isActive",
@@ -1365,7 +1348,7 @@ export default function ExamQuestionPaperMarksPage() {
               placeholder="Course Year"
             />
           </div>
-          <div className="md:col-span-5">
+          <div className="md:col-span-4">
             <label className="text-[12px] text-muted-foreground">Subject</label>
             <Select
               value={subjectId ? String(subjectId) : null}
@@ -1379,9 +1362,9 @@ export default function ExamQuestionPaperMarksPage() {
               placeholder="Subject"
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 flex items-end">
             <Button
-              className="h-8 px-3 text-[12px] w-full"
+              className="h-8 px-4 text-[12px] whitespace-nowrap"
               onClick={getList}
               disabled={loading}
             >
@@ -1391,7 +1374,9 @@ export default function ExamQuestionPaperMarksPage() {
         </div>
       }
       rowData={hasFetched ? rows : []}
-      columnDefs={cols}
+      columnDefs={hasFetched ? cols : undefined}
+      body={!hasFetched ? null : undefined}
+      fitColumnsToWidth={false}
       pagination
       loading={loading}
       toolbar={{
@@ -1920,7 +1905,7 @@ export default function ExamQuestionPaperMarksPage() {
             <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
               {viewTemplateMode === "questions"
                 ? "View Questions"
-                : "Template View"}
+                : "View Template"}
               {viewTemplateTitle ? (
                 <span className="text-slate-700"> - {viewTemplateTitle}</span>
               ) : null}

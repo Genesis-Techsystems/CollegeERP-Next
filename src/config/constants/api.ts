@@ -1531,7 +1531,8 @@ export const FINANCE_API = {
 } as const;
 
 export const E_OFFICE_API = {
-  INV_PO: "invPO",
+  /** Angular `invPOUrl` — multipart create for purchase order */
+  INV_PO: "invpurchaseorder",
   UPDATE_INV_PURCHASE_ORDER: "updateInvPurchaseOrder",
   INV_SRV: "invsrv",
   INV_PURCHASE_RETURN: "purchasereturns",

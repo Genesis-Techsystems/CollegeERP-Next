@@ -1,9 +1,7 @@
-'use client'
+"use client";
 
-import { PaymentNoteRequestForm } from '@/app/(pages)/(protected)/e-office/payment-note-request/_components/PaymentNoteRequestForm'
-
-const PURCHASE_ORDERS_LIST = '/inventory-management/purchase-orders'
+import { PurchaseOrderForm } from "../_components/PurchaseOrderForm";
 
 export default function AddPurchaseOrderPage() {
-  return <PaymentNoteRequestForm listPath={PURCHASE_ORDERS_LIST} />
+  return <PurchaseOrderForm />;
 }

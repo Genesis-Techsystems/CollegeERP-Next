@@ -820,7 +820,7 @@ export function DataTable<T>({
                   domLayout={isAutoHeight ? "autoHeight" : undefined}
                   rowHeight={rowHeight}
                   loading={loading}
-                  // suppressCellFocus={true}
+                  suppressCellFocus
                   overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
                   onGridReady={handleGridReady}
                   onFirstDataRendered={(e) => fitColumns(e.api)}
