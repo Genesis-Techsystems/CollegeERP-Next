@@ -1,76 +1,94 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
-import { FormModal } from '@/common/components/feedback'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Select, type SelectOption } from '@/common/components/select'
-import { GM_CODES } from '@/config/constants/ui'
+import { useEffect, useMemo } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
+import { FormModal } from "@/common/components/feedback";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  MultiSelect,
+  Select,
+  type SelectOption,
+} from "@/common/components/select";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   createInvItem,
-  listGeneralDetailsByMaster,
+  listActiveOrganizationsForInventory,
   listInvBrands,
   listInvItemCategories,
-  listInvItemSubCategories,
+  listInvItemSubCategoriesByCategory,
+  listInvItemTypes,
   listInvSuppliersMaster,
-  listOrganizations,
   updateInvItem,
-} from '@/services'
-import { QK } from '@/lib/query-keys'
-import type { InvItem } from '@/types/inventory'
-import { getInventoryOrganizationId } from '../_lib/inventory-org'
+} from "@/services";
+import { QK } from "@/lib/query-keys";
+import type { InvItem } from "@/types/inventory";
 
 const schema = z.object({
-  organizationId: z.coerce.number().min(1, 'Organization is required'),
-  itemName: z.string().min(1, 'Item name is required'),
-  itemCode: z.string().min(1, 'Item code is required'),
+  organizationId: z.coerce.number().min(1, "Organization is required"),
+  itemName: z.string().min(1, "Item Name is required"),
+  itemCode: z.string().min(1, "Item Code is required"),
   itemAliasname: z.string().optional(),
   itemTypeCatdetId: z.coerce.number().optional(),
-  itemCategoryId: z.coerce.number().min(1, 'Item category is required'),
+  itemCategoryId: z.coerce.number().min(1, "Item Category is required"),
   itemSubcategoryId: z.coerce.number().optional(),
   brandmasterId: z.coerce.number().optional(),
   make: z.string().optional(),
   model: z.string().optional(),
-  supplierId: z.coerce.number().optional(),
+  supplierIds: z.array(z.string()),
   isReqTracking: z.boolean(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+});
+type FormValues = z.infer<typeof schema>;
+
+function parseSupplierIds(edit?: InvItem | null): string[] {
+  if (!edit?.supplierIds) return [];
+  return edit.supplierIds
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && Number.isFinite(Number(s)) && Number(s) > 0);
+}
 
 function getDefaults(edit?: InvItem | null): FormValues {
-  const defaultOrgId = getInventoryOrganizationId()
   return {
-    organizationId: edit?.organizationId ?? (defaultOrgId > 0 ? defaultOrgId : 0),
-    itemName: edit?.itemName ?? '',
-    itemCode: edit?.itemCode ?? '',
-    itemAliasname: edit?.itemAliasname ?? '',
-    itemTypeCatdetId: edit?.itemTypeCatdetId,
+    organizationId: edit?.organizationId ?? 0,
+    itemName: edit?.itemName ?? "",
+    itemCode: edit?.itemCode ?? "",
+    itemAliasname: edit?.itemAliasname ?? "",
+    // Coerce null from API → undefined (optional selects)
+    itemTypeCatdetId: edit?.itemTypeCatdetId ?? undefined,
     itemCategoryId: edit?.itemCategoryId ?? 0,
-    itemSubcategoryId: edit?.itemSubcategoryId,
-    brandmasterId: edit?.brandmasterId,
-    make: edit?.make ?? '',
-    model: edit?.model ?? '',
-    supplierId: edit?.supplierId,
-    isReqTracking: edit?.isReqTracking ?? false,
+    itemSubcategoryId: edit?.itemSubcategoryId ?? undefined,
+    brandmasterId: edit?.brandmasterId ?? undefined,
+    make: edit?.make ?? "",
+    model: edit?.model ?? "",
+    supplierIds: parseSupplierIds(edit),
+    // Angular defaults: isReqTracking=true, isActive=true, reason='active'
+    isReqTracking: edit?.isReqTracking ?? true,
     isActive: edit?.isActive ?? true,
-    reason: edit?.reason ?? 'active',
-  }
+    reason: edit?.reason ?? "active",
+  };
 }
 
 interface Props {
-  open: boolean
-  onClose: () => void
-  editData: InvItem | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  editData: InvItem | null;
+  onSaved: () => void;
 }
 
-export default function ItemMasterModal({ open, onClose, editData, onSaved }: Props) {
+export default function ItemMasterModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Props) {
   const {
     register,
     handleSubmit,
@@ -82,166 +100,175 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
-  })
+  });
 
-  const organizationId = watch('organizationId')
-  const selectedCategoryId = watch('itemCategoryId')
-  const itemSubcategoryId = watch('itemSubcategoryId')
-  const isActive = watch('isActive')
+  const selectedCategoryId = watch("itemCategoryId");
+  const isActive = watch("isActive");
 
   const { data: organizations = [], isLoading: orgsLoading } = useQuery({
-    queryKey: ['Organizations', 'list'],
-    queryFn: listOrganizations,
+    queryKey: ["Organizations", "activeForInventory"],
+    queryFn: listActiveOrganizationsForInventory,
     enabled: open,
-  })
+  });
 
   const { data: itemTypes = [], isLoading: itemTypesLoading } = useQuery({
-    queryKey: ['GeneralDetail', GM_CODES.ITEM_TYPE],
-    queryFn: () => listGeneralDetailsByMaster(GM_CODES.ITEM_TYPE),
+    queryKey: ["GeneralDetail", "ITEMCATTYPE", "forInvItem"],
+    queryFn: listInvItemTypes,
     enabled: open,
-  })
+  });
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: QK.invItemCategories.list(),
     queryFn: listInvItemCategories,
     enabled: open,
-  })
+  });
 
-  const { data: subCategories = [], isLoading: subCategoriesLoading } = useQuery({
-    queryKey: QK.invItemSubCategories.list(),
-    queryFn: listInvItemSubCategories,
-    enabled: open,
-  })
+  const { data: subCategories = [], isLoading: subCategoriesLoading } =
+    useQuery({
+      queryKey: ["InvItemsubcategory", "byCategory", selectedCategoryId],
+      queryFn: () => listInvItemSubCategoriesByCategory(selectedCategoryId),
+      enabled: open && selectedCategoryId > 0,
+    });
 
   const { data: brands = [], isLoading: brandsLoading } = useQuery({
     queryKey: QK.invBrands.list(),
     queryFn: listInvBrands,
     enabled: open,
-  })
+  });
 
   const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
     queryKey: QK.invSuppliersMaster.list(),
     queryFn: listInvSuppliersMaster,
     enabled: open,
-  })
+  });
 
   const organizationOptions: SelectOption[] = useMemo(
-    () => organizations
-      .filter((o) => o.isActive !== false)
-      .map((o) => ({
-        value: String(o.organizationId),
-        label: o.orgCode ?? o.orgName ?? String(o.organizationId),
+    () =>
+      organizations.map((o) => ({
+        value: String(o.organizationId ?? ""),
+        label: String(o.orgCode ?? o.orgName ?? o.organizationId ?? ""),
       })),
     [organizations],
-  )
+  );
 
   const itemTypeOptions: SelectOption[] = useMemo(
-    () => itemTypes.map((t) => ({
-      value: String(t.generalDetailId),
-      label: String(
-        t.generalDetailDisplayName
-          ?? t.generalDetailName
-          ?? t.generalDetailCode
-          ?? t.generalDetailId,
-      ),
-    })),
+    () =>
+      itemTypes.map((t) => ({
+        value: String(t.generalDetailId ?? ""),
+        label: String(
+          t.generalDetailDisplayName ??
+            t.generalDetailName ??
+            t.generalDetailCode ??
+            t.generalDetailId ??
+            "",
+        ),
+      })),
     [itemTypes],
-  )
+  );
 
   const categoryOptions: SelectOption[] = useMemo(
-    () => categories.map((c) => ({
-      value: String(c.itemCategoryId),
-      label: c.categoryName ?? c.categoryCode ?? String(c.itemCategoryId),
-    })),
+    () =>
+      categories.map((c) => ({
+        value: String(c.itemCategoryId),
+        label: c.categoryName ?? c.categoryCode ?? String(c.itemCategoryId),
+      })),
     [categories],
-  )
+  );
 
   const subCategoryOptions: SelectOption[] = useMemo(
-    () => subCategories
-      .filter((s) => !selectedCategoryId || s.itemCategoryId === selectedCategoryId)
-      .map((s) => ({
+    () =>
+      subCategories.map((s) => ({
         value: String(s.itemSubcategoryId),
-        label: s.subcategoryName ?? s.subcategoryCode ?? String(s.itemSubcategoryId),
+        label:
+          s.subcategoryName ?? s.subcategoryCode ?? String(s.itemSubcategoryId),
       })),
-    [subCategories, selectedCategoryId],
-  )
+    [subCategories],
+  );
 
   const brandOptions: SelectOption[] = useMemo(
-    () => brands.map((b) => ({
-      value: String(b.brandmasterId),
-      label: b.brandName ?? b.brandCode ?? String(b.brandmasterId),
-    })),
+    () =>
+      brands.map((b) => ({
+        value: String(b.brandmasterId),
+        label: b.brandName ?? b.brandCode ?? String(b.brandmasterId),
+      })),
     [brands],
-  )
+  );
 
+  // Angular displays supplierName; filter also matches supplierCode (ngx-mat-select-search)
   const supplierOptions: SelectOption[] = useMemo(
-    () => suppliers.map((s) => ({
-      value: String(s.supplierId),
-      label: s.supplierName ?? String(s.supplierId),
-    })),
+    () =>
+      suppliers.map((s) => {
+        const name = s.supplierName?.trim() || String(s.supplierId);
+        const code = s.supplierCode?.trim();
+        return {
+          value: String(s.supplierId),
+          label: code ? `${name} (${code})` : name,
+        };
+      }),
     [suppliers],
-  )
+  );
 
   useEffect(() => {
-    if (!open) return
-    reset(getDefaults(editData))
-  }, [open, editData, reset])
-
-  useEffect(() => {
-    if (!open || editData) return
-    if (organizationId > 0) return
-    const defaultOrgId = getInventoryOrganizationId()
-    if (defaultOrgId > 0) setValue('organizationId', defaultOrgId)
-  }, [open, editData, organizationId, setValue])
-
-  useEffect(() => {
-    if (!itemSubcategoryId || !selectedCategoryId) return
-    const match = subCategories.find((s) => s.itemSubcategoryId === itemSubcategoryId)
-    if (match && match.itemCategoryId !== selectedCategoryId) {
-      setValue('itemSubcategoryId', undefined)
-    }
-  }, [selectedCategoryId, subCategories, itemSubcategoryId, setValue])
+    if (!open) return;
+    reset(getDefaults(editData));
+  }, [open, editData, reset]);
 
   async function onSubmit(values: FormValues) {
+    const supplierIds =
+      values.supplierIds.length > 0 ? values.supplierIds.join(",") : undefined;
+
     const payload: Partial<InvItem> = {
       organizationId: values.organizationId,
       itemCode: values.itemCode.trim(),
       itemName: values.itemName.trim(),
       itemAliasname: values.itemAliasname?.trim() || undefined,
-      itemTypeCatdetId: values.itemTypeCatdetId,
+      itemTypeCatdetId: values.itemTypeCatdetId || undefined,
       itemCategoryId: values.itemCategoryId,
-      itemSubcategoryId: values.itemSubcategoryId,
-      brandmasterId: values.brandmasterId,
+      itemSubcategoryId: values.itemSubcategoryId || undefined,
+      brandmasterId: values.brandmasterId || undefined,
       make: values.make?.trim() || undefined,
       model: values.model?.trim() || undefined,
-      supplierId: values.supplierId,
+      supplierIds,
       isReqTracking: values.isReqTracking,
       isActive: values.isActive,
-      reason: values.isActive ? 'active' : (values.reason?.trim() || 'inactive'),
+      reason: values.isActive ? "active" : values.reason?.trim() || "inactive",
+    };
+
+    try {
+      if (editData) {
+        // Angular sets itemId + createdDt before updateDetails
+        await updateInvItem(editData.itemId, {
+          ...payload,
+          itemId: editData.itemId,
+          createdDt: editData.createdDt,
+        });
+        toastSuccess("Item master updated successfully.");
+      } else {
+        await createInvItem(payload);
+        toastSuccess("Item master created successfully.");
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      toastError(getErrorMessage(err));
     }
-    if (editData) {
-      await updateInvItem(editData.itemId, payload)
-    } else {
-      await createInvItem(payload)
-    }
-    onSaved()
-    onClose()
   }
 
   return (
     <FormModal
       open={open}
       onClose={onClose}
-      title={editData ? 'Edit Master Item' : 'Add Master Item'}
+      title={editData ? "Edit Master Item" : "Add Master Item"}
       titleClassName="text-[hsl(var(--primary))] text-base font-semibold"
       size="lg"
       isSubmitting={isSubmitting}
       submitLabel="Save"
-      cancelLabel="Close"
+      cancelLabel="Cancel"
+      showFooterDivider={false}
       formClassName="space-y-3"
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
     >
       <Controller
@@ -253,7 +280,7 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
             value={field.value > 0 ? String(field.value) : null}
             onChange={(v) => field.onChange(v ? Number(v) : 0)}
             options={organizationOptions}
-            placeholder="Select organization"
+            placeholder="Organization"
             isLoading={orgsLoading}
             searchable
             error={errors.organizationId?.message}
@@ -264,20 +291,36 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-0.5 sm:col-span-2">
           <Label className="text-xs">Item Name *</Label>
-          <Input className="h-8 text-xs" {...register('itemName')} />
-          {errors.itemName && <p className="text-xs text-red-500">{errors.itemName.message}</p>}
+          <Input
+            className="h-8 text-xs"
+            placeholder="Item Name"
+            {...register("itemName")}
+          />
+          {errors.itemName && (
+            <p className="text-xs text-red-500">{errors.itemName.message}</p>
+          )}
         </div>
         <div className="space-y-0.5">
           <Label className="text-xs">Item Code *</Label>
-          <Input className="h-8 text-xs" {...register('itemCode')} />
-          {errors.itemCode && <p className="text-xs text-red-500">{errors.itemCode.message}</p>}
+          <Input
+            className="h-8 text-xs"
+            placeholder="Item Code"
+            {...register("itemCode")}
+          />
+          {errors.itemCode && (
+            <p className="text-xs text-red-500">{errors.itemCode.message}</p>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-0.5">
           <Label className="text-xs">Item Alias Name</Label>
-          <Input className="h-8 text-xs" {...register('itemAliasname')} />
+          <Input
+            className="h-8 text-xs"
+            placeholder="Item Alias Name"
+            {...register("itemAliasname")}
+          />
         </div>
         <Controller
           name="itemTypeCatdetId"
@@ -285,10 +328,14 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
           render={({ field }) => (
             <Select
               label="Item Type"
-              value={field.value != null ? String(field.value) : null}
+              value={
+                field.value != null && field.value > 0
+                  ? String(field.value)
+                  : null
+              }
               onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={itemTypeOptions}
-              placeholder="Select item type"
+              placeholder="Item Type"
               isLoading={itemTypesLoading}
               searchable
               clearable
@@ -303,11 +350,11 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
               label="Item Category *"
               value={field.value > 0 ? String(field.value) : null}
               onChange={(v) => {
-                field.onChange(v ? Number(v) : 0)
-                setValue('itemSubcategoryId', undefined)
+                field.onChange(v ? Number(v) : 0);
+                setValue("itemSubcategoryId", undefined);
               }}
               options={categoryOptions}
-              placeholder="Select category"
+              placeholder="Item Category"
               isLoading={categoriesLoading}
               searchable
               error={errors.itemCategoryId?.message}
@@ -323,10 +370,14 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
           render={({ field }) => (
             <Select
               label="Item Sub Category"
-              value={field.value != null ? String(field.value) : null}
+              value={
+                field.value != null && field.value > 0
+                  ? String(field.value)
+                  : null
+              }
               onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={subCategoryOptions}
-              placeholder="Select sub category"
+              placeholder="Item Sub Category"
               isLoading={subCategoriesLoading}
               searchable
               clearable
@@ -340,10 +391,14 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
           render={({ field }) => (
             <Select
               label="Brand"
-              value={field.value != null ? String(field.value) : null}
+              value={
+                field.value != null && field.value > 0
+                  ? String(field.value)
+                  : null
+              }
               onChange={(v) => field.onChange(v ? Number(v) : undefined)}
               options={brandOptions}
-              placeholder="Select brand"
+              placeholder="Brand"
               isLoading={brandsLoading}
               searchable
               clearable
@@ -352,28 +407,36 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
         />
         <div className="space-y-0.5">
           <Label className="text-xs">Make</Label>
-          <Input className="h-8 text-xs" {...register('make')} />
+          <Input
+            className="h-8 text-xs"
+            placeholder="Make"
+            {...register("make")}
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="space-y-0.5">
           <Label className="text-xs">Model</Label>
-          <Input className="h-8 text-xs" {...register('model')} />
+          <Input
+            className="h-8 text-xs"
+            placeholder="Model"
+            {...register("model")}
+          />
         </div>
         <Controller
-          name="supplierId"
+          name="supplierIds"
           control={control}
           render={({ field }) => (
-            <Select
+            <MultiSelect
               label="Supplier"
-              value={field.value != null ? String(field.value) : null}
-              onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+              value={field.value ?? []}
+              onChange={field.onChange}
               options={supplierOptions}
-              placeholder="Select supplier"
+              placeholder="Supplier"
               isLoading={suppliersLoading}
               searchable
-              clearable
+              showSelectAll={false}
             />
           )}
         />
@@ -386,9 +449,14 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
                 <Checkbox
                   id="isReqTracking"
                   checked={field.value}
-                  onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+                  onCheckedChange={(checked) =>
+                    field.onChange(Boolean(checked))
+                  }
                 />
-                <Label htmlFor="isReqTracking" className="text-xs font-normal cursor-pointer">
+                <Label
+                  htmlFor="isReqTracking"
+                  className="text-xs font-normal cursor-pointer"
+                >
                   Is Trackable
                 </Label>
               </div>
@@ -405,9 +473,16 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
             <Checkbox
               id="itemIsActive"
               checked={field.value}
-              onCheckedChange={field.onChange}
+              onCheckedChange={(checked) => {
+                const active = Boolean(checked);
+                field.onChange(active);
+                if (active) setValue("reason", "active");
+              }}
             />
-            <Label htmlFor="itemIsActive" className="text-xs font-normal cursor-pointer">
+            <Label
+              htmlFor="itemIsActive"
+              className="text-xs font-normal cursor-pointer"
+            >
               Active
             </Label>
           </div>
@@ -415,12 +490,18 @@ export default function ItemMasterModal({ open, onClose, editData, onSaved }: Pr
       />
 
       {!isActive && (
-        <div className="space-y-0.5">
+        <div className="space-y-0.5 sm:max-w-md">
           <Label className="text-xs">Reason</Label>
-          <Input className="h-8 text-xs" {...register('reason')} />
-          {errors.reason && <p className="text-xs text-red-500">{errors.reason.message}</p>}
+          <Input
+            className="h-8 text-xs"
+            placeholder="Reason"
+            {...register("reason")}
+          />
+          {errors.reason && (
+            <p className="text-xs text-red-500">{errors.reason.message}</p>
+          )}
         </div>
       )}
     </FormModal>
-  )
+  );
 }

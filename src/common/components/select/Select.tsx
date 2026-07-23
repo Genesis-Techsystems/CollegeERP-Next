@@ -25,6 +25,8 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Native browser tooltip on the option (e.g. full store name when label is code). */
+  title?: string;
 }
 
 export interface SelectProps {
@@ -237,6 +239,7 @@ export function Select({
             aria-invalid={error ? true : undefined}
             aria-haspopup="listbox"
             disabled={disabled}
+            title={selectedOption?.title || undefined}
             className={cn(
               "app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
               "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
@@ -348,6 +351,7 @@ export function Select({
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
+                    title={opt.title || undefined}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
                       "flex w-full gap-2 px-3 py-2 text-sm transition-colors",

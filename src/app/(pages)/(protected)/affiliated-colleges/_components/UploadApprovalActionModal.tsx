@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -29,15 +29,22 @@ export function UploadApprovalActionModal({
 }: UploadApprovalActionModalProps) {
   const [comments, setComments] = useState("");
 
+  useEffect(() => {
+    if (open) setComments("");
+  }, [open, action]);
+
   const handleClose = () => {
     setComments("");
     onClose();
   };
 
   const handleSubmit = () => {
-    if (!comments) return;
+    // Allow any non-empty value, including whitespace-only (Angular parity).
+    if (comments.length === 0) return;
     onSubmit(comments);
   };
+
+  const canSubmit = comments.length > 0;
 
   return (
     <Dialog
@@ -77,7 +84,7 @@ export function UploadApprovalActionModal({
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || !comments}
+            disabled={loading || !canSubmit}
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Submit
