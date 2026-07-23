@@ -368,63 +368,33 @@ export async function listStudentsForRollNumberAssignment(params: {
 }
 
 /**
- * Angular **Parent → Manage** (`#/admin-user-management/parent/manage`): student dropdown after
- * College + Academic Year. Tries legacy `studentsList` query shapes, then `Student` domain list.
+ * Angular **Parent → Manage** (`ParentAccountsModalComponent.enteredStudent`):
+ * `listByThreeIds(studentSearchUrl, collegeId, academicYearId, q, 'collegeId', 'academicYearId', 'q')`
+ * — only when search term length > 4.
  */
 export async function listStudentsForParentAccountManage(params: {
   collegeId: number;
   academicYearId: number;
+  q: string;
 }): Promise<AnyRow[]> {
   const collegeId = Number(params.collegeId);
   const academicYearId = Number(params.academicYearId);
-  if (!collegeId || !academicYearId) return [];
+  const q = String(params.q ?? "").trim();
+  if (!collegeId || !academicYearId || q.length <= 4) return [];
 
-  const paramSets: Record<string, string | number>[] = [
-    { collegeId, academicYearId },
-    { college_id: collegeId, academic_year_id: academicYearId },
-    { collegeId, academicYearId, statusCode: "INCOLLEGE" },
-    {
-      college_id: collegeId,
-      academic_year_id: academicYearId,
-      status_code: "INCOLLEGE",
-    },
-    { collegeId, academicYearId, statusCode: "ACTIVE" },
-  ];
-
-  for (const p of paramSets) {
-    try {
-      const data = await fetchDetails<any>("studentsList", p);
-      const rows = asArray<AnyRow>(data);
-      if (rows.length > 0)
-        return rows.map((row) => ({ ...normalizeStudentRow(row), ...row }));
-    } catch {
-      // try next shape
-    }
-  }
-
-  const queryVariants = [
-    buildQuery({
-      "College.collegeId": collegeId,
-      "AcademicYear.academicYearId": academicYearId,
-      isActive: true,
-    }),
-    buildQuery({
+  try {
+    const data = await fetchDetails<any>("studentsearch", {
       collegeId,
       academicYearId,
-      isActive: true,
-    }),
-  ];
-
-  for (const query of queryVariants) {
-    try {
-      const rows = await domainList<AnyRow>("Student", query);
-      if (rows.length > 0) return rows.map((row) => normalizeStudentRow(row));
-    } catch {
-      // next variant
-    }
+      q,
+    });
+    return asArray<AnyRow>(data).map((row) => ({
+      ...normalizeStudentRow(row),
+      ...row,
+    }));
+  } catch {
+    return [];
   }
-
-  return [];
 }
 
 /** Angular `addMasterDetails(updateRollnoUrl, students)` — POST batch roll / hallticket updates. */

@@ -4,16 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, Loader2, PencilIcon, PlusIcon, ShieldCheck, User, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2, PencilIcon, PlusIcon, User, X } from 'lucide-react'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
 import { FormField } from '@/common/components/forms'
-import { ListPage } from '@/components/layout'
+import { ListPage, PageContainer } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { scheduleNavigation } from '@/lib/schedule-navigation'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -21,6 +22,7 @@ import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
 import { MINIO_URL } from '@/config/constants/api'
 import {
+  createDefaultStudentUserAccounts,
   createStudentUserAccountForStudent,
   fetchStudentDetail,
   getStudentAccountById,
@@ -33,12 +35,17 @@ import {
   saveUserRoles,
   updateStudentAccount,
   type CreateStudentUserAccountForm,
+  type DefaultStudentAccountFailureRow,
   type StudentAccount,
   type StudentForAccountPick,
   type UserRole,
 } from '@/services'
 import type { College } from '@/types/college'
+
 const DEFAULT_PAGE_SIZE = 50
+
+const TAB_TRIGGER_CLASS =
+  'rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none'
 
 const EMPTY_ADD_ACCOUNT_FORM: CreateStudentUserAccountForm = {
   firstName: '',
@@ -48,6 +55,10 @@ const EMPTY_ADD_ACCOUNT_FORM: CreateStudentUserAccountForm = {
   mobileNumber: '',
   password: '',
   passwordConfirm: '',
+  isActive: true,
+  isEditable: false,
+  isReset: false,
+  reason: 'active',
 }
 
 /** Same initial password as legacy auto-create (user can change before Save). */
@@ -167,30 +178,57 @@ function makeActionsRenderer(
   onRoles: (row: StudentAccount | null) => void,
   onEdit: (row: StudentAccount | null) => void,
 ) {
-  return (p: ICellRendererParams<StudentAccount>) => {
-    const row = p.data ?? null
-    return (
-      <div className="flex flex-wrap items-center gap-1">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 px-2 text-xs"
-          onClick={() => onRoles(row)}
-        >
-          <ShieldCheck className="mr-1 h-3 w-3" />
-          User Roles
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 w-7 p-0"
-          aria-label="Edit student account"
-          onClick={() => onEdit(row)}
-        >
-          <PencilIcon className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-    )
+  return (p: ICellRendererParams<StudentAccount>) => (
+    <div className="flex items-center gap-1.5 text-xs">
+      <button
+        type="button"
+        className="text-primary hover:underline font-medium"
+        onClick={() => onRoles(p.data ?? null)}
+      >
+        User Roles
+      </button>
+      <span className="text-slate-300 select-none" aria-hidden>
+        |
+      </span>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 w-7 p-0"
+        aria-label="Edit student account"
+        onClick={() => onEdit(p.data ?? null)}
+      >
+        <PencilIcon className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  )
+}
+
+function defaultFailureCourseLine(row: DefaultStudentAccountFailureRow): string {
+  const course = [
+    row.collegeCode,
+    row.courseCode,
+    row.groupCode,
+    row.courseYearName,
+  ].filter(Boolean).join(' / ')
+  const section = row.section ? ` / ${row.section}` : ''
+  const year = row.academicYear ? `(${row.academicYear}) - ` : ''
+  return `${year}${course}${section}`.trim() || '—'
+}
+
+function studentStatusClass(code: string | undefined): string {
+  switch ((code ?? '').toUpperCase()) {
+    case 'DTND':
+      return 'text-red-700'
+    case 'INCOLLEGE':
+      return 'text-emerald-700'
+    case 'PASSEDOUT':
+      return 'text-sky-700'
+    case 'DETAINRECOMMENDED':
+      return 'text-amber-700'
+    case 'DISCONTINUED':
+      return 'text-rose-700'
+    default:
+      return 'text-slate-700'
   }
 }
 
@@ -198,6 +236,7 @@ export default function StudentAccountsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const [mainTab, setMainTab] = useState<'new' | 'default'>('new')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [addOpen, setAddOpen] = useState(false)
@@ -206,9 +245,12 @@ export default function StudentAccountsPage() {
   const [addStudentSearchQuery, setAddStudentSearchQuery] = useState('')
   const [addAccountForm, setAddAccountForm] = useState<CreateStudentUserAccountForm>(EMPTY_ADD_ACCOUNT_FORM)
   const [addShowPassword, setAddShowPassword] = useState(false)
+  const [addShowPasswordConfirm, setAddShowPasswordConfirm] = useState(false)
   const [addSaving, setAddSaving] = useState(false)
   const addFormHydrateStudentRef = useRef(0)
   const [editOpen, setEditOpen] = useState(false)
+  const [editShowPassword, setEditShowPassword] = useState(false)
+  const [editShowPasswordConfirm, setEditShowPasswordConfirm] = useState(false)
   const [rolesOpen, setRolesOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingRoles, setSavingRoles] = useState(false)
@@ -216,6 +258,10 @@ export default function StudentAccountsPage() {
   const [roleActiveToAdd, setRoleActiveToAdd] = useState(true)
   const [activeStudent, setActiveStudent] = useState<StudentAccount | null>(null)
   const [roleRows, setRoleRows] = useState<UserRole[]>([])
+  const [defaultCreating, setDefaultCreating] = useState(false)
+  const [defaultFailuresOpen, setDefaultFailuresOpen] = useState(false)
+  const [defaultFailures, setDefaultFailures] = useState<DefaultStudentAccountFailureRow[]>([])
+  const [defaultFailureFilter, setDefaultFailureFilter] = useState('')
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -319,9 +365,17 @@ export default function StudentAccountsPage() {
       setAddStudentSearchQuery('')
       setAddAccountForm(EMPTY_ADD_ACCOUNT_FORM)
       setAddShowPassword(false)
+      setAddShowPasswordConfirm(false)
       addFormHydrateStudentRef.current = 0
     }
   }, [addOpen])
+
+  useEffect(() => {
+    if (!editOpen) {
+      setEditShowPassword(false)
+      setEditShowPasswordConfirm(false)
+    }
+  }, [editOpen])
 
   useEffect(() => {
     if (!addOpen) return
@@ -376,6 +430,10 @@ export default function StudentAccountsPage() {
       mobileNumber: mobile,
       password: studentJustChanged ? ADD_ACCOUNT_DEFAULT_PASSWORD : prev.password,
       passwordConfirm: studentJustChanged ? ADD_ACCOUNT_DEFAULT_PASSWORD : prev.passwordConfirm,
+      isActive: studentJustChanged ? true : prev.isActive !== false,
+      isEditable: studentJustChanged ? false : prev.isEditable === true,
+      isReset: studentJustChanged ? false : prev.isReset === true,
+      reason: studentJustChanged ? 'active' : (prev.reason || 'active'),
     }))
   }, [addOpen, addStudentIdNum, addStudentDetail, selectedPick])
 
@@ -443,7 +501,8 @@ export default function StudentAccountsPage() {
   const openEditModal = useCallback(async (row: StudentAccount | null) => {
     if (!row?.userId) return
     const full = await getStudentAccountById(row.userId).catch(() => null)
-    const user = full ?? row
+    // Prefer list-row college/org/type ids when domain fetch omits nested fields.
+    const user: StudentAccount = full ? { ...row, ...full } : row
     setActiveStudent(user)
     setForm({
       firstName: user.firstName ?? '',
@@ -451,13 +510,16 @@ export default function StudentAccountsPage() {
       userName: user.userName ?? '',
       email: user.email ?? '',
       mobileNumber: user.mobileNumber ?? '',
-      password: user.password ?? '',
-      passwordConfirm: user.password ?? '',
+      // Do not pre-fill hashed password — labels say "New Password"
+      password: '',
+      passwordConfirm: '',
       isActive: user.isActive !== false,
       isEditable: user.isEditable ?? false,
       isReset: user.isReset ?? false,
       reason: user.reason ?? (user.isActive === false ? 'inactive' : 'active'),
     })
+    setEditShowPassword(false)
+    setEditShowPasswordConfirm(false)
     setEditOpen(true)
   }, [])
 
@@ -482,23 +544,35 @@ export default function StudentAccountsPage() {
     if (form.password && form.password !== form.passwordConfirm) {
       return toastError('Password and confirm password must match')
     }
+    if (!form.isActive && !form.reason.trim()) {
+      return toastError('Reason is required when account is inactive')
+    }
     try {
       setSaving(true)
-      const passwordToSend = form.password || activeStudent.password || ''
-      await updateStudentAccount(activeStudent.userId, {
+      const updatePayload: Partial<StudentAccount> = {
         userId: activeStudent.userId,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         userName: form.userName.trim(),
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.trim(),
-        password: passwordToSend,
-        passwordConfirm: form.passwordConfirm || passwordToSend,
         isActive: form.isActive,
         isEditable: form.isEditable,
         isReset: form.isReset,
         reason: form.reason.trim() || (form.isActive ? 'active' : 'inactive'),
-      })
+        collegeId: activeStudent.collegeId,
+        organizationId: activeStudent.organizationId,
+        userTypeId: activeStudent.userTypeId,
+      }
+      if (form.password) {
+        updatePayload.password = form.password
+        updatePayload.passwordConfirm = form.passwordConfirm
+      } else if (activeStudent.password) {
+        // Keep existing password when user leaves "New Password" blank
+        updatePayload.password = activeStudent.password
+        updatePayload.passwordConfirm = activeStudent.password
+      }
+      await updateStudentAccount(activeStudent.userId, updatePayload)
       setEditOpen(false)
       toastSuccess('Student account updated successfully')
       invalidateList()
@@ -567,6 +641,35 @@ export default function StudentAccountsPage() {
     setAddOpen(true)
   }
 
+  async function runDefaultStudentUserAccounts() {
+    try {
+      setDefaultCreating(true)
+      const failures = await createDefaultStudentUserAccounts()
+      invalidateList()
+      if (failures.length > 0) {
+        setDefaultFailures(failures)
+        setDefaultFailureFilter('')
+        setDefaultFailuresOpen(true)
+      } else {
+        toastSuccess('Default student user accounts created successfully.')
+      }
+    } catch (error) {
+      toastError(getErrorMessage(error))
+    } finally {
+      setDefaultCreating(false)
+    }
+  }
+
+  const filteredDefaultFailures = useMemo(() => {
+    const q = defaultFailureFilter.trim().toLowerCase()
+    if (!q) return defaultFailures
+    return defaultFailures.filter((row) => {
+      const name = [row.firstName, row.lastName].filter(Boolean).join(' ').toLowerCase()
+      const roll = (row.rollNumber ?? '').toLowerCase()
+      return name.includes(q) || roll.includes(q)
+    })
+  }, [defaultFailures, defaultFailureFilter])
+
   async function submitAddStudentAccount(e: { preventDefault: () => void }) {
     e.preventDefault()
     if (!addCollegeId) return toastError('Please select a college')
@@ -580,6 +683,9 @@ export default function StudentAccountsPage() {
     }
     if (addAccountForm.password !== addAccountForm.passwordConfirm) {
       return toastError('Password and confirm password must match')
+    }
+    if (addAccountForm.isActive === false && !addAccountForm.reason?.trim()) {
+      return toastError('Reason is required when account is inactive')
     }
     try {
       setAddSaving(true)
@@ -595,6 +701,12 @@ export default function StudentAccountsPage() {
           mobileNumber: addAccountForm.mobileNumber.trim(),
           password: addAccountForm.password,
           passwordConfirm: addAccountForm.passwordConfirm,
+          isActive: addAccountForm.isActive !== false,
+          isEditable: addAccountForm.isEditable === true,
+          isReset: addAccountForm.isReset === true,
+          reason:
+            addAccountForm.reason?.trim()
+            || (addAccountForm.isActive === false ? 'inactive' : 'active'),
         },
       })
       setAddOpen(false)
@@ -607,33 +719,27 @@ export default function StudentAccountsPage() {
     }
   }
 
-  return (
-    <ListPage
-      title="Student Accounts"
-      rowData={rows}
-      columnDefs={columnDefs}
-      loading={isLoading}
-      getRowId={(p) => String(p.data?.userId ?? '')}
-      serverSide
-      totalCount={totalCount}
-      currentPage={page}
-      onPageChange={handlePageChange}
-      pagination={false}
-      paginationPageSize={DEFAULT_PAGE_SIZE}
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search this page…',
-        columnPicker: true,
-        exportPdf: true,
-        pdfDocumentTitle: 'Student Accounts',
+  const tabsInsideCard = (
+    <Tabs
+      value={mainTab}
+      onValueChange={(v) => {
+        setMainTab(v === 'default' ? 'default' : 'new')
+        if (v === 'new') invalidateList()
       }}
-      toolbarTrailing={(
-        <Button size="sm" type="button" onClick={openAddStudentModal}>
-          <PlusIcon className="h-4 w-4 mr-1" />
-          Add Student
-        </Button>
-      )}
     >
+      <TabsList className="h-auto w-full justify-start rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
+        <TabsTrigger className={TAB_TRIGGER_CLASS} value="new">
+          New Student Account
+        </TabsTrigger>
+        <TabsTrigger className={TAB_TRIGGER_CLASS} value="default">
+          Default Account
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  )
+
+  const modals = (
+    <>
       <Dialog open={addOpen} onOpenChange={(v) => { if (!v) setAddOpen(false) }}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pr-8 border-b border-amber-200/80 pb-2">
@@ -775,15 +881,66 @@ export default function StudentAccountsPage() {
                     </div>
                   </FormField>
                   <FormField label="Confirm Password" required>
-                    <Input
-                      className="h-10 text-[13px]"
-                      type={addShowPassword ? 'text' : 'password'}
-                      autoComplete="new-password"
-                      value={addAccountForm.passwordConfirm}
-                      onChange={(e) => setAddAccountForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
-                    />
+                    <div className="relative">
+                      <Input
+                        className="h-10 pr-10 text-[13px]"
+                        type={addShowPasswordConfirm ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        value={addAccountForm.passwordConfirm}
+                        onChange={(e) => setAddAccountForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-1/2 h-8 w-9 -translate-y-1/2 p-0 text-muted-foreground"
+                        aria-label={addShowPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+                        onClick={() => setAddShowPasswordConfirm((v) => !v)}
+                      >
+                        {addShowPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </FormField>
                 </div>
+                <div className="flex flex-wrap items-center gap-5 text-[12px] text-slate-700">
+                  <label className="inline-flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={addAccountForm.isEditable === true}
+                      onChange={(e) => setAddAccountForm((s) => ({ ...s, isEditable: e.target.checked }))}
+                    />
+                    <span>Editable</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={addAccountForm.isReset === true}
+                      onChange={(e) => setAddAccountForm((s) => ({ ...s, isReset: e.target.checked }))}
+                    />
+                    <span>Reset</span>
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={addAccountForm.isActive !== false}
+                      onChange={(e) => setAddAccountForm((s) => ({
+                        ...s,
+                        isActive: e.target.checked,
+                        reason: e.target.checked ? 'active' : '',
+                      }))}
+                    />
+                    <span>Active</span>
+                  </label>
+                </div>
+                {addAccountForm.isActive === false ? (
+                  <FormField label="Reason" required>
+                    <Input
+                      className="h-10 text-[13px]"
+                      value={addAccountForm.reason ?? ''}
+                      onChange={(e) => setAddAccountForm((s) => ({ ...s, reason: e.target.value }))}
+                    />
+                  </FormField>
+                ) : null}
               </div>
             ) : null}
 
@@ -836,10 +993,42 @@ export default function StudentAccountsPage() {
             <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
           </FormField>
           <FormField label="New Password">
-            <Input className="h-10 text-[12px]" type="password" value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={editShowPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setEditShowPassword((v) => !v)}
+                aria-label={editShowPassword ? 'Hide password' : 'Show password'}
+              >
+                {editShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Confirm New Password">
-            <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={editShowPasswordConfirm ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={form.passwordConfirm}
+                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setEditShowPasswordConfirm((v) => !v)}
+                aria-label={editShowPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+              >
+                {editShowPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <div className="md:col-span-2 flex items-end">
             <div className="flex flex-wrap items-center gap-5 text-[12px] text-slate-700">
@@ -852,11 +1041,28 @@ export default function StudentAccountsPage() {
                 <span>Reset</span>
               </label>
               <label className="inline-flex items-center gap-1.5">
-                <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((s) => ({ ...s, isActive: e.target.checked }))} />
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e) => setForm((s) => ({
+                    ...s,
+                    isActive: e.target.checked,
+                    reason: e.target.checked ? 'active' : '',
+                  }))}
+                />
                 <span>Active</span>
               </label>
             </div>
           </div>
+          {!form.isActive ? (
+            <FormField label="Reason" required>
+              <Input
+                className="h-10 text-[12px]"
+                value={form.reason}
+                onChange={(e) => setForm((s) => ({ ...s, reason: e.target.value }))}
+              />
+            </FormField>
+          ) : null}
         </div>
       </FormModal>
 
@@ -954,6 +1160,141 @@ export default function StudentAccountsPage() {
           </div>
         </div>
       </FormModal>
+
+      <Dialog
+        open={defaultFailuresOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setDefaultFailuresOpen(false)
+            setDefaultFailureFilter('')
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Students List</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            *For these students user account not able to create.
+          </p>
+          <FormField label="Student Name / RollNumber">
+            <Input
+              className="h-10 text-[13px]"
+              value={defaultFailureFilter}
+              onChange={(e) => setDefaultFailureFilter(e.target.value)}
+              placeholder="Student Name / RollNumber"
+            />
+          </FormField>
+          <div className="rounded border border-border overflow-auto max-h-[50vh]">
+            <table className="w-full text-[12px]">
+              <thead className="bg-slate-100 border-b border-border sticky top-0">
+                <tr>
+                  <th className="text-left px-3 py-1.5 font-semibold text-slate-700">Student Name</th>
+                  <th className="text-left px-3 py-1.5 font-semibold text-slate-700">Roll Number</th>
+                  <th className="text-left px-3 py-1.5 font-semibold text-slate-700">Course</th>
+                  <th className="text-left px-3 py-1.5 font-semibold text-slate-700">Student Status</th>
+                  <th className="text-left px-3 py-1.5 font-semibold text-slate-700">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDefaultFailures.map((row, idx) => (
+                  <tr key={`${row.rollNumber ?? 'r'}-${idx}`} className="border-b border-border last:border-b-0">
+                    <td className="px-3 py-1.5 text-slate-800">{row.firstName ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-800">{row.rollNumber ?? '—'}</td>
+                    <td className="px-3 py-1.5 text-slate-800">{defaultFailureCourseLine(row)}</td>
+                    <td className={`px-3 py-1.5 font-medium ${studentStatusClass(row.studentStatusCode)}`}>
+                      {row.studentStatusCode ?? '—'}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <StatusBadge status={row.isActive ?? false} />
+                    </td>
+                  </tr>
+                ))}
+                {filteredDefaultFailures.length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-3 text-muted-foreground" colSpan={5}>No matching students.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDefaultFailuresOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+
+  if (mainTab === 'default') {
+    return (
+      <PageContainer className="space-y-4">
+        <div className="app-data-table app-data-table-card flex flex-col">
+          <div className="app-data-table-heading px-5 pt-5 pb-0">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+              Student Accounts
+            </h2>
+            <div className="pt-3 pb-3">
+              {tabsInsideCard}
+            </div>
+          </div>
+          <div className="space-y-4 px-5 pb-5 pt-2">
+            <div>
+              <Button
+                type="button"
+                onClick={() => void runDefaultStudentUserAccounts()}
+                disabled={defaultCreating}
+              >
+                {defaultCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden /> : null}
+                Default New Student User Acounts
+              </Button>
+            </div>
+            <div className="text-sm text-slate-700 space-y-1">
+              <p>Here We are creating new default user accounts for all stundents</p>
+              <ul className="list-disc pl-5 space-y-0.5">
+                <li>User Name: Roll Number(ex:XXJ11A0XXX)</li>
+                <li>Password: Roll Number (ex:XXJ11A0XXX)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        {modals}
+      </PageContainer>
+    )
+  }
+
+  return (
+    <ListPage
+      title="Student Accounts"
+      filters={tabsInsideCard}
+      filtersCollapsible={false}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      getRowId={(p) => String(p.data?.userId ?? '')}
+      serverSide
+      totalCount={totalCount}
+      currentPage={page}
+      onPageChange={handlePageChange}
+      pagination={false}
+      paginationPageSize={DEFAULT_PAGE_SIZE}
+      toolbar={{
+        search: true,
+        searchPlaceholder: 'Search this page…',
+        columnPicker: true,
+        exportPdf: true,
+        pdfDocumentTitle: 'Student Accounts',
+      }}
+      toolbarTrailing={(
+        <Button size="sm" type="button" onClick={openAddStudentModal}>
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Add Student
+        </Button>
+      )}
+    >
+      {modals}
     </ListPage>
   )
 }

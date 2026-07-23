@@ -226,6 +226,131 @@
   flex: 0 0 auto;
 }
 
+/* Evaluation Moderation — Angular fxFlex.gt-xs sizes (15 / 15 / 69, 15 / 15 / 49 / 10) */
+.global-filter-bar__row--eval-mod-r1,
+.global-filter-bar__row--eval-mod-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.global-filter-bar__row--eval-mod-r1 > .global-filter-field,
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx15,
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx69 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx49 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Exam Center Rooms — Angular fxFlex.gt-xs (20 / 18 / 60 / 22, 50 / 16 / 16 / 10) */
+.global-filter-bar__row--ecr-r1,
+.global-filter-bar__row--ecr-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field,
+.global-filter-bar__row--ecr-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx18 {
+  flex: 0 0 18% !important;
+  width: 18% !important;
+  max-width: 18% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx22 {
+  flex: 0 0 22% !important;
+  width: 22% !important;
+  max-width: 22% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r2 > .global-filter-field--fx50 {
+  flex: 0 0 50% !important;
+  width: 50% !important;
+  max-width: 50% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r2 > .global-filter-field--fx16 {
+  flex: 0 0 16% !important;
+  width: 16% !important;
+  max-width: 16% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+@media (max-width: 768px) {
+  .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx15,
+  .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx69,
+  .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx49,
+  .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx18,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx40,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx22,
+  .global-filter-bar__row--ecr-r2 > .global-filter-field--fx50,
+  .global-filter-bar__row--ecr-r2 > .global-filter-field--fx16,
+  .global-filter-bar__row--ecr-r2 > .global-filter-field--fx10 {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
 .global-filter-bar__row--cols-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

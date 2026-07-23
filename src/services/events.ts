@@ -1,12 +1,13 @@
-import { EVENTS_API } from "@/config/constants/api";
+import { EVENTS_API, NEXT_API } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
+import { parseApiError } from "@/lib/errors";
+import type { ApiResponse } from "@/types/api";
 import {
   buildQuery,
   domainCreate,
   domainList,
   domainSoftDelete,
   domainUpdate,
-  fetchDetails,
   postDetails,
   uploadFile,
 } from "./crud";
@@ -30,22 +31,64 @@ export type {
 };
 
 function asRows<T>(data: unknown): T[] {
+  if (data == null || data === "") return [];
   if (Array.isArray(data)) return data as T[];
   if (data && typeof data === "object" && "resultList" in data) {
     const list = (data as { resultList?: unknown }).resultList;
+    if (list == null || list === "") return [];
     if (Array.isArray(list)) return list as T[];
+    return [list as T];
   }
+  if (typeof data === "object") return [data as T];
   return [];
 }
 
-/** Angular `d/M/yyyy` style date param for college calendar APIs. */
+/**
+ * Angular add-event / college-calendar `date` query value (`d/MM/yyyy`).
+ * Month is zero-padded like Angular string-concat; year is the real 4-digit year
+ * (Angular accidentally pads year when day < 10 via `0 + year` — do not copy that).
+ * Keep literal `/` in the request URL — Angular `listByFiveIds` does not encode as `%2F`.
+ */
 export function formatEventCalendarDate(d: Date): string {
   const day = d.getDate();
   const month = d.getMonth() + 1;
   const year = d.getFullYear();
   const monthStr = month < 10 ? `0${month}` : String(month);
-  const yearStr = year < 10 ? `0${year}` : String(year);
-  return `${day}/${monthStr}/${yearStr}`;
+  return `${day}/${monthStr}/${year}`;
+}
+
+/** Angular `listByFiveIds` query — values concatenated, date slashes left literal. */
+function buildUnencodedQuery(params: Record<string, string | number>): string {
+  return Object.entries(params)
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .join("&");
+}
+
+/**
+ * GET `collegecalendar?…` with Angular listByFiveIds/listByThreeIds semantics:
+ * - literal `/` in `date` (not `%2F`)
+ * - `success: false` → empty list (Angular shows calendar with no events)
+ */
+async function fetchCollegeCalendar(
+  params: Record<string, string | number>,
+): Promise<CollegeEventRow[]> {
+  const res = await fetch(
+    `${NEXT_API.PROXY(EVENTS_API.COLLEGE_CALENDAR)}?${buildUnencodedQuery(params)}`,
+    { credentials: "include", cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown> & {
+    statusCode?: number;
+  };
+  // Angular checks statusCode/success and leaves events=[] when unsuccessful.
+  if (body.success === false) return [];
+  if (body.statusCode != null && body.statusCode !== 200) {
+    throw parseApiError(res, body);
+  }
+  return asRows<CollegeEventRow>(body.data);
 }
 
 function pickEventTypeCollegeId(
@@ -159,30 +202,34 @@ export async function listEventsByCollegeAndYear(
   collegeId: number,
   academicYearId: number,
 ): Promise<CollegeEventRow[]> {
-  return domainList<CollegeEventRow>(
-    ENTITIES.EVENT.name,
-    buildQuery({
-      "College.collegeId": collegeId,
-      "AcademicYear.academicYearId": academicYearId,
-      isActive: true,
-    }),
-  );
+  try {
+    return await domainList<CollegeEventRow>(
+      ENTITIES.EVENT.name,
+      buildQuery({
+        "College.collegeId": collegeId,
+        "AcademicYear.academicYearId": academicYearId,
+        isActive: true,
+      }),
+    );
+  } catch {
+    // Angular AllEventsList treats empty / unsuccessful as empty table.
+    return [];
+  }
 }
 
-/** Month/day events — `collegecalendar` five-param (Angular add-event). */
+/** Month/day events — `collegecalendar` five-param (Angular add-event / college-calendar). */
 export async function listCollegeCalendarMonthEvents(params: {
   collegeId: number;
   academicYearId: number;
   date: Date;
 }): Promise<CollegeEventRow[]> {
-  const data = await fetchDetails<unknown>(EVENTS_API.COLLEGE_CALENDAR, {
+  return fetchCollegeCalendar({
     collegeId: params.collegeId,
     academicYearId: params.academicYearId,
     eventsFor: "month",
     date: formatEventCalendarDate(params.date),
     isActive: "true",
   });
-  return asRows<CollegeEventRow>(data);
 }
 
 /** School calendar / holidays list — `collegecalendar` with isHoliday. */
@@ -190,12 +237,11 @@ export async function listSchoolCalendarEvents(
   collegeId: number,
   academicYearId: number,
 ): Promise<CollegeEventRow[]> {
-  const data = await fetchDetails<unknown>(EVENTS_API.COLLEGE_CALENDAR, {
+  return fetchCollegeCalendar({
     collegeId,
     academicYearId,
     isHoliday: "true",
   });
-  return asRows<CollegeEventRow>(data);
 }
 
 /** Staff audience events — `eventsByAudience` seven-param. */
@@ -206,7 +252,7 @@ export async function listStaffAudienceEvents(params: {
   audienceTypeId: number;
   date: Date;
 }): Promise<CollegeEventRow[]> {
-  const data = await fetchDetails<unknown>(EVENTS_API.EVENTS_BY_AUDIENCE, {
+  const qs = buildUnencodedQuery({
     eventsFor: "E",
     collegeId: params.collegeId,
     deptId: params.departmentId,
@@ -215,7 +261,17 @@ export async function listStaffAudienceEvents(params: {
     academicYearId: params.academicYearId,
     status: "true",
   });
-  return asRows<CollegeEventRow>(data);
+  const res = await fetch(
+    `${NEXT_API.PROXY(EVENTS_API.EVENTS_BY_AUDIENCE)}?${qs}`,
+    { credentials: "include", cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown>;
+  if (body.success === false) return [];
+  return asRows<CollegeEventRow>(body.data);
 }
 
 /** Student audience events — `eventsByAudience` for student section. */
@@ -226,7 +282,7 @@ export async function listStudentAudienceEvents(params: {
   audienceTypeId: number;
   date: Date;
 }): Promise<CollegeEventRow[]> {
-  const data = await fetchDetails<unknown>(EVENTS_API.EVENTS_BY_AUDIENCE, {
+  const qs = buildUnencodedQuery({
     eventsFor: "S",
     collegeId: params.collegeId,
     academicYearId: params.academicYearId,
@@ -235,7 +291,17 @@ export async function listStudentAudienceEvents(params: {
     date: formatEventCalendarDate(params.date),
     status: "true",
   });
-  return asRows<CollegeEventRow>(data);
+  const res = await fetch(
+    `${NEXT_API.PROXY(EVENTS_API.EVENTS_BY_AUDIENCE)}?${qs}`,
+    { credentials: "include", cache: "no-store" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown>;
+  if (body.success === false) return [];
+  return asRows<CollegeEventRow>(body.data);
 }
 
 export async function saveCollegeEvents(
@@ -248,11 +314,35 @@ export async function deleteCollegeEvent(eventId: number): Promise<void> {
   await domainSoftDelete(ENTITIES.EVENT.name, ENTITIES.EVENT.pk, eventId);
 }
 
+function normalizeDepartmentEventRow(
+  row: DepartmentEventRow,
+): DepartmentEventRow {
+  const r = row as DepartmentEventRow & Record<string, unknown>;
+  const audiences =
+    r.departmentEventAudienceDTOs ?? r.departmentEventAudienceDTOS ?? [];
+  const resources =
+    r.departmentEventResourceDTOS ?? r.departmentEventResourceDTOs ?? [];
+  const photos = r.departmentEventPhotoDTOS ?? r.departmentEventPhotoDTOs ?? [];
+  return {
+    ...row,
+    departmentEventAudienceDTOs: Array.isArray(audiences)
+      ? (audiences as DepartmentEventAudienceRow[])
+      : [],
+    departmentEventResourceDTOS: Array.isArray(resources)
+      ? (resources as DepartmentEventResourceRow[])
+      : [],
+    departmentEventPhotoDTOS: Array.isArray(photos)
+      ? (photos as DepartmentEventPhotoRow[])
+      : [],
+  };
+}
+
 export async function listDepartmentEvents(): Promise<DepartmentEventRow[]> {
-  return domainList<DepartmentEventRow>(
+  const rows = await domainList<DepartmentEventRow>(
     ENTITIES.DEPARTMENT_EVENT.name,
     buildQuery({}),
   );
+  return rows.map(normalizeDepartmentEventRow);
 }
 
 export async function createDepartmentEvent(

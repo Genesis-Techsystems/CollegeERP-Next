@@ -956,10 +956,11 @@ export async function listAllActiveExamScanBundles(): Promise<AnyRow[]> {
   );
 }
 
+/** Angular `UnivExamScanbundleUrl` first, then alternate entity names used in the wild. */
 const EXAM_SCAN_BUNDLE_ENTITIES = [
-  UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES,
+  UNIV_EXAM_CENTER_API.UNIV_EXAM_SCANBUNDLE,
   "UnivExamScanbundles",
-  "UnivExamScanbundle",
+  UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES,
 ] as const;
 
 /** Angular scan-bundle-details `selectedSubject` → `listDetailsByFiveIds(UnivExamScanbundleUrl, …)`. */
@@ -1094,25 +1095,42 @@ export async function populateScanBundleOmrDetails(args: {
 export async function createExamScanBundle(
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  return domainCreate<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES, payload);
+  // Angular `addDetails(UnivExamScanbundleUrl, …)` — try Angular entity first.
+  let lastErr: unknown;
+  for (const entity of EXAM_SCAN_BUNDLE_ENTITIES) {
+    try {
+      return await domainCreate<AnyRow>(entity, payload);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (lastErr instanceof Error) throw lastErr;
+  throw new AppError("API_ERROR", "Failed to create exam scan bundle");
 }
 
 export async function updateExamScanBundle(
   examScanBundleId: number,
   payload: Record<string, unknown>,
 ): Promise<AnyRow> {
-  const pks = ["examScanBundleId", "unvExamBundleId"] as const;
+  // Angular `updateDetails(…, univExamScanbundleId)`.
+  const pks = [
+    "univExamScanbundleId",
+    "examScanBundleId",
+    "unvExamBundleId",
+  ] as const;
   let lastErr: unknown;
-  for (const pk of pks) {
-    try {
-      return await domainUpdate<AnyRow>(
-        UNIV_EXAM_CENTER_API.EXAM_SCAN_BUNDLES,
-        pk,
-        examScanBundleId,
-        payload,
-      );
-    } catch (e) {
-      lastErr = e;
+  for (const entity of EXAM_SCAN_BUNDLE_ENTITIES) {
+    for (const pk of pks) {
+      try {
+        return await domainUpdate<AnyRow>(
+          entity,
+          pk,
+          examScanBundleId,
+          payload,
+        );
+      } catch (e) {
+        lastErr = e;
+      }
     }
   }
   if (lastErr instanceof Error) throw lastErr;

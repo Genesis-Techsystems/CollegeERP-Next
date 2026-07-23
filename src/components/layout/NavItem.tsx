@@ -3301,6 +3301,31 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/assessments/test";
     }
+    // Scholarship Preceedings (management) — Angular preceeding-details
+    if (
+      hrefLower.includes("preceeding-details") ||
+      hrefLower.includes("preceding-details") ||
+      hrefLower.includes("scholarship-management/students-upload") ||
+      (hrefLower.includes("students-upload") &&
+        (hrefLower.includes("scholarship") ||
+          labelLower.includes("scholarship"))) ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        !labelLower.includes("report") &&
+        !labelLower.includes("account") &&
+        !hrefLower.includes("fee-reports") &&
+        !hrefLower.includes("accounts-preceeding") &&
+        !hrefLower.includes("acounts-preceeding"))
+    ) {
+      if (
+        hrefLower.includes("students-upload") ||
+        labelLower.includes("upload student")
+      ) {
+        return "/scholarship-management/students-upload";
+      }
+      return "/scholarship-management/preceeding-details";
+    }
     return null;
   })();
 

@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight, UserPlus } from 'lucide-react'
 import { DatePicker } from '@/common/components/date-picker'
-import { FilterCard } from '@/common/components/feedback'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -15,11 +14,11 @@ import {
   listActiveCollegesForDepartments,
   listCourseGroupsByCourse,
   listCourseYearsByCourse,
+  listCoursesByUniversity,
   listMappedCounselorStudents,
   listStudentsForCounselorAssignment,
   saveCounselorMappings,
   searchEmployeesForMentorship,
-  listCoursesByCollegeForFcarSetup,
   type MentorshipRow,
 } from '@/services'
 import type { College } from '@/types/college'
@@ -89,10 +88,16 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
       setCourses([])
       return
     }
-    void listCoursesByCollegeForFcarSetup(collegeId)
+    const universityId = Number(colleges.find((c) => c.collegeId === collegeId)?.universityId ?? 0)
+    if (!universityId) {
+      setCourses([])
+      return
+    }
+    // Angular: listDetailsByTwoIds(courseCrudUrl, universityId, … getDetailsByUniversityIdUrl …)
+    void listCoursesByUniversity(universityId)
       .then(setCourses)
       .catch(() => setCourses([]))
-  }, [collegeId, academicYearId])
+  }, [collegeId, academicYearId, colleges])
 
   const collegeOptions = useMemo(
     () => colleges.map((c) => ({ value: String(c.collegeId), label: c.collegeCode ?? String(c.collegeId) })),
@@ -135,6 +140,21 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
     [courseYears],
   )
 
+  function resetEmployeeSearch() {
+    setEmployeeId(null)
+    setEmployees([])
+    setEmployeeOptions([])
+  }
+
+  function resetStudents() {
+    setAllStudents([])
+    setUnassigned([])
+    setAssigned([])
+    setSelectedUnassigned(new Set())
+    setSelectedAssigned(new Set())
+    setHeaderLine('')
+  }
+
   async function onCollegeChange(cid: number | null) {
     setCollegeId(cid)
     setAcademicYearId(null)
@@ -145,6 +165,7 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
     setCourses([])
     setCourseGroups([])
     setCourseYears([])
+    resetEmployeeSearch()
     resetStudents()
     if (!cid) return
     try {
@@ -155,12 +176,24 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
     }
   }
 
+  function onAcademicYearChange(ayId: number | null) {
+    setAcademicYearId(ayId)
+    setCourseId(null)
+    setCourseGroupId(null)
+    setCourseYearId(null)
+    setCourseGroups([])
+    setCourseYears([])
+    resetEmployeeSearch()
+    resetStudents()
+  }
+
   async function onCourseChange(coid: number | null) {
     setCourseId(coid)
     setCourseGroupId(null)
     setCourseYearId(null)
     setCourseGroups([])
     setCourseYears([])
+    resetEmployeeSearch()
     resetStudents()
     if (!coid) return
     try {
@@ -176,12 +209,35 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
     }
   }
 
-  function resetStudents() {
-    setAllStudents([])
-    setUnassigned([])
-    setAssigned([])
-    setSelectedUnassigned(new Set())
-    setSelectedAssigned(new Set())
+  function onCourseGroupChange(gid: number | null) {
+    setCourseGroupId(gid)
+    setCourseYearId(null)
+    resetEmployeeSearch()
+    resetStudents()
+  }
+
+  function onCourseYearChange(yid: number | null) {
+    setCourseYearId(yid)
+    resetEmployeeSearch()
+    resetStudents()
+  }
+
+  /** Angular `calDays` — from date must be ≤ to date. */
+  function onFromDateChange(d: Date | null) {
+    setFromDate(d)
+    if (d && toDate && d.getTime() > toDate.getTime()) {
+      toastInfo('From date should be less then To date.')
+      setToDate(d)
+    }
+  }
+
+  function onToDateChange(d: Date | null) {
+    if (d && fromDate && fromDate.getTime() > d.getTime()) {
+      toastInfo('From date should be less then To date.')
+      setToDate(fromDate)
+      return
+    }
+    setToDate(d)
   }
 
   const loadStudentsForEmployee = useCallback(
@@ -201,30 +257,39 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
           listMappedCounselorStudents({ collegeId, courseGroupId, courseYearId }),
         ])
 
+        // Angular selectedSatff: attach any active mapping; only current employee's students go to assigned;
+        // students already mapped to another counselor stay out of both lists (!counselorId → unassigned only).
+        let mappingFrom: Date | null = null
+        let mappingTo: Date | null = null
         const normalized = students.map((s) => {
-          const row = s as StudentRow
+          const row = { ...(s as StudentRow) }
           if (row.genderDisplayName === 'Male') row.genderDisplayName = 'M'
           if (row.genderDisplayName === 'Female') row.genderDisplayName = 'F'
           const map = mapped.find(
-            (m) =>
-              Number(m.studentId) === Number(row.studentId) &&
-              m.isActive !== false &&
-              Number(m.employeeId) === eid,
+            (m) => Number(m.studentId) === Number(row.studentId) && m.isActive === true,
           )
           if (map) {
             row.counselorId = Number(map.counselorId)
             row.employeeId = Number(map.employeeId)
             row.fromDate = map.fromDate
             row.toDate = map.toDate
+            if (Number(map.employeeId) === eid) {
+              if (map.fromDate) mappingFrom = new Date(String(map.fromDate))
+              if (map.toDate) mappingTo = new Date(String(map.toDate))
+            }
           }
           return row
         })
 
         setAllStudents(normalized)
-        const assignedRows = normalized.filter((s) => Number(s.employeeId) === eid && s.counselorId)
+        const assignedRows = normalized.filter(
+          (s) => Number(s.employeeId) === eid && Boolean(s.counselorId),
+        )
         const unassignedRows = normalized.filter((s) => !s.counselorId)
         setAssigned(assignedRows)
         setUnassigned(unassignedRows)
+        if (mappingFrom) setFromDate(mappingFrom)
+        if (mappingTo) setToDate(mappingTo)
 
         const college = colleges.find((c) => c.collegeId === collegeId)
         const course = courses.find((c) => Number(c.courseId) === courseId)
@@ -242,12 +307,6 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
             .filter(Boolean)
             .join(' / '),
         )
-
-        const mappingDates = mapped.find(
-          (x) => Number(x.employeeId) === eid && x.fromDate,
-        )
-        if (mappingDates?.fromDate) setFromDate(new Date(String(mappingDates.fromDate)))
-        if (mappingDates?.toDate) setToDate(new Date(String(mappingDates.toDate)))
       } catch (e) {
         toastError(getErrorMessage(e))
       } finally {
@@ -265,7 +324,6 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
       courseGroups,
       courseYears,
       academicYears,
-      employees,
     ],
   )
 
@@ -281,7 +339,8 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
     }
     setEmployeeSearching(true)
     try {
-      const found = await searchEmployeesForMentorship(collegeId ?? 0, q)
+      // Angular enteredEmployee: employeesearch?q=&empStatus=ACTV (no collegeId)
+      const found = await searchEmployeesForMentorship(0, q)
       setEmployees(found)
       setEmployeeOptions(
         found.map((e) => ({
@@ -346,7 +405,7 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
       return
     }
     if (from > to) {
-      toastInfo('From date should be less than To date.')
+      toastInfo('From date should be less then To date.')
       return
     }
 
@@ -365,12 +424,11 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
 
     for (const s of unassigned) {
       const original = allStudents.find((x) => studentKey(x) === studentKey(s))
+      // Angular: only deactivate rows that already had a counselor mapping
       if (original?.counselorId) {
         payload.push({
           ...original,
           isActive: false,
-          fromDate: from.toISOString(),
-          toDate: to.toISOString(),
         })
       }
     }
@@ -394,161 +452,185 @@ export function AssignCounselorPage({ title = 'Assign Counselor' }: Readonly<Ass
   }
 
   const showStudents = assigned.length > 0 || unassigned.length > 0
+  const counselorName =
+    (employees.find((e) => Number(e.employeeId) === employeeId)?.firstName as string | undefined) ??
+    'Counselor'
 
   return (
-    <PageContainer className="space-y-5">
-      <FilterCard title={title} bodyClassName="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-          <Select
-            label="College *"
-            value={collegeId ? String(collegeId) : null}
-            onChange={(v) => void onCollegeChange(v ? Number(v) : null)}
-            options={collegeOptions}
-            searchable
-            className="md:col-span-2"
-          />
-          <Select
-            label="Academic Year *"
-            value={academicYearId ? String(academicYearId) : null}
-            onChange={(v) => {
-              setAcademicYearId(v ? Number(v) : null)
-              resetStudents()
-            }}
-            options={academicYearOptions}
-            searchable
-            disabled={!collegeId}
-            className="md:col-span-2"
-          />
-          <Select
-            label="Course *"
-            value={courseId ? String(courseId) : null}
-            onChange={(v) => void onCourseChange(v ? Number(v) : null)}
-            options={courseOptions}
-            searchable
-            disabled={!academicYearId}
-            className="md:col-span-2"
-          />
-          <Select
-            label="Course Group *"
-            value={courseGroupId ? String(courseGroupId) : null}
-            onChange={(v) => {
-              setCourseGroupId(v ? Number(v) : null)
-              resetStudents()
-            }}
-            options={courseGroupOptions}
-            searchable
-            disabled={!courseId}
-            className="md:col-span-2"
-          />
-          <Select
-            label="Course Year *"
-            value={courseYearId ? String(courseYearId) : null}
-            onChange={(v) => {
-              setCourseYearId(v ? Number(v) : null)
-              setEmployeeId(null)
-              resetStudents()
-            }}
-            options={courseYearOptions}
-            searchable
-            disabled={!courseGroupId}
-            className="md:col-span-2"
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <Select
-            label="Employee *"
-            value={employeeId ? String(employeeId) : null}
-            onChange={(v) => setEmployeeId(v ? Number(v) : null)}
-            options={employeeOptions}
-            searchable
-            isLoading={employeeSearching}
-            disabled={!courseYearId}
-            onSearch={(term) => void onEmployeeSearch(term)}
-            className="md:col-span-4"
-          />
-          <DatePicker label="From Date *" value={fromDate} onChange={setFromDate} clearable={false} className="md:col-span-2" />
-          <DatePicker label="To Date *" value={toDate} onChange={setToDate} clearable={false} className="md:col-span-2" />
-        </div>
-      </FilterCard>
-
-      {showStudents ? (
-        <>
-          <div className="app-card px-4 py-3">
-            <h2 className="text-sm font-semibold text-[hsl(var(--card-title))]">
-              Students — <span className="text-muted-foreground font-normal">{headerLine}</span>
-            </h2>
+    <FilteredListPage
+      title={title}
+      filters={
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <Select
+              label="College *"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => void onCollegeChange(v ? Number(v) : null)}
+              options={collegeOptions}
+              searchable
+              className="md:col-span-2"
+            />
+            <Select
+              label="Academic Year *"
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => onAcademicYearChange(v ? Number(v) : null)}
+              options={academicYearOptions}
+              searchable
+              disabled={!collegeId}
+              className="md:col-span-2"
+            />
+            <Select
+              label="Course *"
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => void onCourseChange(v ? Number(v) : null)}
+              options={courseOptions}
+              searchable
+              disabled={!academicYearId}
+              className="md:col-span-2"
+            />
+            <Select
+              label="Course Group *"
+              value={courseGroupId ? String(courseGroupId) : null}
+              onChange={(v) => onCourseGroupChange(v ? Number(v) : null)}
+              options={courseGroupOptions}
+              searchable
+              disabled={!courseId}
+              className="md:col-span-3"
+            />
+            <Select
+              label="Course Year *"
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => onCourseYearChange(v ? Number(v) : null)}
+              options={courseYearOptions}
+              searchable
+              disabled={!courseGroupId}
+              className="md:col-span-3"
+            />
           </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-3 items-start">
-            <div className="app-card p-3 space-y-2 min-h-[280px]">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Students ({unassigned.length})</p>
-              </div>
-              <SearchInput value={leftSearch} onChange={setLeftSearch} placeholder="Search…" />
-              <ul className="max-h-[360px] overflow-y-auto space-y-1 border rounded-md p-2">
-                {filteredUnassigned.map((s) => {
-                  const id = studentKey(s)
-                  return (
-                    <li key={id}>
-                      <label className="flex items-center gap-2 text-sm cursor-pointer py-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedUnassigned.has(id)}
-                          onChange={() => toggleSet(setSelectedUnassigned, id)}
-                        />
-                        {studentLabel(s)}
-                      </label>
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-
-            <div className="flex lg:flex-col flex-row items-center justify-center gap-2 py-4">
-              <Button type="button" size="sm" variant="outline" onClick={moveToAssigned} disabled={loading}>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={moveToUnassigned} disabled={loading}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="app-card p-3 space-y-2 min-h-[280px]">
-              <p className="text-sm font-medium">
-                {(employees.find((e) => Number(e.employeeId) === employeeId)?.firstName as string | undefined) ?? 'Counselor'} (
-                {assigned.length})
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            {courseYearId ? (
+              <Select
+                label="Employee *"
+                value={employeeId ? String(employeeId) : null}
+                onChange={(v) => setEmployeeId(v ? Number(v) : null)}
+                options={employeeOptions}
+                searchable
+                isLoading={employeeSearching}
+                onSearch={(term) => void onEmployeeSearch(term)}
+                className="md:col-span-4"
+              />
+            ) : null}
+            <DatePicker
+              label="From Date *"
+              value={fromDate}
+              onChange={onFromDateChange}
+              clearable={false}
+              className="md:col-span-2"
+            />
+            <DatePicker
+              label="To Date *"
+              value={toDate}
+              onChange={onToDateChange}
+              clearable={false}
+              className="md:col-span-2"
+            />
+          </div>
+        </div>
+      }
+      bodyClassName="border-t-0"
+      body={
+        showStudents ? (
+          <div className="space-y-3">
+            {headerLine ? (
+              <p className="text-sm font-medium text-[hsl(var(--card-title))]">
+                Students — <span className="text-muted-foreground font-normal">{headerLine}</span>
               </p>
-              <SearchInput value={rightSearch} onChange={setRightSearch} placeholder="Search…" />
-              <ul className="max-h-[360px] overflow-y-auto space-y-1 border rounded-md p-2">
-                {filteredAssigned.map((s) => {
-                  const id = studentKey(s)
-                  return (
-                    <li key={id}>
-                      <label className="flex items-center gap-2 text-sm cursor-pointer py-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedAssigned.has(id)}
-                          onChange={() => toggleSet(setSelectedAssigned, id)}
-                        />
-                        {studentLabel(s)}
-                      </label>
-                    </li>
-                  )
-                })}
-              </ul>
+            ) : null}
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+              <div className="md:col-span-5 border rounded-sm overflow-hidden bg-card">
+                <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
+                  <span>Students</span>
+                  <span>{unassigned.length}</span>
+                </div>
+                <div className="p-2 space-y-2">
+                  <SearchInput value={leftSearch} onChange={setLeftSearch} placeholder="Search…" />
+                  <ul className="h-[360px] overflow-y-auto border rounded-sm p-1 space-y-0.5">
+                    {filteredUnassigned.length === 0 ? (
+                      <li className="p-3 text-sm text-muted-foreground">No students</li>
+                    ) : (
+                      filteredUnassigned.map((s) => {
+                        const id = studentKey(s)
+                        return (
+                          <li key={id}>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1.5 hover:bg-muted/40 rounded-sm">
+                              <input
+                                type="checkbox"
+                                checked={selectedUnassigned.has(id)}
+                                onChange={() => toggleSet(setSelectedUnassigned, id)}
+                              />
+                              {studentLabel(s)}
+                            </label>
+                          </li>
+                        )
+                      })
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="md:col-span-1 flex flex-row md:flex-col items-center justify-center gap-2 py-2">
+                <Button type="button" size="sm" variant="outline" onClick={moveToAssigned} disabled={loading}>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={moveToUnassigned} disabled={loading}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="md:col-span-6 border rounded-sm overflow-hidden bg-card">
+                <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
+                  <span className="truncate">{counselorName}</span>
+                  <span>{assigned.length}</span>
+                </div>
+                <div className="p-2 space-y-2">
+                  <SearchInput value={rightSearch} onChange={setRightSearch} placeholder="Search…" />
+                  <ul className="h-[360px] overflow-y-auto border rounded-sm p-1 space-y-0.5">
+                    {filteredAssigned.length === 0 ? (
+                      <li className="p-3 text-sm text-muted-foreground">No students</li>
+                    ) : (
+                      filteredAssigned.map((s) => {
+                        const id = studentKey(s)
+                        return (
+                          <li key={id}>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1.5 hover:bg-muted/40 rounded-sm">
+                              <input
+                                type="checkbox"
+                                checked={selectedAssigned.has(id)}
+                                onChange={() => toggleSet(setSelectedAssigned, id)}
+                              />
+                              {studentLabel(s)}
+                            </label>
+                          </li>
+                        )
+                      })
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => void assignCounselor()} disabled={saving || loading}>
+                <UserPlus className="h-4 w-4 mr-1.5" />
+                {saving ? 'Saving…' : 'Assign Counselor'}
+              </Button>
             </div>
           </div>
-
-          <div className="flex justify-end">
-            <Button type="button" onClick={() => void assignCounselor()} disabled={saving || loading}>
-              <UserPlus className="h-4 w-4 mr-1.5" />
-              {saving ? 'Saving…' : 'Assign Counselor'}
-            </Button>
-          </div>
-        </>
-      ) : loading ? (
-        <p className="text-sm text-muted-foreground px-1">Loading students…</p>
-      ) : null}
-    </PageContainer>
+        ) : loading ? (
+          <p className="text-sm text-muted-foreground">Loading students…</p>
+        ) : null
+      }
+    />
   )
 }

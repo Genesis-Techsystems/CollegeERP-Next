@@ -11,8 +11,8 @@ import { FormField } from "@/common/components/forms";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toastError, toastSuccess } from "@/lib/toast";
-import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { getErrorMessage, isAppError } from "@/lib/errors";
 import { useCrudList } from "@/hooks/useCrudList";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
@@ -25,13 +25,33 @@ import {
   listStaffAccountColleges,
   listStaffAccountsByCollege,
   listUserRoles,
+  resolveStaffUserTypeId,
   saveUserRoles,
+  STAFF_USER_ALREADY_EXISTS_MESSAGE,
   updateStaffAccount,
   type StaffAccount,
   type UserRole,
 } from "@/services";
 import type { College } from "@/types/college";
 import type { Department } from "@/types/department";
+
+function collegeOrganizationId(college: College | null | undefined): number {
+  if (!college) return 0;
+  const flat = Number(college.organizationId ?? 0);
+  if (flat > 0) return flat;
+  const nested = (
+    college as College & {
+      Organization?: { organizationId?: number };
+      organization?: { organizationId?: number };
+    }
+  ).Organization?.organizationId ??
+    (
+      college as College & {
+        organization?: { organizationId?: number };
+      }
+    ).organization?.organizationId;
+  return Number(nested ?? 0) || 0;
+}
 
 type StaffEmployeeOption = {
   employeeId?: number;
@@ -144,7 +164,7 @@ export default function StaffAccountsPage() {
   const [form, setForm] = useState({
     departmentId: "",
     employeeId: "",
-    userTypeId: "9",
+    userTypeId: "",
     firstName: "",
     lastName: "",
     userName: "",
@@ -152,7 +172,11 @@ export default function StaffAccountsPage() {
     mobileNumber: "",
     password: "",
     passwordConfirm: "",
-    passwordExpDate: new Date(),
+    passwordExpDate: (() => {
+      const d = new Date();
+      d.setFullYear(d.getFullYear() + 1);
+      return d;
+    })(),
     isActive: true,
     isEditable: false,
     isReset: false,
@@ -201,7 +225,7 @@ export default function StaffAccountsPage() {
     () => colleges.find((c) => c.collegeId === collegeId) ?? null,
     [colleges, collegeId],
   );
-  const selectedOrganizationId = selectedCollege?.organizationId ?? 0;
+  const selectedOrganizationId = collegeOrganizationId(selectedCollege);
 
   const { data: roleOptions, isLoading: rolesLoading } = useCrudList({
     queryKey: ["StaffAccounts", "roles", selectedOrganizationId],
@@ -226,10 +250,12 @@ export default function StaffAccountsPage() {
   }, [existingUserRoles, rolesOpen]);
 
   function resetForm() {
+    const passwordExpDate = new Date();
+    passwordExpDate.setFullYear(passwordExpDate.getFullYear() + 1);
     setForm({
       departmentId: "",
       employeeId: "",
-      userTypeId: "9",
+      userTypeId: "",
       firstName: "",
       lastName: "",
       userName: "",
@@ -237,7 +263,7 @@ export default function StaffAccountsPage() {
       mobileNumber: "",
       password: "",
       passwordConfirm: "",
-      passwordExpDate: new Date(),
+      passwordExpDate,
       isActive: true,
       isEditable: false,
       isReset: false,
@@ -262,17 +288,22 @@ export default function StaffAccountsPage() {
     setForm({
       departmentId: staff.departmentId ? String(staff.departmentId) : "",
       employeeId: staff.employeeId ? String(staff.employeeId) : "",
-      userTypeId: String(staff.userTypeId ?? 9),
+      userTypeId: staff.userTypeId ? String(staff.userTypeId) : "",
       firstName: staff.firstName ?? "",
       lastName: staff.lastName ?? "",
       userName: staff.userName ?? "",
       email: staff.email ?? "",
       mobileNumber: staff.mobileNumber ?? "",
-      password: staff.password ?? "",
-      passwordConfirm: staff.password ?? "",
+      // Do not pre-fill hashed password — labels say "New Password"
+      password: "",
+      passwordConfirm: "",
       passwordExpDate: staff.passwordExpDate
         ? new Date(staff.passwordExpDate)
-        : new Date(),
+        : (() => {
+            const d = new Date();
+            d.setFullYear(d.getFullYear() + 1);
+            return d;
+          })(),
       isActive: staff.isActive !== false,
       isEditable: staff.isEditable ?? false,
       isReset: staff.isReset ?? false,
@@ -285,9 +316,15 @@ export default function StaffAccountsPage() {
   async function openRolesModal(row: StaffAccount | null) {
     if (!row) return;
     const full = await getStaffAccountById(row.userId).catch(() => null);
+    let userTypeId = full?.userTypeId ?? row.userTypeId;
+    if (!userTypeId && selectedOrganizationId) {
+      userTypeId = await resolveStaffUserTypeId(selectedOrganizationId).catch(
+        () => undefined,
+      );
+    }
     setRoleSheetUser({
       ...(full ?? row),
-      userTypeId: full?.userTypeId ?? row.userTypeId ?? 9,
+      userTypeId,
     });
     setRoleIdToAdd(null);
     setRoleActiveToAdd(true);
@@ -303,12 +340,17 @@ export default function StaffAccountsPage() {
       toastError("Role already added for this user");
       return;
     }
+    const userTypeId = roleSheetUser.userTypeId;
+    if (!userTypeId) {
+      toastError("User type could not be resolved for this account");
+      return;
+    }
     const role = roleOptions.find((option) => option.roleId === roleId);
     setRoleRows((current) => [
       ...current.filter((item) => item.roleId !== roleId),
       {
         userId: roleSheetUser.userId,
-        userTypeId: roleSheetUser.userTypeId ?? 9,
+        userTypeId,
         roleId,
         roleName: role?.roleName ?? `Role ${roleId}`,
         isActive: roleActiveToAdd,
@@ -331,13 +373,16 @@ export default function StaffAccountsPage() {
     if (!roleSheetUser?.userId) return;
     if (roleRows.length === 0)
       return toastError("Please add at least one role");
+    const userTypeId = roleSheetUser.userTypeId;
+    if (!userTypeId)
+      return toastError("User type could not be resolved for this account");
     try {
       setSavingRoles(true);
       await saveUserRoles(
         roleRows.map((role) => ({
           ...role,
           userId: roleSheetUser.userId,
-          userTypeId: roleSheetUser.userTypeId ?? role.userTypeId ?? 9,
+          userTypeId: roleSheetUser.userTypeId ?? role.userTypeId ?? userTypeId,
           userName: roleSheetUser.userName ?? role.userName ?? undefined,
           firstName: roleSheetUser.firstName ?? role.firstName ?? null,
           lastName: roleSheetUser.lastName ?? role.lastName ?? null,
@@ -356,6 +401,12 @@ export default function StaffAccountsPage() {
   async function submitAdd(e: { preventDefault: () => void }) {
     e.preventDefault();
     if (!selectedCollege) return;
+    const organizationId = collegeOrganizationId(selectedCollege);
+    if (!organizationId) {
+      return toastError(
+        "Organization is missing for this college. Cannot create staff account.",
+      );
+    }
     if (!form.departmentId) return toastError("Please select a department");
     if (!form.employeeId) return toastError("Please select an employee");
     if (!form.firstName.trim())
@@ -383,7 +434,6 @@ export default function StaffAccountsPage() {
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.trim(),
         employeeId: Number(form.employeeId),
-        userTypeId: Number(form.userTypeId),
         departmentId: Number(form.departmentId),
         password: form.password,
         passwordConfirm: form.passwordConfirm,
@@ -393,13 +443,22 @@ export default function StaffAccountsPage() {
         isReset: form.isReset,
         reason: form.reason.trim() || (form.isActive ? "active" : "inactive"),
         collegeId: selectedCollege.collegeId,
-        organizationId: selectedCollege.organizationId,
+        organizationId,
       });
       setAddOpen(false);
       toastSuccess("Staff account created successfully");
       invalidate().catch(() => undefined);
     } catch (error) {
-      toastError(getErrorMessage(error));
+      // Angular: snotifyService.info('User already exists', 'Info!') — not an error toast
+      if (
+        isAppError(error) &&
+        (error.code === "ALREADY_EXISTS" ||
+          error.message === STAFF_USER_ALREADY_EXISTS_MESSAGE)
+      ) {
+        toastInfo(STAFF_USER_ALREADY_EXISTS_MESSAGE);
+      } else {
+        toastError(getErrorMessage(error));
+      }
     } finally {
       setSaving(false);
     }
@@ -411,28 +470,42 @@ export default function StaffAccountsPage() {
     if (form.password && form.password !== form.passwordConfirm) {
       return toastError("Password and confirm password must match");
     }
+    const organizationId =
+      activeStaff.organizationId || collegeOrganizationId(selectedCollege);
+    if (!organizationId) {
+      return toastError(
+        "Organization is missing for this college. Cannot update staff account.",
+      );
+    }
     try {
       setSaving(true);
-      const passwordToSend = form.password || activeStaff.password || "";
-      await updateStaffAccount(activeStaff.userId, {
+      const updatePayload: Partial<StaffAccount> = {
         userId: activeStaff.userId,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         userName: form.userName.trim(),
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.trim(),
-        password: passwordToSend,
-        passwordConfirm: form.passwordConfirm || passwordToSend,
         passwordExpDate: form.passwordExpDate,
         departmentId: activeStaff.departmentId,
+        employeeId: activeStaff.employeeId,
+        userTypeId: activeStaff.userTypeId,
         isActive: form.isActive,
         isEditable: form.isEditable,
         isReset: form.isReset,
         reason: form.reason.trim() || (form.isActive ? "active" : "inactive"),
         collegeId: activeStaff.collegeId ?? selectedCollege.collegeId,
-        organizationId:
-          activeStaff.organizationId ?? selectedCollege.organizationId,
-      });
+        organizationId,
+      };
+      if (form.password) {
+        updatePayload.password = form.password;
+        updatePayload.passwordConfirm = form.passwordConfirm;
+      } else if (activeStaff.password) {
+        // Keep existing password when user leaves "New Password" blank
+        updatePayload.password = activeStaff.password;
+        updatePayload.passwordConfirm = activeStaff.password;
+      }
+      await updateStaffAccount(activeStaff.userId, updatePayload);
       setEditOpen(false);
       toastSuccess("Staff account updated successfully");
       invalidate().catch(() => undefined);
@@ -543,9 +616,9 @@ export default function StaffAccountsPage() {
           </FormField>
           <FormField label="User Type" required>
             <Select
-              value={form.userTypeId}
+              value="STAFF"
               onChange={() => undefined}
-              options={[{ value: "9", label: "STAFF" }]}
+              options={[{ value: "STAFF", label: "STAFF" }]}
               disabled
               searchable={false}
               className="[&_button]:h-10 [&_button]:text-[12px]"

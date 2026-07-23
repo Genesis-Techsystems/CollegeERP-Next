@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { format } from "date-fns";
 import { PencilIcon, PlusIcon, UserRound } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
@@ -14,11 +14,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { getErrorMessage } from "@/lib/errors";
 import { QK } from "@/lib/query-keys";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   listAcademicYearsForCollege,
   listActiveCollegesForDepartments,
   listDepartmentEvents,
+  uploadDepartmentEventFiles,
   type DepartmentEventAudienceRow,
   type DepartmentEventPhotoRow,
   type DepartmentEventResourceRow,
@@ -26,6 +29,49 @@ import {
 } from "@/services";
 import type { College } from "@/types/college";
 import { DepartmentEventModal } from "./DepartmentEventModal";
+
+/** Angular uses `departmentEventPhotoDTOS`; Spring may also return `…DTOs`. */
+function getEventPhotos(
+  row: DepartmentEventRow | undefined,
+): DepartmentEventPhotoRow[] {
+  if (!row) return [];
+  const r = row as DepartmentEventRow & {
+    departmentEventPhotoDTOs?: DepartmentEventPhotoRow[];
+  };
+  const list = r.departmentEventPhotoDTOS ?? r.departmentEventPhotoDTOs ?? [];
+  return Array.isArray(list) ? list : [];
+}
+
+/** Angular `departmentEventAudienceDTOs` — also accept `…DTOS`. */
+function getEventAudiences(
+  row: DepartmentEventRow | undefined,
+): DepartmentEventAudienceRow[] {
+  if (!row) return [];
+  const r = row as DepartmentEventRow & {
+    departmentEventAudienceDTOS?: DepartmentEventAudienceRow[];
+  };
+  const list =
+    r.departmentEventAudienceDTOs ?? r.departmentEventAudienceDTOS ?? [];
+  return Array.isArray(list) ? list : [];
+}
+
+/** Angular `departmentEventResourceDTOS` — also accept `…DTOs`. */
+function getEventResources(
+  row: DepartmentEventRow | undefined,
+): DepartmentEventResourceRow[] {
+  if (!row) return [];
+  const r = row as DepartmentEventRow & {
+    departmentEventResourceDTOs?: DepartmentEventResourceRow[];
+  };
+  const list =
+    r.departmentEventResourceDTOS ?? r.departmentEventResourceDTOs ?? [];
+  return Array.isArray(list) ? list : [];
+}
+
+function isCoordinatorFlag(aud: DepartmentEventAudienceRow): boolean {
+  const v = aud.isCoordinator as unknown;
+  return v === true || v === 1 || v === "1" || v === "true";
+}
 
 function formatDisplayDate(raw: string | undefined): string {
   if (!raw) return "";
@@ -43,41 +89,44 @@ function formatEventDateRange(row: DepartmentEventRow | undefined): string {
 }
 
 function audienceLabel(aud: DepartmentEventAudienceRow): string {
-  if (aud.employeeDetailNumber || aud.employeeDetailName) {
-    const num = aud.employeeDetailNumber
-      ? `(${aud.employeeDetailNumber}) `
-      : "";
-    return `${num}${aud.employeeDetailName ?? ""}`.trim();
+  // Angular: prefer employeeDetailNumber branch, else student roll/name.
+  if (aud.employeeDetailNumber) {
+    return `(${aud.employeeDetailNumber}) ${aud.employeeDetailName ?? ""}`.trim();
   }
-  const roll = aud.studentDetailRollNumber
-    ? `(${aud.studentDetailRollNumber}) `
-    : "";
-  return `${roll}${aud.studentDetailName ?? ""}`.trim();
+  if (aud.employeeDetailName) {
+    return String(aud.employeeDetailName);
+  }
+  if (aud.studentDetailRollNumber) {
+    return `(${aud.studentDetailRollNumber}) ${aud.studentDetailName ?? ""}`.trim();
+  }
+  return String(aud.studentDetailName ?? "").trim();
 }
 
 function coordinatorsText(row: DepartmentEventRow | undefined): string {
-  const list = (row?.departmentEventAudienceDTOs ?? []).filter(
-    (a) => a.isCoordinator,
-  );
-  return list.map(audienceLabel).filter(Boolean).join("; ");
+  return getEventAudiences(row)
+    .filter(isCoordinatorFlag)
+    .map(audienceLabel)
+    .filter(Boolean)
+    .join("; ");
 }
 
 function participantsText(row: DepartmentEventRow | undefined): string {
-  const list = (row?.departmentEventAudienceDTOs ?? []).filter(
-    (a) => !a.isCoordinator,
-  );
-  return list.map(audienceLabel).filter(Boolean).join("; ");
+  return getEventAudiences(row)
+    .filter((a) => !isCoordinatorFlag(a))
+    .map(audienceLabel)
+    .filter(Boolean)
+    .join("; ");
 }
 
 function resourcesText(row: DepartmentEventRow | undefined): string {
-  return (row?.departmentEventResourceDTOS ?? [])
+  return getEventResources(row)
     .map((r) => r.name)
     .filter(Boolean)
     .join("; ");
 }
 
 function photosText(row: DepartmentEventRow | undefined): string {
-  return (row?.departmentEventPhotoDTOS ?? [])
+  return getEventPhotos(row)
     .map((p, i) => (p.photoUrl ? `Photo ${i + 1}` : ""))
     .filter(Boolean)
     .join("; ");
@@ -108,16 +157,23 @@ function FileLink({
   );
 }
 
+type AudienceMenuItem = {
+  key: string;
+  /** Blue code inside parentheses — Angular emp number / roll number. */
+  code?: string;
+  name: string;
+  href?: string;
+};
+
+/**
+ * Angular mat-menu pattern: always show identity icon + blue "View",
+ * menu lists people/resources (empty menu is fine).
+ */
 function AudienceViewCell({
   items,
-  emptyLabel = "—",
 }: Readonly<{
-  items: { key: string; label: string; href?: string }[];
-  emptyLabel?: string;
+  items: AudienceMenuItem[];
 }>) {
-  if (items.length === 0) {
-    return <span className="text-muted-foreground">{emptyLabel}</span>;
-  }
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -130,27 +186,49 @@ function AudienceViewCell({
           View
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-2">
-        <ul className="max-h-56 space-y-1 overflow-y-auto text-[12px]">
-          {items.map((item) => (
-            <li key={item.key} className="rounded px-2 py-1 hover:bg-muted/50">
-              <span>{item.label}</span>
-              {item.href ? (
-                <>
-                  {" "}
-                  <a
-                    href={item.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    View
-                  </a>
-                </>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+      <PopoverContent align="start" className="w-72 p-1">
+        {items.length === 0 ? (
+          <p className="px-2 py-1.5 text-[12px] text-muted-foreground">
+            No records
+          </p>
+        ) : (
+          <ul className="max-h-56 space-y-0.5 overflow-y-auto text-[12px]">
+            {items.map((item) => (
+              <li
+                key={item.key}
+                className="rounded px-2 py-1.5 hover:bg-muted/50"
+              >
+                <span>
+                  {item.code ? (
+                    <>
+                      (
+                      <span className="cursor-pointer text-blue-600 dark:text-blue-400">
+                        {item.code}
+                      </span>
+                      ) {item.name}
+                    </>
+                  ) : (
+                    item.name
+                  )}
+                </span>
+                {item.href ? (
+                  <>
+                    {" "}
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View
+                    </a>
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </PopoverContent>
     </Popover>
   );
@@ -165,53 +243,106 @@ function makeFileLinkRenderer(field: keyof DepartmentEventRow, label: string) {
   };
 }
 
+/** Angular: `(empNumber) name` or `(roll) name` — number in blue. */
+function toAudienceMenuItem(
+  aud: DepartmentEventAudienceRow,
+  index: number,
+): AudienceMenuItem {
+  const key = String(
+    aud.departmentEventAudienceId ?? aud.deptEventAudienceId ?? index,
+  );
+  if (aud.employeeDetailNumber) {
+    return {
+      key,
+      code: String(aud.employeeDetailNumber),
+      name: String(aud.employeeDetailName ?? ""),
+    };
+  }
+  if (aud.employeeDetailName) {
+    return { key, name: String(aud.employeeDetailName) };
+  }
+  if (aud.studentDetailRollNumber) {
+    return {
+      key,
+      code: String(aud.studentDetailRollNumber),
+      name: String(aud.studentDetailName ?? ""),
+    };
+  }
+  return { key, name: String(aud.studentDetailName ?? "") };
+}
+
 function coordinatorsRenderer(p: ICellRendererParams<DepartmentEventRow>) {
-  const items = (p.data?.departmentEventAudienceDTOs ?? [])
-    .filter((a) => a.isCoordinator)
-    .map((a, i) => ({
-      key: String(a.departmentEventAudienceId ?? i),
-      label: audienceLabel(a),
-    }));
+  const items = getEventAudiences(p.data)
+    .filter(isCoordinatorFlag)
+    .map(toAudienceMenuItem);
   return <AudienceViewCell items={items} />;
 }
 
 function participantsRenderer(p: ICellRendererParams<DepartmentEventRow>) {
-  const items = (p.data?.departmentEventAudienceDTOs ?? [])
-    .filter((a) => !a.isCoordinator)
-    .map((a, i) => ({
-      key: String(a.departmentEventAudienceId ?? i),
-      label: audienceLabel(a),
-    }));
+  const items = getEventAudiences(p.data)
+    .filter((a) => !isCoordinatorFlag(a))
+    .map(toAudienceMenuItem);
   return <AudienceViewCell items={items} />;
 }
 
+/** Angular Resource Person: name + optional profile "View" link. */
 function resourcesRenderer(p: ICellRendererParams<DepartmentEventRow>) {
-  const items = (p.data?.departmentEventResourceDTOS ?? []).map(
+  const items = getEventResources(p.data).map(
     (r: DepartmentEventResourceRow, i: number) => ({
       key: String(r.deptResourceId ?? i),
-      label: String(r.name ?? ""),
-      href: r.profileUrl,
+      name: String(r.name ?? ""),
+      href: r.profileUrl || undefined,
     }),
   );
   return <AudienceViewCell items={items} />;
 }
 
-function photosRenderer(p: ICellRendererParams<DepartmentEventRow>) {
-  const photos = p.data?.departmentEventPhotoDTOS ?? [];
-  if (photos.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-0.5 py-1">
-      {photos.map((photo: DepartmentEventPhotoRow, i: number) =>
-        photo.photoUrl ? (
-          <FileLink
-            key={String(photo.deptEventPhotoId ?? i)}
-            href={photo.photoUrl}
-            label={`Photo ${i + 1}`}
+/** Angular Event Photos cell: Photo N links + file input upload (`photoUrl`). */
+function makePhotosRenderer(onUploaded: () => void) {
+  return (p: ICellRendererParams<DepartmentEventRow>) => {
+    const row = p.data;
+    const photos = getEventPhotos(row);
+    const deptEventId = row?.deptEventId;
+
+    async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !deptEventId) return;
+      try {
+        const formData = new FormData();
+        formData.append("deptEventId", String(deptEventId));
+        formData.append("photoUrl", file, file.name);
+        await uploadDepartmentEventFiles(formData);
+        toastSuccess("Photo uploaded");
+        onUploaded();
+      } catch (err) {
+        toastError(getErrorMessage(err));
+      }
+    }
+
+    return (
+      <div className="flex flex-col gap-1 py-1">
+        {photos.map((photo: DepartmentEventPhotoRow, i: number) =>
+          photo.photoUrl ? (
+            <FileLink
+              key={String(photo.deptEventPhotoId ?? i)}
+              href={photo.photoUrl}
+              label={`Photo ${i + 1}`}
+            />
+          ) : null,
+        )}
+        {deptEventId ? (
+          <input
+            type="file"
+            accept=".png,.jpg,.jpeg"
+            className="max-w-[140px] text-[11px] file:mr-1 file:rounded file:border-0 file:bg-muted file:px-1.5 file:py-0.5 file:text-[11px]"
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => void onFileChange(e)}
           />
-        ) : null,
-      )}
-    </div>
-  );
+        ) : null}
+      </div>
+    );
+  };
 }
 
 function certificatesRenderer(p: ICellRendererParams<DepartmentEventRow>) {
@@ -385,12 +516,15 @@ export function DepartmentEventsPage() {
   const [eventsLoaded, setEventsLoaded] = useState(false);
 
   const {
-    data: allRows,
+    data: rows,
     isLoading,
+    isFetching,
     invalidate,
   } = useCrudList({
     queryKey: QK.events.departmentEvents(),
     queryFn: listDepartmentEvents,
+    // Angular loads only on Get List (`listAllDetails`), not on page mount.
+    enabled: eventsLoaded,
   });
 
   useEffect(() => {
@@ -416,15 +550,6 @@ export function DepartmentEventsPage() {
       })),
     [academicYears],
   );
-
-  const rows = useMemo(() => {
-    if (!collegeId || !academicYearId) return [];
-    return allRows.filter(
-      (r) =>
-        Number(r.collegeId) === collegeId &&
-        Number(r.academicYearId) === academicYearId,
-    );
-  }, [allRows, collegeId, academicYearId]);
 
   const columnDefs = useMemo<ColDef<DepartmentEventRow>[]>(
     () => [
@@ -461,14 +586,20 @@ export function DepartmentEventsPage() {
         ...COL_DEFS.feedback,
         cellRenderer: makeFileLinkRenderer("feedbackUrl", "Feedback"),
       },
-      { ...COL_DEFS.photos, cellRenderer: photosRenderer },
+      {
+        ...COL_DEFS.photos,
+        cellRenderer: makePhotosRenderer(() => {
+          void invalidate();
+        }),
+        autoHeight: true,
+      },
       { ...COL_DEFS.certificates, cellRenderer: certificatesRenderer },
       {
         ...COL_DEFS.actions,
         cellRenderer: makeActionsRenderer(setEditing, setModalOpen),
       },
     ],
-    [],
+    [invalidate],
   );
 
   async function onCollegeChange(cid: number | null) {
@@ -487,9 +618,14 @@ export function DepartmentEventsPage() {
 
   const canAdd = Boolean(collegeId && academicYearId);
 
+  /** Angular `getDepartEvents`: listAllDetails(DepartmentEvent) — no college/year filter. */
   function onGetEvents() {
     if (!collegeId || !academicYearId) return;
-    setEventsLoaded(true);
+    if (eventsLoaded) {
+      void invalidate();
+    } else {
+      setEventsLoaded(true);
+    }
   }
 
   return (
@@ -521,9 +657,9 @@ export function DepartmentEventsPage() {
             <Button
               type="button"
               onClick={onGetEvents}
-              disabled={isLoading || !collegeId || !academicYearId}
+              disabled={isLoading || isFetching || !collegeId || !academicYearId}
             >
-              {isLoading ? "Loading…" : "Get Events"}
+              {isLoading || isFetching ? "Loading…" : "Get Events"}
             </Button>
           </div>
         </div>
@@ -533,7 +669,7 @@ export function DepartmentEventsPage() {
           <DataTable
             rowData={rows}
             columnDefs={columnDefs}
-            loading={isLoading}
+            loading={isLoading || isFetching}
             pagination
             bordered={false}
             fitColumnsToWidth={false}

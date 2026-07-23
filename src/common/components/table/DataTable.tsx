@@ -187,21 +187,46 @@ const DEFAULT_COL_DEF: ColDef = {
 
 const MAX_SEARCH_DEPTH = 8;
 
-function collectStrings(value: unknown, depth: number, out: string[]): void {
+/** Skip credential / blob fields so search matches visible account text. */
+const SEARCH_SKIP_KEYS = new Set([
+  "password",
+  "passwordconfirm",
+  "passwordhash",
+  "passwd",
+  "token",
+  "accesstoken",
+  "refreshtoken",
+  "resetpasswordcode",
+]);
+
+function collectStrings(
+  value: unknown,
+  depth: number,
+  out: string[],
+  seen: WeakSet<object>,
+  keyHint?: string,
+): void {
   if (depth > MAX_SEARCH_DEPTH) return;
   if (value == null) return;
+  if (keyHint && SEARCH_SKIP_KEYS.has(keyHint.toLowerCase())) return;
   const t = typeof value;
   if (t === "string" || t === "number" || t === "boolean" || t === "bigint") {
     out.push(String(value));
     return;
   }
   if (t !== "object") return;
-  if (Array.isArray(value)) {
-    for (const item of value) collectStrings(item, depth + 1, out);
+  if (value instanceof Date) {
+    if (!Number.isNaN(value.getTime())) out.push(value.toISOString());
     return;
   }
-  for (const v of Object.values(value as Record<string, unknown>)) {
-    collectStrings(v, depth + 1, out);
+  if (seen.has(value as object)) return;
+  seen.add(value as object);
+  if (Array.isArray(value)) {
+    for (const item of value) collectStrings(item, depth + 1, out, seen);
+    return;
+  }
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    collectStrings(v, depth + 1, out, seen, k);
   }
 }
 
@@ -209,8 +234,11 @@ function rowMatchesSearch<T>(row: T, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
   const hay: string[] = [];
-  collectStrings(row, 0, hay);
-  return hay.some((s) => s.toLowerCase().includes(needle));
+  collectStrings(row, 0, hay, new WeakSet());
+  // Per-field match (userName, mobile, …)
+  if (hay.some((s) => s.toLowerCase().includes(needle))) return true;
+  // Joined match so "first last" finds separate firstName / lastName values
+  return hay.join(" ").toLowerCase().includes(needle);
 }
 
 function rowHasIsActiveField<T>(row: T): boolean {
@@ -515,12 +543,12 @@ export function DataTable<T>({
   const safePage = Math.min(clientPage, clientTotalPages - 1);
 
   const pagedRowData = useMemo(() => {
-    if (serverSide) return rowData;
+    // Server-side pages still get client search ("Search this page…") on the loaded rows.
+    if (serverSide) return filteredRowData;
     if (!clientPaginationEnabled) return filteredRowData;
     const start = safePage * clientPageSize;
     return filteredRowData.slice(start, start + clientPageSize);
   }, [
-    rowData,
     filteredRowData,
     clientPaginationEnabled,
     serverSide,

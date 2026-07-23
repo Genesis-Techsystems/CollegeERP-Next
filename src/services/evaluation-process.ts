@@ -1,13 +1,16 @@
 import {
   buildQuery,
+  clearProcGetCache,
   domainCreate,
   domainList,
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   putDetails,
 } from "@/services/crud";
+import { AppError } from "@/lib/errors";
 import {
   EXAM_EVAL_API,
   NEXT_API,
@@ -1253,6 +1256,10 @@ export async function listEvaluationModerationData(params: {
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId || 0,
   };
+  // Angular goldcollegeerp evaluation-moderation Get List:
+  //   getstudentList → list_moderation_evaluationstudent_list (role 0)
+  //   getEvaluationList → list_moderation_evaluatorassignment_list (role 64)
+  //   totals (totalStudents / Uploaded / UnAssinged) come from result[1]
   const toResultGroups = async (
     flag:
       | "list_moderation_evaluatorassignment_list"
@@ -1277,13 +1284,14 @@ export async function listEvaluationModerationData(params: {
     }
   };
 
-  const evaluatorGroups = await toResultGroups(
-    "list_moderation_evaluatorassignment_list",
-    64,
-  );
+  // Angular: students first, then evaluators (getstudentList → getEvaluationList).
   const studentGroups = await toResultGroups(
     "list_moderation_evaluationstudent_list",
     0,
+  );
+  const evaluatorGroups = await toResultGroups(
+    "list_moderation_evaluatorassignment_list",
+    64,
   );
   return {
     evaluators: evaluatorGroups[0] ?? [],
@@ -1298,7 +1306,7 @@ export async function listEvaluationModerationData(params: {
  *   GET getAllRecords/s_pop_exam_evaluatorassignment
  *   in_flag = AssignModerationEvaluation
  *   in_profileids = Formdata.examEvaluatorProfileId
- *     (pk_examevaluator_profiledet_id or pk_exam_evaluator_profile_id per Angular build)
+ *     (prefer pk_examevaluator_profiledet_id — same as multi-evaluator-assign)
  */
 export async function assignModerationEvaluation(params: {
   profileId: number;
@@ -1306,8 +1314,11 @@ export async function assignModerationEvaluation(params: {
   subjectId: number;
   courseYearId: number;
   omrSerialNos: string;
-}): Promise<AnyRow> {
-  return getAllRecords<AnyRow>("s_pop_exam_evaluatorassignment", {
+}): Promise<void> {
+  // Write proc — never use the cached getAllRecords path.
+  clearProcGetCache("s_pop_exam_evaluatorassignment");
+  clearProcGetCache("s_get_examevaluation_bycodes");
+  const body = await getAllRecordsEnvelope("s_pop_exam_evaluatorassignment", {
     in_flag: "AssignModerationEvaluation",
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: "",
@@ -1317,6 +1328,12 @@ export async function assignModerationEvaluation(params: {
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
   });
+  if (!body.success) {
+    throw new AppError(
+      "API_ERROR",
+      body.message ?? "Failed to assign moderation evaluation.",
+    );
+  }
 }
 
 export async function getChiefEvaluationFilters(

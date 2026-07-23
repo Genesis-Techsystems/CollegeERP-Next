@@ -272,8 +272,8 @@ export function CollegeEventsPage({
     setAcademicYearId(null);
     setAcademicYears([]);
     setRows([]);
+    setCalendarLoaded(false);
     if (isCalendarView) {
-      setCalendarLoaded(false);
       setCalendarViewMode("month");
     }
     if (!cid) return;
@@ -293,6 +293,8 @@ export function CollegeEventsPage({
       if (!collegeId || !academicYearId) return;
       setLoading(true);
       setRows([]);
+      // Angular sets `flag = true` before the request so the calendar/list shell shows.
+      setCalendarLoaded(true);
       try {
         let data: CollegeEventRow[] = [];
         const apiDate = useMonthCalendar ? viewMonth : selectedDate;
@@ -330,7 +332,6 @@ export function CollegeEventsPage({
           });
         }
         setRows(data);
-        setCalendarLoaded(true);
       } catch (e) {
         toastError(getErrorMessage(e));
       } finally {
@@ -532,7 +533,7 @@ export function CollegeEventsPage({
             onChange={(v) => {
               setAcademicYearId(v ? Number(v) : null);
               setRows([]);
-              if (isCalendarView) setCalendarLoaded(false);
+              setCalendarLoaded(false);
             }}
             options={academicYearOptions}
             searchable
