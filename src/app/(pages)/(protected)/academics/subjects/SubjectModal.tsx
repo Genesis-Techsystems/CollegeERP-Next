@@ -1,26 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FormModal } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
 import { ActiveStatusField } from "@/common/components/forms";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
-  createSubject,
-  isDuplicateSubject,
-  listActiveCoursesByUniversity,
-  listActiveUniversities,
+  addSubjectAndUploadFile,
+  deactivateSubject,
+  isDuplicateSubjectCode,
   listSubjectCategories,
   listSubjectTypes,
-  updateSubject,
+  updateSubjectAndUploadFile,
 } from "@/services";
 
-type AnyRow = Record<string, any>;
+type AnyRow = Record<string, unknown>;
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
   if (!row) return 0;
@@ -41,137 +38,69 @@ function pickStr(row: AnyRow | null | undefined, keys: string[]): string {
   return "";
 }
 
-const schema = z
-  .object({
-    universityId: z.number().min(1, "University is required"),
-    courseId: z.number().min(1, "Course is required"),
-    subjectName: z.string().trim().min(1, "Subject name is required"),
-    subjectCode: z.string().trim().min(1, "Subject code is required"),
-    subjectTypeId: z.number().min(1, "Subject type is required"),
-    subjectCategoryId: z.number().min(1, "Subject category is required"),
-    subCredits: z.string().optional(),
-    subCreditHrs: z.string().optional(),
-    shortName: z.string().trim().min(1, "Short name is required"),
-    orderNo: z.string().optional(),
-    isLanguage: z.boolean(),
-    isActive: z.boolean(),
-    reason: z.string().optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (!v.isActive && !v.reason?.trim()) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Reason is required when inactive",
-        path: ["reason"],
-      });
-    }
-  });
+function gdLabel(row: AnyRow): string {
+  return (
+    pickStr(row, [
+      "generalDetailDisplayName",
+      "generalDetailName",
+      "generalDetailCode",
+    ]) || "—"
+  );
+}
 
-type FormValues = z.infer<typeof schema>;
-
-interface SubjectModalProps {
+export interface SubjectModalProps {
   open: boolean;
   onClose: () => void;
   row?: AnyRow | null;
-  universityId?: number;
-  courseId?: number;
+  courseId: number;
+  courseName?: string;
+  courseCode?: string;
   existingRows?: AnyRow[];
   onSaved?: () => void;
 }
 
-export default function SubjectModal({
+export function SubjectModal({
   open,
   onClose,
   row,
-  universityId: initialUniversityId,
-  courseId: initialCourseId,
+  courseId,
+  courseName = "",
+  courseCode = "",
   existingRows = [],
   onSaved,
 }: SubjectModalProps) {
-  const isEdit = Boolean(row?.subjectId);
-  const [universities, setUniversities] = useState<AnyRow[]>([]);
-  const [courses, setCourses] = useState<AnyRow[]>([]);
+  const isEdit = Boolean(row?.subjectId) && row?.type !== "new";
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const [types, setTypes] = useState<AnyRow[]>([]);
   const [categories, setCategories] = useState<AnyRow[]>([]);
   const [loadingLookups, setLoadingLookups] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      universityId: 0,
-      courseId: 0,
-      subjectName: "",
-      subjectCode: "",
-      subjectTypeId: 0,
-      subjectCategoryId: 0,
-      subCredits: "",
-      subCreditHrs: "",
-      shortName: "",
-      orderNo: "",
-      isLanguage: false,
-      isActive: true,
-      reason: "active",
-    },
-  });
-
-  const watchUniversityId = form.watch("universityId");
-  const watchIsActive = form.watch("isActive");
-
-  const universityOptions = useMemo(
-    () =>
-      universities.map((x) => ({
-        value: String(pickNum(x, ["universityId", "pk_university_id"])),
-        label: pickStr(x, ["universityCode", "universityName"]) || "University",
-      })),
-    [universities],
+  const [subjectName, setSubjectName] = useState("");
+  const [subjectCode, setSubjectCode] = useState("");
+  const [questionpaperCode, setQuestionpaperCode] = useState("");
+  const [subjectTypeId, setSubjectTypeId] = useState<string | null>(null);
+  const [subjectCategoryId, setSubjectCategoryId] = useState<string | null>(
+    null,
   );
-
-  const courseOptions = useMemo(
-    () =>
-      courses.map((x) => ({
-        value: String(pickNum(x, ["courseId", "pk_course_id"])),
-        label: pickStr(x, ["courseCode", "courseName"]) || "Course",
-      })),
-    [courses],
-  );
-
-  const typeOptions = useMemo(
-    () =>
-      types.map((x) => ({
-        value: String(pickNum(x, ["generalDetailId", "pk_general_detail_id"])),
-        label: pickStr(x, ["generalDetailName", "generalDetailCode"]) || "Type",
-      })),
-    [types],
-  );
-
-  const categoryOptions = useMemo(
-    () =>
-      categories.map((x) => ({
-        value: String(pickNum(x, ["generalDetailId", "pk_general_detail_id"])),
-        label:
-          pickStr(x, ["generalDetailName", "generalDetailCode"]) || "Category",
-      })),
-    [categories],
-  );
+  const [subCredits, setSubCredits] = useState("");
+  const [subCreditHrs, setSubCreditHrs] = useState("");
+  const [shortName, setShortName] = useState("");
+  const [orderNo, setOrderNo] = useState("");
+  const [isLanguage, setIsLanguage] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [reason, setReason] = useState("active");
 
   useEffect(() => {
     if (!open) return;
-    setError("");
     setLoadingLookups(true);
-    Promise.all([
-      listActiveUniversities(),
-      listSubjectTypes(),
-      listSubjectCategories(),
-    ])
-      .then(([univList, typeList, categoryList]) => {
-        setUniversities(univList);
+    Promise.all([listSubjectTypes(), listSubjectCategories()])
+      .then(([typeList, categoryList]) => {
         setTypes(typeList);
         setCategories(categoryList);
       })
       .catch(() => {
-        setUniversities([]);
         setTypes([]);
         setCategories([]);
       })
@@ -180,281 +109,316 @@ export default function SubjectModal({
 
   useEffect(() => {
     if (!open) return;
+    if (fileRef.current) fileRef.current.value = "";
 
-    const rowUniversityId =
-      pickNum(row, ["universityId", "fk_university_id"]) ||
-      pickNum(row?.course, ["universityId", "fk_university_id"]) ||
-      initialUniversityId ||
-      0;
-    const rowCourseId =
-      pickNum(row, ["courseId", "fk_course_id"]) || initialCourseId || 0;
+    if (row && row.type !== "new" && row.subjectId) {
+      setSubjectName(pickStr(row, ["subjectName"]));
+      setSubjectCode(pickStr(row, ["subjectCode"]));
+      setQuestionpaperCode(pickStr(row, ["questionpaperCode"]));
+      setSubjectTypeId(
+        pickNum(row, ["subjectTypeId", "fk_subject_type_id"])
+          ? String(pickNum(row, ["subjectTypeId", "fk_subject_type_id"]))
+          : null,
+      );
+      setSubjectCategoryId(
+        pickNum(row, ["subjectCategoryId", "fk_subject_category_id"])
+          ? String(
+              pickNum(row, ["subjectCategoryId", "fk_subject_category_id"]),
+            )
+          : null,
+      );
+      setSubCredits(row.subCredits != null ? String(row.subCredits) : "");
+      setSubCreditHrs(row.subCreditHrs != null ? String(row.subCreditHrs) : "");
+      setShortName(pickStr(row, ["shortName"]));
+      setOrderNo(row.orderNo != null ? String(row.orderNo) : "");
+      setIsLanguage(Boolean(row.isLanguage));
+      setIsActive(row.isActive !== false);
+      setReason(
+        row.isActive === false ? pickStr(row, ["reason"]) || "" : "active",
+      );
+    } else {
+      setSubjectName("");
+      setSubjectCode("");
+      setQuestionpaperCode("");
+      setSubjectTypeId(null);
+      setSubjectCategoryId(null);
+      setSubCredits("");
+      setSubCreditHrs("");
+      setShortName("");
+      setOrderNo("");
+      setIsLanguage(false);
+      setIsActive(true);
+      setReason("active");
+    }
+  }, [open, row]);
 
-    form.reset({
-      universityId: rowUniversityId,
-      courseId: rowCourseId,
-      subjectName: pickStr(row, ["subjectName"]),
-      subjectCode: pickStr(row, ["subjectCode"]),
-      subjectTypeId: pickNum(row, ["subjectTypeId", "fk_subject_type_id"]),
-      subjectCategoryId: pickNum(row, [
-        "subjectCategoryId",
-        "fk_subject_category_id",
-      ]),
-      subCredits: row?.subCredits != null ? String(row.subCredits) : "",
-      subCreditHrs: row?.subCreditHrs != null ? String(row.subCreditHrs) : "",
-      shortName: pickStr(row, ["shortName"]),
-      orderNo: row?.orderNo != null ? String(row.orderNo) : "",
-      isLanguage: Boolean(row?.isLanguage),
-      isActive: row?.isActive !== false,
-      reason: row?.isActive === false ? pickStr(row, ["reason"]) : "active",
-    });
-  }, [open, row, initialUniversityId, initialCourseId, form]);
+  const typeOptions = useMemo(
+    () =>
+      types.map((x) => ({
+        value: String(pickNum(x, ["generalDetailId"])),
+        label: gdLabel(x),
+      })),
+    [types],
+  );
 
-  useEffect(() => {
-    if (!open || !watchUniversityId) {
-      setCourses([]);
-      if (!watchUniversityId) form.setValue("courseId", 0);
+  const categoryOptions = useMemo(
+    () =>
+      categories.map((x) => ({
+        value: String(pickNum(x, ["generalDetailId"])),
+        label: gdLabel(x),
+      })),
+    [categories],
+  );
+
+  function buildPayload(): AnyRow {
+    return {
+      courseId,
+      subjectName: subjectName.trim(),
+      subjectCode: subjectCode.trim(),
+      questionpaperCode: questionpaperCode.trim() || null,
+      orderNo: orderNo.trim() ? Number(orderNo) : null,
+      subjectTypeId: subjectTypeId ? Number(subjectTypeId) : null,
+      subjectCategoryId: subjectCategoryId ? Number(subjectCategoryId) : null,
+      subCredits: subCredits.trim() ? Number(subCredits) : null,
+      subCreditHrs: subCreditHrs.trim() ? Number(subCreditHrs) : null,
+      shortName: shortName.trim(),
+      isLanguage,
+      isActive,
+      reason: isActive ? "active" : reason.trim(),
+    };
+  }
+
+  function validate(): string | null {
+    if (!courseId) return "Course is required";
+    if (!subjectName.trim()) return "Subject name is required";
+    if (!subjectCode.trim()) return "Subject code is required";
+    if (!subjectTypeId) return "Subject type is required";
+    if (!subjectCategoryId) return "Subject category is required";
+    if (!subCredits.trim()) return "Credits is required";
+    if (!subCreditHrs.trim()) return "Credit hours is required";
+    if (!shortName.trim()) return "Short name is required";
+    if (!orderNo.trim()) return "Order no is required";
+    if (!isActive && !reason.trim()) return "Reason is required when inactive";
+    return null;
+  }
+
+  async function handleSubmit(e: { preventDefault: () => void }) {
+    e.preventDefault();
+    const err = validate();
+    if (err) {
+      toastInfo(err);
       return;
     }
-    listActiveCoursesByUniversity(watchUniversityId)
-      .then((list) => {
-        setCourses(list);
-        const currentCourseId = form.getValues("courseId");
-        const hasCurrent = list.some(
-          (x) => pickNum(x, ["courseId", "pk_course_id"]) === currentCourseId,
-        );
-        if (!hasCurrent) {
-          const preferred =
-            initialCourseId &&
-            list.some((x) => pickNum(x, ["courseId"]) === initialCourseId)
-              ? initialCourseId
-              : pickNum(list[0], ["courseId", "pk_course_id"]);
-          form.setValue("courseId", preferred || 0);
-        }
-      })
-      .catch(() => {
-        setCourses([]);
-        form.setValue("courseId", 0);
-      });
-  }, [open, watchUniversityId, initialCourseId, form]);
 
-  useEffect(() => {
-    if (watchIsActive) form.setValue("reason", "active");
-  }, [watchIsActive, form]);
+    const payload = buildPayload();
+    const file = fileRef.current?.files?.[0] ?? null;
+    const subjectId = pickNum(row, ["subjectId"]);
 
-  const buildPayload = (values: FormValues): AnyRow => ({
-    universityId: values.universityId,
-    courseId: values.courseId,
-    subjectName: values.subjectName.trim(),
-    subjectCode: values.subjectCode.trim(),
-    subjectTypeId: values.subjectTypeId,
-    subjectCategoryId: values.subjectCategoryId,
-    subCredits: values.subCredits?.trim() ? Number(values.subCredits) : null,
-    subCreditHrs: values.subCreditHrs?.trim()
-      ? Number(values.subCreditHrs)
-      : null,
-    shortName: values.shortName.trim(),
-    orderNo: values.orderNo?.trim() ? Number(values.orderNo) : null,
-    isLanguage: values.isLanguage,
-    isActive: values.isActive,
-    reason: values.isActive ? "active" : values.reason?.trim() || "",
-  });
-
-  const handleFormSubmit = form.handleSubmit(async (values) => {
     setSaving(true);
-    setError("");
     try {
-      const payload = buildPayload(values);
-      const subjectId = pickNum(row, ["subjectId"]);
-
-      if (
-        isDuplicateSubject(existingRows, {
-          subjectName: payload.subjectName as string,
-          subjectCode: payload.subjectCode as string,
-          subjectId: isEdit ? subjectId : undefined,
-        })
-      ) {
-        setError("Subject with same name or code already exists");
+      if (!isEdit) {
+        if (
+          isDuplicateSubjectCode(
+            existingRows,
+            String(payload.subjectCode),
+            Number(payload.collegeId ?? 0) || null,
+          )
+        ) {
+          toastInfo("Already same subject code exists.");
+          return;
+        }
+        const result = await addSubjectAndUploadFile(payload, file);
+        if (result.data != null && result.data !== "") {
+          toastSuccess(result.message || "Subject created");
+          onSaved?.();
+          onClose();
+        } else if (result.success === false) {
+          toastError(result.message || "Failed to create subject");
+        } else {
+          toastSuccess(result.message || "Subject created");
+          onSaved?.();
+          onClose();
+        }
         return;
       }
 
-      if (isEdit && subjectId) {
-        await updateSubject(subjectId, payload);
-      } else {
-        await createSubject(payload);
+      // Edit — Angular: deactivate via DELETE when isActive == false
+      if (subjectId && isActive === false) {
+        const result = await deactivateSubject(subjectId);
+        toastInfo(result.message || "Subject deactivated");
+        onSaved?.();
+        onClose();
+        return;
       }
 
-      onSaved?.();
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save subject");
+      const result = await updateSubjectAndUploadFile(
+        { ...payload, subjectId },
+        file,
+      );
+      if (result.success) {
+        toastSuccess(result.message || "Subject updated");
+        onSaved?.();
+        onClose();
+      } else {
+        toastInfo(result.message || "Unable to update subject");
+      }
+    } catch (ex) {
+      toastError(ex instanceof Error ? ex.message : "Failed to save subject");
     } finally {
       setSaving(false);
     }
-  });
+  }
 
   return (
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEdit ? "Edit Subject" : "Add Subject"}
-      onSubmit={(e) => {
-        e.preventDefault();
-        void handleFormSubmit();
-      }}
-      submitLabel={isEdit ? "Update" : "Save"}
+      title={isEdit ? "Edit Subject - " : "Add Subject -  "}
+      description={
+        courseName || courseCode
+          ? ` Course : ${courseCode}${courseCode && courseName ? " - " : ""}${courseName}`
+          : undefined
+      }
+      onSubmit={handleSubmit}
+      submitLabel="Save"
       isSubmitting={saving}
-      size="lg"
+      size="xl"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Select
-          label="University"
-          required
-          value={watchUniversityId ? String(watchUniversityId) : ""}
-          onChange={(v) => {
-            form.setValue("universityId", Number(v) || 0, {
-              shouldValidate: true,
-            });
-            form.setValue("courseId", 0);
-          }}
-          options={universityOptions}
-          placeholder="Select university"
-          isLoading={loadingLookups}
-          disabled={saving}
-        />
-        <Select
-          label="Course"
-          required
-          value={form.watch("courseId") ? String(form.watch("courseId")) : ""}
-          onChange={(v) =>
-            form.setValue("courseId", Number(v) || 0, { shouldValidate: true })
-          }
-          options={courseOptions}
-          placeholder="Select course"
-          disabled={!watchUniversityId || saving}
-        />
-
-        <div className="space-y-1.5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-1.5 sm:col-span-2">
           <Label>
             Subject Name <span className="text-destructive">*</span>
           </Label>
-          <Input {...form.register("subjectName")} disabled={saving} />
-          {form.formState.errors.subjectName && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.subjectName.message}
-            </p>
-          )}
+          <Input
+            value={subjectName}
+            onChange={(e) => setSubjectName(e.target.value)}
+            disabled={saving}
+          />
         </div>
         <div className="space-y-1.5">
           <Label>
             Subject Code <span className="text-destructive">*</span>
           </Label>
-          <Input {...form.register("subjectCode")} disabled={saving} />
-          {form.formState.errors.subjectCode && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.subjectCode.message}
-            </p>
-          )}
+          <Input
+            value={subjectCode}
+            onChange={(e) => setSubjectCode(e.target.value)}
+            disabled={saving}
+          />
         </div>
 
         <Select
           label="Subject Type"
           required
-          value={
-            form.watch("subjectTypeId")
-              ? String(form.watch("subjectTypeId"))
-              : ""
-          }
-          onChange={(v) =>
-            form.setValue("subjectTypeId", Number(v) || 0, {
-              shouldValidate: true,
-            })
-          }
+          value={subjectTypeId}
+          onChange={setSubjectTypeId}
           options={typeOptions}
-          placeholder="Select type"
+          placeholder="Subject Type"
           isLoading={loadingLookups}
           disabled={saving}
         />
         <Select
           label="Subject Category"
           required
-          value={
-            form.watch("subjectCategoryId")
-              ? String(form.watch("subjectCategoryId"))
-              : ""
-          }
-          onChange={(v) =>
-            form.setValue("subjectCategoryId", Number(v) || 0, {
-              shouldValidate: true,
-            })
-          }
+          value={subjectCategoryId}
+          onChange={setSubjectCategoryId}
           options={categoryOptions}
-          placeholder="Select category"
+          placeholder="Subject Category"
           isLoading={loadingLookups}
           disabled={saving}
         />
-
         <div className="space-y-1.5">
-          <Label>Credits</Label>
+          <Label>Question Paper Code</Label>
           <Input
-            type="number"
-            step="any"
-            {...form.register("subCredits")}
-            disabled={saving}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>Credit Hours</Label>
-          <Input
-            type="number"
-            step="any"
-            {...form.register("subCreditHrs")}
+            value={questionpaperCode}
+            onChange={(e) => setQuestionpaperCode(e.target.value)}
             disabled={saving}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label>
-            Short Name <span className="text-destructive">*</span>
+            Credits <span className="text-destructive">*</span>
           </Label>
-          <Input {...form.register("shortName")} disabled={saving} />
-          {form.formState.errors.shortName && (
-            <p className="text-xs text-destructive">
-              {form.formState.errors.shortName.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label>Order No</Label>
           <Input
             type="number"
-            {...form.register("orderNo")}
+            step="any"
+            value={subCredits}
+            onChange={(e) => setSubCredits(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>
+            Credit Hours <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            type="number"
+            step="any"
+            value={subCreditHrs}
+            onChange={(e) => setSubCreditHrs(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>
+            Short Name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={shortName}
+            onChange={(e) => setShortName(e.target.value)}
+            disabled={saving}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>
+            Order No <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            type="number"
+            value={orderNo}
+            onChange={(e) => setOrderNo(e.target.value)}
             disabled={saving}
           />
         </div>
 
-        <div className="flex items-center gap-6 sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={form.watch("isLanguage")}
-              onCheckedChange={(v) => form.setValue("isLanguage", v === true)}
-              disabled={saving}
-            />
-            Is Language
-          </label>
+        <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+          <Label>Syllabus Document</Label>
+          <Input
+            ref={fileRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.pdf,.doc"
+            disabled={saving}
+            className="cursor-pointer"
+          />
         </div>
 
-        <div className="sm:col-span-2">
+        <div className="flex items-center gap-2 sm:col-span-1">
+          <Checkbox
+            checked={isLanguage}
+            onCheckedChange={(v) => setIsLanguage(v === true)}
+            disabled={saving}
+            id="subj-is-language"
+          />
+          <Label htmlFor="subj-is-language" className="font-normal">
+            Is Language
+          </Label>
+        </div>
+
+        <div className="sm:col-span-2 lg:col-span-3">
           <ActiveStatusField
-            isActive={watchIsActive}
-            reason={form.watch("reason") ?? ""}
-            onActiveChange={(v) => form.setValue("isActive", v === true)}
-            onReasonChange={(v) => form.setValue("reason", v)}
-            reasonError={form.formState.errors.reason?.message}
+            isActive={isActive}
+            reason={reason}
+            onActiveChange={(v) => {
+              const next = v === true;
+              setIsActive(next);
+              if (next) setReason("active");
+            }}
+            onReasonChange={setReason}
           />
         </div>
       </div>
-
-      {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
     </FormModal>
   );
 }
+
+export default SubjectModal;

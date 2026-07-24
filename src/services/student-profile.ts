@@ -20,7 +20,6 @@ import {
 } from "@/services/student-information";
 import {
   fetchFeeLedgerRows,
-  isCourseFeeSummaryRow,
   unwrapFeeLedgerRows,
 } from "@/services/student-fee";
 import {
@@ -940,116 +939,20 @@ async function loadAttendance(
 }
 
 async function loadFee(
-  student: AnyRow,
+  _student: AnyRow,
   ctx: StudentProfileContext,
 ): Promise<AnyRow[]> {
   if (!ctx.studentId) return [];
 
-  /** Angular fee tab uses `s_fee_std_ledger` year summary — not per-head fee lines on studentdetail. */
-  const ledgerParams: Record<string, string | number>[] = [
-    { in_std_id: ctx.studentId },
-    { in_student_id: ctx.studentId },
-    { in_student_detail_id: ctx.studentId },
-    { studentId: ctx.studentId },
-    { studentDetailId: ctx.studentId },
-  ];
-  if (ctx.collegeId) {
-    ledgerParams.push(
-      { in_std_id: ctx.studentId, in_college_id: ctx.collegeId },
-      { in_student_id: ctx.studentId, in_college_id: ctx.collegeId },
-    );
-  }
-
-  for (const params of ledgerParams) {
-    try {
-      const rows = await fetchFeeLedgerRows(params);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next param set
-    }
-  }
-
+  /**
+   * Angular student-fee-summary: `listByIds(feeLedgerProcedureUrl, studentId, 'in_std_id')`
+   * → GET `getAllRecords/s_fee_std_ledger?in_std_id=` and bind `result.data.result[0]`.
+   */
   try {
-    const raw = await getAllRecords<unknown>(procName(FEE_API.FEE_SUMMARY), {
-      in_std_id: ctx.studentId,
-    });
-    const rows = flattenRecordRows(raw);
-    if (rows.length > 0) return rows;
-  } catch {
-    // fall through
-  }
-
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "feeDetails",
-      "feeDetailList",
-      "studentFeeList",
-      "feeManagementDetails",
-      "studentFeeDetails",
-      "studentFeeDetailList",
-      "feeManagementStdDetails",
-    ],
-    [/fee/i],
-  );
-  const summaryRows = nested.filter(isCourseFeeSummaryRow);
-  if (summaryRows.length > 0) return summaryRows;
-
-  const paramSets: Record<string, string | number>[] = [
-    {
-      studentId: ctx.studentId,
-      collegeId: ctx.collegeId,
-      academicYearId: ctx.academicYearId,
-    },
-    {
-      studentDetailId: ctx.studentId,
-      collegeId: ctx.collegeId,
-      academicYearId: ctx.academicYearId,
-    },
-    { studentId: ctx.studentId, collegeId: ctx.collegeId },
-    { studentDetailId: ctx.studentId, collegeId: ctx.collegeId },
-    { studentId: ctx.studentId },
-    { studentDetailId: ctx.studentId },
-  ];
-  for (const path of [
-    FEE_API.GET_FEE_MANAGEMENT_STD_DETAILS,
-    FEE_API.FEE_MANAGEMENT_STD_DETAIL,
-  ]) {
-    for (const p of paramSets) {
-      try {
-        const data = await fetchDetails<unknown>(path, p);
-        const rows = flattenRecordRows(data);
-        if (rows.length > 0) return rows;
-      } catch {
-        // try next
-      }
-    }
-  }
-
-  try {
-    const raw = await getAllRecords<unknown>(
-      procName(FEE_API.COMPLETE_STD_FEE_REPORT),
-      {
-        in_student_id: ctx.studentId,
-        in_college_id: ctx.collegeId,
-        in_academic_year_id: ctx.academicYearId,
-      },
+    return await fetchFeeLedgerRows(
+      { in_std_id: ctx.studentId },
+      { resultIndex: 0 },
     );
-    const rows = flattenRecordRows(raw);
-    if (rows.length > 0) return rows;
-  } catch {
-    // fall through
-  }
-
-  try {
-    const raw = await getAllRecords<unknown>(
-      procName(FEE_API.REP_FEE_STUDENT_DETAILS),
-      {
-        in_student_id: ctx.studentId,
-        in_college_id: ctx.collegeId,
-      },
-    );
-    return flattenRecordRows(raw);
   } catch {
     return [];
   }
@@ -1774,24 +1677,43 @@ export function pickProfileCell(row: AnyRow, keys: string[]): string {
   return text(row, keys);
 }
 
-/** Angular student-profile header — scholarship/category from `s_fee_std_ledger`. */
+/** Angular student-profile header — scholarship/category from `s_fee_std_ledger` `result[1]`. */
 export async function fetchStudentProfileFeeLedgerSummary(
   studentId: number,
 ): Promise<AnyRow | null> {
   if (!studentId) return null;
   try {
-    const rows = await fetchFeeLedgerRows({ in_std_id: studentId });
-    if (!rows.length) return null;
+    const rows = await fetchFeeLedgerRows(
+      { in_std_id: studentId },
+      { resultIndex: 1 },
+    );
+    if (rows.length > 0) {
+      return (
+        rows.find((r) =>
+          text(r, [
+            "scholarship_type_code",
+            "scholarshipTypeCode",
+            "scholarship_type",
+          ]),
+        ) ??
+        rows[0] ??
+        null
+      );
+    }
+    // Fallback if backend returns a flat single result set
+    const fallback = await fetchFeeLedgerRows(
+      { in_std_id: studentId },
+      { resultIndex: 0 },
+    );
+    if (!fallback.length) return null;
     return (
-      rows.find((r) =>
+      fallback.find((r) =>
         text(r, [
           "scholarship_type_code",
           "scholarshipTypeCode",
           "scholarship_type",
         ]),
-      ) ??
-      rows[0] ??
-      null
+      ) ?? null
     );
   } catch {
     return null;

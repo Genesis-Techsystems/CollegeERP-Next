@@ -1,7 +1,12 @@
 import { NEXT_API, USER_MANAGEMENT_API } from "@/config/constants/api";
 import { AppError, parseApiError } from "@/lib/errors";
 import type { ApiResponse } from "@/types/api";
-import { buildQuery, domainList, domainUpdate } from "@/services/crud";
+import {
+  buildQuery,
+  domainList,
+  domainUpdate,
+  postDetails,
+} from "@/services/crud";
 import { listUserTypesByOrganization } from "./general-user-accounts";
 
 const PARENT_USER_TYPE_CODE = "PARENT";
@@ -134,10 +139,105 @@ export async function updateParentAccount(
   userId: number,
   data: Partial<ParentAccount>,
 ): Promise<ParentAccount> {
-  return domainUpdate<ParentAccount>("User", "userId", userId, {
+  const payload: Record<string, unknown> = {
     ...data,
     userId,
-  });
+  };
+  // Angular list `updateUser` re-attaches these from the row before PUT
+  if (data.collegeId != null) payload.collegeId = data.collegeId;
+  if (data.organizationId != null) payload.organizationId = data.organizationId;
+  if (data.userTypeId != null) payload.userTypeId = data.userTypeId;
+  return domainUpdate<ParentAccount>("User", "userId", userId, payload);
+}
+
+export interface ParentSiblingRow {
+  studentId?: number;
+  firstName?: string | null;
+  rollNumber?: string | null;
+  admissionNumber?: string | null;
+  collegeCode?: string | null;
+  academicYear?: string | null;
+  courseYearName?: string | null;
+  section?: string | null;
+  mobile?: string | null;
+  fatherName?: string | null;
+  fatherMobileNo?: string | null;
+  studentPhotoPath?: string | null;
+  studentStatusCode?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Angular Add Sibling `getSiblings`:
+ * `domain/list/StudentDetail?query=parentUser.userId=={userId}`
+ */
+export async function listParentSiblingsByUserId(
+  userId: number,
+): Promise<ParentSiblingRow[]> {
+  if (!userId) return [];
+  return domainList<ParentSiblingRow>(
+    "StudentDetail",
+    buildQuery({ "parentUser.userId": userId }),
+  );
+}
+
+/**
+ * Angular Add Sibling `addParentUser`:
+ * load studentdetail → set `parentId` → POST `studentdetail`
+ */
+export async function linkStudentAsSiblingToParent(params: {
+  parentUserId: number;
+  studentDetail: Record<string, unknown>;
+}): Promise<void> {
+  const parentUserId = Number(params.parentUserId) || 0;
+  if (!parentUserId) {
+    throw new AppError("VALIDATION", "Parent user id is required.");
+  }
+  const payload = {
+    ...params.studentDetail,
+    parentId: parentUserId,
+  };
+  await postDetails("studentdetail", payload);
+}
+
+/**
+ * Academic years for Parent Manage / Add Sibling after a college is selected.
+ * Uses the college's `universityId`:
+ * `domain/list/AcademicYear?query=Universities.universityId=={universityId}.and.isActive==true.order(fromDate=DESC)`
+ */
+export async function listAcademicYearsForParentAccountCollege(
+  universityId: number,
+): Promise<
+  Array<{
+    academicYearId: number;
+    academicYear?: string | null;
+    organizationId?: number | null;
+    fromDate?: string | null;
+  }>
+> {
+  if (!universityId) return [];
+  return domainList(
+    "AcademicYear",
+    buildQuery(
+      { "Universities.universityId": universityId, isActive: true },
+      { field: "fromDate", direction: "DESC" },
+    ),
+  );
+}
+
+/**
+ * Angular Parent Manage colleges:
+ * `domain/list/College?query=isActive==true`
+ */
+export async function listActiveCollegesForParentAccounts(): Promise<
+  Array<{
+    collegeId: number;
+    collegeCode?: string | null;
+    organizationId?: number | null;
+    universityId?: number | null;
+  }>
+> {
+  return domainList("College", buildQuery({ isActive: true }));
 }
 
 /**
@@ -171,7 +271,7 @@ export async function createParentAccount(
     );
   }
   if (!userName) throw new AppError("VALIDATION", "User name is required.");
-  if (!email) throw new AppError("VALIDATION", "Email is required.");
+  // Angular: email is pattern-only (not Validators.required)
   if (!mobileNumber)
     throw new AppError("VALIDATION", "Mobile number is required.");
   if (!password || password !== passwordConfirm) {
@@ -226,9 +326,10 @@ export async function createParentAccount(
       );
     }
     if (env.data && typeof env.data === "object") {
+      const created = env.data as ParentAccount;
       return {
-        userId: Number((env.data as ParentAccount).userId) || 0,
-        ...env.data,
+        ...created,
+        userId: Number(created.userId) || 0,
       };
     }
   }

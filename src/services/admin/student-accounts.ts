@@ -188,7 +188,24 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 }
 
 /**
- * Angular `CrudService.listByTypeCodeWithPageNation`:
+ * Angular live list (`listDetailsByIdWithSort`):
+ * `domain/list/User?size=99999&query=Usertype.userTypeCode==STUDENT.order(createdDt=desc)`
+ * Client-side filter/paginate in the UI (Angular MatTableDataSource).
+ */
+export async function listAllStudentAccounts(): Promise<StudentAccount[]> {
+  const rows = await domainList<Record<string, unknown>>(
+    "User",
+    buildQuery(
+      { "Usertype.userTypeCode": STUDENT_USER_TYPE_CODE },
+      { field: "createdDt", direction: "DESC" },
+    ),
+  );
+  return rows.map(normalizeStudentAccountRow);
+}
+
+/**
+ * Angular `CrudService.listByTypeCodeWithPageNation` (dead path in student-accounts template,
+ * but still used for server-paged UIs):
  * `GET {MAINAPI}api/userdetailsbytype?userTypeCode=STUDENT&page={page}&size={size}`
  */
 export async function listStudentAccountsPage(
@@ -439,13 +456,14 @@ function mapSearchRowsToPicks(
 
 /**
  * CMS student search for the add-student-account picker (`/cms/studentsearch?collegeId=&q=`).
+ * Angular only fires once search term length > 4 (i.e. 5+ characters).
  */
 export async function searchStudentsByCollegeForStudentAccount(
   collegeId: number,
   query: string,
 ): Promise<StudentForAccountPick[]> {
   const q = query.trim();
-  if (!collegeId || !q) return [];
+  if (!collegeId || q.length <= 4) return [];
   try {
     const data = await fetchDetails<unknown>(
       USER_MANAGEMENT_API.STUDENT_SEARCH,
@@ -700,6 +718,7 @@ export async function createStudentUserAccountForStudent(params: {
 
 /**
  * Angular `defaultStudentUserAcount` → `listAllMasterDetail(creatingUserForStudentsUrl)`.
+ * GET `{CONSTANTS.API}creatinguserforstudents` = `/cms/api/creatinguserforstudents`.
  * Creates default student user accounts (username/password = roll number) and returns
  * students for whom account creation failed (shown in the Default Accounts modal).
  */

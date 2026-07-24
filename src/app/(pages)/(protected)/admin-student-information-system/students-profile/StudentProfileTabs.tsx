@@ -375,7 +375,7 @@ export function StudentProfileTabs({ student }: { readonly student: AnyRow }) {
     <div className="app-card overflow-hidden">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MainTab)}>
         <div className="overflow-x-auto border-b border-border bg-muted/20">
-          <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
+          <TabsList className="h-auto w-full overflow-x-auto text-base justify-between rounded-none bg-transparent p-0">
             {MAIN_TABS.map((tab) => (
               <TabsTrigger
                 key={tab.id}

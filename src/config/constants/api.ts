@@ -74,8 +74,12 @@ export const USER_MANAGEMENT_API = {
   ROLE_PRIVILEGE_2: "roleprivilegelist",
   /** Angular `userTypeCrudUrl` */
   USER_TYPE: "Usertype",
-  /** Angular `creatingUserForStudentsUrl` */
-  CREATING_USER_FOR_STUDENTS: "creatinguserforstudents",
+  /**
+   * Angular `creatingUserForStudentsUrl` via `listAllMasterDetail` → GET `{API}creatinguserforstudents`
+   * (`CONSTANTS.API` = `{MAINAPI}api/` → `/cms/api/creatinguserforstudents`).
+   * Proxied as `/api/proxy/api/creatinguserforstudents`.
+   */
+  CREATING_USER_FOR_STUDENTS: "api/creatinguserforstudents",
   /** Angular `UserRoleUrl` */
   USER_ROLE: "UserRole",
 } as const;
@@ -1401,6 +1405,12 @@ export const LEAVE_API = {
   LEAVE_SUMMARY_DOWNLOAD: "getAllRecordsDownload/s_emp_leave_report",
   /** GET: emp attendance validation */
   EMP_ATTENDANCE_VALIDATION: "getAllRecords/s_rep_emp_attendance_validation",
+  /** Angular `empAttendanceReportUrl` — biometric calendar */
+  EMP_ATTENDANCE_DETAIL: "getAllRecords/s_rep_emp_attendanace_detail",
+  /** Angular staff-dashboard leave doughnut — `s_rep_emp_leave_totals` */
+  EMP_LEAVE_TOTALS: "getAllRecords/s_rep_emp_leave_totals",
+  /** Angular `employeeRunningLeaveCrudUrl` */
+  EMPLOYEE_RUNNING_LEAVE: "EmployeeRunningLeave",
 } as const;
 
 // ─── HR & Payroll ────────────────────────────────────────────────────────────
@@ -1698,8 +1708,10 @@ export const DASHBOARD_API = {
   STAFF_PAYROLL_LIST_F: "getAllRecords/s_staff_payroll_list_f",
   /** GET: mapped counselor students */
   MAPPED_COUNSELOR_STUDENTS: "mappedcounselorstudents",
-  /** GET: management report */
+  /** GET: management report — Angular `managmentReportUrl` */
   MANAGEMENT_REPORT: "getAllRecords/s_db_managment",
+  /** Angular `empTodoListUrl` */
+  EMP_TODO_LIST: "getAllRecords/s_rep_emp_todo_list",
   /** GET: students count */
   STUDENTS_COUNT: "getAllRecords/s_rep_std_details",
   /** GET: faculty count */

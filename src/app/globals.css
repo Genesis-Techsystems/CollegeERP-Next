@@ -736,6 +736,16 @@
   max-width: 100%;
 }
 
+/* Truncated-cell tooltips (DataTable tooltipShowMode=whenTruncated) */
+.app-data-table .ag-tooltip,
+.ag-theme-quartz .ag-tooltip {
+  max-width: min(28rem, 90vw);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+  z-index: 10000;
+}
+
 .app-data-table .ag-theme-quartz .ag-row {
   min-height: 40px !important;
   border-bottom: 1px solid hsl(var(--border) / 0.85);

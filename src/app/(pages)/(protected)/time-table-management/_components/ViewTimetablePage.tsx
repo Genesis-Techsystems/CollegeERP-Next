@@ -33,10 +33,6 @@ import {
   timetablesFromFilterRows,
 } from "../_lib/timetable-filters";
 import { TimetableWeeklyGrid } from "./TimetableWeeklyGrid";
-import {
-  ViewAllocatedTimetableModal,
-  type ViewTimetableModalContext,
-} from "./ViewAllocatedTimetableModal";
 
 type AnyRow = Record<string, unknown>;
 
@@ -61,10 +57,6 @@ export function ViewTimetablePage() {
   );
   const [selectedTimetableRow, setSelectedTimetableRow] =
     useState<AnyRow | null>(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [viewContext, setViewContext] =
-    useState<ViewTimetableModalContext | null>(null);
 
   useEffect(() => {
     setFiltersLoading(true);
@@ -315,13 +307,8 @@ export function ViewTimetablePage() {
       setGroupSectionId(num(sections[0].fk_group_section_id));
   }, [courseYearId, sections, groupSectionId, filtersLoading]);
 
-  useEffect(() => {
-    if (!groupSectionId || filtersLoading) return;
-    if (!timetableId && timetables.length > 0)
-      setTimetableId(
-        num(timetables[0].pk_timetable_id ?? timetables[0].timetableId),
-      );
-  }, [groupSectionId, timetables, timetableId, filtersLoading]);
+  // Angular selectedSection clears timetableId and does NOT auto-select a timetable.
+  // URL ?timetableId= is applied during filter init only.
 
   const collegeLabel = colleges.find((c) => num(c.fk_college_id) === collegeId);
   const courseCode = courses.find((c) => num(c.fk_course_id) === courseId);
@@ -368,49 +355,6 @@ export function ViewTimetablePage() {
       ? `${formatDateHeader(selectedTimetableRow.timetable_startdate ?? selectedTimetableRow.startDate)} - ${formatDateHeader(selectedTimetableRow.timetable_enddate ?? selectedTimetableRow.endDate)}`
       : (timetable?.dateRangeLabel ?? "");
 
-  function openModalView() {
-    if (
-      !collegeId ||
-      !academicYearId ||
-      !courseGroupId ||
-      !courseYearId ||
-      !groupSectionId
-    )
-      return;
-    const collegeCode = text(collegeLabel ?? {}, [
-      "college_code",
-      "collegeCode",
-    ]);
-    const ay = text(
-      academicYears.find(
-        (a) => num(a.fk_academic_year_id) === academicYearId,
-      ) ?? {},
-      ["academic_year", "academicYear"],
-    );
-    setViewContext({
-      mode: "allocated",
-      data: {
-        collegeId,
-        academicYearId,
-        courseId: courseId ?? 0,
-        courseGroupId,
-        courseYearId,
-        groupSectionId,
-        timetableId: timetableId ?? undefined,
-        collegeLabel: ay ? `${collegeCode} (${ay})` : collegeCode,
-        timetableLabel: String(
-          selectedTimetableRow?.timetable_name ??
-            selectedTimetableRow?.timetableName ??
-            timetableOptions.find((o) => o.value === String(timetableId))
-              ?.label ??
-            "",
-        ),
-        sectionLabel: headerLine,
-      },
-    });
-    setModalOpen(true);
-  }
-
   function handlePrint() {
     if (!timetable) return;
     printClassTimetable(
@@ -444,7 +388,7 @@ export function ViewTimetablePage() {
 
         {filtersOpen ? (
           <div className="grid gap-3 border-t border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <FilterField label="College">
+            <FilterField label="College" required>
               <Select
                 value={collegeId ? String(collegeId) : ""}
                 onChange={(v) => {
@@ -456,6 +400,7 @@ export function ViewTimetablePage() {
                   setCourseYearId(null);
                   setGroupSectionId(null);
                   setTimetableId(null);
+                  setTimetable(null);
                   const ays = academicYearsFromFilterRows(filterRows, id);
                   if (ays[0])
                     setAcademicYearId(num(ays[0].fk_academic_year_id));
@@ -466,16 +411,27 @@ export function ViewTimetablePage() {
                 disabled={filtersLoading}
               />
             </FilterField>
-            <FilterField label="Academic Year">
+            <FilterField label="Academic Year" required>
               <Select
                 value={academicYearId ? String(academicYearId) : ""}
                 onChange={(v) => {
-                  setAcademicYearId(num(v));
+                  const id = num(v);
+                  setAcademicYearId(id);
                   setCourseId(null);
                   setCourseGroupId(null);
                   setCourseYearId(null);
                   setGroupSectionId(null);
                   setTimetableId(null);
+                  setTimetable(null);
+                  if (collegeId && id) {
+                    const nextCourses = coursesFromFilterRows(
+                      filterRows,
+                      collegeId,
+                      id,
+                    );
+                    if (nextCourses[0])
+                      setCourseId(num(nextCourses[0].fk_course_id));
+                  }
                 }}
                 options={ayOptions}
                 placeholder="Academic Year"
@@ -483,15 +439,27 @@ export function ViewTimetablePage() {
                 disabled={!collegeId}
               />
             </FilterField>
-            <FilterField label="Course">
+            <FilterField label="Course" required>
               <Select
                 value={courseId ? String(courseId) : ""}
                 onChange={(v) => {
-                  setCourseId(num(v));
+                  const id = num(v);
+                  setCourseId(id);
                   setCourseGroupId(null);
                   setCourseYearId(null);
                   setGroupSectionId(null);
                   setTimetableId(null);
+                  setTimetable(null);
+                  if (collegeId && academicYearId && id) {
+                    const groups = courseGroupsFromFilterRows(
+                      filterRows,
+                      collegeId,
+                      academicYearId,
+                      id,
+                    );
+                    if (groups[0])
+                      setCourseGroupId(num(groups[0].fk_course_group_id));
+                  }
                 }}
                 options={courseOptions}
                 placeholder="Course"
@@ -499,14 +467,27 @@ export function ViewTimetablePage() {
                 disabled={!academicYearId}
               />
             </FilterField>
-            <FilterField label="Course Group">
+            <FilterField label="Course Group" required>
               <Select
                 value={courseGroupId ? String(courseGroupId) : ""}
                 onChange={(v) => {
-                  setCourseGroupId(num(v));
+                  const id = num(v);
+                  setCourseGroupId(id);
                   setCourseYearId(null);
                   setGroupSectionId(null);
                   setTimetableId(null);
+                  setTimetable(null);
+                  if (collegeId && academicYearId && courseId && id) {
+                    const years = courseYearsFromFilterRows(
+                      filterRows,
+                      collegeId,
+                      academicYearId,
+                      courseId,
+                      id,
+                    );
+                    if (years[0])
+                      setCourseYearId(num(years[0].fk_course_year_id));
+                  }
                 }}
                 options={groupOptions}
                 placeholder="Course Group"
@@ -514,13 +495,33 @@ export function ViewTimetablePage() {
                 disabled={!courseId}
               />
             </FilterField>
-            <FilterField label="Course Year">
+            <FilterField label="Course Year" required>
               <Select
                 value={courseYearId ? String(courseYearId) : ""}
                 onChange={(v) => {
-                  setCourseYearId(num(v));
+                  const id = num(v);
+                  setCourseYearId(id);
                   setGroupSectionId(null);
                   setTimetableId(null);
+                  setTimetable(null);
+                  if (
+                    collegeId &&
+                    academicYearId &&
+                    courseId &&
+                    courseGroupId &&
+                    id
+                  ) {
+                    const secs = sectionsFromFilterRows(
+                      filterRows,
+                      collegeId,
+                      academicYearId,
+                      courseId,
+                      courseGroupId,
+                      id,
+                    );
+                    if (secs[0])
+                      setGroupSectionId(num(secs[0].fk_group_section_id));
+                  }
                 }}
                 options={yearOptions}
                 placeholder="Course Year"
@@ -528,12 +529,13 @@ export function ViewTimetablePage() {
                 disabled={!courseGroupId}
               />
             </FilterField>
-            <FilterField label="Section">
+            <FilterField label="Section" required>
               <Select
                 value={groupSectionId ? String(groupSectionId) : ""}
                 onChange={(v) => {
                   setGroupSectionId(num(v));
                   setTimetableId(null);
+                  setTimetable(null);
                 }}
                 options={sectionOptions}
                 placeholder="Section"
@@ -541,7 +543,7 @@ export function ViewTimetablePage() {
                 disabled={!courseYearId}
               />
             </FilterField>
-            <FilterField label="Timetable" className="sm:col-span-2">
+            <FilterField label="Timetable" required className="sm:col-span-2">
               <Select
                 value={timetableId ? String(timetableId) : ""}
                 onChange={(v) => setTimetableId(num(v))}
@@ -558,26 +560,16 @@ export function ViewTimetablePage() {
       {timetable && timetable.weekdays.length > 0 ? (
         <div className="screen-only app-card space-y-3 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#002b5c]">
-              <CalendarRange className="h-4 w-4" aria-hidden />
-              Timetable allocations - {headerLine}
-              {dateRange ? (
-                <span className="font-normal">- ({dateRange})</span>
-              ) : null}
+            <h2 className="inline-flex flex-wrap items-center gap-2 text-[13px] font-semibold text-[#002b5c]">
+              <CalendarRange className="h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                Timetable allocations - {headerLine}
+                {dateRange ? ` - (${dateRange})` : ""}
+              </span>
             </h2>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={openModalView}
-              >
-                Popup view
-              </Button>
-              <Button type="button" size="sm" onClick={handlePrint}>
-                Print
-              </Button>
-            </div>
+            <Button type="button" size="sm" onClick={handlePrint}>
+              Print
+            </Button>
           </div>
 
           <TimetableWeeklyGrid timetable={timetable} variant="screen" />
@@ -586,20 +578,16 @@ export function ViewTimetablePage() {
         <p className="screen-only py-12 text-center text-sm text-muted-foreground">
           Loading timetable…
         </p>
-      ) : timetableId ? (
+      ) : !timetableId ? (
         <p className="screen-only py-12 text-center text-sm text-muted-foreground">
-          Select all filters and a timetable to view allocations.
+          Select College through Section, then choose a Timetable to view
+          allocations.
         </p>
-      ) : null}
-
-      <ViewAllocatedTimetableModal
-        open={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setViewContext(null);
-        }}
-        context={viewContext}
-      />
+      ) : (
+        <p className="screen-only py-12 text-center text-sm text-muted-foreground">
+          No timetable entries found for the selected filters.
+        </p>
+      )}
     </PageContainer>
   );
 }
@@ -608,14 +596,19 @@ function FilterField({
   label,
   children,
   className = "",
+  required = false,
 }: {
   label: string;
   children: ReactNode;
   className?: string;
+  required?: boolean;
 }) {
   return (
     <div className={`space-y-1 ${className}`}>
-      <Label className="text-[12px]">{label}</Label>
+      <Label className="text-[12px]">
+        {label}
+        {required ? <span className="text-destructive"> *</span> : null}
+      </Label>
       {children}
     </div>
   );

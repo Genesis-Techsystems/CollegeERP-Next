@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  TIMETABLE_HEADER_ROW_BG,
   timetableBreakCellBg,
   timetableCellHeightPx,
   type AngularStudentTimetable,
@@ -9,18 +10,6 @@ import {
   type TimetableSubBatch,
 } from "@/services";
 import { formatClockAmPm } from "../_lib/timetable-filters";
-
-const FONT_DAY_HEADER =
-  "text-[12px] sm:text-[13px] font-bold uppercase tracking-wide";
-const FONT_SUBJECT =
-  "text-[11px] sm:text-[12px] font-bold uppercase leading-tight tracking-wide";
-const FONT_META =
-  "text-[9px] sm:text-[10px] font-medium uppercase leading-snug tracking-normal";
-const FONT_TIME =
-  "text-[10px] sm:text-[11px] font-bold uppercase leading-tight tracking-wide";
-const FONT_BREAK_LABEL =
-  "text-[10px] sm:text-[11px] font-semibold uppercase leading-tight";
-const HEADER_PY = "py-3";
 
 type TimetableWeeklyGridProps = {
   timetable: AngularStudentTimetable;
@@ -33,6 +22,11 @@ type TimetableWeeklyGridProps = {
   ) => void;
 };
 
+/**
+ * Angular view-timetable day-column layout:
+ * columns = weekdays (API order), rows within a day = stacked timings.
+ * Cell content is vertically centered (Angular `vertical-align: middle`).
+ */
 export function TimetableWeeklyGrid({
   timetable,
   variant = "screen",
@@ -72,10 +66,13 @@ function DayColumn({
 }) {
   const headerName = weekday.timings[0]?.weekdayName || weekday.weekdayName;
   return (
-    <div className="table-span flex min-w-[120px] flex-1 flex-col border border-slate-200/80">
+    <div
+      className="table-span flex flex-col border border-[#ddd]"
+      style={{ width: "16.6%", minWidth: 120, flex: "1 1 16.6%" }}
+    >
       <div
-        className={`table-th border-b border-slate-300 px-2 text-center ${FONT_DAY_HEADER} text-black ${HEADER_PY}`}
-        style={{ backgroundColor: "#E8F2FE" }}
+        className="table-th border-b border-[#ddd] px-[5px] py-[15px] text-center text-[19px] font-medium uppercase leading-none text-black"
+        style={{ backgroundColor: TIMETABLE_HEADER_ROW_BG }}
       >
         {headerName}
       </div>
@@ -119,18 +116,24 @@ function TimingCell({
   const timeLabel = formatTimeRange(timing.startTime, timing.endTime);
   const nameLooksLikeBreak = /break/i.test(timing.classTimingName ?? "");
   const isBreak = timing.isBreak || nameLooksLikeBreak;
+  // Angular: [ngStyle]="{'background': timing.color}" + .break → #efefef
+  // Unmatched weekday names (e.g. "Thrusday") leave color empty → white.
   const cellBg = isBreak
     ? timetableBreakCellBg(timing.classTimingName, true)
-    : timing.colorCode;
+    : timing.colorCode || "#ffffff";
 
   return (
     <div
       role={!isBreak && onTimingClick ? "button" : undefined}
       tabIndex={!isBreak && onTimingClick ? 0 : undefined}
-      className={`table-td border-b border-slate-200/90 px-2 py-2 text-center ${isBreak ? "timetable-break-cell" : ""} ${!isBreak && onTimingClick ? "cursor-pointer hover:brightness-95" : ""}`}
+      className={`table-td flex border-b border-[#ddd] p-0 text-center ${!isBreak && onTimingClick ? "cursor-pointer hover:brightness-95" : ""}`}
       style={{
         backgroundColor: cellBg,
         minHeight: heightPx,
+        height: heightPx,
+        // Angular td: vertical-align middle — center the whole content block
+        alignItems: "center",
+        justifyContent: "center",
         gridColumn: timing.colspan > 1 ? `span ${timing.colspan}` : undefined,
       }}
       onClick={() => {
@@ -143,26 +146,25 @@ function TimingCell({
         }
       }}
     >
-      <div
-        className="flex h-full flex-col justify-between"
-        style={{ minHeight: heightPx }}
-      >
-        {!isBreak ? (
-          <div className="flex flex-col gap-1.5">
-            {timing.subBatches.map((batch, i) => (
+      <div className="flex w-full flex-col items-center justify-center px-1 py-1">
+        {!isBreak
+          ? timing.subBatches.map((batch, i) => (
               <SubBatchBlock
                 key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
                 batch={batch}
               />
-            ))}
-          </div>
-        ) : null}
+            ))
+          : null}
+        {/* Angular .subject-timing { font-size: smaller; padding-top: 13px } */}
         <p
-          className={`subject-timing mt-auto text-center text-black ${isBreak ? FONT_BREAK_LABEL : FONT_TIME}`}
+          className="subject-timing m-0 text-center text-[smaller] leading-snug text-black"
+          style={{
+            paddingTop: isBreak || timing.subBatches.length === 0 ? 0 : 13,
+          }}
         >
           {isBreak && timing.classTimingName ? (
             <>
-              <span>{timing.classTimingName.toUpperCase()}</span>
+              <span>{timing.classTimingName}</span>
               <br />
             </>
           ) : null}
@@ -174,26 +176,31 @@ function TimingCell({
 }
 
 function SubBatchBlock({ batch }: { batch: TimetableSubBatch }) {
-  const subjectLine = batch.shortName || batch.subjectCode;
+  // Angular active template uses subjectCode (shortName is commented out).
+  const subjectLine = batch.subjectCode || batch.shortName;
   const batchPrefix =
     batch.studentBatchId && batch.studentBatchName
       ? `[${batch.studentBatchName}]`
       : "";
+  const tooltip = batch.subjectName || subjectLine || undefined;
 
   return (
-    <div className="sub-jct space-y-0.5">
-      <p className={`text-center ${FONT_SUBJECT} text-black`}>
+    <div className="sub-jct w-full">
+      <p
+        className="m-0 text-center text-[15px] font-medium leading-tight text-black"
+        title={tooltip}
+      >
         {batchPrefix ? <span>{batchPrefix} </span> : null}
-        {subjectLine ? <span>{subjectLine.toUpperCase()}</span> : null}
+        {subjectLine ? <span>{subjectLine}</span> : null}
       </p>
       {batch.staffName ? (
-        <p className={`stff text-center ${FONT_META} text-slate-800`}>
-          {batch.staffName.toUpperCase()}
+        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
+          {batch.staffName}
         </p>
       ) : null}
       {batch.roomName ? (
-        <p className={`stff text-center ${FONT_META} text-slate-800`}>
-          {batch.roomName.toUpperCase()}
+        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
+          {batch.roomName}
         </p>
       ) : null}
     </div>

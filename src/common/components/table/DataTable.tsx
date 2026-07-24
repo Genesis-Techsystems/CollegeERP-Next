@@ -16,6 +16,7 @@ import {
   type GridApi,
   type CellClickedEvent,
   type GetRowIdFunc,
+  type ITooltipParams,
   type RowClickedEvent,
   type FirstDataRenderedEvent,
   type GridSizeChangedEvent,
@@ -175,12 +176,34 @@ export interface DataTableProps<T> {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+/** Full cell text for tooltips; skip custom renderers (badges/actions) and objects. */
+function defaultTooltipValueGetter(params: ITooltipParams): string | undefined {
+  // Custom renderers (StatusBadge, action buttons) are not plain text; AG Grid's
+  // whenTruncated check also does not apply to them — avoid noisy tooltips.
+  const colDef = params.colDef;
+  if (colDef && "cellRenderer" in colDef && colDef.cellRenderer) {
+    return undefined;
+  }
+
+  const formatted = params.valueFormatted;
+  if (formatted != null && String(formatted).trim() !== "") {
+    return String(formatted);
+  }
+
+  const value = params.value;
+  if (value == null || value === "") return undefined;
+  if (typeof value === "boolean") return undefined;
+  if (typeof value === "object") return undefined;
+  return String(value);
+}
+
 const DEFAULT_COL_DEF: ColDef = {
   sortable: true,
   filter: false,
   resizable: true,
   minWidth: 70,
   suppressHeaderMenuButton: false,
+  tooltipValueGetter: defaultTooltipValueGetter,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -519,7 +542,12 @@ export function DataTable<T>({
       columnDefs.map((def) => {
         if (isActionsColumn(def)) {
           return withCellClass(
-            { ...def, filter: false, sortable: false },
+            {
+              ...def,
+              filter: false,
+              sortable: false,
+              tooltipValueGetter: () => undefined,
+            },
             "app-cell-actions",
           );
         }
@@ -834,6 +862,8 @@ export function DataTable<T>({
                   onRowClicked={onRowClick ? handleRowClicked : undefined}
                   popupParent={popupParent}
                   animateRows
+                  tooltipShowMode="whenTruncated"
+                  tooltipShowDelay={400}
                 />
               </div>
             </div>

@@ -222,6 +222,8 @@ const DAY_CELL_BG: Record<string, string> = {
 };
 
 function dayColorFromWeekdayName(weekdayName: string): string {
+  // Angular view-timetable uses exact string equality only.
+  // Misspellings like "Thrusday" get no pastel → white cell (matches Angular UI).
   const n = weekdayName.trim();
   if (n === "Monday") return DAY_CELL_BG.MONDAY;
   if (n === "Tuesday") return DAY_CELL_BG.TUESDAY;
@@ -230,12 +232,11 @@ function dayColorFromWeekdayName(weekdayName: string): string {
   if (n === "Friday") return DAY_CELL_BG.FRIDAY;
   if (n === "Saturday") return DAY_CELL_BG.SATURDAY;
   if (n === "Sunday") return DAY_CELL_BG.SUNDAY;
-  const upper = normalizeDay(n);
-  return DAY_CELL_BG[upper] ?? "#E6E6FA";
+  return "";
 }
 
-/** Weekday header band — very pale blue (Angular horizontal slice). */
-export const TIMETABLE_HEADER_ROW_BG = "#E8F2FE";
+/** Angular view-timetable `.table-th` header background. */
+export const TIMETABLE_HEADER_ROW_BG = "#C3D9FF";
 
 function text(row: AnyRow, keys: string[]): string {
   for (const key of keys) {
@@ -257,6 +258,7 @@ function num(row: AnyRow, keys: string[]): number {
 
 function normalizeDay(raw: string): string {
   const upper = raw.trim().toUpperCase();
+  if (upper === "THRUSDAY") return "THURSDAY";
   if (DAY_ORDER.includes(upper)) return upper;
   const map: Record<string, string> = {
     MON: "MONDAY",
@@ -1319,6 +1321,8 @@ export type TimetableSubBatch = {
   studentBatchName: string;
   shortName: string;
   subjectCode: string;
+  /** Angular matTooltip on subject code. */
+  subjectName: string;
   staffName: string;
   roomName: string;
 };
@@ -1373,6 +1377,7 @@ function mapSubjectResource(res: AnyRow): TimetableSubBatch {
     ]),
     shortName: text(res, ["shortName", "short_name", "subjectShortName"]),
     subjectCode: text(res, ["subjectCode", "subject_code"]),
+    subjectName: text(res, ["subjectName", "subject_name"]),
     staffName: text(res, [
       "staffName",
       "staff_name",
@@ -1420,13 +1425,13 @@ function buildSubBatches(subjectResource: AnyRow[]): TimetableSubBatch[] {
   return subBatches;
 }
 
-/** All break cells share one neutral grey (same as short BREAK). */
+/** Angular view-timetable `.break { background: #efefef !important; }`. */
 export function timetableBreakCellBg(
   _classTimingName: string,
   isBreak: boolean,
 ): string {
   if (!isBreak) return "";
-  return "#F5F5F5";
+  return "#efefef";
 }
 
 function mapScheduleTiming(
@@ -1546,28 +1551,20 @@ export function buildAngularStudentTimetable(
     }
   }
 
-  const dayOrder = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
-  weekdays.sort((a, b) => {
-    const ai = dayOrder.indexOf(a.weekdayName);
-    const bi = dayOrder.indexOf(b.weekdayName);
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-  });
+  // Angular preserves API encounter order (Map insertion order) — do not sort.
+  // Sorting breaks misspelled names like "Thrusday" and can swap Fri/Thu.
 
   let dateRangeLabel = "";
   if (timetableMeta) {
     const from = formatHeaderDate(
-      timetableMeta.startDate ?? timetableMeta.start_date,
+      timetableMeta.startDate ??
+        timetableMeta.start_date ??
+        timetableMeta.timetable_startdate,
     );
     const to = formatHeaderDate(
-      timetableMeta.endDate ?? timetableMeta.end_date,
+      timetableMeta.endDate ??
+        timetableMeta.end_date ??
+        timetableMeta.timetable_enddate,
     );
     if (from && to) dateRangeLabel = `${from} - ${to}`;
   }

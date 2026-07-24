@@ -1,237 +1,313 @@
-import { FEE_API, NEXT_API } from '@/config/constants/api'
-import type { ApiResponse } from '@/types/api'
+import { FEE_API, NEXT_API } from "@/config/constants/api";
+import type { ApiResponse } from "@/types/api";
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
 export type StudentFeeYearRow = {
-  year: string
-  isTotal: boolean
-  totalAmount: number | null
-  rtfAmount: number | null
-  collegeAmount: number | null
-  collegeDiscount: number | null
-  netAmount: number | null
-  paidAmount: number | null
-  dueCollegeAmount: number | null
-  rtfReceived: number | null
-  dueRtfAmount: number | null
-  totalDue: number | null
-}
+  year: string;
+  isTotal: boolean;
+  totalAmount: number | null;
+  rtfAmount: number | null;
+  collegeAmount: number | null;
+  collegeDiscount: number | null;
+  netAmount: number | null;
+  paidAmount: number | null;
+  dueCollegeAmount: number | null;
+  rtfReceived: number | null;
+  dueRtfAmount: number | null;
+  totalDue: number | null;
+};
 
 export type StudentFeeView = {
-  rows: StudentFeeYearRow[]
-}
+  rows: StudentFeeYearRow[];
+};
 
-const COURSE_FEE_YEARS = [1, 2, 3, 4] as const
+const COURSE_FEE_YEARS = [1, 2, 3, 4] as const;
 
 const AMOUNT_KEYS = {
   totalAmount: [
-    'P_gross_amount',
-    'P_GROSS_AMOUNT',
-    'P_Gross_Amount',
-    'P_year_gross_amount',
-    'P_Year_Gross_Amount',
-    'year_gross_amount',
-    'Year_Gross_Amount',
-    'annual_gross_amount',
-    'Annual_Gross_Amount',
-    'P_annual_amount',
-    'year_fee_amount',
-    'Year_Fee_Amount',
-    'gross_amount',
-    'Gross_Amount',
-    'GROSS_AMOUNT',
-    'total_amount',
-    'Total_Amount',
-    'totalAmount',
-    'P_total_amount',
-    'fee_amount',
-    'Fee_Amount',
+    "P_gross_amount",
+    "P_GROSS_AMOUNT",
+    "P_Gross_Amount",
+    "P_year_gross_amount",
+    "P_Year_Gross_Amount",
+    "year_gross_amount",
+    "Year_Gross_Amount",
+    "annual_gross_amount",
+    "Annual_Gross_Amount",
+    "P_annual_amount",
+    "year_fee_amount",
+    "Year_Fee_Amount",
+    "gross_amount",
+    "Gross_Amount",
+    "GROSS_AMOUNT",
+    "total_amount",
+    "Total_Amount",
+    "totalAmount",
+    "P_total_amount",
+    "fee_amount",
+    "Fee_Amount",
   ],
-  rtfAmount: ['P_rtf_amount', 'P_RTF_AMOUNT', 'rtf_amount', 'RTF_Amount', 'rtfAmount'],
-  collegeAmount: ['P_college_amount', 'P_COLLEGE_AMOUNT', 'college_amount', 'College_Amount', 'collegeAmount'],
+  rtfAmount: [
+    "P_rtf_amount",
+    "P_RTF_AMOUNT",
+    "rtf_amount",
+    "RTF_Amount",
+    "rtfAmount",
+  ],
+  collegeAmount: [
+    "P_college_amount",
+    "P_COLLEGE_AMOUNT",
+    "college_amount",
+    "College_Amount",
+    "collegeAmount",
+  ],
   collegeDiscount: [
-    'P_college_discount',
-    'P_COLLEGE_DISCOUNT',
-    'college_discount',
-    'College_Discount',
-    'collegeDiscount',
+    "P_college_discount",
+    "P_COLLEGE_DISCOUNT",
+    "college_discount",
+    "College_Discount",
+    "collegeDiscount",
   ],
   netAmount: [
-    'P_year_net_amount',
-    'P_Year_Net_Amount',
-    'year_net_amount',
-    'Year_Net_Amount',
-    'P_net_amount',
-    'P_NET_AMOUNT',
-    'net_amount',
-    'NET_Amount',
-    'netAmount',
+    "P_year_net_amount",
+    "P_Year_Net_Amount",
+    "year_net_amount",
+    "Year_Net_Amount",
+    "P_net_amount",
+    "P_NET_AMOUNT",
+    "net_amount",
+    "NET_Amount",
+    "netAmount",
   ],
   paidAmount: [
-    'P_year_paid_amount',
-    'P_Year_Paid_Amount',
-    'year_paid_amount',
-    'Year_Paid_Amount',
-    'P_paid_amount',
-    'P_PAID_AMOUNT',
-    'paid_amount',
-    'Paid_Amount',
-    'paidAmount',
-    'amountPaid',
+    "P_year_paid_amount",
+    "P_Year_Paid_Amount",
+    "year_paid_amount",
+    "Year_Paid_Amount",
+    "P_paid_amount",
+    "P_PAID_AMOUNT",
+    "paid_amount",
+    "Paid_Amount",
+    "paidAmount",
+    "amountPaid",
   ],
   dueCollegeAmount: [
-    'P_year_due_college_amount',
-    'P_Year_Due_College_Amount',
-    'year_due_college_amount',
-    'Year_Due_College_Amount',
-    'P_due_college_amount',
-    'P_DUE_COLLEGE_AMOUNT',
-    'due_college_amount',
-    'Due_College_Amount',
-    'dueCollegeAmount',
-    'college_due_amount',
+    "P_year_due_college_amount",
+    "P_Year_Due_College_Amount",
+    "year_due_college_amount",
+    "Year_Due_College_Amount",
+    "P_due_college_amount",
+    "P_DUE_COLLEGE_AMOUNT",
+    "due_college_amount",
+    "Due_College_Amount",
+    "dueCollegeAmount",
+    "college_due_amount",
   ],
-  rtfReceived: ['P_rtf_received', 'P_RTF_RECEIVED', 'rtf_received', 'RTF_Received', 'rtfReceived'],
-  dueRtfAmount: ['P_due_rtf_amount', 'P_DUE_RTF_AMOUNT', 'due_rtf_amount', 'Due_RTF_Amount', 'dueRtfAmount'],
+  rtfReceived: [
+    "P_rtf_received",
+    "P_RTF_RECEIVED",
+    "rtf_received",
+    "RTF_Received",
+    "rtfReceived",
+  ],
+  dueRtfAmount: [
+    "P_due_rtf_amount",
+    "P_DUE_RTF_AMOUNT",
+    "due_rtf_amount",
+    "Due_RTF_Amount",
+    "dueRtfAmount",
+  ],
   totalDue: [
-    'P_total_due',
-    'P_TOTAL_DUE',
-    'total_due',
-    'Total_Due',
-    'totalDue',
-    'P_balance_amount',
-    'balance_amount',
-    'dueAmount',
-    'due_amount',
+    "P_total_due",
+    "P_TOTAL_DUE",
+    "total_due",
+    "Total_Due",
+    "totalDue",
+    "P_balance_amount",
+    "balance_amount",
+    "dueAmount",
+    "due_amount",
   ],
-} as const
+} as const;
 
-type AmountField = keyof typeof AMOUNT_KEYS
+type AmountField = keyof typeof AMOUNT_KEYS;
 
 const YEAR_LABEL_KEYS = [
-  'year',
-  'fee_year',
-  'Year',
-  'feeYear',
-  'year_name',
-  'Year_Name',
-  'display_year',
-  'fee_year_name',
-  'Fee_Year_Name',
-  'yearName',
-  'YearName',
-  'course_year',
-  'courseYear',
-  'P_year',
-  'P_Year_Name',
-  'P_year_name',
-  'Course_Year',
-  'course_year_name',
-]
+  "year",
+  "fee_year",
+  "Year",
+  "feeYear",
+  "year_name",
+  "Year_Name",
+  "display_year",
+  "fee_year_name",
+  "Fee_Year_Name",
+  "yearName",
+  "YearName",
+  "course_year",
+  "courseYear",
+  "P_year",
+  "P_Year_Name",
+  "P_year_name",
+  "Course_Year",
+  "course_year_name",
+];
 
 const YEAR_NUMBER_KEYS = [
-  'year_no',
-  'yearNo',
-  'Year_No',
-  'fee_year_no',
-  'feeYearNo',
-  'feeYearNumber',
-  'course_fee_year',
-  'courseFeeYear',
-  'fee_year_number',
-  'course_year_no',
-  'courseYearNo',
-]
+  "year_no",
+  "yearNo",
+  "Year_No",
+  "fee_year_no",
+  "feeYearNo",
+  "feeYearNumber",
+  "course_fee_year",
+  "courseFeeYear",
+  "fee_year_number",
+  "course_year_no",
+  "courseYearNo",
+];
 
 /** `s_fee_std_ledger` — year-level amounts on every fee-head row (Angular fee tab). */
-const YR_GROSS_KEYS = ['Yr_gross_amount', 'Yr_Gross_Amount', 'yr_gross_amount'] as const
-const YR_NET_KEYS = ['Yr_net_amount', 'Yr_Net_Amount', 'yr_net_amount'] as const
-const YR_PAID_KEYS = ['Yr_paid_amount', 'Yr_Paid_Amount', 'yr_paid_amount'] as const
-const YR_BALANCE_KEYS = ['Yr_balance_amount', 'Yr_Balance_Amount', 'yr_balance_amount'] as const
-const YR_DISCOUNT_KEYS = ['Yr_discount_amount', 'Yr_Discount_Amount', 'yr_discount_amount'] as const
+const YR_GROSS_KEYS = [
+  "Yr_gross_amount",
+  "Yr_Gross_Amount",
+  "yr_gross_amount",
+] as const;
+const YR_NET_KEYS = [
+  "Yr_net_amount",
+  "Yr_Net_Amount",
+  "yr_net_amount",
+] as const;
+const YR_PAID_KEYS = [
+  "Yr_paid_amount",
+  "Yr_Paid_Amount",
+  "yr_paid_amount",
+] as const;
+const YR_BALANCE_KEYS = [
+  "Yr_balance_amount",
+  "Yr_Balance_Amount",
+  "yr_balance_amount",
+] as const;
+const YR_DISCOUNT_KEYS = [
+  "Yr_discount_amount",
+  "Yr_Discount_Amount",
+  "yr_discount_amount",
+] as const;
 
-const TOT_GROSS_KEYS = ['tot_gross_amount', 'tot_Gross_Amount', 'Tot_Gross_Amount'] as const
-const TOT_NET_KEYS = ['tot_net_amount', 'tot_Net_Amount', 'Tot_Net_Amount'] as const
-const TOT_PAID_KEYS = ['tot_paid_amount', 'tot_Paid_Amount', 'Tot_Paid_Amount'] as const
-const TOT_BALANCE_KEYS = ['tot_balance_amount', 'tot_Balance_Amount', 'Tot_Balance_Amount'] as const
-const TOT_DISCOUNT_KEYS = ['tot_discount_amount', 'tot_Discount_Amount'] as const
+const TOT_GROSS_KEYS = [
+  "tot_gross_amount",
+  "tot_Gross_Amount",
+  "Tot_Gross_Amount",
+] as const;
+const TOT_NET_KEYS = [
+  "tot_net_amount",
+  "tot_Net_Amount",
+  "Tot_Net_Amount",
+] as const;
+const TOT_PAID_KEYS = [
+  "tot_paid_amount",
+  "tot_Paid_Amount",
+  "Tot_Paid_Amount",
+] as const;
+const TOT_BALANCE_KEYS = [
+  "tot_balance_amount",
+  "tot_Balance_Amount",
+  "Tot_Balance_Amount",
+] as const;
+const TOT_DISCOUNT_KEYS = [
+  "tot_discount_amount",
+  "tot_Discount_Amount",
+] as const;
 
-const LEDGER_COLLEGE_KEYS = ['college_amount', 'College_Amount', 'collegeAmount'] as const
+const LEDGER_COLLEGE_KEYS = [
+  "college_amount",
+  "College_Amount",
+  "collegeAmount",
+] as const;
 
 function normalizeKey(key: string): string {
-  return key.toLowerCase().replace(/[_\s-]/g, '')
+  return key.toLowerCase().replace(/[_\s-]/g, "");
 }
 
 function rowKeyIndex(row: AnyRow): Map<string, unknown> {
-  const m = new Map<string, unknown>()
+  const m = new Map<string, unknown>();
   for (const [k, v] of Object.entries(row)) {
-    m.set(normalizeKey(k), v)
+    m.set(normalizeKey(k), v);
   }
-  return m
+  return m;
 }
 
 function parseNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  const s = String(value).replaceAll(',', '').trim()
-  if (!s || s === '-') return null
-  const n = Number(s)
-  return Number.isFinite(n) ? n : null
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const s = String(value).replaceAll(",", "").trim();
+  if (!s || s === "-") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
 }
 
 function textCI(row: AnyRow, keys: string[]): string {
-  const idx = rowKeyIndex(row)
+  const idx = rowKeyIndex(row);
   for (const key of keys) {
-    const value = idx.get(normalizeKey(key))
-    if (value != null && String(value).trim() !== '') return String(value).trim()
+    const value = idx.get(normalizeKey(key));
+    if (value != null && String(value).trim() !== "")
+      return String(value).trim();
   }
-  return ''
+  return "";
 }
 
 function readAmountCI(row: AnyRow, keys: readonly string[]): number | null {
-  const idx = rowKeyIndex(row)
+  const idx = rowKeyIndex(row);
   for (const key of keys) {
-    const n = parseNumber(idx.get(normalizeKey(key)))
-    if (n != null) return n
+    const n = parseNumber(idx.get(normalizeKey(key)));
+    if (n != null) return n;
   }
-  return null
+  return null;
 }
 
-function readAmountByKeyPattern(row: AnyRow, pattern: RegExp, exclude?: RegExp): number | null {
+function readAmountByKeyPattern(
+  row: AnyRow,
+  pattern: RegExp,
+  exclude?: RegExp,
+): number | null {
   for (const [key, value] of Object.entries(row)) {
-    const nk = normalizeKey(key)
-    if (!pattern.test(nk)) continue
-    if (exclude?.test(nk)) continue
-    const n = parseNumber(value)
-    if (n != null) return n
+    const nk = normalizeKey(key);
+    if (!pattern.test(nk)) continue;
+    if (exclude?.test(nk)) continue;
+    const n = parseNumber(value);
+    if (n != null) return n;
   }
-  return null
+  return null;
 }
 
-const GROSS_EXCLUDE = /due|paid|balance|cumulative|cummulative|received|discount|net|college|rtf|totaldue|total_due/
+const GROSS_EXCLUDE =
+  /due|paid|balance|cumulative|cummulative|received|discount|net|college|rtf|totaldue|total_due/;
 
 function readExplicitZero(row: AnyRow, keys: readonly string[]): boolean {
-  const idx = rowKeyIndex(row)
+  const idx = rowKeyIndex(row);
   return keys.some((key) => {
-    const v = idx.get(normalizeKey(key))
-    return v === 0 || v === '0'
-  })
+    const v = idx.get(normalizeKey(key));
+    return v === 0 || v === "0";
+  });
 }
 
-function partitionYearKeys(keys: readonly string[]): { yearKeys: string[]; mainKeys: string[] } {
-  const yearKeys: string[] = []
-  const mainKeys: string[] = []
+function partitionYearKeys(keys: readonly string[]): {
+  yearKeys: string[];
+  mainKeys: string[];
+} {
+  const yearKeys: string[] = [];
+  const mainKeys: string[] = [];
   for (const k of keys) {
-    if (/year/i.test(k)) yearKeys.push(k)
-    else mainKeys.push(k)
+    if (/year/i.test(k)) yearKeys.push(k);
+    else mainKeys.push(k);
   }
-  return { yearKeys, mainKeys }
+  return { yearKeys, mainKeys };
 }
 
 function hasAnyKey(row: AnyRow, keys: string[]): boolean {
-  const idx = rowKeyIndex(row)
-  return keys.some((k) => idx.has(normalizeKey(k)))
+  const idx = rowKeyIndex(row);
+  return keys.some((k) => idx.has(normalizeKey(k)));
 }
 
 /**
@@ -243,328 +319,440 @@ function readYearScopedAmount(
   keys: readonly string[],
   allowZero = false,
 ): number | null {
-  const { yearKeys, mainKeys } = partitionYearKeys(keys)
-  const idx = rowKeyIndex(row)
+  const { yearKeys, mainKeys } = partitionYearKeys(keys);
+  const idx = rowKeyIndex(row);
 
   if (yearKeys.length > 0) {
-    if (allowZero && readExplicitZero(row, yearKeys)) return 0
+    if (allowZero && readExplicitZero(row, yearKeys)) return 0;
     for (const key of yearKeys) {
-      const n = parseNumber(idx.get(normalizeKey(key)))
-      if (n != null && (allowZero ? n >= 0 : n > 0)) return n
+      const n = parseNumber(idx.get(normalizeKey(key)));
+      if (n != null && (allowZero ? n >= 0 : n > 0)) return n;
     }
-    if (hasAnyKey(row, yearKeys)) return allowZero ? 0 : null
+    if (hasAnyKey(row, yearKeys)) return allowZero ? 0 : null;
   }
 
-  if (allowZero && readExplicitZero(row, mainKeys)) return 0
+  if (allowZero && readExplicitZero(row, mainKeys)) return 0;
   for (const key of mainKeys) {
-    const n = parseNumber(idx.get(normalizeKey(key)))
-    if (n != null && (allowZero ? n >= 0 : n > 0)) return n
+    const n = parseNumber(idx.get(normalizeKey(key)));
+    if (n != null && (allowZero ? n >= 0 : n > 0)) return n;
   }
 
-  return null
+  return null;
 }
 
 /** First matching key only — never Math.min across `fee_amount` + `P_gross_amount`. */
-function readFirstAmount(row: AnyRow, keys: readonly string[], allowZero = false): number | null {
-  if (allowZero && readExplicitZero(row, keys)) return 0
-  const n = readAmountCI(row, keys)
-  if (n == null) return null
-  if (allowZero) return n
-  return n > 0 ? n : null
+function readFirstAmount(
+  row: AnyRow,
+  keys: readonly string[],
+  allowZero = false,
+): number | null {
+  if (allowZero && readExplicitZero(row, keys)) return 0;
+  const n = readAmountCI(row, keys);
+  if (n == null) return null;
+  if (allowZero) return n;
+  return n > 0 ? n : null;
 }
 
 const LEDGER_GROSS_KEYS = [
-  'P_gross_amount',
-  'P_GROSS_AMOUNT',
-  'P_Gross_Amount',
-  'gross_amount',
-  'Gross_Amount',
-  'GROSS_AMOUNT',
-] as const
+  "P_gross_amount",
+  "P_GROSS_AMOUNT",
+  "P_Gross_Amount",
+  "gross_amount",
+  "Gross_Amount",
+  "GROSS_AMOUNT",
+] as const;
 
 const YEAR_GROSS_KEYS = [
-  'P_year_gross_amount',
-  'P_Year_Gross_Amount',
-  'year_gross_amount',
-  'Year_Gross_Amount',
-] as const
+  "P_year_gross_amount",
+  "P_Year_Gross_Amount",
+  "year_gross_amount",
+  "Year_Gross_Amount",
+] as const;
 
-const LEDGER_NET_KEYS = ['P_net_amount', 'P_NET_AMOUNT', 'net_amount', 'NET_Amount'] as const
-const YEAR_NET_KEYS = ['P_year_net_amount', 'P_Year_Net_Amount', 'year_net_amount'] as const
+const LEDGER_NET_KEYS = [
+  "P_net_amount",
+  "P_NET_AMOUNT",
+  "net_amount",
+  "NET_Amount",
+] as const;
+const YEAR_NET_KEYS = [
+  "P_year_net_amount",
+  "P_Year_Net_Amount",
+  "year_net_amount",
+] as const;
 
-const LEDGER_PAID_KEYS = ['P_paid_amount', 'P_PAID_AMOUNT', 'paid_amount', 'Paid_Amount'] as const
-const YEAR_PAID_KEYS = ['P_year_paid_amount', 'P_Year_Paid_Amount', 'year_paid_amount'] as const
+const LEDGER_PAID_KEYS = [
+  "P_paid_amount",
+  "P_PAID_AMOUNT",
+  "paid_amount",
+  "Paid_Amount",
+] as const;
+const YEAR_PAID_KEYS = [
+  "P_year_paid_amount",
+  "P_Year_Paid_Amount",
+  "year_paid_amount",
+] as const;
 
 const LEDGER_DUE_COLLEGE_KEYS = [
-  'P_due_college_amount',
-  'P_DUE_COLLEGE_AMOUNT',
-  'due_college_amount',
-  'Due_College_Amount',
-] as const
+  "P_due_college_amount",
+  "P_DUE_COLLEGE_AMOUNT",
+  "due_college_amount",
+  "Due_College_Amount",
+] as const;
 const YEAR_DUE_COLLEGE_KEYS = [
-  'P_year_due_college_amount',
-  'P_Year_Due_College_Amount',
-  'year_due_college_amount',
-] as const
+  "P_year_due_college_amount",
+  "P_Year_Due_College_Amount",
+  "year_due_college_amount",
+] as const;
 
 function isPerYearAmountKey(nk: string): boolean {
   return (
     /yeargross|yearnet|yearpaid|yeardue|yearfee|yearamount/.test(nk) ||
     /year[1-4]/.test(nk) ||
     /[1-4]year/.test(nk)
-  )
+  );
 }
 
-function scanRowAmount(row: AnyRow, include: RegExp, exclude?: RegExp): number | null {
-  const found: number[] = []
+function scanRowAmount(
+  row: AnyRow,
+  include: RegExp,
+  exclude?: RegExp,
+): number | null {
+  const found: number[] = [];
   for (const [key, value] of Object.entries(row)) {
-    const nk = normalizeKey(key)
-    if (!include.test(nk)) continue
-    if (exclude?.test(nk)) continue
-    if (isPerYearAmountKey(nk)) continue
-    const n = parseNumber(value)
-    if (n != null && n > 0) found.push(n)
+    const nk = normalizeKey(key);
+    if (!include.test(nk)) continue;
+    if (exclude?.test(nk)) continue;
+    if (isPerYearAmountKey(nk)) continue;
+    const n = parseNumber(value);
+    if (n != null && n > 0) found.push(n);
   }
-  if (found.length === 0) return null
-  return found.length === 1 ? found[0] : Math.max(...found)
+  if (found.length === 0) return null;
+  return found.length === 1 ? found[0] : Math.max(...found);
 }
 
 /** Per-year total — prefer ledger `P_gross_amount`, else max of plausible annual fields (not cumulative). */
 function readRawGross(row: AnyRow, yearNo?: number): number | null {
-  const ledger = readFirstAmount(row, LEDGER_GROSS_KEYS)
-  const yearGross = readFirstAmount(row, YEAR_GROSS_KEYS)
-  const college = readFirstAmount(row, AMOUNT_KEYS.collegeAmount)
-  const scanned = scanRowAmount(row, /gross/, /due|paid|balance|net|rtf|discount|feeamount|feehead|installment|category/)
+  const ledger = readFirstAmount(row, LEDGER_GROSS_KEYS);
+  const yearGross = readFirstAmount(row, YEAR_GROSS_KEYS);
+  const college = readFirstAmount(row, AMOUNT_KEYS.collegeAmount);
+  const scanned = scanRowAmount(
+    row,
+    /gross/,
+    /due|paid|balance|net|rtf|discount|feeamount|feehead|installment|category/,
+  );
 
   if (yearNo != null && yearNo >= 3) {
-    if (yearGross != null && yearGross > 0) return yearGross
-    return null
+    if (yearGross != null && yearGross > 0) return yearGross;
+    return null;
   }
 
-  if (ledger != null && yearGross != null && ledger > yearGross * 2) return yearGross
+  if (ledger != null && yearGross != null && ledger > yearGross * 2)
+    return yearGross;
 
   const candidates = [ledger, yearGross, college, scanned].filter(
     (n): n is number => n != null && n > 0,
-  )
-  if (candidates.length > 0) return Math.max(...candidates)
+  );
+  if (candidates.length > 0) return Math.max(...candidates);
 
-  return readFirstAmount(row, AMOUNT_KEYS.totalAmount)
+  return readFirstAmount(row, AMOUNT_KEYS.totalAmount);
 }
 
 function readRawNet(row: AnyRow, yearNo?: number): number | null {
-  const ledger = readFirstAmount(row, LEDGER_NET_KEYS)
-  const yearNet = readFirstAmount(row, YEAR_NET_KEYS)
-  const gross = readRawGross(row, yearNo)
-  const scanned = scanRowAmount(row, /net/, /gross|rtf|college|discount|due/)
+  const ledger = readFirstAmount(row, LEDGER_NET_KEYS);
+  const yearNet = readFirstAmount(row, YEAR_NET_KEYS);
+  const gross = readRawGross(row, yearNo);
+  const scanned = scanRowAmount(row, /net/, /gross|rtf|college|discount|due/);
 
   if (yearNo != null && yearNo >= 3) {
-    if (yearNet != null && yearNet > 0) return yearNet
-    return null
+    if (yearNet != null && yearNet > 0) return yearNet;
+    return null;
   }
 
-  if (ledger != null && yearNet != null && ledger > yearNet * 2) return yearNet
+  if (ledger != null && yearNet != null && ledger > yearNet * 2) return yearNet;
 
-  const candidates = [yearNet, ledger, gross, scanned].filter((n): n is number => n != null && n > 0)
-  if (candidates.length > 0) return Math.max(...candidates)
+  const candidates = [yearNet, ledger, gross, scanned].filter(
+    (n): n is number => n != null && n > 0,
+  );
+  if (candidates.length > 0) return Math.max(...candidates);
 
-  return readFirstAmount(row, AMOUNT_KEYS.netAmount)
+  return readFirstAmount(row, AMOUNT_KEYS.netAmount);
 }
 
 function readRawPaid(row: AnyRow, yearNo?: number): number | null {
   if (yearNo != null && yearNo >= 3) {
-    return readFirstAmount(row, YEAR_PAID_KEYS, true)
+    return readFirstAmount(row, YEAR_PAID_KEYS, true);
   }
 
   if (hasAnyKey(row, [...YEAR_PAID_KEYS])) {
-    return readFirstAmount(row, YEAR_PAID_KEYS, true)
+    return readFirstAmount(row, YEAR_PAID_KEYS, true);
   }
 
-  const ledger = readFirstAmount(row, LEDGER_PAID_KEYS, true)
-  const yearPaid = readFirstAmount(row, YEAR_PAID_KEYS, true)
-  if (ledger != null && yearPaid != null && ledger > yearPaid * 2) return yearPaid
-  if (yearPaid != null) return yearPaid
-  if (ledger != null) return ledger
-  return readFirstAmount(row, AMOUNT_KEYS.paidAmount, true)
+  const ledger = readFirstAmount(row, LEDGER_PAID_KEYS, true);
+  const yearPaid = readFirstAmount(row, YEAR_PAID_KEYS, true);
+  if (ledger != null && yearPaid != null && ledger > yearPaid * 2)
+    return yearPaid;
+  if (yearPaid != null) return yearPaid;
+  if (ledger != null) return ledger;
+  return readFirstAmount(row, AMOUNT_KEYS.paidAmount, true);
 }
 
 function readRawDueCollege(row: AnyRow, yearNo?: number): number | null {
   if (yearNo != null && yearNo >= 3) {
-    return readFirstAmount(row, YEAR_DUE_COLLEGE_KEYS, true)
+    return readFirstAmount(row, YEAR_DUE_COLLEGE_KEYS, true);
   }
 
   if (hasAnyKey(row, [...YEAR_DUE_COLLEGE_KEYS])) {
-    return readFirstAmount(row, YEAR_DUE_COLLEGE_KEYS, true)
+    return readFirstAmount(row, YEAR_DUE_COLLEGE_KEYS, true);
   }
 
-  const ledger = readFirstAmount(row, LEDGER_DUE_COLLEGE_KEYS, true)
-  const yearDue = readFirstAmount(row, YEAR_DUE_COLLEGE_KEYS, true)
-  if (ledger != null && yearDue != null && ledger > yearDue * 2) return yearDue
-  if (yearDue != null) return yearDue
-  if (ledger != null) return ledger
-  return readFirstAmount(row, AMOUNT_KEYS.dueCollegeAmount, true)
+  const ledger = readFirstAmount(row, LEDGER_DUE_COLLEGE_KEYS, true);
+  const yearDue = readFirstAmount(row, YEAR_DUE_COLLEGE_KEYS, true);
+  if (ledger != null && yearDue != null && ledger > yearDue * 2) return yearDue;
+  if (yearDue != null) return yearDue;
+  if (ledger != null) return ledger;
+  return readFirstAmount(row, AMOUNT_KEYS.dueCollegeAmount, true);
 }
 
 function hasYearScopedGross(row: AnyRow): boolean {
-  return readFirstAmount(row, LEDGER_GROSS_KEYS) != null
+  return readFirstAmount(row, LEDGER_GROSS_KEYS) != null;
 }
 
-function discoverAmounts(row: AnyRow): Partial<Record<AmountField, number | null>> {
-  const out: Partial<Record<AmountField, number | null>> = {}
+function discoverAmounts(
+  row: AnyRow,
+): Partial<Record<AmountField, number | null>> {
+  const out: Partial<Record<AmountField, number | null>> = {};
   for (const [key, value] of Object.entries(row)) {
-    const nk = normalizeKey(key)
-    const n = parseNumber(value)
-    if (n == null) continue
+    const nk = normalizeKey(key);
+    const n = parseNumber(value);
+    if (n == null) continue;
     if (/gross/.test(nk)) {
-      out.totalAmount ??= n
+      out.totalAmount ??= n;
     } else if (/rtfamount/.test(nk) && !/due|received/.test(nk)) {
-      out.rtfAmount ??= n
+      out.rtfAmount ??= n;
     } else if (/collegeamount/.test(nk) && !/due|discount/.test(nk)) {
-      out.collegeAmount ??= n
+      out.collegeAmount ??= n;
     } else if (/collegediscount/.test(nk)) {
-      out.collegeDiscount ??= n
+      out.collegeDiscount ??= n;
     } else if (/netamount/.test(nk)) {
-      out.netAmount ??= n
-    } else if (/paidamount/.test(nk) || nk === 'paid') {
-      out.paidAmount ??= n
+      out.netAmount ??= n;
+    } else if (/paidamount/.test(nk) || nk === "paid") {
+      out.paidAmount ??= n;
     } else if (/duecollege/.test(nk)) {
-      out.dueCollegeAmount ??= n
+      out.dueCollegeAmount ??= n;
     } else if (/rtfreceived/.test(nk)) {
-      out.rtfReceived ??= n
+      out.rtfReceived ??= n;
     } else if (/duertf/.test(nk)) {
-      out.dueRtfAmount ??= n
-    } else if (/totaldue/.test(nk) || nk === 'balanceamount' || (nk === 'due' && out.totalDue == null)) {
-      out.totalDue ??= n
+      out.dueRtfAmount ??= n;
+    } else if (
+      /totaldue/.test(nk) ||
+      nk === "balanceamount" ||
+      (nk === "due" && out.totalDue == null)
+    ) {
+      out.totalDue ??= n;
     }
   }
-  return out
+  return out;
 }
 
 function isObjectRow(item: unknown): item is AnyRow {
-  return item != null && typeof item === 'object' && !Array.isArray(item)
+  return item != null && typeof item === "object" && !Array.isArray(item);
 }
 
 function rowsFromTabularPayload(o: AnyRow): AnyRow[] | null {
-  const names = o.columnNames ?? o.column_names ?? o.columns
-  const values = o.data ?? o.rows ?? o.values
-  if (!Array.isArray(names) || !Array.isArray(values)) return null
-  const cols = names.map((c) => String(c))
-  const out: AnyRow[] = []
+  const names = o.columnNames ?? o.column_names ?? o.columns;
+  const values = o.data ?? o.rows ?? o.values;
+  if (!Array.isArray(names) || !Array.isArray(values)) return null;
+  const cols = names.map((c) => String(c));
+  const out: AnyRow[] = [];
   for (const row of values) {
     if (Array.isArray(row)) {
-      const obj: AnyRow = {}
+      const obj: AnyRow = {};
       cols.forEach((col, i) => {
-        obj[col] = row[i]
-      })
-      out.push(obj)
+        obj[col] = row[i];
+      });
+      out.push(obj);
     } else if (isObjectRow(row)) {
-      out.push(row)
+      out.push(row);
     }
   }
-  return out.length > 0 ? out : null
+  return out.length > 0 ? out : null;
 }
 
 /** Unwrap stored-proc payloads (`data`, `result`, nested arrays, tabular shapes). */
 export function unwrapFeeLedgerRows(data: unknown, depth = 0): AnyRow[] {
-  if (data == null || depth > 8) return []
+  if (data == null || depth > 8) return [];
 
   if (Array.isArray(data)) {
-    if (data.length === 0) return []
+    if (data.length === 0) return [];
     if (data.every((item) => Array.isArray(item))) {
-      return (data as unknown[][]).flat().filter(isObjectRow) as AnyRow[]
+      return (data as unknown[][]).flat().filter(isObjectRow) as AnyRow[];
     }
     if (data.length > 0 && Array.isArray(data[0])) {
-      return (data as unknown[][]).flat().filter(isObjectRow) as AnyRow[]
+      return (data as unknown[][]).flat().filter(isObjectRow) as AnyRow[];
     }
-    if (data.every(isObjectRow)) return data as AnyRow[]
-    return data.flatMap((item) => unwrapFeeLedgerRows(item, depth + 1))
+    if (data.every(isObjectRow)) return data as AnyRow[];
+    return data.flatMap((item) => unwrapFeeLedgerRows(item, depth + 1));
   }
 
-  if (typeof data === 'object') {
-    const o = data as AnyRow
-    const tabular = rowsFromTabularPayload(o)
-    if (tabular) return tabular
+  if (typeof data === "object") {
+    const o = data as AnyRow;
+    const tabular = rowsFromTabularPayload(o);
+    if (tabular) return tabular;
 
-    for (const k of ['resultList', 'result', 'data', 'rows', 'list', 'feeDetails', 'records']) {
-      const v = o[k]
-      if (v == null) continue
-      const inner = unwrapFeeLedgerRows(v, depth + 1)
-      if (inner.length > 0) return inner
+    for (const k of [
+      "resultList",
+      "result",
+      "data",
+      "rows",
+      "list",
+      "feeDetails",
+      "records",
+    ]) {
+      const v = o[k];
+      if (v == null) continue;
+      const inner = unwrapFeeLedgerRows(v, depth + 1);
+      if (inner.length > 0) return inner;
     }
 
     for (const v of Object.values(o)) {
-      const inner = unwrapFeeLedgerRows(v, depth + 1)
-      if (inner.length > 0) return inner
+      const inner = unwrapFeeLedgerRows(v, depth + 1);
+      if (inner.length > 0) return inner;
     }
   }
 
-  return []
+  return [];
 }
 
-function unwrapProcApiBody(body: ApiResponse<unknown> & { result?: unknown; resultList?: unknown }): unknown {
-  if (body.data != null) return body.data
-  if (body.resultList != null) return body.resultList
-  if (body.result != null) return body.result
-  return body
+function unwrapProcApiBody(
+  body: ApiResponse<unknown> & { result?: unknown; resultList?: unknown },
+): unknown {
+  if (body.data != null) return body.data;
+  if (body.resultList != null) return body.resultList;
+  if (body.result != null) return body.result;
+  return body;
+}
+
+/**
+ * Angular `s_fee_std_ledger`: `result.data.result[index]`.
+ * - `[0]` = fee year / particulars rows (Fee Details tab)
+ * - `[1]` = scholarship / category metadata (profile header)
+ */
+export function extractStdFeeLedgerResultSet(
+  data: unknown,
+  index: number,
+): AnyRow[] {
+  if (data == null) return [];
+
+  const fromMulti = (multi: unknown): AnyRow[] | null => {
+    if (!Array.isArray(multi) || multi.length === 0) return null;
+    const block = multi[index];
+    if (Array.isArray(block)) {
+      return block.filter(isObjectRow) as AnyRow[];
+    }
+    // Single flat row list (no multi-result nesting) — only valid for index 0
+    if (index === 0 && multi.every(isObjectRow)) {
+      return multi as AnyRow[];
+    }
+    return null;
+  };
+
+  if (typeof data === "object" && !Array.isArray(data)) {
+    const o = data as AnyRow;
+    for (const k of ["result", "resultList"] as const) {
+      const multi = o[k];
+      if (!Array.isArray(multi)) continue;
+      // Prefer explicit `result[index]` even when empty (Angular empty table).
+      if (Array.isArray(multi[index])) {
+        return (multi[index] as unknown[]).filter(isObjectRow) as AnyRow[];
+      }
+      const hit = fromMulti(multi);
+      if (hit) return hit;
+    }
+  }
+
+  const direct = fromMulti(data);
+  if (direct) return direct;
+
+  // Legacy envelopes: fall back to flatten for fee tab only
+  if (index === 0) return unwrapFeeLedgerRows(data);
+  return [];
 }
 
 /** Fetch fee ledger with full Spring envelope (`data` / `resultList` / `result`). */
 export async function fetchFeeLedgerRows(
   params: Record<string, string | number>,
+  options?: { resultIndex?: number },
 ): Promise<AnyRow[]> {
   const searchParams = new URLSearchParams(
     Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
-  )
-  const url = `${NEXT_API.PROXY(FEE_API.FEE_STD_LEDGER)}?${searchParams}`
-  const res = await fetch(url, { cache: 'no-store', credentials: 'include' })
-  if (!res.ok) return []
-  const body = (await res.json()) as ApiResponse<unknown> & { result?: unknown; resultList?: unknown }
-  if (!body.success) return []
-  return unwrapFeeLedgerRows(unwrapProcApiBody(body))
+  );
+  const url = `${NEXT_API.PROXY(FEE_API.FEE_STD_LEDGER)}?${searchParams}`;
+  const res = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!res.ok) return [];
+  const body = (await res.json()) as ApiResponse<unknown> & {
+    result?: unknown;
+    resultList?: unknown;
+  };
+  if (!body.success) return [];
+  const resultIndex = options?.resultIndex ?? 0;
+  return extractStdFeeLedgerResultSet(unwrapProcApiBody(body), resultIndex);
 }
 
 export function isFeeHeadDetailRow(row: AnyRow): boolean {
   if (
     textCI(row, [
-      'fee_category_name',
-      'fee_category_code',
-      'fee_category',
-      'feeHeadName',
-      'fee_head_name',
-      'fee_head',
-      'particularName',
-      'particular_name',
-      'Particular_Name',
-      'feeParticular',
-      'fee_particular',
-      'feeTypeName',
-      'fee_type_name',
-      'headName',
-      'P_fee_particular',
-      'P_Fee_Head_Name',
-      'P_fee_head_name',
+      "fee_category_name",
+      "fee_category_code",
+      "fee_category",
+      "feeHeadName",
+      "fee_head_name",
+      "fee_head",
+      "particularName",
+      "particular_name",
+      "Particular_Name",
+      "feeParticular",
+      "fee_particular",
+      "feeTypeName",
+      "fee_type_name",
+      "headName",
+      "P_fee_particular",
+      "P_Fee_Head_Name",
+      "P_fee_head_name",
     ])
   ) {
-    return true
+    return true;
   }
-  return false
+  return false;
 }
 
 function isTotalRow(row: AnyRow): boolean {
-  const label = textCI(row, YEAR_LABEL_KEYS).toLowerCase()
-  if (label === 'total' || label === 'grand total' || label === 'grandtotal') return true
+  const label = textCI(row, YEAR_LABEL_KEYS).toLowerCase();
+  if (label === "total" || label === "grand total" || label === "grandtotal")
+    return true;
   const rowType = String(
-    row.row_type ?? row.rowType ?? row.ROW_TYPE ?? row.P_row_type ?? row.P_Row_Type ?? '',
-  ).toUpperCase()
-  if (rowType === 'TOTAL' || rowType === 'GRANDTOTAL' || rowType === 'GRAND_TOTAL') return true
-  return row.isTotal === true || row.is_total === true
+    row.row_type ??
+      row.rowType ??
+      row.ROW_TYPE ??
+      row.P_row_type ??
+      row.P_Row_Type ??
+      "",
+  ).toUpperCase();
+  if (
+    rowType === "TOTAL" ||
+    rowType === "GRANDTOTAL" ||
+    rowType === "GRAND_TOTAL"
+  )
+    return true;
+  return row.isTotal === true || row.is_total === true;
 }
 
 function hasAnyFeeSignal(row: AnyRow): boolean {
-  const yearKey = normalizeCourseFeeYearKey(row)
-  const yearNo = typeof yearKey === 'number' ? yearKey : undefined
-  const gross = readRawGross(row, yearNo)
-  if (gross != null && gross > 0) return true
-  const parsed = parseFeeRow(row)
+  const yearKey = normalizeCourseFeeYearKey(row);
+  const yearNo = typeof yearKey === "number" ? yearKey : undefined;
+  const gross = readRawGross(row, yearNo);
+  if (gross != null && gross > 0) return true;
+  const parsed = parseFeeRow(row);
   return (
     (parsed.paidAmount != null && parsed.paidAmount > 0) ||
     (parsed.totalDue != null && parsed.totalDue > 0) ||
@@ -572,7 +760,7 @@ function hasAnyFeeSignal(row: AnyRow): boolean {
     parsed.rtfReceived != null ||
     parsed.dueRtfAmount != null ||
     parsed.rtfAmount != null
-  )
+  );
 }
 
 /** Years 3–4 with no annual gross — Angular shows `-` on most cols, `0` on college + RTF cols. */
@@ -582,28 +770,34 @@ function isSparseFeeYear(
   raw?: AnyRow,
   priorYearGrossSum?: number | null,
 ): boolean {
-  if (yearNo < 3) return false
+  if (yearNo < 3) return false;
 
-  const yearGross = raw ? readRawGross(raw, yearNo) : row.totalAmount
+  const yearGross = raw ? readRawGross(raw, yearNo) : row.totalAmount;
 
-  if (yearGross == null || yearGross === 0) return true
-  if (priorYearGrossSum != null && priorYearGrossSum > 0 && yearGross === priorYearGrossSum) return true
-  return false
+  if (yearGross == null || yearGross === 0) return true;
+  if (
+    priorYearGrossSum != null &&
+    priorYearGrossSum > 0 &&
+    yearGross === priorYearGrossSum
+  )
+    return true;
+  return false;
 }
 
 /** Match dev2 display: `0` for RTF/discount on active rows; `-` only when no fee for that year. */
 function applyAngularFeeDefaults(row: StudentFeeYearRow): StudentFeeYearRow {
-  const gross = row.totalAmount
-  const hasFee = gross != null && gross > 0
+  const gross = row.totalAmount;
+  const hasFee = gross != null && gross > 0;
 
   if (row.isTotal || hasFee) {
-    const net = row.netAmount ?? gross ?? null
-    const paid = row.paidAmount ?? 0
+    const net = row.netAmount ?? gross ?? null;
+    const paid = row.paidAmount ?? 0;
     const dueCollege =
       row.dueCollegeAmount ??
-      (net != null ? Math.max(0, net - paid) : row.isTotal ? null : 0)
-    const dueRtf = row.dueRtfAmount ?? 0
-    const totalDue = row.totalDue ?? (dueCollege != null ? dueCollege + dueRtf : null)
+      (net != null ? Math.max(0, net - paid) : row.isTotal ? null : 0);
+    const dueRtf = row.dueRtfAmount ?? 0;
+    const totalDue =
+      row.totalDue ?? (dueCollege != null ? dueCollege + dueRtf : null);
 
     return {
       ...row,
@@ -616,10 +810,10 @@ function applyAngularFeeDefaults(row: StudentFeeYearRow): StudentFeeYearRow {
       rtfReceived: row.rtfReceived ?? 0,
       dueRtfAmount: dueRtf,
       totalDue,
-    }
+    };
   }
 
-  return row
+  return row;
 }
 
 function finalizeYearRow(
@@ -629,7 +823,7 @@ function finalizeYearRow(
   priorYearGrossSum?: number | null,
 ): StudentFeeYearRow {
   if (row.isTotal || !isSparseFeeYear(row, yearNo, raw, priorYearGrossSum)) {
-    return applyAngularFeeDefaults(row)
+    return applyAngularFeeDefaults(row);
   }
 
   return {
@@ -645,55 +839,72 @@ function finalizeYearRow(
     collegeAmount: 0,
     rtfReceived: 0,
     dueRtfAmount: 0,
-  }
+  };
 }
 
 function isStdFeeLedgerShape(rows: AnyRow[]): boolean {
-  return rows.some((r) => hasAnyKey(r, [...YR_GROSS_KEYS]))
+  return rows.some((r) => hasAnyKey(r, [...YR_GROSS_KEYS]));
 }
 
 function parseCourseYearNumber(row: AnyRow): number | null {
-  const idx = rowKeyIndex(row)
-  const direct = parseNumber(idx.get('year'))
-  if (direct != null && direct >= 1 && direct <= 4) return direct
+  const idx = rowKeyIndex(row);
+  const direct = parseNumber(idx.get("year"));
+  if (direct != null && direct >= 1 && direct <= 4) return direct;
 
-  const key = normalizeCourseFeeYearKey(row)
-  return typeof key === 'number' ? key : null
+  const key = normalizeCourseFeeYearKey(row);
+  return typeof key === "number" ? key : null;
 }
 
 const YR_RTF_HOLD_KEYS = [
-  'yr_scholarship_hold_amount',
-  'Yr_Scholarship_Hold_Amount',
-  'Scholarship_Hold_Amount',
-] as const
-const YR_RTF_RECEIVED_KEYS = ['Yr_scholarship_amount', 'yr_scholarship_amount', 'Yr_Scholarship_Amount'] as const
-const YR_DUE_COLLEGE_KEYS = ['due_college_amount', 'Due_College_Amount'] as const
-const YR_DUE_RTF_KEYS = ['due_rtf_amount', 'Due_RTF_Amount', 'P_due_rtf_amount'] as const
+  "yr_scholarship_hold_amount",
+  "Yr_Scholarship_Hold_Amount",
+  "Scholarship_Hold_Amount",
+] as const;
+const YR_RTF_RECEIVED_KEYS = [
+  "Yr_scholarship_amount",
+  "yr_scholarship_amount",
+  "Yr_Scholarship_Amount",
+] as const;
+const YR_DUE_COLLEGE_KEYS = [
+  "due_college_amount",
+  "Due_College_Amount",
+] as const;
+const YR_DUE_RTF_KEYS = [
+  "due_rtf_amount",
+  "Due_RTF_Amount",
+  "P_due_rtf_amount",
+] as const;
 
-function readAngularLedgerAmount(row: AnyRow, keys: readonly string[]): number | null {
-  const idx = rowKeyIndex(row)
+function readAngularLedgerAmount(
+  row: AnyRow,
+  keys: readonly string[],
+): number | null {
+  const idx = rowKeyIndex(row);
   for (const key of keys) {
-    const nk = normalizeKey(key)
-    if (!idx.has(nk)) continue
-    const v = idx.get(nk)
-    if (v === null || v === undefined || v === '') return null
-    return parseNumber(v)
+    const nk = normalizeKey(key);
+    if (!idx.has(nk)) continue;
+    const v = idx.get(nk);
+    if (v === null || v === undefined || v === "") return null;
+    return parseNumber(v);
   }
-  return null
+  return null;
 }
 
 /** Angular student-fee-summary: first ledger row per `year`, direct `Yr_*` / `college_amount` fields. */
 function uniqueStdLedgerYearRows(rows: AnyRow[]): Map<number, AnyRow> {
-  const map = new Map<number, AnyRow>()
+  const map = new Map<number, AnyRow>();
   for (const raw of rows) {
-    const yearNo = parseCourseYearNumber(raw)
-    if (yearNo == null || yearNo < 1 || yearNo > 4) continue
-    if (!map.has(yearNo)) map.set(yearNo, raw)
+    const yearNo = parseCourseYearNumber(raw);
+    if (yearNo == null || yearNo < 1 || yearNo > 4) continue;
+    if (!map.has(yearNo)) map.set(yearNo, raw);
   }
-  return map
+  return map;
 }
 
-function parseAngularStdLedgerYearRow(raw: AnyRow, yearNo: number): StudentFeeYearRow {
+function parseAngularStdLedgerYearRow(
+  raw: AnyRow,
+  yearNo: number,
+): StudentFeeYearRow {
   return {
     year: `${yearNo} year`,
     isTotal: false,
@@ -707,36 +918,19 @@ function parseAngularStdLedgerYearRow(raw: AnyRow, yearNo: number): StudentFeeYe
     rtfReceived: readAngularLedgerAmount(raw, YR_RTF_RECEIVED_KEYS),
     dueRtfAmount: readAngularLedgerAmount(raw, YR_DUE_RTF_KEYS),
     totalDue: readAngularLedgerAmount(raw, YR_BALANCE_KEYS),
-  }
-}
-
-function emptyAngularYearRow(yearNo: number): StudentFeeYearRow {
-  return {
-    year: `${yearNo} year`,
-    isTotal: false,
-    totalAmount: null,
-    rtfAmount: null,
-    collegeAmount: null,
-    collegeDiscount: null,
-    netAmount: null,
-    paidAmount: null,
-    dueCollegeAmount: null,
-    rtfReceived: null,
-    dueRtfAmount: null,
-    totalDue: null,
-  }
+  };
 }
 
 function parseStdFeeLedgerTotalRow(rows: AnyRow[]): StudentFeeYearRow {
-  const raw = rows[0]
-  const gross = readFirstAmount(raw, TOT_GROSS_KEYS)
-  const net = readFirstAmount(raw, TOT_NET_KEYS)
-  const paid = readFirstAmount(raw, TOT_PAID_KEYS, true)
-  const balance = readFirstAmount(raw, TOT_BALANCE_KEYS, true)
-  const discount = readFirstAmount(raw, TOT_DISCOUNT_KEYS, true)
+  const raw = rows[0];
+  const gross = readFirstAmount(raw, TOT_GROSS_KEYS);
+  const net = readFirstAmount(raw, TOT_NET_KEYS);
+  const paid = readFirstAmount(raw, TOT_PAID_KEYS, true);
+  const balance = readFirstAmount(raw, TOT_BALANCE_KEYS, true);
+  const discount = readFirstAmount(raw, TOT_DISCOUNT_KEYS, true);
 
   return {
-    year: 'Total',
+    year: "Total",
     isTotal: true,
     totalAmount: gross,
     rtfAmount: 0,
@@ -748,132 +942,151 @@ function parseStdFeeLedgerTotalRow(rows: AnyRow[]): StudentFeeYearRow {
     rtfReceived: 0,
     dueRtfAmount: 0,
     totalDue: balance,
-  }
+  };
 }
 
 function buildStudentFeeViewFromStdLedger(rows: AnyRow[]): StudentFeeView {
-  const byYear = uniqueStdLedgerYearRows(rows)
-  const yearRows: StudentFeeYearRow[] = []
+  const byYear = uniqueStdLedgerYearRows(rows);
+  const yearNos = [...byYear.keys()].sort((a, b) => a - b);
+  // Angular `yearsData`: unique years from `result[0]` only (no empty padded years).
+  const yearRows: StudentFeeYearRow[] = yearNos.map((n) =>
+    parseAngularStdLedgerYearRow(byYear.get(n)!, n),
+  );
 
-  for (const n of COURSE_FEE_YEARS) {
-    const raw = byYear.get(n)
-    yearRows.push(raw ? parseAngularStdLedgerYearRow(raw, n) : emptyAngularYearRow(n))
-  }
-
-  const totalRow = buildTotalRow(yearRows)
-  return { rows: [...yearRows, totalRow] }
+  const totalRow = buildTotalRow(yearRows);
+  return { rows: [...yearRows, totalRow] };
 }
 
-export function normalizeCourseFeeYearKey(row: AnyRow): number | 'total' | null {
-  if (isTotalRow(row)) return 'total'
+export function normalizeCourseFeeYearKey(
+  row: AnyRow,
+): number | "total" | null {
+  if (isTotalRow(row)) return "total";
 
-  const label = textCI(row, YEAR_LABEL_KEYS)
+  const label = textCI(row, YEAR_LABEL_KEYS);
   if (label) {
     const yearWord =
       /^(\d+)\s*year\b/i.exec(label) ??
       /^year\s*(\d+)\b/i.exec(label) ??
-      /^(\d+)(?:st|nd|rd|th)\s*year\b/i.exec(label)
+      /^(\d+)(?:st|nd|rd|th)\s*year\b/i.exec(label);
     if (yearWord) {
-      const n = Number(yearWord[1])
-      if (n >= 1 && n <= 4) return n
+      const n = Number(yearWord[1]);
+      if (n >= 1 && n <= 4) return n;
     }
     if (/^(\d+)$/.test(label)) {
-      const n = Number(label)
-      if (n >= 1 && n <= 4) return n
+      const n = Number(label);
+      if (n >= 1 && n <= 4) return n;
     }
-    if (/^\d{4}(-\d{2,4})?/.test(label)) return null
+    if (/^\d{4}(-\d{2,4})?/.test(label)) return null;
   }
 
   for (const key of YEAR_NUMBER_KEYS) {
-    const n = parseNumber(rowKeyIndex(row).get(normalizeKey(key)) ?? row[key])
-    if (n != null && n >= 1 && n <= 4) return n
+    const n = parseNumber(rowKeyIndex(row).get(normalizeKey(key)) ?? row[key]);
+    if (n != null && n >= 1 && n <= 4) return n;
   }
 
-  return null
+  return null;
 }
 
 export function isCourseFeeSummaryRow(row: AnyRow): boolean {
-  return normalizeCourseFeeYearKey(row) !== null
+  return normalizeCourseFeeYearKey(row) !== null;
 }
 
 function parseFeeRow(row: AnyRow, yearNo?: number): StudentFeeYearRow {
-  const total = yearNo == null && isTotalRow(row)
-  const discovered = discoverAmounts(row)
+  const total = yearNo == null && isTotalRow(row);
+  const discovered = discoverAmounts(row);
   const pick = (field: AmountField, pattern: RegExp, exclude?: RegExp) =>
     discovered[field] ??
     readAmountCI(row, AMOUNT_KEYS[field]) ??
-    readAmountByKeyPattern(row, pattern, exclude)
+    readAmountByKeyPattern(row, pattern, exclude);
   const gross =
     readRawGross(row, yearNo) ??
-    (total ? readAmountByKeyPattern(row, /gross/i, /due|paid|rtf|college|net|discount/) : null)
+    (total
+      ? readAmountByKeyPattern(
+          row,
+          /gross/i,
+          /due|paid|rtf|college|net|discount/,
+        )
+      : null);
 
   const year =
     yearNo != null && yearNo >= 1 && yearNo <= 4
       ? `${yearNo} year`
       : total
-        ? 'Total'
+        ? "Total"
         : (() => {
-            const key = normalizeCourseFeeYearKey(row)
-            return typeof key === 'number' ? `${key} year` : textCI(row, YEAR_LABEL_KEYS)
-          })()
+            const key = normalizeCourseFeeYearKey(row);
+            return typeof key === "number"
+              ? `${key} year`
+              : textCI(row, YEAR_LABEL_KEYS);
+          })();
 
-  const collegeAmount = pick('collegeAmount', /collegeamount/i, /due|discount/)
-  const rtfAmount = pick('rtfAmount', /rtfamount/i, /due|received/)
-  const collegeDiscount = pick('collegeDiscount', /collegediscount/i)
+  const collegeAmount = pick("collegeAmount", /collegeamount/i, /due|discount/);
+  const rtfAmount = pick("rtfAmount", /rtfamount/i, /due|received/);
+  const collegeDiscount = pick("collegeDiscount", /collegediscount/i);
 
   const resolvedCollege =
     collegeAmount != null && collegeAmount > 0
       ? collegeAmount
       : gross != null && gross > 0 && (rtfAmount == null || rtfAmount === 0)
         ? gross
-        : collegeAmount
+        : collegeAmount;
 
-  let netAmount: number | null
-  let paidAmount: number | null
-  let dueCollegeAmount: number | null
+  let netAmount: number | null;
+  let paidAmount: number | null;
+  let dueCollegeAmount: number | null;
 
   if (total) {
-    netAmount = readAmountCI(row, AMOUNT_KEYS.netAmount) ?? gross
-    paidAmount = readAmountCI(row, AMOUNT_KEYS.paidAmount)
-    if (paidAmount == null && readExplicitZero(row, AMOUNT_KEYS.paidAmount)) paidAmount = 0
-    dueCollegeAmount = readAmountCI(row, AMOUNT_KEYS.dueCollegeAmount)
-    if (dueCollegeAmount == null && readExplicitZero(row, AMOUNT_KEYS.dueCollegeAmount)) dueCollegeAmount = 0
+    netAmount = readAmountCI(row, AMOUNT_KEYS.netAmount) ?? gross;
+    paidAmount = readAmountCI(row, AMOUNT_KEYS.paidAmount);
+    if (paidAmount == null && readExplicitZero(row, AMOUNT_KEYS.paidAmount))
+      paidAmount = 0;
+    dueCollegeAmount = readAmountCI(row, AMOUNT_KEYS.dueCollegeAmount);
+    if (
+      dueCollegeAmount == null &&
+      readExplicitZero(row, AMOUNT_KEYS.dueCollegeAmount)
+    )
+      dueCollegeAmount = 0;
   } else {
-    netAmount = readRawNet(row, yearNo)
-    paidAmount = readRawPaid(row, yearNo)
-    dueCollegeAmount = readRawDueCollege(row, yearNo)
+    netAmount = readRawNet(row, yearNo);
+    paidAmount = readRawPaid(row, yearNo);
+    dueCollegeAmount = readRawDueCollege(row, yearNo);
 
     if (gross != null && gross > 0) {
       if (netAmount == null || netAmount > gross) {
-        netAmount = gross - (collegeDiscount ?? 0) - (rtfAmount ?? 0)
+        netAmount = gross - (collegeDiscount ?? 0) - (rtfAmount ?? 0);
       }
       if (paidAmount != null && paidAmount > gross) {
-        paidAmount = readRawPaid(row)
+        paidAmount = readRawPaid(row);
       }
       if (dueCollegeAmount == null) {
-        dueCollegeAmount = Math.max(0, netAmount - (paidAmount ?? 0))
-      } else if (dueCollegeAmount > gross && netAmount != null && netAmount <= gross) {
-        dueCollegeAmount = Math.max(0, netAmount - (paidAmount ?? 0))
+        dueCollegeAmount = Math.max(0, netAmount - (paidAmount ?? 0));
+      } else if (
+        dueCollegeAmount > gross &&
+        netAmount != null &&
+        netAmount <= gross
+      ) {
+        dueCollegeAmount = Math.max(0, netAmount - (paidAmount ?? 0));
       }
     }
   }
 
-  if (netAmount != null && netAmount < 0) netAmount = null
-  if (paidAmount != null && paidAmount < 0) paidAmount = null
-  if (dueCollegeAmount != null && dueCollegeAmount < 0) dueCollegeAmount = 0
+  if (netAmount != null && netAmount < 0) netAmount = null;
+  if (paidAmount != null && paidAmount < 0) paidAmount = null;
+  if (dueCollegeAmount != null && dueCollegeAmount < 0) dueCollegeAmount = 0;
 
-  const dueRtfAmount = pick('dueRtfAmount', /duertf/i) ?? 0
+  const dueRtfAmount = pick("dueRtfAmount", /duertf/i) ?? 0;
   let totalDue = total
     ? (readAmountCI(row, AMOUNT_KEYS.totalDue) ??
       (readExplicitZero(row, AMOUNT_KEYS.totalDue) ? 0 : null))
-    : readYearScopedAmount(row, AMOUNT_KEYS.totalDue, true)
+    : readYearScopedAmount(row, AMOUNT_KEYS.totalDue, true);
 
   if (totalDue == null && dueCollegeAmount != null) {
-    totalDue = dueCollegeAmount + dueRtfAmount
+    totalDue = dueCollegeAmount + dueRtfAmount;
   } else if (totalDue == null && netAmount != null) {
-    totalDue = Math.max(0, netAmount - (paidAmount ?? 0) + dueRtfAmount)
+    totalDue = Math.max(0, netAmount - (paidAmount ?? 0) + dueRtfAmount);
   }
-  if (totalDue == null && readExplicitZero(row, AMOUNT_KEYS.totalDue)) totalDue = 0
+  if (totalDue == null && readExplicitZero(row, AMOUNT_KEYS.totalDue))
+    totalDue = 0;
 
   return {
     year,
@@ -885,13 +1098,16 @@ function parseFeeRow(row: AnyRow, yearNo?: number): StudentFeeYearRow {
     netAmount,
     paidAmount,
     dueCollegeAmount,
-    rtfReceived: pick('rtfReceived', /rtfreceived/i),
+    rtfReceived: pick("rtfReceived", /rtfreceived/i),
     dueRtfAmount,
     totalDue,
-  }
+  };
 }
 
-function emptyYearRow(yearNo: number, priorYearGrossSum?: number | null): StudentFeeYearRow {
+function emptyYearRow(
+  yearNo: number,
+  priorYearGrossSum?: number | null,
+): StudentFeeYearRow {
   return finalizeYearRow(
     {
       year: `${yearNo} year`,
@@ -910,16 +1126,16 @@ function emptyYearRow(yearNo: number, priorYearGrossSum?: number | null): Studen
     yearNo,
     undefined,
     priorYearGrossSum,
-  )
+  );
 }
 
 /** Score row for pick — prefer summary ledger row (has `P_gross_amount`) over fee-head installments. */
 function rowPickScore(row: StudentFeeYearRow, raw?: AnyRow): number {
-  const yearKey = raw ? normalizeCourseFeeYearKey(raw) : null
-  const yearNo = typeof yearKey === 'number' ? yearKey : undefined
-  const gross = raw ? readRawGross(raw, yearNo) : row.totalAmount
-  const boost = raw && hasYearScopedGross(raw) ? 1_000_000_000 : 0
-  return (gross ?? row.totalAmount ?? 0) + boost
+  const yearKey = raw ? normalizeCourseFeeYearKey(raw) : null;
+  const yearNo = typeof yearKey === "number" ? yearKey : undefined;
+  const gross = raw ? readRawGross(raw, yearNo) : row.totalAmount;
+  const boost = raw && hasYearScopedGross(raw) ? 1_000_000_000 : 0;
+  return (gross ?? row.totalAmount ?? 0) + boost;
 }
 
 function pickBetterRow(
@@ -928,19 +1144,22 @@ function pickBetterRow(
   rawCurrent?: AnyRow,
   rawCandidate?: AnyRow,
 ): StudentFeeYearRow {
-  if (!current) return candidate
-  return rowPickScore(candidate, rawCandidate) > rowPickScore(current, rawCurrent) ? candidate : current
+  if (!current) return candidate;
+  return rowPickScore(candidate, rawCandidate) >
+    rowPickScore(current, rawCurrent)
+    ? candidate
+    : current;
 }
 
 function sumNullable(values: (number | null)[]): number | null {
-  let sum = 0
-  let seen = false
+  let sum = 0;
+  let seen = false;
   for (const v of values) {
-    if (v == null) continue
-    seen = true
-    sum += v
+    if (v == null) continue;
+    seen = true;
+    sum += v;
   }
-  return seen ? sum : null
+  return seen ? sum : null;
 }
 
 /**
@@ -952,13 +1171,15 @@ function mergeFeeYearRows(
   rawRows: AnyRow[],
   yearNo: number,
 ): StudentFeeYearRow {
-  if (rows.length === 0) return emptyYearRow(yearNo)
-  return rows.reduce((best, row, i) => pickBetterRow(best, row, undefined, rawRows[i]))
+  if (rows.length === 0) return emptyYearRow(yearNo);
+  return rows.reduce((best, row, i) =>
+    pickBetterRow(best, row, undefined, rawRows[i]),
+  );
 }
 
 function buildTotalRow(yearRows: StudentFeeYearRow[]): StudentFeeYearRow {
   return {
-    year: 'Total',
+    year: "Total",
     isTotal: true,
     totalAmount: sumNullable(yearRows.map((r) => r.totalAmount)),
     rtfAmount: sumNullable(yearRows.map((r) => r.rtfAmount)),
@@ -970,253 +1191,312 @@ function buildTotalRow(yearRows: StudentFeeYearRow[]): StudentFeeYearRow {
     rtfReceived: sumNullable(yearRows.map((r) => r.rtfReceived)),
     dueRtfAmount: sumNullable(yearRows.map((r) => r.dueRtfAmount)),
     totalDue: sumNullable(yearRows.map((r) => r.totalDue)),
-  }
+  };
 }
 
 type YearBucket = {
-  summary: StudentFeeYearRow | null
-  summaryRaw: AnyRow | null
-  heads: StudentFeeYearRow[]
-  headRaws: AnyRow[]
-}
+  summary: StudentFeeYearRow | null;
+  summaryRaw: AnyRow | null;
+  heads: StudentFeeYearRow[];
+  headRaws: AnyRow[];
+};
 
 function assignYearsByOrder(rows: AnyRow[]): Map<number, AnyRow> {
-  const candidates = rows.filter((r) => !isTotalRow(r) && hasAnyFeeSignal(r))
+  const candidates = rows.filter((r) => !isTotalRow(r) && hasAnyFeeSignal(r));
   const sorted = [...candidates].sort((a, b) => {
-    const ya = normalizeCourseFeeYearKey(a)
-    const yb = normalizeCourseFeeYearKey(b)
-    if (typeof ya === 'number' && typeof yb === 'number') return ya - yb
-    const la = textCI(a, YEAR_LABEL_KEYS)
-    const lb = textCI(b, YEAR_LABEL_KEYS)
-    return la.localeCompare(lb, undefined, { numeric: true })
-  })
-  const map = new Map<number, AnyRow>()
+    const ya = normalizeCourseFeeYearKey(a);
+    const yb = normalizeCourseFeeYearKey(b);
+    if (typeof ya === "number" && typeof yb === "number") return ya - yb;
+    const la = textCI(a, YEAR_LABEL_KEYS);
+    const lb = textCI(b, YEAR_LABEL_KEYS);
+    return la.localeCompare(lb, undefined, { numeric: true });
+  });
+  const map = new Map<number, AnyRow>();
   sorted.slice(0, 4).forEach((row, index) => {
-    map.set(index + 1, row)
-  })
-  return map
+    map.set(index + 1, row);
+  });
+  return map;
 }
 
 /** One ledger row per course year (+ total) — prefer summary line with `P_gross_amount`. */
 function collapseLedgerRowsByYear(rows: AnyRow[]): AnyRow[] {
-  if (rows.length === 0) return rows
+  if (rows.length === 0) return rows;
 
-  const byYear = new Map<number | 'total', AnyRow[]>()
+  const byYear = new Map<number | "total", AnyRow[]>();
   for (const raw of rows) {
-    const key = normalizeCourseFeeYearKey(raw)
-    if (key == null) continue
-    const list = byYear.get(key) ?? []
-    list.push(raw)
-    byYear.set(key, list)
+    const key = normalizeCourseFeeYearKey(raw);
+    if (key == null) continue;
+    const list = byYear.get(key) ?? [];
+    list.push(raw);
+    byYear.set(key, list);
   }
 
   const pickBest = (list: AnyRow[], yearNo?: number): AnyRow | null => {
-    if (list.length === 0) return null
-    const summaries = list.filter((r) => !isFeeHeadDetailRow(r))
-    const pool = summaries.length > 0 ? summaries : list
+    if (list.length === 0) return null;
+    const summaries = list.filter((r) => !isFeeHeadDetailRow(r));
+    const pool = summaries.length > 0 ? summaries : list;
     return pool.reduce<AnyRow | null>((best, raw) => {
-      if (!best) return raw
-      const score = (readRawGross(raw, yearNo) ?? 0) + (hasYearScopedGross(raw) ? 1_000_000_000 : 0)
-      const bestScore = (readRawGross(best, yearNo) ?? 0) + (hasYearScopedGross(best) ? 1_000_000_000 : 0)
-      return score > bestScore ? raw : best
-    }, null)
-  }
+      if (!best) return raw;
+      const score =
+        (readRawGross(raw, yearNo) ?? 0) +
+        (hasYearScopedGross(raw) ? 1_000_000_000 : 0);
+      const bestScore =
+        (readRawGross(best, yearNo) ?? 0) +
+        (hasYearScopedGross(best) ? 1_000_000_000 : 0);
+      return score > bestScore ? raw : best;
+    }, null);
+  };
 
-  const out: AnyRow[] = []
+  const out: AnyRow[] = [];
   for (const n of COURSE_FEE_YEARS) {
-    const raw = pickBest(byYear.get(n) ?? [], n)
-    if (raw) out.push(raw)
+    const raw = pickBest(byYear.get(n) ?? [], n);
+    if (raw) out.push(raw);
   }
-  const total = pickBest(byYear.get('total') ?? [])
-  if (total) out.push(total)
+  const total = pickBest(byYear.get("total") ?? []);
+  if (total) out.push(total);
 
-  return out.length > 0 ? out : rows
+  return out.length > 0 ? out : rows;
 }
 
 export function buildStudentFeeView(rowsInput: unknown): StudentFeeView {
-  const allRows = unwrapFeeLedgerRows(rowsInput)
+  const allRows = unwrapFeeLedgerRows(rowsInput);
   if (allRows.length === 0) {
-    return { rows: [...COURSE_FEE_YEARS.map(emptyYearRow), buildTotalRow([])] }
+    return { rows: [...COURSE_FEE_YEARS.map(emptyYearRow), buildTotalRow([])] };
   }
 
   if (isStdFeeLedgerShape(allRows)) {
-    return buildStudentFeeViewFromStdLedger(allRows)
+    return buildStudentFeeViewFromStdLedger(allRows);
   }
 
-  const rows = collapseLedgerRowsByYear(allRows)
+  const rows = collapseLedgerRowsByYear(allRows);
 
-  const buckets = new Map<number, YearBucket>()
-  const bucketRaw = new Map<number, AnyRow>()
-  let totalFromApi: StudentFeeYearRow | null = null
+  const buckets = new Map<number, YearBucket>();
+  const bucketRaw = new Map<number, AnyRow>();
+  let totalFromApi: StudentFeeYearRow | null = null;
 
   for (const raw of rows) {
-    const key = normalizeCourseFeeYearKey(raw)
-    if (key === 'total') {
-      const parsedTotal = parseFeeRow(raw)
-      totalFromApi = pickBetterRow(totalFromApi ?? undefined, parsedTotal, undefined, raw)
-      continue
+    const key = normalizeCourseFeeYearKey(raw);
+    if (key === "total") {
+      const parsedTotal = parseFeeRow(raw);
+      totalFromApi = pickBetterRow(
+        totalFromApi ?? undefined,
+        parsedTotal,
+        undefined,
+        raw,
+      );
+      continue;
     }
-    if (key == null) continue
+    if (key == null) continue;
 
-    const parsed = parseFeeRow(raw, key)
-    const bucket = buckets.get(key) ?? { summary: null, summaryRaw: null, heads: [], headRaws: [] }
+    const parsed = parseFeeRow(raw, key);
+    const bucket = buckets.get(key) ?? {
+      summary: null,
+      summaryRaw: null,
+      heads: [],
+      headRaws: [],
+    };
 
     if (isFeeHeadDetailRow(raw)) {
-      bucket.heads.push(parsed)
-      bucket.headRaws.push(raw)
+      bucket.heads.push(parsed);
+      bucket.headRaws.push(raw);
     } else {
-      bucket.summary = pickBetterRow(bucket.summary ?? undefined, parsed, bucket.summaryRaw ?? undefined, raw)
-      bucket.summaryRaw = raw
-      bucketRaw.set(key, raw)
+      bucket.summary = pickBetterRow(
+        bucket.summary ?? undefined,
+        parsed,
+        bucket.summaryRaw ?? undefined,
+        raw,
+      );
+      bucket.summaryRaw = raw;
+      bucketRaw.set(key, raw);
     }
-    buckets.set(key, bucket)
+    buckets.set(key, bucket);
   }
 
   if (buckets.size < 4) {
     for (const raw of rows) {
-      if (isTotalRow(raw)) continue
-      const key = normalizeCourseFeeYearKey(raw)
-      if (key == null || typeof key !== 'number' || buckets.has(key)) continue
-      if (isFeeHeadDetailRow(raw)) continue
+      if (isTotalRow(raw)) continue;
+      const key = normalizeCourseFeeYearKey(raw);
+      if (key == null || typeof key !== "number" || buckets.has(key)) continue;
+      if (isFeeHeadDetailRow(raw)) continue;
       buckets.set(key, {
         summary: parseFeeRow(raw, key),
         summaryRaw: raw,
         heads: [],
         headRaws: [],
-      })
-      bucketRaw.set(key, raw)
+      });
+      bucketRaw.set(key, raw);
     }
   }
 
   if (buckets.size === 0) {
-    const ordered = assignYearsByOrder(rows)
+    const ordered = assignYearsByOrder(rows);
     for (const [yearNo, raw] of ordered) {
-      buckets.set(yearNo, { summary: parseFeeRow(raw, yearNo), summaryRaw: raw, heads: [], headRaws: [] })
-      bucketRaw.set(yearNo, raw)
+      buckets.set(yearNo, {
+        summary: parseFeeRow(raw, yearNo),
+        summaryRaw: raw,
+        heads: [],
+        headRaws: [],
+      });
+      bucketRaw.set(yearNo, raw);
     }
   }
 
-  const yearRows: StudentFeeYearRow[] = []
-  let priorGrossSum: number | null = null
+  const yearRows: StudentFeeYearRow[] = [];
+  let priorGrossSum: number | null = null;
 
   for (const n of COURSE_FEE_YEARS) {
-    const bucket = buckets.get(n)
-    const raw = bucket?.summaryRaw ?? bucketRaw.get(n)
-    let row: StudentFeeYearRow
-    if (!bucket) row = emptyYearRow(n, priorGrossSum)
-    else if (bucket.summary) row = bucket.summary
-    else if (bucket.heads.length > 0) row = mergeFeeYearRows(bucket.heads, bucket.headRaws, n)
-    else row = emptyYearRow(n, priorGrossSum)
-    row = finalizeYearRow(row, n, raw, priorGrossSum)
-    yearRows.push(row)
-    const g = row.totalAmount
-    if (g != null && g > 0) priorGrossSum = (priorGrossSum ?? 0) + g
+    const bucket = buckets.get(n);
+    const raw = bucket?.summaryRaw ?? bucketRaw.get(n);
+    let row: StudentFeeYearRow;
+    if (!bucket) row = emptyYearRow(n, priorGrossSum);
+    else if (bucket.summary) row = bucket.summary;
+    else if (bucket.heads.length > 0)
+      row = mergeFeeYearRows(bucket.heads, bucket.headRaws, n);
+    else row = emptyYearRow(n, priorGrossSum);
+    row = finalizeYearRow(row, n, raw, priorGrossSum);
+    yearRows.push(row);
+    const g = row.totalAmount;
+    if (g != null && g > 0) priorGrossSum = (priorGrossSum ?? 0) + g;
   }
 
-  const totalRow = applyAngularFeeDefaults(totalFromApi ?? buildTotalRow(yearRows))
+  const totalRow = applyAngularFeeDefaults(
+    totalFromApi ?? buildTotalRow(yearRows),
+  );
 
-  return { rows: [...yearRows, totalRow] }
+  return { rows: [...yearRows, totalRow] };
 }
 
 export function formatFeeCell(value: number | null): string {
-  if (value == null) return '-'
-  return value.toLocaleString('en-IN')
+  if (value == null) return "-";
+  return value.toLocaleString("en-IN");
 }
 
 /** One fee category line inside a year drill-down (Angular `feeLedgerList`). */
 export type StudentFeeParticularGroup = {
-  year: number
-  structures: string[]
-  totalAmt: (number | null)[]
-  rtfAmt: (number | null)[]
-  collegeAmt: (number | null)[]
-  discountAmt: (number | null)[]
-  netAmt: (number | null)[]
-  paidAmt: (number | null)[]
-  dueCollegeAmt: (number | null)[]
-  rtfReceivedAmt: (number | null)[]
-  dueRtfAmt: (number | null)[]
-  totalDueAmt: (number | null)[]
-  academicYearId?: number
-  collegeId?: number
-  studentId?: number
-  courseYearId?: number
-}
+  year: number;
+  structures: string[];
+  totalAmt: (number | null)[];
+  rtfAmt: (number | null)[];
+  collegeAmt: (number | null)[];
+  discountAmt: (number | null)[];
+  netAmt: (number | null)[];
+  paidAmt: (number | null)[];
+  dueCollegeAmt: (number | null)[];
+  rtfReceivedAmt: (number | null)[];
+  dueRtfAmt: (number | null)[];
+  totalDueAmt: (number | null)[];
+  academicYearId?: number;
+  collegeId?: number;
+  studentId?: number;
+  courseYearId?: number;
+};
 
 export type StudentFeeParticularTotals = {
-  total: number
-  rtf: number
-  college: number
-  discount: number
-  net: number
-  paid: number
-  dueCollege: number
-  rtfReceived: number
-  dueRtf: number
-  totalDue: number
-}
+  total: number;
+  rtf: number;
+  college: number;
+  discount: number;
+  net: number;
+  paid: number;
+  dueCollege: number;
+  rtfReceived: number;
+  dueRtf: number;
+  totalDue: number;
+};
 
-const P_GROSS_KEYS = ['P_gross_amount', 'P_Gross_Amount', 'p_gross_amount'] as const
-const P_COLLEGE_KEYS = ['p_college_amount', 'P_college_amount', 'P_College_Amount'] as const
-const P_DISCOUNT_KEYS = ['P_discount_amount', 'P_Discount_Amount'] as const
-const P_NET_KEYS = ['P_net_amount', 'P_Net_Amount'] as const
-const P_PAID_KEYS = ['P_paid_amount', 'P_Paid_Amount'] as const
-const P_COLLEGE_DUE_KEYS = ['P_college_due_amount', 'P_College_Due_Amount'] as const
-const P_SCHOLARSHIP_KEYS = ['P_scholarship_amount', 'P_Scholarship_Amount'] as const
-const P_BALANCE_KEYS = ['P_balance_amount', 'P_Balance_Amount'] as const
+const P_GROSS_KEYS = [
+  "P_gross_amount",
+  "P_Gross_Amount",
+  "p_gross_amount",
+] as const;
+const P_COLLEGE_KEYS = [
+  "p_college_amount",
+  "P_college_amount",
+  "P_College_Amount",
+] as const;
+const P_DISCOUNT_KEYS = ["P_discount_amount", "P_Discount_Amount"] as const;
+const P_NET_KEYS = ["P_net_amount", "P_Net_Amount"] as const;
+const P_PAID_KEYS = ["P_paid_amount", "P_Paid_Amount"] as const;
+const P_COLLEGE_DUE_KEYS = [
+  "P_college_due_amount",
+  "P_College_Due_Amount",
+] as const;
+const P_SCHOLARSHIP_KEYS = [
+  "P_scholarship_amount",
+  "P_Scholarship_Amount",
+] as const;
+const P_BALANCE_KEYS = ["P_balance_amount", "P_Balance_Amount"] as const;
 
 function readFeeCategoryName(row: AnyRow): string {
   return textCI(row, [
-    'fee_category_name',
-    'fee_category',
-    'feeHeadName',
-    'fee_head_name',
-    'particularName',
-    'particular_name',
-  ])
+    "fee_category_name",
+    "fee_category",
+    "feeHeadName",
+    "fee_head_name",
+    "particularName",
+    "particular_name",
+  ]);
 }
 
 function isFeeParticularRow(row: AnyRow): boolean {
-  if (isTotalRow(row)) return false
-  const yearNo = parseCourseYearNumber(row)
-  if (yearNo == null) return false
-  return Boolean(readFeeCategoryName(row)) || readFirstAmount(row, P_GROSS_KEYS) != null
+  if (isTotalRow(row)) return false;
+  const yearNo = parseCourseYearNumber(row);
+  if (yearNo == null) return false;
+  return (
+    Boolean(readFeeCategoryName(row)) ||
+    readFirstAmount(row, P_GROSS_KEYS) != null
+  );
 }
 
-function pushParticularLine(group: StudentFeeParticularGroup, raw: AnyRow): void {
-  group.structures.push(readFeeCategoryName(raw) || '—')
-  group.totalAmt.push(readFirstAmount(raw, P_GROSS_KEYS, true))
+function pushParticularLine(
+  group: StudentFeeParticularGroup,
+  raw: AnyRow,
+): void {
+  group.structures.push(readFeeCategoryName(raw) || "—");
+  group.totalAmt.push(readFirstAmount(raw, P_GROSS_KEYS, true));
   group.rtfAmt.push(
-    readFirstAmount(raw, ['Scholarship_Hold_Amount', ...YR_RTF_HOLD_KEYS], true),
-  )
-  group.collegeAmt.push(readFirstAmount(raw, P_COLLEGE_KEYS, true))
-  group.discountAmt.push(readFirstAmount(raw, P_DISCOUNT_KEYS, true))
-  group.netAmt.push(readFirstAmount(raw, P_NET_KEYS, true))
-  group.paidAmt.push(readFirstAmount(raw, P_PAID_KEYS, true))
-  group.dueCollegeAmt.push(readFirstAmount(raw, P_COLLEGE_DUE_KEYS, true))
-  group.rtfReceivedAmt.push(readFirstAmount(raw, P_SCHOLARSHIP_KEYS, true))
-  group.dueRtfAmt.push(readFirstAmount(raw, YR_DUE_RTF_KEYS, true))
-  group.totalDueAmt.push(readFirstAmount(raw, P_BALANCE_KEYS, true))
+    readFirstAmount(
+      raw,
+      ["Scholarship_Hold_Amount", ...YR_RTF_HOLD_KEYS],
+      true,
+    ),
+  );
+  group.collegeAmt.push(readFirstAmount(raw, P_COLLEGE_KEYS, true));
+  group.discountAmt.push(readFirstAmount(raw, P_DISCOUNT_KEYS, true));
+  group.netAmt.push(readFirstAmount(raw, P_NET_KEYS, true));
+  group.paidAmt.push(readFirstAmount(raw, P_PAID_KEYS, true));
+  group.dueCollegeAmt.push(readFirstAmount(raw, P_COLLEGE_DUE_KEYS, true));
+  group.rtfReceivedAmt.push(readFirstAmount(raw, P_SCHOLARSHIP_KEYS, true));
+  group.dueRtfAmt.push(readFirstAmount(raw, YR_DUE_RTF_KEYS, true));
+  group.totalDueAmt.push(readFirstAmount(raw, P_BALANCE_KEYS, true));
 
-  const idx = rowKeyIndex(raw)
-  group.academicYearId = parseNumber(idx.get(normalizeKey('fk_academic_year_id'))) ?? group.academicYearId
-  group.collegeId = parseNumber(idx.get(normalizeKey('fk_college_id'))) ?? group.collegeId
-  group.studentId = parseNumber(idx.get(normalizeKey('pk_student_id'))) ?? group.studentId
-  group.courseYearId = parseNumber(idx.get(normalizeKey('pk_course_year_id'))) ?? group.courseYearId
+  const idx = rowKeyIndex(raw);
+  group.academicYearId =
+    parseNumber(idx.get(normalizeKey("fk_academic_year_id"))) ??
+    group.academicYearId;
+  group.collegeId =
+    parseNumber(idx.get(normalizeKey("fk_college_id"))) ?? group.collegeId;
+  group.studentId =
+    parseNumber(idx.get(normalizeKey("pk_student_id"))) ?? group.studentId;
+  group.courseYearId =
+    parseNumber(idx.get(normalizeKey("pk_course_year_id"))) ??
+    group.courseYearId;
 }
 
 /** Group fee ledger rows by year for the particulars drill-down view. */
-export function buildStudentFeeParticularGroups(rowsInput: unknown): StudentFeeParticularGroup[] {
-  const allRows = unwrapFeeLedgerRows(rowsInput)
-  const groups: StudentFeeParticularGroup[] = []
-  const byYear = new Map<number, StudentFeeParticularGroup>()
+export function buildStudentFeeParticularGroups(
+  rowsInput: unknown,
+): StudentFeeParticularGroup[] {
+  const allRows = unwrapFeeLedgerRows(rowsInput);
+  const groups: StudentFeeParticularGroup[] = [];
+  const byYear = new Map<number, StudentFeeParticularGroup>();
 
   for (const raw of allRows) {
-    if (!isFeeParticularRow(raw)) continue
-    const yearNo = parseCourseYearNumber(raw)
-    if (yearNo == null) continue
+    if (!isFeeParticularRow(raw)) continue;
+    const yearNo = parseCourseYearNumber(raw);
+    if (yearNo == null) continue;
 
-    let group = byYear.get(yearNo)
+    let group = byYear.get(yearNo);
     if (!group) {
       group = {
         year: yearNo,
@@ -1231,18 +1511,18 @@ export function buildStudentFeeParticularGroups(rowsInput: unknown): StudentFeeP
         rtfReceivedAmt: [],
         dueRtfAmt: [],
         totalDueAmt: [],
-      }
-      byYear.set(yearNo, group)
-      groups.push(group)
+      };
+      byYear.set(yearNo, group);
+      groups.push(group);
     }
-    pushParticularLine(group, raw)
+    pushParticularLine(group, raw);
   }
 
-  return groups.sort((a, b) => a.year - b.year)
+  return groups.sort((a, b) => a.year - b.year);
 }
 
 function sumNumbers(values: (number | null)[]): number {
-  return values.reduce<number>((acc, v) => acc + (v ?? 0), 0)
+  return values.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 }
 
 /** Totals for one year's fee particulars (Angular `selectedParticular` sums). */
@@ -1250,25 +1530,47 @@ export function summarizeStudentFeeParticulars(
   rows: AnyRow[],
   yearNo: number,
 ): StudentFeeParticularTotals {
-  const filtered = rows.filter((raw) => parseCourseYearNumber(raw) === yearNo)
+  const filtered = rows.filter((raw) => parseCourseYearNumber(raw) === yearNo);
   return {
-    total: sumNumbers(filtered.map((r) => readFirstAmount(r, P_GROSS_KEYS, true))),
-    rtf: sumNumbers(
-      filtered.map((r) => readFirstAmount(r, ['yr_scholarship_hold_amount', ...YR_RTF_HOLD_KEYS], true)),
+    total: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_GROSS_KEYS, true)),
     ),
-    college: sumNumbers(filtered.map((r) => readFirstAmount(r, P_COLLEGE_KEYS, true))),
-    discount: sumNumbers(filtered.map((r) => readFirstAmount(r, P_DISCOUNT_KEYS, true))),
+    rtf: sumNumbers(
+      filtered.map((r) =>
+        readFirstAmount(
+          r,
+          ["yr_scholarship_hold_amount", ...YR_RTF_HOLD_KEYS],
+          true,
+        ),
+      ),
+    ),
+    college: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_COLLEGE_KEYS, true)),
+    ),
+    discount: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_DISCOUNT_KEYS, true)),
+    ),
     net: sumNumbers(filtered.map((r) => readFirstAmount(r, P_NET_KEYS, true))),
-    paid: sumNumbers(filtered.map((r) => readFirstAmount(r, P_PAID_KEYS, true))),
-    dueCollege: sumNumbers(filtered.map((r) => readFirstAmount(r, P_COLLEGE_DUE_KEYS, true))),
-    rtfReceived: sumNumbers(filtered.map((r) => readFirstAmount(r, P_SCHOLARSHIP_KEYS, true))),
-    dueRtf: sumNumbers(filtered.map((r) => readFirstAmount(r, YR_DUE_RTF_KEYS, true))),
-    totalDue: sumNumbers(filtered.map((r) => readFirstAmount(r, P_BALANCE_KEYS, true))),
-  }
+    paid: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_PAID_KEYS, true)),
+    ),
+    dueCollege: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_COLLEGE_DUE_KEYS, true)),
+    ),
+    rtfReceived: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_SCHOLARSHIP_KEYS, true)),
+    ),
+    dueRtf: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, YR_DUE_RTF_KEYS, true)),
+    ),
+    totalDue: sumNumbers(
+      filtered.map((r) => readFirstAmount(r, P_BALANCE_KEYS, true)),
+    ),
+  };
 }
 
 /** Extract course year number from a summary row label like `1 year`. */
 export function parseFeeYearLabel(yearLabel: string): number | null {
-  const m = /^(\d+)\s*year/i.exec(yearLabel.trim())
-  return m ? Number(m[1]) : null
+  const m = /^(\d+)\s*year/i.exec(yearLabel.trim());
+  return m ? Number(m[1]) : null;
 }

@@ -1,24 +1,26 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Eye, EyeOff, PencilIcon, PlusIcon, X } from 'lucide-react'
-import { Select } from '@/common/components/select'
-import { StatusBadge } from '@/common/components/data-display'
-import { FormModal } from '@/common/components/feedback'
-import { FormField } from '@/common/components/forms'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { getErrorMessage } from '@/lib/errors'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Eye, EyeOff, PencilIcon, PlusIcon, X } from "lucide-react";
+import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
+import { StatusBadge } from "@/common/components/data-display";
+import { FormModal } from "@/common/components/feedback";
+import { FormField } from "@/common/components/forms";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   createExaminationAccount,
   getExaminationAccountById,
   listDepartmentsByCollege,
+  listEmployeesForExaminationAccount,
   listExaminationAccountColleges,
   listExaminationAccountsByCollege,
   listRolesByOrganization,
@@ -27,33 +29,85 @@ import {
   saveUserRoles,
   updateExaminationAccount,
   type ExaminationAccount,
+  type ExaminationEmployeeOption,
   type UserRole,
-} from '@/services'
-import type { College } from '@/types/college'
-import type { Department } from '@/types/department'
+} from "@/services";
+import type { College } from "@/types/college";
+import type { Department } from "@/types/department";
 
-const COL_DEFS = {
-  slNo: { headerName: 'Sl.No', valueGetter: rowIndexGetter, width: 76, flex: 0 } as ColDef<ExaminationAccount>,
-  userName: { field: 'userName', headerName: 'User Name', minWidth: 170, flex: 1 } as ColDef<ExaminationAccount>,
-  employeeName: {
-    headerName: 'Employee Name',
-    minWidth: 180,
-    flex: 1,
-    valueGetter: (p) => {
-      const d = p.data
-      if (!d) return ''
-      return [d.firstName, d.lastName].filter(Boolean).join(' ').trim()
-    },
-  } as ColDef<ExaminationAccount>,
-  mobileNumber: { field: 'mobileNumber', headerName: 'Mobile No', minWidth: 130, flex: 0.75 } as ColDef<ExaminationAccount>,
-  collegeCode: { field: 'collegeCode', headerName: 'College', minWidth: 110, flex: 0.65 } as ColDef<ExaminationAccount>,
-  organizationCode: { field: 'organizationCode', headerName: 'Organization', minWidth: 120, flex: 0.7 } as ColDef<ExaminationAccount>,
-  status: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0.55 } as ColDef<ExaminationAccount>,
-  actions: { headerName: 'Actions', minWidth: 200, flex: 0.9 } as ColDef<ExaminationAccount>,
+const EVALUATION_USER_TYPE_CODE = "EVALUATION";
+
+function collegeOrganizationId(college: College | null | undefined): number {
+  if (!college) return 0;
+  const flat = Number(college.organizationId ?? 0);
+  if (flat > 0) return flat;
+  const nested =
+    (
+      college as College & {
+        Organization?: { organizationId?: number };
+        organization?: { organizationId?: number };
+      }
+    ).Organization?.organizationId ??
+    (
+      college as College & {
+        organization?: { organizationId?: number };
+      }
+    ).organization?.organizationId;
+  return Number(nested ?? 0) || 0;
 }
 
+const COL_DEFS = {
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 76,
+    flex: 0,
+  } as ColDef<ExaminationAccount>,
+  userName: {
+    field: "userName",
+    headerName: "User Name",
+    minWidth: 170,
+    flex: 1,
+  } as ColDef<ExaminationAccount>,
+  employeeName: {
+    field: "firstName",
+    headerName: "Employee Name",
+    minWidth: 180,
+    flex: 1,
+  } as ColDef<ExaminationAccount>,
+  mobileNumber: {
+    field: "mobileNumber",
+    headerName: "Mobile No",
+    minWidth: 130,
+    flex: 0.75,
+  } as ColDef<ExaminationAccount>,
+  collegeCode: {
+    field: "collegeCode",
+    headerName: "College",
+    minWidth: 110,
+    flex: 0.65,
+  } as ColDef<ExaminationAccount>,
+  organizationCode: {
+    field: "organizationCode",
+    headerName: "Organization",
+    minWidth: 120,
+    flex: 0.7,
+  } as ColDef<ExaminationAccount>,
+  status: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 100,
+    flex: 0.55,
+  } as ColDef<ExaminationAccount>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 200,
+    flex: 0.9,
+  } as ColDef<ExaminationAccount>,
+};
+
 function statusRenderer(p: ICellRendererParams<ExaminationAccount>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -82,156 +136,206 @@ function makeActionsRenderer(
         <PencilIcon className="h-3.5 w-3.5" />
       </Button>
     </div>
-  )
+  );
 }
 
 export default function ExaminationAccountsPage() {
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [addOpen, setAddOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
-  const [activeRow, setActiveRow] = useState<ExaminationAccount | null>(null)
-  const [rolesOpen, setRolesOpen] = useState(false)
-  const [savingRoles, setSavingRoles] = useState(false)
-  const [roleIdToAdd, setRoleIdToAdd] = useState<string | null>(null)
-  const [roleActiveToAdd, setRoleActiveToAdd] = useState(true)
-  const [roleSheetUser, setRoleSheetUser] = useState<ExaminationAccount | null>(null)
-  const [roleRows, setRoleRows] = useState<UserRole[]>([])
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+  const [activeRow, setActiveRow] = useState<ExaminationAccount | null>(null);
+  const [rolesOpen, setRolesOpen] = useState(false);
+  const [savingRoles, setSavingRoles] = useState(false);
+  const [roleIdToAdd, setRoleIdToAdd] = useState<string | null>(null);
+  const [roleActiveToAdd, setRoleActiveToAdd] = useState(true);
+  const [roleSheetUser, setRoleSheetUser] = useState<ExaminationAccount | null>(
+    null,
+  );
+  const [roleRows, setRoleRows] = useState<UserRole[]>([]);
   const [form, setForm] = useState({
-    departmentId: '',
-    firstName: '',
-    lastName: '',
-    userName: '',
-    email: '',
-    mobileNumber: '',
-    password: '',
-    passwordConfirm: '',
+    departmentId: "",
+    employeeId: "",
+    firstName: "",
+    lastName: "",
+    userName: "",
+    email: "",
+    mobileNumber: "",
+    password: "",
+    passwordConfirm: "",
+    passwordExpDate: new Date(),
     isActive: true,
     isEditable: false,
     isReset: false,
-    reason: 'active',
-  })
+    reason: "active",
+  });
 
   const { data: colleges, isLoading: collegesLoading } = useCrudList<College>({
     queryKey: QK.colleges.list(),
     queryFn: listExaminationAccountColleges,
-  })
+  });
 
-  const { data: rows, isLoading, invalidate } = useCrudList<ExaminationAccount>({
+  // Angular: auto-select first active college on load
+  useEffect(() => {
+    if (collegeId != null) return;
+    if (colleges.length > 0) setCollegeId(colleges[0].collegeId);
+  }, [colleges, collegeId]);
+
+  const {
+    data: rows,
+    isLoading,
+    invalidate,
+  } = useCrudList<ExaminationAccount>({
     queryKey: QK.examinationAccounts.list(collegeId ?? undefined),
     queryFn: () => listExaminationAccountsByCollege(collegeId ?? 0),
     enabled: !!collegeId,
-  })
+  });
 
-  const { data: departments, isLoading: departmentsLoading } = useCrudList<Department>({
-    queryKey: ['ExaminationAccounts', 'departments', collegeId ?? 0],
-    queryFn: () => listDepartmentsByCollege(collegeId ?? 0),
-    enabled: !!collegeId && addOpen,
-  })
+  const { data: departments, isLoading: departmentsLoading } =
+    useCrudList<Department>({
+      queryKey: ["ExaminationAccounts", "departments", collegeId ?? 0],
+      queryFn: () => listDepartmentsByCollege(collegeId ?? 0),
+      enabled: !!collegeId && addOpen,
+    });
+
+  const { data: employees, isLoading: employeesLoading } =
+    useCrudList<ExaminationEmployeeOption>({
+      queryKey: [
+        "ExaminationAccounts",
+        "employees",
+        collegeId ?? 0,
+        form.departmentId || 0,
+      ],
+      queryFn: () =>
+        listEmployeesForExaminationAccount(
+          collegeId ?? 0,
+          Number(form.departmentId),
+        ),
+      enabled: !!collegeId && addOpen && !!form.departmentId,
+    });
 
   const selectedCollege = useMemo(
     () => colleges.find((c) => c.collegeId === collegeId) ?? null,
     [colleges, collegeId],
-  )
-  const selectedOrganizationId = selectedCollege?.organizationId ?? 0
+  );
+  const selectedOrganizationId = collegeOrganizationId(selectedCollege);
 
   const { data: roleOptions, isLoading: rolesLoading } = useCrudList({
-    queryKey: ['ExaminationAccounts', 'roles', selectedOrganizationId],
+    queryKey: ["ExaminationAccounts", "roles", selectedOrganizationId],
     queryFn: () => listRolesByOrganization(selectedOrganizationId),
     enabled: selectedOrganizationId > 0 && rolesOpen,
-  })
+  });
 
   const { data: existingUserRoles } = useCrudList({
-    queryKey: ['ExaminationAccounts', 'userRoles', roleSheetUser?.userId ?? 0],
+    queryKey: ["ExaminationAccounts", "userRoles", roleSheetUser?.userId ?? 0],
     queryFn: () => listUserRoles(roleSheetUser?.userId ?? 0),
     enabled: rolesOpen && !!roleSheetUser?.userId,
-  })
+  });
 
   useEffect(() => {
-    if (!rolesOpen) return
-    setRoleRows(existingUserRoles.map((r) => ({ ...r, isActive: r.isActive !== false })))
-  }, [existingUserRoles, rolesOpen])
+    if (!rolesOpen) return;
+    setRoleRows(
+      existingUserRoles.map((role) => ({
+        ...role,
+        isActive: role.isActive !== false,
+      })),
+    );
+  }, [existingUserRoles, rolesOpen]);
 
   function resetForm() {
     setForm({
-      departmentId: '',
-      firstName: '',
-      lastName: '',
-      userName: '',
-      email: '',
-      mobileNumber: '',
-      password: '',
-      passwordConfirm: '',
+      departmentId: "",
+      employeeId: "",
+      firstName: "",
+      lastName: "",
+      userName: "",
+      email: "",
+      mobileNumber: "",
+      password: "",
+      passwordConfirm: "",
+      // Angular: passwordExpDate = new Date()
+      passwordExpDate: new Date(),
       isActive: true,
       isEditable: false,
       isReset: false,
-      reason: 'active',
-    })
+      reason: "active",
+    });
   }
 
   function openAddModal() {
-    resetForm()
-    setAddOpen(true)
+    resetForm();
+    setShowPassword(false);
+    setShowPasswordConfirm(false);
+    setAddOpen(true);
   }
 
   async function openEditModal(row: ExaminationAccount | null) {
-    if (!row) return
-    const full = await getExaminationAccountById(row.userId).catch(() => null)
-    const acc = full ?? row
-    setActiveRow(acc)
+    if (!row) return;
+    setShowPassword(false);
+    setShowPasswordConfirm(false);
+    const full = await getExaminationAccountById(row.userId).catch(() => null);
+    const acc = full ?? row;
+    setActiveRow(acc);
     setForm({
-      departmentId: acc.departmentId ? String(acc.departmentId) : '',
-      firstName: acc.firstName ?? '',
-      lastName: acc.lastName ?? '',
-      userName: acc.userName ?? '',
-      email: acc.email ?? '',
-      mobileNumber: acc.mobileNumber ?? '',
-      password: acc.password ?? '',
-      passwordConfirm: acc.password ?? '',
+      departmentId: acc.departmentId ? String(acc.departmentId) : "",
+      employeeId: acc.employeeId ? String(acc.employeeId) : "",
+      firstName: acc.firstName ?? "",
+      lastName: acc.lastName ?? "",
+      userName: acc.userName ?? "",
+      email: acc.email ?? "",
+      mobileNumber: acc.mobileNumber ?? "",
+      // Angular edit prefills password / confirm from row
+      password: acc.password ?? "",
+      passwordConfirm: acc.password ?? "",
+      passwordExpDate: acc.passwordExpDate
+        ? new Date(acc.passwordExpDate)
+        : new Date(),
       isActive: acc.isActive !== false,
       isEditable: acc.isEditable ?? false,
       isReset: acc.isReset ?? false,
-      reason: acc.reason ?? (acc.isActive === false ? 'inactive' : 'active'),
-    })
-    setEditOpen(true)
+      reason: acc.reason ?? (acc.isActive === false ? "inactive" : "active"),
+    });
+    setEditOpen(true);
   }
 
   async function openRolesModal(row: ExaminationAccount | null) {
-    if (!row) return
-    const full = await getExaminationAccountById(row.userId).catch(() => null)
-    let user = full ?? row
-    if (!user.userTypeId && selectedCollege?.organizationId) {
-      try {
-        const userTypeId = await resolveEvaluationUserTypeId(selectedCollege.organizationId)
-        user = { ...user, userTypeId }
-      } catch {
-        // Modal still opens; role add/save may surface validation
-      }
+    if (!row) return;
+    const full = await getExaminationAccountById(row.userId).catch(() => null);
+    let userTypeId = full?.userTypeId ?? row.userTypeId;
+    if (!userTypeId && selectedOrganizationId) {
+      userTypeId = await resolveEvaluationUserTypeId(
+        selectedOrganizationId,
+      ).catch(() => undefined);
     }
-    setRoleSheetUser(user)
-    setRoleIdToAdd(null)
-    setRoleActiveToAdd(true)
-    setRolesOpen(true)
+    setRoleSheetUser({
+      ...(full ?? row),
+      userTypeId,
+    });
+    setRoleIdToAdd(null);
+    setRoleActiveToAdd(true);
+    setRolesOpen(true);
   }
 
   function addRoleToDraft() {
-    if (!roleIdToAdd || !roleSheetUser?.userId) return
-    const roleId = Number(roleIdToAdd)
-    const exists = roleRows.some((r) => r.roleId === roleId && r.isActive !== false)
-    if (exists) {
-      toastError('Role already added for this user')
-      return
+    if (!roleIdToAdd || !roleSheetUser?.userId) return;
+    const roleId = Number(roleIdToAdd);
+    if (
+      roleRows.some((role) => role.roleId === roleId && role.isActive !== false)
+    ) {
+      // Angular: snotifyService.info('Already same user role exists to this user.', 'Info!')
+      toastInfo("Already same user role exists to this user.");
+      return;
     }
-    const userTypeId = roleSheetUser.userTypeId
+    const userTypeId = roleSheetUser.userTypeId;
     if (!userTypeId) {
-      toastError('User type could not be resolved for this account')
-      return
+      toastError("User type could not be resolved for this account");
+      return;
     }
-    const role = roleOptions.find((r) => r.roleId === roleId)
-    setRoleRows((prev) => [
-      ...prev.filter((r) => r.roleId !== roleId),
+    const role = roleOptions.find((option) => option.roleId === roleId);
+    setRoleRows((current) => [
+      ...current.filter((item) => item.roleId !== roleId),
       {
         userId: roleSheetUser.userId,
         userTypeId,
@@ -239,88 +343,142 @@ export default function ExaminationAccountsPage() {
         roleName: role?.roleName ?? `Role ${roleId}`,
         isActive: roleActiveToAdd,
       },
-    ])
-    setRoleIdToAdd(null)
-    setRoleActiveToAdd(true)
+    ]);
+    setRoleIdToAdd(null);
+    setRoleActiveToAdd(true);
   }
 
   function deactivateRole(roleId: number) {
-    setRoleRows((prev) => prev.map((r) => (r.roleId === roleId ? { ...r, isActive: false } : r)))
+    setRoleRows((current) =>
+      current.map((role) =>
+        role.roleId === roleId ? { ...role, isActive: false } : role,
+      ),
+    );
   }
 
   async function submitRoles(e: { preventDefault: () => void }) {
-    e.preventDefault()
-    if (!roleSheetUser?.userId) return
-    if (roleRows.length === 0) return toastError('Please add at least one role')
-    const userTypeId = roleSheetUser.userTypeId
-    if (!userTypeId) return toastError('User type could not be resolved for this account')
+    e.preventDefault();
+    if (!roleSheetUser?.userId) return;
+    if (roleRows.length === 0)
+      return toastError("Please add at least one role");
+    const userTypeId = roleSheetUser.userTypeId;
+    if (!userTypeId)
+      return toastError("User type could not be resolved for this account");
     try {
-      setSavingRoles(true)
+      setSavingRoles(true);
       await saveUserRoles(
-        roleRows.map((r) => ({
-          ...r,
+        roleRows.map((role) => ({
+          ...role,
           userId: roleSheetUser.userId,
-          userTypeId: roleSheetUser.userTypeId ?? r.userTypeId ?? userTypeId,
-          userName: roleSheetUser.userName ?? r.userName ?? undefined,
-          firstName: roleSheetUser.firstName ?? r.firstName ?? null,
-          lastName: roleSheetUser.lastName ?? r.lastName ?? null,
-          resetPasswordCode: r.resetPasswordCode ?? null,
+          userTypeId: roleSheetUser.userTypeId ?? role.userTypeId ?? userTypeId,
+          userName: roleSheetUser.userName ?? role.userName ?? undefined,
+          firstName: roleSheetUser.firstName ?? role.firstName ?? null,
+          lastName: roleSheetUser.lastName ?? role.lastName ?? null,
+          resetPasswordCode: role.resetPasswordCode ?? null,
         })),
-      )
-      setRolesOpen(false)
-      toastSuccess('User roles saved successfully')
-      invalidate().catch(() => undefined)
+      );
+      setRolesOpen(false);
+      toastSuccess("User roles saved successfully");
     } catch {
-      toastError('Failed to save user roles')
+      toastError("Failed to save user roles");
     } finally {
-      setSavingRoles(false)
+      setSavingRoles(false);
     }
   }
 
   async function submitAdd(e: { preventDefault: () => void }) {
-    e.preventDefault()
-    if (!selectedCollege) return
-    if (!form.departmentId) return toastError('Please select a department')
+    e.preventDefault();
+    if (!selectedCollege) return;
+    const organizationId = collegeOrganizationId(selectedCollege);
+    if (!organizationId) {
+      return toastError(
+        "Organization is missing for this college. Cannot create examination account.",
+      );
+    }
+    if (!form.departmentId) return toastError("Please select a department");
+    if (!form.employeeId) return toastError("Please select an employee");
+    if (!form.firstName.trim())
+      return toastError("Selected employee must have a first name");
+    if (!form.userName.trim()) return toastError("Please enter a user name");
+    if (
+      !/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(
+        form.email.trim(),
+      )
+    ) {
+      return toastError("Enter a valid email");
+    }
+    if (!/^[6-9][0-9]{9}$/.test(form.mobileNumber.trim())) {
+      return toastError("Enter a valid 10 digit mobile number");
+    }
     if (!form.password || form.password !== form.passwordConfirm) {
-      return toastError('Password and confirm password must match')
+      return toastError("Password and confirm password must match");
     }
     try {
-      setSaving(true)
-      await createExaminationAccount({
+      setSaving(true);
+      const result = await createExaminationAccount({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         userName: form.userName.trim(),
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.trim(),
+        employeeId: Number(form.employeeId),
         departmentId: Number(form.departmentId),
         password: form.password,
         passwordConfirm: form.passwordConfirm,
+        passwordExpDate: form.passwordExpDate,
         isActive: form.isActive,
         isEditable: form.isEditable,
         isReset: form.isReset,
-        reason: form.reason.trim() || (form.isActive ? 'active' : 'inactive'),
+        reason: form.reason.trim() || (form.isActive ? "active" : "inactive"),
         collegeId: selectedCollege.collegeId,
-        organizationId: selectedCollege.organizationId,
-      })
-      setAddOpen(false)
-      toastSuccess('Examination account created successfully')
-      invalidate().catch(() => undefined)
+        organizationId,
+      });
+      if (result.success) {
+        setAddOpen(false);
+        toastSuccess(
+          result.message || "Examination account created successfully",
+        );
+        invalidate().catch(() => undefined);
+      } else {
+        // Angular: snotifyService.info(message, 'Info!') on !success
+        toastInfo(result.message || "User already exists");
+      }
     } catch (error) {
-      toastError(getErrorMessage(error))
+      toastError(getErrorMessage(error));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function submitEdit(e: { preventDefault: () => void }) {
-    e.preventDefault()
-    if (!activeRow?.userId || !selectedCollege) return
-    if (form.password && form.password !== form.passwordConfirm) {
-      return toastError('Password and confirm password must match')
+    e.preventDefault();
+    if (!activeRow?.userId || !selectedCollege) return;
+    if (!form.firstName.trim()) return toastError("First name is required");
+    if (!form.lastName.trim()) return toastError("Last name is required");
+    if (!form.userName.trim()) return toastError("Please enter a user name");
+    if (
+      !/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(
+        form.email.trim(),
+      )
+    ) {
+      return toastError("Enter a valid email");
+    }
+    if (!/^[6-9][0-9]{9}$/.test(form.mobileNumber.trim())) {
+      return toastError("Enter a valid 10 digit mobile number");
+    }
+    // Angular edit: password + confirm required
+    if (!form.password || form.password !== form.passwordConfirm) {
+      return toastError("Password and confirm password must match");
+    }
+    const organizationId =
+      activeRow.organizationId || collegeOrganizationId(selectedCollege);
+    if (!organizationId) {
+      return toastError(
+        "Organization is missing for this college. Cannot update examination account.",
+      );
     }
     try {
-      setSaving(true)
-      const passwordToSend = form.password || activeRow.password || ''
+      setSaving(true);
       await updateExaminationAccount(activeRow.userId, {
         userId: activeRow.userId,
         firstName: form.firstName.trim(),
@@ -328,82 +486,89 @@ export default function ExaminationAccountsPage() {
         userName: form.userName.trim(),
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.trim(),
-        password: passwordToSend,
-        passwordConfirm: form.passwordConfirm || passwordToSend,
+        password: form.password,
+        passwordConfirm: form.passwordConfirm,
+        passwordExpDate: form.passwordExpDate,
         departmentId: activeRow.departmentId,
+        employeeId: activeRow.employeeId,
+        // Angular: stamp userTypeId from row
+        userTypeId: activeRow.userTypeId,
         isActive: form.isActive,
         isEditable: form.isEditable,
         isReset: form.isReset,
-        reason: form.reason.trim() || (form.isActive ? 'active' : 'inactive'),
+        reason: form.reason.trim() || (form.isActive ? "active" : "inactive"),
         collegeId: activeRow.collegeId ?? selectedCollege.collegeId,
-        organizationId: activeRow.organizationId ?? selectedCollege.organizationId,
-      })
-      setEditOpen(false)
-      toastSuccess('Examination account updated successfully')
-      invalidate().catch(() => undefined)
+        organizationId,
+      });
+      setEditOpen(false);
+      toastSuccess("Examination account updated successfully");
+      invalidate().catch(() => undefined);
     } catch (error) {
-      toastError(getErrorMessage(error))
+      toastError(getErrorMessage(error));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   const columnDefs = useMemo<ColDef<ExaminationAccount>[]>(
     () => [
-      COL_DEFS.slNo,
+      COL_DEFS.siNo,
       COL_DEFS.userName,
       COL_DEFS.employeeName,
       COL_DEFS.mobileNumber,
       COL_DEFS.collegeCode,
       COL_DEFS.organizationCode,
       { ...COL_DEFS.status, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(openRolesModal, openEditModal) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(openRolesModal, openEditModal),
+      },
     ],
     [],
-  )
+  );
 
   return (
     <FilteredListPage
       title="Examination Accounts"
-      filters={(
+      filters={
         <div className="max-w-sm">
           <Select
             label="College"
+            required
             value={collegeId ? String(collegeId) : null}
             onChange={(v) => setCollegeId(v ? Number(v) : null)}
             options={colleges.map((c) => ({
               value: String(c.collegeId),
-              label: `${c.orgCode ?? ''}${c.orgCode ? ' - ' : ''}${c.collegeCode}`,
+              label: `${c.orgCode ?? ""}${c.orgCode ? " - " : ""}${c.collegeCode}`,
             }))}
             searchable
-            clearable
             isLoading={collegesLoading}
-            placeholder="Select college"
+            placeholder="College"
           />
         </div>
-      )}
+      }
       rowData={collegeId ? rows : []}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search…',
-        columnPicker: true,
-        exportPdf: true,
-        pdfDocumentTitle: 'Examination Accounts',
+        searchPlaceholder: "Search",
+        exportPdf: false,
       }}
-      toolbarTrailing={collegeId ? (
-        <Button size="sm" onClick={openAddModal}>
-          <PlusIcon className="h-4 w-4 mr-1" />
-          Add User
-        </Button>
-      ) : undefined}
+      toolbarTrailing={
+        collegeId ? (
+          <Button size="sm" onClick={openAddModal}>
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add User
+          </Button>
+        ) : undefined
+      }
     >
       <FormModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Add Examination Account"
+        title="Add User Account"
         onSubmit={submitAdd}
         isSubmitting={saving}
         size="lg"
@@ -411,49 +576,134 @@ export default function ExaminationAccountsPage() {
         contentClassName="sm:max-w-4xl bg-[#f3f5fb]"
         formClassName="space-y-3 py-1 [&_label]:text-[12px]"
         submitLabel="Save"
-        cancelLabel="Cancel"
+        cancelLabel="Close"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
+          <div className="md:col-span-2 flex justify-end text-[12px] font-semibold text-slate-700">
+            College : {selectedCollege?.orgCode ?? "-"} -{" "}
+            {selectedCollege?.collegeCode ?? "-"}
+          </div>
           <FormField label="Department" required>
             <Select
               value={form.departmentId || null}
-              onChange={(v) => setForm((s) => ({ ...s, departmentId: v ?? '' }))}
-              options={departments.map((d) => ({ value: String(d.departmentId), label: d.deptCode || d.deptName }))}
+              onChange={(v) =>
+                setForm((s) => ({
+                  ...s,
+                  departmentId: v ?? "",
+                  employeeId: "",
+                  firstName: "",
+                  lastName: "",
+                  email: "",
+                  mobileNumber: "",
+                }))
+              }
+              options={departments.map((d) => ({
+                value: String(d.departmentId),
+                label: d.deptCode || d.deptName,
+              }))}
               isLoading={departmentsLoading}
               searchable
               className="[&_button]:h-10 [&_button]:text-[12px]"
             />
           </FormField>
-          <FormField label="First Name" required>
-            <Input className="h-10 text-[12px]" value={form.firstName} onChange={(e) => setForm((s) => ({ ...s, firstName: e.target.value }))} />
+          <FormField label="User Type" required>
+            <Select
+              value={EVALUATION_USER_TYPE_CODE}
+              onChange={() => undefined}
+              options={[
+                {
+                  value: EVALUATION_USER_TYPE_CODE,
+                  label: EVALUATION_USER_TYPE_CODE,
+                },
+              ]}
+              disabled
+              searchable={false}
+              className="[&_button]:h-10 [&_button]:text-[12px]"
+            />
           </FormField>
-          <FormField label="Last Name" required>
-            <Input className="h-10 text-[12px]" value={form.lastName} onChange={(e) => setForm((s) => ({ ...s, lastName: e.target.value }))} />
+          <FormField label="Employee" required>
+            <Select
+              value={form.employeeId || null}
+              onChange={(v) => {
+                const employee = employees.find(
+                  (item) => String(item.employeeId) === v,
+                );
+                setForm((s) => ({
+                  ...s,
+                  employeeId: v ?? "",
+                  firstName: employee?.firstName ?? "",
+                  lastName: employee?.lastName ?? "",
+                  email: employee?.email ?? "",
+                  mobileNumber:
+                    employee?.mobileNumber ?? employee?.mobile ?? "",
+                }));
+              }}
+              options={employees
+                .filter((employee) => employee.employeeId)
+                .map((employee) => ({
+                  value: String(employee.employeeId),
+                  label: `${employee.empNumber ?? employee.employeeId}${employee.firstName ? ` (${employee.firstName})` : ""}`,
+                }))}
+              isLoading={employeesLoading}
+              disabled={!form.departmentId}
+              searchable
+              className="[&_button]:h-10 [&_button]:text-[12px]"
+            />
+          </FormField>
+          <FormField label="First Name" required>
+            <Input
+              className="h-10 text-[12px]"
+              value={form.firstName}
+              disabled
+            />
+          </FormField>
+          <FormField label="Last Name">
+            <Input
+              className="h-10 text-[12px]"
+              value={form.lastName}
+              disabled
+            />
           </FormField>
           <FormField label="User Name" required>
-            <Input className="h-10 text-[12px]" value={form.userName} onChange={(e) => setForm((s) => ({ ...s, userName: e.target.value }))} />
+            <Input
+              className="h-10 text-[12px]"
+              value={form.userName}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, userName: e.target.value }))
+              }
+            />
           </FormField>
           <FormField label="Email" required>
-            <Input className="h-10 text-[12px]" type="email" value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} />
-          </FormField>
-          <FormField label="Mobile Number">
-            <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
+            <Input
+              className="h-10 text-[12px]"
+              type="email"
+              value={form.email}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, email: e.target.value }))
+              }
+            />
           </FormField>
           <FormField label="Password" required>
             <div className="relative">
               <Input
                 className="h-10 pr-10 text-[12px]"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, password: e.target.value }))
+                }
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                 onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </FormField>
@@ -461,27 +711,105 @@ export default function ExaminationAccountsPage() {
             <div className="relative">
               <Input
                 className="h-10 pr-10 text-[12px]"
-                type={showPasswordConfirm ? 'text' : 'password'}
+                type={showPasswordConfirm ? "text" : "password"}
                 value={form.passwordConfirm}
-                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, passwordConfirm: e.target.value }))
+                }
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                 onClick={() => setShowPasswordConfirm((value) => !value)}
-                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+                aria-label={
+                  showPasswordConfirm
+                    ? "Hide password confirmation"
+                    : "Show password confirmation"
+                }
               >
-                {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPasswordConfirm ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </FormField>
+          <FormField label="Password Expired Date">
+            <DatePicker
+              value={form.passwordExpDate}
+              onChange={(value) =>
+                setForm((s) => ({
+                  ...s,
+                  passwordExpDate: value ?? s.passwordExpDate,
+                }))
+              }
+            />
+          </FormField>
+          <FormField label="Mobile Number" required>
+            <Input
+              className="h-10 text-[12px]"
+              type="tel"
+              value={form.mobileNumber}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, mobileNumber: e.target.value }))
+              }
+            />
+          </FormField>
+          <div className="md:col-span-2 flex items-center gap-8 py-2 text-[12px] text-slate-700">
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isEditable}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, isEditable: e.target.checked }))
+                }
+              />
+              <span>Editable</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isReset}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, isReset: e.target.checked }))
+                }
+              />
+              <span>Reset</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) =>
+                  setForm((s) => ({
+                    ...s,
+                    isActive: e.target.checked,
+                    reason: e.target.checked ? "active" : "",
+                  }))
+                }
+              />
+              <span>Active</span>
+            </label>
+          </div>
+          {!form.isActive ? (
+            <FormField label="Reason">
+              <Input
+                className="h-10 text-[12px]"
+                value={form.reason}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, reason: e.target.value }))
+                }
+              />
+            </FormField>
+          ) : null}
         </div>
       </FormModal>
 
       <FormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        title={activeRow?.userName ? `Edit Examination Account — ${activeRow.userName}` : 'Edit Examination Account'}
+        title="Edit User Account"
         onSubmit={submitEdit}
         isSubmitting={saving}
         size="lg"
@@ -489,60 +817,171 @@ export default function ExaminationAccountsPage() {
         contentClassName="sm:max-w-4xl bg-[#f3f5fb]"
         formClassName="space-y-3 py-1 [&_label]:text-[12px]"
         submitLabel="Save"
-        cancelLabel="Cancel"
+        cancelLabel="Close"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
+          <div className="md:col-span-2 flex justify-end text-[12px] font-semibold text-slate-700">
+            College :{" "}
+            {activeRow?.organizationCode ?? selectedCollege?.orgCode ?? "-"} -{" "}
+            {activeRow?.collegeCode ?? selectedCollege?.collegeCode ?? "-"}
+          </div>
           <FormField label="First Name" required>
-            <Input className="h-10 text-[12px]" value={form.firstName} onChange={(e) => setForm((s) => ({ ...s, firstName: e.target.value }))} />
+            <Input
+              className="h-10 text-[12px]"
+              value={form.firstName}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, firstName: e.target.value }))
+              }
+            />
           </FormField>
           <FormField label="Last Name" required>
-            <Input className="h-10 text-[12px]" value={form.lastName} onChange={(e) => setForm((s) => ({ ...s, lastName: e.target.value }))} />
+            <Input
+              className="h-10 text-[12px]"
+              value={form.lastName}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, lastName: e.target.value }))
+              }
+            />
           </FormField>
           <FormField label="User Name" required>
-            <Input className="h-10 text-[12px]" value={form.userName} onChange={(e) => setForm((s) => ({ ...s, userName: e.target.value }))} />
+            <Input
+              className="h-10 text-[12px]"
+              value={form.userName}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, userName: e.target.value }))
+              }
+            />
           </FormField>
           <FormField label="Email" required>
-            <Input className="h-10 text-[12px]" type="email" value={form.email} onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))} />
+            <Input
+              className="h-10 text-[12px]"
+              type="email"
+              value={form.email}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, email: e.target.value }))
+              }
+            />
           </FormField>
-          <FormField label="Mobile Number">
-            <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
-          </FormField>
-          <FormField label="New Password">
+          <FormField label="Password" required>
             <div className="relative">
               <Input
                 className="h-10 pr-10 text-[12px]"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 value={form.password}
-                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, password: e.target.value }))
+                }
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                 onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </FormField>
-          <FormField label="Confirm New Password">
+          <FormField label="Confirm Password" required>
             <div className="relative">
               <Input
                 className="h-10 pr-10 text-[12px]"
-                type={showPasswordConfirm ? 'text' : 'password'}
+                type={showPasswordConfirm ? "text" : "password"}
                 value={form.passwordConfirm}
-                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, passwordConfirm: e.target.value }))
+                }
               />
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                 onClick={() => setShowPasswordConfirm((value) => !value)}
-                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+                aria-label={
+                  showPasswordConfirm
+                    ? "Hide password confirmation"
+                    : "Show password confirmation"
+                }
               >
-                {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPasswordConfirm ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </FormField>
+          <FormField label="Password Expired Date">
+            <DatePicker
+              value={form.passwordExpDate}
+              onChange={(value) =>
+                setForm((s) => ({
+                  ...s,
+                  passwordExpDate: value ?? s.passwordExpDate,
+                }))
+              }
+            />
+          </FormField>
+          <FormField label="Mobile Number" required>
+            <Input
+              className="h-10 text-[12px]"
+              type="tel"
+              value={form.mobileNumber}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, mobileNumber: e.target.value }))
+              }
+            />
+          </FormField>
+          <div className="md:col-span-2 flex items-center gap-8 py-2 text-[12px] text-slate-700">
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isEditable}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, isEditable: e.target.checked }))
+                }
+              />
+              <span>Editable</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isReset}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, isReset: e.target.checked }))
+                }
+              />
+              <span>Reset</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) =>
+                  setForm((s) => ({
+                    ...s,
+                    isActive: e.target.checked,
+                    reason: e.target.checked ? "active" : "",
+                  }))
+                }
+              />
+              <span>Active</span>
+            </label>
+          </div>
+          {!form.isActive ? (
+            <FormField label="Reason">
+              <Input
+                className="h-10 text-[12px]"
+                value={form.reason}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, reason: e.target.value }))
+                }
+              />
+            </FormField>
+          ) : null}
         </div>
       </FormModal>
 
@@ -564,32 +1003,43 @@ export default function ExaminationAccountsPage() {
             <div className="rounded-md border border-[#bde8ee] bg-[#f7fdff] p-3">
               <div className="grid grid-cols-[150px_1fr] gap-y-1 text-[12px]">
                 <div className="text-slate-800">College</div>
-                <div className="font-semibold text-[#1f3bb3]">: {roleSheetUser.collegeCode ?? '-'}</div>
+                <div className="font-semibold text-[#1f3bb3]">
+                  : {roleSheetUser.collegeCode ?? "-"}
+                </div>
                 <div className="text-slate-800">User Name</div>
-                <div className="font-semibold text-[#1f3bb3]">: {roleSheetUser.userName ?? '-'}</div>
+                <div className="font-semibold text-[#1f3bb3]">
+                  : {roleSheetUser.userName ?? "-"}
+                </div>
                 <div className="text-slate-800">Employee Name</div>
                 <div className="font-semibold text-[#1f3bb3]">
-                  :
-                  {' '}
-                  {[roleSheetUser.firstName, roleSheetUser.lastName].filter(Boolean).join(' ').trim() || '-'}
+                  :{" "}
+                  {[roleSheetUser.firstName, roleSheetUser.lastName]
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim() || "-"}
                 </div>
                 <div className="text-slate-800">Mobile No</div>
-                <div className="font-semibold text-[#1f3bb3]">: {roleSheetUser.mobileNumber ?? '-'}</div>
+                <div className="font-semibold text-[#1f3bb3]">
+                  : {roleSheetUser.mobileNumber ?? "-"}
+                </div>
               </div>
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] items-end gap-3">
-            <div>
-              <Select
-                label="Role *"
-                value={roleIdToAdd}
-                onChange={setRoleIdToAdd}
-                options={roleOptions.map((r) => ({ value: String(r.roleId), label: r.roleName }))}
-                searchable
-                isLoading={rolesLoading}
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,33%)_15%_10%] items-end gap-4 px-2">
+            <Select
+              label="Role *"
+              value={roleIdToAdd}
+              onChange={setRoleIdToAdd}
+              options={roleOptions.map((role) => ({
+                value: String(role.roleId),
+                label: role.roleName,
+              }))}
+              searchable
+              isLoading={rolesLoading}
+              side="bottom"
+              avoidCollisions={false}
+            />
             <label className="inline-flex items-center gap-2 text-[12px] pb-1.5 text-slate-700">
               <input
                 type="checkbox"
@@ -598,7 +1048,11 @@ export default function ExaminationAccountsPage() {
               />
               <span>Active</span>
             </label>
-            <Button type="button" className="h-8 px-5 text-[12px] bg-[#0a2e67] hover:bg-[#082653]" onClick={addRoleToDraft}>
+            <Button
+              type="button"
+              className="h-7 w-14 px-0 text-[11px] bg-[#0a2e67] hover:bg-[#082653]"
+              onClick={addRoleToDraft}
+            >
               Add
             </Button>
           </div>
@@ -607,24 +1061,37 @@ export default function ExaminationAccountsPage() {
             <table className="w-full text-[12px]">
               <thead className="bg-slate-100 border-b border-border">
                 <tr>
-                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">Role Name</th>
-                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">Status</th>
-                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">Actions</th>
+                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
+                    Role Name
+                  </th>
+                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
+                    Status
+                  </th>
+                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {roleRows.map((r) => (
-                  <tr key={`${r.roleId}-${r.userRoleId ?? 'new'}`} className="border-b border-border last:border-b-0 hover:bg-muted/40">
-                    <td className="px-3 py-0.5 text-[11px] text-slate-800">{r.roleName ?? `Role ${r.roleId}`}</td>
-                    <td className="px-3 py-0.5 text-[11px] text-slate-800">{r.isActive === false ? 'InActive' : 'Active'}</td>
+                {roleRows.map((role) => (
+                  <tr
+                    key={`${role.roleId}-${role.userRoleId ?? "new"}`}
+                    className="border-b border-border last:border-b-0 hover:bg-muted/40"
+                  >
+                    <td className="px-3 py-0.5 text-[11px] text-slate-800">
+                      {role.roleName ?? `Role ${role.roleId}`}
+                    </td>
+                    <td className="px-3 py-0.5 text-[11px] text-slate-800">
+                      {role.isActive === false ? "InActive" : "Active"}
+                    </td>
                     <td className="px-3 py-0.5">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
                         className="h-4 w-4 p-0 text-red-600 hover:text-red-700"
-                        onClick={() => deactivateRole(r.roleId)}
-                        disabled={r.isActive === false}
+                        onClick={() => deactivateRole(role.roleId)}
+                        disabled={role.isActive === false}
                         aria-label="Remove role"
                       >
                         <X className="h-2.5 w-2.5" />
@@ -634,7 +1101,10 @@ export default function ExaminationAccountsPage() {
                 ))}
                 {roleRows.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-2 text-[12px] text-muted-foreground" colSpan={3}>
+                    <td
+                      className="px-3 py-2 text-[12px] text-muted-foreground"
+                      colSpan={3}
+                    >
                       No roles added yet.
                     </td>
                   </tr>
@@ -645,5 +1115,5 @@ export default function ExaminationAccountsPage() {
         </div>
       </FormModal>
     </FilteredListPage>
-  )
+  );
 }

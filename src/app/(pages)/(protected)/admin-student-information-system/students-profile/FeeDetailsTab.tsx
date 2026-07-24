@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/common/components/feedback'
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/common/components/feedback";
 import {
   buildStudentFeeParticularGroups,
   buildStudentFeeView,
@@ -13,26 +13,28 @@ import {
   type StudentFeeParticularGroup,
   type StudentFeeParticularTotals,
   type StudentFeeYearRow,
-} from '@/services'
+} from "@/services";
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
-const TH_CLASS = 'border border-border bg-[#C3D9FF] px-2 py-1.5 text-center text-xs font-medium'
+const TH_CLASS =
+  "border border-border bg-[#C3D9FF] px-2 py-1.5 text-center text-xs font-medium";
 const TD_CLASS =
-  'border border-border px-2 py-1.5 text-center text-xs font-medium hover:bg-[#c3d9ff59] cursor-pointer'
-const TD_STATIC = 'border border-border px-2 py-1.5 text-center text-xs font-medium'
+  "border border-border px-2 py-1.5 text-center text-xs font-medium hover:bg-[#c3d9ff59] cursor-pointer";
+const TD_STATIC =
+  "border border-border px-2 py-1.5 text-center text-xs font-medium";
 const AMOUNT_COLS: Array<{ key: keyof StudentFeeYearRow; label: string }> = [
-  { key: 'totalAmount', label: 'Total Amount' },
-  { key: 'rtfAmount', label: 'RTF Amount' },
-  { key: 'collegeAmount', label: 'College Amount' },
-  { key: 'collegeDiscount', label: 'College Discount' },
-  { key: 'netAmount', label: 'NET Amount' },
-  { key: 'paidAmount', label: 'Paid Amount' },
-  { key: 'dueCollegeAmount', label: 'Due College Amount' },
-  { key: 'rtfReceived', label: 'RTF Received' },
-  { key: 'dueRtfAmount', label: 'Due RTF Amount' },
-  { key: 'totalDue', label: 'Total Due' },
-]
+  { key: "totalAmount", label: "Total Amount" },
+  { key: "rtfAmount", label: "RTF Amount" },
+  { key: "collegeAmount", label: "College Amount" },
+  { key: "collegeDiscount", label: "College Discount" },
+  { key: "netAmount", label: "NET Amount" },
+  { key: "paidAmount", label: "Paid Amount" },
+  { key: "dueCollegeAmount", label: "Due College Amount" },
+  { key: "rtfReceived", label: "RTF Received" },
+  { key: "dueRtfAmount", label: "Due RTF Amount" },
+  { key: "totalDue", label: "Total Due" },
+];
 
 function ParticularAmountColumn({ values }: { values: (number | null)[] }) {
   return (
@@ -43,18 +45,18 @@ function ParticularAmountColumn({ values }: { values: (number | null)[] }) {
         </p>
       ))}
     </td>
-  )
+  );
 }
 
 function YearSummaryTable({
   rows,
   onYearClick,
 }: {
-  rows: StudentFeeYearRow[]
-  onYearClick: (yearNo: number) => void
+  rows: StudentFeeYearRow[];
+  onYearClick: (yearNo: number) => void;
 }) {
-  const yearRows = rows.filter((r) => !r.isTotal)
-  const totalRow = rows.find((r) => r.isTotal)
+  const yearRows = rows.filter((r) => !r.isTotal);
+  const totalRow = rows.find((r) => r.isTotal);
 
   return (
     <table className="w-full border-collapse text-xs">
@@ -77,16 +79,16 @@ function YearSummaryTable({
       </thead>
       <tbody>
         {yearRows.map((row) => {
-          const yearNo = parseFeeYearLabel(row.year)
-          const clickable = yearNo != null
-          const cellClass = clickable ? TD_CLASS : TD_STATIC
+          const yearNo = parseFeeYearLabel(row.year);
+          const clickable = yearNo != null;
+          const cellClass = clickable ? TD_CLASS : TD_STATIC;
           return (
             <tr key={row.year}>
               <td
                 className={cellClass}
                 onClick={clickable ? () => onYearClick(yearNo!) : undefined}
               >
-                {yearNo != null ? row.year : '—'}
+                {yearNo != null ? row.year : "—"}
               </td>
               {AMOUNT_COLS.map((col) => (
                 <td
@@ -98,7 +100,7 @@ function YearSummaryTable({
                 </td>
               ))}
             </tr>
-          )
+          );
         })}
         {totalRow ? (
           <tr>
@@ -112,7 +114,7 @@ function YearSummaryTable({
         ) : null}
       </tbody>
     </table>
-  )
+  );
 }
 
 function ParticularsTable({
@@ -120,9 +122,9 @@ function ParticularsTable({
   totals,
   onBack,
 }: {
-  group: StudentFeeParticularGroup
-  totals: StudentFeeParticularTotals
-  onBack: () => void
+  group: StudentFeeParticularGroup;
+  totals: StudentFeeParticularTotals;
+  onBack: () => void;
 }) {
   return (
     <div className="space-y-3">
@@ -177,71 +179,105 @@ function ParticularsTable({
             <td className={TD_STATIC} colSpan={2}>
               Total
             </td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.total)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.rtf)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.college)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.discount)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.net)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.paid)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.dueCollege)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.rtfReceived)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.dueRtf)}</td>
-            <td className={`${TD_STATIC} text-right`}>{formatFeeCell(totals.totalDue)}</td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.total)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.rtf)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.college)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.discount)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.net)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.paid)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.dueCollege)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.rtfReceived)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.dueRtf)}
+            </td>
+            <td className={`${TD_STATIC} text-right`}>
+              {formatFeeCell(totals.totalDue)}
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
-  )
+  );
 }
 
 export function FeeDetailsTab({ student }: { readonly student: AnyRow }) {
-  const [loading, setLoading] = useState(true)
-  const [rawRows, setRawRows] = useState<AnyRow[]>([])
-  const [drillYear, setDrillYear] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true);
+  const [rawRows, setRawRows] = useState<AnyRow[]>([]);
+  const [drillYear, setDrillYear] = useState<number | null>(null);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     void (async () => {
-      setLoading(true)
-      setDrillYear(null)
+      setLoading(true);
+      setDrillYear(null);
       try {
-        const data = await loadStudentProfileTabData('fee', student)
-        if (!cancelled) setRawRows(data)
+        const data = await loadStudentProfileTabData("fee", student);
+        if (!cancelled) setRawRows(data);
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setLoading(false);
       }
-    })()
+    })();
     return () => {
-      cancelled = true
-    }
-  }, [student])
+      cancelled = true;
+    };
+  }, [student]);
 
-  const summary = useMemo(() => buildStudentFeeView(rawRows), [rawRows])
-  const particularGroups = useMemo(() => buildStudentFeeParticularGroups(rawRows), [rawRows])
+  const summary = useMemo(() => buildStudentFeeView(rawRows), [rawRows]);
+  const particularGroups = useMemo(
+    () => buildStudentFeeParticularGroups(rawRows),
+    [rawRows],
+  );
 
   const activeGroup = useMemo(
-    () => (drillYear != null ? particularGroups.find((g) => g.year === drillYear) ?? null : null),
+    () =>
+      drillYear != null
+        ? (particularGroups.find((g) => g.year === drillYear) ?? null)
+        : null,
     [drillYear, particularGroups],
-  )
+  );
 
   const particularTotals = useMemo(
-    () => (drillYear != null ? summarizeStudentFeeParticulars(rawRows, drillYear) : null),
+    () =>
+      drillYear != null
+        ? summarizeStudentFeeParticulars(rawRows, drillYear)
+        : null,
     [drillYear, rawRows],
-  )
+  );
 
-  const hasData = summary.rows.some((r) => !r.isTotal && r.totalAmount != null && r.totalAmount > 0)
+  // Angular shows the year table whenever `result[0]` has rows — including 0 / `-` amounts.
+  const hasData = rawRows.length > 0 || particularGroups.length > 0;
 
   if (loading) {
-    return <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+    );
   }
 
-  if (!hasData && particularGroups.length === 0) {
-    return <EmptyState title="No fee details found." />
+  if (!hasData) {
+    return <EmptyState title="No fee details found." />;
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-center text-base font-medium text-[#0c51a4]">Student Fee Details</p>
+      <p className="text-center text-base font-medium text-[#0c51a4]">
+        Student Fee Details
+      </p>
       {drillYear != null && activeGroup && particularTotals ? (
         <ParticularsTable
           group={activeGroup}
@@ -252,5 +288,5 @@ export function FeeDetailsTab({ student }: { readonly student: AnyRow }) {
         <YearSummaryTable rows={summary.rows} onYearClick={setDrillYear} />
       )}
     </div>
-  )
+  );
 }

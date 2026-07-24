@@ -19,17 +19,18 @@ import { rowIndexGetter } from "@/lib/utils";
 import {
   createStaffAccount,
   getStaffAccountById,
-  listActiveEmployeesForPayrollAssign,
+  listEmployeesForStaffAccount,
   listDepartmentsByCollege,
   listRolesByOrganization,
   listStaffAccountColleges,
   listStaffAccountsByCollege,
-  listUserRoles,
+  listStaffUserRoles,
   resolveStaffUserTypeId,
   saveUserRoles,
   STAFF_USER_ALREADY_EXISTS_MESSAGE,
   updateStaffAccount,
   type StaffAccount,
+  type StaffEmployeeOption,
   type UserRole,
 } from "@/services";
 import type { College } from "@/types/college";
@@ -39,12 +40,13 @@ function collegeOrganizationId(college: College | null | undefined): number {
   if (!college) return 0;
   const flat = Number(college.organizationId ?? 0);
   if (flat > 0) return flat;
-  const nested = (
-    college as College & {
-      Organization?: { organizationId?: number };
-      organization?: { organizationId?: number };
-    }
-  ).Organization?.organizationId ??
+  const nested =
+    (
+      college as College & {
+        Organization?: { organizationId?: number };
+        organization?: { organizationId?: number };
+      }
+    ).Organization?.organizationId ??
     (
       college as College & {
         organization?: { organizationId?: number };
@@ -52,16 +54,6 @@ function collegeOrganizationId(college: College | null | undefined): number {
     ).organization?.organizationId;
   return Number(nested ?? 0) || 0;
 }
-
-type StaffEmployeeOption = {
-  employeeId?: number;
-  empNumber?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  mobile?: string;
-  mobileNumber?: string;
-};
 
 const COL_DEFS = {
   siNo: {
@@ -77,11 +69,10 @@ const COL_DEFS = {
     flex: 1,
   } as ColDef<StaffAccount>,
   employeeName: {
+    field: "firstName",
     headerName: "Employee Name",
     minWidth: 180,
     flex: 1,
-    valueGetter: (p) =>
-      [p.data?.firstName, p.data?.lastName].filter(Boolean).join(" ").trim(),
   } as ColDef<StaffAccount>,
   mobileNumber: {
     field: "mobileNumber",
@@ -172,11 +163,7 @@ export default function StaffAccountsPage() {
     mobileNumber: "",
     password: "",
     passwordConfirm: "",
-    passwordExpDate: (() => {
-      const d = new Date();
-      d.setFullYear(d.getFullYear() + 1);
-      return d;
-    })(),
+    passwordExpDate: new Date(),
     isActive: true,
     isEditable: false,
     isReset: false,
@@ -187,6 +174,12 @@ export default function StaffAccountsPage() {
     queryKey: QK.colleges.list(),
     queryFn: listStaffAccountColleges,
   });
+
+  // Angular: auto-select first active college on load
+  useEffect(() => {
+    if (collegeId != null) return;
+    if (colleges.length > 0) setCollegeId(colleges[0].collegeId);
+  }, [colleges, collegeId]);
 
   const {
     data: rows,
@@ -214,10 +207,7 @@ export default function StaffAccountsPage() {
         form.departmentId || 0,
       ],
       queryFn: () =>
-        listActiveEmployeesForPayrollAssign({
-          collegeId: collegeId ?? 0,
-          departmentId: Number(form.departmentId),
-        }) as Promise<StaffEmployeeOption[]>,
+        listEmployeesForStaffAccount(collegeId ?? 0, Number(form.departmentId)),
       enabled: !!collegeId && addOpen && !!form.departmentId,
     });
 
@@ -235,7 +225,7 @@ export default function StaffAccountsPage() {
 
   const { data: existingUserRoles } = useCrudList({
     queryKey: ["StaffAccounts", "userRoles", roleSheetUser?.userId ?? 0],
-    queryFn: () => listUserRoles(roleSheetUser?.userId ?? 0),
+    queryFn: () => listStaffUserRoles(roleSheetUser?.userId ?? 0),
     enabled: rolesOpen && !!roleSheetUser?.userId,
   });
 
@@ -250,8 +240,6 @@ export default function StaffAccountsPage() {
   }, [existingUserRoles, rolesOpen]);
 
   function resetForm() {
-    const passwordExpDate = new Date();
-    passwordExpDate.setFullYear(passwordExpDate.getFullYear() + 1);
     setForm({
       departmentId: "",
       employeeId: "",
@@ -263,7 +251,8 @@ export default function StaffAccountsPage() {
       mobileNumber: "",
       password: "",
       passwordConfirm: "",
-      passwordExpDate,
+      // Angular: passwordExpDate = new Date()
+      passwordExpDate: new Date(),
       isActive: true,
       isEditable: false,
       isReset: false,
@@ -294,16 +283,12 @@ export default function StaffAccountsPage() {
       userName: staff.userName ?? "",
       email: staff.email ?? "",
       mobileNumber: staff.mobileNumber ?? "",
-      // Do not pre-fill hashed password — labels say "New Password"
-      password: "",
-      passwordConfirm: "",
+      // Angular edit prefills password / confirm from row
+      password: staff.password ?? "",
+      passwordConfirm: staff.password ?? "",
       passwordExpDate: staff.passwordExpDate
         ? new Date(staff.passwordExpDate)
-        : (() => {
-            const d = new Date();
-            d.setFullYear(d.getFullYear() + 1);
-            return d;
-          })(),
+        : new Date(),
       isActive: staff.isActive !== false,
       isEditable: staff.isEditable ?? false,
       isReset: staff.isReset ?? false,
@@ -337,7 +322,8 @@ export default function StaffAccountsPage() {
     if (
       roleRows.some((role) => role.roleId === roleId && role.isActive !== false)
     ) {
-      toastError("Role already added for this user");
+      // Angular: snotifyService.info('Already same user role exists to this user.', 'Info!')
+      toastInfo("Already same user role exists to this user.");
       return;
     }
     const userTypeId = roleSheetUser.userTypeId;
@@ -467,7 +453,21 @@ export default function StaffAccountsPage() {
   async function submitEdit(e: { preventDefault: () => void }) {
     e.preventDefault();
     if (!activeStaff?.userId || !selectedCollege) return;
-    if (form.password && form.password !== form.passwordConfirm) {
+    if (!form.firstName.trim()) return toastError("First name is required");
+    if (!form.lastName.trim()) return toastError("Last name is required");
+    if (!form.userName.trim()) return toastError("Please enter a user name");
+    if (
+      !/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(
+        form.email.trim(),
+      )
+    ) {
+      return toastError("Enter a valid email");
+    }
+    if (!/^[6-9][0-9]{9}$/.test(form.mobileNumber.trim())) {
+      return toastError("Enter a valid 10 digit mobile number");
+    }
+    // Angular edit: password + confirm required
+    if (!form.password || form.password !== form.passwordConfirm) {
       return toastError("Password and confirm password must match");
     }
     const organizationId =
@@ -479,13 +479,15 @@ export default function StaffAccountsPage() {
     }
     try {
       setSaving(true);
-      const updatePayload: Partial<StaffAccount> = {
+      await updateStaffAccount(activeStaff.userId, {
         userId: activeStaff.userId,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         userName: form.userName.trim(),
         email: form.email.trim(),
         mobileNumber: form.mobileNumber.trim(),
+        password: form.password,
+        passwordConfirm: form.passwordConfirm,
         passwordExpDate: form.passwordExpDate,
         departmentId: activeStaff.departmentId,
         employeeId: activeStaff.employeeId,
@@ -496,16 +498,7 @@ export default function StaffAccountsPage() {
         reason: form.reason.trim() || (form.isActive ? "active" : "inactive"),
         collegeId: activeStaff.collegeId ?? selectedCollege.collegeId,
         organizationId,
-      };
-      if (form.password) {
-        updatePayload.password = form.password;
-        updatePayload.passwordConfirm = form.passwordConfirm;
-      } else if (activeStaff.password) {
-        // Keep existing password when user leaves "New Password" blank
-        updatePayload.password = activeStaff.password;
-        updatePayload.passwordConfirm = activeStaff.password;
-      }
-      await updateStaffAccount(activeStaff.userId, updatePayload);
+      });
       setEditOpen(false);
       toastSuccess("Staff account updated successfully");
       invalidate().catch(() => undefined);
@@ -540,6 +533,7 @@ export default function StaffAccountsPage() {
         <div className="max-w-sm">
           <Select
             label="College"
+            required
             value={collegeId ? String(collegeId) : null}
             onChange={(v) => setCollegeId(v ? Number(v) : null)}
             options={colleges.map((c) => ({
@@ -547,9 +541,8 @@ export default function StaffAccountsPage() {
               label: `${c.orgCode ?? ""}${c.orgCode ? " - " : ""}${c.collegeCode}`,
             }))}
             searchable
-            clearable
             isLoading={collegesLoading}
-            placeholder="Select college"
+            placeholder="College"
           />
         </div>
       }
@@ -559,10 +552,8 @@ export default function StaffAccountsPage() {
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: "Search staff…",
-        columnPicker: true,
-        exportPdf: true,
-        pdfDocumentTitle: "Staff Accounts",
+        searchPlaceholder: "Search",
+        exportPdf: false,
       }}
       toolbarTrailing={
         collegeId ? (
@@ -576,7 +567,7 @@ export default function StaffAccountsPage() {
       <FormModal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Add Staff Account"
+        title="Add User Account"
         onSubmit={submitAdd}
         isSubmitting={saving}
         size="lg"
@@ -584,7 +575,7 @@ export default function StaffAccountsPage() {
         contentClassName="sm:max-w-4xl bg-[#f3f5fb]"
         formClassName="space-y-3 py-1 [&_label]:text-[12px]"
         submitLabel="Save"
-        cancelLabel="Cancel"
+        cancelLabel="Close"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
           <div className="md:col-span-2 flex justify-end text-[12px] font-semibold text-slate-700">
@@ -812,11 +803,7 @@ export default function StaffAccountsPage() {
       <FormModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        title={
-          activeStaff?.userName
-            ? `Edit Staff Account - ${activeStaff.userName}`
-            : "Edit Staff Account"
-        }
+        title="Edit User Account"
         onSubmit={submitEdit}
         isSubmitting={saving}
         size="lg"
@@ -824,9 +811,14 @@ export default function StaffAccountsPage() {
         contentClassName="sm:max-w-4xl bg-[#f3f5fb]"
         formClassName="space-y-3 py-1 [&_label]:text-[12px]"
         submitLabel="Save"
-        cancelLabel="Cancel"
+        cancelLabel="Close"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[12px]">
+          <div className="md:col-span-2 flex justify-end text-[12px] font-semibold text-slate-700">
+            College :{" "}
+            {activeStaff?.organizationCode ?? selectedCollege?.orgCode ?? "-"} -{" "}
+            {activeStaff?.collegeCode ?? selectedCollege?.collegeCode ?? "-"}
+          </div>
           <FormField label="First Name" required>
             <Input
               className="h-10 text-[12px]"
@@ -864,16 +856,7 @@ export default function StaffAccountsPage() {
               }
             />
           </FormField>
-          <FormField label="Mobile Number">
-            <Input
-              className="h-10 text-[12px]"
-              value={form.mobileNumber}
-              onChange={(e) =>
-                setForm((s) => ({ ...s, mobileNumber: e.target.value }))
-              }
-            />
-          </FormField>
-          <FormField label="New Password">
+          <FormField label="Enter your password" required>
             <div className="relative">
               <Input
                 className="h-10 pr-10 text-[12px]"
@@ -897,7 +880,7 @@ export default function StaffAccountsPage() {
               </button>
             </div>
           </FormField>
-          <FormField label="Confirm New Password">
+          <FormField label="Confirm Password" required>
             <div className="relative">
               <Input
                 className="h-10 pr-10 text-[12px]"
@@ -925,6 +908,74 @@ export default function StaffAccountsPage() {
               </button>
             </div>
           </FormField>
+          <FormField label="Password Expired Date">
+            <DatePicker
+              value={form.passwordExpDate}
+              onChange={(value) =>
+                setForm((s) => ({
+                  ...s,
+                  passwordExpDate: value ?? s.passwordExpDate,
+                }))
+              }
+            />
+          </FormField>
+          <FormField label="Mobile Number" required>
+            <Input
+              className="h-10 text-[12px]"
+              type="tel"
+              value={form.mobileNumber}
+              onChange={(e) =>
+                setForm((s) => ({ ...s, mobileNumber: e.target.value }))
+              }
+            />
+          </FormField>
+          <div className="md:col-span-2 flex items-center gap-8 py-2 text-[12px] text-slate-700">
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isEditable}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, isEditable: e.target.checked }))
+                }
+              />
+              <span>Editable</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isReset}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, isReset: e.target.checked }))
+                }
+              />
+              <span>Reset</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) =>
+                  setForm((s) => ({
+                    ...s,
+                    isActive: e.target.checked,
+                    reason: e.target.checked ? "active" : "",
+                  }))
+                }
+              />
+              <span>Active</span>
+            </label>
+          </div>
+          {!form.isActive ? (
+            <FormField label="Reason">
+              <Input
+                className="h-10 text-[12px]"
+                value={form.reason}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, reason: e.target.value }))
+                }
+              />
+            </FormField>
+          ) : null}
         </div>
       </FormModal>
 

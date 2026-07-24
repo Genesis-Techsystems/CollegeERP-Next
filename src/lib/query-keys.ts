@@ -197,6 +197,37 @@ export const QK = {
     list: (collegeId?: number) =>
       ["StaffAccounts", "list", { collegeId }] as const,
   },
+  roles: {
+    all: ["Roles"] as const,
+    list: () => ["Roles", "list"] as const,
+    privileges: (roleId: number) => ["Roles", "privileges", roleId] as const,
+  },
+  userTypes: {
+    all: ["UserTypes"] as const,
+    list: (organizationId: number) =>
+      ["UserTypes", "list", organizationId] as const,
+  },
+  userLogs: {
+    all: ["UserLogs"] as const,
+    list: (from: string, to: string) =>
+      ["UserLogs", "list", { from, to }] as const,
+  },
+  facultyDataSecurity: {
+    all: ["FacultyDataSecurity"] as const,
+    list: (employeeId: number) =>
+      ["FacultyDataSecurity", "list", employeeId] as const,
+  },
+  menuModules: {
+    all: ["MenuModules"] as const,
+    list: () => ["MenuModules", "list"] as const,
+    subModules: (moduleId: number) =>
+      ["MenuModules", "subModules", moduleId] as const,
+    pagesByModule: (moduleId: number) =>
+      ["MenuModules", "pagesByModule", moduleId] as const,
+    pagesBySubModule: (subModuleId: number) =>
+      ["MenuModules", "pagesBySubModule", subModuleId] as const,
+    orphanPages: () => ["MenuModules", "orphanPages"] as const,
+  },
   examinationAccounts: {
     all: ["ExaminationAccounts"] as const,
     list: (collegeId?: number) =>
@@ -206,11 +237,14 @@ export const QK = {
     all: ["ParentAccounts"] as const,
     list: (page: number, pageSize: number) =>
       ["ParentAccounts", "list", { page, pageSize }] as const,
+    siblings: (userId: number) =>
+      ["ParentAccounts", "siblings", userId] as const,
   },
   studentAccounts: {
     all: ["StudentAccounts"] as const,
     list: (page: number, pageSize: number) =>
       ["StudentAccounts", "list", { page, pageSize }] as const,
+    listAll: () => ["StudentAccounts", "listAll"] as const,
   },
   departments: {
     all: ["Department"] as const,
@@ -1153,5 +1187,42 @@ export const QK = {
       walletId !== undefined
         ? (["UnivPaymentWalletTransactions", "list", walletId] as const)
         : (["UnivPaymentWalletTransactions", "list"] as const),
+  },
+
+  // ── Staff / Main Dashboard ────────────────────────────────────────────────
+  staffDashboard: {
+    all: ["StaffDashboard"] as const,
+    leaveTotals: (collegeId: number, employeeId: number) =>
+      ["StaffDashboard", "leaveTotals", collegeId, employeeId] as const,
+    leaveApplications: (
+      collegeId: number,
+      employeeId: number,
+      leaveYear: number,
+    ) =>
+      [
+        "StaffDashboard",
+        "leaveApplications",
+        collegeId,
+        employeeId,
+        leaveYear,
+      ] as const,
+    attendance: (collegeId: number, employeeId: number, dateKey: string) =>
+      ["StaffDashboard", "attendance", collegeId, employeeId, dateKey] as const,
+    myClasses: (employeeId: number, classDate: string) =>
+      ["StaffDashboard", "myClasses", employeeId, classDate] as const,
+    notifications: (
+      collegeId: number,
+      employeeId: number,
+      audienceId: number,
+      deptId: number,
+    ) =>
+      [
+        "StaffDashboard",
+        "notifications",
+        collegeId,
+        employeeId,
+        audienceId,
+        deptId,
+      ] as const,
   },
 } as const;

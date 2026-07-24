@@ -1,7 +1,17 @@
-import { AppError } from "@/lib/errors";
-import { domainCreate, domainList, domainUpdate } from "@/services/crud";
+import { NEXT_API, USER_MANAGEMENT_API } from "@/config/constants/api";
+import { AppError, parseApiError } from "@/lib/errors";
+import type { ApiResponse } from "@/types/api";
+import {
+  buildQuery,
+  domainList,
+  domainUpdate,
+  fetchDetails,
+} from "@/services/crud";
+import {
+  listUserTypesByOrganization,
+  type UserRole,
+} from "./general-user-accounts";
 import { listActiveCollegesForGeneralSettings } from "./college";
-import { listUserTypesByOrganization } from "./general-user-accounts";
 
 const STAFF_USER_TYPE_CODE = "STAFF";
 
@@ -9,9 +19,6 @@ const STAFF_USER_TYPE_CODE = "STAFF";
  * Same filter as Angular `user-accounts.component.ts` staff grid:
  * `listDetailsByTwoIdsWithSort(userCrudUrl, collegeId, 'STAFF', 'desc', getDetailsByCollegeIdUrl, 'Usertype.userTypeCode', 'createdDt')`
  * → `College.collegeId=={collegeId}.and.Usertype.userTypeCode==STAFF.order(createdDt=desc)`
- *
- * Uses `domain/list/User` via {@link domainList} (same as general user accounts). Avoids a second
- * `cms/` segment when `SPRING_API_URL` already ends with `/cms`.
  */
 function staffUsersByCollegeQuery(collegeId: number): string {
   return `College.collegeId==${collegeId}.and.Usertype.userTypeCode==${STAFF_USER_TYPE_CODE}.order(createdDt=desc)`;
@@ -39,6 +46,17 @@ function nestedRecord(
     }
   }
   return null;
+}
+
+function asEmployeeRows(data: unknown): Record<string, unknown>[] {
+  if (Array.isArray(data)) return data as Record<string, unknown>[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.resultList))
+      return obj.resultList as Record<string, unknown>[];
+    if (Array.isArray(obj.data)) return obj.data as Record<string, unknown>[];
+  }
+  return [];
 }
 
 /** Resolve STAFF `userTypeId` for the college’s organization (never hard-code). */
@@ -72,9 +90,7 @@ function toPasswordExpDateIso(value: unknown): string {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
   }
-  const fallback = new Date();
-  fallback.setFullYear(fallback.getFullYear() + 1);
-  return fallback.toISOString();
+  return new Date().toISOString();
 }
 
 /**
@@ -216,6 +232,16 @@ export interface StaffAccount {
   reason?: string;
 }
 
+export interface StaffEmployeeOption {
+  employeeId?: number;
+  empNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  mobile?: string;
+  mobileNumber?: string;
+}
+
 export async function listStaffAccountColleges() {
   return listActiveCollegesForGeneralSettings();
 }
@@ -232,6 +258,51 @@ export async function listStaffAccountsByCollege(
     .filter((row): row is StaffAccount => row != null);
 }
 
+/**
+ * Angular add modal `getEmployeeData`:
+ * `listByTwoIds(employeedetails, collegeId, departmentId, 'collegeId', 'empDeptId')`
+ * → GET employeedetails?collegeId=&empDeptId=
+ */
+export async function listEmployeesForStaffAccount(
+  collegeId: number,
+  departmentId: number,
+): Promise<StaffEmployeeOption[]> {
+  if (!collegeId || !departmentId) return [];
+  const data = await fetchDetails<unknown>("employeedetails", {
+    collegeId,
+    empDeptId: departmentId,
+  });
+  return asEmployeeRows(data).map((row) => ({
+    employeeId: asFiniteId(row.employeeId) || undefined,
+    empNumber: asText(row.empNumber),
+    firstName: asText(row.firstName),
+    lastName: asText(row.lastName),
+    email: asText(row.email),
+    mobile: asText(row.mobile ?? row.mobileNumber),
+    mobileNumber: asText(row.mobileNumber ?? row.mobile),
+  }));
+}
+
+/**
+ * Angular user-roles-modal `getRoles`:
+ * `listDetailsByTwoIdsWithSort(UserRole, userId, 'true', 'DESC', 'user.userId', 'isActive', 'createdDt')`
+ */
+export async function listStaffUserRoles(userId: number): Promise<UserRole[]> {
+  if (!userId) return [];
+  const query = `user.userId==${userId}.and.isActive==true.order(createdDt=DESC)`;
+  try {
+    return await domainList<UserRole>("UserRole", query);
+  } catch {
+    return domainList<UserRole>(
+      "UserRole",
+      buildQuery(
+        { "User.userId": userId, isActive: true },
+        { field: "createdDt", direction: "DESC" },
+      ),
+    );
+  }
+}
+
 export async function getStaffAccountById(
   userId: number,
 ): Promise<StaffAccount | null> {
@@ -241,10 +312,8 @@ export async function getStaffAccountById(
 }
 
 /**
- * Angular user-accounts create pre-check / conflict toast:
+ * Angular user-accounts create conflict toast:
  * `snotifyService.info('User already exists', 'Info!')`
- * Spring domain create often returns only the generic "Unable to process…" message
- * for unique/FK conflicts, so we detect the existing row and surface Angular’s copy.
  */
 export const STAFF_USER_ALREADY_EXISTS_MESSAGE = "User already exists";
 
@@ -265,7 +334,6 @@ async function findUserByQueries(
   return null;
 }
 
-/** Angular `listDetailsById(User, employeeId, 'employeeId')` — employee already linked to a login. */
 export async function findExistingUserByEmployeeId(
   employeeId: number,
 ): Promise<StaffAccount | null> {
@@ -277,7 +345,6 @@ export async function findExistingUserByEmployeeId(
   ]);
 }
 
-/** Username collision check (any user type — Spring unique constraint on userName). */
 export async function findExistingUserByUserName(
   userName: string,
 ): Promise<StaffAccount | null> {
@@ -300,6 +367,9 @@ export async function assertStaffUserNotAlreadyExists(params: {
   }
 }
 
+/**
+ * Angular: `addMasterDetails(createuserUrl, details)` → POST `/cms/api/createuser`
+ */
 export async function createStaffAccount(
   data: Omit<StaffAccount, "userId">,
 ): Promise<StaffAccount> {
@@ -339,17 +409,18 @@ export async function createStaffAccount(
 
   const userTypeId = await resolveStaffUserTypeId(organizationId);
   const payload = buildStaffUserWritePayload(data, userTypeId);
-  // Create always requires password fields
   payload.password = data.password;
   payload.passwordConfirm = data.passwordConfirm;
-  try {
-    const created = await domainCreate<unknown>("User", payload);
-    return (
-      normalizeStaffAccount(created) ??
-      ({ userId: 0, ...data, userTypeId } as StaffAccount)
-    );
-  } catch (error) {
-    // Race / Spring generic failure: re-check and show Angular’s Info message
+
+  const res = await fetch(NEXT_API.PROXY(USER_MANAGEMENT_API.CREATE_USER_CMS), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  const body: unknown = await res.json().catch(() => null);
+
+  if (!res.ok) {
     const byEmployee = await findExistingUserByEmployeeId(
       asFiniteId(data.employeeId),
     ).catch(() => null);
@@ -361,8 +432,31 @@ export async function createStaffAccount(
     if (byUserName) {
       throw new AppError("ALREADY_EXISTS", STAFF_USER_ALREADY_EXISTS_MESSAGE);
     }
-    throw error;
+    throw parseApiError(res, body);
   }
+
+  if (body && typeof body === "object" && "success" in body) {
+    const env = body as ApiResponse<StaffAccount>;
+    if (env.success === false) {
+      const msg = asText(env.message) || STAFF_USER_ALREADY_EXISTS_MESSAGE;
+      if (/already exists/i.test(msg)) {
+        throw new AppError("ALREADY_EXISTS", STAFF_USER_ALREADY_EXISTS_MESSAGE);
+      }
+      throw new AppError("API_ERROR", msg);
+    }
+    if (env.data && typeof env.data === "object") {
+      return (
+        normalizeStaffAccount(env.data) ??
+        ({
+          userId: Number((env.data as StaffAccount).userId) || 0,
+          ...data,
+          userTypeId,
+        } as StaffAccount)
+      );
+    }
+  }
+
+  return { userId: 0, ...data, userTypeId };
 }
 
 export async function updateStaffAccount(

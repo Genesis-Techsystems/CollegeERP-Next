@@ -3224,6 +3224,65 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/user-management/general-user-accounts";
     }
     if (
+      (labelLower === "roles" ||
+        labelLower.includes("role management") ||
+        hrefLower.includes("/admin-user-management/roles")) &&
+      !labelLower.includes("user role") &&
+      !hrefLower.includes("role-privilege")
+    ) {
+      return "/user-management/roles";
+    }
+    if (
+      labelLower === "user type" ||
+      labelLower === "user types" ||
+      hrefLower.includes("/admin-user-management/user-type") ||
+      hrefLower.includes("/user-management/user-type")
+    ) {
+      return "/user-management/user-type";
+    }
+    if (
+      labelLower === "user logs" ||
+      labelLower === "user log" ||
+      hrefLower.includes("/admin-user-management/user-logs") ||
+      hrefLower.includes("/user-management/user-logs")
+    ) {
+      return "/user-management/user-logs";
+    }
+    if (
+      labelLower.includes("faculty data") ||
+      labelLower.includes("data level security") ||
+      hrefLower.includes(
+        "/admin-user-management/faculty-data-level-security",
+      ) ||
+      hrefLower.includes("/user-management/faculty-data-level-security") ||
+      hrefLower.includes("/user-management/faculty-data-security")
+    ) {
+      return "/user-management/faculty-data-level-security";
+    }
+    if (
+      labelLower.includes("menu submenu") ||
+      labelLower.includes("menu sub menu") ||
+      (labelLower === "modules" &&
+        hrefLower.includes("/admin-user-management/modules")) ||
+      hrefLower.includes("/admin-user-management/modules")
+    ) {
+      return "/user-management/modules";
+    }
+    if (
+      labelLower.includes("sub module") ||
+      hrefLower.includes("/admin-user-management/submodules") ||
+      hrefLower.includes("/admin-user-management/sub-modules")
+    ) {
+      return "/user-management/sub-modules";
+    }
+    if (
+      labelLower.includes("role privilege") ||
+      hrefLower.includes("/admin-user-management/role-privileges") ||
+      hrefLower.includes("/user-management/role-privileges")
+    ) {
+      return "/user-management/role-privileges";
+    }
+    if (
       labelLower.includes("staff accounts") ||
       labelLower.includes("staff account") ||
       hrefLower.includes("/admin-user-management/staff-accounts") ||

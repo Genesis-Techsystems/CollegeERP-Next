@@ -100,13 +100,11 @@ const PRINT_CSS = `
   .sub-jct {
     font-weight: 500;
     font-size: 15px;
-    text-transform: uppercase;
     margin: 0;
     padding: 0;
   }
   .stff {
     font-size: 10px;
-    text-transform: uppercase;
     margin: 0;
     padding: 0;
   }
@@ -130,7 +128,8 @@ const PRINT_CSS = `
 // ─── HTML builder ────────────────────────────────────────────────────────────
 
 function subBatchHtml(batch: TimetableSubBatch): string {
-  const subject = batch.shortName || batch.subjectCode;
+  // Angular print uses subjectCode (shortName commented out).
+  const subject = batch.subjectCode || batch.shortName;
   const batchPrefix =
     batch.studentBatchId && batch.studentBatchName
       ? `[${esc(batch.studentBatchName)}] `
@@ -147,7 +146,7 @@ function timingCellHtml(timing: TimetableDayTiming): string {
   const h = printHeight(timing.startTime, timing.endTime);
   // Angular print uses timing.color; React model stores colorCode
   const bg = timing.isBreak
-    ? "#F5F5F5"
+    ? "#efefef"
     : timing.colorCode
       ? esc(timing.colorCode)
       : "";
