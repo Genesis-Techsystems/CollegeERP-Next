@@ -43,7 +43,8 @@ export function FilteredPage({
   className,
 }: FilteredPageProps) {
   const navLabel = usePageNavLabel();
-  const displayTitle = navLabel ?? title ?? "Page";
+  // Explicit page title wins over sidebar nav label (same as ListPage / FilteredListPage).
+  const displayTitle = title ?? navLabel ?? "Page";
   const [filtersOpen, setFiltersOpen] = useState(filtersDefaultOpen);
 
   return (

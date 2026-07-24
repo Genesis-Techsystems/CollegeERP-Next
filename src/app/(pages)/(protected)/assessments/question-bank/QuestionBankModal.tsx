@@ -1,199 +1,289 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect, useRef, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogFooter,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Select } from '@/common/components/select'
-import { createQuestionBank, updateQuestionBank, searchCourses } from '@/services/admin/question-bank'
-import type { Assessment, OnlineCourse, CourseLesson, CourseLessonTopic } from '@/types/question-bank'
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select } from "@/common/components/select";
+import {
+  createQuestionBank,
+  updateQuestionBank,
+  searchCourses,
+} from "@/services";
+import type {
+  Assessment,
+  OnlineCourse,
+  CourseLesson,
+  CourseLessonTopic,
+} from "@/types/question-bank";
 
-// ─── Schema ───────────────────────────────────────────────────────────────────
+// ─── Schema (Angular validators: assessmentName + assessmentNo required) ──────
 
 const schema = z.object({
-  assessmentName: z.string().min(1, 'Name is required'),
-  assessmentNo: z.number({ error: 'Number is required' }).min(0),
+  assessmentName: z.string().trim().min(1, "Question Bank Name is required"),
+  assessmentNo: z
+    .number({ error: "Question Bank No. is required" })
+    .refine((n) => !Number.isNaN(n), "Question Bank No. is required"),
   assessmentDescription: z.string().optional(),
   isActive: z.boolean(),
-  reason: z.string().optional(),
-  isPublic: z.boolean(),
   isOnlineCourse: z.boolean(),
   onlineCourseId: z.number().nullable(),
   courseLessonId: z.number().nullable(),
   courseLessonTopicId: z.number().nullable(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
-
-// ─── Props ────────────────────────────────────────────────────────────────────
+type FormValues = z.infer<typeof schema>;
 
 interface Props {
-  open: boolean
-  onClose: () => void
-  bank: Assessment | null
-  onSaved: () => void
-  userId: number
+  open: boolean;
+  onClose: () => void;
+  bank: Assessment | null;
+  onSaved: () => void;
+  userId: number;
 }
 
 function getDefaults(bank: Assessment | null): FormValues {
   return {
-    assessmentName: bank?.assessmentName ?? '',
-    assessmentNo: bank?.assessmentNo ?? 0,
-    assessmentDescription: bank?.assessmentDescription ?? '',
+    assessmentName: bank?.assessmentName ?? "",
+    // Angular starts empty on create so required validation can fire
+    assessmentNo: bank?.assessmentNo ?? (NaN as unknown as number),
+    assessmentDescription: bank?.assessmentDescription ?? "",
     isActive: bank?.isActive ?? true,
-    reason: bank?.reason ?? '',
-    isPublic: bank?.isPublic ?? true,
     isOnlineCourse: bank?.isOnlineCourse ?? false,
     onlineCourseId: bank?.onlineCourseId ?? null,
     courseLessonId: bank?.courseLessonId ?? null,
     courseLessonTopicId: bank?.courseLessonTopicId ?? null,
-  }
+  };
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
-export default function QuestionBankModal({ open, onClose, bank, onSaved, userId }: Props) {
-  const isEditing = bank !== null
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [courses, setCourses] = useState<OnlineCourse[]>([])
-
-  // Cascaded dropdown data
-  const [lessons, setLessons] = useState<CourseLesson[]>([])
-  const [topics, setTopics] = useState<CourseLessonTopic[]>([])
+export default function QuestionBankModal({
+  open,
+  onClose,
+  bank,
+  onSaved,
+  userId,
+}: Props) {
+  const isEditing = bank !== null;
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [courses, setCourses] = useState<OnlineCourse[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [lessons, setLessons] = useState<CourseLesson[]>([]);
+  const [topics, setTopics] = useState<CourseLessonTopic[]>([]);
+  const [subjectId, setSubjectId] = useState<number | null>(null);
+  /** Skip clearing lesson/topic when hydrating edit form */
+  const hydratingRef = useRef(false);
 
   const {
     register,
     handleSubmit,
     reset,
     setValue,
-    watch,
     control,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: getDefaults(null),
-  })
+  });
 
-  const selectedCourseId = watch('onlineCourseId')
-  const selectedLessonId = watch('courseLessonId')
-
-  // Reset form on open/bank change
   useEffect(() => {
-    if (open) {
-      reset(getDefaults(bank))
-      setSubmitError(null)
-      searchCourses('')
-        .then((results) => setCourses(results))
-        .catch(() => setCourses([]))
-      setLessons([])
-      setTopics([])
+    if (!open) return;
 
-      // Pre-populate course cascade when editing
-      if (bank?.isOnlineCourse && bank.onlineCourseId) {
-        searchCourses('').then((results) => {
-          setCourses(results)
-          const course = results.find((c) => c.onlineCourseId === bank.onlineCourseId)
+    reset(getDefaults(bank));
+    setSubmitError(null);
+    setCourses([]);
+    setLessons([]);
+    setTopics([]);
+    setSubjectId(bank?.subjectId ?? null);
+
+    // Angular edit: enteredCourse(onlineCourseName, 'view') — search by existing name
+    if (bank?.onlineCourseName) {
+      hydratingRef.current = true;
+      setCoursesLoading(true);
+      searchCourses(bank.onlineCourseName)
+        .then((results) => {
+          setCourses(results);
+          const course = results.find(
+            (c) => c.onlineCourseId === bank.onlineCourseId,
+          );
           if (course) {
-            setLessons(course.courseLessonDTOs)
-            const lesson = course.courseLessonDTOs.find(
+            setLessons(course.courseLessonDTOs ?? []);
+            setSubjectId(course.subjectId ?? null);
+            const lesson = (course.courseLessonDTOs ?? []).find(
               (l) => l.courseLessonId === bank.courseLessonId,
-            )
-            if (lesson) setTopics(lesson.courseLessonTopicDTOs)
+            );
+            if (lesson) setTopics(lesson.courseLessonTopicDTOs ?? []);
           }
         })
-      }
+        .catch(() => setCourses([]))
+        .finally(() => {
+          setCoursesLoading(false);
+          hydratingRef.current = false;
+        });
     }
-  }, [open, bank, reset])
+  }, [open, bank, reset]);
 
-  // Populate lessons when course changes
-  useEffect(() => {
-    if (!selectedCourseId) { setLessons([]); setTopics([]); return }
-    const course = courses.find((c) => c.onlineCourseId === selectedCourseId)
-    setLessons(course?.courseLessonDTOs ?? [])
-    setValue('courseLessonId', null)
-    setValue('courseLessonTopicId', null)
-    setTopics([])
-  }, [selectedCourseId, courses, setValue])
+  /** Angular: enteredCourse — API only when search length > 4 */
+  const handleCourseSearch = (term: string) => {
+    if (term.length <= 4) {
+      if (!term) setCourses([]);
+      return;
+    }
+    setCoursesLoading(true);
+    searchCourses(term)
+      .then(setCourses)
+      .catch(() => setCourses([]))
+      .finally(() => setCoursesLoading(false));
+  };
 
-  // Populate topics when lesson changes
-  useEffect(() => {
-    if (!selectedLessonId) { setTopics([]); return }
-    const lesson = lessons.find((l) => l.courseLessonId === selectedLessonId)
-    setTopics(lesson?.courseLessonTopicDTOs ?? [])
-    setValue('courseLessonTopicId', null)
-  }, [selectedLessonId, lessons, setValue])
+  const onCourseChange = (onlineCourseId: number | null) => {
+    setValue("onlineCourseId", onlineCourseId);
+    if (!hydratingRef.current) {
+      setValue("courseLessonId", null);
+      setValue("courseLessonTopicId", null);
+      setTopics([]);
+    }
+    if (onlineCourseId == null) {
+      setLessons([]);
+      setSubjectId(null);
+      return;
+    }
+    const course = courses.find((c) => c.onlineCourseId === onlineCourseId);
+    setLessons(course?.courseLessonDTOs ?? []);
+    setSubjectId(course?.subjectId ?? null);
+  };
+
+  const onLessonChange = (courseLessonId: number | null) => {
+    setValue("courseLessonId", courseLessonId);
+    if (!hydratingRef.current) {
+      setValue("courseLessonTopicId", null);
+    }
+    if (courseLessonId == null) {
+      setTopics([]);
+      return;
+    }
+    const lesson = lessons.find((l) => l.courseLessonId === courseLessonId);
+    setTopics(lesson?.courseLessonTopicDTOs ?? []);
+  };
 
   const onSubmit = async (data: FormValues) => {
-    setSubmitError(null)
+    setSubmitError(null);
     try {
-      const payload = {
-        ...data,
-        assessmentNo: data.assessmentNo as number,
-        isForQuestionbank: true,
-        userId,
-        preparedbyUserId: userId,
-      }
-      if (isEditing) {
-        await updateQuestionBank(bank!.assessmentId, payload)
+      if (isEditing && bank) {
+        // Angular editDialog → updateQuestionBank request shape
+        await updateQuestionBank({
+          assessmentId: bank.assessmentId,
+          assessmentDescription: data.assessmentDescription ?? "",
+          assessmentName: data.assessmentName,
+          assessmentNo: data.assessmentNo,
+          isActive: data.isActive,
+          onlineCourseId: data.onlineCourseId,
+          courseLessonId: data.courseLessonId,
+          courseLessonTopicId: data.courseLessonTopicId,
+          isForQuestionbank: bank.isForQuestionbank ?? true,
+        });
+        toast.success("Question bank updated");
       } else {
-        await createQuestionBank(payload as Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>)
+        // Angular openDialog → full form value + subjectId + preparedbyUserId
+        await createQuestionBank({
+          assessmentName: data.assessmentName,
+          assessmentNo: data.assessmentNo,
+          assessmentDescription: data.assessmentDescription ?? "",
+          isActive: data.isActive,
+          isOnlineCourse: data.isOnlineCourse,
+          isForQuestionbank: true,
+          onlineCourseId: data.onlineCourseId,
+          courseLessonId: data.courseLessonId,
+          courseLessonTopicId: data.courseLessonTopicId,
+          userId,
+          preparedbyUserId: userId,
+          isPublic: true,
+          subjectId,
+        });
+        toast.success("Question bank created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save')
+      setSubmitError(err instanceof Error ? err.message : "Failed to save");
     }
-  }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden border-border bg-slate-100 p-0">
-        <DialogHeader className="border-b border-amber-300 bg-white pt-8 pb-3 pl-[48px] pr-6">
-          <DialogTitle className="text-base font-semibold text-teal-600">
-            {isEditing ? 'Edit Question Bank' : 'Add Question Bank'}
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+            {isEditing ? "Edit Question Bank" : "Add Question Bank"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 px-6 py-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-1">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
             <div className="space-y-1 md:col-span-8">
-              <Label htmlFor="assessmentName" className="text-sm text-slate-700">Question Bank Name *</Label>
-              <Input id="assessmentName" {...register('assessmentName')} className="h-11 rounded-md border-slate-300 bg-white" />
+              <Label htmlFor="assessmentName">Question Bank Name *</Label>
+              <Input
+                id="assessmentName"
+                placeholder="Question Bank Name"
+                {...register("assessmentName")}
+                aria-invalid={!!errors.assessmentName}
+                className={
+                  errors.assessmentName
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : undefined
+                }
+              />
               {errors.assessmentName && (
-                <p className="text-xs text-red-500">{errors.assessmentName.message}</p>
+                <p className="text-xs text-red-500">
+                  {errors.assessmentName.message}
+                </p>
               )}
             </div>
             <div className="space-y-1 md:col-span-4">
-              <Label htmlFor="assessmentNo" className="text-sm text-slate-500">Question Bank No. *</Label>
+              <Label htmlFor="assessmentNo">Question Bank No. *</Label>
               <Input
                 id="assessmentNo"
                 type="number"
-                {...register('assessmentNo', { valueAsNumber: true })}
-                className="h-11 rounded-md border-slate-300 bg-white"
+                placeholder="Question Bank No."
+                {...register("assessmentNo", { valueAsNumber: true })}
+                aria-invalid={!!errors.assessmentNo}
+                className={
+                  errors.assessmentNo
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : undefined
+                }
               />
-            {errors.assessmentNo && (
-              <p className="text-xs text-red-500">{errors.assessmentNo.message}</p>
-            )}
+              {errors.assessmentNo && (
+                <p className="text-xs text-red-500">
+                  {errors.assessmentNo.message}
+                </p>
+              )}
             </div>
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="assessmentDescription" className="text-sm text-slate-500">Description</Label>
-            <Input
+            <Label htmlFor="assessmentDescription">Description</Label>
+            <textarea
               id="assessmentDescription"
-              {...register('assessmentDescription')}
-              className="h-11 rounded-md border-slate-300 bg-white"
+              placeholder="Description"
+              {...register("assessmentDescription")}
+              className="min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -205,13 +295,16 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
                 <Select
                   label="Subject"
                   value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : null)}
+                  onChange={(v) => onCourseChange(v ? Number(v) : null)}
+                  onSearch={handleCourseSearch}
+                  isLoading={coursesLoading}
                   options={courses.map((c) => ({
                     value: String(c.onlineCourseId),
-                    label: c.onlineCourseName || c.onlineCourseCode,
+                    label: c.onlineCourseCode
+                      ? `(${c.onlineCourseCode}) ${c.onlineCourseName}`
+                      : c.onlineCourseName,
                   }))}
-                  placeholder="Select subject"
-                  className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-md [&_button[role='combobox']]:border-slate-300"
+                  placeholder="Subject"
                 />
               )}
             />
@@ -222,13 +315,12 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
                 <Select
                   label="Lesson"
                   value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : null)}
+                  onChange={(v) => onLessonChange(v ? Number(v) : null)}
                   options={lessons.map((l) => ({
                     value: String(l.courseLessonId),
                     label: l.lessonName,
                   }))}
-                  placeholder="Select lesson"
-                  className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-md [&_button[role='combobox']]:border-slate-300"
+                  placeholder="Lesson"
                 />
               )}
             />
@@ -244,20 +336,23 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
                     value: String(t.courseLessonTopicId),
                     label: t.topicName,
                   }))}
-                  placeholder="Select lesson topic"
-                  className="[&_button[role='combobox']]:h-11 [&_button[role='combobox']]:rounded-md [&_button[role='combobox']]:border-slate-300"
+                  placeholder="Lesson Topic"
                 />
               )}
             />
           </div>
 
-          <div className="flex flex-wrap gap-10 pt-2">
+          <div className="flex flex-wrap gap-8 pt-1">
             <Controller
               name="isOnlineCourse"
               control={control}
               render={({ field }) => (
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} id="isOnlineCourse" />
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    id="isOnlineCourse"
+                  />
                   <span>Online Course</span>
                 </label>
               )}
@@ -266,28 +361,35 @@ export default function QuestionBankModal({ open, onClose, bank, onSaved, userId
               name="isActive"
               control={control}
               render={({ field }) => (
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} id="isActive" />
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    id="isActive"
+                  />
                   <span>Active</span>
                 </label>
               )}
             />
           </div>
 
-          {submitError && (
-            <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-600">{submitError}</p>
-          )}
+          {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
-          <DialogFooter className="pt-3">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting} className="border-cyan-100 bg-cyan-50 text-teal-600 hover:bg-cyan-100 hover:text-teal-700">
-              Close
+          <DialogFooter className="pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-[#0b3f78] hover:bg-[#0a3768]">
-              {isSubmitting ? 'Saving…' : isEditing ? 'Update' : 'Save'}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -211,6 +211,9 @@ export * from "./admission";
 export * from "./e-office";
 export * from "./affiliated-colleges";
 export * from "./hr-payroll";
+// AnyRow not exported from staff-faculty-leaves — conflicts with pre-examination AnyRow.
+export * from "./staff-faculty-leaves";
+export * from "./proxy-workload";
 export * from "./timetable-management";
 export * from "./library";
 export * from "./transport";

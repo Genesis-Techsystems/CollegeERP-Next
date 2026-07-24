@@ -1228,7 +1228,6 @@ export default function ExamQuestionPaperMarksPage() {
               {hasTemplate ? (
                 <Button
                   size="sm"
-                  variant="outline"
                   className="h-7 text-[11px] whitespace-nowrap shrink-0"
                   onClick={() => manageQuestions(row)}
                 >

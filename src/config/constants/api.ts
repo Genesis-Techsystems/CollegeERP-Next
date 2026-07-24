@@ -348,11 +348,21 @@ export const EXAM_API = {
 // ─── Question Bank / Assessments ─────────────────────────────────────────────
 
 export const ASSESSMENT_API = {
+  /**
+   * Angular `assessmentUrl` — POST create / PUT update assessment (question bank or test).
+   * Not the domain CRUD path.
+   */
+  SAVE: "assessment",
   /** POST: add or update a single question (create if no courseQuestionId, update otherwise) */
   ADD_QUESTION: "assessment/addQuestion",
   /** POST: bulk-import questions from Excel; returns array of question objects */
   BULK_IMPORT: "assessment/importQuestionsDetails",
-  /** GET (domain/list): searchable course-lesson hierarchy for modal dropdown */
+  /**
+   * Angular `courseLessonSearchUrl` — GET `courseLessonSearch?q={term}`
+   * (listByIds, not domain/list).
+   */
+  COURSE_LESSON_SEARCH: "courseLessonSearch",
+  /** @deprecated Use COURSE_LESSON_SEARCH — Angular does not use domain/list here */
   COURSE_SEARCH: "CourseLessonSearch",
   /** Angular `onlineCoursesCrudUrl` */
   ONLINE_COURSES: "OnlineCourses",
@@ -784,6 +794,8 @@ export const EMPLOYEE_API = {
   STAFF_PROXIES_2: "staffproxieslist",
   /** Angular `empProxyDetailsUrl` */
   EMP_PROXY_DETAILS: "empproxydetails",
+  /** Angular `staffProxyProcedureUrl` — `getAllRecords/staff_for_proxy` */
+  STAFF_FOR_PROXY: "staff_for_proxy",
   /** Angular `proxySubjectUrl` */
   PROXY_SUBJECT: "proxysubject",
   /** Angular `staffSubjectsUrl` */

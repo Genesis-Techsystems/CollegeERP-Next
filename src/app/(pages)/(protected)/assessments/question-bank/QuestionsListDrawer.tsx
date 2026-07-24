@@ -1,62 +1,73 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { PencilIcon, Trash2Icon, ChevronDownIcon, ListChecksIcon } from 'lucide-react'
-import { toast } from 'sonner'
+import { useState } from "react";
+import {
+  PencilIcon,
+  Trash2Icon,
+  ChevronDownIcon,
+  ListChecksIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/common/components/data-display'
-import { MathContent } from '@/common/components/rich-text-editor'
-import { addOrUpdateQuestion } from '@/services/admin/question-bank'
-import type { Assessment, AssessmentQuestion } from '@/types/question-bank'
-import { cn } from '@/lib/utils'
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/common/components/data-display";
+import { MathContent } from "@/common/components/rich-text-editor";
+import { addOrUpdateQuestion } from "@/services";
+import type { Assessment, AssessmentQuestion } from "@/types/question-bank";
+import { cn } from "@/lib/utils";
 
 // ─── Question type badge ──────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {
-  MC: 'Multiple Choice',
-  TF: 'True / False',
-  FB: 'Fill in Blank',
-  SUB: 'Subjective',
-}
+  MC: "Multiple Choice",
+  TF: "True / False",
+  FB: "Fill in Blank",
+  SUB: "Subjective",
+};
 
 function TypeBadge({ code }: { code: string }) {
   const colors: Record<string, string> = {
-    MC: 'bg-blue-100 text-blue-700',
-    TF: 'bg-green-100 text-green-700',
-    FB: 'bg-yellow-100 text-yellow-700',
-    SUB: 'bg-purple-100 text-purple-700',
-  }
+    MC: "bg-blue-100 text-blue-700",
+    TF: "bg-green-100 text-green-700",
+    FB: "bg-yellow-100 text-yellow-700",
+    SUB: "bg-purple-100 text-purple-700",
+  };
   return (
     <span
       className={cn(
-        'inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase',
-        colors[code] ?? 'bg-muted text-muted-foreground',
+        "inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+        colors[code] ?? "bg-muted text-muted-foreground",
       )}
     >
       {TYPE_LABELS[code] ?? code}
     </span>
-  )
+  );
 }
 
 // ─── Single question accordion item ──────────────────────────────────────────
 
 interface QuestionItemProps {
-  aq: AssessmentQuestion
-  index: number
-  onEdit: () => void
-  onDelete: () => void
-  deleting: boolean
+  aq: AssessmentQuestion;
+  index: number;
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
 }
 
-function QuestionItem({ aq, index, onEdit, onDelete, deleting }: QuestionItemProps) {
-  const [open, setOpen] = useState(false)
-  const q = aq.courseQuestionDTO
+function QuestionItem({
+  aq,
+  index,
+  onEdit,
+  onDelete,
+  deleting,
+}: QuestionItemProps) {
+  const [open, setOpen] = useState(false);
+  const q = aq.courseQuestionDTO;
 
   return (
     <div className="overflow-hidden rounded-md border border-border bg-white shadow-sm">
@@ -70,14 +81,17 @@ function QuestionItem({ aq, index, onEdit, onDelete, deleting }: QuestionItemPro
             {index + 1}.
           </span>
           <div className="min-w-0 text-[13px] font-semibold leading-tight text-slate-800">
-            Question{' '}
+            Question{" "}
             <span className="font-semibold">
-              ({q.marks} mark{q.marks !== 1 ? 's' : ''})
+              ({q.marks} mark{q.marks !== 1 ? "s" : ""})
             </span>
           </div>
         </div>
         <ChevronDownIcon
-          className={cn('h-5 w-5 shrink-0 text-slate-500 transition-transform', open && 'rotate-180')}
+          className={cn(
+            "h-5 w-5 shrink-0 text-slate-500 transition-transform",
+            open && "rotate-180",
+          )}
         />
       </button>
 
@@ -89,41 +103,53 @@ function QuestionItem({ aq, index, onEdit, onDelete, deleting }: QuestionItemPro
           </div>
           <MathContent html={q.question} className="text-sm" />
           {/* Options */}
-          {q.fbInputTypeCatCode !== 'SUB' && q.courseQuestionOptionDTOs?.length > 0 && (
-            <div className="space-y-1">
-              {q.courseQuestionOptionDTOs.map((opt, i) => (
-                <div
-                  key={opt.courseQuestionOptionId ?? i}
-                  className={cn(
-                    'flex items-start gap-2 rounded px-2 py-1.5 text-sm',
-                    opt.isCorrectAnswer && 'bg-green-50 text-green-800 font-medium',
-                  )}
-                >
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground mt-0.5">
-                    {String.fromCharCode(65 + i)}.
-                  </span>
-                  <MathContent html={opt.options} />
-                  {opt.isCorrectAnswer && (
-                    <span className="ml-auto shrink-0 text-[10px] font-semibold text-green-600">
-                      ✓ Correct
+          {q.fbInputTypeCatCode !== "SUB" &&
+            q.courseQuestionOptionDTOs?.length > 0 && (
+              <div className="space-y-1">
+                {q.courseQuestionOptionDTOs.map((opt, i) => (
+                  <div
+                    key={opt.courseQuestionOptionId ?? i}
+                    className={cn(
+                      "flex items-start gap-2 rounded px-2 py-1.5 text-sm",
+                      opt.isCorrectAnswer &&
+                        "bg-green-50 text-green-800 font-medium",
+                    )}
+                  >
+                    <span className="shrink-0 font-mono text-xs text-muted-foreground mt-0.5">
+                      {String.fromCharCode(65 + i)}.
                     </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                    <MathContent html={opt.options} />
+                    {opt.isCorrectAnswer && (
+                      <span className="ml-auto shrink-0 text-[10px] font-semibold text-green-600">
+                        ✓ Correct
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
           {/* Subjective explanation */}
-          {q.fbInputTypeCatCode === 'SUB' && q.courseQuestionOptionDTOs?.[0]?.options && (
-            <div className="rounded bg-muted/50 px-3 py-2 text-sm">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Explanation</p>
-              <MathContent html={q.courseQuestionOptionDTOs[0].options} />
-            </div>
-          )}
+          {q.fbInputTypeCatCode === "SUB" &&
+            q.courseQuestionOptionDTOs?.[0]?.options && (
+              <div className="rounded bg-muted/50 px-3 py-2 text-sm">
+                <p className="text-xs font-medium text-muted-foreground mb-1">
+                  Explanation
+                </p>
+                <MathContent html={q.courseQuestionOptionDTOs[0].options} />
+              </div>
+            )}
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1">
-            <Button size="sm" variant="outline" className="h-8 w-8 p-0" aria-label="Edit question" title="Edit" onClick={onEdit}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 w-8 p-0"
+              aria-label="Edit question"
+              title="Edit"
+              onClick={onEdit}
+            >
               <PencilIcon className="h-3.5 w-3.5" />
             </Button>
             <Button
@@ -134,23 +160,22 @@ function QuestionItem({ aq, index, onEdit, onDelete, deleting }: QuestionItemPro
               disabled={deleting}
             >
               <Trash2Icon className="h-3.5 w-3.5 mr-1" />
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? "Deleting…" : "Delete"}
             </Button>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // ─── Drawer ───────────────────────────────────────────────────────────────────
 
 interface Props {
-  bank: Assessment | null
-  onClose: () => void
-  onEditQuestion: (bank: Assessment, assessmentQuestionId: number) => void
-  onDeleted: () => void
-  evaluatorProfileId: number | null | undefined
+  bank: Assessment | null;
+  onClose: () => void;
+  onEditQuestion: (bank: Assessment, assessmentQuestionId: number) => void;
+  onDeleted: () => void;
 }
 
 export default function QuestionsListDrawer({
@@ -158,50 +183,53 @@ export default function QuestionsListDrawer({
   onClose,
   onEditQuestion,
   onDeleted,
-  evaluatorProfileId,
 }: Props) {
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const questions = bank?.assessmentQuestionDTOs ?? []
+  const questions = bank?.assessmentQuestionDTOs ?? [];
 
-  // TODO: Delete is currently broken — the backend `addQuestion` endpoint runs a duplicate-check
-  // (courseQuestionRepo.isQuestionAvailable) before every save, including soft-deletes. When we
-  // send isActive=false with the existing question text, the check finds the question itself and
-  // returns "Duplicate question found for Assessment Id {id}" (success: false, statusCode: 200).
-  // Fix required in AssessmentServiceImpl.addQuestion(): skip the duplicate check when
-  // courseQuestionId is not null (i.e. it is an update/delete, not a new creation).
-  //   if (CollectionUtils.isEmpty(list) || questionDTO.getCourseQuestionId() != null) {
+  /** Soft-delete — Angular `delQuestion()` payload (no questionOwnerProfileId / marks). */
   const handleDelete = async (aq: AssessmentQuestion) => {
-    setDeletingId(aq.assessmentQuestionId)
+    setDeletingId(aq.assessmentQuestionId);
     try {
-      const q = aq.courseQuestionDTO
+      const q = aq.courseQuestionDTO;
       await addOrUpdateQuestion({
-        assessmentId: aq.assessmentId,           // must come from AssessmentQuestion, not courseQuestionDTO
+        assessmentId: aq.assessmentId,
         assessmentQuestionId: aq.assessmentQuestionId,
-        courseQuestionId: q.courseQuestionId,
         question: q.question,
-        marks: q.marks,
         fbInputTypeCatId: q.fbInputTypeCatId,
         isActive: false,
+        courseQuestionId: q.courseQuestionId,
         correctAnswerIds: [],
-        courseQuestionOptionDTOs: q.courseQuestionOptionDTOs.map((o) => ({ ...o, isActive: false })),
+        courseQuestionOptionDTOs: (q.courseQuestionOptionDTOs ?? []).map(
+          (o) => ({
+            ...o,
+            isActive: false,
+          }),
+        ),
         onlineCourseId: q.onlineCourseId,
         courseLessonId: q.courseLessonId,
         courseLessonTopicId: q.courseLessonTopicId,
-        questionOwnerProfileId: evaluatorProfileId ?? null,
-      })
-      toast.success('Question deleted')
-      onDeleted()
-      onClose()
+      });
+      toast.success("Question deleted");
+      onDeleted();
+      onClose();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete question')
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete question",
+      );
     } finally {
-      setDeletingId(null)
+      setDeletingId(null);
     }
-  }
+  };
 
   return (
-    <Dialog open={bank !== null} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog
+      open={bank !== null}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-5xl overflow-hidden border-border bg-slate-100 p-0 [&>button]:right-4 [&>button]:top-0 [&>button]:h-14 [&>button]:text-slate-500">
         <DialogHeader className="border-b border-border bg-white pt-[30px] pb-3 pl-[48px] pr-6">
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold text-teal-600">
@@ -214,11 +242,17 @@ export default function QuestionsListDrawer({
           <div className="rounded-md border border-cyan-100 bg-cyan-50/30 px-5 py-3 text-sm">
             <div className="grid grid-cols-[220px_1fr] gap-y-1">
               <div className="font-medium text-slate-700">Assessment :</div>
-              <div className="font-semibold text-blue-700">{bank?.assessmentName ?? '—'}</div>
+              <div className="font-semibold text-blue-700">
+                {bank?.assessmentName ?? "—"}
+              </div>
               <div className="font-medium text-slate-700">Assessment No. :</div>
-              <div className="font-semibold text-blue-700">{bank?.assessmentNo ?? 0}</div>
+              <div className="font-semibold text-blue-700">
+                {bank?.assessmentNo ?? 0}
+              </div>
               <div className="font-medium text-slate-700">Description :</div>
-              <div className="font-semibold text-blue-700">{bank?.assessmentDescription ?? '—'}</div>
+              <div className="font-semibold text-blue-700">
+                {bank?.assessmentDescription ?? "—"}
+              </div>
             </div>
           </div>
 
@@ -233,7 +267,9 @@ export default function QuestionsListDrawer({
                   key={aq.assessmentQuestionId}
                   aq={aq}
                   index={i}
-                  onEdit={() => bank && onEditQuestion(bank, aq.assessmentQuestionId)}
+                  onEdit={() =>
+                    bank && onEditQuestion(bank, aq.assessmentQuestionId)
+                  }
                   onDelete={() => handleDelete(aq)}
                   deleting={deletingId === aq.assessmentQuestionId}
                 />
@@ -254,5 +290,5 @@ export default function QuestionsListDrawer({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
