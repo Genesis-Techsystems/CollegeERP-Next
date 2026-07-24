@@ -226,6 +226,131 @@
   flex: 0 0 auto;
 }
 
+/* Evaluation Moderation — Angular fxFlex.gt-xs sizes (15 / 15 / 69, 15 / 15 / 49 / 10) */
+.global-filter-bar__row--eval-mod-r1,
+.global-filter-bar__row--eval-mod-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.global-filter-bar__row--eval-mod-r1 > .global-filter-field,
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx15,
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx69 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx49 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Exam Center Rooms — Angular fxFlex.gt-xs (20 / 18 / 60 / 22, 50 / 16 / 16 / 10) */
+.global-filter-bar__row--ecr-r1,
+.global-filter-bar__row--ecr-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field,
+.global-filter-bar__row--ecr-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx18 {
+  flex: 0 0 18% !important;
+  width: 18% !important;
+  max-width: 18% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r1 > .global-filter-field--fx22 {
+  flex: 0 0 22% !important;
+  width: 22% !important;
+  max-width: 22% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r2 > .global-filter-field--fx50 {
+  flex: 0 0 50% !important;
+  width: 50% !important;
+  max-width: 50% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r2 > .global-filter-field--fx16 {
+  flex: 0 0 16% !important;
+  width: 16% !important;
+  max-width: 16% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ecr-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+@media (max-width: 768px) {
+  .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx15,
+  .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx69,
+  .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx49,
+  .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx18,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx40,
+  .global-filter-bar__row--ecr-r1 > .global-filter-field--fx22,
+  .global-filter-bar__row--ecr-r2 > .global-filter-field--fx50,
+  .global-filter-bar__row--ecr-r2 > .global-filter-field--fx16,
+  .global-filter-bar__row--ecr-r2 > .global-filter-field--fx10 {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
 .global-filter-bar__row--cols-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -325,23 +450,23 @@
 }
 
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
-:has([role="combobox"]),
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has([role="combobox"]),
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
-:has(button[data-slot="popover-trigger"]) {
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
+  :has(button[data-slot="popover-trigger"]) {
   /* Keep shell; just hide the body. */
 }
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
   :has([role="combobox"])
   > :not(:first-child),
 .app-card[data-filters-collapsed="true"]
-:not(:has(.app-data-table))
-:not(:has(.app-data-table-card))
+  :not(:has(.app-data-table))
+  :not(:has(.app-data-table-card))
   :has(button[data-slot="popover-trigger"])
   > :not(:first-child) {
   display: none !important;
@@ -464,8 +589,17 @@
 }
 
 /* Legacy filter labels — uppercase style */
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  label:not([for="isForDisabledFilter"]):not(.cursor-pointer),
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  label:not([for="isForDisabledFilter"]):not(.cursor-pointer) {
   display: block;
   font-size: 10px !important;
   font-weight: 600 !important;
@@ -475,10 +609,28 @@
   margin-bottom: 0.375rem;
 }
 
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) [role="combobox"],
-.app-card:has(> button .app-card-title):not(:has(.app-data-table)) button[data-slot="popover-trigger"],
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) [role="combobox"],
-.app-card:has(> div:first-child .app-card-title):has(> div:first-child button:has(svg[class*='lucide-funnel'], svg[class*='lucide-filter'], svg[class*='lucide-chevron'])):not(:has(.app-data-table)):not(:has(.app-data-table-card)) button[data-slot="popover-trigger"] {
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  [role="combobox"],
+.app-card:has(> button .app-card-title):not(:has(.app-data-table))
+  button[data-slot="popover-trigger"],
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  [role="combobox"],
+.app-card:has(> div:first-child .app-card-title):has(
+    > div:first-child
+      button:has(
+        svg[class*="lucide-funnel"],
+        svg[class*="lucide-filter"],
+        svg[class*="lucide-chevron"]
+      )
+  ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
+  button[data-slot="popover-trigger"] {
   min-height: 2.25rem;
   border-radius: 0.5rem;
   border-color: #e5e7eb;
@@ -492,7 +644,7 @@
   --ag-header-height: 42px;
   --ag-row-height: 40px;
   --ag-cell-horizontal-padding: 14px;
-  --ag-font-family: var(--font-body), 'Manrope', system-ui, sans-serif;
+  --ag-font-family: var(--font-body), "Manrope", system-ui, sans-serif;
   --ag-background-color: hsl(var(--card));
   --ag-header-background-color: hsl(var(--primary) / 0.06);
   --ag-border-color: hsl(var(--border));
@@ -1371,6 +1523,9 @@ input[type="reset"]:disabled,
   /* Login-specific */
   --animate-login-card-in: login-card-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-field-in: field-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Radix Collapsible height animation */
+  --animate-collapsible-down: collapsible-down 0.3s ease-out;
+  --animate-collapsible-up: collapsible-up 0.3s ease-out;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1406,6 +1561,25 @@ input[type="reset"]:disabled,
   }
   to {
     opacity: 1;
+  }
+}
+
+/* Radix Collapsible — smooth height open/close */
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
   }
 }
 

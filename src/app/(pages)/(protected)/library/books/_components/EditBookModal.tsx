@@ -195,30 +195,34 @@ export function EditBookModal({
 
   async function onSubmit(data: FormValues) {
     if (!bookId) return;
-    const bindingTypeId = data.bindingTypeId
-      ? Number(data.bindingTypeId)
-      : undefined;
+    const source = book ?? row;
+    const bindingRaw = data.bindingTypeId?.trim() ?? "";
+    const bindingTypeId = bindingRaw ? Number(bindingRaw) : "";
+    // Angular closes the dialog with form.value (blank strings), then parent
+    // sets bookId / authorId (from authorIds) / isActive before updateDetails.
     const payload = {
       bookId,
       libraryId: data.libraryId,
       title: data.title.trim(),
       bookcatId: data.bookcatId,
       languageId: data.languageId,
-      noOfPages: data.noOfPages?.trim() || undefined,
-      libraryRefPrefix: data.libraryRefPrefix?.trim() || undefined,
-      tags: data.tags?.trim() || undefined,
-      customTags: data.customTags?.trim() || undefined,
-      isbn: data.isbn?.trim() || undefined,
-      year: data.year?.trim() || undefined,
-      edition: data.edition?.trim() || undefined,
-      vol: data.vol?.trim() || undefined,
+      noOfPages: data.noOfPages?.trim() ?? "",
+      libraryRefPrefix: data.libraryRefPrefix?.trim() ?? "",
+      tags: data.tags?.trim() ?? "",
+      customTags: data.customTags?.trim() ?? "",
+      isbn: data.isbn?.trim() ?? "",
+      year: data.year?.trim() ?? "",
+      edition: data.edition?.trim() ?? "",
+      vol: data.vol?.trim() ?? "",
       bindingTypeId:
-        bindingTypeId && bindingTypeId > 0 ? bindingTypeId : undefined,
-      subjectHeadings: data.subjectHeadings?.trim() || undefined,
-      callNumber: data.callNumber?.trim() || undefined,
-      authorId: (book ?? row)?.authorIds ?? (book ?? row)?.authorId,
-      publisherId: (book ?? row)?.publisherId,
-      isActive: (book ?? row)?.isActive !== false,
+        bindingTypeId !== "" && Number(bindingTypeId) > 0
+          ? Number(bindingTypeId)
+          : "",
+      subjectHeadings: data.subjectHeadings?.trim() ?? "",
+      callNumber: data.callNumber?.trim() ?? "",
+      authorId: source?.authorIds ?? source?.authorId ?? "",
+      publisherId: source?.publisherId ?? "",
+      isActive: source?.isActive !== false,
     };
     try {
       await updateLibraryBook(bookId, payload);

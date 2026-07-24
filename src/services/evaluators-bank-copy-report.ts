@@ -6,7 +6,8 @@ import { crud } from "@/services/crud";
 import { EXAM_API, EXAM_EVAL_API } from "@/config/constants/api";
 import { txt } from "@/common/utils/data-helpers";
 
-export type AnyRow = Record<string, unknown>;
+/** Local only — do not export (conflicts with `pre-examination` AnyRow in barrel). */
+type AnyRow = Record<string, unknown>;
 type ProcRows = AnyRow[];
 
 function firstGroupByFlag(groups: ProcRows[], flags: string[]): ProcRows {

@@ -7,6 +7,7 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
+import { DataTable } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,7 +25,7 @@ import {
   getEvaluationModerationSubjects,
   listEvaluationModerationData,
 } from "@/services/evaluation-process";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 
 type AnyRow = Record<string, any>;
 
@@ -53,6 +54,28 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
     return true;
   });
 };
+
+/** Profile id used in exclude_fk_* lists (Angular radioChange). */
+function evaluatorProfileId(row: AnyRow | null | undefined): number {
+  return pickNum(row, [
+    "pk_exam_evaluator_profile_id",
+    "fk_exam_evaluator_profile_id",
+    "examEvaluatorProfileId",
+  ]);
+}
+
+/**
+ * Id sent as in_profileids on Assign — prefer profiledet (same fix as
+ * multi-evaluator-assign); fall back to profile id.
+ */
+function evaluatorAssignProfileId(row: AnyRow | null | undefined): number {
+  return (
+    pickNum(row, [
+      "pk_examevaluator_profiledet_id",
+      "pk_exam_evaluator_profiledet_id",
+    ]) || evaluatorProfileId(row)
+  );
+}
 
 function makeAssignedRenderer(
   onOpen: (
@@ -336,12 +359,7 @@ export default function EvaluationModerationPage() {
         regulationId,
       });
       setEvaluatorRows(
-        dedupeBy(data.evaluators, (e) =>
-          pickNum(e, [
-            "pk_exam_evaluator_profile_id",
-            "examEvaluatorProfileId",
-          ]),
-        ),
+        dedupeBy(data.evaluators, (e) => evaluatorAssignProfileId(e)),
       );
       setTotalsRows(data.totals);
       setStudentRows(data.students);
@@ -368,20 +386,29 @@ export default function EvaluationModerationPage() {
 
   // A student is "already assigned" to an evaluator when that evaluator's profile
   // id is listed in exclude_fk_exam_evaluator_profile_id (Angular radioChange()).
-  const isExcludedFor = (s: AnyRow, evaluatorId: number | null) => {
-    if (!evaluatorId) return false;
+  const isExcludedFor = (s: AnyRow, profileId: number | null) => {
+    if (!profileId) return false;
     const raw = String(s?.exclude_fk_exam_evaluator_profile_id ?? "");
     if (!raw.trim()) return false;
     return raw
       .split(",")
       .map((v) => v.trim())
       .filter(Boolean)
-      .includes(String(evaluatorId));
+      .includes(String(profileId));
   };
 
   // Angular radioChange(): disable when excluded OR disable_omr === 1.
-  const isOmrDisabledFor = (s: AnyRow, evaluatorId: number | null) =>
-    isExcludedFor(s, evaluatorId) || Number(s?.disable_omr) === 1;
+  const isOmrDisabledFor = (s: AnyRow, profileId: number | null) =>
+    isExcludedFor(s, profileId) || Number(s?.disable_omr) === 1;
+
+  const selectedEvaluator = useMemo(
+    () =>
+      evaluatorRows.find(
+        (e) => evaluatorAssignProfileId(e) === Number(selectedEvaluatorId),
+      ) ?? null,
+    [evaluatorRows, selectedEvaluatorId],
+  );
+  const selectedProfileId = evaluatorProfileId(selectedEvaluator);
 
   // OMR list (maintDataList) is shown ONLY after an evaluator radio is selected.
   const visibleStudents = useMemo(() => {
@@ -395,27 +422,27 @@ export default function EvaluationModerationPage() {
         )
       : uploadedStudents;
     return [...base].sort((a, b) => {
-      const aDisabled = isOmrDisabledFor(a, selectedEvaluatorId);
-      const bDisabled = isOmrDisabledFor(b, selectedEvaluatorId);
+      const aDisabled = isOmrDisabledFor(a, selectedProfileId);
+      const bDisabled = isOmrDisabledFor(b, selectedProfileId);
       if (aDisabled !== bDisabled) return aDisabled ? 1 : -1;
       return Number(a?.omr_mapped ?? 0) - Number(b?.omr_mapped ?? 0);
     });
-  }, [uploadedStudents, omrSearch, selectedEvaluatorId]);
+  }, [uploadedStudents, omrSearch, selectedEvaluatorId, selectedProfileId]);
 
   const assignableStudents = visibleStudents;
   // Already-assigned (excluded) OMRs for the selected evaluator (assignedOmrList).
   const alreadyAssignedStudents = useMemo(
-    () => visibleStudents.filter((s) => isExcludedFor(s, selectedEvaluatorId)),
-    [visibleStudents, selectedEvaluatorId],
+    () => visibleStudents.filter((s) => isExcludedFor(s, selectedProfileId)),
+    [visibleStudents, selectedProfileId],
   );
   // Only NON-excluded rows can be selected/assigned.
   const visibleAssignableOmrs = useMemo(
     () =>
       visibleStudents
-        .filter((s) => !isOmrDisabledFor(s, selectedEvaluatorId))
+        .filter((s) => !isOmrDisabledFor(s, selectedProfileId))
         .map((s) => String(s?.omr_serial_no ?? ""))
         .filter(Boolean),
-    [visibleStudents, selectedEvaluatorId],
+    [visibleStudents, selectedProfileId],
   );
   const areAllVisibleSelected = useMemo(
     () =>
@@ -424,21 +451,10 @@ export default function EvaluationModerationPage() {
     [visibleAssignableOmrs, selectedOmr],
   );
 
-  const selectedEvaluator = useMemo(
-    () =>
-      evaluatorRows.find(
-        (e) =>
-          pickNum(e, [
-            "pk_exam_evaluator_profile_id",
-            "examEvaluatorProfileId",
-          ]) === Number(selectedEvaluatorId),
-      ) ?? null,
-    [evaluatorRows, selectedEvaluatorId],
-  );
-
   async function onAssign() {
+    const assignProfileId = evaluatorAssignProfileId(selectedEvaluator);
     if (
-      !selectedEvaluatorId ||
+      !assignProfileId ||
       selectedOmr.length === 0 ||
       !examId ||
       !subjectId ||
@@ -448,7 +464,7 @@ export default function EvaluationModerationPage() {
     setAssigning(true);
     try {
       await assignModerationEvaluation({
-        profileId: selectedEvaluatorId,
+        profileId: assignProfileId,
         examId,
         subjectId,
         courseYearId,
@@ -485,16 +501,9 @@ export default function EvaluationModerationPage() {
     row: AnyRow,
     listType: "AssignedList" | "CompletedList" | "DueList",
   ) {
-    const evaluatorProfileId = pickNum(row, [
-      "pk_exam_evaluator_profile_id",
-      "examEvaluatorProfileId",
-    ]);
+    const profileId = evaluatorProfileId(row);
     const base = omrRowsRef.current.filter(
-      (x) =>
-        pickNum(x, [
-          "pk_exam_evaluator_profile_id",
-          "examEvaluatorProfileId",
-        ]) === evaluatorProfileId,
+      (x) => evaluatorProfileId(x) === profileId,
     );
     const filtered =
       listType === "CompletedList"
@@ -578,7 +587,7 @@ export default function EvaluationModerationPage() {
   const filterFields = (
     <>
       <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
-        <GlobalFilterField label="Course">
+        <GlobalFilterField label="Course" className="global-filter-field--fx15">
           <Select
             value={courseId ? String(courseId) : null}
             onChange={(v) => {
@@ -595,7 +604,10 @@ export default function EvaluationModerationPage() {
             placeholder="Course"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Academic Year">
+        <GlobalFilterField
+          label="Academic Year"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={academicYearId ? String(academicYearId) : null}
             onChange={(v) => {
@@ -614,7 +626,7 @@ export default function EvaluationModerationPage() {
             placeholder="Academic Year"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Exam">
+        <GlobalFilterField label="Exam" className="global-filter-field--fx69">
           <Select
             value={examId ? String(examId) : null}
             onChange={(v) => {
@@ -634,7 +646,10 @@ export default function EvaluationModerationPage() {
         </GlobalFilterField>
       </GlobalFilterBarRow>
       <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
-        <GlobalFilterField label="Course Year">
+        <GlobalFilterField
+          label="Course Year"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={courseYearId ? String(courseYearId) : null}
             onChange={(v) => {
@@ -653,7 +668,10 @@ export default function EvaluationModerationPage() {
             placeholder="Course Year"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Regulation">
+        <GlobalFilterField
+          label="Regulation"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={regulationId ? String(regulationId) : null}
             onChange={(v) => {
@@ -672,7 +690,7 @@ export default function EvaluationModerationPage() {
             placeholder="Regulation"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Subject">
+        <GlobalFilterField label="Subject" className="global-filter-field--fx49">
           <Select
             value={subjectId ? String(subjectId) : null}
             onChange={(v) => {
@@ -690,7 +708,10 @@ export default function EvaluationModerationPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label=" " className="global-filter-field--action">
+        <GlobalFilterField
+          label=" "
+          className="global-filter-field--action global-filter-field--fx10"
+        >
           <Button
             size="sm"
             onClick={() => void onGetList()}
@@ -705,14 +726,14 @@ export default function EvaluationModerationPage() {
   );
 
   return (
-    <FilteredListPage
+    <FilteredPage
       title="Evaluation Moderation"
       filters={filterFields}
-      filtersDefaultOpen={false}
-      notice={
+      filtersDefaultOpen
+      body={
         hasFetched ? (
-          <>
-            <div className="app-card p-3 text-[13px]">
+          <div className="space-y-3">
+            <p className="text-[13px]">
               <span className="font-semibold">Total Students:</span>{" "}
               {totalStudents} | <span className="font-semibold">Uploaded:</span>{" "}
               {uploaded} | <span className="font-semibold">UnAssigned:</span>{" "}
@@ -720,24 +741,20 @@ export default function EvaluationModerationPage() {
               {assigned} |{" "}
               <span className="font-semibold">No of Evaluators:</span>{" "}
               {evaluatorRows.length}
-            </div>
+            </p>
 
-            <div className="app-card p-3 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
               <div className="md:col-span-3 border rounded-md p-2">
                 <p className="text-[13px] font-semibold mb-2">
                   Evaluator List / Assigned Count
                 </p>
                 <div className="space-y-1 max-h-[280px] overflow-auto">
-                  {evaluatorRows.map((e) => {
-                    const id = pickNum(e, [
-                      "pk_exam_evaluator_profile_id",
-                      "examEvaluatorProfileId",
-                    ]);
+                  {evaluatorRows.map((e, i) => {
+                    const id = evaluatorAssignProfileId(e);
                     const checked = selectedEvaluatorId === id;
                     return (
                       <label
-                        key={`ev-${id}`}
+                        key={`ev-${id}-${i}`}
                         className="flex items-center gap-2 text-[12px]"
                       >
                         <input
@@ -815,7 +832,7 @@ export default function EvaluationModerationPage() {
                           const omr = String(s?.omr_serial_no ?? "");
                           const disabled = isOmrDisabledFor(
                             s,
-                            selectedEvaluatorId,
+                            selectedProfileId,
                           );
                           const checked = selectedOmr.includes(omr);
                           return (
@@ -893,6 +910,7 @@ export default function EvaluationModerationPage() {
                 </div>
               </div>
             </div>
+
             <div className="flex justify-end">
               <Button
                 disabled={
@@ -906,21 +924,27 @@ export default function EvaluationModerationPage() {
                 {assigning ? "Assigning…" : "Assign"}
               </Button>
             </div>
-            </div>
-          </>
-        ) : null
+          </div>
+        ) : undefined
       }
-      toolbarLeading={<span className="hidden" />}
-      rowData={hasFetched ? evaluatorRows : []}
-      columnDefs={cols}
-      pagination
-      loading={loading}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Evaluation Moderation",
-      }}
+      bodyClassName="space-y-0"
     >
+      {hasFetched ? (
+        <DataTable
+          title=""
+          bordered
+          rowData={evaluatorRows}
+          columnDefs={cols}
+          pagination
+          loading={loading}
+          toolbar={{
+            search: true,
+            searchPlaceholder: "Search…",
+            pdfDocumentTitle: "Evaluation Moderation",
+          }}
+        />
+      ) : null}
+
       <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -974,6 +998,6 @@ export default function EvaluationModerationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredListPage>
+    </FilteredPage>
   );
 }

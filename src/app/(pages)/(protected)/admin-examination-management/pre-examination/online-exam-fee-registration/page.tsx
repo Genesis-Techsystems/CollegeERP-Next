@@ -360,7 +360,7 @@ export default function OnlineExamFeeRegistrationPage() {
 
   return (
     <FilteredListPage
-      title="Exam Fee Registrations"
+      title="Online Exam Fee Registrations"
       filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-2 space-y-1">

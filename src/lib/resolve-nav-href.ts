@@ -854,9 +854,46 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fees-collection/allocate-structure-to-student";
     }
     if (
+      hrefLower.includes("scholarship-application") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("application") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding") &&
+        !labelLower.includes("form"))
+    ) {
+      return "/scholarship-management/scholarship-application";
+    }
+    // Angular scholarship-management/preceeding-details (+ students-upload)
+    // Must pin before fee-reports scholarship-preceedings (404 → dashboard otherwise).
+    if (
+      hrefLower.includes("preceeding-details") ||
+      hrefLower.includes("preceding-details") ||
+      hrefLower.includes("scholarship-management/students-upload") ||
+      (hrefLower.includes("students-upload") &&
+        (hrefLower.includes("scholarship") ||
+          labelLower.includes("scholarship"))) ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        !labelLower.includes("report") &&
+        !labelLower.includes("account") &&
+        !hrefLower.includes("fee-reports") &&
+        !hrefLower.includes("accounts-preceeding") &&
+        !hrefLower.includes("acounts-preceeding"))
+    ) {
+      if (
+        hrefLower.includes("students-upload") ||
+        labelLower.includes("upload student")
+      ) {
+        return "/scholarship-management/students-upload";
+      }
+      return "/scholarship-management/preceeding-details";
+    }
+    if (
       hrefLower.includes("fee-reports/scholarship-preceedings") ||
       hrefLower.includes("fee-reports/scholarship-proceedings") ||
-      hrefLower.includes("/scholarship-preceedings") ||
+      (hrefLower.includes("/scholarship-preceedings") &&
+        hrefLower.includes("fee-reports")) ||
       (labelLower.includes("scholarship") &&
         (labelLower.includes("preceeding") ||
           labelLower.includes("proceeding")) &&

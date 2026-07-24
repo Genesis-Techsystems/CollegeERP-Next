@@ -146,11 +146,11 @@ export default function HostelVisitorPage() {
 
   return (
     <FilteredListPage
-      title="Hostel Visitor"
+      title="Hostel Visitors"
       filters={
         <Select
           label="Hostel"
-          className={FILTER_CARD_SELECT_CLASS}
+          className={`${FILTER_CARD_SELECT_CLASS} w-[20rem]`}
           value={hostelId}
           onChange={setHostelId}
           options={hostels}

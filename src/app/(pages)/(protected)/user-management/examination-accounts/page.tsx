@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon, X } from 'lucide-react'
+import { Eye, EyeOff, PencilIcon, PlusIcon, X } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
@@ -90,6 +90,8 @@ export default function ExaminationAccountsPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
   const [activeRow, setActiveRow] = useState<ExaminationAccount | null>(null)
   const [rolesOpen, setRolesOpen] = useState(false)
   const [savingRoles, setSavingRoles] = useState(false)
@@ -438,10 +440,40 @@ export default function ExaminationAccountsPage() {
             <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
           </FormField>
           <FormField label="Password" required>
-            <Input className="h-10 text-[12px]" type="password" value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Confirm Password" required>
-            <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPasswordConfirm ? 'text' : 'password'}
+                value={form.passwordConfirm}
+                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPasswordConfirm((value) => !value)}
+                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+              >
+                {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
         </div>
       </FormModal>
@@ -476,10 +508,40 @@ export default function ExaminationAccountsPage() {
             <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
           </FormField>
           <FormField label="New Password">
-            <Input className="h-10 text-[12px]" type="password" value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Confirm New Password">
-            <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPasswordConfirm ? 'text' : 'password'}
+                value={form.passwordConfirm}
+                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPasswordConfirm((value) => !value)}
+                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+              >
+                {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
         </div>
       </FormModal>

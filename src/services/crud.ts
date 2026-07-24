@@ -636,6 +636,28 @@ class CrudService {
   }
 
   /**
+   * GET request returning the FULL response envelope without throwing on `success: false`.
+   * Angular `listByThreeIds(feecertificateissueUrl, …)` checks `result.success` before using data.
+   */
+  async fetchDetailsEnvelope<T = unknown>(
+    path: string,
+    params?: Record<string, string | number>,
+  ): Promise<ApiResponse<T>> {
+    const query = this.toQueryString(params);
+    let attemptedPath = path;
+    let res = await fetch(`${this.base}/${attemptedPath}${query}`);
+    if (res.status === 404 && /[A-Z]/.test(path)) {
+      attemptedPath = path.toLowerCase();
+      res = await fetch(`${this.base}/${attemptedPath}${query}`);
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
+    }
+    return (await res.json()) as ApiResponse<T>;
+  }
+
+  /**
    * POST JSON to a non-domain API endpoint.
    *
    * @param path - API path constant
@@ -878,6 +900,11 @@ export const fetchDetails = <T>(
   path: string,
   params?: Record<string, string | number>,
 ): Promise<T> => crud.fetchDetails<T>(path, params);
+
+export const fetchDetailsEnvelope = <T = unknown>(
+  path: string,
+  params?: Record<string, string | number>,
+): Promise<ApiResponse<T>> => crud.fetchDetailsEnvelope<T>(path, params);
 
 export const fetchDetailsById = <T>(
   path: string,

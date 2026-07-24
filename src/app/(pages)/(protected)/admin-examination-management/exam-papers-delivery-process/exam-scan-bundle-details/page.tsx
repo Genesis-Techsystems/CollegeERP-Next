@@ -1,19 +1,34 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FilteredPage } from '@/components/layout'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
+import { getSecuredValue } from '@/common/generic-functions'
 import { toastError } from '@/lib/toast'
 import {
   getExamCenterByCodeRows,
+  getExamCenterFilterGroups,
   listExamScanBundlesBySubjectFilters,
   pickExamScanBundleId,
   pickExamScanBundleLabel,
   type AnyRow,
 } from '@/services/exam-papers-delivery'
-import { getUnivExamFiltersRegSup } from '@/services/pre-examination'
+
+/** Mirrors Angular `ParametersService.examScanBundleDetails` (from Scan Bundles → Bundle Details). */
+const BUNDLE_DETAILS_STORAGE_KEY = 'examScanBundleDetails'
+
+interface SavedBundleDetails {
+  academicYearId?: string | number
+  examGroupId?: string | number
+  courseId?: string | number
+  courseYearId?: string | number
+  regulationId?: string | number
+  subjectId?: string | number
+  univExamScanbundleId?: string | number
+  examScanBundleId?: string | number
+}
 
 type Row = AnyRow
 
@@ -48,10 +63,14 @@ function pickExamGroupKey(row: Row): string {
       row.fk_exam_group_id ??
       row.examGroupId ??
       row.exam_group_id ??
-      row.fk_exam_id ??
-      row.examId ??
       '',
   ).trim()
+}
+
+function loadSavedBundleDetails(): SavedBundleDetails | null {
+  const saved = getSecuredValue<SavedBundleDetails[]>(BUNDLE_DETAILS_STORAGE_KEY)
+  if (Array.isArray(saved) && saved[0]) return saved[0]
+  return null
 }
 
 function pickCourseKey(row: Row): string {
@@ -71,10 +90,10 @@ function pickSubjectKey(row: Row): string {
 }
 
 export default function ExamScanBundleDetailsPage() {
+  const pendingSaved = useRef<SavedBundleDetails | null>(loadSavedBundleDetails())
   const [captureMode, setCaptureMode] = useState<'manual' | 'auto'>('manual')
   const [loading, setLoading] = useState(false)
   const [bundlesLoading, setBundlesLoading] = useState(false)
-  const [employeeId, setEmployeeId] = useState(0)
 
   const [topRows, setTopRows] = useState<Row[]>([])
   const [scanFilterRows, setScanFilterRows] = useState<Row[]>([])
@@ -95,7 +114,11 @@ export default function ExamScanBundleDetailsPage() {
     [topRows],
   )
   const examGroups = useMemo(
-    () => dedupeBy(topRows.filter((r) => pickAcademicYearKey(r) === form.academicYearId), (r) => pickExamGroupKey(r)),
+    () =>
+      dedupeBy(
+        topRows.filter((r) => pickAcademicYearKey(r) === form.academicYearId),
+        (r) => pickExamGroupKey(r),
+      ),
     [topRows, form.academicYearId],
   )
   const courses = useMemo(() => dedupeBy(scanFilterRows, (r) => pickCourseKey(r)), [scanFilterRows])
@@ -143,32 +166,45 @@ export default function ExamScanBundleDetailsPage() {
     return out
   }, [bundles])
 
-  useEffect(() => {
-    setEmployeeId(Number(globalThis?.localStorage?.getItem('employeeId') ?? 0))
-  }, [])
-
+  // Angular getExamGroupDetails — eg_filters / eg_ay_filter (same as Scan Bundles)
   useEffect(() => {
     async function init() {
-      if (!employeeId) return
       setLoading(true)
       try {
-        const top = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
-        setTopRows(Array.isArray(top) ? top : [])
+        const groups = await getExamCenterFilterGroups({ flag: 'eg_filters' })
+        const flat: Row[] = []
+        for (const g of groups) {
+          if (g.length > 0 && txt(g[0].flag) === 'eg_ay_filter') flat.push(...g)
+        }
+        setTopRows(flat)
+      } catch (e) {
+        toastError(e, 'Failed to load filters')
+        setTopRows([])
       } finally {
         setLoading(false)
       }
     }
     void init()
-  }, [employeeId])
+  }, [])
 
   useEffect(() => {
     if (!academicYears.length || form.academicYearId) return
-    setForm((f) => ({ ...f, academicYearId: pickAcademicYearKey(academicYears[0]) }))
+    const saved = pendingSaved.current
+    const id =
+      saved?.academicYearId != null
+        ? String(saved.academicYearId)
+        : pickAcademicYearKey(academicYears[0])
+    setForm((f) => ({ ...f, academicYearId: id }))
   }, [academicYears, form.academicYearId])
 
   useEffect(() => {
     if (!examGroups.length || form.examGroupId) return
-    setForm((f) => ({ ...f, examGroupId: pickExamGroupKey(examGroups[0]) }))
+    const saved = pendingSaved.current
+    const id =
+      saved?.examGroupId != null
+        ? String(saved.examGroupId)
+        : pickExamGroupKey(examGroups[0])
+    setForm((f) => ({ ...f, examGroupId: id }))
   }, [examGroups, form.examGroupId])
 
   useEffect(() => {
@@ -198,22 +234,50 @@ export default function ExamScanBundleDetailsPage() {
 
   useEffect(() => {
     if (!courses.length) return
-    setForm((f) => ({ ...f, courseId: f.courseId || pickCourseKey(courses[0]) }))
+    const saved = pendingSaved.current
+    setForm((f) => {
+      if (f.courseId) return f
+      const id =
+        saved?.courseId != null ? String(saved.courseId) : pickCourseKey(courses[0])
+      return { ...f, courseId: id }
+    })
   }, [courses])
 
   useEffect(() => {
     if (!courseYears.length) return
-    setForm((f) => ({ ...f, courseYearId: f.courseYearId || pickCourseYearKey(courseYears[0]) }))
+    const saved = pendingSaved.current
+    setForm((f) => {
+      if (f.courseYearId) return f
+      const id =
+        saved?.courseYearId != null
+          ? String(saved.courseYearId)
+          : pickCourseYearKey(courseYears[0])
+      return { ...f, courseYearId: id }
+    })
   }, [courseYears])
 
   useEffect(() => {
     if (!regulations.length) return
-    setForm((f) => ({ ...f, regulationId: f.regulationId || pickRegulationKey(regulations[0]) }))
+    const saved = pendingSaved.current
+    setForm((f) => {
+      if (f.regulationId) return f
+      const id =
+        saved?.regulationId != null
+          ? String(saved.regulationId)
+          : pickRegulationKey(regulations[0])
+      return { ...f, regulationId: id }
+    })
   }, [regulations])
 
   useEffect(() => {
     if (!subjects.length) return
-    setForm((f) => ({ ...f, subjectId: f.subjectId || pickSubjectKey(subjects[0]) }))
+    const saved = pendingSaved.current
+    setForm((f) => {
+      if (f.subjectId) return f
+      const id =
+        saved?.subjectId != null ? String(saved.subjectId) : pickSubjectKey(subjects[0])
+      return { ...f, subjectId: id }
+    })
   }, [subjects])
 
   // Angular `selectedSubject` — load bundles for exam group + course year + regulation + subject
@@ -241,6 +305,15 @@ export default function ExamScanBundleDetailsPage() {
         setForm((f) => {
           const stillValid = list.some((b) => String(pickExamScanBundleId(b)) === f.examScanBundleId)
           if (stillValid) return f
+          const saved = pendingSaved.current
+          const savedId = String(
+            saved?.univExamScanbundleId ?? saved?.examScanBundleId ?? '',
+          )
+          if (savedId && list.some((b) => String(pickExamScanBundleId(b)) === savedId)) {
+            pendingSaved.current = null
+            return { ...f, examScanBundleId: savedId }
+          }
+          pendingSaved.current = null
           const first = list[0] ? String(pickExamScanBundleId(list[0])) : ''
           return { ...f, examScanBundleId: first && first !== '0' ? first : '' }
         })
@@ -294,7 +367,6 @@ export default function ExamScanBundleDetailsPage() {
                       r.examGroupCode ??
                       r.exam_name ??
                       r.examName ??
-                      r.examGroupName ??
                       pickExamGroupKey(r),
                   ),
                 }))}

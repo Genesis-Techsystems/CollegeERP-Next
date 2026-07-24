@@ -442,6 +442,12 @@ export const EXAM_EVAL_API = {
   EVALUATORS: "ExamEvaluators",
   /** POST: upload exam OMR */
   UPLOAD_EXAM_OMR: "uploadExamOmr",
+  /**
+   * Angular `getCollegeExamDetails` —
+   * GET getAllRecords/s_get_collegeexamdetails_bycode
+   * (scan-upload filters + answer-paper summary)
+   */
+  GET_COLLEGE_EXAM_DETAILS: "s_get_collegeexamdetails_bycode",
   /** GET: `getAllRecords/s_get_answerpaperupload_details` — Angular getAnswerPaperUploadUrl (Check Upload Status) */
   ANSWER_PAPER_UPLOAD_DETAILS: "s_get_answerpaperupload_details",
   /** GET: generatePresignedUrls?answerPaperPath=… — presigned S3 URL for answer sheet preview */
@@ -576,6 +582,11 @@ export const EXAM_REVAL_API = {
   /** GET: exam student revised details */
   GET_STUDENT_REVISED_DETAILS:
     "getAllRecords/s_get_exam_student_revised_details",
+  /**
+   * Angular `studentFeeRevaluationUrl` —
+   * GET getAllRecords/s_get_student_fee_revaluation (revision history / photocopy details)
+   */
+  GET_STUDENT_FEE_REVALUATION: "getAllRecords/s_get_student_fee_revaluation",
   /** POST: add exam additional fee receipt */
   ADD_ADDITIONAL_FEE_RECEIPT: "addExamAdditionalFeeReceipt",
   /** PUT: update exam student details for revaluation marks */
@@ -1109,7 +1120,11 @@ export const LIBRARY_API = {
   GET_BOOKS_BARCODE_NOT_GENERATED_RECORDS: "getBooksBarcodeNotGeneratedRecords",
   GENERATE_BOOK_BARCODE: "generateBarcodeForBooks",
   GENERATE_MEMBER_BARCODE: "generateLibMemebrBarcode",
+  /** Angular `libFineCollectionUrl` */
+  LIB_FINE_COLLECTION: "LibFineCollection",
   FINE_COLLECTION: "getAllRecords/s_rep_lib_fee_collection",
+  /** Angular `print()` / `download()` — `getAllRecordsPDFDownload/s_rep_lib_fee_collection` */
+  FINE_COLLECTION_PDF: "getAllRecordsPDFDownload/s_rep_lib_fee_collection",
   BOOK: "Book",
   /** Angular `subjectBookCrudUrl` */
   SUBJECT_BOOK: "SubjectBook",
@@ -1516,7 +1531,8 @@ export const FINANCE_API = {
 } as const;
 
 export const E_OFFICE_API = {
-  INV_PO: "invPO",
+  /** Angular `invPOUrl` — multipart create for purchase order */
+  INV_PO: "invpurchaseorder",
   UPDATE_INV_PURCHASE_ORDER: "updateInvPurchaseOrder",
   INV_SRV: "invsrv",
   INV_PURCHASE_RETURN: "purchasereturns",

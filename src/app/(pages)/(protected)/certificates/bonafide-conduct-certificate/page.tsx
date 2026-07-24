@@ -1,227 +1,485 @@
-'use client'
+"use client";
 
-import { useCallback, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Monitor, UserCircle2 } from 'lucide-react'
-import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { useSessionContext } from '@/context/SessionContext'
-import { QK } from '@/lib/query-keys'
-import { toastError } from '@/lib/toast'
-import { listFinancialYears, searchStudentsForTc } from '@/services'
-import type { StudentFeeSearchRow } from '@/types/fees-collection'
+/**
+ * Angular parity: certificates/bonafide-conduct-certificate
+ * Search: studentsearch?q= (min 5)
+ * Side data: studentfeelist, feereceipts (FY), AcademicYear by university
+ * Particulars: FeeStudentDataParticular (Income Tax / Bank)
+ * Print: window.print() org templates (AMS / MVSR / MECS) — Angular printCert()
+ */
 
-function studentLabel(student: StudentFeeSearchRow): string {
-  const name = student.firstName ?? 'Student'
-  const id = student.hallticketNumber ?? student.rollNumber ?? student.studentId
-  return id ? `${name} (${id})` : name
+import { useCallback, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { StudentSearchSelect } from "@/common/components/student-search";
+import { GlobalFilterBarRow } from "@/common/components/forms";
+import { Select } from "@/common/components/select";
+import { FilteredPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSessionContext } from "@/context/SessionContext";
+import { toastError } from "@/lib/toast";
+import {
+  getBonafideCertificateIssue,
+  listAcademicYearsByUniversity,
+  listFeeReceiptsByStudent,
+  listFeeStudentDataParticulars,
+  listStudentFeeStructuresByStudent,
+  searchStudentsForCertificate,
+} from "@/services";
+import type {
+  StudentFeeSearchRow,
+  FeeReceiptRow,
+} from "@/types/fees-collection";
+import { CertificatePrintStyles } from "../_components/CertificatePrintStyles";
+import { CertificateStudentProfile } from "../_components/CertificateStudentProfile";
+import { CERTIFICATE_FOR_OPTIONS } from "../_lib/certificate-constants";
+import { isEmptyStudent } from "../_lib/use-certificate-student";
+import { BonafideConductCertificatePrint } from "./_components/BonafideConductCertificatePrint";
+
+type FeeParticularRow = Record<string, unknown> & {
+  particularsCode?: string;
+  particularsName?: string;
+  checked?: boolean;
+};
+
+function uniqFinancialYears(rows: FeeReceiptRow[]): FeeReceiptRow[] {
+  const seen = new Set<number>();
+  return rows.filter((row) => {
+    const id = Number(row.financialYearId ?? 0);
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
-const PURPOSE_OPTIONS = [
-  { value: 'trainPass', label: 'Train Pass' },
-  { value: 'busPass', label: 'Bus Pass' },
-  { value: 'bankLoan', label: 'Bank Loan' },
-  { value: 'scholarship', label: 'Scholarship' },
-  { value: 'conduct', label: 'Conduct' },
-  { value: 'higherEducation', label: 'Higher Education' },
-  { value: 'jobPurpose', label: 'Job Purpose' },
-  { value: 'visaPurpose', label: 'VISA Purpose' },
-  { value: 'siEvents', label: 'SI Events' },
-  { value: 'constableEvents', label: 'Constable Events' },
-  { value: 'jobInRevenueDepartment', label: 'Job In Revenue Department' },
-  { value: 'jobInElectricalDepartment', label: 'Job In Electrical Department' },
-  { value: 'eLitmusExam', label: 'E-Litmus Exam' },
-  { value: 'armyRally', label: 'Army Rally' },
-  { value: 'sports', label: 'Sports' },
-  { value: 'passport', label: 'Passport' },
-  { value: 'internship', label: 'Internship' },
-  { value: 'other', label: 'Other' },
-]
-
 export default function BonafideConductCertificatePage() {
-  const { user } = useSessionContext()
-  const [studentId, setStudentId] = useState<string | null>(null)
-  const [students, setStudents] = useState<StudentFeeSearchRow[]>([])
-  const [selectedStudent, setSelectedStudent] = useState<StudentFeeSearchRow | null>(null)
-  const [studentSearchLoading, setStudentSearchLoading] = useState(false)
-  const [resultState, setResultState] = useState('awaiting')
-  const [applyFor, setApplyFor] = useState('applyFor')
-  const [purpose, setPurpose] = useState<string | null>(null)
-  const [financialYearId, setFinancialYearId] = useState<string | null>(null)
+  const { user } = useSessionContext();
+
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [students, setStudents] = useState<StudentFeeSearchRow[]>([]);
+  const [selectedStudent, setSelectedStudent] =
+    useState<StudentFeeSearchRow | null>(null);
+  const [studentSearchLoading, setStudentSearchLoading] = useState(false);
+
+  /** Angular checkCat: 1 = Awaiting Results, 2 = Results Declared */
+  const [resultState, setResultState] = useState("1");
+  /** Angular check: 1 Apply For, 2 Income Tax, 3 Transfer Certificate, 4 Bank */
+  const [applyMode, setApplyMode] = useState("1");
+
+  const [purpose, setPurpose] = useState<string | null>(null);
+  const [forOther, setForOther] = useState("");
+  const [financialYearId, setFinancialYearId] = useState<string | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<string | null>(null);
+  const [particulars, setParticulars] = useState<FeeParticularRow[]>([]);
+  const [printDate, setPrintDate] = useState(() => new Date());
+
+  const studentNum = Number(studentId ?? 0);
+  const collegeNum = Number(selectedStudent?.collegeId ?? 0);
+  const universityNum = Number(
+    selectedStudent?.universityId ?? user?.universityId ?? 0,
+  );
+  const orgCode = String(selectedStudent?.universityCode ?? "").trim();
+  const isOther = purpose === "OTHER";
+
+  const { data: feeStudentData = [] } = useQuery({
+    queryKey: ["BonafideConduct", "studentFeeList", studentNum],
+    queryFn: () => listStudentFeeStructuresByStudent(studentNum),
+    enabled: studentNum > 0,
+  });
 
   const { data: financialYears = [] } = useQuery({
-    queryKey: QK.financialYears.list(),
-    queryFn: listFinancialYears,
-  })
+    queryKey: ["BonafideConduct", "feeReceipts", studentNum],
+    queryFn: async () =>
+      uniqFinancialYears(await listFeeReceiptsByStudent(studentNum)),
+    enabled: studentNum > 0,
+  });
 
-  const onStudentSearch = useCallback(
-    async (term: string) => {
-      const q = term.trim()
-      if (q.length < 3 || !user?.collegeId) {
-        setStudents([])
-        return
-      }
-      setStudentSearchLoading(true)
-      try {
-        const rows = await searchStudentsForTc({ collegeId: Number(user.collegeId), q })
-        setStudents(rows)
-      } catch (error) {
-        toastError(error, 'Student search failed')
-        setStudents([])
-      } finally {
-        setStudentSearchLoading(false)
-      }
-    },
-    [user?.collegeId],
-  )
+  const { data: academicYears = [] } = useQuery({
+    queryKey: ["BonafideConduct", "academicYears", universityNum],
+    queryFn: () => listAcademicYearsByUniversity(universityNum),
+    enabled: universityNum > 0 && studentNum > 0,
+  });
 
-  const studentOptions = useMemo(() => {
-    const base = students.map((student) => ({
-      value: String(student.studentId),
-      label: studentLabel(student),
-    }))
-    if (studentId && selectedStudent && !base.some((option) => option.value === studentId)) {
-      return [{ value: studentId, label: studentLabel(selectedStudent) }, ...base]
+  const { data: feeCertificateData = null } = useQuery({
+    queryKey: ["BonafideConduct", "issue", collegeNum, studentNum],
+    queryFn: () =>
+      getBonafideCertificateIssue({
+        collegeId: collegeNum,
+        studentId: studentNum,
+      }),
+    enabled: studentNum > 0 && collegeNum > 0,
+  });
+
+  const onStudentSearch = useCallback(async (term: string) => {
+    const q = term.trim();
+    if (q.length < 5) {
+      setStudents([]);
+      return;
     }
-    return base
-  }, [students, studentId, selectedStudent])
+    setStudentSearchLoading(true);
+    try {
+      setStudents(await searchStudentsForCertificate(q));
+    } catch (error) {
+      toastError(error, "Student search failed");
+      setStudents([]);
+    } finally {
+      setStudentSearchLoading(false);
+    }
+  }, []);
+
+  function resetSideState() {
+    setPurpose(null);
+    setForOther("");
+    setFinancialYearId(null);
+    setAcademicYearId(null);
+    setParticulars([]);
+    setApplyMode("1");
+    setResultState("1");
+  }
+
+  function handleStudentChange(
+    id: number | null,
+    student: Record<string, unknown> | null,
+  ) {
+    setStudentId(id);
+    setSelectedStudent(student as StudentFeeSearchRow | null);
+    setPrintDate(new Date());
+    resetSideState();
+    if (!id) setStudents([]);
+  }
+
+  async function loadParticularsForAcademicYear(ayId: number) {
+    if (!selectedStudent || !studentNum) return;
+    const match = (feeStudentData as Array<Record<string, unknown>>).find(
+      (row) => Number(row.academicYearId) === ayId,
+    );
+    const feeStructureId = Number(match?.feeStructureId ?? 0);
+    if (!feeStructureId) {
+      setParticulars([]);
+      return;
+    }
+    try {
+      const rows = await listFeeStudentDataParticulars({
+        collegeId: Number(selectedStudent.collegeId ?? 0),
+        studentId: studentNum,
+        feeStructureId,
+      });
+      setParticulars(rows.map((r) => ({ ...r, checked: false })));
+    } catch (error) {
+      toastError(error, "Failed to load fee particulars");
+      setParticulars([]);
+    }
+  }
+
+  function handleFinancialYearChange(value: string | null) {
+    setFinancialYearId(value);
+    const fy = financialYears.find((r) => String(r.financialYearId) === value);
+    const ayId = Number(fy?.academicYearId ?? 0);
+    if (ayId > 0) {
+      // Angular selectedFinancialYear → getFeeParticulars(academicYearId)
+      void loadParticularsForAcademicYear(ayId);
+    } else {
+      setParticulars([]);
+    }
+  }
+
+  const resolvedPurpose = useMemo(() => {
+    if (applyMode !== "1") {
+      if (applyMode === "2") return "Income Tax";
+      if (applyMode === "3") return "Transfer Certificate";
+      if (applyMode === "4") return "Bank";
+      return null;
+    }
+    if (isOther) return forOther.trim() || null;
+    return purpose;
+  }, [applyMode, isOther, forOther, purpose]);
+
+  const showPrint =
+    !isEmptyStudent(selectedStudent) &&
+    (purpose != null ||
+      applyMode === "2" ||
+      applyMode === "3" ||
+      applyMode === "4");
+
+  function handlePrint() {
+    if (!selectedStudent || isEmptyStudent(selectedStudent)) {
+      toastError(new Error("Please select a student"), "Validation");
+      return;
+    }
+    if (applyMode === "1") {
+      if (!purpose) {
+        toastError(new Error("Please select For"), "Validation");
+        return;
+      }
+      if (isOther && !forOther.trim()) {
+        toastError(new Error("Please enter Other purpose"), "Validation");
+        return;
+      }
+    }
+    setPrintDate(new Date());
+    // Angular printCert() — window.print() of org templates
+    window.print();
+  }
+
+  const incomeTaxParticulars = particulars.filter(
+    (p) => String(p.particularsCode ?? "").toUpperCase() === "TF",
+  );
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="flex items-center gap-2 border-b border-[#d9b44d] bg-muted/30 px-4 py-2.5">
-          <Monitor className="h-4 w-4 text-[hsl(var(--card-title))]" />
-          <h1 className="text-[28px] font-semibold text-[hsl(var(--card-title))]">
-            Bonafied And Conduct Certificate
-          </h1>
-        </div>
-
-        <div className="space-y-4 px-4 py-4">
-          <div className="max-w-[420px]">
-            <Select
-              label="Student *"
-              value={studentId}
-              onChange={(value) => {
-                setStudentId(value)
-                const pick = students.find((row) => String(row.studentId) === value) ?? null
-                setSelectedStudent(pick)
-              }}
-              options={studentOptions}
-              placeholder="Select student"
-              searchable
-              clearable
-              isLoading={studentSearchLoading}
-              onSearch={onStudentSearch}
-            />
-          </div>
-
-          {selectedStudent && (
-            <>
-              <div className="rounded-sm border border-[#c3d4ef] bg-[#f9fbff] px-4 py-3">
-                <div className="flex items-center gap-4">
-                  <UserCircle2 className="h-20 w-20 text-muted-foreground" />
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-semibold text-[hsl(var(--card-title))]">
-                      {selectedStudent.firstName ?? 'Student'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedStudent.hallticketNumber ?? selectedStudent.rollNumber ?? '—'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedStudent.collegeCode ?? '—'} / {selectedStudent.academicYear ?? '—'} /{' '}
-                      {selectedStudent.courseCode ?? '—'} / {selectedStudent.courseYearName ?? '—'} /{' '}
-                      {selectedStudent.section ?? '—'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{selectedStudent.mobile ?? '—'}</p>
-                  </div>
-                </div>
-              </div>
+    <>
+      <CertificatePrintStyles />
+      <FilteredPage
+        className="certificate-screen-only"
+        title="Bonafied And Conduct Certificate"
+        filters={
+          <GlobalFilterBarRow>
+            <div className="md:col-span-5 w-full max-w-md space-y-1">
+              <StudentSearchSelect
+                label="Student *"
+                value={studentId}
+                students={students}
+                selectedStudent={selectedStudent}
+                isLoading={studentSearchLoading}
+                minChars={5}
+                onSearch={onStudentSearch}
+                onChange={handleStudentChange}
+              />
+            </div>
+          </GlobalFilterBarRow>
+        }
+        body={
+          selectedStudent && !isEmptyStudent(selectedStudent) ? (
+            <div className="space-y-4">
+              <CertificateStudentProfile student={selectedStudent} />
 
               <RadioGroup
                 value={resultState}
                 onValueChange={setResultState}
-                className="flex flex-wrap items-center gap-6"
+                className="flex flex-wrap items-center gap-8"
               >
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="awaiting" id="awaiting-results" />
-                  <Label htmlFor="awaiting-results" className="font-normal">
+                  <RadioGroupItem value="1" id="bc-awaiting" />
+                  <Label htmlFor="bc-awaiting" className="font-normal">
                     Awaiting Results
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="declared" id="results-declared" />
-                  <Label htmlFor="results-declared" className="font-normal">
+                  <RadioGroupItem value="2" id="bc-declared" />
+                  <Label htmlFor="bc-declared" className="font-normal">
                     Results Declared
                   </Label>
                 </div>
               </RadioGroup>
 
               <RadioGroup
-                value={applyFor}
-                onValueChange={setApplyFor}
+                value={applyMode}
+                onValueChange={(v) => {
+                  setApplyMode(v);
+                  if (v !== "1") {
+                    setPurpose(null);
+                    setForOther("");
+                  }
+                  if (v !== "2" && v !== "4") {
+                    setFinancialYearId(null);
+                    setAcademicYearId(null);
+                    setParticulars([]);
+                  }
+                }}
                 className="flex flex-wrap items-center gap-6"
               >
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="applyFor" id="apply-for" />
-                  <Label htmlFor="apply-for" className="font-normal">
+                  <RadioGroupItem value="1" id="bc-apply-for" />
+                  <Label htmlFor="bc-apply-for" className="font-normal">
                     Apply For
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="forIncomeTax" id="for-income-tax" />
-                  <Label htmlFor="for-income-tax" className="font-normal">
+                  <RadioGroupItem value="2" id="bc-income-tax" />
+                  <Label htmlFor="bc-income-tax" className="font-normal">
                     For Income Tax
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="forTransferCertificate" id="for-transfer-certificate" />
-                  <Label htmlFor="for-transfer-certificate" className="font-normal">
+                  <RadioGroupItem value="3" id="bc-tc" />
+                  <Label htmlFor="bc-tc" className="font-normal">
                     For Transfer Certificate
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <RadioGroupItem value="forBank" id="for-bank" />
-                  <Label htmlFor="for-bank" className="font-normal">
+                  <RadioGroupItem value="4" id="bc-bank" />
+                  <Label htmlFor="bc-bank" className="font-normal">
                     For Bank
                   </Label>
                 </div>
               </RadioGroup>
 
-              {applyFor === 'forBank' ? (
-                <div className="max-w-[420px]">
-                  <Select
-                    label="Financial Year"
-                    value={financialYearId}
-                    onChange={setFinancialYearId}
-                    options={financialYears.map((year) => ({
-                      value: String(year.financialYearId),
-                      label: year.financialYear,
-                    }))}
-                    placeholder="Select financial year"
-                  />
-                </div>
-              ) : (
-                <div className="max-w-[420px]">
+              {applyMode === "1" ? (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <Select
                     label="For *"
                     value={purpose}
-                    onChange={setPurpose}
-                    options={PURPOSE_OPTIONS}
+                    onChange={(v) => {
+                      setPurpose(v);
+                      if (v !== "OTHER") setForOther("");
+                    }}
+                    options={[...CERTIFICATE_FOR_OPTIONS]}
                     placeholder="Select purpose"
                   />
+                  {isOther ? (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="bc-for-other">Other *</Label>
+                      <Input
+                        id="bc-for-other"
+                        value={forOther}
+                        onChange={(e) => setForOther(e.target.value)}
+                        placeholder="Enter purpose"
+                      />
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              ) : null}
 
-              <div className="flex justify-end">
-                <Button type="button">Print</Button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </PageContainer>
-  )
+              {applyMode === "2" ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <Select
+                      label="Financial Year"
+                      value={financialYearId}
+                      onChange={handleFinancialYearChange}
+                      options={financialYears.map((y) => ({
+                        value: String(y.financialYearId),
+                        label: String(y.financialYear ?? y.financialYearId),
+                      }))}
+                      placeholder="Select financial year"
+                    />
+                    <Select
+                      label="Academic Year *"
+                      value={academicYearId}
+                      onChange={setAcademicYearId}
+                      options={academicYears.map((y) => {
+                        const row = y as Record<string, unknown>;
+                        return {
+                          value: String(row.academicYearId ?? row.id ?? ""),
+                          label: String(
+                            row.academicYear ??
+                              row.academicYearName ??
+                              row.academicYearCode ??
+                              "",
+                          ),
+                        };
+                      })}
+                      placeholder="Select academic year"
+                    />
+                  </div>
+                  {incomeTaxParticulars.length > 0 ? (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-blue-600">
+                        Fee Particulars :
+                      </h3>
+                      {incomeTaxParticulars.map((item, i) => {
+                        const key = `tf-${String(item.particularsCode)}-${i}`;
+                        return (
+                          <label
+                            key={key}
+                            className="flex items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={Boolean(item.checked)}
+                              onCheckedChange={(checked) => {
+                                setParticulars((prev) =>
+                                  prev.map((row) =>
+                                    row === item
+                                      ? { ...row, checked: Boolean(checked) }
+                                      : row,
+                                  ),
+                                );
+                              }}
+                            />
+                            {String(
+                              item.particularsName ??
+                                item.particularsCode ??
+                                "",
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {applyMode === "4" ? (
+                <div className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <Select
+                      label="Financial Year"
+                      value={financialYearId}
+                      onChange={handleFinancialYearChange}
+                      options={financialYears.map((y) => ({
+                        value: String(y.financialYearId),
+                        label: String(y.financialYear ?? y.financialYearId),
+                      }))}
+                      placeholder="Select financial year"
+                    />
+                  </div>
+                  {particulars.length > 0 ? (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-blue-600">
+                        Fee Particulars :
+                      </h3>
+                      {particulars.map((item, i) => (
+                        <label
+                          key={`${String(item.particularsCode)}-${i}`}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            checked={Boolean(item.checked)}
+                            onCheckedChange={(checked) => {
+                              setParticulars((prev) =>
+                                prev.map((row, idx) =>
+                                  idx === i
+                                    ? { ...row, checked: Boolean(checked) }
+                                    : row,
+                                ),
+                              );
+                            }}
+                          />
+                          {String(
+                            item.particularsName ?? item.particularsCode ?? "",
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {showPrint ? (
+                <div className="flex justify-end">
+                  <Button type="button" onClick={handlePrint}>
+                    Print
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null
+        }
+      />
+
+      {selectedStudent && orgCode ? (
+        <BonafideConductCertificatePrint
+          orgCode={orgCode}
+          student={selectedStudent}
+          purpose={resolvedPurpose}
+          printDate={printDate}
+          feeCertificateData={
+            feeCertificateData as Record<string, unknown> | null
+          }
+        />
+      ) : null}
+    </>
+  );
 }

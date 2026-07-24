@@ -1,13 +1,16 @@
 import {
   buildQuery,
+  clearProcGetCache,
   domainCreate,
   domainList,
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   putDetails,
 } from "@/services/crud";
+import { AppError } from "@/lib/errors";
 import {
   EXAM_EVAL_API,
   NEXT_API,
@@ -118,7 +121,10 @@ export async function updateExamQuestionPaper(
     pkExamQuestionpaperId: examQuestionPaperId,
   };
   try {
-    return await putDetails<AnyRow>(EXAM_EVAL_API.UPDATE_EXAM_QUESTION_PAPERS, body);
+    return await putDetails<AnyRow>(
+      EXAM_EVAL_API.UPDATE_EXAM_QUESTION_PAPERS,
+      body,
+    );
   } catch {
     // Fallback: standard domain update used elsewhere for ExamQuestionPapers.
     return domainUpdate<AnyRow>(
@@ -153,10 +159,10 @@ function pickUploadPath(data: unknown, keys: string[]): string {
 }
 
 /**
- * Upload Question Paper and/or Model Answer Paper files for an
- * exam question paper. Same API as Angular Network call:
- * POST /cms/uploadquestionpapermodelanswerpapers
+ * Angular UploadPapers → POST uploadquestionpapermodelanswerpapers only.
+ * Do NOT call ExamQuestionPapers / updateExamQuestionPapers (Angular does not).
  * FormData: questionPaperId, questionPaper, modelAnswerPaper
+ * Spring data: List&lt;String&gt; [qpPath, asPath?]
  */
 export async function uploadQuestionPaperFiles(params: {
   examQuestionPaperId: number;
@@ -166,11 +172,9 @@ export async function uploadQuestionPaperFiles(params: {
   success: boolean;
   message: string;
   data?: AnyRow;
-  /** True when a non-empty QP/AS path is known after upload + entity re-read. */
   persisted: boolean;
 }> {
   const formData = new FormData();
-  // Angular UploadPapersComponent: questionPaperId = row.pk_exam_questionpaper_id
   formData.append("questionPaperId", String(params.examQuestionPaperId));
   for (const f of params.questionPapers ?? []) {
     formData.append("questionPaper", f, f.name);
@@ -187,74 +191,44 @@ export async function uploadQuestionPaperFiles(params: {
   const body = (await res.json().catch(() => null)) as {
     success?: boolean;
     message?: string;
-    data?: AnyRow;
+    data?: unknown;
   } | null;
 
   if (!res.ok) {
     throw new Error(body?.message ?? `Upload failed (${res.status}).`);
   }
 
-  let qpPath = pickUploadPath(body.data ?? body, [
-    "questionPaperPath",
-    "questionpaper_path",
-    "questionPaper",
-    "path",
-  ]);
-  let asPath = pickUploadPath(body.data ?? body, [
-    "modelAnswerSheetPath",
-    "modelanswersheet_path",
-    "modelAnswerPaper",
-    "modelAnswerPath",
-  ]);
-
-  // Upload may store files without returning paths. Re-read ExamQuestionPapers
-  // (PK: questionPaperId) so Get List / filter changes can show the eye.
-  try {
-    const details = await domainList<AnyRow>(
-      EXAM_EVAL_API.QUESTION_PAPERS,
-      buildQuery({ questionPaperId: params.examQuestionPaperId }),
+  let qpPath = "";
+  let asPath = "";
+  if (Array.isArray(body?.data)) {
+    const paths = body.data.filter(
+      (p): p is string => typeof p === "string" && p.trim() !== "",
     );
-    const detail = Array.isArray(details) ? details[0] : undefined;
-    if (detail) {
-      qpPath =
-        qpPath ||
-        pickUploadPath(detail, ["questionPaperPath", "questionpaper_path"]);
-      asPath =
-        asPath ||
-        pickUploadPath(detail, [
-          "modelAnswerSheetPath",
-          "modelanswersheet_path",
-        ]);
-    }
-  } catch {
-    /* keep paths from upload response */
+    qpPath = paths[0] ?? "";
+    asPath = paths[1] ?? "";
+  } else {
+    qpPath = pickUploadPath(body?.data ?? body, [
+      "questionPaperPath",
+      "questionpaper_path",
+      "questionPaper",
+      "path",
+    ]);
+    asPath = pickUploadPath(body?.data ?? body, [
+      "modelAnswerSheetPath",
+      "modelanswersheet_path",
+      "modelAnswerPaper",
+      "modelAnswerPath",
+    ]);
   }
 
-  if (qpPath || asPath) {
-    try {
-      await updateExamQuestionPaper(params.examQuestionPaperId, {
-        ...(qpPath ? { questionPaperPath: qpPath } : {}),
-        ...(asPath ? { modelAnswerSheetPath: asPath } : {}),
-      });
-    } catch {
-      /* Prefer list enrich / client cache even if explicit path update fails */
-    }
-  }
-
-  const persisted = Boolean(qpPath || asPath);
-  // Angular parent treats any HTTP body as truthy and still refreshes the list.
-  // We only claim a durable upload when a stored path is available.
+  const ok = body != null && body.success !== false;
   return {
-    success: body?.success !== false || persisted,
-    message: persisted
-      ? body?.message && !/no records?/i.test(body.message)
-        ? body.message
-        : "Uploaded successfully."
-      : body?.message?.trim() ||
-        "Upload finished but no file path was saved on the question paper.",
-    persisted,
+    success: ok,
+    message:
+      body?.message?.trim() ||
+      (ok ? "Uploaded successfully." : "Upload failed."),
+    persisted: ok,
     data: {
-      ...(typeof body?.data === "object" && body.data ? body.data : {}),
       questionPaperPath: qpPath || undefined,
       questionpaper_path: qpPath || undefined,
       modelAnswerSheetPath: asPath || undefined,
@@ -325,51 +299,17 @@ export async function getAssignQuestionPaperTemplateList(params: {
     in_subject_id: params.subjectId ?? 0,
   };
 
-  // Angular uses CONSTANTS.getQuestionPaperAssignments via getDetailsByRequest
-  // (REST), not the stored-proc first. Prefer that so we get template_title /
-  // fk_exam_questionpaper_template_id for the Create QP modal dropdown.
-  const endpointCandidates = [
-    "getQuestionPaperAssignments",
-    "getQPAssignments",
-  ];
-  for (const endpoint of endpointCandidates) {
-    try {
-      const data = await fetchDetails<unknown>(endpoint, payload);
-      const rows = unpackAssignmentRows(data).map(normalizeTemplateAssignmentRow);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next
-    }
-  }
-
+  // Only the working proc — do not probe camelCase REST aliases (404 noise).
+  // Called when opening "+ Exam Question Paper", not on Upload QP & AS.
   try {
     const primary = await getAllRecords<unknown>(
       "s_get_question_paper_assignments",
       payload,
     );
-    const rows = unpackAssignmentRows(primary).map(normalizeTemplateAssignmentRow);
-    if (rows.length > 0) return rows;
+    return unpackAssignmentRows(primary).map(normalizeTemplateAssignmentRow);
   } catch {
-    // fall through
+    return [];
   }
-
-  const procCandidates = [
-    "s_get_examquestionpaper_details",
-    "s_get_examevaluation_bycodes",
-  ];
-  for (const proc of procCandidates) {
-    try {
-      const data = await getAllRecords<unknown>(proc, {
-        in_flag: "getQuestionPaperAssignments",
-        ...payload,
-      });
-      const rows = unpackAssignmentRows(data).map(normalizeTemplateAssignmentRow);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next proc
-    }
-  }
-  return [];
 }
 
 export async function getQuestionPaperTemplateViewRows(
@@ -405,7 +345,10 @@ export async function getQuestionPaperTemplateViewRows(
   ).catch(() => ({ result: [] }));
   if (Array.isArray(data?.result?.[0])) return data.result?.[0] ?? [];
   // Some proxies return a flat result list
-  if (Array.isArray((data as AnyRow)?.result) && !Array.isArray((data as AnyRow).result?.[0])) {
+  if (
+    Array.isArray((data as AnyRow)?.result) &&
+    !Array.isArray((data as AnyRow).result?.[0])
+  ) {
     return ((data as AnyRow).result as AnyRow[]) ?? [];
   }
   return [];
@@ -790,73 +733,11 @@ export async function getFinalizeSubjectUc(params: {
   });
 }
 
-/** Merge QP / AS file paths from ExamQuestionPapers CRUD (list proc often omits them). */
+/** Kept for callers; Angular list uses proc paths only — no domain re-read. */
 export async function enrichQuestionPaperFilePaths(
   rows: AnyRow[],
 ): Promise<AnyRow[]> {
-  if (!Array.isArray(rows) || rows.length === 0) return rows;
-
-  const pickPath = (row: AnyRow | undefined, keys: string[]) => {
-    if (!row) return "";
-    for (const k of keys) {
-      const v = row[k];
-      if (v != null && String(v).trim() !== "") return String(v).trim();
-    }
-    return "";
-  };
-
-  return Promise.all(
-    rows.map(async (row) => {
-      const id = Number(
-        row.pk_exam_questionpaper_id ??
-          row.questionPaperId ??
-          row.examQuestionPaperId ??
-          0,
-      );
-      const qp = pickPath(row, ["questionpaper_path", "questionPaperPath"]);
-      const as = pickPath(row, [
-        "modelanswersheet_path",
-        "modelAnswerSheetPath",
-      ]);
-      if (!id || (qp && as)) {
-        return {
-          ...row,
-          questionpaper_path: qp || row.questionpaper_path,
-          questionPaperPath: qp || row.questionPaperPath,
-          modelanswersheet_path: as || row.modelanswersheet_path,
-          modelAnswerSheetPath: as || row.modelAnswerSheetPath,
-        };
-      }
-
-      // PK is questionPaperId — examQuestionPaperId query 500s on this entity.
-      let detail: AnyRow | undefined;
-      try {
-        const list = await domainList<AnyRow>(
-          EXAM_EVAL_API.QUESTION_PAPERS,
-          buildQuery({ questionPaperId: id }),
-        );
-        if (Array.isArray(list) && list[0]) detail = list[0];
-      } catch {
-        /* leave detail unset */
-      }
-      if (!detail) return row;
-
-      const qpPath =
-        qp ||
-        pickPath(detail, ["questionPaperPath", "questionpaper_path"]);
-      const asPath =
-        as ||
-        pickPath(detail, ["modelAnswerSheetPath", "modelanswersheet_path"]);
-
-      return {
-        ...row,
-        questionpaper_path: qpPath || null,
-        questionPaperPath: qpPath || null,
-        modelanswersheet_path: asPath || null,
-        modelAnswerSheetPath: asPath || null,
-      };
-    }),
-  );
+  return Array.isArray(rows) ? rows : [];
 }
 
 export async function listFinalizableQuestionPapers(params: {
@@ -904,10 +785,8 @@ export async function listFinalizableQuestionPapers(params: {
     },
   );
   const groups = data?.result ?? [];
-  const list = (groups[0] ?? []).filter(Boolean);
-  // list_questionpaper_list often returns null questionpaper_path even when
-  // ExamQuestionPapers has the file path — enrich so the eye icon survives refresh.
-  return enrichQuestionPaperFilePaths(list);
+  // Angular getQuestionpapers: use proc rows only (no ExamQuestionPapers domain).
+  return (groups[0] ?? []).filter(Boolean);
 }
 
 export async function finalizeOneQuestionPaper(params: {
@@ -961,6 +840,7 @@ export async function publishQuestionPaperColleges(
 }
 
 function openPdfFromBase64(base64: string): void {
+  // Angular getPdfPath: atob → Uint8Array → Blob(application/pdf) → window.open
   let normalized = String(base64 ?? "")
     .replace(/\s/g, "")
     .replace(/-/g, "+")
@@ -970,59 +850,64 @@ function openPdfFromBase64(base64: string): void {
   else if (pad === 3) normalized += "=";
 
   const byteCharacters = atob(normalized);
-  const byteNumbers = new Array(byteCharacters.length);
+  const byteArray = new Uint8Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
+    byteArray[i] = byteCharacters.charCodeAt(i);
   }
-  const blob = new Blob([new Uint8Array(byteNumbers)], {
-    type: "application/pdf",
-  });
+  const blob = new Blob([byteArray], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
-  globalThis.open?.(url, "_blank", "noopener,noreferrer");
+  globalThis.open?.(url, "_blank");
 }
 
 export type QpDownloadKind = "questionPaper" | "modelAnswer";
 
-const QP_BASE64_KEYS = [
-  "questionPaperBase64",
-  "questionpaperBase64",
-  "question_paper_base64",
-] as const;
-const AS_BASE64_KEYS = [
-  "modelAnswerSheetBase64",
-  "modelAnswerPaperBase64",
-  "modelanswersheetBase64",
-  "answerSheetBase64",
-  "model_answer_sheet_base64",
-] as const;
-
-function pickBase64Field(data: AnyRow | null | undefined, keys: readonly string[]): string {
+/** Angular getPdfPath: result.data.questionPaperBase64 / result.data.modelAnswerBase64 */
+function pickAngularQpBase64(
+  data: AnyRow | null | undefined,
+  kind: QpDownloadKind,
+): string {
   if (!data || typeof data !== "object") return "";
-  for (const k of keys) {
-    const v = data[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  const nested = data.data;
-  if (typeof nested === "string" && nested.trim()) return nested.trim();
-  if (nested && typeof nested === "object") {
-    for (const k of keys) {
-      const v = (nested as AnyRow)[k];
-      if (typeof v === "string" && v.trim()) return v.trim();
+  // Prefer exact Angular field names first.
+  const primary =
+    kind === "modelAnswer" ? data.modelAnswerBase64 : data.questionPaperBase64;
+  if (typeof primary === "string" && primary.length > 0) return primary;
+
+  const nested =
+    data.data && typeof data.data === "object" ? (data.data as AnyRow) : null;
+  if (nested) {
+    const nestedPrimary =
+      kind === "modelAnswer"
+        ? nested.modelAnswerBase64
+        : nested.questionPaperBase64;
+    if (typeof nestedPrimary === "string" && nestedPrimary.length > 0) {
+      return nestedPrimary;
     }
   }
   return "";
 }
 
-/** Soft GET — never throws (API often returns success:false "No Records(s) found."). */
+/**
+ * Angular getBase64String(downloadQPAndAnswerSheetUrl, '', [{paramName:'id=', paramValue:id}])
+ * Returns the full API envelope so callers can read data.modelAnswerBase64.
+ */
 export async function fetchQuestionPaperDownloadData(
   questionPaperId: number,
 ): Promise<AnyRow | null> {
   if (!questionPaperId) return null;
   try {
-    return await fetchDetails<AnyRow>(
-      QUESTION_PAPER_API.DOWNLOAD_QP_AND_ANSWER_SHEET,
-      { id: questionPaperId },
+    const res = await fetch(
+      NEXT_API.PROXY(
+        `${QUESTION_PAPER_API.DOWNLOAD_QP_AND_ANSWER_SHEET}?id=${questionPaperId}`,
+      ),
+      { credentials: "include", cache: "no-store" },
     );
+    const body = (await res.json().catch(() => null)) as AnyRow | null;
+    if (!res.ok || !body) return null;
+    // Angular checks statusCode === 200; also accept success:true.
+    if (body.success === false && Number(body.statusCode) !== 200) return null;
+    // Return inner data object (fields: questionPaperBase64, modelAnswerBase64).
+    if (body.data && typeof body.data === "object") return body.data as AnyRow;
+    return body;
   } catch {
     return null;
   }
@@ -1034,8 +919,8 @@ export async function getQuestionPaperPdfAvailability(
   const data = await fetchQuestionPaperDownloadData(questionPaperId);
   if (!data) return { qp: false, as: false };
   return {
-    qp: Boolean(pickBase64Field(data, QP_BASE64_KEYS)),
-    as: Boolean(pickBase64Field(data, AS_BASE64_KEYS)),
+    qp: Boolean(pickAngularQpBase64(data, "questionPaper")),
+    as: Boolean(pickAngularQpBase64(data, "modelAnswer")),
   };
 }
 
@@ -1075,7 +960,6 @@ export async function markQuestionPaperPdfAvailability(
       const avail = await getQuestionPaperPdfAvailability(id);
       return {
         ...row,
-        // Keep session/cache flags if download probe is empty (list path often null).
         _qpPdfAvailable: hasQpPath || avail.qp || Boolean(row._qpPdfAvailable),
         _asPdfAvailable: hasAsPath || avail.as || Boolean(row._asPdfAvailable),
       };
@@ -1085,12 +969,10 @@ export async function markQuestionPaperPdfAvailability(
 }
 
 /**
- * Angular preview via download API (not MinIO direct URL):
- *   GET downloadQPAndAnswerSheet?id={questionPaperId}
- *   → data.questionPaperBase64 / modelAnswerSheetBase64 → PDF blob in new tab
- *
- * Direct MinIO links often 404 (NoSuchKey) when NEXT_PUBLIC_MINIO_URL points at
- * a different host/bucket than where Spring stored the file.
+ * Angular openFile(id, type) → getPdfPath — exact field names:
+ *   GET downloadQPAndAnswerSheet?id=
+ *   type 'ANS' → result.data.modelAnswerBase64
+ *   type 'QP'  → result.data.questionPaperBase64
  */
 export async function downloadAndOpenQuestionPaperPdf(
   questionPaperId: number,
@@ -1099,10 +981,43 @@ export async function downloadAndOpenQuestionPaperPdf(
   if (!questionPaperId) {
     throw new Error("Question paper id is required.");
   }
-  const data = await fetchQuestionPaperDownloadData(questionPaperId);
-  const keys = kind === "modelAnswer" ? AS_BASE64_KEYS : QP_BASE64_KEYS;
-  const base64 = pickBase64Field(data, keys);
-  if (!base64) {
+
+  const url = NEXT_API.PROXY(
+    `${QUESTION_PAPER_API.DOWNLOAD_QP_AND_ANSWER_SHEET}?id=${questionPaperId}`,
+  );
+  const res = await fetch(url, { credentials: "include", cache: "no-store" });
+  const result = (await res.json().catch(() => null)) as {
+    success?: boolean;
+    statusCode?: number;
+    message?: string;
+    data?: {
+      questionPaperBase64?: string | null;
+      modelAnswerBase64?: string | null;
+    } | null;
+  } | null;
+
+  if (!res.ok || !result) {
+    throw new Error(result?.message ?? "Failed to fetch PDF.");
+  }
+  // Angular: if (result.statusCode === 200)
+  if (result.statusCode !== 200 && result.success === false) {
+    throw new Error(result.message ?? "Failed to fetch PDF.");
+  }
+  if (!result.data) {
+    throw new Error(
+      kind === "modelAnswer"
+        ? "Model answer PDF is not available."
+        : "Question paper PDF is not available.",
+    );
+  }
+
+  // Angular exact: type === 'ANS' ? modelAnswerBase64 : questionPaperBase64
+  const base64 =
+    kind === "modelAnswer"
+      ? result.data.modelAnswerBase64
+      : result.data.questionPaperBase64;
+
+  if (typeof base64 !== "string" || base64.length === 0) {
     throw new Error(
       kind === "modelAnswer"
         ? "Model answer PDF is not available."
@@ -1329,7 +1244,7 @@ export async function listEvaluationModerationData(params: {
     in_exam_date: "1990-01-01",
     in_emp_id: 0,
     in_questionpaper_id: 0,
-    in_evaluator_role_id: params.in_evaluator_role_id,
+    in_evaluator_role_id: 0,
     in_academic_year: "",
     in_exam_short_name: "",
     in_affiliatedto_catdet_id: 0,
@@ -1341,6 +1256,10 @@ export async function listEvaluationModerationData(params: {
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId || 0,
   };
+  // Angular goldcollegeerp evaluation-moderation Get List:
+  //   getstudentList → list_moderation_evaluationstudent_list (role 0)
+  //   getEvaluationList → list_moderation_evaluatorassignment_list (role 64)
+  //   totals (totalStudents / Uploaded / UnAssinged) come from result[1]
   const toResultGroups = async (
     flag:
       | "list_moderation_evaluatorassignment_list"
@@ -1365,13 +1284,14 @@ export async function listEvaluationModerationData(params: {
     }
   };
 
-  const evaluatorGroups = await toResultGroups(
-    "list_moderation_evaluatorassignment_list",
-    64,
-  );
+  // Angular: students first, then evaluators (getstudentList → getEvaluationList).
   const studentGroups = await toResultGroups(
     "list_moderation_evaluationstudent_list",
     0,
+  );
+  const evaluatorGroups = await toResultGroups(
+    "list_moderation_evaluatorassignment_list",
+    64,
   );
   return {
     evaluators: evaluatorGroups[0] ?? [],
@@ -1386,7 +1306,7 @@ export async function listEvaluationModerationData(params: {
  *   GET getAllRecords/s_pop_exam_evaluatorassignment
  *   in_flag = AssignModerationEvaluation
  *   in_profileids = Formdata.examEvaluatorProfileId
- *     (pk_examevaluator_profiledet_id or pk_exam_evaluator_profile_id per Angular build)
+ *     (prefer pk_examevaluator_profiledet_id — same as multi-evaluator-assign)
  */
 export async function assignModerationEvaluation(params: {
   profileId: number;
@@ -1394,8 +1314,11 @@ export async function assignModerationEvaluation(params: {
   subjectId: number;
   courseYearId: number;
   omrSerialNos: string;
-}): Promise<AnyRow> {
-  return getAllRecords<AnyRow>("s_pop_exam_evaluatorassignment", {
+}): Promise<void> {
+  // Write proc — never use the cached getAllRecords path.
+  clearProcGetCache("s_pop_exam_evaluatorassignment");
+  clearProcGetCache("s_get_examevaluation_bycodes");
+  const body = await getAllRecordsEnvelope("s_pop_exam_evaluatorassignment", {
     in_flag: "AssignModerationEvaluation",
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: "",
@@ -1405,6 +1328,12 @@ export async function assignModerationEvaluation(params: {
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
   });
+  if (!body.success) {
+    throw new AppError(
+      "API_ERROR",
+      body.message ?? "Failed to assign moderation evaluation.",
+    );
+  }
 }
 
 export async function getChiefEvaluationFilters(

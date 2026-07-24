@@ -517,9 +517,12 @@ export default function StudentPassoutPage() {
         </div>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-4 " data-no-page-name>
         {students.length > 0 && (
-          <div className="rounded-lg border bg-card shadow-sm">
+          <div
+            className="rounded-lg border bg-card shadow-sm"
+            data-no-page-name
+          >
             <div className="border-b px-4 py-3">
               <p className="text-sm font-medium">
                 Students — {headerLine.clg} / {headerLine.ac} / {headerLine.cr}{" "}

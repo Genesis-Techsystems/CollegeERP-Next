@@ -1,56 +1,60 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { ActiveStatusField } from '@/common/components/forms'
-import { Select, type SelectOption } from '@/common/components/select'
+import { useEffect, useMemo } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
+import { FormModal } from "@/common/components/feedback";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, type SelectOption } from "@/common/components/select";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { QK } from "@/lib/query-keys";
 import {
   createInvItemSubCategory,
+  listActiveOrganizationsForInventory,
   listInvItemCategories,
   updateInvItemSubCategory,
-} from '@/services'
-import { QK } from '@/lib/query-keys'
-import type { InvItemSubCategory } from '@/types/inventory'
-import { getInventoryOrganizationId } from '../_lib/inventory-org'
+} from "@/services";
+import type { InvItemSubCategory } from "@/types/inventory";
 
 const schema = z.object({
-  itemCategoryId: z.coerce.number().min(1, 'Category is required'),
-  subcategoryCode: z.string().min(1, 'Subcategory code is required'),
-  subcategoryName: z.string().min(1, 'Subcategory name is required'),
+  organizationId: z.coerce.number().min(1, "Organization is required"),
+  itemCategoryId: z.coerce.number().min(1, "Item Category is required"),
+  subcategoryName: z.string().min(1, "Item Sub Category Name is required"),
+  subcategoryCode: z.string().min(1, "Item Sub Category Code is required"),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+});
+type FormValues = z.infer<typeof schema>;
 
 function getDefaults(edit?: InvItemSubCategory | null): FormValues {
   return {
+    organizationId: edit?.organizationId ?? 0,
     itemCategoryId: edit?.itemCategoryId ?? 0,
-    subcategoryCode: edit?.subcategoryCode ?? '',
-    subcategoryName: edit?.subcategoryName ?? '',
+    subcategoryName: edit?.subcategoryName ?? "",
+    subcategoryCode: edit?.subcategoryCode ?? "",
     isActive: edit?.isActive ?? true,
-    reason: edit?.reason ?? 'active',
-  }
+    reason: edit?.reason ?? "active",
+  };
 }
 
 interface Props {
-  open: boolean
-  onClose: () => void
-  editData: InvItemSubCategory | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  editData: InvItemSubCategory | null;
+  onSaved: () => void;
 }
 
-export default function ItemSubCategoryModal({ open, onClose, editData, onSaved }: Props) {
-  const organizationId = getInventoryOrganizationId()
-
+export default function ItemSubCategoryModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Props) {
   const {
     register,
     handleSubmit,
@@ -62,100 +66,191 @@ export default function ItemSubCategoryModal({ open, onClose, editData, onSaved 
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
-  })
+  });
 
+  const isActive = watch("isActive");
+
+  /** Angular: listDetailsById(Organization, 'true', 'isActive') → size=99999&query=isActive==true */
+  const { data: organizations = [], isLoading: orgsLoading } = useQuery({
+    queryKey: ["Organizations", "activeForInventory"],
+    queryFn: listActiveOrganizationsForInventory,
+    enabled: open,
+  });
+
+  /** Angular: listAllDetails(InvItemcategory) → query=order(createdDt=desc)&size=99999 */
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
     queryKey: QK.invItemCategories.list(),
     queryFn: listInvItemCategories,
     enabled: open,
-  })
+  });
+
+  const organizationOptions: SelectOption[] = useMemo(
+    () =>
+      organizations.map((o) => ({
+        value: String(o.organizationId ?? ""),
+        label: String(o.orgCode ?? o.orgName ?? o.organizationId ?? ""),
+      })),
+    [organizations],
+  );
 
   const categoryOptions: SelectOption[] = useMemo(
-    () => categories.map((c) => ({
-      value: String(c.itemCategoryId),
-      label: c.categoryName ?? c.categoryCode ?? String(c.itemCategoryId),
-    })),
+    () =>
+      categories.map((c) => ({
+        value: String(c.itemCategoryId),
+        label: c.categoryName ?? c.categoryCode ?? String(c.itemCategoryId),
+      })),
     [categories],
-  )
+  );
 
   useEffect(() => {
-    reset(getDefaults(editData))
-  }, [open, editData, reset])
+    if (!open) return;
+    reset(getDefaults(editData));
+  }, [open, editData, reset]);
 
   async function onSubmit(values: FormValues) {
     const payload: Partial<InvItemSubCategory> = {
+      organizationId: values.organizationId,
       itemCategoryId: values.itemCategoryId,
-      subcategoryCode: values.subcategoryCode.trim(),
       subcategoryName: values.subcategoryName.trim(),
-      organizationId,
+      subcategoryCode: values.subcategoryCode.trim(),
       isActive: values.isActive,
-      reason: values.isActive ? 'active' : (values.reason?.trim() || 'inactive'),
+      reason: values.isActive ? "active" : values.reason?.trim() || "inactive",
+    };
+
+    try {
+      if (editData) {
+        // Angular sets details.itemSubcategoryId before updateDetails(..., itemSubcategoryId, 'itemSubcategoryId')
+        await updateInvItemSubCategory(editData.itemSubcategoryId, {
+          ...payload,
+          itemSubcategoryId: editData.itemSubcategoryId,
+        });
+        toastSuccess("Item sub category updated successfully.");
+      } else {
+        await createInvItemSubCategory(payload);
+        toastSuccess("Item sub category created successfully.");
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      toastError(getErrorMessage(err));
     }
-    if (editData) {
-      await updateInvItemSubCategory(editData.itemSubcategoryId, payload)
-    } else {
-      await createInvItemSubCategory(payload)
-    }
-    onSaved()
-    onClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Sub Category' : 'Add Sub Category'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <Controller
-            name="itemCategoryId"
-            control={control}
-            render={({ field }) => (
-              <Select
-                label="Category *"
-                value={field.value > 0 ? String(field.value) : null}
-                onChange={(v) => field.onChange(v ? Number(v) : 0)}
-                options={categoryOptions}
-                placeholder="Select category"
-                isLoading={categoriesLoading}
-                searchable
-                error={errors.itemCategoryId?.message}
-              />
-            )}
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={editData ? "Edit Item Sub Category" : "Add Item Sub Category"}
+      titleClassName="text-[hsl(var(--primary))] text-base font-semibold"
+      size="lg"
+      isSubmitting={isSubmitting}
+      submitLabel="Save"
+      cancelLabel="Cancel"
+      formClassName="space-y-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }}
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Controller
+          name="organizationId"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Organization *"
+              value={field.value > 0 ? String(field.value) : null}
+              onChange={(v) => field.onChange(v ? Number(v) : 0)}
+              options={organizationOptions}
+              placeholder="Organization"
+              isLoading={orgsLoading}
+              searchable
+              error={errors.organizationId?.message}
+            />
+          )}
+        />
+        <Controller
+          name="itemCategoryId"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Item Category *"
+              value={field.value > 0 ? String(field.value) : null}
+              onChange={(v) => field.onChange(v ? Number(v) : 0)}
+              options={categoryOptions}
+              placeholder="Item Category"
+              isLoading={categoriesLoading}
+              searchable
+              error={errors.itemCategoryId?.message}
+            />
+          )}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-0.5">
+          <Label className="text-xs">Item Sub Category Name *</Label>
+          <Input
+            className="h-8 text-xs"
+            placeholder="Item Sub Category Name"
+            {...register("subcategoryName")}
           />
-          <div className="space-y-0.5">
-            <Label className="text-xs">Subcategory Code *</Label>
-            <Input className="h-8 text-xs" {...register('subcategoryCode')} />
-            {errors.subcategoryCode && <p className="text-xs text-red-500">{errors.subcategoryCode.message}</p>}
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Subcategory Name *</Label>
-            <Input className="h-8 text-xs" {...register('subcategoryName')} />
-            {errors.subcategoryName && <p className="text-xs text-red-500">{errors.subcategoryName.message}</p>}
-          </div>
-          <Controller
-            name="isActive"
-            control={control}
-            render={({ field }) => (
-              <ActiveStatusField
-                isActive={field.value}
-                reason={watch('reason') ?? ''}
-                onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', v)}
-                reasonError={errors.reason?.message}
-              />
-            )}
+          {errors.subcategoryName && (
+            <p className="text-xs text-red-500">
+              {errors.subcategoryName.message}
+            </p>
+          )}
+        </div>
+        <div className="space-y-0.5">
+          <Label className="text-xs">Item Sub Category Code *</Label>
+          <Input
+            className="h-8 text-xs"
+            placeholder="Item Sub Category Code"
+            {...register("subcategoryCode")}
           />
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+          {errors.subcategoryCode && (
+            <p className="text-xs text-red-500">
+              {errors.subcategoryCode.message}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Controller
+          name="isActive"
+          control={control}
+          render={({ field }) => (
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="itemSubCategoryIsActive"
+                checked={field.value}
+                onCheckedChange={(v) => {
+                  const active = v === true;
+                  field.onChange(active);
+                  if (active) setValue("reason", "active");
+                }}
+              />
+              <Label
+                htmlFor="itemSubCategoryIsActive"
+                className="text-xs font-normal cursor-pointer"
+              >
+                Active
+              </Label>
+            </div>
+          )}
+        />
+        {!isActive && (
+          <div className="space-y-0.5">
+            <Label className="text-xs">Reason</Label>
+            <Input
+              className="h-8 text-xs"
+              placeholder="Reason"
+              {...register("reason")}
+            />
+          </div>
+        )}
+      </div>
+    </FormModal>
+  );
 }

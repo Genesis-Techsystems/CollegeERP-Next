@@ -1,110 +1,116 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Pencil, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Pencil, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { FilteredPage } from '@/components/layout'
-import { SearchInput } from '@/common/components/search'
-import { RichTextEditor } from '@/common/components/rich-text-editor'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/components/ui/dialog";
+import { FilteredPage } from "@/components/layout";
+import { SearchInput } from "@/common/components/search";
+import { RichTextEditor } from "@/common/components/rich-text-editor";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   getQuestionPaperMarksById,
   getQuestionPaperTemplateViewRows,
   updateQuestionPaperMarks,
-} from '@/services/evaluation-process'
+} from "@/services/evaluation-process";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
 function htmlToPlaintext(html: unknown): string {
-  if (html == null) return ''
+  if (html == null) return "";
   return String(html)
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .trim()
+    .trim();
 }
 
 function pickText(row: AnyRow | null | undefined, keys: string[]) {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
+  return "";
 }
 
 export default function ManageQuestionsPaperPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const params = useMemo(
     () => ({
       questionPaperId: Number(
-        searchParams?.get('questionPaperId') ?? searchParams?.get('examQuestionPaperId') ?? 0,
+        searchParams?.get("questionPaperId") ??
+          searchParams?.get("examQuestionPaperId") ??
+          0,
       ),
       templateId: Number(
-        searchParams?.get('examQuestionPaperTemplateId') ?? searchParams?.get('pkEQPTid') ?? 0,
+        searchParams?.get("examQuestionPaperTemplateId") ??
+          searchParams?.get("pkEQPTid") ??
+          0,
       ),
       questionPaperTitle:
-        searchParams?.get('questionPaperTitle') ?? searchParams?.get('questionpaper_title') ?? '',
-      questionPaperCode: searchParams?.get('questionPaperCode') ?? '',
-      examName: searchParams?.get('examName') ?? '',
-      subjectName: searchParams?.get('subjectName') ?? '',
-      subjectCode: searchParams?.get('subjectCode') ?? '',
-      totalmarks: searchParams?.get('totalmarks') ?? '',
+        searchParams?.get("questionPaperTitle") ??
+        searchParams?.get("questionpaper_title") ??
+        "",
+      questionPaperCode: searchParams?.get("questionPaperCode") ?? "",
+      examName: searchParams?.get("examName") ?? "",
+      subjectName: searchParams?.get("subjectName") ?? "",
+      subjectCode: searchParams?.get("subjectCode") ?? "",
+      totalmarks: searchParams?.get("totalmarks") ?? "",
     }),
     [searchParams],
-  )
+  );
 
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<AnyRow | null>(null)
-  const [editQuestion, setEditQuestion] = useState('')
-  const [editMarks, setEditMarks] = useState<string>('')
-  const [editSaving, setEditSaving] = useState(false)
-  const [editLoading, setEditLoading] = useState(false)
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<AnyRow | null>(null);
+  const [editQuestion, setEditQuestion] = useState("");
+  const [editMarks, setEditMarks] = useState<string>("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
   async function refresh() {
     if (!params.templateId) {
-      setRows([])
-      return
+      setRows([]);
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       const data = await getQuestionPaperTemplateViewRows(
         params.templateId,
         params.questionPaperId || undefined,
-      ).catch(() => [])
-      setRows(Array.isArray(data) ? data : [])
+      ).catch(() => []);
+      setRows(Array.isArray(data) ? data : []);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    void refresh()
+    void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.templateId, params.questionPaperId])
+  }, [params.templateId, params.questionPaperId]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return rows
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
     return rows.filter((r) => {
       const hay = [
         r.questioncode,
@@ -113,58 +119,78 @@ export default function ManageQuestionsPaperPage() {
         r.question_marks,
         r.individual_question_marks,
       ]
-        .map((v) => String(v ?? '').toLowerCase())
-        .join(' ')
-      return hay.includes(q)
-    })
-  }, [rows, search])
+        .map((v) => String(v ?? "").toLowerCase())
+        .join(" ");
+      return hay.includes(q);
+    });
+  }, [rows, search]);
 
   function navigateBack() {
-    const qp = new URLSearchParams()
-    const carry = ['courseId', 'academicYearId', 'examId', 'subjectId', 'regulationId']
+    const qp = new URLSearchParams();
+    const carry = [
+      "courseId",
+      "academicYearId",
+      "examId",
+      "subjectId",
+      "regulationId",
+    ];
     for (const k of carry) {
-      const v = searchParams?.get(k)
-      if (v) qp.set(k, v)
+      const v = searchParams?.get(k);
+      if (v) qp.set(k, v);
     }
-    const q = qp.toString()
+    const q = qp.toString();
     router.push(
-      `/admin-examination-management/evaluation-process/exam-question-paper-marks${q ? `?${q}` : ''}`,
-    )
+      `/admin-examination-management/evaluation-process/exam-question-paper-marks${q ? `?${q}` : ""}`,
+    );
   }
 
   function navigateToWithRow(path: string, row: AnyRow) {
-    const qp = new URLSearchParams()
-    qp.set('questionPaperId', String(params.questionPaperId))
-    qp.set('examQuestionPaperTemplateId', String(params.templateId))
-    qp.set('pkEQPTid', String(params.templateId))
-    qp.set('questionpaper_title', params.questionPaperTitle)
-    qp.set('examName', params.examName)
-    qp.set('subjectName', params.subjectName)
-    qp.set('subjectCode', params.subjectCode)
-    qp.set('totalmarks', params.totalmarks)
+    const qp = new URLSearchParams();
+    qp.set("questionPaperId", String(params.questionPaperId));
+    qp.set("examQuestionPaperTemplateId", String(params.templateId));
+    qp.set("pkEQPTid", String(params.templateId));
+    qp.set("questionpaper_title", params.questionPaperTitle);
+    qp.set("examName", params.examName);
+    qp.set("subjectName", params.subjectName);
+    qp.set("subjectCode", params.subjectCode);
+    qp.set("totalmarks", params.totalmarks);
     // Forward the filter ids so downstream (Question Bank) can resolve the
     // subject code from subjectId when subjectCode isn't populated.
-    const carry = ['subjectId', 'courseId', 'academicYearId', 'examId', 'regulationId']
+    const carry = [
+      "subjectId",
+      "courseId",
+      "academicYearId",
+      "examId",
+      "regulationId",
+    ];
     for (const k of carry) {
-      const v = searchParams?.get(k)
-      if (v) qp.set(k, v)
+      const v = searchParams?.get(k);
+      if (v) qp.set(k, v);
     }
     // Carry the row meta Angular sends to QB / Add Manual.
-    const meta = ['level0no', 'level1no', 'groupno', 'subgroupno', 'questionnumber', 'questioncode', 'subquestioncode']
+    const meta = [
+      "level0no",
+      "level1no",
+      "groupno",
+      "subgroupno",
+      "questionnumber",
+      "questioncode",
+      "subquestioncode",
+    ];
     for (const k of meta) {
-      const v = row?.[k]
-      if (v != null) qp.set(k, String(v))
+      const v = row?.[k];
+      if (v != null) qp.set(k, String(v));
     }
-    const iqm = row?.individual_question_marks
-    if (iqm != null) qp.set('iqm', String(iqm))
-    router.push(`${path}?${qp.toString()}`)
+    const iqm = row?.individual_question_marks;
+    if (iqm != null) qp.set("iqm", String(iqm));
+    router.push(`${path}?${qp.toString()}`);
   }
 
   function questionBank(row: AnyRow) {
     navigateToWithRow(
-      '/admin-examination-management/evaluation-process/exam-question-paper-marks/question-bank',
+      "/admin-examination-management/evaluation-process/exam-question-paper-marks/question-bank",
       row,
-    )
+    );
   }
 
   function printQuestionPaper() {
@@ -179,10 +205,10 @@ export default function ManageQuestionsPaperPage() {
       subjectName: params.subjectName,
       subjectCode: params.subjectCode,
       totalmarks: params.totalmarks,
-    })
+    });
     router.push(
       `/admin-examination-management/evaluation-process/exam-question-paper-marks/view-template?${qp.toString()}`,
-    )
+    );
   }
 
   function printQA() {
@@ -197,87 +223,94 @@ export default function ManageQuestionsPaperPage() {
       subjectName: params.subjectName,
       subjectCode: params.subjectCode,
       totalmarks: params.totalmarks,
-    })
+    });
     router.push(
       `/admin-examination-management/evaluation-process/exam-question-paper-marks/print-qa?${qp.toString()}`,
-    )
+    );
   }
 
   async function openEditQuestion(row: AnyRow) {
-    const marksId = Number(row.pk_questionpaper_marks_id ?? row.questionPaperMarksId ?? 0)
+    const marksId = Number(
+      row.pk_questionpaper_marks_id ?? row.questionPaperMarksId ?? 0,
+    );
     if (!marksId) {
-      toastError('This row has no editable question yet.')
-      return
+      toastError("This row has no editable question yet.");
+      return;
     }
     // Angular: listDetailsById first, then open EditQuestionsComponent with that row.
-    setEditLoading(true)
+    setEditLoading(true);
     try {
-      const full = await getQuestionPaperMarksById(marksId)
+      const full = await getQuestionPaperMarksById(marksId);
       if (!full) {
-        toastError('Could not load question details.')
-        return
+        toastError("Could not load question details.");
+        return;
       }
-      setEditing({ ...row, ...full, _resolvedMarksId: marksId })
-      setEditQuestion(String(full.question ?? ''))
+      setEditing({ ...row, ...full, _resolvedMarksId: marksId });
+      setEditQuestion(String(full.question ?? ""));
       const marks =
         full.questionMarks ??
         row.individual_question_marks ??
         row.question_marks ??
-        ''
-      setEditMarks(marks === '' || marks == null ? '' : String(marks))
+        "";
+      setEditMarks(marks === "" || marks == null ? "" : String(marks));
     } catch (e: any) {
-      toastError(e?.message ?? 'Could not load question details.')
+      toastError(e?.message ?? "Could not load question details.");
     } finally {
-      setEditLoading(false)
+      setEditLoading(false);
     }
   }
 
   async function persistEditedQuestion(next: {
-    question: string | null
-    isActive: boolean
-    questionMarks?: number | null
+    question: string | null;
+    isActive: boolean;
+    questionMarks?: number | null;
   }) {
-    if (!editing) return
-    const marksId = Number(editing._resolvedMarksId ?? editing.questionPaperMarksId ?? 0)
-    if (!marksId) return
-    setEditSaving(true)
+    if (!editing) return;
+    const marksId = Number(
+      editing._resolvedMarksId ?? editing.questionPaperMarksId ?? 0,
+    );
+    if (!marksId) return;
+    setEditSaving(true);
     try {
-      const marksRaw = editMarks.trim()
+      const marksRaw = editMarks.trim();
       const questionMarks =
         next.questionMarks !== undefined
           ? next.questionMarks
-          : marksRaw === ''
-            ? editing.questionMarks ?? null
-            : Number(marksRaw)
+          : marksRaw === ""
+            ? (editing.questionMarks ?? null)
+            : Number(marksRaw);
       await updateQuestionPaperMarks(marksId, {
         ...editing,
         question: next.question,
         isActive: next.isActive,
         questionMarks,
         questionPaperMarksId: marksId,
-      })
-      toastSuccess('Question updated.')
-      setEditing(null)
-      await refresh()
+      });
+      toastSuccess("Question updated.");
+      setEditing(null);
+      await refresh();
     } catch (e: any) {
-      toastError(e?.message ?? 'Failed to update question.')
+      toastError(e?.message ?? "Failed to update question.");
     } finally {
-      setEditSaving(false)
+      setEditSaving(false);
     }
   }
 
   async function saveEditedQuestion() {
     // Angular submit(): question from editor, questionMarks, isActive = true
-    const trimmed = editQuestion.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    const trimmed = editQuestion
+      .replace(/<[^>]*>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .trim();
     const emptyHtml =
       !editQuestion ||
-      trimmed === '' ||
-      editQuestion === '<p></p>' ||
-      editQuestion === '<p><br></p>'
+      trimmed === "" ||
+      editQuestion === "<p></p>" ||
+      editQuestion === "<p><br></p>";
     await persistEditedQuestion({
       question: emptyHtml ? null : editQuestion,
       isActive: true,
-    })
+    });
   }
 
   async function deleteEditedQuestion() {
@@ -285,34 +318,51 @@ export default function ManageQuestionsPaperPage() {
     await persistEditedQuestion({
       question: null,
       isActive: false,
-    })
+    });
   }
 
   return (
     <FilteredPage
-      title={`Manage Questions${params.questionPaperTitle ? ` (${params.questionPaperTitle})` : ''}`}
+      title={`Manage Questions${params.questionPaperTitle ? ` (${params.questionPaperTitle})` : ""}`}
       filtersCollapsible={false}
-      filters={(
+      filters={
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <SearchInput value={search} onChange={setSearch} placeholder="Search" />
+          <SearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Search"
+          />
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={navigateBack}
+            >
               Back
             </Button>
             {rows.length > 0 ? (
               <>
-                <Button type="button" className="h-8 text-[12px]" onClick={printQuestionPaper}>
+                <Button
+                  type="button"
+                  className="h-8 text-[12px]"
+                  onClick={printQuestionPaper}
+                >
                   Print Question Paper
                 </Button>
-                <Button type="button" className="h-8 text-[12px]" onClick={printQA}>
+                <Button
+                  type="button"
+                  className="h-8 text-[12px]"
+                  onClick={printQA}
+                >
                   Print QA
                 </Button>
               </>
             ) : null}
           </div>
         </div>
-      )}
-      body={(
+      }
+      body={
         <div className="-mx-5 -my-4 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[13px]">
@@ -338,45 +388,63 @@ export default function ManageQuestionsPaperPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
+                    <td
+                      colSpan={5}
+                      className="border border-border px-3 py-6 text-center text-muted-foreground"
+                    >
                       Loading…
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="border border-border px-3 py-6 text-center text-muted-foreground">
+                    <td
+                      colSpan={5}
+                      className="border border-border px-3 py-6 text-center text-muted-foreground"
+                    >
                       No questions found.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((r, i) => {
-                    const code = pickText(r, ['questioncode'])
-                    const hasCode = code.length > 0
-                    const questionHtml = String(r.question ?? '')
-                    const questionEmpty = questionHtml.trim() === ''
-                    const marksId = Number(r.pk_questionpaper_marks_id ?? r.questionPaperMarksId ?? 0)
+                    const code = pickText(r, ["questioncode"]);
+                    const hasCode = code.length > 0;
+                    const questionHtml = String(r.question ?? "");
+                    const questionEmpty = questionHtml.trim() === "";
+                    const marksId = Number(
+                      r.pk_questionpaper_marks_id ??
+                        r.questionPaperMarksId ??
+                        0,
+                    );
                     return (
                       <tr
-                        key={`mq-${r.pk_questionpaper_marks_id ?? r.questioncode ?? i}`}
+                        key={`mq-${i}-${marksId || code || "row"}`}
                         className="align-top hover:bg-muted/40"
                       >
-                        <td className="border border-border px-3 py-2 font-medium">{i + 1}</td>
-                        <td className="border border-border px-3 py-2 font-medium">{code || '-'}</td>
+                        <td className="border border-border px-3 py-2 font-medium">
+                          {i + 1}
+                        </td>
+                        <td className="border border-border px-3 py-2 font-medium">
+                          {code || ""}
+                        </td>
                         <td className="border border-border px-3 py-2 font-medium">
                           {!hasCode ? (
-                            <p className="font-bold capitalize">{htmlToPlaintext(r.QuestionTitle)}</p>
+                            <p className="font-bold capitalize">
+                              {htmlToPlaintext(r.QuestionTitle)}
+                            </p>
                           ) : (
                             <>
                               <span
                                 className="block"
-                                dangerouslySetInnerHTML={{ __html: questionHtml }}
+                                dangerouslySetInnerHTML={{
+                                  __html: questionHtml,
+                                }}
                               />
                               {questionEmpty && hasCode ? (
                                 <div className="mt-1 flex flex-wrap items-center gap-2">
                                   <Button
                                     type="button"
                                     size="sm"
-                                    className="h-7 text-[11px]"
+                                    className="h-7 min-w-[4.5rem] px-3 text-[11px]"
                                     onClick={() => questionBank(r)}
                                   >
                                     <Plus className="mr-1 h-3 w-3" /> QB
@@ -388,8 +456,8 @@ export default function ManageQuestionsPaperPage() {
                         </td>
                         <td className="border border-border px-3 py-2 text-center font-medium">
                           {hasCode
-                            ? (r.individual_question_marks ?? '-')
-                            : (r.question_marks ?? '-')}
+                            ? (r.individual_question_marks ?? "-")
+                            : (r.question_marks ?? "-")}
                         </td>
                         <td className="border border-border px-3 py-2 text-center">
                           {hasCode && marksId > 0 ? (
@@ -407,7 +475,7 @@ export default function ManageQuestionsPaperPage() {
                           ) : null}
                         </td>
                       </tr>
-                    )
+                    );
                   })
                 )}
               </tbody>
@@ -415,24 +483,42 @@ export default function ManageQuestionsPaperPage() {
           </div>
 
           <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border bg-muted/40">
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={navigateBack}>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={navigateBack}
+            >
               Back
             </Button>
             {rows.length > 0 ? (
               <>
-                <Button type="button" className="h-8 text-[12px]" onClick={printQuestionPaper}>
+                <Button
+                  type="button"
+                  className="h-8 text-[12px]"
+                  onClick={printQuestionPaper}
+                >
                   Print Question Paper
                 </Button>
-                <Button type="button" className="h-8 text-[12px]" onClick={printQA}>
+                <Button
+                  type="button"
+                  className="h-8 text-[12px]"
+                  onClick={printQA}
+                >
                   Print QA
                 </Button>
               </>
             ) : null}
           </div>
         </div>
-      )}
+      }
     >
-      <Dialog open={Boolean(editing)} onOpenChange={(v) => { if (!v) setEditing(null) }}>
+      <Dialog
+        open={Boolean(editing)}
+        onOpenChange={(v) => {
+          if (!v) setEditing(null);
+        }}
+      >
         <DialogContent className="max-w-[750px] gap-4">
           <DialogHeader>
             <DialogTitle className="text-[16px] text-[hsl(var(--primary))]">
@@ -466,7 +552,11 @@ export default function ManageQuestionsPaperPage() {
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="outline" onClick={() => setEditing(null)} disabled={editSaving}>
+            <Button
+              variant="outline"
+              onClick={() => setEditing(null)}
+              disabled={editSaving}
+            >
               Close
             </Button>
             <Button
@@ -476,8 +566,11 @@ export default function ManageQuestionsPaperPage() {
             >
               Delete
             </Button>
-            <Button onClick={() => void saveEditedQuestion()} disabled={editSaving}>
-              {editSaving ? 'Saving…' : 'Save'}
+            <Button
+              onClick={() => void saveEditedQuestion()}
+              disabled={editSaving}
+            >
+              {editSaving ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -491,5 +584,5 @@ export default function ManageQuestionsPaperPage() {
         </div>
       ) : null}
     </FilteredPage>
-  )
+  );
 }

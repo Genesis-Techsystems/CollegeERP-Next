@@ -1,162 +1,256 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { listAchievementCategories, createAchievementSubCategory, updateAchievementSubCategory } from '@/services/placements'
-import type { AchievementSubCategory, AchievementCategory } from '@/types/placements'
+/**
+ * Angular parity: placement-sub-category-modal
+ * Required: categoryId, achievementSubcategory, achievementSubcategoryCode
+ * Category dropdown: achievementCategoryCode - orgCode (active categories only)
+ * Payload includes organizationId from selected category; update includes subCategoryId.
+ */
 
-const schema = z.object({
-  categoryId: z.string().min(1, 'Category is required'),
-  achievementSubcategory: z.string().min(1, 'Sub-category name is required'),
-  achievementSubcategoryCode: z.string().min(1, 'Sub-category code is required'),
-  isActive: z.boolean(),
-  reason: z.string().optional(),
-})
-type FormValues = z.infer<typeof schema>
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormModal } from "@/common/components/feedback";
+import { ActiveStatusField } from "@/common/components/forms";
+import { Select } from "@/common/components/select";
+import type { SelectOption } from "@/common/components/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toastError, toastSuccess } from "@/lib/toast";
+import {
+  createAchievementSubCategory,
+  listActiveAchievementCategories,
+  updateAchievementSubCategory,
+} from "@/services";
+import type {
+  AchievementCategory,
+  AchievementSubCategory,
+} from "@/types/placements";
+
+const schema = z
+  .object({
+    categoryId: z.string().min(1, "Achievement category is required"),
+    achievementSubcategory: z
+      .string()
+      .min(1, "Achievement sub category is required"),
+    achievementSubcategoryCode: z
+      .string()
+      .min(1, "Achievement sub category code is required"),
+    isActive: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.isActive && !String(values.reason ?? "").trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Reason is required when inactive",
+        path: ["reason"],
+      });
+    }
+  });
+
+type FormValues = z.infer<typeof schema>;
 
 function getDefaults(edit?: AchievementSubCategory | null): FormValues {
   return {
-    categoryId: String(edit?.categoryId ?? ''),
-    achievementSubcategory: edit?.achievementSubcategory ?? '',
-    achievementSubcategoryCode: edit?.achievementSubcategoryCode ?? '',
+    categoryId: edit?.categoryId != null ? String(edit.categoryId) : "",
+    achievementSubcategory: edit?.achievementSubcategory ?? "",
+    achievementSubcategoryCode: edit?.achievementSubcategoryCode ?? "",
     isActive: edit?.isActive ?? true,
-    reason: edit?.reason ?? 'active',
-  }
+    reason: edit?.reason ?? "active",
+  };
 }
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  editData: AchievementSubCategory | null
-  onSaved: () => void
+export interface AchievementSubCategoryModalProps {
+  open: boolean;
+  onClose: () => void;
+  editData: AchievementSubCategory | null;
+  onSaved: () => void;
 }
 
-export default function AchievementSubCategoryModal({ open, onClose, editData, onSaved }: Props) {
-  const [categories, setCategories] = useState<AchievementCategory[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
+export function AchievementSubCategoryModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Readonly<AchievementSubCategoryModalProps>) {
+  const isEditing = editData != null;
+  const [categories, setCategories] = useState<AchievementCategory[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     control,
     watch,
+    setValue,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(),
-  })
+  });
 
   useEffect(() => {
-    if (!open) return
-    listAchievementCategories().then(setCategories).catch(console.error)
-  }, [open])
+    if (!open) return;
+    reset(getDefaults(editData));
+    setSubmitError(null);
+    // Angular: listDetailsById(Category, true, isActive)
+    void listActiveAchievementCategories()
+      .then(setCategories)
+      .catch(console.error);
+  }, [open, editData, reset]);
 
-  useEffect(() => {
-    reset(getDefaults(editData))
-    setSubmitError(null)
-  }, [open, editData, reset])
+  const isActive = watch("isActive");
 
-  const isActive = watch('isActive')
+  const categoryOptions = useMemo<SelectOption[]>(
+    () =>
+      categories.map((c) => ({
+        value: String(c.categoryId),
+        label: `${c.achievementCategoryCode} - ${c.orgCode ?? ""}`.trim(),
+      })),
+    [categories],
+  );
 
   async function onSubmit(values: FormValues) {
-    setSubmitError(null)
+    setSubmitError(null);
+
+    const cat = categories.find(
+      (c) => c.categoryId === Number(values.categoryId),
+    );
+    if (!cat) {
+      setSubmitError("Selected achievement category is invalid.");
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      categoryId: Number(values.categoryId),
+      organizationId: cat.organizationId,
+      achievementSubcategory: values.achievementSubcategory.trim(),
+      achievementSubcategoryCode: values.achievementSubcategoryCode.trim(),
+      isActive: values.isActive,
+      reason: values.isActive
+        ? "active"
+        : String(values.reason ?? "").trim() || "inactive",
+    };
+
     try {
-      const cat = categories.find((c) => String(c.categoryId) === values.categoryId)
-      const payload = {
-        categoryId: Number(values.categoryId),
-        organizationId: cat?.organizationId ?? undefined,
-        achievementSubcategory: values.achievementSubcategory,
-        achievementSubcategoryCode: values.achievementSubcategoryCode,
-        isActive: values.isActive,
-        reason: values.isActive ? 'active' : (values.reason || 'inactive'),
-      }
-      if (editData) {
-        await updateAchievementSubCategory(editData.subCategoryId, payload)
+      if (isEditing && editData?.subCategoryId) {
+        // Angular parent: details.subCategoryId = data.subCategoryId
+        payload.subCategoryId = editData.subCategoryId;
+        await updateAchievementSubCategory(
+          editData.subCategoryId,
+          payload as Partial<AchievementSubCategory>,
+        );
+        toastSuccess("Achievement sub category updated successfully");
       } else {
-        await createAchievementSubCategory(payload)
+        await createAchievementSubCategory(
+          payload as Partial<AchievementSubCategory>,
+        );
+        toastSuccess("Achievement sub category created successfully");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save.')
+      const message =
+        e instanceof Error
+          ? e.message
+          : "Unable to process your request at this time, please try again!";
+      setSubmitError(message);
+      toastError(e, "Failed to save achievement sub category");
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Achievement Sub-Category' : 'Add Achievement Sub-Category'}
-          </DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="space-y-0.5">
-            <Label className="text-xs">Category *</Label>
-            <Controller
-              name="categoryId"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.categoryId} value={String(c.categoryId)}>{c.achievementCategory}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={
+        isEditing
+          ? "Edit Achievement Sub Category"
+          : "Add Achievement Sub Category"
+      }
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }}
+      isSubmitting={isSubmitting}
+      submitLabel="Save"
+      cancelLabel="Close"
+      size="lg"
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Controller
+          name="categoryId"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Achievement Category"
+              required
+              value={field.value || null}
+              onChange={(v) => field.onChange(v ?? "")}
+              options={categoryOptions}
+              placeholder="Achievement Category"
+              searchable
+              error={errors.categoryId?.message}
             />
-            {errors.categoryId && <p className="text-xs text-red-500">{errors.categoryId.message}</p>}
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Sub-Category Name *</Label>
-            <Input className="h-8 text-xs" {...register('achievementSubcategory')} placeholder="Sub-category name" />
-            {errors.achievementSubcategory && <p className="text-xs text-red-500">{errors.achievementSubcategory.message}</p>}
-          </div>
-          <div className="space-y-0.5">
-            <Label className="text-xs">Sub-Category Code *</Label>
-            <Input className="h-8 text-xs" {...register('achievementSubcategoryCode')} placeholder="e.g. CRICKET" />
-            {errors.achievementSubcategoryCode && <p className="text-xs text-red-500">{errors.achievementSubcategoryCode.message}</p>}
-          </div>
+          )}
+        />
+
+        <div className="space-y-1.5">
+          <Label htmlFor="achievementSubcategory">
+            Achievement Sub Category *
+          </Label>
+          <Input
+            id="achievementSubcategory"
+            {...register("achievementSubcategory")}
+          />
+          {errors.achievementSubcategory ? (
+            <p className="text-xs text-destructive">
+              {errors.achievementSubcategory.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="achievementSubcategoryCode">
+            Achievement Sub Category Code *
+          </Label>
+          <Input
+            id="achievementSubcategoryCode"
+            {...register("achievementSubcategoryCode")}
+          />
+          {errors.achievementSubcategoryCode ? (
+            <p className="text-xs text-destructive">
+              {errors.achievementSubcategoryCode.message}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="sm:col-span-2">
           <Controller
             name="isActive"
             control={control}
             render={({ field }) => (
-              <div className="flex items-center gap-2">
-                <Checkbox id="subCatIsActive" checked={field.value} onCheckedChange={field.onChange} />
-                <label htmlFor="subCatIsActive" className="text-xs">Active</label>
-              </div>
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={(v) => field.onChange(v === true)}
+                onReasonChange={(v) => setValue("reason", v)}
+                reasonError={errors.reason?.message}
+                reasonRequired={!isActive}
+              />
             )}
           />
-          {!isActive && (
-            <div className="space-y-0.5">
-              <Label className="text-xs">Reason</Label>
-              <Input className="h-8 text-xs" {...register('reason')} />
-            </div>
-          )}
-          {submitError && <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
+        </div>
+      </div>
+
+      {submitError ? (
+        <p className="mt-2 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+          {submitError}
+        </p>
+      ) : null}
+    </FormModal>
+  );
 }

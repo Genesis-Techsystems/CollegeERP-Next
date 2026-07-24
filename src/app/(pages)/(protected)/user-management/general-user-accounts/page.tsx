@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon, ShieldCheck, X } from 'lucide-react'
+import { Eye, EyeOff, PencilIcon, PlusIcon, X } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { StatusBadge } from '@/common/components/data-display'
 import { FormModal } from '@/common/components/feedback'
@@ -34,14 +34,54 @@ import type { College } from '@/types/college'
 import type { Department } from '@/types/department'
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<GeneralUserAccount>,
-  organizationCode: { field: 'organizationCode', headerName: 'Organization', minWidth: 140, flex: 0.8 } as ColDef<GeneralUserAccount>,
-  collegeCode: { field: 'collegeCode', headerName: 'College', minWidth: 120, flex: 0.7 } as ColDef<GeneralUserAccount>,
-  userName: { field: 'userName', headerName: 'User Name', minWidth: 180, flex: 1 } as ColDef<GeneralUserAccount>,
-  firstName: { field: 'firstName', headerName: 'Employee Name', minWidth: 180, flex: 1 } as ColDef<GeneralUserAccount>,
-  mobileNumber: { field: 'mobileNumber', headerName: 'Mobile No', minWidth: 140, flex: 0.8 } as ColDef<GeneralUserAccount>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 110, flex: 0.6 } as ColDef<GeneralUserAccount>,
-  actions: { headerName: 'Actions', minWidth: 190, flex: 0.9 } as ColDef<GeneralUserAccount>,
+  siNo: {
+    headerName: 'Sl.No',
+    valueGetter: rowIndexGetter,
+    width: 76,
+    flex: 0,
+  } as ColDef<GeneralUserAccount>,
+  userName: {
+    field: 'userName',
+    headerName: 'User Name',
+    minWidth: 170,
+    flex: 1,
+  } as ColDef<GeneralUserAccount>,
+  employeeName: {
+    headerName: 'Employee Name',
+    minWidth: 180,
+    flex: 1,
+    valueGetter: (p) =>
+      [p.data?.firstName, p.data?.lastName].filter(Boolean).join(' ').trim(),
+  } as ColDef<GeneralUserAccount>,
+  mobileNumber: {
+    field: 'mobileNumber',
+    headerName: 'Mobile No',
+    minWidth: 130,
+    flex: 0.75,
+  } as ColDef<GeneralUserAccount>,
+  collegeCode: {
+    field: 'collegeCode',
+    headerName: 'College',
+    minWidth: 110,
+    flex: 0.65,
+  } as ColDef<GeneralUserAccount>,
+  organizationCode: {
+    field: 'organizationCode',
+    headerName: 'Organization',
+    minWidth: 120,
+    flex: 0.7,
+  } as ColDef<GeneralUserAccount>,
+  status: {
+    field: 'isActive',
+    headerName: 'Status',
+    minWidth: 100,
+    flex: 0.55,
+  } as ColDef<GeneralUserAccount>,
+  actions: {
+    headerName: 'Actions',
+    minWidth: 200,
+    flex: 0.9,
+  } as ColDef<GeneralUserAccount>,
 }
 
 function statusRenderer(p: ICellRendererParams<GeneralUserAccount>) {
@@ -53,16 +93,17 @@ function makeActionsRenderer(
   onEdit: (row: GeneralUserAccount | null) => void,
 ) {
   return (p: ICellRendererParams<GeneralUserAccount>) => (
-    <div className="flex items-center gap-1">
-      <Button
-        size="sm"
-        variant="outline"
-        className="h-7 px-2 text-xs"
+    <div className="flex items-center gap-1.5 text-xs">
+      <button
+        type="button"
+        className="text-primary hover:underline font-medium"
         onClick={() => onRoles(p.data ?? null)}
       >
-        <ShieldCheck className="mr-1 h-3 w-3" />
         User Roles
-      </Button>
+      </button>
+      <span className="text-slate-300 select-none" aria-hidden>
+        |
+      </span>
       <Button
         size="sm"
         variant="ghost"
@@ -82,6 +123,8 @@ export default function GeneralUserAccountsPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [rolesOpen, setRolesOpen] = useState(false)
   const [savingUser, setSavingUser] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
   const [savingRoles, setSavingRoles] = useState(false)
   const [roleIdToAdd, setRoleIdToAdd] = useState<string | null>(null)
   const [roleActiveToAdd, setRoleActiveToAdd] = useState(true)
@@ -335,12 +378,12 @@ export default function GeneralUserAccountsPage() {
 
   const columnDefs = useMemo<ColDef<GeneralUserAccount>[]>(() => [
     COL_DEFS.siNo,
-    COL_DEFS.organizationCode,
-    COL_DEFS.collegeCode,
     COL_DEFS.userName,
-    COL_DEFS.firstName,
+    COL_DEFS.employeeName,
     COL_DEFS.mobileNumber,
-    { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+    COL_DEFS.collegeCode,
+    COL_DEFS.organizationCode,
+    { ...COL_DEFS.status, cellRenderer: statusRenderer },
     { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(openRolesModal, openEditModal) },
   ], [])
 
@@ -435,10 +478,40 @@ export default function GeneralUserAccountsPage() {
             <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
           </FormField>
           <FormField label="Password" required>
-            <Input className="h-10 text-[12px]" type="password" value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Confirm Password" required>
-            <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPasswordConfirm ? 'text' : 'password'}
+                value={form.passwordConfirm}
+                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPasswordConfirm((value) => !value)}
+                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+              >
+                {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Password Expired Date">
             <DatePicker value={form.passwordExpDate} onChange={(v) => setForm((s) => ({ ...s, passwordExpDate: v ?? s.passwordExpDate }))} />
@@ -494,10 +567,40 @@ export default function GeneralUserAccountsPage() {
             <Input className="h-10 text-[12px]" value={form.mobileNumber} onChange={(e) => setForm((s) => ({ ...s, mobileNumber: e.target.value }))} />
           </FormField>
           <FormField label="New Password">
-            <Input className="h-10 text-[12px]" type="password" value={form.password} onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm((s) => ({ ...s, password: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Confirm New Password">
-            <Input className="h-10 text-[12px]" type="password" value={form.passwordConfirm} onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))} />
+            <div className="relative">
+              <Input
+                className="h-10 pr-10 text-[12px]"
+                type={showPasswordConfirm ? 'text' : 'password'}
+                value={form.passwordConfirm}
+                onChange={(e) => setForm((s) => ({ ...s, passwordConfirm: e.target.value }))}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowPasswordConfirm((value) => !value)}
+                aria-label={showPasswordConfirm ? 'Hide password confirmation' : 'Show password confirmation'}
+              >
+                {showPasswordConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </FormField>
           <FormField label="Password Expired Date">
             <DatePicker value={form.passwordExpDate} onChange={(v) => setForm((s) => ({ ...s, passwordExpDate: v ?? s.passwordExpDate }))} />

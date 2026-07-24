@@ -1,67 +1,147 @@
-'use client'
+"use client";
 
-import { useState, useMemo } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon } from 'lucide-react'
-import { ListPage } from '@/components/layout'
+/**
+ * Angular parity: achievements/placement-sub-categories (Achievement Sub Categories)
+ * List: domain/list/SubCategory?query=order(createdDt=desc)&size=99999
+ * Columns: No, Code, Sub Category, Category (code - orgCode), Status, Edit
+ * No print.
+ */
 
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { listAchievementSubCategories } from '@/services/placements'
-import type { AchievementSubCategory } from '@/types/placements'
-import { rowIndexGetter } from '@/lib/utils'
-import AchievementSubCategoryModal from './AchievementSubCategoryModal'
+import { useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Pencil } from "lucide-react";
+import { StatusBadge } from "@/common/components/data-display";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listAchievementSubCategories } from "@/services";
+import type { AchievementSubCategory } from "@/types/placements";
+import { AchievementSubCategoryModal } from "./AchievementSubCategoryModal";
+
+const COL_DEFS = {
+  siNo: {
+    headerName: "No.",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<AchievementSubCategory>,
+  achievementSubcategoryCode: {
+    field: "achievementSubcategoryCode",
+    headerName: "Achievement Sub Category Code",
+    minWidth: 200,
+  } as ColDef<AchievementSubCategory>,
+  achievementSubcategory: {
+    field: "achievementSubcategory",
+    headerName: "Achievement Sub Category",
+    minWidth: 180,
+  } as ColDef<AchievementSubCategory>,
+  achievementCategory: {
+    headerName: "Achievement Category",
+    minWidth: 180,
+    valueGetter: (p) => {
+      const code = p.data?.achievementCategoryCode ?? "";
+      const org = p.data?.orgCode ?? "";
+      if (code && org) return `${code} - ${org}`;
+      return code || org || p.data?.achievementCategoryName || "";
+    },
+  } as ColDef<AchievementSubCategory>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 110,
+  } as ColDef<AchievementSubCategory>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 90,
+    flex: 0,
+    width: 90,
+    sortable: false,
+    filter: false,
+  } as ColDef<AchievementSubCategory>,
+};
+
+function statusRenderer(p: ICellRendererParams<AchievementSubCategory>) {
+  return <StatusBadge status={p.data?.isActive ?? false} />;
+}
+
+function makeActionsRenderer(onEdit: (row: AchievementSubCategory) => void) {
+  return (p: ICellRendererParams<AchievementSubCategory>) => {
+    const row = p.data;
+    if (!row) return null;
+    return (
+      <button
+        type="button"
+        title="Edit"
+        aria-label="Edit"
+        className="inline-flex items-center text-muted-foreground hover:text-foreground"
+        onClick={() => onEdit(row)}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    );
+  };
+}
 
 export default function AchievementSubCategoriesPage() {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editData, setEditData] = useState<AchievementSubCategory | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editData, setEditData] = useState<AchievementSubCategory | null>(null);
 
   const { data, isLoading, invalidate } = useCrudList<AchievementSubCategory>({
     queryKey: QK.achievementSubCategories.list(),
     queryFn: listAchievementSubCategories,
-  })
+  });
 
-  const columnDefs = useMemo<ColDef<AchievementSubCategory>[]>(() => [
-    { headerName: 'No.', valueGetter: rowIndexGetter, width: 60, flex: 0 },
-    { field: 'achievementSubcategory', headerName: 'Sub-Category Name', minWidth: 160, flex: 2 },
-    { field: 'achievementSubcategoryCode', headerName: 'Code', minWidth: 100, flex: 1 },
-    { field: 'achievementCategoryName', headerName: 'Category', minWidth: 140, flex: 1 },
-    {
-      field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.8,
-      cellRenderer: (p: ICellRendererParams<AchievementSubCategory>) => (
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${p.data?.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-          {p.data?.isActive ? 'Active' : 'Inactive'}
-        </span>
-      ),
-    },
-    {
-      headerName: 'Actions', width: 80, flex: 0,
-      cellRenderer: (p: ICellRendererParams<AchievementSubCategory>) => {
-        if (!p.data) return null
-        return (
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0"
-            onClick={() => { setEditData(p.data!); setModalOpen(true) }}>
-            <PencilIcon className="h-3.5 w-3.5" />
-          </Button>
-        )
+  const columnDefs = useMemo<ColDef<AchievementSubCategory>[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.achievementSubcategoryCode,
+      COL_DEFS.achievementSubcategory,
+      COL_DEFS.achievementCategory,
+      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer((row) => {
+          setEditData(row);
+          setModalOpen(true);
+        }),
       },
-    },
-  ], [])
+    ],
+    [],
+  );
 
   return (
     <ListPage
-              title="Achievement Sub-Categories"
-              rowData={data}
-              columnDefs={columnDefs}
-              loading={isLoading}
-              pagination
-              toolbar={{ search: true, searchPlaceholder: 'Search sub-categories…', pdfDocumentTitle: 'Achievement Sub-Categories' }}
-              toolbarTrailing={
-                <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>+ Add Sub-Category</Button>
-              }
-            >
-      <AchievementSubCategoryModal open={modalOpen} onClose={() => setModalOpen(false)} editData={editData} onSaved={invalidate} />
+      title="Achievement Sub Categories"
+      rowData={data}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportPdf: false,
+      }}
+      toolbarTrailing={
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => {
+            setEditData(null);
+            setModalOpen(true);
+          }}
+        >
+          + Add Sub Category
+        </Button>
+      }
+    >
+      <AchievementSubCategoryModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        editData={editData}
+        onSaved={invalidate}
+      />
     </ListPage>
-  )
+  );
 }
