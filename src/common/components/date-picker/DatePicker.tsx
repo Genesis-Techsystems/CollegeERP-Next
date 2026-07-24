@@ -109,11 +109,21 @@ export function DatePicker({
             disabled={isDisabled}
             startMonth={minDate ?? DEFAULT_START_MONTH}
             endMonth={maxDate ?? DEFAULT_END_MONTH}
+            // Angular Material-style: month + year dropdowns in the caption
             captionLayout="dropdown"
             className="p-2"
             classNames={{
               month_caption:
-                "flex justify-center pt-1 relative items-center text-xs font-medium",
+                "rdp-month_caption flex justify-center pt-1 relative items-center gap-1 text-xs font-medium",
+              // Visible native month/year selects (RDP default hides selects via opacity:0)
+              dropdowns: "rdp-dropdowns flex items-center justify-center gap-1.5",
+              dropdown_root:
+                "rdp-dropdown_root relative inline-flex items-center",
+              dropdown:
+                "h-7 max-w-[8rem] cursor-pointer appearance-auto rounded-md border border-input bg-background px-1.5 text-[11px] font-medium opacity-100 relative z-[2]",
+              caption_label: "hidden",
+              months_dropdown: "rdp-months_dropdown",
+              years_dropdown: "rdp-years_dropdown",
               button_previous:
                 "absolute left-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100",
               button_next:

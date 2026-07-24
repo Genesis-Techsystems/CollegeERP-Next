@@ -511,6 +511,8 @@ export function normalizeHref(path: string): string {
       /\/student-communications\/student-announcements\/?/gi,
       "/my-notifications/",
     )
+    // Angular Student Academics (student portal) — must run before generic timetable rewrites.
+    .replace(/\/apps\/student-academics\//gi, "/student-academics/")
     // Angular Timetable module (`/apps/timetable/` or nested `timetable/` segment) → App Router path.
     .replace(/\/apps\/time-table\//gi, "/time-table-management/")
     .replace(/\/apps\/timetable\//gi, "/time-table-management/")

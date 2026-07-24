@@ -21,7 +21,9 @@ export interface HostelDetail {
   phoneNumber?: string;
   hstlForCatdetId?: number;
   hstlForCatdetCode?: string;
+  hstlForCatdetDisplayName?: string;
   hostelTypeCode?: string;
+  hostelTypeName?: string;
   orgCode?: string;
   hostelAddress?: string;
   otherInfo?: string;

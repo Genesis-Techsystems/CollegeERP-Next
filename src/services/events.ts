@@ -67,7 +67,8 @@ function buildUnencodedQuery(params: Record<string, string | number>): string {
 /**
  * GET `collegecalendar?…` with Angular listByFiveIds/listByThreeIds semantics:
  * - literal `/` in `date` (not `%2F`)
- * - `success: false` → empty list (Angular shows calendar with no events)
+ * - statusCode 200 + data → rows (Angular school-calender / add-event)
+ * - empty / unsuccessful → empty list (Angular shows empty table / calendar)
  */
 async function fetchCollegeCalendar(
   params: Record<string, string | number>,
@@ -81,14 +82,20 @@ async function fetchCollegeCalendar(
     throw parseApiError(res, body);
   }
   const body = (await res.json()) as ApiResponse<unknown> & {
-    statusCode?: number;
+    statusCode?: number | string;
+    resultList?: unknown;
   };
-  // Angular checks statusCode/success and leaves events=[] when unsuccessful.
-  if (body.success === false) return [];
-  if (body.statusCode != null && body.statusCode !== 200) {
+  const status = body.statusCode != null ? Number(body.statusCode) : 200;
+  if (status !== 200) {
     throw parseApiError(res, body);
   }
-  return asRows<CollegeEventRow>(body.data);
+  // Angular: `if (result.data && result.data !== '') { holidaysList = result.data }`
+  const fromData = asRows<CollegeEventRow>(body.data);
+  if (fromData.length > 0) return fromData;
+  if (Array.isArray(body.resultList) && body.resultList.length > 0) {
+    return body.resultList as CollegeEventRow[];
+  }
+  return [];
 }
 
 function pickEventTypeCollegeId(
@@ -232,16 +239,46 @@ export async function listCollegeCalendarMonthEvents(params: {
   });
 }
 
-/** School calendar / holidays list — `collegecalendar` with isHoliday. */
+/**
+ * School calendar / holidays list — Angular school-calender
+ * GET `/cms/collegecalendar?collegeId=17&academicYearId=101&isHoliday=true`
+ * Browser: `/api/proxy/collegecalendar?collegeId=…&academicYearId=…&isHoliday=true`
+ */
 export async function listSchoolCalendarEvents(
   collegeId: number,
   academicYearId: number,
 ): Promise<CollegeEventRow[]> {
-  return fetchCollegeCalendar({
-    collegeId,
-    academicYearId,
-    isHoliday: "true",
-  });
+  const cid = Number(collegeId);
+  const ayId = Number(academicYearId);
+  if (!cid || !ayId) return [];
+
+  // Keep param order identical to Angular DevTools.
+  const qs = `collegeId=${cid}&academicYearId=${ayId}&isHoliday=true`;
+  const res = await fetch(
+    `${NEXT_API.PROXY(EVENTS_API.COLLEGE_CALENDAR)}?${qs}`,
+    {
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<unknown> & {
+    statusCode?: number | string;
+    resultList?: unknown;
+  };
+  const status = body.statusCode != null ? Number(body.statusCode) : 200;
+  if (status !== 200) {
+    throw parseApiError(res, body);
+  }
+  const fromData = asRows<CollegeEventRow>(body.data);
+  if (fromData.length > 0) return fromData;
+  if (Array.isArray(body.resultList) && body.resultList.length > 0) {
+    return body.resultList as CollegeEventRow[];
+  }
+  return [];
 }
 
 /** Staff audience events — `eventsByAudience` seven-param. */

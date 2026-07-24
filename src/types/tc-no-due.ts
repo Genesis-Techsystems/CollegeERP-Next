@@ -55,6 +55,8 @@ export interface FeeCertificateIssueRow {
     studentPhotoPath?: string;
     quotaDisplayName?: string;
   };
+  /** Nested workflows on issue rows (Angular View Certificate Flows). */
+  feeCertificateWorkflows?: FeeCertificateWorkflowRow[];
 }
 
 /** Apply-certificate dialog payload posted to `feeCertificateIssueAmount`. */
@@ -80,11 +82,21 @@ export type ApplyCertificateRequestPayload = {
 export interface FeeCertificateWorkflowRow {
   feeCertificateWorkflowId?: number;
   feeCertificateIssueId?: number;
-  approvalStatusCode?: string;
+  approvalStatusCode?: string | null;
   approvalStatusName?: string;
+  approvalStatusDisplayName?: string | null;
   workflowStageName?: string;
   remarks?: string;
+  comments?: string | null;
   isActive?: boolean;
+  deptCode?: string;
+  deptName?: string;
+  courseGroupId?: number | null;
+  titleCode?: string;
+  firstName?: string;
+  employeeMobile?: string | null;
+  updatedDt?: string | null;
+  collegeName?: string;
 }
 
 export interface TcClearanceRow {
@@ -101,6 +113,8 @@ export interface TcApplyCertificatePayload {
   appliedOn: string;
   courseGroupId?: number;
   isWorkFlowFlag?: boolean;
+  /** Angular student no-due apply confirm dialog reason. */
+  reason?: string;
 }
 
 export interface TcStudentCertificatePrintRow {

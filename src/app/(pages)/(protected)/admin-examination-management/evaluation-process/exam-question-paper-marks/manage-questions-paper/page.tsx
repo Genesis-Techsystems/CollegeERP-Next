@@ -323,7 +323,11 @@ export default function ManageQuestionsPaperPage() {
 
   return (
     <FilteredPage
-      title={`Manage Questions${params.questionPaperTitle ? ` (${params.questionPaperTitle})` : ""}`}
+      title={
+        params.questionPaperTitle
+          ? `Manage Questions (Question Paper: ${params.questionPaperTitle})`
+          : "Manage Questions"
+      }
       filtersCollapsible={false}
       filters={
         <div className="flex flex-wrap items-center justify-between gap-2">

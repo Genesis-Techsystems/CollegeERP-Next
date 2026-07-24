@@ -1,187 +1,219 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useCallback } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { toast } from 'sonner'
-import { ChevronLeftIcon, PlusIcon, Trash2Icon } from 'lucide-react'
-import { PageContainer, PageHeader } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { RichTextEditor } from '@/common/components/rich-text-editor'
-import { listQuestionsByBank, listQuestionTypes, addOrUpdateQuestion } from '@/services/admin/question-bank'
-import { useSession } from '@/hooks/useSession'
-import { QK } from '@/lib/query-keys'
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { MonitorIcon } from "lucide-react";
+import { PageContainer } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { RichTextEditor } from "@/common/components/rich-text-editor";
+import {
+  listQuestionsByBank,
+  listQuestionTypes,
+  addOrUpdateQuestion,
+} from "@/services";
+import { QK } from "@/lib/query-keys";
 import type {
   AssessmentQuestion,
   CourseQuestion,
   CourseQuestionOption,
   QuestionType,
-} from '@/types/question-bank'
-import { cn } from '@/lib/utils'
+} from "@/types/question-bank";
+import { cn } from "@/lib/utils";
 
-// ─── Question type selector ───────────────────────────────────────────────────
+// ─── Type chips — app primary blue when selected ─────────────────────────────
 
 function QuestionTypeSelector({
   types,
   selected,
   onChange,
-  disabled,
 }: {
-  types: QuestionType[]
-  selected: string
-  onChange: (code: string) => void
-  disabled: boolean
+  types: QuestionType[];
+  selected: string;
+  onChange: (code: string) => void;
 }) {
   return (
-    <div className="space-y-2">
-      <Label>Question Type</Label>
-      <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-0">
+      <h3 className="mr-5 text-base font-semibold text-foreground">Type :-</h3>
+      <ul className="m-2 flex list-none flex-wrap gap-0 p-0">
         {types.map((t) => (
-          <button
-            key={t.generalDetailId}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange(t.generalDetailCode)}
-            className={cn(
-              'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors',
-              selected === t.generalDetailCode
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:bg-muted',
-              disabled && 'pointer-events-none opacity-50',
-            )}
-          >
-            {t.generalDetailDisplayName}
-          </button>
+          <li key={t.generalDetailId} className="list-none">
+            <button
+              type="button"
+              onClick={() => onChange(t.generalDetailCode)}
+              className={cn(
+                "cursor-pointer border px-3 py-2 text-center text-sm font-semibold transition-colors",
+                selected === t.generalDetailCode
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-white text-foreground hover:bg-muted",
+              )}
+            >
+              {t.generalDetailDisplayName}
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
-  )
+  );
 }
 
-// ─── MC option row ────────────────────────────────────────────────────────────
+// ─── MC option row (Angular layout) ───────────────────────────────────────────
 
 interface McOption {
-  id: number
-  inputHead: string
-  options: string
-  isCorrectAnswer: boolean
-  courseQuestionOptionId: number | null
-  isActive: boolean
+  id: number;
+  inputHead: string;
+  options: string;
+  isCorrectAnswer: boolean;
+  courseQuestionOptionId: number | null;
+  isActive: boolean;
 }
 
 function McOptionRow({
   opt,
   onChange,
 }: {
-  opt: McOption
-  onChange: (updated: McOption) => void
+  opt: McOption;
+  onChange: (updated: McOption) => void;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">{opt.inputHead}</span>
-        <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+    <div className="my-4 w-full max-w-[60%]">
+      {/* Angular: Choice label + Correct Answer checkbox on the same row */}
+      <p className="relative mb-2 px-2 text-base font-semibold text-foreground">
+        {opt.inputHead}
+        <span className="absolute right-0 top-0 flex items-center gap-1.5 text-sm font-semibold">
           <input
             type="checkbox"
             checked={opt.isCorrectAnswer}
-            onChange={(e) => onChange({ ...opt, isCorrectAnswer: e.target.checked })}
-            className="h-4 w-4"
+            onChange={(e) =>
+              onChange({ ...opt, isCorrectAnswer: e.target.checked })
+            }
+            className="h-4 w-4 cursor-pointer"
           />
           Correct Answer
-        </label>
-      </div>
+        </span>
+      </p>
+      {/* Angular quill-editor for each choice — Quill snow toolbar */}
       <RichTextEditor
         value={opt.options}
         onChange={(html) => onChange({ ...opt, options: html })}
-        compact
-        minHeight={90}
-        placeholder={`Enter ${opt.inputHead.toLowerCase()}…`}
+        toolbarVariant="quill"
+        minHeight={110}
+        placeholder="Enter Choice"
       />
     </div>
-  )
+  );
 }
-
-// ─── Default option sets ──────────────────────────────────────────────────────
 
 function makeMcOptions(): McOption[] {
   return Array.from({ length: 5 }, (_, i) => ({
     id: i + 1,
     inputHead: `Choice ${i + 1}`,
-    options: '',
+    options: "",
     isCorrectAnswer: false,
     courseQuestionOptionId: null,
     isActive: true,
-  }))
+  }));
 }
 
-function makeTfOptions() {
+function makeTfOptions(): {
+  id: number;
+  options: string;
+  isCorrectAnswer: boolean;
+  courseQuestionOptionId: number | null;
+  isActive: boolean;
+}[] {
   return [
-    { id: 1, options: 'True',  isCorrectAnswer: false, courseQuestionOptionId: null, isActive: true },
-    { id: 2, options: 'False', isCorrectAnswer: false, courseQuestionOptionId: null, isActive: true },
-  ]
+    {
+      id: 1,
+      options: "True",
+      isCorrectAnswer: false,
+      courseQuestionOptionId: null,
+      isActive: true,
+    },
+    {
+      id: 2,
+      options: "False",
+      isCorrectAnswer: false,
+      courseQuestionOptionId: null,
+      isActive: true,
+    },
+  ];
 }
 
 function makeFbAnswers() {
   return Array.from({ length: 5 }, (_, i) => ({
     id: i + 1,
     name: `Answer ${i + 1}`,
-    options: '',
+    options: "",
     courseQuestionOptionId: null as number | null,
     isActive: true,
-  }))
+  }));
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AddQuestionPage() {
-  const router = useRouter()
-  const params = useSearchParams()
-  const { user } = useSession()
-  const queryClient = useQueryClient()
+  const router = useRouter();
+  const params = useSearchParams();
+  const queryClient = useQueryClient();
 
-  const assessmentId = Number(params.get('assessmentId'))
-  const assessmentQuestionId = params.get('assessmentQuestionId')
-    ? Number(params.get('assessmentQuestionId'))
-    : null
-  const permission = params.get('permission') ?? 'Add'
-  const returnPage = params.get('page') ?? '/assessments/question-bank'
+  const assessmentId = Number(params.get("assessmentId"));
+  const rawAqId = params.get("assessmentQuestionId");
+  const assessmentQuestionId =
+    rawAqId != null && rawAqId !== "" && rawAqId !== "null"
+      ? Number(rawAqId)
+      : null;
+  const permission = params.get("permission") ?? "Add";
+  const returnPage = params.get("page") ?? "assessments/question-bank";
 
-  const isEditing = assessmentQuestionId !== null
+  const isEditing =
+    assessmentQuestionId !== null && !Number.isNaN(assessmentQuestionId);
 
-  // ── Question type list ────────────────────────────────────────────────────
+  const evaluatorProfileId = (() => {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem("examEvaluatorProfileId");
+    const n = raw != null ? Number(raw) : 0;
+    return n !== 0 ? n : null;
+  })();
+
   const { data: questionTypes = [] } = useQuery<QuestionType[]>({
     queryKey: QK.questionBanks.questionTypes(),
     queryFn: listQuestionTypes,
     staleTime: Infinity,
-  })
+    enabled: !isEditing,
+  });
 
-  // ── Current question state ────────────────────────────────────────────────
-  const [selectedType, setSelectedType] = useState<string>('TF')
-  const [question, setQuestion] = useState('')
-  const [marks, setMarks] = useState<number | ''>(1)
-  const [mcOptions, setMcOptions] = useState<McOption[]>(makeMcOptions())
-  const [tfCheck, setTfCheck] = useState<1 | 2>(1) // 1=True 2=False correct
-  const [fbAnswers, setFbAnswers] = useState(makeFbAnswers())
-  const [subExplanation, setSubExplanation] = useState('')
-  const [existingQuestion, setExistingQuestion] = useState<AssessmentQuestion | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [selectedType, setSelectedType] = useState<string>("TF");
+  const [typeDisplayName, setTypeDisplayName] = useState<string>("");
+  const [question, setQuestion] = useState("");
+  const [marks, setMarks] = useState<number | "">(0);
+  const [mcOptions, setMcOptions] = useState<McOption[]>(makeMcOptions());
+  const [tfCheck, setTfCheck] = useState<1 | 2>(1);
+  const [tfOptions, setTfOptions] = useState(makeTfOptions());
+  const [fbAnswers, setFbAnswers] = useState(makeFbAnswers());
+  const [subExplanation, setSubExplanation] = useState("");
+  const [subOptionId, setSubOptionId] = useState<number | null>(null);
+  const [existingQuestion, setExistingQuestion] =
+    useState<AssessmentQuestion | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // ── Load existing question when editing ───────────────────────────────────
   const loadExisting = useCallback(async () => {
-    if (!isEditing || !assessmentId || !assessmentQuestionId) return
-    const rows = await listQuestionsByBank(assessmentId)
-    const aq = rows.find((r) => r.assessmentQuestionId === assessmentQuestionId)
-    if (!aq) return
+    if (!isEditing || !assessmentId || !assessmentQuestionId) return;
+    const rows = await listQuestionsByBank(assessmentId);
+    const aq = rows.find(
+      (r) => r.assessmentQuestionId === assessmentQuestionId,
+    );
+    if (!aq) return;
 
-    setExistingQuestion(aq)
-    const q: CourseQuestion = aq.courseQuestionDTO
-    setSelectedType(q.fbInputTypeCatCode)
-    setQuestion(q.question)
-    setMarks(q.marks)
+    setExistingQuestion(aq);
+    const q: CourseQuestion = aq.courseQuestionDTO;
+    setSelectedType(q.fbInputTypeCatCode);
+    setTypeDisplayName(q.fbInputTypeCatDisplayName ?? q.fbInputTypeCatCode);
+    setQuestion(q.question);
+    setMarks(q.marks);
 
-    if (q.fbInputTypeCatCode === 'MC') {
+    if (q.fbInputTypeCatCode === "MC") {
       setMcOptions(
         q.courseQuestionOptionDTOs.map((o, i) => ({
           id: i + 1,
@@ -191,11 +223,19 @@ export default function AddQuestionPage() {
           courseQuestionOptionId: o.courseQuestionOptionId,
           isActive: o.isActive,
         })),
-      )
-    } else if (q.fbInputTypeCatCode === 'TF') {
-      const trueOpt = q.courseQuestionOptionDTOs[0]
-      setTfCheck(trueOpt?.isCorrectAnswer ? 1 : 2)
-    } else if (q.fbInputTypeCatCode === 'FB') {
+      );
+    } else if (q.fbInputTypeCatCode === "TF") {
+      const opts = q.courseQuestionOptionDTOs.map((o, i) => ({
+        id: i + 1,
+        options: o.options,
+        isCorrectAnswer: o.isCorrectAnswer,
+        courseQuestionOptionId: o.courseQuestionOptionId,
+        isActive: o.isActive,
+      }));
+      setTfOptions(opts.length >= 2 ? opts : makeTfOptions());
+      const correctIdx = opts.findIndex((o) => o.isCorrectAnswer);
+      setTfCheck(correctIdx === 1 ? 2 : 1);
+    } else if (q.fbInputTypeCatCode === "FB") {
       setFbAnswers(
         q.courseQuestionOptionDTOs.map((o, i) => ({
           id: i + 1,
@@ -204,270 +244,274 @@ export default function AddQuestionPage() {
           courseQuestionOptionId: o.courseQuestionOptionId,
           isActive: o.isActive,
         })),
-      )
+      );
     } else {
-      setSubExplanation(q.courseQuestionOptionDTOs[0]?.options ?? '')
+      setSubExplanation(q.courseQuestionOptionDTOs[0]?.options ?? "");
+      setSubOptionId(
+        q.courseQuestionOptionDTOs[0]?.courseQuestionOptionId ?? null,
+      );
     }
-  }, [isEditing, assessmentId, assessmentQuestionId])
+  }, [isEditing, assessmentId, assessmentQuestionId]);
 
-  useEffect(() => { loadExisting() }, [loadExisting])
+  useEffect(() => {
+    loadExisting();
+  }, [loadExisting]);
 
-  // ── Build payload options ─────────────────────────────────────────────────
   function buildOptions(): Partial<CourseQuestionOption>[] {
     switch (selectedType) {
-      case 'MC':
+      case "MC":
         return mcOptions.map((o) => ({
           options: o.options,
           isCorrectAnswer: o.isCorrectAnswer,
           courseQuestionOptionId: o.courseQuestionOptionId,
           isActive: o.isActive,
-        }))
-      case 'TF': {
-        const tfOpts = [
-          { id: 1, options: 'True',  courseQuestionOptionId: null as number | null, isActive: true },
-          { id: 2, options: 'False', courseQuestionOptionId: null as number | null, isActive: true },
-        ]
-        if (existingQuestion?.courseQuestionDTO.fbInputTypeCatCode === 'TF') {
-          const dtos = existingQuestion.courseQuestionDTO.courseQuestionOptionDTOs
-          tfOpts[0].courseQuestionOptionId = dtos[0]?.courseQuestionOptionId ?? null
-          tfOpts[1].courseQuestionOptionId = dtos[1]?.courseQuestionOptionId ?? null
-        }
-        return tfOpts.map((o) => ({
+        }));
+      case "TF":
+        return tfOptions.map((o, i) => ({
           options: o.options,
-          isCorrectAnswer: o.id === tfCheck,
+          isCorrectAnswer: tfCheck === i + 1,
           courseQuestionOptionId: o.courseQuestionOptionId,
           isActive: o.isActive,
-        }))
-      }
-      case 'FB':
+        }));
+      case "FB":
         return fbAnswers
-          .filter((a) => a.options.trim() !== '')
+          .filter((a) => a.options !== "")
           .map((a) => ({
             options: a.options,
             isCorrectAnswer: true,
             courseQuestionOptionId: a.courseQuestionOptionId,
             isActive: a.isActive,
-          }))
-      case 'SUB': {
-        const subOpt = existingQuestion?.courseQuestionDTO.courseQuestionOptionDTOs[0]
+          }));
+      default:
         return [
           {
             options: subExplanation,
             isCorrectAnswer: true,
-            courseQuestionOptionId: subOpt?.courseQuestionOptionId ?? null,
+            courseQuestionOptionId: subOptionId,
             isActive: true,
           },
-        ]
-      }
-      default:
-        return []
+        ];
     }
   }
 
-  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!question.trim()) { toast.error('Question content is required'); return }
-    if (marks === '' || marks === undefined) { toast.error('Marks are required'); return }
+    if (!question.trim()) {
+      toast.error("Question content is required");
+      return;
+    }
 
-    const qTypeObj = questionTypes.find((t) => t.generalDetailCode === selectedType)
-    if (!qTypeObj) { toast.error('Question type not found'); return }
-
-    const evaluatorProfileId = user?.employeeId ?? null
+    let fbInputTypeCatId: number;
+    if (isEditing && existingQuestion) {
+      fbInputTypeCatId = existingQuestion.courseQuestionDTO.fbInputTypeCatId;
+    } else {
+      const qTypeObj = questionTypes.find(
+        (t) => t.generalDetailCode === selectedType,
+      );
+      if (!qTypeObj) {
+        toast.error("Question type not found");
+        return;
+      }
+      fbInputTypeCatId = qTypeObj.generalDetailId;
+    }
 
     const payload: Parameters<typeof addOrUpdateQuestion>[0] = {
       assessmentId,
+      questionOwnerProfileId: evaluatorProfileId,
       question,
-      marks: Number(marks),
-      fbInputTypeCatId: qTypeObj.generalDetailId,
+      marks: Number(marks) || 0,
+      fbInputTypeCatId,
       isActive: true,
       correctAnswerIds: [],
       courseQuestionOptionDTOs: buildOptions() as CourseQuestionOption[],
       onlineCourseId: null,
       courseLessonId: null,
       courseLessonTopicId: null,
-      questionOwnerProfileId: evaluatorProfileId,
-    }
+    };
 
     if (isEditing && existingQuestion) {
-      payload.assessmentQuestionId = existingQuestion.assessmentQuestionId
-      payload.courseQuestionId = existingQuestion.courseQuestionDTO.courseQuestionId
-      payload.onlineCourseId = existingQuestion.courseQuestionDTO.onlineCourseId
-      payload.courseLessonId = existingQuestion.courseQuestionDTO.courseLessonId
-      payload.courseLessonTopicId = existingQuestion.courseQuestionDTO.courseLessonTopicId
+      payload.assessmentQuestionId = existingQuestion.assessmentQuestionId;
+      payload.courseQuestionId =
+        existingQuestion.courseQuestionDTO.courseQuestionId;
+      payload.onlineCourseId =
+        existingQuestion.courseQuestionDTO.onlineCourseId;
+      payload.courseLessonId =
+        existingQuestion.courseQuestionDTO.courseLessonId;
+      payload.courseLessonTopicId =
+        existingQuestion.courseQuestionDTO.courseLessonTopicId;
     }
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      await addOrUpdateQuestion(payload)
-      toast.success(isEditing ? 'Question updated' : 'Question added')
-      await queryClient.invalidateQueries({ queryKey: QK.questionBanks.all })
-      router.push(`${returnPage}`)
-      // leave submitting=true so the button stays disabled during navigation
+      await addOrUpdateQuestion(payload);
+      toast.success(isEditing ? "Question updated" : "Question added");
+      await queryClient.invalidateQueries({ queryKey: QK.questionBanks.all });
+      const path = returnPage.startsWith("/") ? returnPage : `/${returnPage}`;
+      router.push(`${path}?assessmentId=${assessmentId}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save question')
-      setSubmitting(false)
+      toast.error(
+        err instanceof Error ? err.message : "Failed to save question",
+      );
+      setSubmitting(false);
     }
-  }
+  };
 
-  // ── Helpers for FB ────────────────────────────────────────────────────────
-  const addFbAnswer = () =>
-    setFbAnswers((prev) => [
-      ...prev,
-      { id: prev.length + 1, name: `Answer ${prev.length + 1}`, options: '', courseQuestionOptionId: null, isActive: true },
-    ])
-
-  const removeFbAnswer = (id: number) =>
-    setFbAnswers((prev) => prev.filter((a) => a.id !== id))
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <PageContainer className="space-y-6 max-w-none">
-      <PageHeader
-        title={`${permission} Question`}
-        subtitle="Use $…$ for inline math, $$…$$ for display math, \\ce{…} for chemistry"
-      />
-
-      <div className="w-full rounded-lg border border-border bg-card p-6 space-y-6">
-
-        {/* Question type selector — disabled when editing (type can't change) */}
-        <QuestionTypeSelector
-          types={questionTypes}
-          selected={selectedType}
-          onChange={setSelectedType}
-          disabled={isEditing}
-        />
-
-        {/* Question body */}
-        <div className="space-y-2">
-          <Label>Question *</Label>
-          <RichTextEditor
-            value={question}
-            onChange={setQuestion}
-            placeholder="Enter question… $x^2 + y^2 = r^2$  or  \ce{H2O}"
-            minHeight={140}
-          />
+    <PageContainer className="max-w-none space-y-4">
+      {/* Angular card: white background, elevation */}
+      <div className="rounded-sm border border-border bg-white px-4 py-2 shadow-sm">
+        {/* Sub-header: computer icon + Add/Edit Question */}
+        <div className="mb-3 flex items-center gap-2 border-b border-border pb-3">
+          <MonitorIcon className="h-5 w-5 text-[hsl(var(--primary))]" />
+          <span className="text-base font-semibold text-foreground">
+            {permission} Question
+          </span>
         </div>
 
-        {/* Marks */}
-        <div className="space-y-1 w-40">
-          <Label htmlFor="marks">Marks *</Label>
-          <Input
-            id="marks"
-            type="number"
-            min={0}
-            step={0.5}
-            value={marks}
-            onChange={(e) => setMarks(e.target.value === '' ? '' : Number(e.target.value))}
-          />
-        </div>
-
-        {/* ── Answer section by type ── */}
-        <div className="rounded-md border p-4 space-y-4">
-          <p className="text-sm font-medium text-muted-foreground">Answers</p>
-
-          {/* MC */}
-          {selectedType === 'MC' && (
-            <div className="space-y-4">
-              {mcOptions.map((opt) => (
-                <McOptionRow
-                  key={opt.id}
-                  opt={opt}
-                  onChange={(updated) =>
-                    setMcOptions((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
-                  }
-                />
-              ))}
+        <div className="space-y-4">
+          {/* Type :- chips */}
+          {isEditing ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-base font-semibold">Type :-</h3>
+              <span className="font-semibold text-blue-700">
+                {typeDisplayName || selectedType}
+              </span>
             </div>
+          ) : (
+            <QuestionTypeSelector
+              types={questionTypes}
+              selected={selectedType}
+              onChange={setSelectedType}
+            />
           )}
 
-          {/* TF */}
-          {selectedType === 'TF' && (
-            <div className="flex gap-6">
-              {([1, 2] as const).map((val) => (
-                <label key={val} className="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="radio"
-                    name="tfCorrect"
-                    checked={tfCheck === val}
-                    onChange={() => setTfCheck(val)}
-                    className="h-4 w-4"
-                  />
-                  {val === 1 ? 'True' : 'False'}
-                </label>
-              ))}
-            </div>
-          )}
+          {/* Question editor */}
+          <div className="space-y-1">
+            <RichTextEditor
+              value={question}
+              onChange={setQuestion}
+              placeholder="Enter Question"
+              minHeight={160}
+            />
+          </div>
 
-          {/* FB */}
-          {selectedType === 'FB' && (
-            <div className="space-y-3">
-              {fbAnswers.map((ans) => (
-                <div key={ans.id} className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 text-sm font-medium">{ans.name}</span>
-                  <Input
-                    value={ans.options}
-                    onChange={(e) =>
-                      setFbAnswers((prev) =>
-                        prev.map((a) => (a.id === ans.id ? { ...a, options: e.target.value } : a)),
+          {/* Marks : inline like Angular */}
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-medium">Marks :</p>
+            <input
+              type="text"
+              name="marks"
+              value={marks}
+              onChange={(e) =>
+                setMarks(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className="mb-0 h-[35px] w-[100px] border border-[#aaa] bg-white px-2 text-sm outline-none focus:border-primary"
+            />
+          </div>
+
+          {/* Correct Answer section */}
+          <div className="mb-4 rounded-sm border border-[#dddddd] p-4">
+            {/* Angular assets/images/correct.jpg ribbon */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/assets/images/correct.jpg"
+              alt="Correct Answer"
+              className="my-2 ml-1 h-[60px] w-[28%] max-w-[280px] object-contain object-left"
+            />
+
+            {/* MC */}
+            {selectedType === "MC" && (
+              <div>
+                {mcOptions.map((opt) => (
+                  <McOptionRow
+                    key={opt.id}
+                    opt={opt}
+                    onChange={(updated) =>
+                      setMcOptions((prev) =>
+                        prev.map((o) => (o.id === updated.id ? updated : o)),
                       )
                     }
-                    placeholder="Accepted answer"
-                    className="flex-1"
                   />
-                  {fbAnswers.length > 1 && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => removeFbAnswer(ans.id)}
-                      className="text-red-500 hover:text-red-600"
+                ))}
+              </div>
+            )}
+
+            {/* TF */}
+            {selectedType === "TF" && (
+              <div className="max-w-[60%] py-2">
+                <div className="flex flex-wrap gap-8">
+                  {tfOptions.map((opt, i) => (
+                    <label
+                      key={opt.id}
+                      className="flex cursor-pointer items-center gap-2 text-sm font-medium"
                     >
-                      <Trash2Icon className="h-4 w-4" />
-                    </Button>
-                  )}
+                      <input
+                        type="radio"
+                        name="tfCorrect"
+                        checked={tfCheck === i + 1}
+                        onChange={() => setTfCheck((i + 1) as 1 | 2)}
+                        className="h-4 w-4 cursor-pointer"
+                      />
+                      {opt.options}
+                    </label>
+                  ))}
                 </div>
-              ))}
-              <Button type="button" size="sm" variant="outline" onClick={addFbAnswer}>
-                <PlusIcon className="h-3.5 w-3.5 mr-1" />
-                Add Answer
-              </Button>
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* SUB */}
-          {selectedType === 'SUB' && (
-            <div className="space-y-2">
-              <Label>Model Explanation (optional)</Label>
-              <textarea
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px] focus:outline-none focus:ring-1 focus:ring-ring"
-                value={subExplanation}
-                onChange={(e) => setSubExplanation(e.target.value)}
-                placeholder="Enter model answer or explanation"
-              />
-            </div>
-          )}
-        </div>
+            {/* FB */}
+            {selectedType === "FB" && (
+              <div className="max-w-[60%] space-y-3 py-2">
+                {fbAnswers.map((ans) => (
+                  <div key={ans.id} className="flex flex-wrap items-center">
+                    <span className="font-semibold">{ans.name}</span>
+                    <input
+                      type="text"
+                      value={ans.options}
+                      onChange={(e) =>
+                        setFbAnswers((prev) =>
+                          prev.map((a) =>
+                            a.id === ans.id
+                              ? { ...a, options: e.target.value }
+                              : a,
+                          ),
+                        )
+                      }
+                      className="ml-3 mb-2 h-[35px] w-1/2 min-w-[180px] border border-[#aaa] bg-white px-2 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
 
-        {/* Footer */}
-        <div className="flex items-center gap-3 pt-2">
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? 'Saving…' : isEditing ? 'Update Question' : 'Add Question'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={submitting}
-          >
-            <ChevronLeftIcon className="h-4 w-4 mr-1" />
-            Back
-          </Button>
+            {/* SUB */}
+            {selectedType === "SUB" && (
+              <div className="max-w-[60%] py-2">
+                <textarea
+                  className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
+                  value={subExplanation}
+                  onChange={(e) => setSubExplanation(e.target.value)}
+                  placeholder="Explanation"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Angular: Submit then Back */}
+          <div className="flex flex-wrap items-center gap-3 pb-2 pt-1">
+            <Button type="button" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Saving…" : "Submit"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={submitting}
+            >
+              Back
+            </Button>
+          </div>
         </div>
       </div>
     </PageContainer>
-  )
+  );
 }

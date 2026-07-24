@@ -31,15 +31,25 @@ function syncUserToLocalStorage(user: SessionUser): void {
     ["orgCode", user.organizationCode],
     ["universityCode", user.universityCode],
     ["collegeId", user.collegeId],
+    ["collegeName", user.collegeName],
+    // Angular login: localStorage.currentCollege = college name (school-calender print/header)
+    ["currentCollege", user.collegeName],
     ["academicYearId", user.academicYearId],
     ["userId", user.userId],
     ["userName", user.userName],
     ["userRole", user.userRole],
     ["studentId", user.studentId],
-    ["rollNumber", user.userName],
+    // rollNumber comes from Angular login getStudent() / page fetch — not userName.
   ];
   for (const [key, value] of pairs) {
     if (value == null || value === "") continue;
+    // Never overwrite Angular localStorage IDs with 0 from a partial session.
+    if (typeof value === "number" && value <= 0) {
+      if (window.localStorage.getItem(key) === "0") {
+        window.localStorage.removeItem(key);
+      }
+      continue;
+    }
     const next = String(value);
     if (window.localStorage.getItem(key) !== next)
       window.localStorage.setItem(key, next);

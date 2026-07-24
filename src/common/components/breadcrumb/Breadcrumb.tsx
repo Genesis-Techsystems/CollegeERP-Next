@@ -32,7 +32,8 @@ function collapseItems(items: BreadcrumbItem[]): BreadcrumbItem[] {
 }
 
 function isHomeItem(item: BreadcrumbItem, index: number): boolean {
-  return index === 0 && item.label === "Home" && item.href === "/dashboard";
+  // Icon for the leading Home crumb — any home href (admin /dashboard or student home).
+  return index === 0 && item.label === "Home" && Boolean(item.href);
 }
 
 export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {

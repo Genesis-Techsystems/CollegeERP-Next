@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { DataTable } from "@/common/components/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilteredListPage } from "@/components/layout";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rowIndexGetter } from "@/lib/utils";
 import {
   loadStudentExamResultsForSemester,
@@ -11,6 +11,7 @@ import {
   pickProfileCell,
   type StudentCurriculumSemester,
 } from "@/services";
+import { StudentExamResultsHeader } from "./StudentExamResultsHeader";
 
 type AnyRow = Record<string, unknown>;
 
@@ -99,69 +100,6 @@ function ResultsSummary({ rows }: { readonly rows: AnyRow[] }) {
   );
 }
 
-function ResultsTable({
-  rows,
-  loading,
-}: {
-  readonly rows: AnyRow[];
-  readonly loading: boolean;
-}) {
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      COL_DEFS.siNo,
-      COL_DEFS.subjectCode,
-      COL_DEFS.subjectName,
-      COL_DEFS.monthYear,
-      COL_DEFS.finalGrade,
-      COL_DEFS.credits,
-      COL_DEFS.status,
-    ],
-    [],
-  );
-
-  if (!loading && rows.length === 0) {
-    return (
-      <p className="py-6 text-center text-sm font-medium text-destructive">
-        No Results are found.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-1">
-      <DataTable
-        title=""
-        subtitle=""
-        rowData={rows}
-        columnDefs={columnDefs}
-        loading={loading}
-        bordered={false}
-        height="auto"
-        pagination
-        toolbar={{
-          search: true,
-          searchPlaceholder: "Search subjects…",
-        }}
-        getRowId={(p) => {
-          const code = cellValue(p.data, ["subjectCode", "subject_code"]);
-          const name = cellValue(p.data, [
-            "subjectName",
-            "subject_name",
-            "shortName",
-          ]);
-          const month = cellValue(p.data, [
-            "examMonthYr",
-            "exam_month_yr",
-            "monthYear",
-          ]);
-          return `${code}|${name}|${month}|${p.data?.subjectId ?? ""}`;
-        }}
-      />
-      {!loading && rows.length > 0 ? <ResultsSummary rows={rows} /> : null}
-    </div>
-  );
-}
-
 export function StudentExamResultsTable({
   student,
 }: {
@@ -214,54 +152,89 @@ export function StudentExamResultsTable({
     };
   }, [student, activeSem]);
 
-  if (loading) {
-    return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        Loading exam results…
-      </p>
-    );
-  }
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.subjectCode,
+      COL_DEFS.subjectName,
+      COL_DEFS.monthYear,
+      COL_DEFS.finalGrade,
+      COL_DEFS.credits,
+      COL_DEFS.status,
+    ],
+    [],
+  );
+
+  const tableLoading = loading || semLoading;
+  const showEmptyMessage =
+    !tableLoading && (semesters.length === 0 || rows.length === 0);
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-sm border border-[#52a9ff75] bg-[#52a9ff75] px-3 py-2 text-sm font-medium text-foreground">
-        Semwise Final Marks
-      </div>
-
-      {!semesters.length ? (
-        <p className="py-6 text-center text-sm font-medium text-destructive">
-          No Results are found.
-        </p>
-      ) : (
-        <div className="rounded-md border-2 border-[#B2EBF2] p-2">
-          <Tabs value={activeSem} onValueChange={setActiveSem}>
-            <div className="overflow-x-auto rounded-sm border border-[#52a9ff75]">
-              <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
-                {semesters.map((sem) => (
-                  <TabsTrigger
-                    key={sem.courseYearId}
-                    value={String(sem.courseYearId)}
-                    className={SEM_TAB_CLASS}
-                  >
-                    {sem.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-            {semesters.map((sem) => (
-              <TabsContent
-                key={sem.courseYearId}
-                value={String(sem.courseYearId)}
-                className="mt-3 p-2"
-              >
-                {activeSem === String(sem.courseYearId) ? (
-                  <ResultsTable rows={rows} loading={semLoading} />
-                ) : null}
-              </TabsContent>
-            ))}
-          </Tabs>
+    <FilteredListPage
+      title="Exam Results"
+      filters={
+        <div className="space-y-3">
+          <StudentExamResultsHeader student={student} />
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">
+              Semwise Final Marks
+            </p>
+            {semesters.length > 0 ? (
+              <Tabs value={activeSem} onValueChange={setActiveSem}>
+                <div className="overflow-x-auto rounded-sm border border-border">
+                  <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
+                    {semesters.map((sem) => (
+                      <TabsTrigger
+                        key={sem.courseYearId}
+                        value={String(sem.courseYearId)}
+                        className={SEM_TAB_CLASS}
+                      >
+                        {sem.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+              </Tabs>
+            ) : null}
+          </div>
         </div>
-      )}
-    </div>
+      }
+      filtersCollapsible
+      filtersDefaultOpen
+      notice={
+        showEmptyMessage ? (
+          <p className="text-sm font-medium text-destructive">
+            No Results are found.
+          </p>
+        ) : null
+      }
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={tableLoading}
+      pagination
+      height="auto"
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search subjects…",
+      }}
+      getRowId={(p) => {
+        const code = cellValue(p.data, ["subjectCode", "subject_code"]);
+        const name = cellValue(p.data, [
+          "subjectName",
+          "subject_name",
+          "shortName",
+        ]);
+        const month = cellValue(p.data, [
+          "examMonthYr",
+          "exam_month_yr",
+          "monthYear",
+        ]);
+        return `${code}|${name}|${month}|${p.data?.subjectId ?? ""}`;
+      }}
+    >
+      {!tableLoading && rows.length > 0 ? (
+        <ResultsSummary rows={rows} />
+      ) : null}
+    </FilteredListPage>
   );
 }

@@ -621,6 +621,10 @@ export const QK = {
         : (["HrPayroll", "departmentHeads"] as const),
     leaveTypes: () => ["HrPayroll", "leaveTypes"] as const,
     leaveApplications: () => ["HrPayroll", "leaveApplications"] as const,
+    leaveYears: () => ["HrPayroll", "leaveYears"] as const,
+    staffApplyLeave: (employeeId: number, leaveYear: number | string) =>
+      ["HrPayroll", "staffApplyLeave", employeeId, leaveYear] as const,
+    staffLeaveStatuses: () => ["HrPayroll", "staffLeaveStatuses"] as const,
     employees: () => ["HrPayroll", "employees"] as const,
     employeeReporting: (employeeId?: number) =>
       employeeId != null
@@ -795,6 +799,8 @@ export const QK = {
       ["TcNoDue", "collegeCerts", collegeId, code ?? "all"] as const,
     certIssues: (collegeCertificateId: number) =>
       ["TcNoDue", "certIssues", collegeCertificateId] as const,
+    studentIssues: (studentId: number) =>
+      ["TcNoDue", "studentIssues", studentId] as const,
     studentIssue: (studentId: number, collegeCertificateId: number) =>
       ["TcNoDue", "studentIssue", studentId, collegeCertificateId] as const,
     workflows: (feeCertificateIssueId: number) =>
@@ -1224,5 +1230,22 @@ export const QK = {
         audienceId,
         deptId,
       ] as const,
+  },
+
+  // ── Student Grievances & Feedback ────────────────────────────────────────
+  studentGrievances: {
+    all: ["StudentGrievances"] as const,
+    list: (studentId: number) =>
+      ["StudentGrievances", "list", studentId] as const,
+    detail: (complaintId: number) =>
+      ["StudentGrievances", "detail", complaintId] as const,
+    lookup: () => ["StudentGrievances", "lookup"] as const,
+  },
+  studentSurveyFeedback: {
+    all: ["StudentSurveyFeedback"] as const,
+    forms: (collegeId: number) =>
+      ["StudentSurveyFeedback", "forms", collegeId] as const,
+    employees: (surveyFormId: number, studentId: number) =>
+      ["StudentSurveyFeedback", "employees", surveyFormId, studentId] as const,
   },
 } as const;
