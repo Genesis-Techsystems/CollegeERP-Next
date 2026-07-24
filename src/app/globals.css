@@ -1027,6 +1027,16 @@
   border-color: hsl(var(--border)) !important;
 }
 
+/* Hide horizontal-scroll track under pinned SI.No / Actions columns —
+   scrollbar only appears under the scrollable center viewport. */
+.app-data-table .ag-theme-quartz .ag-horizontal-left-spacer,
+.app-data-table .ag-theme-quartz .ag-horizontal-right-spacer {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Reusable control tokens */
 .app-control {
   height: var(--app-control-height);

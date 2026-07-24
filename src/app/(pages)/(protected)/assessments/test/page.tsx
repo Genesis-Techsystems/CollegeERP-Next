@@ -1,195 +1,265 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ListIcon, PlusIcon, SettingsIcon, FilePenLineIcon, UploadCloudIcon } from 'lucide-react'
-import { ListPage } from '@/components/layout'
-import { StatusBadge } from '@/common/components/data-display'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { useSession } from '@/hooks/useSession'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listTests, updateTest } from '@/services/admin/question-bank'
-import type { Assessment } from '@/types/question-bank'
-import QuestionsListDrawer from '../question-bank/QuestionsListDrawer'
-import TestModal from './TestModal'
-import { toast } from 'sonner'
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PlusIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ListPage } from "@/components/layout";
+import { StatusBadge } from "@/common/components/data-display";
+import { Button } from "@/components/ui/button";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listTests, updateTest } from "@/services";
+import type { Assessment } from "@/types/question-bank";
+import QuestionsListDrawer from "../question-bank/QuestionsListDrawer";
+import TestModal from "./TestModal";
 
+/** Angular CONSTANTS.dateFormate = 'd MMM, y' */
 function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return value
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  const day = d.getDate();
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  const year = d.getFullYear();
+  return `${day} ${month}, ${year}`;
 }
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Assessment>,
-  assessment: { field: 'assessmentName', headerName: 'Assessment', minWidth: 300, flex: 1.2 } as ColDef<Assessment>,
-  type: { headerName: 'Test Type', minWidth: 120, flex: 0.7 } as ColDef<Assessment>,
-  created: { field: 'createdDt', headerName: 'Created On', minWidth: 120, flex: 0.7 } as ColDef<Assessment>,
-  status: { field: 'isActive', headerName: 'Status', width: 90, flex: 0 } as ColDef<Assessment>,
-  actions: { headerName: 'Actions', minWidth: 360, flex: 1 } as ColDef<Assessment>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<Assessment>,
+  assessment: {
+    field: "assessmentName",
+    headerName: "Assessment",
+    flex: 1.2,
+    minWidth: 200,
+  } as ColDef<Assessment>,
+  type: { headerName: "Test Type", width: 150, flex: 0 } as ColDef<Assessment>,
+  created: {
+    field: "createdDt",
+    headerName: "Created On",
+    width: 130,
+    flex: 0,
+  } as ColDef<Assessment>,
+  status: {
+    field: "isActive",
+    headerName: "Status",
+    width: 100,
+    flex: 0,
+  } as ColDef<Assessment>,
+  actions: { headerName: "Actions", width: 280, flex: 0 } as ColDef<Assessment>,
+};
 
 function typeRenderer(p: ICellRendererParams<Assessment>) {
-  if (p.data?.isCertification) return <span>For Certification</span>
-  if (p.data?.isForPractice) return <span>For Practice</span>
-  return <span>—</span>
+  if (p.data?.isCertification) return <span>For Certification</span>;
+  if (p.data?.isForPractice) return <span>For Practice</span>;
+  if (p.data?.isForQuestionbank) return <span>For Question Bank</span>;
+  return <span>—</span>;
 }
 
 function statusRenderer(p: ICellRendererParams<Assessment>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
-function questionsRenderer(openDrawer: (test: Assessment) => void) {
+function makeAssessmentRenderer(
+  onQuestionList: (row: Assessment) => void,
+  onEdit: (row: Assessment) => void,
+) {
   return (p: ICellRendererParams<Assessment>) => {
-    const count = p.data?.assessmentQuestionDTOs?.length ?? 0
+    const row = p.data;
+    if (!row) return null;
+    const count = row.assessmentQuestionDTOs?.length ?? 0;
+    const showQuestion = row.collegeCode !== null;
+    const showEdit = row.academicYear !== null;
     return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-        onClick={() => p.data && openDrawer(p.data)}
-      >
-        <ListIcon className="h-3 w-3" />
-        {count} question{count !== 1 ? 's' : ''}
-      </button>
-    )
-  }
+      <div className="leading-tight py-1">
+        <div className="text-sm font-semibold">{row.assessmentName}</div>
+        <div className="mt-0.5 text-xs text-blue-600">
+          {/* Angular always renders "Question (n) | Edit" with ngIf on each action */}
+          {showQuestion && (
+            <button
+              type="button"
+              className="hover:underline"
+              onClick={() => onQuestionList(row)}
+            >
+              Question ({count})
+            </button>
+          )}
+          {showQuestion && (
+            <span className="mx-1 text-muted-foreground">|</span>
+          )}
+          {showEdit && (
+            <button
+              type="button"
+              className="hover:underline"
+              onClick={() => onEdit(row)}
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 }
 
-function actionsRenderer(
-  onSettings: (test: Assessment) => void,
-  onManage: (test: Assessment) => void,
-  onPublish: (test: Assessment) => void,
+function makeActionsRenderer(
+  onSettings: (row: Assessment) => void,
+  onManage: (row: Assessment) => void,
+  onPublish: (row: Assessment) => void,
 ) {
   return (p: ICellRendererParams<Assessment>) => (
-    <div className="flex items-center gap-1">
-      <Button size="sm" variant="outline" className="h-7 px-1.5 text-[11px]" onClick={() => p.data && onSettings(p.data)}>
-        <SettingsIcon className="mr-1 h-3 w-3" />
-        Settings
-      </Button>
-      <Button size="sm" variant="outline" className="h-7 px-1.5 text-[11px]" onClick={() => p.data && onManage(p.data)}>
-        <FilePenLineIcon className="mr-1 h-3 w-3" />
-        Manage
-      </Button>
-      <Button size="sm" variant="outline" className="h-7 px-1.5 text-[11px]" onClick={() => p.data && onPublish(p.data)}>
-        <UploadCloudIcon className="mr-1 h-3 w-3" />
-        Publish
-      </Button>
+    <div className="flex flex-col gap-1.5 py-1">
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          size="sm"
+          className="h-8"
+          onClick={() => p.data && onSettings(p.data)}
+        >
+          Test Settings
+        </Button>
+        <Button
+          size="sm"
+          className="h-8"
+          onClick={() => p.data && onManage(p.data)}
+        >
+          Manage Question
+        </Button>
+      </div>
+      <div>
+        <Button
+          size="sm"
+          className="h-8"
+          onClick={() => p.data && onPublish(p.data)}
+        >
+          Publish Test
+        </Button>
+      </div>
     </div>
-  )
+  );
 }
 
 export default function TestPage() {
-  const router = useRouter()
-  const { user } = useSession()
-  const [searchValue, setSearchValue] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingTest, setEditingTest] = useState<Assessment | null>(null)
-  const [drawerTest, setDrawerTest] = useState<Assessment | null>(null)
+  const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingTest, setEditingTest] = useState<Assessment | null>(null);
+  const [drawerTest, setDrawerTest] = useState<Assessment | null>(null);
 
-  const userId = user?.roleName === 'ADMIN' ? undefined : (user?.userId ?? undefined)
-  const { data: tests, isLoading: loading, invalidate } = useCrudList({
-    queryKey: [...QK.questionBanks.list(userId), 'tests'],
-    queryFn: () => listTests(userId),
-    enabled: user !== null,
-  })
+  // Angular: listAllDetails — no role/user filter
+  const {
+    data: tests,
+    isLoading: loading,
+    invalidate,
+  } = useCrudList({
+    queryKey: [...QK.questionBanks.list(), "tests"],
+    queryFn: () => listTests(),
+  });
 
-  const filteredData = useMemo(() => {
-    if (!searchValue.trim()) return tests
-    const q = searchValue.toLowerCase()
-    return tests.filter((row) =>
-      [row.assessmentName, row.assessmentDescription]
-        .some((v) => String(v ?? '').toLowerCase().includes(q)),
-    )
-  }, [tests, searchValue])
+  const openEdit = (row: Assessment) => {
+    setEditingTest(row);
+    setModalOpen(true);
+  };
+
+  const openQuestionList = (row: Assessment) => {
+    if (row.assessmentQuestionDTOs == null) return;
+    setDrawerTest(row);
+  };
 
   const handlePublish = async (test: Assessment) => {
     try {
-      await updateTest(test.assessmentId, { ...test, isSystemcorrection: true } as Partial<Assessment>)
-      toast.success('Test published')
-      invalidate()
+      // Angular publish(): set isSystemcorrection=true then update(full item)
+      await updateTest({ ...test, isSystemcorrection: true } as Record<
+        string,
+        unknown
+      >);
+      toast.success("Test published");
+      invalidate();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to publish')
+      toast.error(err instanceof Error ? err.message : "Failed to publish");
     }
-  }
+  };
 
-  const columns = useMemo<ColDef<Assessment>[]>(() => [
-    COL_DEFS.siNo,
-    {
-      ...COL_DEFS.assessment,
-      cellRenderer: (p: ICellRendererParams<Assessment>) => (
-        <div className="flex items-center gap-2 text-xs">
-          <span>{p.data?.assessmentName}</span>
-          <span className="text-muted-foreground">|</span>
-          {questionsRenderer(setDrawerTest)(p)}
-          <span className="text-muted-foreground">|</span>
-          <button
-            type="button"
-            className="text-xs text-blue-600 hover:underline"
-            onClick={() => p.data && (setEditingTest(p.data), setModalOpen(true))}
-          >
-            Edit
-          </button>
-        </div>
-      ),
-    },
-    { ...COL_DEFS.type, cellRenderer: typeRenderer },
-    { ...COL_DEFS.created, valueFormatter: (p) => formatDate(p.value) },
-    { ...COL_DEFS.status, cellRenderer: statusRenderer },
-    {
-      ...COL_DEFS.actions,
-      cellRenderer: actionsRenderer(
-        (test) => router.push(`/assessments/test/test-settings?assessmentId=${test.assessmentId}&assessmentName=${encodeURIComponent(test.assessmentName)}`),
-        (test) => router.push(`/assessments/test/manage-question?assessmentId=${test.assessmentId}&assessmentName=${encodeURIComponent(test.assessmentName)}`),
-        handlePublish,
-      ),
-    },
-  ], [router, setDrawerTest])
+  const columnDefs = useMemo<ColDef<Assessment>[]>(
+    () => [
+      COL_DEFS.siNo,
+      {
+        ...COL_DEFS.assessment,
+        cellRenderer: makeAssessmentRenderer(openQuestionList, openEdit),
+        autoHeight: true,
+      },
+      { ...COL_DEFS.type, cellRenderer: typeRenderer },
+      { ...COL_DEFS.created, valueFormatter: (p) => formatDate(p.value) },
+      { ...COL_DEFS.status, cellRenderer: statusRenderer },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(
+          (test) =>
+            router.push(
+              `/assessments/test/test-settings?assessmentId=${test.assessmentId}&assessmentName=${encodeURIComponent(test.assessmentName)}`,
+            ),
+          (test) =>
+            router.push(
+              `/assessments/test/manage-question?assessmentId=${test.assessmentId}`,
+            ),
+          handlePublish,
+        ),
+        autoHeight: true,
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [router],
+  );
 
   return (
     <ListPage
       title="Test List"
-      rowData={filteredData}
-      columnDefs={columns}
+      rowData={tests}
+      columnDefs={columnDefs}
       loading={loading}
       pagination
-      toolbar={{ columnPicker: true, exportPdf: true }}
-      toolbarLeading={(
-        <SearchInput
-          className="w-full max-w-sm"
-          placeholder="Search tests…"
-          value={searchValue}
-          onChange={setSearchValue}
-        />
-      )}
-      toolbarTrailing={(
-        <Button size="sm" onClick={() => { setEditingTest(null); setModalOpen(true) }}>
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+      }}
+      toolbarTrailing={
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditingTest(null);
+            setModalOpen(true);
+          }}
+        >
           <PlusIcon className="mr-1 h-4 w-4" />
           Create Test
         </Button>
-      )}
+      }
     >
       <TestModal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingTest(null) }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingTest(null);
+        }}
         test={editingTest}
         onSaved={invalidate}
-        userId={user?.userId ?? 0}
       />
 
       <QuestionsListDrawer
         bank={drawerTest}
         onClose={() => setDrawerTest(null)}
         onDeleted={invalidate}
-        evaluatorProfileId={user?.employeeId ?? null}
         onEditQuestion={(test, aqId) => {
-          router.push(`/assessments/question-bank/add-question?assessmentId=${test.assessmentId}&assessmentQuestionId=${aqId}&permission=Edit&page=/assessments/test`)
+          router.push(
+            `/assessments/question-bank/add-question?assessmentId=${test.assessmentId}&assessmentQuestionId=${aqId}&permission=Edit&page=assessments/test`,
+          );
         }}
       />
     </ListPage>
-  )
+  );
 }
-

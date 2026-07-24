@@ -1,86 +1,129 @@
-'use client'
+"use client";
 
-import { useRef, useState } from 'react'
-import type { Editor } from '@tiptap/react'
+import { useRef, useState } from "react";
+import type { Editor } from "@tiptap/react";
 import {
-  Bold, Italic, Underline, Strikethrough,
-  AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  List, ListOrdered,
-  Indent, Outdent,
-  Link, Image, Table,
-  Undo2, Redo2,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { MathInsertModal } from './MathInsertModal'
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  List,
+  ListOrdered,
+  Indent,
+  Outdent,
+  Link,
+  Image,
+  Table,
+  Undo2,
+  Redo2,
+  Quote,
+  Code2,
+  RemoveFormatting,
+  Heading1,
+  Heading2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { MathInsertModal } from "./MathInsertModal";
 
 // ─── Constants (mirrors Angular TinyMCE config) ───────────────────────────────
 
 const FONT_FAMILIES = [
-  { label: 'Default',      value: '' },
-  { label: 'Arial',        value: 'Arial, Helvetica, sans-serif' },
-  { label: 'Courier New',  value: '"Courier New", Courier, monospace' },
-  { label: 'Georgia',      value: 'Georgia, serif' },
-  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
-  { label: 'Verdana',      value: 'Verdana, Geneva, sans-serif' },
-]
+  { label: "Default", value: "" },
+  { label: "Arial", value: "Arial, Helvetica, sans-serif" },
+  { label: "Courier New", value: '"Courier New", Courier, monospace' },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Times New Roman", value: '"Times New Roman", Times, serif' },
+  { label: "Verdana", value: "Verdana, Geneva, sans-serif" },
+];
 
 const FONT_SIZES = [
-  '8pt','9pt','10pt','11pt','12pt','14pt','18pt',
-  '24pt','30pt','36pt','48pt','60pt','72pt','96pt',
-]
+  "8pt",
+  "9pt",
+  "10pt",
+  "11pt",
+  "12pt",
+  "14pt",
+  "18pt",
+  "24pt",
+  "30pt",
+  "36pt",
+  "48pt",
+  "60pt",
+  "72pt",
+  "96pt",
+];
 
 const LINE_HEIGHTS = [
-  { label: 'Default', value: '' },
-  { label: '1',    value: '1' },
-  { label: '1.15', value: '1.15' },
-  { label: '1.5',  value: '1.5' },
-  { label: '2',    value: '2' },
-  { label: '2.5',  value: '2.5' },
-  { label: '3',    value: '3' },
-]
+  { label: "Default", value: "" },
+  { label: "1", value: "1" },
+  { label: "1.15", value: "1.15" },
+  { label: "1.5", value: "1.5" },
+  { label: "2", value: "2" },
+  { label: "2.5", value: "2.5" },
+  { label: "3", value: "3" },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-interface Props { editor: Editor | null }
+interface Props {
+  editor: Editor | null;
+  /** `full` = TinyMCE-style (question body). `quill` = Angular ngx-quill snow toolbar (MC choices). */
+  variant?: "full" | "quill";
+}
 
 function Divider() {
-  return <div className="mx-0.5 h-5 w-px shrink-0 bg-border" />
+  return <div className="mx-0.5 h-5 w-px shrink-0 bg-border" />;
 }
 
 function ToolbarButton({
-  onClick, active, disabled, title, children,
+  onClick,
+  active,
+  disabled,
+  title,
+  children,
 }: {
-  onClick: () => void
-  active?: boolean
-  disabled?: boolean
-  title: string
-  children: React.ReactNode
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  title: string;
+  children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       title={title}
       disabled={disabled}
-      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
       className={cn(
-        'inline-flex h-7 w-7 items-center justify-center rounded text-sm transition-colors',
-        'hover:bg-muted disabled:pointer-events-none disabled:opacity-40',
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground',
+        "inline-flex h-7 w-7 items-center justify-center rounded text-sm transition-colors",
+        "hover:bg-muted disabled:pointer-events-none disabled:opacity-40",
+        active ? "bg-muted text-foreground" : "text-muted-foreground",
       )}
     >
       {children}
     </button>
-  )
+  );
 }
 
 function ToolbarSelect({
-  value, onChange, title, className, children,
+  value,
+  onChange,
+  title,
+  className,
+  children,
 }: {
-  value: string
-  onChange: (v: string) => void
-  title: string
-  className?: string
-  children: React.ReactNode
+  value: string;
+  onChange: (v: string) => void;
+  title: string;
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
     <select
@@ -89,126 +132,444 @@ function ToolbarSelect({
       onChange={(e) => onChange(e.target.value)}
       onMouseDown={(e) => e.stopPropagation()}
       className={cn(
-        'h-7 rounded border border-input bg-background px-1 text-xs text-foreground',
-        'focus:outline-none focus:ring-1 focus:ring-ring',
+        "h-7 rounded border border-input bg-background px-1 text-xs text-foreground",
+        "focus:outline-none focus:ring-1 focus:ring-ring",
         className,
       )}
     >
       {children}
     </select>
-  )
+  );
 }
 
 function ColorButton({
-  title, value, onChange, icon,
+  title,
+  value,
+  onChange,
+  icon,
 }: {
-  title: string
-  value: string
-  onChange: (color: string) => void
-  icon: React.ReactNode
+  title: string;
+  value: string;
+  onChange: (color: string) => void;
+  icon: React.ReactNode;
 }) {
-  const ref = useRef<HTMLInputElement>(null)
+  const ref = useRef<HTMLInputElement>(null);
   return (
     <div className="relative inline-flex">
       <button
         type="button"
         title={title}
-        onMouseDown={(e) => { e.preventDefault(); ref.current?.click() }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          ref.current?.click();
+        }}
         className="inline-flex h-7 w-7 flex-col items-center justify-center rounded text-muted-foreground hover:bg-muted"
       >
         {icon}
         <span
           className="mt-0.5 h-1 w-4 rounded-sm"
-          style={{ background: value || '#000000' }}
+          style={{ background: value || "#000000" }}
         />
       </button>
       <input
         ref={ref}
         type="color"
-        value={value || '#000000'}
+        value={value || "#000000"}
         onChange={(e) => onChange(e.target.value)}
         className="absolute inset-0 h-0 w-0 opacity-0 cursor-pointer"
       />
     </div>
-  )
+  );
+}
+
+// ─── Quill snow-style toolbar (Angular choice editors) ────────────────────────
+
+function QuillToolbar({ editor }: { editor: Editor }) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const currentFontFamily = editor.getAttributes("textStyle").fontFamily ?? "";
+  const currentFontSize = editor.getAttributes("textStyle").fontSize ?? "";
+  const currentColor = editor.getAttributes("textStyle").color ?? "";
+  const currentHighlight = editor.getAttributes("highlight").color ?? "";
+
+  const handleLink = () => {
+    const prev = editor.getAttributes("link").href ?? "";
+    const url = window.prompt("Enter URL", prev);
+    if (url === null) return;
+    if (url === "") editor.chain().focus().unsetLink().run();
+    else editor.chain().focus().setLink({ href: url }).run();
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        editor
+          .chain()
+          .focus()
+          .setImage({ src: reader.result, alt: file.name })
+          .run();
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const clearFormat = () => {
+    editor.chain().focus().clearNodes().unsetAllMarks().run();
+  };
+
+  return (
+    <div className="flex flex-col gap-0.5 border-b border-input bg-[#f3f3f3] px-1.5 py-1">
+      <div className="flex flex-wrap items-center gap-0.5">
+        <ToolbarButton
+          title="Bold"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive("bold")}
+        >
+          <span className="text-xs font-bold">B</span>
+        </ToolbarButton>
+        <ToolbarButton
+          title="Italic"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive("italic")}
+        >
+          <span className="text-xs italic font-serif">I</span>
+        </ToolbarButton>
+        <ToolbarButton
+          title="Underline"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          active={editor.isActive("underline")}
+        >
+          <span className="text-xs underline">U</span>
+        </ToolbarButton>
+        <ToolbarButton
+          title="Strikethrough"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive("strike")}
+        >
+          <span className="text-xs line-through">S</span>
+        </ToolbarButton>
+
+        <Divider />
+
+        <ToolbarButton
+          title="Blockquote"
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive("blockquote")}
+        >
+          <Quote className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Code block"
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          active={editor.isActive("codeBlock")}
+        >
+          <Code2 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <Divider />
+
+        <ToolbarButton
+          title="Heading 1"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run()
+          }
+          active={editor.isActive("heading", { level: 1 })}
+        >
+          <Heading1 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Heading 2"
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
+          active={editor.isActive("heading", { level: 2 })}
+        >
+          <Heading2 className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <Divider />
+
+        <ToolbarButton
+          title="Numbered list"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          active={editor.isActive("orderedList")}
+        >
+          <ListOrdered className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Bullet list"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          active={editor.isActive("bulletList")}
+        >
+          <List className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <Divider />
+
+        <ToolbarButton
+          title="Outdent"
+          onClick={() => editor.chain().focus().liftListItem("listItem").run()}
+          disabled={!editor.can().liftListItem("listItem")}
+        >
+          <Outdent className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Indent"
+          onClick={() => editor.chain().focus().sinkListItem("listItem").run()}
+          disabled={!editor.can().sinkListItem("listItem")}
+        >
+          <Indent className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <Divider />
+
+        <ToolbarSelect
+          title="Normal"
+          value={
+            editor.isActive("heading", { level: 1 })
+              ? "h1"
+              : editor.isActive("heading", { level: 2 })
+                ? "h2"
+                : "p"
+          }
+          onChange={(v) => {
+            if (v === "h1")
+              editor.chain().focus().toggleHeading({ level: 1 }).run();
+            else if (v === "h2")
+              editor.chain().focus().toggleHeading({ level: 2 }).run();
+            else editor.chain().focus().setParagraph().run();
+          }}
+          className="w-[4.5rem]"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+        </ToolbarSelect>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-0.5">
+        <ToolbarSelect
+          title="Size"
+          value={currentFontSize}
+          onChange={(v) =>
+            v
+              ? editor.chain().focus().setFontSize(v).run()
+              : editor.chain().focus().unsetFontSize().run()
+          }
+          className="w-16"
+        >
+          <option value="">Normal</option>
+          {FONT_SIZES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </ToolbarSelect>
+
+        <ColorButton
+          title="Text colour"
+          value={currentColor}
+          onChange={(c) => editor.chain().focus().setColor(c).run()}
+          icon={<span className="text-[10px] font-bold leading-none">A</span>}
+        />
+        <ColorButton
+          title="Background colour"
+          value={currentHighlight}
+          onChange={(c) =>
+            editor.chain().focus().setHighlight({ color: c }).run()
+          }
+          icon={
+            <span
+              className="text-[10px] font-bold leading-none"
+              style={{
+                background:
+                  "linear-gradient(to bottom, transparent 55%, #c0c0c0 55%)",
+              }}
+            >
+              A
+            </span>
+          }
+        />
+
+        <ToolbarSelect
+          title="Font"
+          value={currentFontFamily}
+          onChange={(v) =>
+            v
+              ? editor.chain().focus().setFontFamily(v).run()
+              : editor.chain().focus().unsetFontFamily().run()
+          }
+          className="w-28"
+        >
+          {FONT_FAMILIES.map((f) => (
+            <option key={f.label} value={f.value}>
+              {f.label === "Default" ? "Sans Serif" : f.label}
+            </option>
+          ))}
+        </ToolbarSelect>
+
+        <ToolbarButton
+          title="Align left"
+          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          active={editor.isActive({ textAlign: "left" })}
+        >
+          <AlignLeft className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Align center"
+          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          active={editor.isActive({ textAlign: "center" })}
+        >
+          <AlignCenter className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Align right"
+          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          active={editor.isActive({ textAlign: "right" })}
+        >
+          <AlignRight className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Justify"
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+          active={editor.isActive({ textAlign: "justify" })}
+        >
+          <AlignJustify className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <ToolbarButton title="Clear formatting" onClick={clearFormat}>
+          <RemoveFormatting className="h-3.5 w-3.5" />
+        </ToolbarButton>
+
+        <Divider />
+
+        <ToolbarButton
+          title="Link"
+          onClick={handleLink}
+          active={editor.isActive("link")}
+        >
+          <Link className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <ToolbarButton
+          title="Image"
+          onClick={() => imageInputRef.current?.click()}
+        >
+          <Image className="h-3.5 w-3.5" />
+        </ToolbarButton>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+      </div>
+    </div>
+  );
 }
 
 // ─── Main toolbar ─────────────────────────────────────────────────────────────
 
-export function RichTextToolbar({ editor }: Props) {
-  const imageInputRef = useRef<HTMLInputElement>(null)
-  const [mathModal, setMathModal] = useState<{ open: boolean; mode: 'math' | 'chemistry' }>({
-    open: false,
-    mode: 'math',
-  })
+export function RichTextToolbar({ editor, variant = "full" }: Props) {
+  if (!editor) return null;
+  if (variant === "quill") return <QuillToolbar editor={editor} />;
 
-  if (!editor) return null
+  return <FullToolbar editor={editor} />;
+}
+
+function FullToolbar({ editor }: { editor: Editor }) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [mathModal, setMathModal] = useState<{
+    open: boolean;
+    mode: "math" | "chemistry";
+  }>({
+    open: false,
+    mode: "math",
+  });
 
   const handleMathInsert = (out: string) => {
     // Block math: $$...$$ → insertBlockMath node
-    const blockMatch = out.match(/^\$\$([^]+)\$\$$/)
+    const blockMatch = out.match(/^\$\$([^]+)\$\$$/);
     if (blockMatch) {
-      editor.chain().focus().insertBlockMath({ latex: blockMatch[1] }).run()
-      return
+      editor.chain().focus().insertBlockMath({ latex: blockMatch[1] }).run();
+      return;
     }
     // Inline math / chemistry: $...$ → insertInlineMath node
-    const inlineMatch = out.match(/^\$([^]+)\$$/)
+    const inlineMatch = out.match(/^\$([^]+)\$$/);
     if (inlineMatch) {
-      editor.chain().focus().insertInlineMath({ latex: inlineMatch[1] }).run()
-      return
+      editor.chain().focus().insertInlineMath({ latex: inlineMatch[1] }).run();
+      return;
     }
-    editor.chain().focus().insertContent(out).run()
-  }
+    editor.chain().focus().insertContent(out).run();
+  };
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
-  const currentFontFamily = editor.getAttributes('textStyle').fontFamily ?? ''
-  const currentFontSize   = editor.getAttributes('textStyle').fontSize   ?? ''
-  const currentColor      = editor.getAttributes('textStyle').color      ?? ''
-  const currentHighlight  = editor.getAttributes('highlight').color      ?? ''
-  const currentLineHeight = (
-    editor.getAttributes('paragraph').lineHeight ??
-    editor.getAttributes('heading').lineHeight   ?? ''
-  )
+  const currentFontFamily = editor.getAttributes("textStyle").fontFamily ?? "";
+  const currentFontSize = editor.getAttributes("textStyle").fontSize ?? "";
+  const currentColor = editor.getAttributes("textStyle").color ?? "";
+  const currentHighlight = editor.getAttributes("highlight").color ?? "";
+  const currentLineHeight =
+    editor.getAttributes("paragraph").lineHeight ??
+    editor.getAttributes("heading").lineHeight ??
+    "";
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleLink = () => {
-    const prev = editor.getAttributes('link').href ?? ''
-    const url  = window.prompt('Enter URL', prev)
-    if (url === null) return
-    if (url === '') {
-      editor.chain().focus().unsetLink().run()
+    const prev = editor.getAttributes("link").href ?? "";
+    const url = window.prompt("Enter URL", prev);
+    if (url === null) return;
+    if (url === "") {
+      editor.chain().focus().unsetLink().run();
     } else {
-      editor.chain().focus().setLink({ href: url }).run()
+      editor.chain().focus().setLink({ href: url }).run();
     }
-  }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        editor.chain().focus().setImage({ src: reader.result, alt: file.name }).run()
+      if (typeof reader.result === "string") {
+        editor
+          .chain()
+          .focus()
+          .setImage({ src: reader.result, alt: file.name })
+          .run();
       }
-    }
-    reader.readAsDataURL(file)
-    e.target.value = ''
-  }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const handleInsertTable = () => {
-    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-  }
+    editor
+      .chain()
+      .focus()
+      .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+      .run();
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-input bg-muted/30 px-2 py-1">
-
       {/* Undo / Redo */}
-      <ToolbarButton title="Undo (Ctrl+Z)" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+      <ToolbarButton
+        title="Undo (Ctrl+Z)"
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+      >
         <Undo2 className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Redo (Ctrl+Y)" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+      <ToolbarButton
+        title="Redo (Ctrl+Y)"
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+      >
         <Redo2 className="h-3.5 w-3.5" />
       </ToolbarButton>
 
@@ -218,11 +579,17 @@ export function RichTextToolbar({ editor }: Props) {
       <ToolbarSelect
         title="Font family"
         value={currentFontFamily}
-        onChange={(v) => v ? editor.chain().focus().setFontFamily(v).run() : editor.chain().focus().unsetFontFamily().run()}
+        onChange={(v) =>
+          v
+            ? editor.chain().focus().setFontFamily(v).run()
+            : editor.chain().focus().unsetFontFamily().run()
+        }
         className="w-28"
       >
         {FONT_FAMILIES.map((f) => (
-          <option key={f.label} value={f.value}>{f.label}</option>
+          <option key={f.label} value={f.value}>
+            {f.label}
+          </option>
         ))}
       </ToolbarSelect>
 
@@ -230,28 +597,50 @@ export function RichTextToolbar({ editor }: Props) {
       <ToolbarSelect
         title="Font size"
         value={currentFontSize}
-        onChange={(v) => v ? editor.chain().focus().setFontSize(v).run() : editor.chain().focus().unsetFontSize().run()}
+        onChange={(v) =>
+          v
+            ? editor.chain().focus().setFontSize(v).run()
+            : editor.chain().focus().unsetFontSize().run()
+        }
         className="w-16"
       >
         <option value="">Size</option>
         {FONT_SIZES.map((s) => (
-          <option key={s} value={s}>{s}</option>
+          <option key={s} value={s}>
+            {s}
+          </option>
         ))}
       </ToolbarSelect>
 
       <Divider />
 
       {/* Inline formatting */}
-      <ToolbarButton title="Bold (Ctrl+B)" onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>
+      <ToolbarButton
+        title="Bold (Ctrl+B)"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        active={editor.isActive("bold")}
+      >
         <Bold className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Italic (Ctrl+I)" onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>
+      <ToolbarButton
+        title="Italic (Ctrl+I)"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        active={editor.isActive("italic")}
+      >
         <Italic className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Underline (Ctrl+U)" onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')}>
+      <ToolbarButton
+        title="Underline (Ctrl+U)"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        active={editor.isActive("underline")}
+      >
         <Underline className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Strikethrough" onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')}>
+      <ToolbarButton
+        title="Strikethrough"
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+        active={editor.isActive("strike")}
+      >
         <Strikethrough className="h-3.5 w-3.5" />
       </ToolbarButton>
 
@@ -269,41 +658,85 @@ export function RichTextToolbar({ editor }: Props) {
       <ColorButton
         title="Background colour"
         value={currentHighlight}
-        onChange={(c) => editor.chain().focus().setHighlight({ color: c }).run()}
-        icon={<span className="text-[10px] font-bold leading-none" style={{ background: 'linear-gradient(to bottom, transparent 40%, #ffff00 40%)' }}>A</span>}
+        onChange={(c) =>
+          editor.chain().focus().setHighlight({ color: c }).run()
+        }
+        icon={
+          <span
+            className="text-[10px] font-bold leading-none"
+            style={{
+              background:
+                "linear-gradient(to bottom, transparent 40%, #ffff00 40%)",
+            }}
+          >
+            A
+          </span>
+        }
       />
 
       <Divider />
 
       {/* Alignment */}
-      <ToolbarButton title="Align left" onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })}>
+      <ToolbarButton
+        title="Align left"
+        onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        active={editor.isActive({ textAlign: "left" })}
+      >
         <AlignLeft className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Align center" onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })}>
+      <ToolbarButton
+        title="Align center"
+        onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        active={editor.isActive({ textAlign: "center" })}
+      >
         <AlignCenter className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Align right" onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })}>
+      <ToolbarButton
+        title="Align right"
+        onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        active={editor.isActive({ textAlign: "right" })}
+      >
         <AlignRight className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Justify" onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({ textAlign: 'justify' })}>
+      <ToolbarButton
+        title="Justify"
+        onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+        active={editor.isActive({ textAlign: "justify" })}
+      >
         <AlignJustify className="h-3.5 w-3.5" />
       </ToolbarButton>
 
       <Divider />
 
       {/* Indent / outdent */}
-      <ToolbarButton title="Outdent" onClick={() => editor.chain().focus().liftListItem('listItem').run()} disabled={!editor.can().liftListItem('listItem')}>
+      <ToolbarButton
+        title="Outdent"
+        onClick={() => editor.chain().focus().liftListItem("listItem").run()}
+        disabled={!editor.can().liftListItem("listItem")}
+      >
         <Outdent className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Indent" onClick={() => editor.chain().focus().sinkListItem('listItem').run()} disabled={!editor.can().sinkListItem('listItem')}>
+      <ToolbarButton
+        title="Indent"
+        onClick={() => editor.chain().focus().sinkListItem("listItem").run()}
+        disabled={!editor.can().sinkListItem("listItem")}
+      >
         <Indent className="h-3.5 w-3.5" />
       </ToolbarButton>
 
       {/* Lists */}
-      <ToolbarButton title="Bullet list" onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')}>
+      <ToolbarButton
+        title="Bullet list"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        active={editor.isActive("bulletList")}
+      >
         <List className="h-3.5 w-3.5" />
       </ToolbarButton>
-      <ToolbarButton title="Numbered list" onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')}>
+      <ToolbarButton
+        title="Numbered list"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        active={editor.isActive("orderedList")}
+      >
         <ListOrdered className="h-3.5 w-3.5" />
       </ToolbarButton>
 
@@ -313,23 +746,36 @@ export function RichTextToolbar({ editor }: Props) {
       <ToolbarSelect
         title="Line height"
         value={currentLineHeight}
-        onChange={(v) => v ? editor.chain().focus().setLineHeight(v).run() : editor.chain().focus().unsetLineHeight().run()}
+        onChange={(v) =>
+          v
+            ? editor.chain().focus().setLineHeight(v).run()
+            : editor.chain().focus().unsetLineHeight().run()
+        }
         className="w-16"
       >
         {LINE_HEIGHTS.map((l) => (
-          <option key={l.label} value={l.value}>{l.label}</option>
+          <option key={l.label} value={l.value}>
+            {l.label}
+          </option>
         ))}
       </ToolbarSelect>
 
       <Divider />
 
       {/* Link */}
-      <ToolbarButton title="Insert / edit link" onClick={handleLink} active={editor.isActive('link')}>
+      <ToolbarButton
+        title="Insert / edit link"
+        onClick={handleLink}
+        active={editor.isActive("link")}
+      >
         <Link className="h-3.5 w-3.5" />
       </ToolbarButton>
 
       {/* Image upload */}
-      <ToolbarButton title="Insert image" onClick={() => imageInputRef.current?.click()}>
+      <ToolbarButton
+        title="Insert image"
+        onClick={() => imageInputRef.current?.click()}
+      >
         <Image className="h-3.5 w-3.5" />
       </ToolbarButton>
       <input
@@ -341,7 +787,11 @@ export function RichTextToolbar({ editor }: Props) {
       />
 
       {/* Table */}
-      <ToolbarButton title="Insert table (3×3)" onClick={handleInsertTable} active={editor.isActive('table')}>
+      <ToolbarButton
+        title="Insert table (3×3)"
+        onClick={handleInsertTable}
+        active={editor.isActive("table")}
+      >
         <Table className="h-3.5 w-3.5" />
       </ToolbarButton>
 
@@ -351,7 +801,10 @@ export function RichTextToolbar({ editor }: Props) {
       <button
         type="button"
         title="Insert math formula"
-        onMouseDown={(e) => { e.preventDefault(); setMathModal({ open: true, mode: 'math' }) }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setMathModal({ open: true, mode: "math" });
+        }}
         className="inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors font-mono"
       >
         ∑ Math
@@ -359,7 +812,10 @@ export function RichTextToolbar({ editor }: Props) {
       <button
         type="button"
         title="Insert chemistry formula"
-        onMouseDown={(e) => { e.preventDefault(); setMathModal({ open: true, mode: 'chemistry' }) }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setMathModal({ open: true, mode: "chemistry" });
+        }}
         className="inline-flex h-7 items-center gap-1 rounded px-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
       >
         ⚗ Chem
@@ -372,5 +828,5 @@ export function RichTextToolbar({ editor }: Props) {
         onInsert={handleMathInsert}
       />
     </div>
-  )
+  );
 }

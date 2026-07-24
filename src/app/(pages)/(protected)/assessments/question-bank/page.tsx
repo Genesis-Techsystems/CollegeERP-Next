@@ -1,233 +1,307 @@
-'use client'
+"use client";
 
-import { useState, useMemo, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { useState, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PlusIcon, BookOpen, DownloadIcon } from "lucide-react";
+import { toast } from "sonner";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/common/components/data-display";
+import { useCrudList } from "@/hooks/useCrudList";
+import { useSession } from "@/hooks/useSession";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
 import {
-  PlusIcon,
-  BookOpen,
-  PencilIcon,
-  ListIcon,
-  UploadIcon,
-  DownloadIcon,
-} from 'lucide-react'
-import { toast } from 'sonner'
-import { ListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/common/components/data-display'
-import { useCrudList } from '@/hooks/useCrudList'
-import { useSession } from '@/hooks/useSession'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listQuestionBanks, importQuestionsFromExcel, addOrUpdateQuestion } from '@/services/admin/question-bank'
-import type { Assessment } from '@/types/question-bank'
-import QuestionBankModal from './QuestionBankModal'
-import QuestionsListDrawer from './QuestionsListDrawer'
+  listQuestionBanks,
+  importQuestionsFromExcel,
+  addOrUpdateQuestion,
+  buildImportedQuestionPayload,
+} from "@/services";
+import type { Assessment } from "@/types/question-bank";
+import QuestionBankModal from "./QuestionBankModal";
+import QuestionsListDrawer from "./QuestionsListDrawer";
 
-// ─── Column shape ─────────────────────────────────────────────────────────────
+// ─── Column shape (Angular mat-table parity) ──────────────────────────────────
 
+/** Angular CONSTANTS.dateFormate = 'd MMM, y' → e.g. "21 Jul, 2026" */
 function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return value
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  const day = d.getDate();
+  const month = d.toLocaleDateString("en-GB", { month: "short" });
+  const year = d.getFullYear();
+  return `${day} ${month}, ${year}`;
 }
 
 const COL_DEFS = {
-  siNo:        { headerName: 'SI.No',         valueGetter: rowIndexGetter,                                                         width: 70,  flex: 0 } as ColDef<Assessment>,
-  name:        { field: 'assessmentName',      headerName: 'Question Bank',  flex: 1, minWidth: 140                                                     } as ColDef<Assessment>,
-  description: { field: 'assessmentDescription', headerName: 'Description',  flex: 1, minWidth: 140                                                     } as ColDef<Assessment>,
-  createdDt:   { field: 'createdDt',           headerName: 'Created On',     valueFormatter: (p) => formatDate(p.value), width: 130, flex: 0             } as ColDef<Assessment>,
-  isActive:    { field: 'isActive',            headerName: 'Status',                                                               width: 90,  flex: 0 } as ColDef<Assessment>,
-  questions:   { headerName: 'Questions',                                                                                          width: 115, flex: 0 } as ColDef<Assessment>,
-  actions:     { headerName: 'Actions',                                                                                            width: 200, flex: 0 } as ColDef<Assessment>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<Assessment>,
+  name: {
+    field: "assessmentName",
+    headerName: "Question Bank",
+    flex: 1.2,
+    minWidth: 200,
+  } as ColDef<Assessment>,
+  description: {
+    field: "assessmentDescription",
+    headerName: "Description",
+    flex: 1,
+    minWidth: 160,
+  } as ColDef<Assessment>,
+  createdDt: {
+    field: "createdDt",
+    headerName: "Created On",
+    valueFormatter: (p) => formatDate(p.value),
+    width: 130,
+    flex: 0,
+  } as ColDef<Assessment>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    width: 100,
+    flex: 0,
+  } as ColDef<Assessment>,
+  addQuestions: {
+    headerName: "Add Questions",
+    width: 220,
+    flex: 0,
+  } as ColDef<Assessment>,
+};
 
 // ─── Pure renderers ───────────────────────────────────────────────────────────
 
 function statusRenderer(p: ICellRendererParams<Assessment>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
-function makeQuestionsRenderer(openDrawer: (bank: Assessment) => void) {
+/**
+ * Angular: bank name + "Question (n) | Edit" under it.
+ * Question link when collegeCode !== null; Edit when academicYear !== null
+ * (`undefined !== null` is true, matching Angular).
+ * questionList only opens when assessmentQuestionDTOs != null.
+ */
+function makeBankNameRenderer(
+  onQuestionList: (bank: Assessment) => void,
+  onEdit: (bank: Assessment) => void,
+) {
   return (p: ICellRendererParams<Assessment>) => {
-    const count = p.data?.assessmentQuestionDTOs?.length ?? 0
+    const row = p.data;
+    if (!row) return null;
+    const count = row.assessmentQuestionDTOs?.length ?? 0;
+    const showQuestion = row.collegeCode !== null;
+    const showEdit = row.academicYear !== null;
+
     return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
-        onClick={() => p.data && openDrawer(p.data)}
-      >
-        <ListIcon className="h-3.5 w-3.5" />
-        {count} question{count !== 1 ? 's' : ''}
-      </button>
-    )
-  }
+      <div className="leading-tight py-1">
+        <div className="font-semibold text-sm text-foreground">
+          {row.assessmentName}
+        </div>
+        <div className="mt-0.5 text-xs text-blue-600">
+          {showQuestion && (
+            <button
+              type="button"
+              className="hover:underline"
+              onClick={() => onQuestionList(row)}
+            >
+              Question ({count})
+            </button>
+          )}
+          {showQuestion && showEdit && (
+            <span className="mx-1 text-muted-foreground">|</span>
+          )}
+          {showEdit && (
+            <button
+              type="button"
+              className="hover:underline"
+              onClick={() => onEdit(row)}
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 }
 
-function makeActionsRenderer(
-  setEditing: (bank: Assessment | null) => void,
-  setModalOpen: (open: boolean) => void,
-  onAddQuestion: (bank: Assessment) => void,
-  onImport: (bank: Assessment) => void,
+function makeAddQuestionsRenderer(
+  onAddManually: (bank: Assessment) => void,
+  onImportExcel: (bank: Assessment) => void,
 ) {
   return (p: ICellRendererParams<Assessment>) => (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <Button
         size="sm"
-        variant="ghost"
-        className="h-8 w-8 p-0"
-        aria-label="Edit question bank"
-        title="Edit question bank"
-        onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
+        variant="default"
+        className="h-8"
+        onClick={() => p.data && onAddManually(p.data)}
       >
-        <PencilIcon className="h-3.5 w-3.5" />
+        Manually
       </Button>
       <Button
         size="sm"
-        variant="ghost"
-        onClick={() => p.data && onAddQuestion(p.data)}
-        title="Add question manually"
+        variant="default"
+        className="h-8"
+        onClick={() => p.data && onImportExcel(p.data)}
       >
-        <PlusIcon className="h-3.5 w-3.5 mr-1" />
-        Add Q
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={() => p.data && onImport(p.data)}
-        title="Import from Excel"
-      >
-        <UploadIcon className="h-3.5 w-3.5 mr-1" />
         Excel
       </Button>
     </div>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function QuestionBankPage() {
-  const router = useRouter()
-  const { user } = useSession()
+  const router = useRouter();
+  const { user } = useSession();
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingBank, setEditingBank] = useState<Assessment | null>(null)
-  const [drawerBank, setDrawerBank] = useState<Assessment | null>(null)
-  const [importingId, setImportingId] = useState<number | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingBank, setEditingBank] = useState<Assessment | null>(null);
+  const [drawerBank, setDrawerBank] = useState<Assessment | null>(null);
+  const [importingId, setImportingId] = useState<number | null>(null);
 
-  // Hidden file input for Excel import
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const pendingImportBank = useRef<Assessment | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingImportBank = useRef<Assessment | null>(null);
 
-  // Role-based fetch: ADMIN sees all, others see own banks
-  const userId = user?.roleName === 'ADMIN' ? undefined : (user?.userId ?? undefined)
+  // Angular: roleName == 'ADMIN' → list all; else filter by preparedbyUser.userId
+  const userId =
+    user?.roleName === "ADMIN" ? undefined : (user?.userId ?? undefined);
 
-  const { data: banks, isLoading: loading, invalidate } = useCrudList({
+  const {
+    data: banks,
+    isLoading: loading,
+    invalidate,
+  } = useCrudList({
     queryKey: QK.questionBanks.list(userId),
     queryFn: () => listQuestionBanks(userId),
     enabled: user !== null,
-  })
+  });
+
+  const openEdit = (bank: Assessment) => {
+    setEditingBank(bank);
+    setModalOpen(true);
+  };
+
+  const openQuestionList = (bank: Assessment) => {
+    // Angular: only open when assessmentQuestionDTOs != null
+    if (bank.assessmentQuestionDTOs == null) return;
+    setDrawerBank(bank);
+  };
 
   const handleAddQuestion = (bank: Assessment) => {
+    // Angular queryParams: assessmentId, assessmentQuestionId: null, permission: 'Add', page
     router.push(
-      `/assessments/question-bank/add-question?assessmentId=${bank.assessmentId}&permission=Add&page=/assessments/question-bank`,
-    )
-  }
+      `/assessments/question-bank/add-question?assessmentId=${bank.assessmentId}&assessmentQuestionId=&permission=Add&page=assessments/question-bank`,
+    );
+  };
 
   const handleImportClick = (bank: Assessment) => {
-    pendingImportBank.current = bank
-    fileInputRef.current?.click()
-  }
+    pendingImportBank.current = bank;
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    const bank = pendingImportBank.current
-    if (!file || !bank) return
+    const file = e.target.files?.[0];
+    const bank = pendingImportBank.current;
+    e.target.value = "";
 
-    // Reset so the same file can be re-selected if needed
-    e.target.value = ''
-
-    setImportingId(bank.assessmentId)
-    try {
-      const questions = await importQuestionsFromExcel(bank.assessmentId, file)
-      let saved = 0
-      for (const q of questions) {
-        await addOrUpdateQuestion({
-          ...q,
-          assessmentId: bank.assessmentId,
-          questionOwnerProfileId: user?.employeeId ?? null,
-        })
-        saved++
-      }
-      toast.success(`Imported ${saved} question${saved !== 1 ? 's' : ''}`)
-      invalidate()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Import failed')
-    } finally {
-      setImportingId(null)
-      pendingImportBank.current = null
+    if (!file) {
+      toast.info("Please choose a file.");
+      pendingImportBank.current = null;
+      return;
     }
-  }
+    if (!bank) return;
+
+    setImportingId(bank.assessmentId);
+    try {
+      const questions = await importQuestionsFromExcel(file);
+      for (const q of questions) {
+        await addOrUpdateQuestion(
+          buildImportedQuestionPayload(q, bank.assessmentId),
+        );
+      }
+      toast.success("Questions imported successfully");
+      invalidate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setImportingId(null);
+      pendingImportBank.current = null;
+    }
+  };
 
   const columnDefs = useMemo<ColDef<Assessment>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.name,
+      {
+        ...COL_DEFS.name,
+        cellRenderer: makeBankNameRenderer(openQuestionList, openEdit),
+        autoHeight: true,
+      },
       COL_DEFS.description,
       COL_DEFS.createdDt,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.questions, cellRenderer: makeQuestionsRenderer(setDrawerBank) },
       {
-        ...COL_DEFS.actions,
-        cellRenderer: makeActionsRenderer(
-          setEditingBank,
-          setModalOpen,
+        ...COL_DEFS.addQuestions,
+        cellRenderer: makeAddQuestionsRenderer(
           handleAddQuestion,
           handleImportClick,
         ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [setEditingBank, setModalOpen],
-  )
+    [],
+  );
 
   return (
     <ListPage
-      title="Question Bank"
+      title="Question Banks"
       rowData={banks}
       columnDefs={columnDefs}
       loading={loading || importingId !== null}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search question banks…',
-        pdfDocumentTitle: 'Question Bank',
+        searchPlaceholder: "Search",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
             asChild
+            title="Download Sample Questions Excel File"
           >
             <a href="/assets/docs/QuestionSheet_bulk_upload.xlsx" download>
               <DownloadIcon className="h-4 w-4 mr-1" />
               Template
             </a>
           </Button>
-          <Button size="sm" onClick={() => { setEditingBank(null); setModalOpen(true) }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingBank(null);
+              setModalOpen(true);
+            }}
+          >
             <PlusIcon className="h-4 w-4 mr-1" />
-            Add Question Bank
+            Create Question Bank
           </Button>
         </div>
-      )}
-      emptyState={(
+      }
+      emptyState={
         <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card py-16 text-muted-foreground">
           <BookOpen className="h-10 w-10 mb-3 opacity-40" />
           <p className="text-sm">No question banks found</p>
         </div>
-      )}
+      }
     >
       <input
         ref={fileInputRef}
@@ -239,7 +313,10 @@ export default function QuestionBankPage() {
 
       <QuestionBankModal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingBank(null) }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingBank(null);
+        }}
         bank={editingBank}
         onSaved={invalidate}
         userId={user?.userId ?? 0}
@@ -250,12 +327,11 @@ export default function QuestionBankPage() {
         onClose={() => setDrawerBank(null)}
         onEditQuestion={(bank, aqId) => {
           router.push(
-            `/assessments/question-bank/add-question?assessmentId=${bank.assessmentId}&assessmentQuestionId=${aqId}&permission=Edit&page=/assessments/question-bank`,
-          )
+            `/assessments/question-bank/add-question?assessmentId=${bank.assessmentId}&assessmentQuestionId=${aqId}&permission=Edit&page=assessments/question-bank`,
+          );
         }}
         onDeleted={invalidate}
-        evaluatorProfileId={user?.employeeId ?? null}
       />
     </ListPage>
-  )
+  );
 }

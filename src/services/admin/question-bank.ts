@@ -1,15 +1,14 @@
 /**
- * Question Bank (Assessment) service.
+ * Question Bank (Assessment) service — Angular `question-bank-list` parity.
  *
- * API endpoints:
- *   GET    /domain/list/Assessment?size=99999&query=...      — list all / filtered
- *   POST   /domain/create/Assessment                         — create question bank
- *   PUT    /domain/update/Assessment?query=assessmentId=={id}— update question bank
- *   POST   /assessment/addQuestion                           — add or update a question
- *   POST   /assessment/importQuestionsDetails                — bulk import from Excel
- *   GET    /domain/list/CourseLessonSearch?size=99999&query=q=lk={term}
- *                                                            — search courses for modal dropdown
- *   GET    /domain/list/GeneralDetail?size=99999&query=...   — question type lookup
+ * API endpoints (match Angular CONSTANTS + crudService):
+ *   GET  /domain/list/Assessment?size=99999&query=…     — list (ADMIN / by user)
+ *   POST /assessment                                     — create question bank (assessmentUrl)
+ *   PUT  /assessment                                     — update question bank (assessmentUrl)
+ *   POST /assessment/addQuestion                         — add / update / soft-delete question
+ *   POST /assessment/importQuestionsDetails              — Excel parse (file only in FormData)
+ *   GET  /courseLessonSearch?q={term}                    — subject search (listByIds)
+ *   GET  /domain/list/GeneralDetail?…                    — question type lookup
  */
 
 import type {
@@ -18,78 +17,119 @@ import type {
   CourseQuestion,
   OnlineCourse,
   QuestionType,
-} from '@/types/question-bank'
-import type { ApiResponse } from '@/types/api'
-import { domainList, domainCreate, domainUpdate, buildQuery } from '../crud'
-import { ENTITIES, ASSESSMENT_API, GM_CODES } from '@/config/constants'
-import { AppError, parseApiError } from '@/lib/errors'
+} from "@/types/question-bank";
+import type { ApiResponse } from "@/types/api";
+import {
+  domainList,
+  buildQuery,
+  postDetails,
+  putDetails,
+  uploadFile,
+  fetchDetails,
+} from "../crud";
+import { ENTITIES, ASSESSMENT_API, GM_CODES } from "@/config/constants";
+import { AppError } from "@/lib/errors";
 
 // ─── Question Bank CRUD ───────────────────────────────────────────────────────
 
 /**
- * List question banks. ADMIN role gets all; pass userId to filter to that user's banks.
+ * List question banks.
+ * ADMIN: Angular `listAllDetails(Assessment)` → order(createdDt=desc), all rows.
+ * Non-ADMIN: Angular `listDetailsByTwoIdWithSort` → preparedbyUser.userId + isActive=true,
+ * sorted by createdDt DESC.
+ * Client filter: `isForQuestionbank === true` (same as Angular).
  */
-export async function listQuestionBanks(userId?: number): Promise<Assessment[]> {
-  const query = userId !== undefined
-    ? buildQuery({ 'preparedbyUser.userId': userId }, { field: 'createdDt', direction: 'DESC' })
-    : buildQuery({}, { field: 'createdDt', direction: 'DESC' })
-  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query)
-  return rows.filter((r) => r.isForQuestionbank)
+export async function listQuestionBanks(
+  userId?: number,
+): Promise<Assessment[]> {
+  const query =
+    userId !== undefined
+      ? buildQuery(
+          { "preparedbyUser.userId": userId, isActive: true },
+          { field: "createdDt", direction: "DESC" },
+        )
+      : buildQuery({}, { field: "createdDt", direction: "DESC" });
+  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query);
+  return rows.filter((r) => r.isForQuestionbank);
 }
 
-export async function listTests(userId?: number): Promise<Assessment[]> {
-  const query = userId !== undefined
-    ? buildQuery({ 'preparedbyUser.userId': userId }, { field: 'createdDt', direction: 'DESC' })
-    : buildQuery({}, { field: 'createdDt', direction: 'DESC' })
-  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query)
-  return rows.filter((r) => !r.isForQuestionbank)
+/**
+ * List tests (non–question-bank assessments).
+ * Angular TestComponent: `listAllDetails(Assessment)` then filter `!isForQuestionbank`
+ * (no preparedbyUser filter).
+ */
+export async function listTests(_userId?: number): Promise<Assessment[]> {
+  const query = buildQuery({}, { field: "createdDt", direction: "DESC" });
+  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query);
+  return rows.filter((r) => !r.isForQuestionbank);
 }
 
-export async function getAssessmentById(assessmentId: number): Promise<Assessment | null> {
-  if (!assessmentId) return null
+/**
+ * Active question banks for “copy questions into test” picker.
+ * Angular: `listDetailsByIdWithSort(Assessment, true, 'DESC', 'isActive', 'createdDt')`
+ * → isActive==true.order(createdDt=DESC), then filter isForQuestionbank.
+ */
+export async function listActiveQuestionBanks(): Promise<Assessment[]> {
+  const query = buildQuery(
+    { isActive: true },
+    { field: "createdDt", direction: "DESC" },
+  );
+  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query);
+  return rows.filter((r) => r.isForQuestionbank);
+}
+
+/**
+ * Test settings save — Angular uses `crudService.add(assessmentUrl, test)` (POST),
+ * not PUT update.
+ */
+export async function saveTestSettings(
+  data: Record<string, unknown>,
+): Promise<Assessment> {
+  return postDetails<Assessment>(ASSESSMENT_API.SAVE, data);
+}
+
+export async function getAssessmentById(
+  assessmentId: number,
+): Promise<Assessment | null> {
+  if (!assessmentId) return null;
   const rows = await domainList<Assessment>(
     ENTITIES.ASSESSMENT.name,
     buildQuery({ assessmentId }),
-  )
-  return rows[0] ?? null
+  );
+  return rows[0] ?? null;
 }
 
-/** Create a new question bank. */
+/**
+ * Create a question bank.
+ * Angular: `crudService.add(assessmentUrl, details)` → POST /assessment
+ */
 export async function createQuestionBank(
-  data: Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>,
+  data: Record<string, unknown>,
 ): Promise<Assessment> {
-  return domainCreate<Assessment>(ENTITIES.ASSESSMENT.name, data)
+  return postDetails<Assessment>(ASSESSMENT_API.SAVE, data);
 }
 
 export async function createTest(
-  data: Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>,
+  data: Record<string, unknown>,
 ): Promise<Assessment> {
-  return domainCreate<Assessment>(ENTITIES.ASSESSMENT.name, data)
+  return postDetails<Assessment>(ASSESSMENT_API.SAVE, data);
 }
 
-/** Update an existing question bank. */
+/**
+ * Update a question bank.
+ * Angular: `crudService.update(assessmentUrl, request)` → PUT /assessment
+ * (body includes assessmentId; not domain/update).
+ */
 export async function updateQuestionBank(
-  assessmentId: number,
-  data: Partial<Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>>,
+  data: Record<string, unknown>,
 ): Promise<Assessment> {
-  return domainUpdate<Assessment>(
-    ENTITIES.ASSESSMENT.name,
-    ENTITIES.ASSESSMENT.pk,
-    assessmentId,
-    data,
-  )
+  return putDetails<Assessment>(ASSESSMENT_API.SAVE, data);
 }
 
 export async function updateTest(
-  assessmentId: number,
-  data: Partial<Omit<Assessment, 'assessmentId' | 'assessmentQuestionDTOs'>>,
+  data: Record<string, unknown>,
 ): Promise<Assessment> {
-  return domainUpdate<Assessment>(
-    ENTITIES.ASSESSMENT.name,
-    ENTITIES.ASSESSMENT.pk,
-    assessmentId,
-    data,
-  )
+  return putDetails<Assessment>(ASSESSMENT_API.SAVE, data);
 }
 
 // ─── Questions ────────────────────────────────────────────────────────────────
@@ -98,90 +138,111 @@ export async function updateTest(
  * Fetch all questions for a given question bank.
  * Returns the assessmentQuestionDTOs array from the Assessment record.
  */
-export async function listQuestionsByBank(assessmentId: number): Promise<AssessmentQuestion[]> {
+export async function listQuestionsByBank(
+  assessmentId: number,
+): Promise<AssessmentQuestion[]> {
   const rows = await domainList<Assessment>(
     ENTITIES.ASSESSMENT.name,
     buildQuery({ assessmentId }),
-  )
-  return rows[0]?.assessmentQuestionDTOs ?? []
+  );
+  return rows[0]?.assessmentQuestionDTOs ?? [];
 }
 
 /**
- * Add a new question or update an existing one.
- * If payload includes `courseQuestionId`, Spring Boot treats it as an update.
- * POST /assessment/addQuestion
+ * Add a new question or update an existing one (also used for soft-delete).
+ * Angular: `crudService.add(addQuestionUrl, questionJson)` → POST /assessment/addQuestion
  */
 export async function addOrUpdateQuestion(
   payload: Partial<CourseQuestion> & {
-    assessmentId: number
-    assessmentQuestionId?: number
-    questionOwnerProfileId: number | null
+    assessmentId: number;
+    assessmentQuestionId?: number;
+    questionOwnerProfileId?: number | null;
   },
 ): Promise<CourseQuestion> {
-  const res = await fetch(`/api/proxy/${ASSESSMENT_API.ADD_QUESTION}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw parseApiError(res, body)
-  }
-  const body: ApiResponse<CourseQuestion> = await res.json()
-  if (!body.success) {
-    throw new AppError('API_ERROR', body.message ?? 'Failed to save question')
-  }
-  return body.data as CourseQuestion
+  return postDetails<CourseQuestion>(ASSESSMENT_API.ADD_QUESTION, payload);
 }
 
 /**
- * Bulk-import questions from an Excel file.
- * Returns the imported question objects; the caller must POST each to addOrUpdateQuestion.
- * POST /assessment/importQuestionsDetails
+ * Bulk-import: parse Excel via Angular `importAssessmentUrl`.
+ * FormData contains **only** `file` (no assessmentId) — matches Angular upload().
+ * Caller must POST each returned row via addOrUpdateQuestion / buildImportedQuestionPayload.
  */
 export async function importQuestionsFromExcel(
-  assessmentId: number,
   file: File,
 ): Promise<Partial<CourseQuestion>[]> {
-  const formData = new FormData()
-  formData.append('assessmentId', String(assessmentId))
-  formData.append('file', file, file.name)
+  const formData = new FormData();
+  formData.append("file", file, file.name);
 
-  const res = await fetch(`/api/proxy/${ASSESSMENT_API.BULK_IMPORT}`, {
-    method: 'POST',
-    body: formData,
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw parseApiError(res, body)
+  const body = (await uploadFile(
+    ASSESSMENT_API.BULK_IMPORT,
+    formData,
+  )) as ApiResponse<Partial<CourseQuestion>[]> | null;
+
+  if (!body?.success) {
+    throw new AppError(
+      "API_ERROR",
+      body?.message ?? "Failed to import questions",
+    );
   }
-  const body: ApiResponse<Partial<CourseQuestion>[]> = await res.json()
-  if (!body.success) {
-    throw new AppError('API_ERROR', body.message ?? 'Failed to import questions')
-  }
-  return (body.data ?? []) as Partial<CourseQuestion>[]
+  return (body.data ?? []) as Partial<CourseQuestion>[];
+}
+
+/**
+ * Build addQuestion payload for one imported Excel row — Angular `importedQuestions()`.
+ */
+export function buildImportedQuestionPayload(
+  row: Partial<CourseQuestion>,
+  assessmentId: number,
+): Partial<CourseQuestion> & { assessmentId: number } {
+  const options = (row.courseQuestionOptionDTOs ?? []).map((opt) => ({
+    ...opt,
+    courseQuestionOptionId: null,
+    courseQuestionId: null,
+    isActive: true,
+  }));
+
+  return {
+    assessmentId,
+    question: row.question,
+    fbInputTypeCatId: row.fbInputTypeCatId,
+    isActive: true,
+    correctAnswerIds: [],
+    courseQuestionOptionDTOs:
+      options as CourseQuestion["courseQuestionOptionDTOs"],
+    onlineCourseId: null,
+    courseLessonId: null,
+    courseLessonTopicId: null,
+  };
 }
 
 // ─── Dropdown data ────────────────────────────────────────────────────────────
 
 /**
- * Search courses by name for the question bank modal dropdown.
- * GET /domain/list/CourseLessonSearch?query=q=lk={term}
+ * Search courses by name for the question bank modal.
+ * Angular: `listByIds(courseLessonSearchUrl, term, 'q')` → GET courseLessonSearch?q=
+ * Only call when the user typed more than 4 characters (Angular `enteredCourse`).
  */
 export async function searchCourses(term: string): Promise<OnlineCourse[]> {
-  return domainList<OnlineCourse>(
-    ASSESSMENT_API.COURSE_SEARCH,
-    `q=lk=${encodeURIComponent(term)}`,
-  )
+  const q = term?.trim() ?? "";
+  if (!q) return [];
+  const data = await fetchDetails<OnlineCourse[] | OnlineCourse>(
+    ASSESSMENT_API.COURSE_LESSON_SEARCH,
+    { q },
+  );
+  if (Array.isArray(data)) return data;
+  return data ? [data] : [];
 }
 
 /**
  * Fetch question types (MC, TF, FB, SUB) from GeneralDetail.
- * GET /domain/list/GeneralDetail filtered by questionType category and isActive=true
+ * Angular: listDetailsByTwoIds(GeneralDetail, questionType, 'true', generalMasterCode, isActive)
  */
 export async function listQuestionTypes(): Promise<QuestionType[]> {
   return domainList<QuestionType>(
     ENTITIES.GENERAL_DETAIL.name,
-    buildQuery({ 'GeneralMaster.generalMasterCode': GM_CODES.QUESTION_TYPE, isActive: true }),
-  )
+    buildQuery({
+      "GeneralMaster.generalMasterCode": GM_CODES.QUESTION_TYPE,
+      isActive: true,
+    }),
+  );
 }

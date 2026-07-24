@@ -587,6 +587,10 @@ export const QK = {
         : (["HrPayroll", "departmentHeads"] as const),
     leaveTypes: () => ["HrPayroll", "leaveTypes"] as const,
     leaveApplications: () => ["HrPayroll", "leaveApplications"] as const,
+    leaveYears: () => ["HrPayroll", "leaveYears"] as const,
+    staffApplyLeave: (employeeId: number, leaveYear: number | string) =>
+      ["HrPayroll", "staffApplyLeave", employeeId, leaveYear] as const,
+    staffLeaveStatuses: () => ["HrPayroll", "staffLeaveStatuses"] as const,
     employees: () => ["HrPayroll", "employees"] as const,
     employeeReporting: (employeeId?: number) =>
       employeeId != null

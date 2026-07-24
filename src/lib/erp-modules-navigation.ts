@@ -66,7 +66,7 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
     return `${ATTENDANCE_MGMT_BASE}/view-subject-attendance`;
   }
   if (key.includes("workload") && key.includes("adjust")) {
-    return `${ATTENDANCE_MGMT_BASE}/workload-adjustment`;
+    return `/staff-faculty-leaves/workload-adjustment`;
   }
   if (key.includes("staff") && key.includes("notmarked")) {
     return `${ATTENDANCE_MGMT_BASE}/staff-attendance-not-markedlist`;
@@ -90,12 +90,21 @@ export function mapAttendanceNavRoute(
   href?: string,
   label?: string,
 ): string | null {
+  const hrefRaw = (href ?? "").trim();
+  const hrefLower = hrefRaw.toLowerCase();
+
+  // Faculty Leaves / proxy-workload keep Angular paths (do not remap to attendance).
+  if (
+    hrefLower.includes("staff-faculty-leaves") ||
+    hrefLower.includes("proxy-workload")
+  ) {
+    return null;
+  }
+
   const byLabel = mapAttendanceLabelToRoute(label);
   if (byLabel) return byLabel;
 
-  const hrefRaw = (href ?? "").trim();
   if (!hrefRaw || hrefRaw === "#") return null;
-  const hrefLower = hrefRaw.toLowerCase();
 
   if (hrefLower.includes("staff-classes/attendance-update")) {
     if (hrefLower.includes("view-attendance"))
@@ -218,7 +227,7 @@ export function mapMentorshipNavRoute(
     return `${MENTORSHIP_BASE}/${slug}`;
   }
 
-  return null;
+  return null;;
 }
 
 // ── Student Academics ────────────────────────────────────────────────────────
