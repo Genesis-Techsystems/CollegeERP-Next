@@ -1284,10 +1284,40 @@ input[type="reset"]:disabled,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   EVALUATOR WORKBENCH — MARK PILL TOKENS
+   The ExamDigit evaluator vertical colours its mark pills / annotation badges
+   from --mark(+foreground/soft). Its green/blue toggle is scoped to
+   [data-eval-theme] on <html> — a private attribute, so it never collides with
+   the app-wide [data-theme] brand system. Default (no attribute) = blue.
+   ───────────────────────────────────────────────────────────────────────── */
+:root,
+[data-eval-theme="blue"] {
+  --mark: oklch(0.42 0.14 255);
+  --mark-foreground: oklch(1 0 0);
+  --mark-soft: oklch(0.95 0.03 255);
+}
+[data-eval-theme="green"] {
+  --mark: oklch(0.5 0.11 160);
+  --mark-foreground: oklch(1 0 0);
+  --mark-soft: oklch(0.95 0.03 160);
+}
+/* ExamDigit deep-navy workbench chrome (top bar) — constant across green/blue,
+   independent of the host brand --primary. */
+:root {
+  --eval-header: oklch(0.29 0.05 255);
+  --eval-header-foreground: oklch(1 0 0);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    TAILWIND V4 THEME MAPPING
    ───────────────────────────────────────────────────────────────────────── */
 @theme inline {
   /* Map CSS vars → Tailwind color tokens */
+  --color-mark: var(--mark);
+  --color-mark-foreground: var(--mark-foreground);
+  --color-mark-soft: var(--mark-soft);
+  --color-eval-header: var(--eval-header);
+  --color-eval-header-foreground: var(--eval-header-foreground);
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));

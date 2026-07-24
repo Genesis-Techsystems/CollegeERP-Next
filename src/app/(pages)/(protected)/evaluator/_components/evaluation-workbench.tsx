@@ -573,8 +573,12 @@ export function EvaluationWorkbench({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.setAttribute("data-theme", theme);
+    // Private attribute — must NOT be `data-theme`, which the app-wide brand
+    // theme system owns. Writing green/blue there overwrote the host palette
+    // (and leaked via localStorage into other pages).
+    document.documentElement.setAttribute("data-eval-theme", theme);
     localStorage.setItem("app-theme", theme);
+    return () => document.documentElement.removeAttribute("data-eval-theme");
   }, [theme]);
 
   useEffect(() => {
@@ -991,7 +995,7 @@ export function EvaluationWorkbench({
   if (questionsLoading || questionsError || !active) {
     return (
       <div className="flex h-screen flex-col bg-muted/30">
-        <div className="flex items-center justify-between gap-6 bg-primary px-6 py-3 text-primary-foreground">
+        <div className="flex items-center justify-between gap-6 bg-eval-header px-6 py-3 text-eval-header-foreground">
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium hover:bg-white/10"
@@ -1037,9 +1041,9 @@ export function EvaluationWorkbench({
 
   return (
     <div className="flex h-screen flex-col bg-muted/30">
-      {/* Full-width dark top bar */}
+      {/* Full-width dark top bar — ExamDigit deep navy (not the host brand) */}
       <div
-        className="flex items-center justify-between gap-6 bg-primary px-6 py-3 text-primary-foreground"
+        className="flex items-center justify-between gap-6 bg-eval-header px-6 py-3 text-eval-header-foreground"
       >
         <div className="flex items-center gap-6 text-sm">
           <button
@@ -1304,7 +1308,7 @@ export function EvaluationWorkbench({
 
       {/* Right rail */}
       <aside className="flex w-[260px] shrink-0 flex-col border-l bg-card">
-        <Card className="m-4 border-0 bg-primary shadow-sm">
+        <Card className="m-4 border-0 bg-eval-header shadow-sm">
           <CardContent className="p-5 text-center text-white">
             <div className="text-sm font-semibold">Calculate Total Score:</div>
             <div className="mt-2 flex items-baseline justify-center gap-1">
@@ -1321,7 +1325,10 @@ export function EvaluationWorkbench({
           >
             <Save className="h-4 w-4" /> Save Draft
           </Button>
-          <Button className="gap-1.5" onClick={handleSubmitClick}>
+          <Button
+            className="gap-1.5 bg-eval-header text-eval-header-foreground hover:bg-eval-header/90"
+            onClick={handleSubmitClick}
+          >
             <Send className="h-4 w-4" /> Submit
           </Button>
         </div>
