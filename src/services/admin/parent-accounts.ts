@@ -227,8 +227,8 @@ export async function createParentAccount(
     }
     if (env.data && typeof env.data === "object") {
       return {
-        userId: Number((env.data as ParentAccount).userId) || 0,
         ...env.data,
+        userId: Number((env.data as ParentAccount).userId) || 0,
       };
     }
   }

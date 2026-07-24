@@ -586,6 +586,11 @@ export function PayFeesPage() {
       );
       return;
     }
+    // Angular student portal: fees-due → fee-payment
+    if (page === "fees-due/fee-payment" || page === "fees-due/view-fee-data") {
+      router.push("/student-fees/fees-due");
+      return;
+    }
     const qs = new URLSearchParams();
     if (studentId) qs.set("studentId", String(studentId));
     if (collegeId) qs.set("collegeId", String(collegeId));

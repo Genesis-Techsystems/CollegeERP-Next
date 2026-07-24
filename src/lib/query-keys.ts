@@ -761,6 +761,8 @@ export const QK = {
       ["TcNoDue", "collegeCerts", collegeId, code ?? "all"] as const,
     certIssues: (collegeCertificateId: number) =>
       ["TcNoDue", "certIssues", collegeCertificateId] as const,
+    studentIssues: (studentId: number) =>
+      ["TcNoDue", "studentIssues", studentId] as const,
     studentIssue: (studentId: number, collegeCertificateId: number) =>
       ["TcNoDue", "studentIssue", studentId, collegeCertificateId] as const,
     workflows: (feeCertificateIssueId: number) =>
@@ -1153,5 +1155,22 @@ export const QK = {
       walletId !== undefined
         ? (["UnivPaymentWalletTransactions", "list", walletId] as const)
         : (["UnivPaymentWalletTransactions", "list"] as const),
+  },
+
+  // ── Student Grievances & Feedback ────────────────────────────────────────
+  studentGrievances: {
+    all: ["StudentGrievances"] as const,
+    list: (studentId: number) =>
+      ["StudentGrievances", "list", studentId] as const,
+    detail: (complaintId: number) =>
+      ["StudentGrievances", "detail", complaintId] as const,
+    lookup: () => ["StudentGrievances", "lookup"] as const,
+  },
+  studentSurveyFeedback: {
+    all: ["StudentSurveyFeedback"] as const,
+    forms: (collegeId: number) =>
+      ["StudentSurveyFeedback", "forms", collegeId] as const,
+    employees: (surveyFormId: number, studentId: number) =>
+      ["StudentSurveyFeedback", "employees", surveyFormId, studentId] as const,
   },
 } as const;

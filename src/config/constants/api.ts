@@ -2372,10 +2372,14 @@ export const FEEDBACK_API = {
   SURVEYFORM: "surveyform",
   /** Angular `getSurveyFormUrl` */
   GET_SURVEY_FORM: "surveyformdetailsbyenddate",
+  /** Angular `surveyFormListUrl` / domain SurveyForm */
+  SURVEY_FORM: "SurveyForm",
   /** Angular `feedbackQuestionUrl` */
   FEEDBACK_QUESTION: "FeedbackQuestion",
   /** Angular `surveyFeedbackUrl` */
   SURVEY_FEEDBACK: "surveyfeedback",
+  /** Angular `surveyFeedbackListUrl` / domain SurveyFeedback */
+  SURVEY_FEEDBACK_LIST: "SurveyFeedback",
   /** Angular `surveyFeedbackDetailCrudUrl` */
   SURVEY_FEEDBACK_DETAIL: "SurveyFeedbackDetail",
   /** Angular `surveyfeedbackEmpUrl` */

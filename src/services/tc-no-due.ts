@@ -7,6 +7,7 @@ import { CERTIFICATE_API, FEE_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import type { CollegeCertificate } from "@/types/college-certificate";
 import type {
+  ApplyCertificateRequestPayload,
   CertificateSummaryReportRow,
   FeeCertificateIssueRow,
   FeeCertificateWorkflowRow,
@@ -334,6 +335,38 @@ export async function listFeeCertificateIssuesByStudentAndCertificate(
   return [];
 }
 
+/**
+ * Angular student-requests `getStudentCertificateList`:
+ * `getDetailsByIdWithSortOrder(FeeCertificateIssue, studentId, 'studentDetail.studentId')`.
+ */
+export async function listFeeCertificateIssuesByStudent(
+  studentId: number,
+): Promise<FeeCertificateIssueRow[]> {
+  if (!studentId) return [];
+  const queries = [
+    buildQuery(
+      { "studentDetail.studentId": studentId },
+      { field: "feeCertificateIssueId", direction: "DESC" },
+    ),
+    buildQuery(
+      { studentId },
+      { field: "feeCertificateIssueId", direction: "DESC" },
+    ),
+  ];
+  for (const query of queries) {
+    try {
+      const rows = await domainList<FeeCertificateIssueRow>(
+        ENTITIES.FEE_CERTIFICATE_ISSUE.name,
+        query,
+      );
+      if (rows.length > 0) return rows;
+    } catch {
+      // try next
+    }
+  }
+  return [];
+}
+
 export async function listFeeCertificateWorkflows(
   feeCertificateIssueId: number,
 ): Promise<FeeCertificateWorkflowRow[]> {
@@ -368,6 +401,16 @@ export async function updateCertificateIssueAmount(
   payload: FeeCertificateIssueRow | FeeCertificateIssueRow[],
 ): Promise<void> {
   await postDetails(FEE_API.CERTIFICATE_ISSUE_AMOUNT, payload);
+}
+
+/**
+ * Angular student-requests apply:
+ * `addMasterDetails(feeCertificateIssueRequest, request[])`.
+ */
+export async function submitCertificateIssueRequest(
+  payload: ApplyCertificateRequestPayload | ApplyCertificateRequestPayload[],
+): Promise<void> {
+  await postDetails(FEE_API.CERTIFICATE_ISSUE_REQUEST, payload);
 }
 
 export async function getStudentDetailForTc(
@@ -435,16 +478,19 @@ export async function getStudentCertificatePrintDetails(
 }
 
 /**
- * Angular `listByThreeIds(feecertificateissueUrl, studentId, nodueCertId, 30, …)`.
+ * Angular `listByThreeIds(feecertificateissueUrl, studentId, nodueCertId, duration, …)`.
+ * TC pages use duration 30; student-requests no-due-certificate uses 3000.
  */
 export async function getNoDueCertificateIssue(params: {
   studentId: number;
   collegeCertificateId: number;
+  /** Angular `duration` query param — defaults to 30. */
+  duration?: number;
 }): Promise<{
   details: Record<string, unknown> | null;
   message: string | null;
 }> {
-  const { studentId, collegeCertificateId } = params;
+  const { studentId, collegeCertificateId, duration = 30 } = params;
   if (!studentId || !collegeCertificateId) {
     return { details: null, message: null };
   }
@@ -454,7 +500,7 @@ export async function getNoDueCertificateIssue(params: {
       {
         studentId,
         clgcertificateId: collegeCertificateId,
-        duration: 30,
+        duration,
       },
     );
     if (envelope.success) {

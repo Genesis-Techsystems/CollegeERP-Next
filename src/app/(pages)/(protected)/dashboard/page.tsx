@@ -1,10 +1,13 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSessionContext } from '@/context/SessionContext'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/common/components/data-display'
 import { Breadcrumb, useBreadcrumb } from '@/common/components/breadcrumb'
 import { PageContainer } from '@/components/layout'
+import { isStudentRole } from '@/config/constants/app'
 import {
   Users, BookOpen, DollarSign, BarChart3,
   CalendarClock, ClipboardCheck, GraduationCap, TrendingUp,
@@ -108,9 +111,19 @@ function DashboardSkeleton() {
 export default function DashboardPage() {
   const { user, isLoading } = useSessionContext()
   const breadcrumbs = useBreadcrumb()
+  const router = useRouter()
+
+  // Angular: students land on /student-dashboard, not this shared home.
+  useEffect(() => {
+    if (!user) return
+    if (isStudentRole(user.userRole)) {
+      router.replace('/student-dashboard')
+    }
+  }, [user, router])
 
   if (isLoading) return <DashboardSkeleton />
   if (!user) return null
+  if (isStudentRole(user.userRole)) return <DashboardSkeleton />
 
   const statCards = getStatCards(user.userRole)
   const badgeClass = roleBadge[user.userRole] ?? 'bg-muted/40 text-slate-700 ring-1 ring-slate-200'

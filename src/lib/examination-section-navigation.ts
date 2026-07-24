@@ -2,9 +2,13 @@
  * Angular `student-exam-section` module → App Router `/examination-section/*`.
  * Student portal examination links (Exam Fee Registration, Hall Tickets, etc.)
  * must not fall through to admin pre-examination routes or 404 → dashboard.
+ *
+ * Note: `/admin-examination-section/*` is a different module (e.g. Student Exam
+ * Results). Never rewrite it to `/examination-section/*`.
  */
 
 export const EXAMINATION_SECTION_BASE = "/examination-section";
+export const ADMIN_EXAMINATION_SECTION_BASE = "/admin-examination-section";
 
 /** Angular student-exam-section.module.ts child routes. */
 const EXAMINATION_SECTION_SLUGS: Record<string, string> = {
@@ -17,19 +21,44 @@ const EXAMINATION_SECTION_SLUGS: Record<string, string> = {
   "student-photocopy-download": "student-photocopy-download",
 };
 
+/**
+ * Extract slug after a real path segment. Must not match the substring
+ * `examination-section/` inside `admin-examination-section/`.
+ */
 function slugFromHref(href: string): string | null {
   const lower = href.toLowerCase();
+  // Longer / more specific markers first.
   const markers = [
-    "examination-section/",
-    "student-exam-section/",
-    "apps/examination-section/",
     "apps/student-exam-section/",
+    "apps/examination-section/",
+    "student-exam-section/",
+    "/examination-section/",
   ];
   for (const marker of markers) {
     const idx = lower.indexOf(marker);
     if (idx === -1) continue;
+    // Reject `…admin-examination-section/…` false positives for `/examination-section/`.
+    if (
+      marker === "/examination-section/" &&
+      idx >= 6 &&
+      lower.slice(idx - 6, idx) === "admin-"
+    ) {
+      continue;
+    }
     const tail = lower.slice(idx + marker.length).split(/[?#]/)[0];
     const slug = tail.replace(/\/+$/, "").split("/")[0];
+    if (slug) return slug;
+  }
+  // Bare `examination-section/…` at start (no leading slash in DB href).
+  if (
+    lower.startsWith("examination-section/") &&
+    !lower.startsWith("admin-examination-section/")
+  ) {
+    const slug = lower
+      .slice("examination-section/".length)
+      .split(/[?#]/)[0]
+      .replace(/\/+$/, "")
+      .split("/")[0];
     if (slug) return slug;
   }
   return null;
@@ -60,6 +89,25 @@ export function mapExaminationSectionNavRoute(
 ): string | null {
   const hrefLower = (href ?? "").toLowerCase();
   const labelLower = (label ?? "").toLowerCase();
+  const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+
+  // Student Exam Results lives under admin-examination-section (not examination-section).
+  // Pin before slug rewrite so sidebar does not 404 → dashboard.
+  if (
+    hrefLower.includes("student-exam-results") ||
+    hrefLower.includes("student_exam_results") ||
+    (labelKey === "exam results" &&
+      !labelLower.includes("sheet") &&
+      (hrefLower.includes("admin-examination-section") ||
+        hrefLower.includes("student-examination") ||
+        hrefLower.includes("student-exam"))) ||
+    labelKey === "student exam results"
+  ) {
+    return `${ADMIN_EXAMINATION_SECTION_BASE}/student-exam-results`;
+  }
+
+  // Other admin-examination-section pages: do not rewrite to /examination-section.
+  if (hrefLower.includes("admin-examination-section")) return null;
 
   if (isAdminExaminationContext(hrefLower, labelLower)) return null;
 

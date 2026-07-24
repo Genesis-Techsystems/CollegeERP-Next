@@ -399,11 +399,19 @@ export async function getStudentExamHallticketDetail(
 ): Promise<{ detail: AnyRow; subjects: AnyRow[] } | null> {
   if (!examId || !studentId) return null;
   try {
-    const data = await fetchDetails<any>("examhallticket", {
+    // Angular: listByTwoIds(examHallTicketUrl, examId, studentId, 'examId', 'studentId')
+    // → GET examhallticket?examId=&studentId= ; use data[0].subjectDTOList
+    const data = await fetchDetails<any>(EXAM_API.EXAM_HALL_TICKET, {
       examId,
       studentId,
     });
-    const row = (Array.isArray(data) ? data[0] : data) as AnyRow | undefined;
+    const row = (
+      Array.isArray(data)
+        ? data[0]
+        : Array.isArray(data?.result)
+          ? data.result[0]
+          : data
+    ) as AnyRow | undefined;
     if (!row || typeof row !== "object") return null;
     const rawSubjects = row.subjectDTOList ?? row.subjects ?? [];
     // Drop omrBarcode base64 — unused on student print layout and blows up storage/URL size.
@@ -418,7 +426,13 @@ export async function getStudentExamHallticketDetail(
           new Date(a.examDate ?? a.exam_date ?? 0).getTime() -
           new Date(b.examDate ?? b.exam_date ?? 0).getTime(),
       );
-    const detail: AnyRow = { ...row, subjectDTOList: subjects };
+    const detail: AnyRow = {
+      ...row,
+      examId: Number(row.examId ?? row.exam_id ?? examId) || examId,
+      studentId:
+        Number(row.studentId ?? row.student_id ?? studentId) || studentId,
+      subjectDTOList: subjects,
+    };
     delete detail.omrBarcode;
     return { detail, subjects };
   } catch {
@@ -1922,16 +1936,56 @@ export async function resolveStudentPortalProfile(args: {
   studentId?: number | null;
   userName?: string | null;
 }): Promise<AnyRow | null> {
+  const pickStr = (row: AnyRow, keys: string[]): string => {
+    for (const k of keys) {
+      const v = row?.[k];
+      if (v !== undefined && v !== null && String(v).trim() !== "") {
+        return String(v).trim();
+      }
+    }
+    return "";
+  };
+
   const normalize = (row: AnyRow, fallbackId?: number): AnyRow => {
     const sid = Number(row.studentId ?? row.id ?? fallbackId ?? 0);
+    const course = (row.course ?? row.Course ?? {}) as AnyRow;
+    const college = (row.college ?? row.College ?? {}) as AnyRow;
+    const academicYear = (row.academicYear ?? row.AcademicYear ?? {}) as AnyRow;
+    const courseGroup = (row.courseGroup ??
+      row.CourseGroup ??
+      row.group ??
+      row.Group ??
+      {}) as AnyRow;
+    const courseYear = (row.courseYear ?? row.CourseYear ?? {}) as AnyRow;
+    const groupSection = (row.groupSection ?? row.GroupSection ?? {}) as AnyRow;
+
+    // Angular student card: collegeCode / academicYear / courseCode / groupCode /
+    // courseYearName / Section {section} — flatten nested domain joins.
+    const courseCode =
+      pickStr(row, ["courseCode", "course_code"]) ||
+      pickStr(course, ["courseCode", "course_code"]);
+    const courseName =
+      pickStr(row, ["courseName", "course_name"]) ||
+      pickStr(course, ["courseName", "course_name"]);
+
     return {
       ...row,
       studentId: sid,
       id: sid,
       collegeId: Number(
-        row.collegeId ?? row.college_id ?? row.fk_college_id ?? 0,
+        row.collegeId ??
+          row.college_id ??
+          row.fk_college_id ??
+          college.collegeId ??
+          0,
       ),
-      courseId: Number(row.courseId ?? row.course_id ?? row.fk_course_id ?? 0),
+      courseId: Number(
+        row.courseId ??
+          row.course_id ??
+          row.fk_course_id ??
+          course.courseId ??
+          0,
+      ),
       rollNumber:
         row.rollNumber ??
         row.roll_number ??
@@ -1942,6 +1996,64 @@ export async function resolveStudentPortalProfile(args: {
         row.rollNumber ??
         row.hallticket_number ??
         row.roll_number,
+      collegeCode:
+        pickStr(row, ["collegeCode", "college_code"]) ||
+        pickStr(college, ["collegeCode", "college_code", "code"]),
+      academicYear:
+        pickStr(row, ["academicYear", "academic_year", "academicYearName"]) ||
+        pickStr(academicYear, [
+          "academicYear",
+          "academicYearName",
+          "academic_year",
+          "name",
+        ]),
+      courseCode,
+      courseName,
+      groupCode:
+        pickStr(row, ["groupCode", "group_code", "courseGroupCode"]) ||
+        pickStr(courseGroup, [
+          "groupCode",
+          "group_code",
+          "courseGroupCode",
+          "code",
+        ]),
+      courseYearName:
+        pickStr(row, [
+          "courseYearName",
+          "course_year_name",
+          "fromCourseYearName",
+        ]) ||
+        pickStr(courseYear, [
+          "courseYearName",
+          "courseYearCode",
+          "course_year_name",
+          "name",
+        ]),
+      section:
+        pickStr(row, ["section", "sectionName", "groupSectionName"]) ||
+        pickStr(groupSection, [
+          "section",
+          "sectionName",
+          "groupSectionName",
+          "name",
+        ]),
+      mobile: pickStr(row, ["mobile", "mobileNumber", "mobile_number"]),
+      firstName: pickStr(row, [
+        "firstName",
+        "studentName",
+        "student_name",
+        "name",
+      ]),
+      quotaDisplayName: pickStr(row, [
+        "quotaDisplayName",
+        "quotaName",
+        "quota_display_name",
+      ]),
+      studentStatusDisplayName: pickStr(row, [
+        "studentStatusDisplayName",
+        "studentStatusName",
+        "student_status_display_name",
+      ]),
     };
   };
 
@@ -1952,15 +2064,52 @@ export async function resolveStudentPortalProfile(args: {
         : null) ??
       0,
   );
+
+  /** Angular card shows courseCode — resolve from Course when studentdetail omits it. */
+  const withCourseCode = async (profile: AnyRow): Promise<AnyRow> => {
+    if (pickStr(profile, ["courseCode"])) return profile;
+    const courseId = Number(profile.courseId ?? 0);
+    if (!courseId) return profile;
+    try {
+      const rows = await domainList<AnyRow>(
+        "Course",
+        buildQuery({ "Course.courseId": courseId, isActive: true }),
+      );
+      const code = pickStr((rows[0] ?? {}) as AnyRow, [
+        "courseCode",
+        "course_code",
+      ]);
+      if (code) return { ...profile, courseCode: code };
+    } catch {
+      // keep profile as-is
+    }
+    try {
+      const rows = await domainList<AnyRow>(
+        "Course",
+        buildQuery({ courseId, isActive: true }),
+      );
+      const code = pickStr((rows[0] ?? {}) as AnyRow, [
+        "courseCode",
+        "course_code",
+      ]);
+      if (code) return { ...profile, courseCode: code };
+    } catch {
+      // keep profile as-is
+    }
+    return profile;
+  };
+
   if (sessionStudentId > 0) {
     const detail = await fetchStudentDetail(sessionStudentId).catch(() => null);
-    if (detail) return normalize(detail, sessionStudentId);
+    if (detail) {
+      return withCourseCode(normalize(detail, sessionStudentId));
+    }
   }
 
   const userId = Number(args.userId ?? 0);
   if (userId > 0) {
     const byUser = await fetchStudentDetailByUserId(userId).catch(() => null);
-    if (byUser) return normalize(byUser);
+    if (byUser) return withCourseCode(normalize(byUser));
   }
 
   const roll = String(
@@ -1980,7 +2129,9 @@ export async function resolveStudentPortalProfile(args: {
             .toLowerCase() === roll.toLowerCase(),
       ) ?? hits[0];
     if (exact) {
-      return normalize(exact, Number(exact.studentId ?? exact.id ?? 0));
+      return withCourseCode(
+        normalize(exact, Number(exact.studentId ?? exact.id ?? 0)),
+      );
     }
   }
 
@@ -1996,11 +2147,134 @@ export async function listStudentPortalExams(
 ): Promise<AnyRow[]> {
   const rows = await listExamMastersByCourse(courseId);
   return rows.filter((exam) => {
-    const internal = Boolean(exam.isInternalExam);
-    const resultStarted = Boolean(exam.isResultprocessStarted);
-    const published = Boolean(exam.isPublished);
+    const internal = Boolean(exam.isInternalExam ?? exam.is_internal_exam);
+    const resultStarted = Boolean(
+      exam.isResultprocessStarted ?? exam.is_resultprocess_started,
+    );
+    const published = Boolean(exam.isPublished ?? exam.is_published);
     return !internal && (!resultStarted || !published);
   });
+}
+
+/**
+ * Normalize ExamStudent domain row → exam option fields used by the hallticket UI.
+ * Angular template reads examId / examName / examFromDate / examToDate on each row.
+ */
+function normalizeHallticketExamRow(row: AnyRow): AnyRow | null {
+  const em = (row.examMaster ?? row.ExamMaster ?? {}) as AnyRow;
+  const examId = Number(
+    row.examId ?? row.exam_id ?? em.examId ?? em.exam_id ?? 0,
+  );
+  if (!examId) return null;
+
+  const isInternal = Boolean(
+    row.isInternalExam ??
+    row.is_internal_exam ??
+    em.isInternalExam ??
+    em.is_internal_exam,
+  );
+  if (isInternal) return null;
+
+  return {
+    ...row,
+    examId,
+    examName:
+      row.examName ??
+      row.exam_name ??
+      em.examName ??
+      em.exam_name ??
+      `Exam ${examId}`,
+    examFromDate:
+      row.examFromDate ??
+      row.exam_from_date ??
+      row.fromDate ??
+      row.from_date ??
+      em.examFromDate ??
+      em.fromDate ??
+      em.from_date,
+    examToDate:
+      row.examToDate ??
+      row.exam_to_date ??
+      row.toDate ??
+      row.to_date ??
+      em.examToDate ??
+      em.toDate ??
+      em.to_date,
+    isRegularExam:
+      row.isRegularExam ?? row.is_regular_exam ?? em.isRegularExam ?? false,
+    isSupplyExam:
+      row.isSupplyExam ?? row.is_supply_exam ?? em.isSupplyExam ?? false,
+    isInternalExam: false,
+  };
+}
+
+/**
+ * Angular student-exam-hallticket getExamsList():
+ * `listDetailsByThreeIdsWithSort(ExamStudent, collegeId, studentId, true, DESC,
+ *   College.collegeId, StudentDetail.studentId, isActive, createdDt)`
+ * then drop internal exams.
+ */
+export async function listStudentHallticketExams(
+  collegeId: number,
+  studentId: number,
+): Promise<AnyRow[]> {
+  if (!studentId) return [];
+
+  const order = { field: "createdDt", direction: "DESC" as const };
+  const queries: string[] = [];
+  const cid = Number(collegeId) || 0;
+  if (cid > 0) {
+    queries.push(
+      buildQuery(
+        {
+          "College.collegeId": cid,
+          "StudentDetail.studentId": studentId,
+          isActive: true,
+        },
+        order,
+      ),
+      buildQuery(
+        {
+          "college.collegeId": cid,
+          "studentDetail.studentId": studentId,
+          isActive: true,
+        },
+        order,
+      ),
+    );
+  }
+  queries.push(
+    buildQuery({ "StudentDetail.studentId": studentId, isActive: true }, order),
+    buildQuery({ "studentDetail.studentId": studentId, isActive: true }, order),
+  );
+
+  let rows: AnyRow[] = [];
+  const seenQ = new Set<string>();
+  for (const q of queries) {
+    if (seenQ.has(q)) continue;
+    seenQ.add(q);
+    try {
+      const list = await domainList<AnyRow>("ExamStudent", q);
+      if (Array.isArray(list) && list.length > 0) {
+        rows = list;
+        break;
+      }
+    } catch {
+      // try next query shape
+    }
+  }
+
+  const seenExam = new Set<number>();
+  const out: AnyRow[] = [];
+  for (const row of rows) {
+    const exam = normalizeHallticketExamRow(row);
+    if (!exam) continue;
+    const id = Number(exam.examId);
+    if (!id || seenExam.has(id)) continue;
+    seenExam.add(id);
+    out.push(exam);
+  }
+  return out;
 }
 
 /**

@@ -20,13 +20,15 @@ import { getCollegeById } from '@/services'
 import { MINIO_URL } from '@/config/constants/api'
 import { IS_DEBUG_MODE, DebugTrigger, useDebugStore } from '@/debug'
 
-/** Static "Home" entry — always first, routes to the dashboard. */
-const HOME_NAV_ITEM: NavItemType = {
-  id: 'static_home',
-  label: 'Home',
-  icon: 'home',
-  href: '/dashboard',
-  sortOrder: -1,
+/** Static "Home" entry — always first; href follows role default dashboard. */
+function homeNavItem(href: string): NavItemType {
+  return {
+    id: 'static_home',
+    label: 'Home',
+    icon: 'home',
+    href,
+    sortOrder: -1,
+  }
 }
 
 export function Sidebar() {
@@ -130,13 +132,14 @@ export function Sidebar() {
   }
 
   const displayedItems = useMemo(() => {
-    let items = [HOME_NAV_ITEM, ...navItems.slice().sort((a, b) => a.sortOrder - b.sortOrder)]
+    const home = homeNavItem(user?.defaultDashboardPath || '/dashboard')
+    let items = [home, ...navItems.slice().sort((a, b) => a.sortOrder - b.sortOrder)]
     if (searchTerm.trim()) items = filterBySearch(items, searchTerm)
     if (IS_DEBUG_MODE && debugSettings.nav.hiddenIds.length > 0) {
       items = filterByDebug(items, new Set(debugSettings.nav.hiddenIds))
     }
     return items
-  }, [navItems, searchTerm, debugSettings.nav.hiddenIds])
+  }, [navItems, searchTerm, debugSettings.nav.hiddenIds, user?.defaultDashboardPath])
 
   // Scroll nav to top whenever search results change
   useEffect(() => {

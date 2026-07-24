@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError } from "@/lib/toast";
 import { fetchStudentDetail, fetchStudentDetailByUserId } from "@/services";
-import { StudentExamResultsHeader } from "./StudentExamResultsHeader";
 import { StudentExamResultsTable } from "./StudentExamResultsTable";
 
 type AnyRow = Record<string, unknown>;
@@ -116,12 +115,5 @@ export default function StudentExamResultsPage() {
     );
   }
 
-  return (
-    <PageContainer className="space-y-4">
-      <StudentExamResultsHeader student={student} />
-      <div className="app-card p-3 sm:p-4">
-        <StudentExamResultsTable student={student} />
-      </div>
-    </PageContainer>
-  );
+  return <StudentExamResultsTable student={student} />;
 }

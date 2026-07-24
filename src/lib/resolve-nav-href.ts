@@ -364,6 +364,8 @@ export function resolveForcedNavRoute(
   // "Exam Results Sheets" so plain "Exam Results" is not misrouted.
   if (
     hrefLower.includes("student-exam-results") ||
+    hrefLower.includes("student_exam_results") ||
+    labelKey === "student exam results" ||
     (labelKey === "exam results" &&
       !labelLower.includes("sheet") &&
       (hrefLower.includes("admin-examination-section") ||
@@ -401,6 +403,206 @@ export function resolveForcedNavRoute(
   ) {
     return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
   }
+
+  // Student Grievances — pin early so missing route does not 404→dashboard
+  if (
+    hrefLower.includes("student-grievances/grievance-details") ||
+    hrefLower.includes("grievance-details")
+  ) {
+    return "/student-grievances/grievance-details";
+  }
+  if (
+    hrefLower.includes("student-grievances") ||
+    hrefLower.includes("student-grevievances") ||
+    hrefLower.includes("new-grievance") ||
+    labelKey === "grievances" ||
+    labelKey === "new grievance" ||
+    labelKey === "student grievances"
+  ) {
+    return "/student-grievances";
+  }
+
+  // Student Feedback — Angular `student-student-feedback`
+  if (
+    hrefLower.includes("student-student-feedback") ||
+    labelKey === "student feedback"
+  ) {
+    return "/student-student-feedback";
+  }
+
+  // Student Requests — No Due Certificate (must beat TC staff "nodue" catch-all)
+  if (
+    hrefLower.includes("no-due-certificate") ||
+    hrefLower.includes("noduecertificate") ||
+    hrefLower.includes("student-requests/no-due") ||
+    labelKey === "request for no due certificate" ||
+    labelKey === "no due certificate" ||
+    (hrefLower.includes("student-requests") &&
+      (labelLower.includes("no due") || hrefLower.includes("nodue")))
+  ) {
+    return "/student-requests/no-due-certificate";
+  }
+
+  // Student Requests — Request For Transfer Certificate (Angular `tc-certificate`)
+  // Must beat Request For Certificates + staff TC/Certificate Requests catch-alls.
+  if (
+    hrefLower.includes("student-requests/tc-certificate") ||
+    hrefLower.includes("student-requests/request-for-tc") ||
+    hrefLower.includes("/tc-certificate") ||
+    hrefLower.includes("request-for-tc") ||
+    hrefLower.includes("requestfortc") ||
+    labelKey === "request for transfer certificate" ||
+    labelKey === "request for tc" ||
+    (hrefLower.includes("student-requests") &&
+      (hrefLower.includes("tc-certificate") ||
+        hrefLower.includes("request-for-tc") ||
+        (labelLower.includes("transfer") &&
+          labelLower.includes("certificate")) ||
+        (labelLower.includes("request") &&
+          (labelLower.includes(" for tc") ||
+            labelLower.endsWith(" tc") ||
+            labelLower.includes("tc certificate")))))
+  ) {
+    return "/student-requests/request-for-tc";
+  }
+
+  // Student Requests — ID Card (Angular `student-idcard`; 404→dashboard otherwise)
+  if (
+    hrefLower.includes("student-idcard") ||
+    hrefLower.includes("student-id-card") ||
+    hrefLower.includes("student-requests/student-idcard") ||
+    hrefLower.includes("student-requests/id-card") ||
+    labelKey === "id card" ||
+    labelKey === "request for id card" ||
+    (hrefLower.includes("student-requests") &&
+      (labelLower.includes("id card") ||
+        hrefLower.includes("idcard") ||
+        hrefLower.includes("id-card")))
+  ) {
+    return "/student-requests/student-idcard";
+  }
+
+  // Student Requests — Request For Certificates (404→dashboard otherwise;
+  // must not steal TC & No Due "Certificate Requests")
+  if (
+    hrefLower.includes("request-for-certificates") ||
+    hrefLower.includes("requestforcertificates") ||
+    hrefLower.includes("student-requests/request-for-certificates") ||
+    labelKey === "request for certificates" ||
+    labelKey === "requests for certificates" ||
+    (hrefLower.includes("student-requests") &&
+      labelLower.includes("certificate") &&
+      !labelLower.includes("no due") &&
+      !labelLower.includes("id card") &&
+      !labelLower.includes("transfer") &&
+      !labelLower.includes(" for tc") &&
+      !hrefLower.includes("tc-certificate") &&
+      !hrefLower.includes("request-for-tc") &&
+      !hrefLower.includes("idcard") &&
+      !hrefLower.includes("id-card") &&
+      !hrefLower.includes("student-idcard"))
+  ) {
+    return "/student-requests/request-for-certificates";
+  }
+
+  // Student Academics My Subjects — pin early so missing route does not 404→dashboard
+  if (
+    hrefLower.includes("my-subjects") ||
+    hrefLower.includes("student-my-subjects") ||
+    hrefLower.includes("student-academics/my-subjects") ||
+    (hrefLower.includes("student-academics") &&
+      (labelLower.includes("my subject") || labelKey === "subjects"))
+  ) {
+    return "/student-academics/my-subjects";
+  }
+
+  // Student Academics timetable — pin early so missing route does not 404→dashboard
+  if (
+    hrefLower.includes("student-timetable") ||
+    hrefLower.includes("student-academics/student-timetable") ||
+    (hrefLower.includes("student-academics") &&
+      labelLower.includes("timetable") &&
+      !labelLower.includes("exam") &&
+      !labelLower.includes("management"))
+  ) {
+    return "/student-academics/student-timetable";
+  }
+
+  // Student Academics Class Diary — pin early so missing route does not 404→dashboard
+  if (
+    hrefLower.includes("student-class-diary") ||
+    hrefLower.includes("student-class-dairy") ||
+    hrefLower.includes("student-academics/student-class-diary") ||
+    hrefLower.includes("student-academics/student-class-dairy") ||
+    hrefLower.includes("class-diary") ||
+    hrefLower.includes("class-dairy") ||
+    labelKey === "class diary" ||
+    labelKey === "class dairy" ||
+    labelKey === "student class diary" ||
+    labelKey === "student class dairy" ||
+    (hrefLower.includes("student-academics") &&
+      (labelLower.includes("class diary") ||
+        labelLower.includes("class dairy")))
+  ) {
+    return "/student-academics/student-class-dairy";
+  }
+
+  // Student Academics Assignments — pin early so missing route does not 404→dashboard
+  if (
+    hrefLower.includes("student-assignments") ||
+    hrefLower.includes("student-academics/student-assignments") ||
+    (hrefLower.includes("student-academics") &&
+      (labelKey === "assignments" ||
+        labelKey === "student assignments" ||
+        (labelLower.includes("assignment") &&
+          !labelLower.includes("pending") &&
+          !labelLower.includes("regulation") &&
+          !labelLower.includes("section") &&
+          !labelLower.includes("lab"))))
+  ) {
+    return "/student-academics/student-assignments";
+  }
+
+  // Student Academics My Attendance — pin early so missing route does not 404→dashboard
+  // (must not steal Attendance Management / student-attendance)
+  if (
+    hrefLower.includes("student-my-attendance") ||
+    hrefLower.includes("student-academics/student-my-attendance") ||
+    (hrefLower.includes("student-academics") &&
+      (labelKey === "student attendance" ||
+        labelKey === "my attendance" ||
+        labelKey === "attendance" ||
+        (labelLower.includes("attendance") &&
+          !labelLower.includes("management") &&
+          !labelLower.includes("mark") &&
+          !labelLower.includes("exam") &&
+          !labelLower.includes("staff") &&
+          !labelLower.includes("biometric") &&
+          !labelLower.includes("summary") &&
+          !labelLower.includes("upload"))))
+  ) {
+    return "/student-academics/student-my-attendance";
+  }
+
+  // Student Academics Special Activities — pin early so missing route does not 404→dashboard
+  // (must not steal Time-Table Management / special-activity-attendance)
+  if (
+    hrefLower.includes("student-academics/special-activities") ||
+    (hrefLower.includes("student-academics") &&
+      hrefLower.includes("special-activit") &&
+      !hrefLower.includes("attendance")) ||
+    (hrefLower.includes("student-academics") &&
+      labelLower.includes("special activit") &&
+      !labelLower.includes("attendance")) ||
+    (hrefLower.includes("/apps/student-academics") &&
+      (hrefLower.includes("special-activit") ||
+        labelLower.includes("special activit")) &&
+      !hrefLower.includes("attendance") &&
+      !labelLower.includes("attendance"))
+  ) {
+    return "/student-academics/special-activities";
+  }
+
   // Exam Invigilator Allotment Report (Exam Reports) — not Pre Examination allotment
   if (
     hrefLower.includes("exam-invigilator-allotment-report") ||
@@ -721,19 +923,27 @@ export function resolveForcedNavRoute(
     }
 
     // TC & No Due — disambiguate certificate routes (shared Angular certificates module).
+    // Skip student-requests TC (handled above as `/student-requests/request-for-tc`).
     if (
       labelLower.includes("transfer") &&
       labelLower.includes("certificate") &&
       !labelLower.includes("request") &&
       !labelLower.includes("issued") &&
-      !labelLower.includes("print")
+      !labelLower.includes("print") &&
+      !hrefLower.includes("student-request") &&
+      !hrefLower.includes("tc-certificate") &&
+      !hrefLower.includes("request-for-tc")
     ) {
       return "/tc-no-due-approval/transfer-certificate";
     }
     if (
-      (labelLower.includes("no") && labelLower.includes("due")) ||
-      hrefLower.includes("send-no-due") ||
-      hrefLower.includes("nodue")
+      ((labelLower.includes("no") && labelLower.includes("due")) ||
+        hrefLower.includes("send-no-due") ||
+        hrefLower.includes("nodue")) &&
+      !hrefLower.includes("student-request") &&
+      !hrefLower.includes("no-due-certificate") &&
+      labelKey !== "no due certificate" &&
+      labelKey !== "request for no due certificate"
     ) {
       return "/tc-no-due-approval/send-no-due-approval-request";
     }
@@ -753,7 +963,12 @@ export function resolveForcedNavRoute(
       labelLower.includes("certificate") &&
       labelLower.includes("request") &&
       !labelLower.includes("report") &&
-      !labelLower.includes("issued")
+      !labelLower.includes("issued") &&
+      !labelLower.includes("transfer") &&
+      !hrefLower.includes("student-request") &&
+      !hrefLower.includes("request-for-certificates") &&
+      !hrefLower.includes("tc-certificate") &&
+      !hrefLower.includes("request-for-tc")
     ) {
       return "/tc-no-due-approval/certificate-requests";
     }

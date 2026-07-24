@@ -14,7 +14,7 @@ import {
   getExamHalltickets,
   getStudentExamHallticketDetail,
   listExamMastersByCourse,
-  listStudentPortalExams,
+  listStudentHallticketExams,
   resolveStudentPortalProfile,
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
@@ -455,13 +455,17 @@ export function ExamHallticketPage({
         )
         .map((r) => {
           const id = Number(r.examId ?? r.exam_id ?? r.fk_exam_id ?? r.id);
+          // Angular: examName (examFromDate - examToDate)
+          const from = formatRangeDate(
+            r.examFromDate ?? r.from_date ?? r.fromDate ?? r.exam_from_date,
+          );
+          const to = formatRangeDate(
+            r.examToDate ?? r.to_date ?? r.toDate ?? r.exam_to_date,
+          );
           return {
             id,
             label: `${String(r.examName ?? r.exam_name ?? `Exam ${id}`)}${
-              formatRangeDate(r.from_date ?? r.fromDate) &&
-              formatRangeDate(r.to_date ?? r.toDate)
-                ? ` (${formatRangeDate(r.from_date ?? r.fromDate)} - ${formatRangeDate(r.to_date ?? r.toDate)})`
-                : ""
+              from && to ? ` (${from} - ${to})` : ""
             }${r.is_regular_exam || r.isRegularExam ? " (Regular)" : ""}${
               r.is_supply_exam || r.isSupplyExam ? " (Supple)" : ""
             }`,
@@ -711,7 +715,18 @@ export function ExamHallticketPage({
             studentId,
           );
           if (result) {
-            setHallticketPrintData(result.detail);
+            // Ensure print page can match sessionStorage by exam/student ids.
+            setHallticketPrintData({
+              ...result.detail,
+              examId:
+                Number(result.detail.examId ?? result.detail.exam_id ?? 0) ||
+                studentExamId,
+              studentId:
+                Number(
+                  result.detail.studentId ?? result.detail.student_id ?? 0,
+                ) || studentId,
+              subjectDTOList: result.subjects,
+            });
             setRows(
               mapStudentPortalSubjectRows(result.detail, result.subjects),
             );
@@ -792,7 +807,11 @@ export function ExamHallticketPage({
         setStudentId(sid);
         setStudents([profile]);
 
-        const exams = await listStudentPortalExams(cid, sid, courseId);
+        // Angular getExamsList — ExamStudent by collegeId + studentId (registered exams).
+        const exams =
+          sid > 0
+            ? await listStudentHallticketExams(cid, sid).catch(() => [])
+            : [];
         setStudentExams(exams);
 
         const examFromUrl = Number(urlExamId || 0);
@@ -932,7 +951,7 @@ export function ExamHallticketPage({
                       <div className="text-muted-foreground">
                         {selectedStudent.collegeCode ?? "-"} /{" "}
                         {selectedStudent.academicYear ?? "-"} /{" "}
-                        {selectedStudent.courseCode ?? "-"} /{" "}
+                        {selectedStudent.courseCode || "-"} /{" "}
                         {selectedStudent.groupCode ?? "-"} /{" "}
                         {selectedStudent.courseYearName ?? "-"} / Section{" "}
                         {selectedStudent.section ?? "-"}
