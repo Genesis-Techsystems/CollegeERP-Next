@@ -30,6 +30,91 @@ export async function getEvaluationExamFilters(
   return getUnivExamFiltersByType(employeeId, "ALL");
 }
 
+/**
+ * QP-Setter–specific initial filters.
+ * Angular: getQuestionpaperFilterss() with in_flag = 'univ_exam_inep_filters',
+ * in_flag_type = 'QUESTION_SETTER', in_param2 = 'REGSUP'.
+ * Returns only courses/academic-years/exams assigned to this QP setter.
+ */
+export async function getQpSetterExamFilters(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_inep_filters",
+      in_flag_type: "QUESTION_SETTER",
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: "ALL",
+      in_param1: 0,
+      in_param2: "REGSUP",
+    },
+  );
+  const groups = data?.result ?? [];
+  // Angular picks the group whose flag === 'univ_exam_inep_filters'
+  const matched =
+    groups.find(
+      (g) =>
+        Array.isArray(g) &&
+        g.length > 0 &&
+        g[0]?.flag === "univ_exam_inep_filters",
+    ) ?? [];
+  return matched;
+}
+
+/**
+ * QP-Setter–specific subject/regulation/courseYear filters.
+ * Angular: selectedExam() with in_flag = 'univ_exam_subject_inep',
+ * in_flag_type = 'QUESTION_SETTER', in_sub_flag_type = 'NoLAB'.
+ * Returns regulations, course years, and subjects for the selected exam
+ * that are assigned to this QP setter.
+ */
+export async function getQpSetterSubjectFilters(params: {
+  examId: number;
+  employeeId: number;
+}): Promise<{ subjectRows: AnyRow[]; regulations: AnyRow[] }> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_subject_inep",
+      in_flag_type: "QUESTION_SETTER",
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: params.employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: "NoLAB",
+      in_param1: 0,
+      in_param2: 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  // Angular picks the group whose flag === 'univ_exam_sub_inep'
+  const subjectRows =
+    groups.find(
+      (g) =>
+        Array.isArray(g) && g.length > 0 && g[0]?.flag === "univ_exam_sub_inep",
+    ) ?? [];
+  // Regulations are derived from the same rows in Angular (unique fk_regulation_id)
+  return { subjectRows, regulations: subjectRows };
+}
+
 export async function getEvaluationExamRestFilters(params: {
   courseId: number;
   examId: number;
@@ -749,6 +834,7 @@ export async function listFinalizableQuestionPapers(params: {
   subjectId?: number;
   regulationId?: number;
   organizationId?: number;
+  evaluatorRoleId?: number;
 }): Promise<AnyRow[]> {
   // Match Angular getQuestionpapers() request on s_get_examevaluation_bycodes
   // exactly (in_course_id / in_academic_year_id always 0; org + login emp set).
@@ -771,7 +857,7 @@ export async function listFinalizableQuestionPapers(params: {
       in_exam_date: "1990-01-01",
       in_emp_id: 0,
       in_questionpaper_id: 0,
-      in_evaluator_role_id: 0,
+      in_evaluator_role_id: params.evaluatorRoleId ?? 0,
       in_academic_year: "",
       in_exam_short_name: "",
       in_affiliatedto_catdet_id: 0,

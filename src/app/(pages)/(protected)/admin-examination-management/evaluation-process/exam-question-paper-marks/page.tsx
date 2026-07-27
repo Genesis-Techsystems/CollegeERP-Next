@@ -13,6 +13,8 @@ import {
   getAssignQuestionPaperTemplateList,
   getEvaluationExamFilters,
   getEvaluationExamRestBundle,
+  getQpSetterExamFilters,
+  getQpSetterSubjectFilters,
   getQuestionPaperTemplateViewRows,
   listEvaluationSubjects,
   listFinalizableQuestionPapers,
@@ -194,7 +196,42 @@ export default function ExamQuestionPaperMarksPage() {
         globalThis?.localStorage?.getItem("organizationId") ??
         1,
     ) || 1;
-  /** Angular generalDetailId for Question Paper Status "Prepared". */
+
+  /**
+   * Detect QP-setter role.  Angular checks
+   *   loginUser.userRoles[i].roleName === 'QuestionPaperSetter'
+   * and reads evaluatorRoleId from localStorage('examEvaluatorRole').
+   * In React the session carries userRole / roleName; Angular also stores
+   * the active role string in localStorage('userRole').
+   */
+  const isQpSetter = useMemo(() => {
+    const role = (
+      user?.userRole ??
+      globalThis?.localStorage?.getItem("userRole") ??
+      ""
+    ).toUpperCase();
+    const name = (
+      user?.roleName ??
+      globalThis?.localStorage?.getItem("roleName") ??
+      ""
+    ).toUpperCase();
+    return (
+      role.includes("QUESTIONPAPERSETTER") ||
+      name.includes("QUESTIONPAPERSETTER") ||
+      role.includes("QUESTION_PAPER_SETTER") ||
+      name.includes("QUESTION_PAPER_SETTER") ||
+      role === "QUESTIONPAPERSETTER" ||
+      name === "QUESTIONPAPERSETTER"
+    );
+  }, [user]);
+
+  const evaluatorRoleId = useMemo(() => {
+    if (!isQpSetter) return 0;
+    return Number(
+      globalThis?.localStorage?.getItem("examEvaluatorRole") ?? 0,
+    );
+  }, [isQpSetter]);
+  /** Angular generalDetailId 621 — QP setter status display name is Draft. */
   const PREPARED_STATUS_CAT_DET_ID = 621;
   const empNumber =
     String(globalThis?.localStorage?.getItem("empNumber") ?? "") ||
@@ -247,7 +284,7 @@ export default function ExamQuestionPaperMarksPage() {
     passMarks: "",
     preparedByEmpId: employeeId,
     preparedDate: toDateOnlyISO(new Date()),
-    questionPaperStatus: "Prepared",
+    questionPaperStatus: isQpSetter ? "Draft" : "Prepared",
     statusComments: "",
     isActive: true,
     reason: "active",
@@ -286,7 +323,7 @@ export default function ExamQuestionPaperMarksPage() {
       passMarks: "",
       preparedByEmpId: employeeId,
       preparedDate: toDateOnlyISO(new Date()),
-      questionPaperStatus: "Prepared",
+      questionPaperStatus: isQpSetter ? "Draft" : "Prepared",
       statusComments: "",
       isActive: true,
       reason: "active",
@@ -315,10 +352,17 @@ export default function ExamQuestionPaperMarksPage() {
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    if (!examId || !courseYearId || !subjectId) {
-      toastError("Please select Exam, Course Year and Subject before saving.");
+    if (!examId || !subjectId) {
+      toastError("Please select Exam and Subject before saving.");
       return;
     }
+    // Match Angular: Course Years "All" => 0 is valid.
+    // Block only when the filter value is truly missing.
+    if (courseYearId == null || Number.isNaN(Number(courseYearId))) {
+      toastError("Please select Course Year before saving.");
+      return;
+    }
+    const saveCourseYearId = Number(courseYearId);
     setLoading(true);
     try {
       // Match Angular add-questionpaper-modal submit() payload for
@@ -338,13 +382,14 @@ export default function ExamQuestionPaperMarksPage() {
           now.getSeconds(),
         ).toISOString();
       })();
+      // Angular QP setter uses generalDetailId 621 (display name Draft).
       const statusCatDetId = PREPARED_STATUS_CAT_DET_ID;
       const payload = {
         organizationId: String(organizationId),
         regulationId: regulationId ?? undefined,
         subjectId,
         examId,
-        courseYearId,
+        courseYearId: saveCourseYearId,
         questionPaperCode: form.questionPaperCode.trim(),
         questionPaperTitle: form.questionPaperTitle.trim(),
         setNumber: form.setNumber.trim(),
@@ -414,18 +459,81 @@ export default function ExamQuestionPaperMarksPage() {
       ),
     [regulationRows],
   );
-  const courseYears = useMemo(
-    () =>
-      dedupeBy(restRows, (r) =>
-        pickNum(r, ["fk_course_year_id", "courseYearId", "course_year_id"]),
-      ),
-    [restRows],
-  );
-  const subjects = useMemo(
-    () =>
-      dedupeBy(subjectRows, (r) => pickNum(r, ["subjectId", "fk_subject_id"])),
-    [subjectRows],
-  );
+  const courseYears = useMemo(() => {
+    // QP setter: Angular filters courseYearList by regulationId before deduplicating
+    const regId = Number(regulationId ?? 0);
+    let filtered = restRows;
+    if (isQpSetter && regId > 0) {
+      const candidate = restRows.filter(
+        (r) =>
+          pickNum(r, [
+            "fk_regulation_id",
+            "regulationId",
+            "fk_regulationId",
+            "regulation_id",
+          ]) === regId,
+      );
+      // If backend returns different regulation key names for this role,
+      // fallback to unfiltered data so the dropdown doesn't appear empty.
+      filtered = candidate.length > 0 ? candidate : restRows;
+    }
+    return dedupeBy(filtered, (r) =>
+      pickNum(r, ["fk_course_year_id", "courseYearId", "course_year_id"]),
+    );
+  }, [restRows, isQpSetter, regulationId]);
+  const subjects = useMemo(() => {
+    // QP setter: Angular filters subjectListDetails by regulation + courseYear
+    // before deduplicating.  Admin: subjectRows are already scoped by API call.
+    const regId = Number(regulationId ?? 0);
+    const cyId = Number(courseYearId ?? 0);
+    let filtered = subjectRows;
+    if (isQpSetter) {
+      filtered = subjectRows.filter((r) => {
+        const regMatch =
+          regId <= 0 ||
+          pickNum(r, [
+            "fk_regulation_id",
+            "regulationId",
+            "fk_regulationId",
+            "regulation_id",
+          ]) === regId;
+        const cyMatch =
+          cyId <= 0 ||
+          pickNum(r, [
+            "fk_course_year_id",
+            "courseYearId",
+            "course_year_id",
+          ]) === cyId;
+        return regMatch && cyMatch;
+      });
+    }
+    return dedupeBy(filtered, (r) =>
+      pickNum(r, ["subjectId", "fk_subject_id"]),
+    );
+  }, [subjectRows, isQpSetter, regulationId, courseYearId]);
+
+  // QP setter: ensure courseYearId is valid. 0 = Angular "All".
+  useEffect(() => {
+    if (!isQpSetter) return;
+    if (courseYears.length === 0) return;
+
+    const current = Number(courseYearId ?? 0);
+    if (current === 0) return;
+    const hasCurrent = courseYears.some(
+      (r) =>
+        pickNum(r, ["fk_course_year_id", "courseYearId", "course_year_id"]) ===
+        current,
+    );
+    if (!hasCurrent) {
+      setCourseYearId(
+        pickNum(courseYears[0], [
+          "fk_course_year_id",
+          "courseYearId",
+          "course_year_id",
+        ]) || 0,
+      );
+    }
+  }, [isQpSetter, courseYears, courseYearId]);
   const selectedCollegeId = useMemo(
     () => pickNum(restRows[0], ["fk_college_id", "collegeId"]),
     [restRows],
@@ -474,6 +582,20 @@ export default function ExamQuestionPaperMarksPage() {
     [subjects, subjectId],
   );
 
+  /** Angular Course Years "All" = 0. Template/save need a concrete year —
+   * when All is selected, derive it from the chosen subject's course year. */
+  const effectiveCourseYearId = useMemo(() => {
+    const selected = Number(courseYearId ?? 0);
+    if (selected > 0) return selected;
+    return (
+      pickNum(selectedSubject, [
+        "fk_course_year_id",
+        "courseYearId",
+        "course_year_id",
+      ]) || 0
+    );
+  }, [courseYearId, selectedSubject]);
+
   // AG Grid caches the action-cell renderers, so a closure over filter state
   // goes stale (it captures the first render's null/0 ids). Read the current
   // selection from a ref that we refresh every render — this guarantees the
@@ -500,7 +622,11 @@ export default function ExamQuestionPaperMarksPage() {
     async function init() {
       setLoading(true);
       try {
-        const list = await getEvaluationExamFilters(employeeId).catch(() => []);
+        // QP setter: use univ_exam_inep_filters / QUESTION_SETTER (assigned only)
+        // Admin: use univ_exam_filters / ALL (everything)
+        const list = isQpSetter
+          ? await getQpSetterExamFilters(employeeId).catch(() => [])
+          : await getEvaluationExamFilters(employeeId).catch(() => []);
         const rows = Array.isArray(list) ? list : [];
         setBaseRows(rows);
         if (rows[0])
@@ -510,7 +636,7 @@ export default function ExamQuestionPaperMarksPage() {
       }
     }
     void init();
-  }, [employeeId]);
+  }, [employeeId, isQpSetter]);
 
   useEffect(() => {
     if (academicYears[0])
@@ -524,36 +650,76 @@ export default function ExamQuestionPaperMarksPage() {
   useEffect(() => {
     async function loadRest() {
       if (!courseId || !examId || !academicYearId) return;
-      const bundle = await getEvaluationExamRestBundle({
-        courseId,
-        examId,
-        academicYearId,
-        employeeId,
-      }).catch(() => ({ restFilters: [], regulations: [] }));
-      const rows = Array.isArray(bundle.restFilters) ? bundle.restFilters : [];
-      setRestRows(rows);
-      setRegulationRows(
-        Array.isArray(bundle.regulations) ? bundle.regulations : [],
-      );
-      if (rows[0]) {
-        const defaultReg = pickNum(
-          (Array.isArray(bundle.regulations) ? bundle.regulations : [])[0],
-          ["regulationId", "fk_regulation_id"],
+
+      if (isQpSetter) {
+        // QP setter: Angular selectedExam() calls univ_exam_subject_inep /
+        // QUESTION_SETTER which returns regulations, course years AND subjects
+        // in a single result set.  We populate restRows, regulationRows AND
+        // subjectRows from this one call so the downstream loadSubjects effect
+        // is a no-op for QP setters.
+        const bundle = await getQpSetterSubjectFilters({
+          examId,
+          employeeId,
+        }).catch(() => ({ subjectRows: [], regulations: [] }));
+        const allRows = Array.isArray(bundle.subjectRows)
+          ? bundle.subjectRows
+          : [];
+        // restRows drives courseYears dropdown; regulationRows drives regulations.
+        setRestRows(allRows);
+        setRegulationRows(allRows);
+        // subjectRows are also derived from these rows (filtered by regulation +
+        // courseYear in the subjects memo — but for QP setter, Angular derives
+        // subjects from the same flat list).  Store them so loadSubjects below
+        // can skip its API call.
+        setSubjectRows(allRows);
+        if (allRows[0]) {
+          setRegulationId(
+            pickNum(allRows[0], ["fk_regulation_id", "regulationId"]) || null,
+          );
+          // Angular selectedregulationCode defaults to the first course year
+          // (All remains available in the dropdown).
+          setCourseYearId(
+            pickNum(allRows[0], ["fk_course_year_id", "courseYearId"]) || 0,
+          );
+        }
+      } else {
+        // Admin: existing logic
+        const bundle = await getEvaluationExamRestBundle({
+          courseId,
+          examId,
+          academicYearId,
+          employeeId,
+        }).catch(() => ({ restFilters: [], regulations: [] }));
+        const rows = Array.isArray(bundle.restFilters)
+          ? bundle.restFilters
+          : [];
+        setRestRows(rows);
+        setRegulationRows(
+          Array.isArray(bundle.regulations) ? bundle.regulations : [],
         );
-        setRegulationId(
-          defaultReg ||
-            pickNum(rows[0], ["fk_regulation_id", "regulationId"]) ||
-            null,
-        );
-        setCourseYearId(
-          pickNum(rows[0], ["fk_course_year_id", "courseYearId"]) || null,
-        );
+        if (rows[0]) {
+          const defaultReg = pickNum(
+            (Array.isArray(bundle.regulations) ? bundle.regulations : [])[0],
+            ["regulationId", "fk_regulation_id"],
+          );
+          setRegulationId(
+            defaultReg ||
+              pickNum(rows[0], ["fk_regulation_id", "regulationId"]) ||
+              null,
+          );
+          setCourseYearId(
+            pickNum(rows[0], ["fk_course_year_id", "courseYearId"]) || null,
+          );
+        }
       }
     }
     void loadRest();
-  }, [courseId, examId, academicYearId, employeeId]);
+  }, [courseId, examId, academicYearId, employeeId, isQpSetter]);
   useEffect(() => {
     async function loadSubjects() {
+      // QP setter already loaded subjects in the loadRest effect above
+      if (isQpSetter) return;
+
       if (
         !courseId ||
         !examId ||
@@ -588,10 +754,20 @@ export default function ExamQuestionPaperMarksPage() {
     courseYearId,
     regulationId,
     employeeId,
+    isQpSetter,
   ]);
   useEffect(() => {
-    if (!subjectId && subjects[0])
-      setSubjectId(pickNum(subjects[0], ["fk_subject_id", "subjectId"]));
+    if (!subjects[0]) {
+      if (subjectId) setSubjectId(null);
+      return;
+    }
+    const current = Number(subjectId ?? 0);
+    const hasCurrent = subjects.some(
+      (r) => pickNum(r, ["fk_subject_id", "subjectId"]) === current,
+    );
+    if (!hasCurrent) {
+      setSubjectId(pickNum(subjects[0], ["fk_subject_id", "subjectId"]) || null);
+    }
   }, [subjects, subjectId]);
 
   // Hydrate preparedByEmpId once user data is available -- handles the
@@ -620,10 +796,13 @@ export default function ExamQuestionPaperMarksPage() {
       const list = await listFinalizableQuestionPapers({
         employeeId,
         examId: examId ?? 0,
-        courseYearId: courseYearId ?? 0,
+        // Angular QP-setter getQuestionpapers() sends in_course_year_id = 0
+        // for this list proc even when a course-year filter is selected.
+        courseYearId: isQpSetter ? 0 : (courseYearId ?? 0),
         subjectId: subjectId ?? 0,
         regulationId: regulationId ?? 0,
         organizationId,
+        evaluatorRoleId,
       }).catch(() => []);
       const cache = readQpPathCache();
       const merged = (Array.isArray(list) ? list : []).map((r) =>
@@ -763,17 +942,26 @@ export default function ExamQuestionPaperMarksPage() {
     }
   }
 
+  useEffect(() => {
+    if (!openAddModal) return;
+    if (!examId || !regulationId || !subjectId) return;
+    void loadTemplatesForFilters();
+  }, [openAddModal, examId, regulationId, subjectId, courseYearId]);
+
   async function loadTemplatesForFilters(opts?: {
     notifyIfMissing?: boolean;
   }): Promise<AnyRow[]> {
-    if (!examId || !courseYearId || !regulationId || !subjectId) {
+    if (!examId || !regulationId || !subjectId) {
       setTemplateRows([]);
       setTemplateId(0);
       return [];
     }
+    // Angular add-questionpaper-modal getTemplateDetails() passes
+    // data[0].courseYearId — 0 ("All") is valid for this proc.
+    const cyId = Number(courseYearId ?? 0);
     const tmpls = await getAssignQuestionPaperTemplateList({
       examId,
-      courseYearId,
+      courseYearId: cyId,
       regulationId,
       subjectId,
     }).catch(() => []);
@@ -847,8 +1035,11 @@ export default function ExamQuestionPaperMarksPage() {
       preparedDate:
         pickText(row, ["preparedDate", "prepared_date"]) ||
         toDateOnlyISO(new Date()),
-      questionPaperStatus:
-        pickText(row, ["questionPaperStatus", "question_status"]) || "Prepared",
+      // QP setter Angular modal only exposes status id 621 (Draft).
+      questionPaperStatus: isQpSetter
+        ? "Draft"
+        : pickText(row, ["questionPaperStatus", "question_status"]) ||
+          "Prepared",
       statusComments: pickText(row, ["statusComments", "status_comments"]),
       isActive: row.isActive === true || row.is_active === true,
       reason: pickText(row, ["reason"]) || "active",
@@ -1012,13 +1203,17 @@ export default function ExamQuestionPaperMarksPage() {
       {
         headerName: "SI.No",
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
-        width: 82,
-        pinned: "left",
+        width: 60,
+        minWidth: 60,
+        maxWidth: 60,
+        flex: 0,
+        suppressSizeToFit: true,
       },
       {
         field: "questionPaperTitle",
         headerName: "Question Paper Title",
-        minWidth: 280,
+        width: 200,
+        minWidth: 180,
         autoHeight: true,
         cellRenderer: (p: { data?: AnyRow }) => {
           const row = p.data ?? {};
@@ -1068,7 +1263,10 @@ export default function ExamQuestionPaperMarksPage() {
       {
         field: "paperCode",
         headerName: "QP Code",
-        minWidth: 110,
+        width: 90,
+        minWidth: 80,
+        maxWidth: 100,
+        flex: 0,
         valueGetter: (p) =>
           pickText(p.data, [
             "questionPaperCode",
@@ -1079,37 +1277,55 @@ export default function ExamQuestionPaperMarksPage() {
       {
         field: "courseYearCode",
         headerName: "Course Year",
-        minWidth: 120,
+        width: 90,
+        minWidth: 80,
+        maxWidth: 100,
+        flex: 0,
         valueGetter: (p) =>
           pickText(p.data, ["courseYearCode", "courseYearName"]) || "-",
       },
       {
         field: "setNo",
         headerName: "Set No.",
-        minWidth: 95,
+        width: 70,
+        minWidth: 65,
+        maxWidth: 80,
+        flex: 0,
         valueGetter: (p) =>
           pickText(p.data, ["setNumber", "setnumber", "setNo"]) || "-",
       },
       {
         headerName: "Total Questions",
-        minWidth: 130,
+        width: 95,
+        minWidth: 90,
+        maxWidth: 110,
+        flex: 0,
         valueGetter: (p) =>
           pickNum(p.data, ["totalQuestions", "totalquestions"]) || "-",
       },
       {
         headerName: "Total Marks",
-        minWidth: 120,
+        width: 85,
+        minWidth: 80,
+        maxWidth: 100,
+        flex: 0,
         valueGetter: (p) =>
           pickNum(p.data, ["totalMarks", "totalmarks"]) || "-",
       },
       {
         headerName: "Pass Marks",
-        minWidth: 110,
+        width: 80,
+        minWidth: 75,
+        maxWidth: 95,
+        flex: 0,
         valueGetter: (p) => pickNum(p.data, ["passMarks", "passmarks"]) || "-",
       },
       {
         headerName: "Prepared By",
-        minWidth: 160,
+        width: 140,
+        minWidth: 120,
+        maxWidth: 180,
+        flex: 0,
         valueGetter: (p) =>
           pickText(p.data, [
             "preparedByEmp",
@@ -1120,94 +1336,119 @@ export default function ExamQuestionPaperMarksPage() {
       },
       {
         headerName: "Question Paper",
-        minWidth: 130,
+        width: 105,
+        minWidth: 105,
+        maxWidth: 110,
+        flex: 0,
+        suppressSizeToFit: true,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: { data?: AnyRow }) => {
           if (!rowHasQpPreview(p.data)) {
             return (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground text-center">
                 No Docs Uploaded
               </span>
             );
           }
           return (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 text-blue-700"
-              onClick={() => void openQpDownload(p.data, "questionPaper")}
-              aria-label="View question paper"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center justify-center w-full">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-blue-700"
+                onClick={() => void openQpDownload(p.data, "questionPaper")}
+                aria-label="View question paper"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
           );
         },
       },
       {
         headerName: "Answer Sheet",
-        minWidth: 120,
+        width: 100,
+        minWidth: 100,
+        maxWidth: 110,
+        flex: 0,
+        suppressSizeToFit: true,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: { data?: AnyRow }) => {
           if (!rowHasAsPreview(p.data)) {
             return (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground text-center">
                 No Docs Uploaded
               </span>
             );
           }
           return (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 text-blue-700"
-              onClick={() => void openQpDownload(p.data, "modelAnswer")}
-              aria-label="View answer sheet"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center justify-center w-full">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-blue-700"
+                onClick={() => void openQpDownload(p.data, "modelAnswer")}
+                aria-label="View answer sheet"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
           );
         },
       },
       {
         headerName: "View Template",
-        minWidth: 125,
+        width: 110,
+        minWidth: 110,
+        maxWidth: 120,
+        flex: 0,
+        suppressSizeToFit: true,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: { data?: AnyRow }) => {
           const row = p.data ?? {};
           if (!rowTemplateId(row))
             return (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground text-center">
                 No Docs Uploaded
               </span>
             );
           return (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => {
-                const tplId = rowTemplateId(row);
-                const qpId = rowQuestionPaperId(row);
-                const title =
-                  pickText(row, [
-                    "questionPaperTitle",
-                    "questionpaper_title",
-                  ]) ||
-                  pickText(row, ["template_title", "templateTitle"]) ||
-                  "";
-                void openViewTemplateModal(tplId, title, qpId, "template");
-              }}
-              aria-label="View template"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center justify-center w-full">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0 text-blue-700"
+                onClick={() => {
+                  const tplId = rowTemplateId(row);
+                  const qpId = rowQuestionPaperId(row);
+                  const title =
+                    pickText(row, [
+                      "questionPaperTitle",
+                      "questionpaper_title",
+                    ]) ||
+                    pickText(row, ["template_title", "templateTitle"]) ||
+                    "";
+                  void openViewTemplateModal(tplId, title, qpId, "template");
+                }}
+                aria-label="View template"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            </div>
           );
         },
       },
       {
         field: "isActive",
         headerName: "Status",
-        minWidth: 105,
+        width: 80,
+        minWidth: 80,
+        maxWidth: 90,
+        flex: 0,
+        suppressSizeToFit: true,
         cellRenderer: (p: { data?: AnyRow }) => (
           <StatusBadge
             status={p.data?.isActive === true || p.data?.is_active === true}
@@ -1216,19 +1457,22 @@ export default function ExamQuestionPaperMarksPage() {
       },
       {
         headerName: "Actions",
-        minWidth: 290,
-        width: 290,
+        width: 155,
+        minWidth: 155,
+        maxWidth: 165,
         flex: 0,
-        pinned: "right",
+        suppressSizeToFit: true,
+        autoHeight: true,
+        wrapText: true,
         cellRenderer: (p: { data?: AnyRow }) => {
           const row = p.data ?? {};
           const hasTemplate = rowTemplateId(row) > 0;
           return (
-            <div className="flex items-center gap-1.5 flex-nowrap">
+            <div className="flex flex-col items-stretch gap-1.5 py-1">
               {hasTemplate ? (
                 <Button
                   size="sm"
-                  className="h-7 text-[11px] whitespace-nowrap shrink-0"
+                  className="h-7 w-full text-[11px] whitespace-nowrap"
                   onClick={() => manageQuestions(row)}
                 >
                   Manage Question
@@ -1237,7 +1481,7 @@ export default function ExamQuestionPaperMarksPage() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 text-[11px] whitespace-nowrap shrink-0"
+                  className="h-7 w-full text-[11px] whitespace-nowrap"
                   onClick={() => assignTemplate(row)}
                 >
                   Assign Template
@@ -1246,7 +1490,7 @@ export default function ExamQuestionPaperMarksPage() {
               {hasTemplate && (
                 <Button
                   size="sm"
-                  className="h-7 text-[11px] whitespace-nowrap shrink-0"
+                  className="h-7 w-full text-[11px] whitespace-nowrap"
                   onClick={() => uploadPapers(row)}
                 >
                   Upload QP &amp; AS
@@ -1331,19 +1575,24 @@ export default function ExamQuestionPaperMarksPage() {
               Course Years *
             </label>
             <Select
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-              options={courseYears.map((y) => ({
-                value: String(
-                  pickNum(y, ["fk_course_year_id", "courseYearId"]),
-                ),
-                label: pickText(y, [
-                  "course_year_name",
-                  "courseYearName",
-                  "course_year_code",
-                  "courseYearCode",
-                ]),
-              }))}
+              value={
+                courseYearId == null ? null : String(courseYearId)
+              }
+              onChange={(v) => setCourseYearId(v != null ? Number(v) : 0)}
+              options={[
+                { value: "0", label: "All" },
+                ...courseYears.map((y) => ({
+                  value: String(
+                    pickNum(y, ["fk_course_year_id", "courseYearId"]),
+                  ),
+                  label: pickText(y, [
+                    "course_year_name",
+                    "courseYearName",
+                    "course_year_code",
+                    "courseYearCode",
+                  ]),
+                })),
+              ]}
               placeholder="Course Year"
             />
           </div>
@@ -1354,9 +1603,13 @@ export default function ExamQuestionPaperMarksPage() {
               onChange={(v) => setSubjectId(v ? Number(v) : 0)}
               options={subjects.map((s) => ({
                 value: String(pickNum(s, ["fk_subject_id", "subjectId"])),
-                label:
-                  pickText(s, ["subjectName", "subject_name"]) ||
-                  pickText(s, ["subjectCode", "subject_code"]),
+                label: (() => {
+                  // Angular: subject_code-subject_name
+                  const code = pickText(s, ["subjectCode", "subject_code"]);
+                  const name = pickText(s, ["subjectName", "subject_name"]);
+                  if (code && name) return `${code}-${name}`;
+                  return code || name || "-";
+                })(),
               }))}
               placeholder="Subject"
             />
@@ -1393,8 +1646,7 @@ export default function ExamQuestionPaperMarksPage() {
             resetForm();
             setForm((s) => ({ ...s, preparedByEmpId: employeeId }));
             setOpenAddModal(true);
-            // Angular getTemplateDetails() when opening create with subject selected
-            void loadTemplatesForFilters({ notifyIfMissing: true });
+            // Templates load in useEffect when modal opens (Angular selectedSubject).
           }}
         >
           + Exam Question Paper
@@ -1482,12 +1734,21 @@ export default function ExamQuestionPaperMarksPage() {
               <Label className="text-[12px]">Course Years</Label>
               <Input
                 value={
-                  pickText(selectedCourseYear, [
-                    "course_year_name",
-                    "courseYearName",
-                    "course_year_code",
-                    "courseYearCode",
-                  ]) || "-"
+                  Number(courseYearId ?? 0) === 0
+                    ? "All"
+                    : pickText(selectedCourseYear, [
+                        "course_year_name",
+                        "courseYearName",
+                        "course_year_code",
+                        "courseYearCode",
+                      ]) ||
+                      pickText(selectedSubject, [
+                        "course_year_name",
+                        "courseYearName",
+                        "course_year_code",
+                        "courseYearCode",
+                      ]) ||
+                      "-"
                 }
                 disabled
                 className="h-9 text-[12px]"
@@ -1497,11 +1758,18 @@ export default function ExamQuestionPaperMarksPage() {
             <div className="md:col-span-4 space-y-1">
               <Label className="text-[12px]">Subject</Label>
               <Input
-                value={
-                  pickText(selectedSubject, ["subject_name", "subjectName"]) ||
-                  pickText(selectedSubject, ["subject_code", "subjectCode"]) ||
-                  "-"
-                }
+                value={(() => {
+                  const code = pickText(selectedSubject, [
+                    "subject_code",
+                    "subjectCode",
+                  ]);
+                  const name = pickText(selectedSubject, [
+                    "subject_name",
+                    "subjectName",
+                  ]);
+                  if (code && name) return `${code}-${name}`;
+                  return code || name || "-";
+                })()}
                 disabled
                 className="h-9 text-[12px]"
                 placeholder="Subject"
@@ -1540,16 +1808,9 @@ export default function ExamQuestionPaperMarksPage() {
                         ? "No template assigned"
                         : "Template"
                     }
-                    disabled={
-                      templateRows.filter(
-                        (t) =>
-                          pickNum(t, [
-                            "fk_exam_questionpaper_template_id",
-                            "examQuestionPaperTemplateId",
-                            "questionPaperTemplateId",
-                          ]) > 0,
-                      ).length === 0
-                    }
+                    // Match Angular: Template is always disabled and gets assigned
+                    // from selected subject/regulation via getTemplateDetails().
+                    disabled
                   />
                 </div>
                 <Button
@@ -1560,23 +1821,49 @@ export default function ExamQuestionPaperMarksPage() {
                   aria-label="View Template"
                   title="View Template"
                   onClick={() => {
-                    const selected = templateRows.find(
-                      (t) =>
-                        pickNum(t, [
+                    void (async () => {
+                      let list = templateRows;
+                      if (!templateId || list.length === 0) {
+                        list = await loadTemplatesForFilters();
+                      }
+                      const selected = list.find(
+                        (t) =>
+                          pickNum(t, [
+                            "fk_exam_questionpaper_template_id",
+                            "examQuestionPaperTemplateId",
+                            "questionPaperTemplateId",
+                          ]) === Number(templateId),
+                      );
+                      const title =
+                        pickText(selected ?? list[0] ?? {}, [
+                          "template_title",
+                          "templateTitle",
+                          "template_name",
+                          "templateName",
+                        ]) || "";
+                      const qpId = editingRow
+                        ? rowQuestionPaperId(editingRow)
+                        : undefined;
+                      const tplId =
+                        templateId ||
+                        pickNum(list[0] ?? {}, [
                           "fk_exam_questionpaper_template_id",
                           "examQuestionPaperTemplateId",
                           "questionPaperTemplateId",
-                        ]) === Number(templateId),
-                    );
-                    const title =
-                      pickText(selected ?? {}, [
-                        "template_title",
-                        "templateTitle",
-                        "template_name",
-                        "templateName",
-                      ]) || "";
-                    // Always call list_exam_questionpaper_details (Angular eye icon)
-                    void openViewTemplateModal(templateId || 0, title);
+                        ]);
+                      if (!tplId) {
+                        toastError(
+                          "Template not assigned for the selected subject",
+                        );
+                        return;
+                      }
+                      void openViewTemplateModal(
+                        tplId,
+                        title,
+                        qpId,
+                        "template",
+                      );
+                    })();
                   }}
                 >
                   <Eye className="h-4 w-4" />
@@ -1742,11 +2029,17 @@ export default function ExamQuestionPaperMarksPage() {
                 onChange={(v) =>
                   setForm((s) => ({ ...s, questionPaperStatus: v ?? "" }))
                 }
-                options={[
-                  { value: "Prepared", label: "Prepared" },
-                  { value: "In Review", label: "In Review" },
-                  { value: "Approved", label: "Approved" },
-                ]}
+                options={
+                  // Angular add-questionpaper-modal: QuestionPaperSetter only
+                  // sees generalDetailId == 621 (display name Draft). Admin sees all.
+                  isQpSetter
+                    ? [{ value: "Draft", label: "Draft" }]
+                    : [
+                        { value: "Prepared", label: "Prepared" },
+                        { value: "In Review", label: "In Review" },
+                        { value: "Approved", label: "Approved" },
+                      ]
+                }
                 placeholder="Question Paper Status"
               />
             </div>
