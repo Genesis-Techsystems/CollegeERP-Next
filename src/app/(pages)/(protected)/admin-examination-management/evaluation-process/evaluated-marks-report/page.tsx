@@ -5,15 +5,7 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Select as SearchableSelect } from "@/common/components/select";
-import type { SelectOption } from "@/common/components/select";
+import { Select, type SelectOption } from "@/common/components/select";
 import {
   getEvaluatedMarksReport,
   getRegSupBaseFilters,
@@ -118,6 +110,14 @@ export default function EvaluatedMarksReportPage() {
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
+  const courseOptions = useMemo<SelectOption[]>(
+    () =>
+      courses.map((r) => ({
+        value: String(num(r.fk_course_id)),
+        label: txt(r.course_code),
+      })),
+    [courses],
+  );
   const academicYears = useMemo(
     () =>
       dedupeBy(
@@ -125,6 +125,14 @@ export default function EvaluatedMarksReportPage() {
         (r) => num(r.fk_academic_year_id),
       ),
     [baseRows, courseId],
+  );
+  const academicYearOptions = useMemo<SelectOption[]>(
+    () =>
+      academicYears.map((r) => ({
+        value: String(num(r.fk_academic_year_id)),
+        label: txt(r.academic_year),
+      })),
+    [academicYears],
   );
   const exams = useMemo(
     () =>
@@ -150,6 +158,14 @@ export default function EvaluatedMarksReportPage() {
     () => dedupeBy(restRows, (r) => num(r.fk_course_year_id)),
     [restRows],
   );
+  const courseYearOptions = useMemo<SelectOption[]>(
+    () =>
+      courseYears.map((r) => ({
+        value: String(num(r.fk_course_year_id)),
+        label: txt(r.course_year_code),
+      })),
+    [courseYears],
+  );
   const regulations = useMemo(
     () =>
       dedupeBy(
@@ -157,6 +173,14 @@ export default function EvaluatedMarksReportPage() {
         (r) => num(r.fk_regulation_id),
       ),
     [restRows, courseYearId],
+  );
+  const regulationOptions = useMemo<SelectOption[]>(
+    () =>
+      regulations.map((r) => ({
+        value: String(num(r.fk_regulation_id)),
+        label: txt(r.regulation_code),
+      })),
+    [regulations],
   );
   const subjects = useMemo(
     () => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)),
@@ -347,105 +371,55 @@ export default function EvaluatedMarksReportPage() {
           <div className="md:col-span-2 space-y-1">
             <Label>Course</Label>
             <Select
-              value={courseId ? String(courseId) : undefined}
-              onValueChange={(v) => setCourseId(num(v) || null)}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((r) => (
-                  <SelectItem
-                    key={String(num(r.fk_course_id))}
-                    value={String(num(r.fk_course_id))}
-                  >
-                    {txt(r.course_code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(num(v) || null)}
+              options={courseOptions}
+              placeholder="Search course…"
+            />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Academic Year</Label>
             <Select
-              value={academicYearId ? String(academicYearId) : undefined}
-              onValueChange={(v) => setAcademicYearId(num(v) || null)}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Academic Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYears.map((r) => (
-                  <SelectItem
-                    key={String(num(r.fk_academic_year_id))}
-                    value={String(num(r.fk_academic_year_id))}
-                  >
-                    {txt(r.academic_year)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(num(v) || null)}
+              options={academicYearOptions}
+              placeholder="Search academic year…"
+            />
           </div>
           <div className="md:col-span-4 space-y-1">
             <Label>Exam</Label>
-            <SearchableSelect
+            <Select
               value={examId ? String(examId) : null}
               onChange={(v) => setExamId(num(v) || null)}
               options={examOptions}
               placeholder="Search exam…"
-              searchable
             />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Course Year</Label>
             <Select
-              value={courseYearId ? String(courseYearId) : undefined}
-              onValueChange={(v) => setCourseYearId(num(v) || null)}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Course Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {courseYears.map((r) => (
-                  <SelectItem
-                    key={String(num(r.fk_course_year_id))}
-                    value={String(num(r.fk_course_year_id))}
-                  >
-                    {txt(r.course_year_code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              value={courseYearId ? String(courseYearId) : null}
+              onChange={(v) => setCourseYearId(num(v) || null)}
+              options={courseYearOptions}
+              placeholder="Search course year…"
+            />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Regulation</Label>
             <Select
-              value={regulationId ? String(regulationId) : undefined}
-              onValueChange={(v) => setRegulationId(num(v) || null)}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Regulation" />
-              </SelectTrigger>
-              <SelectContent>
-                {regulations.map((r) => (
-                  <SelectItem
-                    key={String(num(r.fk_regulation_id))}
-                    value={String(num(r.fk_regulation_id))}
-                  >
-                    {txt(r.regulation_code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(num(v) || null)}
+              options={regulationOptions}
+              placeholder="Search regulation…"
+            />
           </div>
           <div className="md:col-span-5 space-y-1">
             <Label>Subject</Label>
-            <SearchableSelect
+            <Select
               value={subjectId ? String(subjectId) : null}
               onChange={(v) => setSubjectId(num(v) || null)}
               options={subjectOptions}
               placeholder="Search subjects…"
-              searchable
             />
           </div>
           <div className="md:col-span-3">

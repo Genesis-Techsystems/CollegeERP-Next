@@ -4,19 +4,20 @@
  * Grade Memo Issue — printable Grade Card / Mark Sheet / Sample layouts.
  *
  * Angular behaviour:
- * - Print Grade Card / Mark Sheet / Bulk — window.print() on page (SUK templates only).
+ * - Print Grade Card / Mark Sheet / Bulk — window.print() on page (SUK templates).
  * - Sample / Bulk Sample — navigate to grade-card-modal preview (Back + Print).
- *   SUK → GRADE CARD layout; non-SUK → SEMESTER GRADE REPORT (Matrusri, etc.).
+ *   SUK → GRADE CARD layout; non-SUK → compact print memo
+ *   (Examination / REF.No. / Subject Code–Grade Awarded / Credits Acquired).
  */
 
 import {
   useCallback,
+  useEffect,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui/button";
-import { usePrintMode } from "@/lib/print";
 import { MINIO_URL } from "@/config/constants/api";
 
 export type GradeMemoPrintMode =
@@ -80,7 +81,17 @@ function fmtMemoDate(value?: string): string {
   return `${d.getDate()}-${months[d.getMonth()]}-${d.getFullYear()}`;
 }
 
-/** Angular sample modal: date:'d/MMM/y' */
+/** Angular print: date:'dd-MM-yyyy' */
+function fmtMemoDateDdMmYyyy(value?: string): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}-${mm}-${d.getFullYear()}`;
+}
+
+/** Angular preview footer: date:'d/MMM/y' */
 function fmtMemoDateSlash(value?: string): string {
   if (!value) return "";
   const d = new Date(value);
@@ -100,6 +111,38 @@ function fmtMemoDateSlash(value?: string): string {
     "Dec",
   ];
   return `${d.getDate()}/${months[d.getMonth()]}/${d.getFullYear()}`;
+}
+
+/**
+ * Angular grade-card-modal `numberToWords` — digit words for SGPA
+ * (e.g. 7.5 → "Seven Point Five").
+ */
+function sgpaToWords(num: unknown): string {
+  if (num === null || num === undefined || num === "") return "";
+  const ones = [
+    "Zero",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+  ];
+  const parts = String(num).split(".");
+  const whole = parseInt(parts[0], 10);
+  let words = Number.isNaN(whole) ? "" : ones[whole] ?? "";
+  if (parts.length > 1 && parts[1]) {
+    const decimalPart = parts[1]
+      .split("")
+      .map((d) => ones[parseInt(d, 10)] ?? "")
+      .filter(Boolean)
+      .join(" ");
+    if (decimalPart) words += (words ? " Point " : "Point ") + decimalPart;
+  }
+  return words;
 }
 
 function numToWords(num: number): string {
@@ -257,6 +300,29 @@ function printHtmlInIframe(html: string): void {
   });
 }
 
+/** Isolated print document — empty title + zero @page margin suppresses browser headers/footers. */
+function buildGradeMemoPrintHtml(bodyHtml: string): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><title></title>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+  body { font-family: 'Maiandra GD', Maiandra, sans-serif; }
+  .bulkPage { page-break-after: always; box-sizing: border-box; width: 100%; }
+  .bulkPage:last-child { page-break-after: auto; }
+  @page { size: A4; margin: 0; }
+  @media print {
+    html, body { background: #fff !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style></head><body>${bodyHtml}</body></html>`;
+}
+
+function printGradeMemoContent(selector: string): void {
+  if (typeof document === "undefined") return;
+  const root = document.querySelector(selector);
+  if (!root) return;
+  printHtmlInIframe(buildGradeMemoPrintHtml(root.innerHTML));
+}
+
 // ── styles ───────────────────────────────────────────────────────────────────
 
 const page: CSSProperties = {
@@ -269,19 +335,48 @@ const page: CSSProperties = {
   minHeight: "100vh",
 };
 
-/** Compact A4 card — Angular grade-card-modal non-SUK (screen ~50% / 210mm). */
-const semesterPage: CSSProperties = {
+/** Angular grade-card-modal non-SUK — screen preview (.firstborder). */
+const semesterPreviewPage: CSSProperties = {
   background: "#fff",
   color: "#000",
   fontFamily: "'Maiandra GD', Maiandra, sans-serif",
   pageBreakAfter: "always",
-  padding: "16px 74px 70px",
+  padding: "10.5mm 20mm 20mm",
   boxSizing: "border-box",
-  fontSize: 12,
+  fontSize: 14,
   width: "100%",
-  maxWidth: 650,
-  minHeight: 900,
   margin: "0 auto",
+};
+
+/** Angular grade-card-modal non-SUK bulk print (210mm). */
+const semesterPrintPage: CSSProperties = {
+  background: "#fff",
+  color: "#000",
+  fontFamily: "'Maiandra GD', Maiandra, sans-serif",
+  pageBreakAfter: "always",
+  padding: "24px 28px 40px",
+  boxSizing: "border-box",
+  fontSize: 14,
+  width: "210mm",
+  maxWidth: "210mm",
+  minHeight: "297mm",
+  margin: "0 auto",
+};
+
+const semesterTitle: CSSProperties = {
+  fontSize: 20,
+  margin: "0",
+  color: "#000",
+  textAlign: "center",
+  fontWeight: 700,
+};
+
+const semesterSubTitle: CSSProperties = {
+  fontSize: 15,
+  margin: "10px 0 0",
+  color: "#000",
+  textAlign: "center",
+  fontWeight: 700,
 };
 
 const titleRed: CSSProperties = {
@@ -295,24 +390,6 @@ const titleRed: CSSProperties = {
 const titleBlack: CSSProperties = {
   fontSize: 20,
   margin: 0,
-  color: "#000",
-  textAlign: "center",
-  fontWeight: 700,
-};
-
-const semesterTitle: CSSProperties = {
-  fontSize: 16,
-  lineHeight: 1.1,
-  margin: "8px 0 0",
-  color: "#000",
-  textAlign: "center",
-  fontWeight: 700,
-};
-
-const semesterSubTitle: CSSProperties = {
-  fontSize: 12,
-  lineHeight: 1.2,
-  margin: "4px 0 18px",
   color: "#000",
   textAlign: "center",
   fontWeight: 700,
@@ -860,58 +937,80 @@ function MarkSheetPage({
   );
 }
 
-/** Angular grade-card-modal non-SUK bulk layout — SEMESTER GRADE REPORT (compact). */
+/**
+ * Angular grade-card-modal non-SUK layout.
+ * - preview: screen modal before Print (title, zebra rows, RollNo, SGPA footer)
+ * - print: isPrintMode bulk (hallticket top-right, Credits Acquired footer)
+ */
 function SemesterGradeReportPage({
   rows,
   memoDate,
   isLast,
+  variant = "preview",
 }: {
   rows: AnyRow[];
   memoDate: string;
   isLast?: boolean;
+  variant?: "preview" | "print";
 }) {
   const head = rows[0] ?? {};
   const photoPath = minioSrc(head.student_photo_path);
   const pad = emptyPad(12 - rows.length);
-  const infoRow = (striped: boolean): CSSProperties => ({
-    height: 24,
-    background: striped ? "#eef4ff" : "#fff",
-  });
+  const isPreview = variant === "preview";
+  const creditsAcquired =
+    head.grandtotal_credits ??
+    rows.reduce((sum, r) => sum + (Number(r.credits) || 0), 0);
+  const sgpaWords = sgpaToWords(head.sgpa);
+
   const infoThS: CSSProperties = {
     border: 0,
-    width: "34%",
-    padding: "3px 5px",
+    width: "35%",
+    padding: "2px 3px",
     textAlign: "left",
-    fontSize: 12,
-    fontWeight: 700,
+    fontSize: 14,
+    fontWeight: 600,
     whiteSpace: "nowrap",
+    verticalAlign: "middle",
+    lineHeight: 1.2,
+    fontFamily: "'Maiandra GD', Maiandra, sans-serif",
   };
   const infoTdS: CSSProperties = {
     border: 0,
-    padding: "3px 5px",
+    padding: "2px 3px",
     textAlign: "left",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 700,
     textTransform: "uppercase",
+    verticalAlign: "middle",
+    lineHeight: 1.2,
+    fontFamily: "'Maiandra GD', Maiandra, sans-serif",
   };
   const infoColon: CSSProperties = {
     border: 0,
     width: 14,
-    padding: "3px 2px",
+    padding: "2px 3px",
     textAlign: "center",
-    fontSize: 12,
-    fontWeight: 700,
+    fontSize: 14,
+    fontWeight: 600,
+    verticalAlign: "middle",
   };
+  const infoRowBg = (index: number): CSSProperties =>
+    isPreview && index % 2 === 1
+      ? { background: "#eef4ff" }
+      : { background: "#fff" };
+
   const gridHeadS: CSSProperties = {
     border: "1px solid #000",
-    height: 38,
-    padding: "2px",
+    height: 30,
+    padding: 2,
     textAlign: "center",
     verticalAlign: "middle",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 700,
     fontStyle: "italic",
     background: "#fff",
+    color: "#000",
+    fontFamily: "'Maiandra GD', Maiandra, sans-serif",
   };
   const gridCellS: CSSProperties = {
     borderLeft: "1px solid #000",
@@ -921,102 +1020,133 @@ function SemesterGradeReportPage({
     height: 35,
     padding: "5px 2px",
     textAlign: "center",
-    verticalAlign: "top",
-    fontSize: 12,
+    verticalAlign: "middle",
+    fontSize: 14,
     fontWeight: 700,
     background: "#fff",
+    color: "#000",
+    fontFamily: "'Maiandra GD', Maiandra, sans-serif",
   };
   const leftCellS: CSSProperties = {
     ...gridCellS,
     textAlign: "left",
     textTransform: "uppercase",
   };
+
+  const pageStyle = isPreview ? semesterPreviewPage : semesterPrintPage;
+
   return (
     <div
-      style={{ ...semesterPage, pageBreakAfter: isLast ? "auto" : "always" }}
+      style={{ ...pageStyle, pageBreakAfter: isLast ? "auto" : "always" }}
       className="bulkPage"
     >
-      <div
-        style={{
-          height: 8,
-          width: "100%",
-          background: "#000",
-          borderTop: "2px solid #000",
-        }}
-      />
-      <p style={semesterTitle}>SEMESTER GRADE REPORT</p>
-      <p style={semesterSubTitle}>{txt(head.exam_name)}</p>
+      {isPreview ? (
+        <>
+          <div
+            style={{
+              width: "96%",
+              height: 10,
+              marginTop: 10,
+              background: "#000",
+            }}
+          />
+          <p style={{ ...semesterTitle, marginTop: 10 }}>SEMESTER GRADE REPORT</p>
+          <p style={semesterSubTitle}>{txt(head.exam_name)}</p>
+          <br />
+        </>
+      ) : (
+        <div style={{ position: "relative", minHeight: 28 }}>
+          <span
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 8,
+              fontSize: 14,
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {txt(head.hallticket_number)}
+          </span>
+        </div>
+      )}
+
       <div
         style={{
           display: "flex",
           alignItems: "flex-start",
-          gap: 4,
-          marginBottom: 4,
+          marginTop: isPreview ? 10 : 10,
+          marginBottom: 8,
         }}
       >
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: "0 0 80%", maxWidth: "80%" }}>
           <table
-            style={{ width: "100%", borderCollapse: "collapse", border: 0 }}
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              border: 0,
+              marginTop: isPreview ? 0 : 25,
+              position: "relative",
+              top: isPreview ? 0 : 10,
+            }}
           >
             <tbody>
-              <tr style={infoRow(false)}>
-                <th style={infoThS}>Examination</th>
-                <td style={infoColon}>:</td>
-                <td style={{ ...infoTdS, textTransform: "none" }}>
-                  {txt(head.exam_name)}
-                </td>
-              </tr>
-              <tr style={infoRow(true)}>
-                <th style={infoThS}>REF.No.</th>
-                <td style={infoColon}>:</td>
-                <td style={{ ...infoTdS, textTransform: "none" }}>
-                  {txt(head.ref_no)}
-                </td>
-              </tr>
-              <tr style={infoRow(false)}>
-                <th style={infoThS}>Name</th>
-                <td style={infoColon}>:</td>
-                <td style={infoTdS}>{txt(head.student_name)}</td>
-              </tr>
-              <tr style={infoRow(true)}>
-                <th style={infoThS}>Father&apos;s Name</th>
-                <td style={infoColon}>:</td>
-                <td style={infoTdS}>{txt(head.father_name)}</td>
-              </tr>
-              <tr style={infoRow(false)}>
-                <th style={infoThS}>Mother&apos;s Name</th>
-                <td style={infoColon}>:</td>
-                <td style={{ ...infoTdS, textTransform: "none" }}>
-                  {txt(head.mother_name)}
-                </td>
-              </tr>
+              {[
+                ["Examination", txt(head.exam_name), "none" as const],
+                ["REF.No.", txt(head.ref_no), "none" as const],
+                ["Name", txt(head.student_name), "uppercase" as const],
+                ["Father's Name", txt(head.father_name), "uppercase" as const],
+                ["Mother's Name", txt(head.mother_name), "none" as const],
+              ].map(([label, value, transform], index) => (
+                <tr key={label} style={infoRowBg(index)}>
+                  <th style={infoThS}>{label}</th>
+                  <td style={infoColon}>:</td>
+                  <td
+                    style={{
+                      ...infoTdS,
+                      textTransform: transform,
+                      fontWeight: label === "Name" ? 700 : 700,
+                    }}
+                  >
+                    {value}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
         <div
-          style={{ width: 80, textAlign: "left", flexShrink: 0, paddingTop: 2 }}
+          style={{
+            flex: "0 0 20%",
+            maxWidth: "20%",
+            textAlign: "left",
+            padding: 10,
+            paddingTop: isPreview ? 0 : 28,
+            verticalAlign: "middle",
+          }}
         >
-          <div
-            style={{
-              fontSize: 8,
-              lineHeight: 1,
-              fontWeight: 700,
-              marginBottom: 2,
-              whiteSpace: "nowrap",
-            }}
-          >
-            RollNo: {txt(head.hallticket_number)}
-          </div>
+          {isPreview && (
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 700,
+                display: "block",
+                marginBottom: 2,
+              }}
+            >
+              RollNo: {txt(head.hallticket_number)}
+            </span>
+          )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoPath || DEFAULT_STUDENT}
             alt=""
             style={{
               display: "block",
-              height: 72,
-              width: 76,
+              height: 90,
+              width: 100,
               objectFit: "cover",
-              border: "2px solid #000",
+              border: "3px solid #000",
             }}
             onError={(e) => {
               e.currentTarget.onerror = null;
@@ -1025,22 +1155,25 @@ function SemesterGradeReportPage({
           />
         </div>
       </div>
+
       <table
         style={{
-          width: "calc(100% - 12px)",
-          margin: "0 6px",
+          width: isPreview ? "100%" : "calc(100% - 40px)",
+          margin: isPreview ? "0" : "30px 20px 0",
           borderCollapse: "collapse",
           tableLayout: "fixed",
           border: "1px solid #000",
           color: "#000",
+          position: "relative",
+          top: isPreview ? 0 : 0,
         }}
       >
         <thead>
           <tr>
-            <th style={{ ...gridHeadS, width: "22%" }}>Subject Code</th>
-            <th style={{ ...gridHeadS, width: "59%" }}>Subject</th>
-            <th style={{ ...gridHeadS, width: "8%" }}>Credits</th>
-            <th style={{ ...gridHeadS, width: "11%" }}>
+            <th style={{ ...gridHeadS, width: "16%" }}>Subject Code</th>
+            <th style={{ ...gridHeadS, width: "44%" }}>Subject</th>
+            <th style={{ ...gridHeadS, width: "6%" }}>Credits</th>
+            <th style={{ ...gridHeadS, width: "8%" }}>
               Grade
               <br />
               Awarded
@@ -1066,23 +1199,59 @@ function SemesterGradeReportPage({
           ))}
         </tbody>
       </table>
+
       <div
         style={{
           display: "flex",
-          margin: "12px 8px 0",
+          margin: isPreview ? "12px 20px 0" : "28px 20px 0",
           fontWeight: 700,
-          fontSize: 12,
+          fontSize: 14,
+          fontFamily: "'Maiandra GD', Maiandra, sans-serif",
         }}
       >
-        <div style={{ flex: 1, textAlign: "left" }}>
-          S.G.P.A &nbsp;: &nbsp;{txt(head.sgpa)}
-          <br />
-          The date of decleration of result &nbsp;: &nbsp;
-          {fmtMemoDateSlash(memoDate)}
-        </div>
-        <div style={{ flex: 1, textAlign: "right" }}>
-          Result &nbsp;: &nbsp;{txt(head.result)}
-        </div>
+        {isPreview ? (
+          <>
+            <div style={{ flex: 1, textAlign: "left", marginTop: "1.5%" }}>
+              S.G.P.A &nbsp;&nbsp;: &nbsp;&nbsp;{txt(head.sgpa)}
+              <br />
+              The date of decleration of result &nbsp;&nbsp;:&nbsp;&nbsp;
+              {fmtMemoDateSlash(memoDate)}
+            </div>
+            <div
+              style={{
+                flex: 1,
+                textAlign: "right",
+                marginTop: "1.5%",
+                marginLeft: "auto",
+              }}
+            >
+              Result &nbsp;&nbsp;: &nbsp;&nbsp;{txt(head.result)}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ flex: 1, textAlign: "left", paddingTop: 28 }}>
+              <div style={{ marginBottom: 6 }}>
+                Credits Acquired: {txt(creditsAcquired)}
+              </div>
+              <div style={{ marginBottom: 4 }}>
+                S.G.P.A : {txt(head.sgpa)}
+                {sgpaWords ? ` (${sgpaWords})` : ""}
+              </div>
+              <div>Date : {fmtMemoDateDdMmYyyy(memoDate)}</div>
+            </div>
+            <div
+              style={{
+                flex: 1,
+                textAlign: "right",
+                paddingTop: 42,
+                fontSize: 15,
+              }}
+            >
+              Result &nbsp;: &nbsp;{txt(head.result)}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1092,10 +1261,12 @@ function SamplePreviewChrome({
   onBack,
   onPrint,
   children,
+  printOutput,
 }: {
   onBack: () => void;
   onPrint: () => void;
   children: ReactNode;
+  printOutput?: ReactNode;
 }) {
   // Angular: .main-div / .grade-card width ~50% centered on screen.
   return (
@@ -1119,10 +1290,15 @@ function SamplePreviewChrome({
       </div>
       <div
         data-print-pages
-        className="mx-auto mb-4 w-full max-w-[650px] bg-white shadow-sm"
+        className="mx-auto mb-4 w-1/2 min-w-[320px] max-w-[1000px] bg-white shadow-sm"
       >
         {children}
       </div>
+      {printOutput ? (
+        <div data-print-output className="hidden" aria-hidden>
+          {printOutput}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1152,8 +1328,8 @@ export function useGradeMemoPrint(params: {
     isSupply,
     dataFlag,
   } = params;
-  const { mode: autoPrintMode, triggerPrint: triggerAutoPrint } =
-    usePrintMode<GradeMemoPrintMode>();
+  const [autoPrintMode, setAutoPrintMode] =
+    useState<GradeMemoPrintMode | null>(null);
   // Angular SampleFormat / printBulkSampleGradeCard → grade-card-modal (preview, not auto-print)
   const [previewMode, setPreviewMode] = useState<
     "sample" | "bulkSample" | null
@@ -1162,35 +1338,37 @@ export function useGradeMemoPrint(params: {
   const isSuk = orgCode.toUpperCase() === "SUK";
   const printMode = previewMode ?? autoPrintMode;
 
-  const triggerPrint = useCallback(
-    (mode: GradeMemoPrintMode) => {
-      if (mode === "sample" || mode === "bulkSample") {
-        setPreviewMode(mode);
-        return;
-      }
-      triggerAutoPrint(mode);
-    },
-    [triggerAutoPrint],
-  );
+  const triggerPrint = useCallback((mode: GradeMemoPrintMode) => {
+    if (mode === "sample" || mode === "bulkSample") {
+      setPreviewMode(mode);
+      return;
+    }
+    setAutoPrintMode(mode);
+  }, []);
+
+  useEffect(() => {
+    if (!autoPrintMode) return;
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        printGradeMemoContent("[data-print-root]");
+        resetTimer = setTimeout(() => setAutoPrintMode(null), 1500);
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (resetTimer) clearTimeout(resetTimer);
+    };
+  }, [autoPrintMode]);
 
   const closePreview = useCallback(() => setPreviewMode(null), []);
   const printFromPreview = useCallback(() => {
-    if (typeof document === "undefined") return;
-    const root = document.querySelector("[data-print-pages]");
-    if (!root) return;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Semester Grade Report</title>
-<style>
-  html, body { margin: 0; padding: 0; background: #fff; color: #000; }
-  body { font-family: 'Times New Roman', Times, serif; }
-  .bulkPage { page-break-after: always; box-sizing: border-box; width: 100%; }
-  .bulkPage:last-child { page-break-after: auto; }
-  @page { size: A4; margin: 10mm; }
-  @media print {
-    html, body { background: #fff !important; }
-    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  }
-</style></head><body>${root.innerHTML}</body></html>`;
-    printHtmlInIframe(html);
+    const output = document.querySelector("[data-print-output]");
+    if (output) {
+      printGradeMemoContent("[data-print-output]");
+      return;
+    }
+    printGradeMemoContent("[data-print-pages]");
   }, []);
 
   const groups =
@@ -1206,16 +1384,6 @@ export function useGradeMemoPrint(params: {
     const isMark = printMode === "markSheet" || printMode === "bulkMarkSheet";
 
     const pages = groups.map((rows, idx) => {
-      if (isSample && !isSuk) {
-        return (
-          <SemesterGradeReportPage
-            key={idx}
-            rows={rows}
-            memoDate={memoDate}
-            isLast={idx === groups.length - 1}
-          />
-        );
-      }
       if (isMark) {
         return (
           <MarkSheetPage
@@ -1226,6 +1394,19 @@ export function useGradeMemoPrint(params: {
             isSupply={isSupply}
             dataFlag={dataFlag}
             grades={gradesRows}
+          />
+        );
+      }
+      // Non-SUK (Matrusri, etc.): Angular grade-card-modal layout
+      if (!isSuk) {
+        const layoutVariant = isSample ? "preview" : "print";
+        return (
+          <SemesterGradeReportPage
+            key={idx}
+            rows={rows}
+            memoDate={memoDate}
+            isLast={idx === groups.length - 1}
+            variant={layoutVariant}
           />
         );
       }
@@ -1241,8 +1422,27 @@ export function useGradeMemoPrint(params: {
       );
     });
 
+    // Sample modes: Angular modal chrome (Back + Print). Direct print otherwise.
     printView = isSample ? (
-      <SamplePreviewChrome onBack={closePreview} onPrint={printFromPreview}>
+      <SamplePreviewChrome
+        onBack={closePreview}
+        onPrint={printFromPreview}
+        printOutput={
+          !isSuk ? (
+            <>
+              {groups.map((rows, idx) => (
+                <SemesterGradeReportPage
+                  key={`print-${idx}`}
+                  rows={rows}
+                  memoDate={memoDate}
+                  isLast={idx === groups.length - 1}
+                  variant="print"
+                />
+              ))}
+            </>
+          ) : undefined
+        }
+      >
         {pages}
       </SamplePreviewChrome>
     ) : (

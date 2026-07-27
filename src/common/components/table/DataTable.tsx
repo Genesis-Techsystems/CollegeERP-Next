@@ -132,6 +132,8 @@ export interface DataTableProps<T> {
    * (Grade Setup / Room Details pattern).
    */
   filters?: ReactNode;
+  /** Optional content rendered directly below filters and above the toolbar. */
+  filtersFooter?: ReactNode;
   /** Collapse the filters section. Default true when `filters` is set. */
   filtersCollapsible?: boolean;
   /** Uncontrolled default open when collapsible. Default true. */
@@ -417,6 +419,7 @@ export function DataTable<T>({
   subtitle,
   bordered = true,
   filters,
+  filtersFooter,
   filtersCollapsible = true,
   filtersDefaultOpen = true,
   filtersOpen: filtersOpenProp,
@@ -783,6 +786,10 @@ export function DataTable<T>({
                 </div>
               </div>
             </div>
+          ) : null}
+
+          {filtersFooter ? (
+            <div className="px-5 pb-3 pt-2">{filtersFooter}</div>
           ) : null}
 
           {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
