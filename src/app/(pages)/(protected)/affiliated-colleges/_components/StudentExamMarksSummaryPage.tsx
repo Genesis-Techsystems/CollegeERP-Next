@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   ColDef,
@@ -12,7 +12,7 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedExamMarksSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
@@ -210,6 +210,15 @@ export function StudentExamMarksSummaryPage({
     enabled: loadKey != null,
   });
 
+  const errorMessage = error ? getErrorMessage(error) : "";
+  const isNoRecord = /no record/i.test(errorMessage);
+
+  useEffect(() => {
+    if (errorMessage && isNoRecord) {
+      toastInfo(errorMessage);
+    }
+  }, [errorMessage, isNoRecord]);
+
   const columnDefs = useMemo<ColDef<AffiliatedSummaryRow>[]>(
     () => [
       COL_DEFS.siNo,
@@ -259,8 +268,8 @@ export function StudentExamMarksSummaryPage({
     <FilteredListPage
       title={config.title}
       notice={
-        error ? (
-          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        error && !isNoRecord ? (
+          <p className="text-sm text-destructive">{errorMessage}</p>
         ) : null
       }
       filters={

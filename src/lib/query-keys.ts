@@ -14,6 +14,7 @@ export const QK = {
   // ── Session ──────────────────────────────────────────────────────────────
   session: ["session"] as const,
   loginEmployeeId: (userId: number) => ["loginEmployeeId", userId] as const,
+  staffLoginContext: (userId: number) => ["staffLoginContext", userId] as const,
 
   // ── Exam Sessions ─────────────────────────────────────────────────────
   examSessions: {

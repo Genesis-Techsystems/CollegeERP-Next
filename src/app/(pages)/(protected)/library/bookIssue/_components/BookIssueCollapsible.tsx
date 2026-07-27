@@ -8,11 +8,18 @@ interface BookIssueCollapsibleProps {
   title: string;
   icon?: ReactNode;
   defaultOpen?: boolean;
+  /** Controlled open state (e.g. exclusive accordion). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   titleExtra?: ReactNode;
   children: ReactNode;
   className?: string;
   /** Padding for collapsible body only (e.g. form sections). Omit for tables. */
   contentClassName?: string;
+  /** Header button class override. */
+  headerClassName?: string;
+  /** Title text class override. */
+  titleClassName?: string;
   /** Right side of header row (e.g. Filter label). */
   headerTrailing?: ReactNode;
 }
@@ -22,13 +29,25 @@ export function BookIssueCollapsible({
   title,
   icon,
   defaultOpen = true,
+  open: openProp,
+  onOpenChange,
   titleExtra,
   children,
   className,
   contentClassName,
+  headerClassName,
+  titleClassName,
   headerTrailing,
 }: Readonly<BookIssueCollapsibleProps>) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : uncontrolledOpen;
+
+  const toggle = () => {
+    const next = !open;
+    if (!isControlled) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
 
   return (
     <div
@@ -36,8 +55,11 @@ export function BookIssueCollapsible({
     >
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-muted/30"
-        onClick={() => setOpen((prev) => !prev)}
+        className={cn(
+          "flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-muted/30",
+          headerClassName,
+        )}
+        onClick={toggle}
         aria-expanded={open}
         aria-label={`Toggle ${title}`}
       >
@@ -47,7 +69,12 @@ export function BookIssueCollapsible({
               {icon}
             </span>
           ) : null}
-          <span className="text-[13px] font-semibold text-[hsl(var(--card-title))]">
+          <span
+            className={cn(
+              "text-[13px] font-semibold text-[hsl(var(--card-title))]",
+              titleClassName,
+            )}
+          >
             {title}
           </span>
           {titleExtra}

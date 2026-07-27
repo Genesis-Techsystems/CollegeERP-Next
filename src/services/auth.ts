@@ -8,27 +8,27 @@
  * All paths are sourced from NEXT_API / AUTH_API constants.
  */
 
-import { EMPLOYEE_API, NEXT_API, AUTH_API } from '@/config/constants/api'
-import type { SessionUser } from '@/types/user'
-import { fetchDetails } from './crud'
+import { EMPLOYEE_API, NEXT_API, AUTH_API } from "@/config/constants/api";
+import type { SessionUser } from "@/types/user";
+import { fetchDetails } from "./crud";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface LoginCredentials {
-  usernameOrEmail: string
-  password: string
+  usernameOrEmail: string;
+  password: string;
   /** Second-phase OTP for evaluator logins. Omit on the first (credentials) call. */
-  otp?: string
+  otp?: string;
 }
 
 export interface LoginResult {
   /** Present when authentication completed (non-evaluator, or verified evaluator). */
-  user?: SessionUser
+  user?: SessionUser;
   /** True when an evaluator account still needs its OTP verified. */
-  otpRequired?: boolean
+  otpRequired?: boolean;
 }
 
-let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`
+let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`;
 
 // ─── login ────────────────────────────────────────────────────────────────────
 
@@ -39,23 +39,25 @@ let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`
  * cookie. Returns the parsed JSON body (including `user`) or throws on
  * non-OK responses.
  */
-export async function login(credentials: LoginCredentials): Promise<LoginResult> {
+export async function login(
+  credentials: LoginCredentials,
+): Promise<LoginResult> {
   const res = await fetch(NEXT_API.AUTH.LOGIN, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       usernameOrEmail: credentials.usernameOrEmail,
       password: credentials.password,
       ...(credentials.otp ? { otp: credentials.otp } : {}),
     }),
-  })
+  });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.message ?? 'Invalid username or password')
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message ?? "Invalid username or password");
   }
 
-  return res.json()
+  return res.json();
 }
 
 // ─── logout ───────────────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
  * Returns void — errors are silently swallowed so the redirect always fires.
  */
 export async function logout(): Promise<void> {
-  await fetch(NEXT_API.AUTH.LOGOUT, { method: 'POST' })
+  await fetch(NEXT_API.AUTH.LOGOUT, { method: "POST" });
 }
 
 // ─── getUserAccess ────────────────────────────────────────────────────────────
@@ -79,28 +81,31 @@ export async function logout(): Promise<void> {
  * on non-OK responses.
  */
 export async function getUserAccess(userId: string | number): Promise<any> {
-  const query = new URLSearchParams({ userId: String(userId), status: 'true' }).toString()
-  const primaryUrl = `${NEXT_API.PROXY(preferredUserAccessPath)}?${query}`
-  let res = await fetch(primaryUrl)
+  const query = new URLSearchParams({
+    userId: String(userId),
+    status: "true",
+  }).toString();
+  const primaryUrl = `${NEXT_API.PROXY(preferredUserAccessPath)}?${query}`;
+  let res = await fetch(primaryUrl);
 
   // Some environments expose this endpoint as /useraccess while others use /api/useraccess.
   if (res.status === 404) {
     const fallbackPath =
       preferredUserAccessPath === AUTH_API.USER_ACCESS
         ? `api/${AUTH_API.USER_ACCESS}`
-        : AUTH_API.USER_ACCESS
-    const fallbackUrl = `${NEXT_API.PROXY(fallbackPath)}?${query}`
-    res = await fetch(fallbackUrl)
+        : AUTH_API.USER_ACCESS;
+    const fallbackUrl = `${NEXT_API.PROXY(fallbackPath)}?${query}`;
+    res = await fetch(fallbackUrl);
     if (res.ok) {
-      preferredUserAccessPath = fallbackPath
+      preferredUserAccessPath = fallbackPath;
     }
   }
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch user access for userId=${userId}`)
+    throw new Error(`Failed to fetch user access for userId=${userId}`);
   }
 
-  return res.json()
+  return res.json();
 }
 
 /**
@@ -108,26 +113,36 @@ export async function getUserAccess(userId: string | number): Promise<any> {
  * Returns null when the session is unavailable/expired.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const res = await fetch(NEXT_API.AUTH.ME, { cache: 'no-store' })
-  if (!res.ok) return null
-  const body = (await res.json().catch(() => null)) as { user?: SessionUser } | null
-  return body?.user ?? null
+  const res = await fetch(NEXT_API.AUTH.ME, { cache: "no-store" });
+  if (!res.ok) return null;
+  const body = (await res.json().catch(() => null)) as {
+    user?: SessionUser;
+  } | null;
+  return body?.user ?? null;
 }
 
 /** Angular `login.component` → `employeedetailsbyid?userId=` → `localStorage.employeeId`. */
 export async function getEmployeeIdByUserId(userId: number): Promise<number> {
-  if (!userId) return 0
+  const ctx = await getEmployeeLoginContextByUserId(userId);
+  return ctx?.employeeId ?? 0;
+}
+
+/** Full employee login context — Angular sets `isHOD`, `empDeptId`, `uName` from this call. */
+export async function getEmployeeLoginContextByUserId(
+  userId: number,
+): Promise<import("@/lib/employee-login-context").EmployeeLoginContext | null> {
+  if (!userId) return null;
   try {
-    const data = await fetchDetails<Record<string, unknown>>(EMPLOYEE_API.DETAILS_BY_USER_ID, {
-      userId,
-    })
-    const row = data && typeof data === 'object' ? data : {}
-    for (const key of ['employeeId', 'pk_emp_id', 'emp_id', 'employee_id'] as const) {
-      const n = Number(row[key])
-      if (Number.isFinite(n) && n > 0) return n
-    }
+    const data = await fetchDetails<Record<string, unknown>>(
+      EMPLOYEE_API.DETAILS_BY_USER_ID,
+      { userId },
+    );
+    const { parseEmployeeLoginContext, syncEmployeeLoginContextToStorage } =
+      await import("@/lib/employee-login-context");
+    const ctx = parseEmployeeLoginContext(data);
+    if (ctx) syncEmployeeLoginContextToStorage(ctx);
+    return ctx;
   } catch {
-    return 0
+    return null;
   }
-  return 0
 }

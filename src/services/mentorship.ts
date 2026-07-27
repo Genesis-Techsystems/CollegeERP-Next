@@ -1,4 +1,4 @@
-import { MENTORSHIP_API } from "@/config/constants/api";
+import { COMMUNICATION_API, MENTORSHIP_API } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
 import {
   buildQuery,
@@ -6,12 +6,18 @@ import {
   domainList,
   domainUpdate,
   fetchDetails,
+  getAllRecords,
   postDetails,
 } from "./crud";
 import {
   listCourseGroupsByCourse,
   listCourseYearsByCourse,
 } from "./admin/college-courses-groups";
+import {
+  getDigitalOnlineSyncFilters,
+  type ClgFilterAcademicYearRow,
+  type ClgFilterRow,
+} from "./admin/digital-online-sync";
 import { listAcademicYearsForCollege } from "./timetable-management";
 import { searchEmployeesForHr } from "./hr-payroll";
 import { searchStudentsByKeyword } from "./student-information";
@@ -47,18 +53,17 @@ export function extractCounselorActivities(data: unknown): MentorshipRow[] {
   const counselorId = first.counselorId;
   const collegeId = first.collegeId;
   const studentId = first.studentId;
-  return [...(dtos as MentorshipRow[])]
-    .map((a) => ({
-      ...a,
-      counselorId: a.counselorId ?? counselorId,
-      collegeId: a.collegeId ?? collegeId,
-      studentId: a.studentId ?? studentId,
-    }))
-    .sort((a, b) => {
-      const ad = new Date(String(a.nextScheduledActivityDate ?? 0)).getTime();
-      const bd = new Date(String(b.nextScheduledActivityDate ?? 0)).getTime();
-      return bd - ad;
-    });
+  const activities: MentorshipRow[] = (dtos as MentorshipRow[]).map((a) => ({
+    ...a,
+    counselorId: a.counselorId ?? counselorId,
+    collegeId: a.collegeId ?? collegeId,
+    studentId: a.studentId ?? studentId,
+  }));
+  return activities.sort((a, b) => {
+    const ad = new Date(String(a.nextScheduledActivityDate ?? 0)).getTime();
+    const bd = new Date(String(b.nextScheduledActivityDate ?? 0)).getTime();
+    return bd - ad;
+  });
 }
 
 /** Students assigned to a counselor/employee — `counselormappings?collegeId&employeeId`. */
@@ -127,7 +132,10 @@ export async function listCounselorActivitiesInDateRange(params: {
   };
 }
 
-/** Students for counselor in date range — `counselordetails`. */
+/**
+ * Students for counselor in date range — used by Meeting History / Student Meetings.
+ * Prefer Schedule PTM helpers (`listSchedulePtmStudents`) when matching staff-mentorship.
+ */
 export async function listCounselorStudentsInDateRange(params: {
   collegeId: number;
   employeeId: number;
@@ -145,11 +153,163 @@ export async function listCounselorStudentsInDateRange(params: {
   );
 }
 
+/**
+ * Angular Schedule PTM `selectedEmployee`:
+ * - ADMIN: `counselordetails?fromDate=&toDate=&status=true`
+ * - STAFF: `counselordetails?employeeId=&fromDate=&toDate=&status=true`
+ * (no collegeId on either call)
+ */
+export async function listSchedulePtmStudents(params: {
+  fromDate: string;
+  toDate: string;
+  employeeId?: number | null;
+  isAdmin: boolean;
+}): Promise<MentorshipRow[]> {
+  if (params.isAdmin) {
+    return asRows(
+      await fetchDetails(MENTORSHIP_API.COUNSELOR_DETAILS, {
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+        status: "true",
+      }),
+    );
+  }
+  if (!params.employeeId) return [];
+  return asRows(
+    await fetchDetails(MENTORSHIP_API.COUNSELOR_DETAILS, {
+      employeeId: params.employeeId,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      status: "true",
+    }),
+  );
+}
+
+/**
+ * Angular Schedule PTM `selectedStudent`:
+ * - ADMIN: `counselormappings?collegeId=&studentId=` (collegeId from selected student)
+ * - STAFF: `counselormappings?collegeId=&employeeId=&studentId=`
+ */
+export async function listSchedulePtmMeetings(params: {
+  collegeId: number;
+  studentId: number;
+  employeeId?: number | null;
+  isAdmin: boolean;
+}): Promise<{ mapping: MentorshipRow | null; activities: MentorshipRow[] }> {
+  const query: Record<string, string | number> = {
+    collegeId: params.collegeId,
+    studentId: params.studentId,
+  };
+  if (!params.isAdmin && params.employeeId) {
+    query.employeeId = params.employeeId;
+  }
+  const data = await fetchDetails(MENTORSHIP_API.COUNSELOR_MAPPINGS, query);
+  const mapping = asRows(data)[0] ?? null;
+  return {
+    mapping,
+    activities: extractCounselorActivities(data),
+  };
+}
+
+/** Angular `listDetailsById(CounselorActivity, counselorActivityId)`. */
+export async function getCounselorActivityById(
+  counselorActivityId: number,
+): Promise<MentorshipRow | null> {
+  if (!counselorActivityId) return null;
+  const rows = await domainList<MentorshipRow>(
+    ENTITIES.COUNSELOR_ACTIVITY.name,
+    buildQuery({ counselorActivityId }),
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Angular Schedule PTM Send SMS → `POST sendsmstostudents`.
+ * Payload includes messageContent, subject, fromEmailId, isSmsAlert, numbers (studentIds),
+ * and course/college fields from the counselor mapping row.
+ */
+export async function sendCounselorSmsToStudents(
+  payload: MentorshipRow,
+): Promise<void> {
+  await postDetails(COMMUNICATION_API.SMS_TO_STUDENTS, payload);
+}
+
+/**
+ * Angular Assign Counselor `getFiltersList`:
+ * `s_get_collegewisedetails_bycode` with `in_flag=clg_filters`, `in_gm_codes=QUOTA,GENDER`.
+ */
+export async function getMentorshipAssignFilters(
+  organizationId: number,
+  employeeId: number,
+): Promise<{
+  filtersData: ClgFilterRow[];
+  academicYearData: ClgFilterAcademicYearRow[];
+}> {
+  type ProcResponse = { result?: Array<Array<Record<string, unknown>>> };
+  const data = await getAllRecords<ProcResponse>(
+    "s_get_collegewisedetails_bycode",
+    {
+      in_flag: "clg_filters",
+      in_org_id: organizationId,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_group_section_id: 0,
+      in_academic_year_id: 0,
+      in_dept_id: 0,
+      in_isadmin: 0,
+      in_loginuser_empid: employeeId,
+      in_loginuser_roleid: 0,
+      in_employee: "",
+      in_subject: "",
+      in_gm_codes: "QUOTA,GENDER",
+    },
+  );
+
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  let filtersData: ClgFilterRow[] = [];
+  let academicYearData: ClgFilterAcademicYearRow[] = [];
+
+  for (const arr of groups) {
+    if (!Array.isArray(arr) || arr.length === 0) continue;
+    const first = arr[0];
+    const flag = typeof first?.flag === "string" ? first.flag : "";
+    const ayFlag =
+      typeof first?.clg_filters_ay === "string" ? first.clg_filters_ay : "";
+    if (flag === "clg_filters" || Object.hasOwn(first ?? {}, "fk_college_id")) {
+      filtersData = arr as ClgFilterRow[];
+    } else if (
+      ayFlag === "clg_filters_ay" ||
+      Object.hasOwn(first ?? {}, "fk_academic_year_id")
+    ) {
+      academicYearData = arr as ClgFilterAcademicYearRow[];
+    }
+  }
+
+  // Fallback to shared helper if empty (same proc, empty gm_codes).
+  if (filtersData.length === 0) {
+    const fallback = await getDigitalOnlineSyncFilters(
+      organizationId,
+      employeeId,
+    );
+    return {
+      filtersData: fallback.filtersData,
+      academicYearData: fallback.academicYearData,
+    };
+  }
+
+  return { filtersData, academicYearData };
+}
+
+export type { ClgFilterAcademicYearRow, ClgFilterRow };
+
 export async function searchEmployeesForMentorship(
   collegeId: number,
   term: string,
 ): Promise<MentorshipRow[]> {
-  return searchEmployeesForHr(term, collegeId);
+  // Angular Assign Counselor: employeesearch?q=&empStatus=ACTV (no collegeId).
+  return searchEmployeesForHr(term, collegeId > 0 ? collegeId : undefined);
 }
 
 export async function searchStudentsForMentorship(

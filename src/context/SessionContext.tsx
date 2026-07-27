@@ -71,6 +71,10 @@ function SessionProviderInner({
   const isLoading = session.isLoading && !initialUser;
 
   if (user) syncUserToLocalStorage(user);
+  if (user?.isHod && typeof globalThis.window !== "undefined") {
+    globalThis.localStorage.setItem("isHOD", "true");
+    globalThis.localStorage.setItem("isHODDashboard", "true");
+  }
 
   return (
     <SessionContext.Provider

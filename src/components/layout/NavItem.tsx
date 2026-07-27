@@ -3708,9 +3708,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return isExaminationSectionPath(normPathname);
     }
+    if (label.includes("digital") && label.includes("library")) {
+      return normPathname.startsWith("/digital-library/");
+    }
     if (
       label.trim() === "library" ||
-      (label.includes("library") && !label.includes("fee"))
+      (label.includes("library") &&
+        !label.includes("fee") &&
+        !label.includes("digital"))
     ) {
       return normPathname.startsWith("/library/");
     }

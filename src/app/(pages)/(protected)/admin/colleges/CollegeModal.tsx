@@ -8,6 +8,7 @@ import noImgLogo from "@/assets/images/no-img-logo.png";
 import { Select, type SelectOption } from "@/common/components/select";
 import { ActiveStatusField } from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -830,7 +831,29 @@ export default function CollegeModal({
             </Field>
           </div>
 
-          {isEditing && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start border-t border-border/60 pt-3">
+            {/* Is University Checkbox */}
+            <Controller
+              name="isUniversity"
+              control={control}
+              render={({ field }) => (
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    id="isUniversity"
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                  <Label
+                    htmlFor="isUniversity"
+                    className="cursor-pointer text-[12px] font-semibold leading-tight tracking-wide text-[hsl(218_32%_22%)]"
+                  >
+                    Is University
+                  </Label>
+                </div>
+              )}
+            />
+
+            {/* Is Active Status Field */}
             <Controller
               name="isActive"
               control={control}
@@ -844,7 +867,7 @@ export default function CollegeModal({
                 />
               )}
             />
-          )}
+          </div>
 
           {submitError && (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-600">

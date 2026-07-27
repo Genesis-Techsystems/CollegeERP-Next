@@ -219,11 +219,15 @@ export * from "./e-office";
 export * from "./affiliated-colleges";
 export * from "./hr-payroll";
 export * from "./staff-dashboard";
+export * from "./my-classes";
+export * from "./staff-assignments";
+export * from "./exam-online-papers";
 // AnyRow not exported from staff-faculty-leaves — conflicts with pre-examination AnyRow.
 export * from "./staff-faculty-leaves";
 export * from "./proxy-workload";
 export * from "./timetable-management";
 export * from "./library";
+export * from "./digital-library";
 export * from "./transport";
 export * from "./tc-no-due";
 export * from "./certificates";

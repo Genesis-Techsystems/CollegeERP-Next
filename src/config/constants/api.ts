@@ -2472,7 +2472,22 @@ export const LIVE_CLASS_API = {
   ZOOM_SESSION: "zoomSession",
   /** Angular `presignedUriUrl` */
   PRESIGNED_URI: "storage/presignedUri",
+  /**
+   * Angular `deleteVideo('storage', path, topicId)` —
+   * `DELETE storage?uri={path}&courseLessonTopicId={id}`
+   */
+  STORAGE: "storage",
 } as const;
+
+/** Angular knowledge-store / digital-library subject colour cycles (`CONSTANTS.subjectColors`). */
+export const DIGITAL_LIBRARY_SUBJECT_COLORS = [
+  "linear-gradient(135deg, #23bdb8 0%, #43e794 100%)",
+  "linear-gradient(135deg, rgb(244 180 101) 0%, rgb(253 63 63 / 82%) 100%)",
+  "linear-gradient(45deg, #a52dd8, #e29bf1)",
+  "linear-gradient(135deg, #9a56ff 0%, #e36cd9 100%)",
+  "linear-gradient(135deg, rgb(40 113 245), rgb(167 236 132))",
+  "linear-gradient(to right, #a77ffc 0%, #ff6eac 100%)",
+] as const;
 
 // ─── CO-PO (Course / Program Outcomes) ───────────────────────────────────────────────
 export const COPO_API = {

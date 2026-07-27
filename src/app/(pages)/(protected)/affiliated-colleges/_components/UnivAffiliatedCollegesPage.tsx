@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
+import { toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedCollegeSummaryReport } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
@@ -151,6 +152,15 @@ export function UnivAffiliatedCollegesPage() {
     enabled: loadKey != null,
   });
 
+  const errorMessage = error ? getErrorMessage(error) : "";
+  const isNoRecord = /no record/i.test(errorMessage);
+
+  useEffect(() => {
+    if (errorMessage && isNoRecord) {
+      toastInfo(errorMessage);
+    }
+  }, [errorMessage, isNoRecord]);
+
   const dataDetails = loadKey ? cascade.contextLabel : "";
   const showTable = loadKey != null;
 
@@ -238,8 +248,8 @@ export function UnivAffiliatedCollegesPage() {
           : "University Affiliated Colleges"
       }
       notice={
-        error ? (
-          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        error && !isNoRecord ? (
+          <p className="text-sm text-destructive">{errorMessage}</p>
         ) : null
       }
       filters={

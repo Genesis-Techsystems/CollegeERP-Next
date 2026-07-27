@@ -208,7 +208,7 @@ const QUICK_LINKS = [
   },
   {
     label: "My Classes",
-    href: "/attendance-management/my-classes",
+    href: "/staff-classes/my-classes",
   },
   { label: "Events", href: "/events/staff-events" },
   {

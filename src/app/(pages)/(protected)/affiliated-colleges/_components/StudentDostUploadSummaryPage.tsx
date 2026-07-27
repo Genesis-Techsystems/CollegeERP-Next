@@ -15,7 +15,7 @@ import { MINIO_URL } from "@/config/constants/api";
 import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedDostUploadSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
@@ -181,6 +181,15 @@ export function StudentDostUploadSummaryPage() {
       ),
     enabled: loadKey != null,
   });
+
+  const errorMessage = error ? getErrorMessage(error) : "";
+  const isNoRecord = /no record/i.test(errorMessage);
+
+  useEffect(() => {
+    if (errorMessage && isNoRecord) {
+      toastInfo(errorMessage);
+    }
+  }, [errorMessage, isNoRecord]);
 
   const selectedCollege = useMemo(
     () =>
@@ -357,8 +366,8 @@ export function StudentDostUploadSummaryPage() {
     <FilteredListPage
       title="Student Dost Upload Summary"
       notice={
-        error ? (
-          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        error && !isNoRecord ? (
+          <p className="text-sm text-destructive">{errorMessage}</p>
         ) : null
       }
       filters={

@@ -75,18 +75,6 @@ export function getDefaultWorkloadDayName(): WorkloadWeekday {
   return WORKLOAD_WEEKDAYS[idx] ?? "Monday";
 }
 
-/** Angular `tConvert` — HH:mm[:ss] → h:mm AM/PM. */
-export function tConvert(time: unknown): string {
-  const raw = String(time ?? "");
-  const match = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/);
-  if (!match) return raw;
-  let h = Number(match[1]);
-  const mins = match[2];
-  const ampm = h < 12 ? "AM" : "PM";
-  h = h % 12 || 12;
-  return `${h}:${mins} ${ampm}`;
-}
-
 function normalizeListPayload(data: unknown): AnyRow[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === "object") {

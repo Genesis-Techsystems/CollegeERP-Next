@@ -28,6 +28,7 @@ export const PLACEMENTS_ACHIEVEMENTS_BASE = "/placements-achievements";
 export const COMMITTEES_BASE = "/committees";
 /** Angular `student-academics` module (student portal Academics). */
 export const STUDENT_ACADEMICS_BASE = "/student-academics";
+export const STAFF_CLASSES_BASE = "/staff-classes";
 
 function lastPathSegment(href: string): string {
   const cleaned = href.replace(/[#?].*$/, "").replace(/\/+$/, "");
@@ -142,6 +143,80 @@ export function mapAttendanceNavRoute(
   return null;
 }
 
+// ── Staff Classes (Academics → My Classes / My Timetable / …) ───────────────
+
+const STAFF_CLASSES_SLUGS: Record<string, string> = {
+  "my-classes": "my-classes",
+  myclasses: "my-classes",
+  "my-timetable": "my-timetable",
+  mytimetable: "my-timetable",
+  assignments: "assignments",
+  "class-dairy": "class-dairy",
+  "class-diary": "class-dairy",
+  "join-live": "join-live",
+  "staff-timetable-report": "staff-timetable-report",
+};
+
+export function mapStaffClassesLabelToRoute(label?: string): string | null {
+  if (!label) return null;
+  const key = normalizeLabelKey(label);
+  if (key === "myclasses" || key.includes("myclasses")) {
+    return `${STAFF_CLASSES_BASE}/my-classes`;
+  }
+  if (
+    key === "mytimetable" ||
+    (key.includes("my") && key.includes("timetable"))
+  ) {
+    return `${STAFF_CLASSES_BASE}/my-timetable`;
+  }
+  if (key.includes("classdiary") || key.includes("classdairy")) {
+    return `${STAFF_CLASSES_BASE}/class-dairy`;
+  }
+  return null;
+}
+
+export function mapStaffClassesNavRoute(
+  href?: string,
+  label?: string,
+): string | null {
+  const byLabel = mapStaffClassesLabelToRoute(label);
+  if (byLabel) return byLabel;
+
+  const hrefRaw = (href ?? "").trim();
+  const hrefLower = hrefRaw.toLowerCase();
+  if (!hrefRaw || hrefRaw === "#") return null;
+
+  // Do not steal attendance-update under staff-classes (handled by attendance mapper).
+  if (hrefLower.includes("staff-classes/attendance-update")) return null;
+
+  if (hrefLower.includes("staff-classes")) {
+    const idx = hrefLower.indexOf("staff-classes");
+    const tail = hrefRaw
+      .slice(idx + "staff-classes".length)
+      .replace(/^\/+/, "");
+    if (!tail) return `${STAFF_CLASSES_BASE}/my-classes`;
+    const first = tail.split("/")[0]!.toLowerCase();
+    const slug =
+      STAFF_CLASSES_SLUGS[first] ??
+      STAFF_CLASSES_SLUGS[first.replace(/-/g, "")] ??
+      first;
+    const rest = tail.split("/").slice(1).join("/");
+    return rest
+      ? `${STAFF_CLASSES_BASE}/${slug}/${rest}`
+      : `${STAFF_CLASSES_BASE}/${slug}`;
+  }
+
+  const seg = lastPathSegment(hrefLower);
+  if (
+    (seg === "my-classes" || seg === "myclasses") &&
+    (hrefLower.includes("academics") || label)
+  ) {
+    return `${STAFF_CLASSES_BASE}/my-classes`;
+  }
+
+  return null;
+}
+
 // ── Mentorship / counseling ──────────────────────────────────────────────────
 
 const MENTORSHIP_SLUGS: Record<string, string> = {
@@ -227,7 +302,7 @@ export function mapMentorshipNavRoute(
     return `${MENTORSHIP_BASE}/${slug}`;
   }
 
-  return null;;
+  return null;
 }
 
 // ── Student Academics ────────────────────────────────────────────────────────
@@ -256,6 +331,9 @@ export function mapStudentAcademicsNavRoute(
   const hrefRaw = (href ?? "").trim();
   const hrefLower = hrefRaw.toLowerCase();
   const labelKey = label ? normalizeLabelKey(label) : "";
+
+  // Staff Academics (staff-classes) is a separate module — do not remap here.
+  if (hrefLower.includes("staff-classes")) return null;
 
   const inStudentAcademics =
     hrefLower.includes("student-academics") ||
@@ -636,16 +714,96 @@ export function mapLibraryLabelToRoute(label?: string): string | null {
   return null;
 }
 
-export function mapLibraryNavRoute(
+/** Angular `knowledge-store` is mounted at `/digital-library` (not book Library). */
+export const DIGITAL_LIBRARY_BASE = "/digital-library";
+
+const DIGITAL_LIBRARY_SLUGS: Record<string, string> = {
+  "manage-course-content": "manage-course-content",
+  managecoursecontent: "manage-course-content",
+  "upload-subject-content": "upload-subject-content",
+  uploadsubjectcontent: "upload-subject-content",
+  "view-course-content": "view-course-content",
+  viewcoursecontent: "view-course-content",
+  "upload-course-content": "upload-course-content",
+  uploadcoursecontent: "upload-course-content",
+};
+
+/** Paths that contain `library/` but are Digital Library / knowledge-store, not book Library. */
+function isDigitalLibraryHref(hrefLower: string): boolean {
+  return (
+    hrefLower.includes("/digital-library/") ||
+    hrefLower.includes("/digital-library") ||
+    hrefLower.includes("/knowledge-store/") ||
+    hrefLower.includes("/knowledge-store") ||
+    hrefLower.includes("/staff-digital-library/") ||
+    hrefLower.includes("/student-digital-library/") ||
+    hrefLower.includes("/employee-digital-library/")
+  );
+}
+
+export function mapDigitalLibraryLabelToRoute(label?: string): string | null {
+  if (!label) return null;
+  const key = normalizeLabelKey(label);
+  if (key === "digitallibrary" || key === "knowledgestore") {
+    return `${DIGITAL_LIBRARY_BASE}/manage-course-content`;
+  }
+  if (key.includes("managecoursecontent") || key.includes("managecourse")) {
+    return `${DIGITAL_LIBRARY_BASE}/manage-course-content`;
+  }
+  if (key.includes("viewcoursecontent") || key.includes("viewcourse")) {
+    return `${DIGITAL_LIBRARY_BASE}/view-course-content`;
+  }
+  if (key.includes("uploadcoursecontent") || key.includes("uploadcourse")) {
+    return `${DIGITAL_LIBRARY_BASE}/upload-course-content`;
+  }
+  return null;
+}
+
+export function mapDigitalLibraryNavRoute(
   href?: string,
   label?: string,
 ): string | null {
-  const byLabel = mapLibraryLabelToRoute(label);
+  const byLabel = mapDigitalLibraryLabelToRoute(label);
   if (byLabel) return byLabel;
 
   const hrefRaw = (href ?? "").trim();
   if (!hrefRaw || hrefRaw === "#") return null;
   const hrefLower = hrefRaw.toLowerCase();
+  if (!isDigitalLibraryHref(hrefLower)) return null;
+
+  const mapped =
+    mapModuleTail(
+      hrefRaw,
+      "digital-library/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "knowledge-store/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    );
+  return mapped;
+}
+
+export function mapLibraryNavRoute(
+  href?: string,
+  label?: string,
+): string | null {
+  const hrefRaw = (href ?? "").trim();
+  const hrefLower = hrefRaw.toLowerCase();
+  // `/digital-library/...` contains the substring `library/` — must not remap to book Library.
+  if (isDigitalLibraryHref(hrefLower)) {
+    return mapDigitalLibraryNavRoute(href, label);
+  }
+
+  const byLabel = mapLibraryLabelToRoute(label);
+  if (byLabel) return byLabel;
+
+  if (!hrefRaw || hrefRaw === "#") return null;
 
   const mapped = mapModuleTail(
     hrefRaw,
@@ -682,7 +840,15 @@ export function mapLibraryNavRoute(
 export function isLibraryModuleLabel(label?: string): boolean {
   if (!label) return false;
   const key = normalizeLabelKey(label);
-  return key === "library" || (key.includes("library") && !key.includes("fee"));
+  // Exclude Digital Library / knowledge-store from book Library module matching.
+  if (
+    key.includes("digital") ||
+    key.includes("knowledge") ||
+    key.includes("fee")
+  ) {
+    return false;
+  }
+  return key === "library" || key.includes("library");
 }
 
 /** Unified mapper for normalizePageHref / NavItem forced routes. */
@@ -695,19 +861,23 @@ export function mapErpModuleNavRoute(
 
   return (
     mapStudentAcademicsNavRoute(href, label) ??
+    mapStaffClassesNavRoute(href, label) ??
     mapAttendanceNavRoute(href, label) ??
     mapMentorshipNavRoute(href, label) ??
     mapEventsNavRoute(href, label) ??
     mapNotificationsAnnouncementsNavRoute(href, label) ??
     mapMyNotificationsNavRoute(href, label) ??
+    mapDigitalLibraryNavRoute(href, label) ??
     mapLibraryNavRoute(href, label) ??
     mapHostelNavRoute(href, label) ??
     mapMirroredModuleNavRoute(href, label) ??
+    mapStaffClassesLabelToRoute(label) ??
     mapAttendanceLabelToRoute(label) ??
     mapMentorshipLabelToRoute(label) ??
     mapEventsLabelToRoute(label) ??
     mapNotificationsAnnouncementsLabelToRoute(label) ??
     mapMyNotificationsLabelToRoute(label) ??
+    mapDigitalLibraryLabelToRoute(label) ??
     mapLibraryLabelToRoute(label) ??
     mapMirroredModuleLabelToRoute(label)
   );
@@ -715,6 +885,7 @@ export function mapErpModuleNavRoute(
 
 export function mapErpModuleLabelToRoute(label?: string): string | null {
   return (
+    mapStaffClassesLabelToRoute(label) ??
     mapAttendanceLabelToRoute(label) ??
     mapMentorshipLabelToRoute(label) ??
     mapEventsLabelToRoute(label) ??
