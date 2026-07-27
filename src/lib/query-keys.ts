@@ -14,6 +14,7 @@ export const QK = {
   // ── Session ──────────────────────────────────────────────────────────────
   session: ["session"] as const,
   loginEmployeeId: (userId: number) => ["loginEmployeeId", userId] as const,
+  staffLoginContext: (userId: number) => ["staffLoginContext", userId] as const,
 
   // ── Exam Sessions ─────────────────────────────────────────────────────
   examSessions: {
@@ -437,11 +438,8 @@ export const QK = {
   // ── Question Banks ─────────────────────────────────────────────────────
   questionBanks: {
     all: ["Assessment"] as const,
-    /** Pass userId to filter by owner (non-ADMIN); omit for all (ADMIN) */
-    list: (userId?: number) =>
-      userId !== undefined
-        ? (["Assessment", "list", userId] as const)
-        : (["Assessment", "list"] as const),
+    /** Filter by preparedbyUser.userId (Angular listDetailsByTwoIdWithSort) */
+    list: (userId: number) => ["Assessment", "list", userId] as const,
     /** Questions inside a specific bank */
     questions: (assessmentId: number) =>
       ["Assessment", assessmentId, "questions"] as const,

@@ -24,7 +24,7 @@ import {
   listLeaveProcessStatuses,
   listStaffLeaveApplications,
   sortLeaveApplicationsDesc,
-  submitEmployeeLeaveApplication,
+  submitFacultyLeaveApplication,
   toLeaveYmd,
   type AnyRow,
 } from "@/services";
@@ -313,7 +313,7 @@ export function ApplyLeavePage() {
           row.leaveToDate = toLeaveYmd(row.leaveToDate);
         }
 
-        const result = await submitEmployeeLeaveApplication(row);
+        const result = await submitFacultyLeaveApplication(row);
         if (result.success) {
           if (details.length === i + 1) {
             toastSuccess(result.message ?? "Leave application saved");
@@ -398,7 +398,7 @@ export function ApplyLeavePage() {
           toastInfo(result.message ?? "Unable to cancel leave");
         }
       } else {
-        const result = await submitEmployeeLeaveApplication(item);
+        const result = await submitFacultyLeaveApplication(item);
         if (result.success) {
           toastSuccess(result.message ?? "Leave cancelled");
           await loadLeaveApplications(leaveYear);

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export interface ListPageProps<T> extends Omit<
   DataTableProps<T>,
-  "title" | "subtitle" | "bordered"
+  "title" | "bordered"
 > {
   /** Page / table card title — defaults to the sidebar menu label when omitted. */
   title?: string;
@@ -27,6 +27,7 @@ export interface ListPageProps<T> extends Omit<
  */
 export function ListPage<T>({
   title,
+  subtitle = "",
   notice,
   emptyState,
   children,
@@ -48,7 +49,7 @@ export function ListPage<T>({
       ) : (
         <DataTable
           title={displayTitle}
-          subtitle=""
+          subtitle={subtitle}
           bordered
           loading={loading}
           rowData={rowData}

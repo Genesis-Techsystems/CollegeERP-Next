@@ -132,8 +132,8 @@ export async function listStaffLeaveApplications(
   return [];
 }
 
-/** Angular POST `employeeleaveapplication`. */
-export async function submitEmployeeLeaveApplication(
+/** Angular POST `employeeleaveapplication` (staff-faculty-leaves apply flow). */
+export async function submitFacultyLeaveApplication(
   payload: AnyRow,
 ): Promise<{ success: boolean; message?: string }> {
   const res = await postDetailsEnvelope<unknown>(

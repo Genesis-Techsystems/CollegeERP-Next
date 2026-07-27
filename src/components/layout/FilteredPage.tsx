@@ -44,51 +44,74 @@ export function FilteredPage({
 }: FilteredPageProps) {
   const navLabel = usePageNavLabel();
   // Explicit page title wins over sidebar nav label (same as ListPage / FilteredListPage).
-  const displayTitle = title ?? navLabel ?? "Page";
+  // Pass title="" to hide the heading (e.g. when body already has its own section title).
+  const displayTitle = title === "" ? "" : (title ?? navLabel ?? "Page");
+  const showHeading = displayTitle.length > 0;
   const [filtersOpen, setFiltersOpen] = useState(filtersDefaultOpen);
 
   return (
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
       <div className="app-data-table app-data-table-card flex flex-col">
-        <div
-          className={cn(
-            "app-data-table-heading px-5",
-            filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
-          )}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              {filtersCollapsible ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between gap-2 text-left"
-                  onClick={() => setFiltersOpen(!filtersOpen)}
-                  aria-expanded={filtersOpen}
-                  aria-label="Toggle filters"
-                >
+        {showHeading ? (
+          <div
+            className={cn(
+              "app-data-table-heading px-5",
+              filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
+            )}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                {filtersCollapsible ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 text-left"
+                    onClick={() => setFiltersOpen(!filtersOpen)}
+                    aria-expanded={filtersOpen}
+                    aria-label="Toggle filters"
+                  >
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                      {displayTitle}
+                    </h2>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
+                      <Filter className="h-3.5 w-3.5" aria-hidden />
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform duration-300",
+                          filtersOpen && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
+                    </span>
+                  </button>
+                ) : (
                   <h2 className="text-lg font-semibold tracking-tight text-foreground">
                     {displayTitle}
                   </h2>
-                  <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
-                    <Filter className="h-3.5 w-3.5" aria-hidden />
-                    <ChevronDown
-                      className={cn(
-                        "h-3.5 w-3.5 transition-transform duration-300",
-                        filtersOpen && "rotate-180",
-                      )}
-                      aria-hidden
-                    />
-                  </span>
-                </button>
-              ) : (
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                  {displayTitle}
-                </h2>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        ) : filtersCollapsible ? (
+          <div className="flex justify-end px-5 pt-3">
+            <button
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              aria-expanded={filtersOpen}
+              aria-label="Toggle filters"
+            >
+              <Filter className="h-3.5 w-3.5" aria-hidden />
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform duration-300",
+                  filtersOpen && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+          </div>
+        ) : null}
 
         <div
           className={cn(

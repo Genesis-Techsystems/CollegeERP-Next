@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   ColDef,
@@ -12,7 +12,7 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedUploadSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
@@ -182,6 +182,15 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
     enabled: loadKey != null,
   });
 
+  const errorMessage = error ? getErrorMessage(error) : "";
+  const isNoRecord = /no record/i.test(errorMessage);
+
+  useEffect(() => {
+    if (errorMessage && isNoRecord) {
+      toastInfo(errorMessage);
+    }
+  }, [errorMessage, isNoRecord]);
+
   const rows = useMemo(
     () =>
       enrichAffiliatedSummaryRows(
@@ -245,8 +254,8 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
     <FilteredListPage
       title={config.title}
       notice={
-        error ? (
-          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        error && !isNoRecord ? (
+          <p className="text-sm text-destructive">{errorMessage}</p>
         ) : null
       }
       filters={

@@ -401,7 +401,7 @@ export default function ReEvaluationMultiAssignPage() {
   const filterFields = (
     <>
       <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
-        <GlobalFilterField label="Course">
+        <GlobalFilterField label="Course" className="global-filter-field--fx15">
           <Select
             value={courseId ? String(courseId) : null}
             onChange={(v) => { resetFetchedState(); setCourseId(v ? Number(v) : null) }}
@@ -409,7 +409,7 @@ export default function ReEvaluationMultiAssignPage() {
             placeholder="Course"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Academic Year">
+        <GlobalFilterField label="Academic Year" className="global-filter-field--fx15">
           <Select
             value={academicYearId ? String(academicYearId) : null}
             onChange={(v) => { resetFetchedState(); setAcademicYearId(v ? Number(v) : null) }}
@@ -417,7 +417,7 @@ export default function ReEvaluationMultiAssignPage() {
             placeholder="Academic Year"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Exam">
+        <GlobalFilterField label="Exam" className="global-filter-field--fx69">
           <Select
             value={examId ? String(examId) : null}
             onChange={(v) => { resetFetchedState(); setExamId(v ? Number(v) : null) }}
@@ -428,7 +428,7 @@ export default function ReEvaluationMultiAssignPage() {
         </GlobalFilterField>
       </GlobalFilterBarRow>
       <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
-        <GlobalFilterField label="Course Year">
+        <GlobalFilterField label="Course Year" className="global-filter-field--fx15">
           <Select
             value={courseYearId ? String(courseYearId) : null}
             onChange={(v) => { resetFetchedState(); setCourseYearId(v ? Number(v) : null) }}
@@ -436,7 +436,7 @@ export default function ReEvaluationMultiAssignPage() {
             placeholder="Course Year"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Regulation">
+        <GlobalFilterField label="Regulation" className="global-filter-field--fx15">
           <Select
             value={regulationId ? String(regulationId) : null}
             onChange={(v) => { resetFetchedState(); setRegulationId(v ? Number(v) : null) }}
@@ -444,7 +444,7 @@ export default function ReEvaluationMultiAssignPage() {
             placeholder="Regulation"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Subject">
+        <GlobalFilterField label="Subject" className="global-filter-field--fx49">
           <Select
             value={subjectId ? String(subjectId) : null}
             onChange={(v) => { resetFetchedState(); setSubjectId(v ? Number(v) : null) }}
@@ -453,8 +453,8 @@ export default function ReEvaluationMultiAssignPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label=" " className="global-filter-field--action">
-          <Button size="sm" onClick={() => void onGetList()} disabled={loading} className="shrink-0 w-full">
+        <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--fx10">
+          <Button size="sm" onClick={() => void onGetList()} disabled={loading} className="h-10 shrink-0 w-full">
             Get List
           </Button>
         </GlobalFilterField>
@@ -467,7 +467,7 @@ export default function ReEvaluationMultiAssignPage() {
       title="Re-Evaluation Multi Assign"
       filters={filterFields}
       filtersDefaultOpen={false}
-      notice={
+      filtersFooter={
         hasFetched ? (
           <>
             <div className="app-card p-3 text-[13px]">

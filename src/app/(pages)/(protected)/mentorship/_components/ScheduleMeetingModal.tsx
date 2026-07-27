@@ -1,45 +1,45 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { format } from 'date-fns'
-import { DatePicker } from '@/common/components/date-picker'
-import { FormModal } from '@/common/components/feedback'
-import { Select } from '@/common/components/select'
-import { GM_CODES } from '@/config/constants/ui'
-import { getErrorMessage } from '@/lib/errors'
-import { toastError } from '@/lib/toast'
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { DatePicker } from "@/common/components/date-picker";
+import { FormModal } from "@/common/components/feedback";
+import { Select } from "@/common/components/select";
+import { GM_CODES } from "@/config/constants/ui";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError } from "@/lib/toast";
 import {
   getGeneralDetails,
   listCounselorActivityTypesByCollege,
   type MentorshipRow,
-} from '@/services'
+} from "@/services";
 
 const schema = z.object({
-  counselorActivityTypeId: z.number().min(1, 'Activity type is required'),
-  nextScheduledActivityDate: z.date({ required_error: 'Schedule date is required' }),
-  activityStatusId: z.number().min(1, 'Activity status is required'),
-})
+  counselorActivityTypeId: z.number().min(1, "Activity type is required"),
+  nextScheduledActivityDate: z.date({ message: "Schedule date is required" }),
+  activityStatusId: z.number().min(1, "Activity status is required"),
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 export type ScheduleMeetingModalProps = {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
   /** null = schedule new; row = edit scheduled meeting */
-  row: MentorshipRow | null
-  collegeId: number
-  counselorId: number
-  studentId: number
-  onSaved: (payload: MentorshipRow) => void | Promise<void>
-}
+  row: MentorshipRow | null;
+  collegeId: number;
+  counselorId: number;
+  studentId: number;
+  onSaved: (payload: MentorshipRow) => void | Promise<void>;
+};
 
 function parseDate(value: unknown): Date {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value
-  const d = new Date(String(value ?? ''))
-  return Number.isNaN(d.getTime()) ? new Date() : d
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  const d = new Date(String(value ?? ""));
+  return Number.isNaN(d.getTime()) ? new Date() : d;
 }
 
 export function ScheduleMeetingModal({
@@ -51,10 +51,10 @@ export function ScheduleMeetingModal({
   studentId,
   onSaved,
 }: Readonly<ScheduleMeetingModalProps>) {
-  const isEditing = row != null && Number(row.counselorActivityId ?? 0) > 0
-  const [activityTypes, setActivityTypes] = useState<MentorshipRow[]>([])
-  const [statuses, setStatuses] = useState<MentorshipRow[]>([])
-  const [loadingOptions, setLoadingOptions] = useState(false)
+  const isEditing = row != null && Number(row.counselorActivityId ?? 0) > 0;
+  const [activityTypes, setActivityTypes] = useState<MentorshipRow[]>([]);
+  const [statuses, setStatuses] = useState<MentorshipRow[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
 
   const {
     control,
@@ -68,35 +68,36 @@ export function ScheduleMeetingModal({
       nextScheduledActivityDate: new Date(),
       activityStatusId: undefined,
     },
-  })
+  });
 
   useEffect(() => {
-    if (!open || !collegeId) return
-    setLoadingOptions(true)
+    if (!open || !collegeId) return;
+    setLoadingOptions(true);
     void (async () => {
       try {
         const [types, statusRows] = await Promise.all([
           listCounselorActivityTypesByCollege(collegeId),
           getGeneralDetails(GM_CODES.COUNSELING_STATUS),
-        ])
-        setActivityTypes(types)
-        setStatuses(statusRows as MentorshipRow[])
+        ]);
+        setActivityTypes(types);
+        setStatuses(statusRows as MentorshipRow[]);
       } catch (e) {
-        toastError(getErrorMessage(e))
-        setActivityTypes([])
-        setStatuses([])
+        toastError(getErrorMessage(e));
+        setActivityTypes([]);
+        setStatuses([]);
       } finally {
-        setLoadingOptions(false)
+        setLoadingOptions(false);
       }
-    })()
-  }, [open, collegeId])
+    })();
+  }, [open, collegeId]);
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     reset(
       isEditing && row
         ? {
-            counselorActivityTypeId: Number(row.counselorActivityTypeId ?? 0) || undefined,
+            counselorActivityTypeId:
+              Number(row.counselorActivityTypeId ?? 0) || undefined,
             nextScheduledActivityDate: parseDate(row.nextScheduledActivityDate),
             activityStatusId: Number(row.activityStatusId ?? 0) || undefined,
           }
@@ -105,49 +106,58 @@ export function ScheduleMeetingModal({
             nextScheduledActivityDate: new Date(),
             activityStatusId: undefined,
           },
-    )
-  }, [open, isEditing, row, reset])
+    );
+  }, [open, isEditing, row, reset]);
 
   const activityTypeOptions = useMemo(
     () =>
       activityTypes.map((t) => ({
         value: String(t.counselorActivityTypeId),
-        label: String(t.activityTypeCode ?? t.activityTypeName ?? t.counselorActivityTypeId),
+        label: String(
+          t.activityTypeCode ?? t.activityTypeName ?? t.counselorActivityTypeId,
+        ),
         // Angular disables STDABSCALL
-        disabled: String(t.activityTypeCode ?? '') === 'STDABSCALL',
+        disabled: String(t.activityTypeCode ?? "") === "STDABSCALL",
       })),
     [activityTypes],
-  )
+  );
 
   const statusOptions = useMemo(
     () =>
       statuses.map((s) => ({
         value: String(s.generalDetailId),
-        label: String(s.generalDetailDisplayName ?? s.generalDetailCode ?? s.generalDetailId),
+        label: String(
+          s.generalDetailDisplayName ??
+            s.generalDetailCode ??
+            s.generalDetailId,
+        ),
         // Angular disables COMPLETED when scheduling
-        disabled: String(s.generalDetailCode ?? '') === 'COMPLETED',
+        disabled: String(s.generalDetailCode ?? "") === "COMPLETED",
       })),
     [statuses],
-  )
+  );
 
   async function onSubmit(values: FormValues) {
     const payload: MentorshipRow = {
       counselorActivityTypeId: values.counselorActivityTypeId,
-      nextScheduledActivityDate: format(values.nextScheduledActivityDate, 'yyyy-MM-dd'),
+      nextScheduledActivityDate: format(
+        values.nextScheduledActivityDate,
+        "yyyy-MM-dd",
+      ),
       activityStatusId: values.activityStatusId,
       isActive: true,
       collegeId,
       counselorId,
       studentId,
-    }
+    };
     if (isEditing && row) {
-      payload.counselorActivityId = row.counselorActivityId
+      payload.counselorActivityId = row.counselorActivityId;
     }
     try {
-      await onSaved(payload)
-      onClose()
+      await onSaved(payload);
+      onClose();
     } catch (e) {
-      toastError(getErrorMessage(e))
+      toastError(getErrorMessage(e));
     }
   }
 
@@ -155,11 +165,11 @@ export function ScheduleMeetingModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Scheduled Meeting' : 'Schedule Meeting'}
+      title={isEditing ? "Edit Scheduled Meeting" : "Schedule Meeting"}
       titleClassName="text-[15px] font-semibold leading-none text-[#5da394]"
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
       submitLabel="Save"
       isSubmitting={isSubmitting || loadingOptions}
@@ -211,5 +221,5 @@ export function ScheduleMeetingModal({
         />
       </div>
     </FormModal>
-  )
+  );
 }

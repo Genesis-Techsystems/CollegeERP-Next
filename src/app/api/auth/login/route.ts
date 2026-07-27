@@ -136,6 +136,14 @@ export async function POST(request: NextRequest) {
     const collegeId =
       Number(dto.collegeId ?? 0) || Number(nestedCollege?.collegeId ?? 0) || 0;
 
+    const roleUpper = userRole.toUpperCase();
+    const roleNameUpper = roleName.toUpperCase();
+    const hasAdminRole = (userDto.userRoles ?? []).some(
+      (r) =>
+        r.isActive !== false &&
+        String(r.roleName ?? "").toUpperCase() === "ADMIN",
+    );
+
     const sessionUser: SessionUser = {
       userId: userDto.userId,
       userName: userDto.userName,
@@ -156,7 +164,11 @@ export async function POST(request: NextRequest) {
       organizationCode: userDto.organizationCode,
       universityId: userDto.universityId,
       universityCode: userDto.universityCode,
-      isAdmin: userRole === "ADMIN" || userRole === "SUPERADMIN",
+      isAdmin:
+        roleUpper === "ADMIN" ||
+        roleUpper === "SUPERADMIN" ||
+        roleNameUpper === "SKOLOADMIN" ||
+        hasAdminRole,
       isPrincipal: roleName.toUpperCase().includes("PRINCIPAL"),
       isHod:
         roleName.toUpperCase().includes("HOD") ||

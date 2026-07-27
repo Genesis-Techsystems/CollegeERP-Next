@@ -222,6 +222,9 @@ export * from "./e-office";
 export * from "./affiliated-colleges";
 export * from "./hr-payroll";
 export * from "./staff-dashboard";
+export * from "./my-classes";
+export * from "./staff-assignments";
+export * from "./exam-online-papers";
 // AnyRow not exported — conflicts with pre-examination AnyRow.
 // submitEmployeeLeaveApplication omitted — conflicts with staff-dashboard (same API).
 export {
@@ -261,6 +264,7 @@ export {
 } from "./proxy-workload";
 export * from "./timetable-management";
 export * from "./library";
+export * from "./digital-library";
 export * from "./transport";
 export * from "./tc-no-due";
 export * from "./certificates";

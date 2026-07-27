@@ -2246,4 +2246,26 @@ textarea:focus-visible,
   .page-break {
     page-break-before: always;
   }
+
+  /* My Timetable — Angular print: white cells, black text, blue time only. */
+  .my-timetable-print {
+    padding: 12px 16px;
+    background: #fff !important;
+  }
+
+  .my-timetable-print table th,
+  .my-timetable-print table td,
+  .my-timetable-print-cell {
+    background: #fff !important;
+    background-color: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: economy !important;
+    print-color-adjust: economy !important;
+  }
+
+  .my-timetable-print .my-timetable-print-time {
+    color: blue !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+  }
 }
