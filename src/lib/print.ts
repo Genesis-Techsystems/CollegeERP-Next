@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
 /**
  * Conditional-render print mode.
@@ -17,31 +17,84 @@ import { useEffect, useState } from 'react'
  *   if (mode === 'seating') return <SeatingPrint ... />
  *   return <NormalUI onPrint={() => triggerPrint('seating')} />
  */
-export function usePrintMode<T extends string = string>(): {
-  mode: T | null
-  setMode: (m: T | null) => void
-  triggerPrint: (m: T) => void
+export function usePrintMode<T extends string = string>(
+  defaultDelayMs = 500,
+): {
+  mode: T | null;
+  setMode: (m: T | null) => void;
+  triggerPrint: (m: T, delayOrOptions?: number | { delayMs?: number }) => void;
 } {
-  const [mode, setMode] = useState<T | null>(null)
+  const [mode, setMode] = useState<T | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const reset = () => setMode(null)
-    window.addEventListener('afterprint', reset)
-    return () => window.removeEventListener('afterprint', reset)
-  }, [])
+    if (typeof window === "undefined") return;
+    const reset = () => setMode(null);
+    window.addEventListener("afterprint", reset);
+    return () => window.removeEventListener("afterprint", reset);
+  }, []);
 
-  function triggerPrint(next: T): void {
-    setMode(next)
-    if (typeof window === 'undefined') return
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.print()
-        // Fallback reset for browsers that don't fire afterprint.
-        setTimeout(() => setMode(null), 1500)
-      })
-    })
+  function triggerPrint(
+    next: T,
+    delayOrOptions?: number | { delayMs?: number },
+  ): void {
+    const delayMs =
+      typeof delayOrOptions === "number"
+        ? delayOrOptions
+        : (delayOrOptions?.delayMs ?? defaultDelayMs);
+    setMode(next);
+    if (typeof window === "undefined") return;
+    // Angular parity: seating ~500ms, attendance/stickers ~1000ms before print().
+    setTimeout(() => {
+      window.print();
+      // Fallback reset for browsers that don't fire afterprint.
+      setTimeout(() => setMode(null), 1500);
+    }, delayMs);
   }
 
-  return { mode, setMode, triggerPrint }
+  return { mode, setMode, triggerPrint };
+}
+
+/** Print HTML in a hidden iframe — avoids AppShell @media print blank sheets. */
+export function printHtmlInIframe(html: string): void {
+  if (typeof document === "undefined") return;
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(frame);
+  const fdoc = frame.contentDocument;
+  const win = frame.contentWindow;
+  if (!fdoc || !win) {
+    frame.remove();
+    return;
+  }
+  fdoc.open();
+  fdoc.write(html);
+  fdoc.close();
+  const cleanup = () => frame.remove();
+  win.addEventListener("afterprint", cleanup);
+  const images = Array.from(fdoc.images);
+  const printFrame = () => {
+    setTimeout(() => {
+      win.focus();
+      win.print();
+      setTimeout(cleanup, 1500);
+    }, 50);
+  };
+  if (images.length === 0) {
+    printFrame();
+    return;
+  }
+  let loaded = 0;
+  const tryPrint = () => {
+    loaded += 1;
+    if (loaded >= images.length) printFrame();
+  };
+  for (const img of images) {
+    if (img.complete) tryPrint();
+    else {
+      img.addEventListener("load", tryPrint);
+      img.addEventListener("error", tryPrint);
+    }
+  }
 }

@@ -255,7 +255,6 @@ export async function listHostelRegistersByHostel(
     ENTITIES.HOSTEL_REGISTER.name,
     buildQuery({
       "HostelDetail.hostelId": hostelId,
-      isActive: true,
     }),
   );
   return rows.sort(

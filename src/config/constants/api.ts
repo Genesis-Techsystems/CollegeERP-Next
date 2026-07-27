@@ -294,6 +294,8 @@ export const EXAM_API = {
   GET_EXAMTIME_TABLE_DETAILS: "getExamtimeTableDetails",
   /** Angular `examTimetableLabBatchesUrl` */
   EXAM_TIMETABLE_LAB_BATCHES: "ExamTimetableLabBatches",
+  /** Angular `collegeWiseLabDetailsUrl` — used with getAllRecords (proc name only) */
+  COLLEGE_WISE_LAB_DETAILS: "s_get_collegewiselabdetails_bycode",
   /** Angular `examTimetableDetailUrl` */
   EXAM_TIMETABLE_DETAIL: "ExamTimetableDetail",
   /** Angular `examStdCourseyrSubjecturl` */

@@ -120,6 +120,9 @@ export {
   getExamFeeStructure,
   createExamFeeStructure,
   updateExamFeeStructure,
+  listExamFeeStructuresByExam,
+  listExamFeeStructuresByCollegeAndExam,
+  listCollegesByCourseForExamFee,
   listGeneralDetailsByMaster,
   listExamFeeTypeGeneralDetails,
   listRegulations,
@@ -219,9 +222,43 @@ export * from "./e-office";
 export * from "./affiliated-colleges";
 export * from "./hr-payroll";
 export * from "./staff-dashboard";
-// AnyRow not exported from staff-faculty-leaves — conflicts with pre-examination AnyRow.
-export * from "./staff-faculty-leaves";
-export * from "./proxy-workload";
+// AnyRow not exported — conflicts with pre-examination AnyRow.
+// submitEmployeeLeaveApplication omitted — conflicts with staff-dashboard (same API).
+export {
+  LEAVE_DAYS,
+  getStaffEmployeeDetailsById,
+  listLeaveProcessStatuses,
+  listEmployeeRunningLeaves,
+  listStaffLeaveApplications,
+  cancelEmployeeLeaveApplication,
+  listLeaveDayCalSettings,
+  listLeaveHolidayEvents,
+  listEmpProxyDetails,
+  sortLeaveApplicationsDesc,
+  leaveApplicationDateYmd,
+  toLeaveYmd,
+  toLeaveSlashYmd,
+} from "./staff-faculty-leaves";
+// tConvert omitted — conflicts with staff-dashboard (same helper).
+export {
+  WORKLOAD_WEEKDAYS,
+  WORKLOAD_WEEKDAY_DNOS,
+  getWorkloadWeekdayNumber,
+  getDefaultWorkloadTabIndex,
+  type WorkloadWeekday,
+  getDefaultWorkloadDayName,
+  listSubjectResourceSchedulesForStaff,
+  listStaffProxies,
+  saveStaffProxiesList,
+  createStaffProxy,
+  updateStaffProxy,
+  listStaffForProxy,
+  listStaffSubjectsForProxy,
+  checkAttendanceTaken,
+  listProxyProcessStatuses,
+  groupLabProxies,
+  subjectResourceOf,
+} from "./proxy-workload";
 export * from "./timetable-management";
 export * from "./library";
 export * from "./transport";

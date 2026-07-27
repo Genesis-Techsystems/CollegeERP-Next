@@ -388,6 +388,63 @@ export async function listExamFeeStructures(query?: string) {
   return domainList(ENTITIES.EXAM_FEE_STRUCTURE.name, query);
 }
 
+/**
+ * Angular university mode:
+ * `listDetailsByTwoIds(ExamFeeStructure, examId, 'true', 'examMaster.examId', isActive)`
+ */
+export async function listExamFeeStructuresByExam(examId: number) {
+  if (!examId) return [];
+  return listExamFeeStructures(
+    buildQuery({ "examMaster.examId": examId, isActive: true }),
+  );
+}
+
+/**
+ * Angular college mode:
+ * `listDetailsByThreeIds(..., collegeId, examId, 'true', 'College.collegeId', 'examMaster.examId', isActive)`
+ */
+export async function listExamFeeStructuresByCollegeAndExam(
+  collegeId: number,
+  examId: number,
+) {
+  if (!examId) return [];
+  if (!collegeId) {
+    return listExamFeeStructuresByExam(examId);
+  }
+  return listExamFeeStructures(
+    buildQuery({
+      "College.collegeId": collegeId,
+      "examMaster.examId": examId,
+      isActive: true,
+    }),
+  );
+}
+
+/**
+ * Angular `getViewData` for college filter:
+ * `s_get_viewdata?in_viewname=v_get_collegewise_course_details&in_select=fk_college_id,college_code,college_name&in_whereclause=and fk_course_id = {courseId}`
+ */
+export async function listCollegesByCourseForExamFee(
+  courseId: number,
+): Promise<Record<string, unknown>[]> {
+  if (!courseId) return [];
+  try {
+    const data = await getAllRecords<{ result?: Record<string, unknown>[][] }>(
+      "s_get_viewdata",
+      {
+        in_viewname: "v_get_collegewise_course_details",
+        in_select: "fk_college_id,college_code,college_name",
+        in_whereclause: `and fk_course_id = ${courseId}`,
+      },
+    );
+    const groups = (data?.result ?? []) as Record<string, unknown>[][];
+    const rows = groups[0] ?? [];
+    return Array.isArray(rows) ? rows.filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Angular `crudService.add(examFeeStructureUrl, examFeeStructure)` — POST array to CMS batch endpoint. */
 export async function saveExamFeeStructure(
   rows: Record<string, unknown> | Record<string, unknown>[],

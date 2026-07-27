@@ -196,6 +196,7 @@ export default function HostelRegisterPage() {
         <GlobalFilterBarRow>
           <GlobalFilterField label="Hostel *">
             <Select
+              className="w-100"
               value={hostelId}
               onChange={setHostelId}
               options={hostels}

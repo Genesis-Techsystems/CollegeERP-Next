@@ -3,15 +3,17 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { format, parseISO } from "date-fns";
 import { Video } from "lucide-react";
 import { PieChart } from "@/common/components/charts";
+import { StatusBadge } from "@/common/components/data-display";
 import { DataTable } from "@/common/components/table";
 import { SearchInput } from "@/common/components/search";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MINIO_URL } from "@/config/constants/api";
 import { QK } from "@/lib/query-keys";
 import { toastInfo } from "@/lib/toast";
-import { cn } from "@/lib/utils";
 import {
   buildLeaveSummaryChartData,
   formatAttendanceProcDate,
@@ -64,20 +66,21 @@ const COL_DEFS = {
     width: 70,
     flex: 0,
   } as ColDef<LeaveApplicationRow>,
-  leaveName: {
-    field: "leaveName",
+  leaveType: {
     headerName: "Leave Type",
-    minWidth: 120,
+    minWidth: 110,
+    // Angular matColumnDef leaveName displays row.leaveCode
+    valueGetter: (p) => String(p.data?.leaveCode ?? p.data?.leaveName ?? ""),
   } as ColDef<LeaveApplicationRow>,
   leaveDescription: {
     field: "leaveDescription",
     headerName: "Leave Description",
     minWidth: 160,
   } as ColDef<LeaveApplicationRow>,
-  leaveFromDate: {
-    field: "leaveFromDate",
+  leaveDate: {
     headerName: "Leave Date",
-    minWidth: 120,
+    minWidth: 200,
+    valueGetter: (p) => formatLeaveDateRange(p.data),
   } as ColDef<LeaveApplicationRow>,
   assigned: {
     field: "assignedEmployeeFirstName",
@@ -87,22 +90,119 @@ const COL_DEFS = {
   status: {
     field: "leaveprocessStatusCode",
     headerName: "Status",
-    minWidth: 120,
+    minWidth: 130,
   } as ColDef<LeaveApplicationRow>,
 };
 
+function formatLeaveDatePart(value: unknown): string {
+  if (value == null || value === "") return "";
+  try {
+    const raw = String(value);
+    const d = raw.includes("T")
+      ? parseISO(raw)
+      : new Date(`${raw.slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return raw;
+    return format(d, "dd MMM, yyyy");
+  } catch {
+    return String(value);
+  }
+}
+
+function formatLeaveDateRange(row?: LeaveApplicationRow | null): string {
+  if (!row) return "";
+  const from = formatLeaveDatePart(row.leaveFromDate);
+  const to = formatLeaveDatePart(row.leaveToDate);
+  if (from && to) return `${from} - ${to}`;
+  return from || to || "";
+}
+
 function statusRenderer(p: ICellRendererParams<LeaveApplicationRow>) {
   const code = String(p.data?.leaveprocessStatusCode ?? "");
-  const label = String(p.data?.leaveprocessStatusDisplayName ?? code ?? "—");
-  const cls =
-    code === "LPSCOMPLETE" || code === "LPSAPPROVED"
-      ? "text-emerald-700"
-      : code === "LPSREJECTED" || code === "LPSCANCEL"
-        ? "text-rose-700"
-        : code === "LPSAPPLIED"
-          ? "text-amber-700"
-          : "text-sky-700";
-  return <span className={cn("text-xs font-semibold", cls)}>{label}</span>;
+  const label =
+    String(p.data?.leaveprocessStatusDisplayName ?? "").trim() || code || "—";
+  if (code === "LPSCOMPLETE" || code === "LPSAPPROVED") {
+    return <StatusBadge status="active" label={label} />;
+  }
+  if (code === "LPSREJECTED" || code === "LPSCANCEL") {
+    return <StatusBadge status="inactive" label={label} />;
+  }
+  if (code === "LPSAPPLIED") {
+    return <StatusBadge status="pending" label={label} />;
+  }
+  return <StatusBadge status="draft" label={label} />;
+}
+
+function docHref(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!path) return "#";
+  return `${MINIO_URL}${path}`;
+}
+
+/** Angular `app-notifications` — date badge + title + read-more + Document link. */
+function NotificationItem({ item }: { item: DashboardNotification }) {
+  const [expanded, setExpanded] = useState(false);
+  const description = String(
+    item.description ?? item.notificationMessage ?? "",
+  );
+  const needsToggle = description.length > 100;
+  const shown =
+    !needsToggle || expanded ? description : `${description.slice(0, 100)}…`;
+
+  let day = "";
+  let month = "";
+  if (item.publishDate) {
+    try {
+      const d = new Date(String(item.publishDate));
+      if (!Number.isNaN(d.getTime())) {
+        day = format(d, "dd");
+        month = format(d, "MMM");
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return (
+    <div className="flex gap-2 rounded border border-border px-2 py-2">
+      <div className="relative flex w-12 shrink-0 flex-col items-center justify-start pt-0.5">
+        <span className="text-xl font-semibold leading-none">{day || "—"}</span>
+        {month ? (
+          <span className="mt-0.5 text-[11px] font-medium text-muted-foreground">
+            {month}
+          </span>
+        ) : null}
+      </div>
+      <div className="relative min-w-0 flex-1 pb-4">
+        <p className="text-sm font-medium">
+          {String(item.notificationTitle ?? "Notification")}
+        </p>
+        {description ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {shown}
+            {needsToggle ? (
+              <button
+                type="button"
+                className="ml-1 text-primary hover:underline"
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? "Show less" : "Read more"}
+              </button>
+            ) : null}
+          </p>
+        ) : null}
+        {item.notificationDocPath ? (
+          <a
+            href={docHref(String(item.notificationDocPath))}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-0 right-0 text-[10px] text-blue-600 hover:underline"
+          >
+            Document
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function SessionCard({
@@ -233,7 +333,7 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
     queryKey: QK.staffDashboard.notifications(
       collegeId,
       employeeId,
-      0,
+      academicYearId,
       empDeptId,
     ),
     enabled: collegeId > 0 && employeeId > 0 && empStatusCode === "ACTV",
@@ -287,11 +387,12 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
     if (!q) return rows;
     return rows.filter((r) =>
       [
+        r.leaveCode,
         r.leaveName,
         r.leaveDescription,
         r.assignedEmployeeFirstName,
         r.leaveprocessStatusDisplayName,
-        r.leaveFromDate,
+        formatLeaveDateRange(r),
       ]
         .map((x) => String(x ?? "").toLowerCase())
         .some((s) => s.includes(q)),
@@ -301,9 +402,9 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
   const columnDefs = useMemo<ColDef<LeaveApplicationRow>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.leaveName,
+      COL_DEFS.leaveType,
       COL_DEFS.leaveDescription,
-      COL_DEFS.leaveFromDate,
+      COL_DEFS.leaveDate,
       COL_DEFS.assigned,
       { ...COL_DEFS.status, cellRenderer: statusRenderer },
     ],
@@ -332,6 +433,13 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
     });
     void queryClient.invalidateQueries({
       queryKey: QK.staffDashboard.leaveTotals(collegeId, employeeId),
+    });
+    void queryClient.invalidateQueries({
+      queryKey: QK.staffDashboard.attendance(
+        collegeId,
+        employeeId,
+        attendanceDate,
+      ),
     });
   }
 
@@ -392,11 +500,7 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
                   arrows
                   onLeaveApplied={refreshLeaves}
                 />
-              ) : (
-                <div className="rounded-md border border-border bg-card p-6 text-sm text-muted-foreground">
-                  Biometric calendar unavailable.
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -430,30 +534,30 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
             <div className="border-b border-border bg-slate-800 text-white px-3 py-2">
               <h3 className="text-sm font-semibold">Upcoming Sessions</h3>
             </div>
-            <div className="p-2 max-h-[360px] overflow-auto">
+            <div className="max-h-[360px] overflow-auto p-2">
               {classesQ.isLoading ? (
                 <Skeleton className="h-24 w-full" />
-              ) : myClasses.length === 0 &&
-                specialActivities.length === 0 &&
-                proxySchedules.length === 0 ? (
-                <p className="nofnd text-sm text-muted-foreground p-3">
-                  No Meetings for Today.
-                </p>
               ) : (
                 <>
-                  {myClasses.map((c, i) => (
-                    <SessionCard
-                      key={`cls-${i}`}
-                      title={`${c.collegeCode}/ ${c.courseCode}/ ${c.courseYearName}  / ${c.section}`}
-                      subtitle={`Subject : - ${c.subjectName} (${
-                        c.subjectType === "LAB" ? `${c.batchName} - ` : ""
-                      }${c.subjectType})`}
-                      joinUrl={c.joinUrl}
-                      isValid={c.isValid}
-                    />
-                  ))}
+                  {myClasses.length === 0 ? (
+                    <p className="nofnd p-3 text-sm text-muted-foreground">
+                      No Meetings for Today.
+                    </p>
+                  ) : (
+                    myClasses.map((c, i) => (
+                      <SessionCard
+                        key={`cls-${i}`}
+                        title={`${c.collegeCode}/ ${c.courseCode}/ ${c.courseYearName}  / ${c.section}`}
+                        subtitle={`Subject : - ${c.subjectName} (${
+                          c.subjectType === "LAB" ? `${c.batchName} - ` : ""
+                        }${c.subjectType})`}
+                        joinUrl={c.joinUrl}
+                        isValid={c.isValid}
+                      />
+                    ))
+                  )}
                   {specialActivities.length > 0 ? (
-                    <p className="text-sm font-medium text-blue-600 px-1 mb-1">
+                    <p className="mb-1 px-1 text-sm font-medium text-blue-600">
                       Special Activities
                     </p>
                   ) : null}
@@ -468,7 +572,7 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
                     />
                   ))}
                   {proxySchedules.length > 0 ? (
-                    <p className="text-sm font-medium text-blue-600 px-1 mb-1">
+                    <p className="mb-1 px-1 text-sm font-medium text-blue-600">
                       Proxy Classes
                     </p>
                   ) : null}
@@ -496,26 +600,16 @@ export function StaffDashboard({ user, employeeId }: StaffDashboardProps) {
             <div className="border-b border-border px-3 py-2">
               <h3 className="text-sm font-semibold">Notifications</h3>
             </div>
-            <div className="p-2 max-h-[280px] overflow-auto space-y-2">
+            <div className="max-h-[280px] space-y-2 overflow-auto p-2">
               {notificationsQ.isLoading ? (
                 <Skeleton className="h-20 w-full" />
               ) : (notificationsQ.data?.length ?? 0) === 0 ? (
-                <p className="text-sm text-muted-foreground p-3">
+                <p className="nofnd p-3 text-sm text-muted-foreground">
                   No data is found.
                 </p>
               ) : (
                 (notificationsQ.data ?? []).map((n, i) => (
-                  <div
-                    key={i}
-                    className="rounded border border-border px-3 py-2"
-                  >
-                    <p className="text-sm font-medium">
-                      {String(n.notificationTitle ?? "Notification")}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {String(n.notificationMessage ?? "")}
-                    </p>
-                  </div>
+                  <NotificationItem key={i} item={n} />
                 ))
               )}
             </div>

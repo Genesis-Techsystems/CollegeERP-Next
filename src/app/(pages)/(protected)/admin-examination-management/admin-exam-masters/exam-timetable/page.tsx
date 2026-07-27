@@ -21,7 +21,6 @@ import {
   resolveExamLoginEmpId,
   getExamFiltersNoTimetable,
   getExamTimetableDetails,
-  listCourseGroups,
   listCourseYears,
   listExamSessions,
 } from "@/services/examination";
@@ -146,6 +145,58 @@ function sessionLabel(s: ExamSessionOption): string {
 
 function sessionCodeToMA(code: string): "M" | "A" {
   return String(code).trim().toUpperCase().startsWith("A") ? "A" : "M";
+}
+
+/** Angular `selectedCourseYear`: unique course groups from `univ_exam_rest_filters`. */
+function buildCourseGroupsFromFilters(filterRows: any[]): any[] {
+  const seen = new Set<number>();
+  const out: any[] = [];
+  for (const r of filterRows) {
+    const gid = Number(
+      r.fk_course_group_id ?? r.courseGroupId ?? r.course_group_id ?? 0,
+    );
+    if (gid <= 0 || seen.has(gid)) continue;
+    seen.add(gid);
+    const code = String(
+      r.group_code ?? r.groupCode ?? r.course_group_code ?? "",
+    )
+      .trim()
+      .toUpperCase();
+    out.push({
+      fk_course_group_id: gid,
+      group_code: code,
+      fk_dept_id: gid,
+      dept_code: code,
+    });
+  }
+  return out;
+}
+
+function examTypeLetter(row: Record<string, unknown>): "R" | "S" | "I" {
+  const cat = String(
+    row.examTypeCatCode ?? row.exam_type_cat_code ?? row.examType ?? "",
+  ).trim();
+  if (/suppl/i.test(cat)) return "S";
+  if (/internal/i.test(cat)) return "I";
+  if (row.isRegular === false || row.is_regular === false) return "S";
+  return "R";
+}
+
+function rowIsAfternoon(row: Record<string, unknown>): boolean {
+  const code = String(
+    row.examsessioninCatCode ??
+      row.examSessionCode ??
+      row.sessionCode ??
+      row.session ??
+      "",
+  )
+    .trim()
+    .toUpperCase();
+  if (code.startsWith("A")) return true;
+  return String(row.session ?? "")
+    .trim()
+    .toUpperCase()
+    .startsWith("A");
 }
 
 export default function ExamTimetablePage() {
@@ -316,15 +367,9 @@ export default function ExamTimetablePage() {
     setBranches([]);
     setDates([]);
 
-    // Branches are typically departments within the course
     const filtered = (fRef ?? []).filter(
       (r: any) => Number(r.fk_course_id) === Number(courseId),
     );
-    const distinctBranches = distinct(
-      filtered,
-      (r: any) => r.fk_dept_id ?? r.fk_branch_id ?? r.dept_id ?? r.branch_id,
-    );
-    setBranches(distinctBranches);
 
     const withAyIds = filtered.filter((r: any) => pickAyId(r) > 0);
     const yearSource = withAyIds.length > 0 ? withAyIds : filtered;
@@ -503,7 +548,7 @@ export default function ExamTimetablePage() {
           return out;
         }
 
-        // Use filters proc to get branches/groups when no timetable yet
+        // Angular: courseGroups from univ_exam_rest_filters (CollegesListDetails)
         const filterRows = await getExamFiltersNoTimetable({
           courseId: selectedCourseId,
           examId: selectedExamId,
@@ -512,61 +557,8 @@ export default function ExamTimetablePage() {
           employeeId: resolveExamLoginEmpId(user?.employeeId),
         });
         if (Array.isArray(filterRows) && filterRows.length > 0) {
-          // Try to find rows having group code/name
-          const grpRows = filterRows.filter(
-            (r: any) =>
-              r.group_code ||
-              r.group_short_name ||
-              r.course_group_code ||
-              r.courseGroupCode ||
-              r.dept_code ||
-              r.branch_code,
-          );
-          if (grpRows.length > 0) {
-            const mapped = grpRows.map((r: any) => {
-              const code =
-                r.group_code ??
-                r.group_short_name ??
-                r.course_group_code ??
-                r.courseGroupCode ??
-                r.dept_code ??
-                r.branch_code ??
-                r.groupName;
-              const normCode = String(code ?? "")
-                .trim()
-                .toUpperCase();
-              const id =
-                r.group_id ??
-                r.course_group_id ??
-                r.dept_id ??
-                r.branch_id ??
-                r.groupId ??
-                r.id ??
-                normCode;
-              return { fk_dept_id: id, dept_code: normCode };
-            });
-            // Deduplicate by code
-            const unique = distinct(mapped, (x: any) => x.dept_code);
-            let final = unique;
-            // Merge with course group entity list to ensure full coverage
-            try {
-              const cg = await listCourseGroups(selectedCourseId);
-              const mappedCg = (Array.isArray(cg) ? cg : []).map((g: any) => ({
-                fk_dept_id: g.courseGroupId ?? g.id ?? g.groupId,
-                dept_code: String(
-                  g.courseGroupCode ?? g.groupCode ?? g.code ?? "",
-                )
-                  .trim()
-                  .toUpperCase(),
-              }));
-              final = distinct(
-                [...unique, ...mappedCg],
-                (x: any) => x.dept_code,
-              );
-            } catch {}
-            baseBranches = final;
-            setBranches(final);
-          }
+          baseBranches = buildCourseGroupsFromFilters(filterRows);
+          setBranches(baseBranches);
         }
 
         const data = await getExamTimetableDetails(
@@ -698,8 +690,16 @@ export default function ExamTimetablePage() {
                 : undefined;
             const isRegular =
               isRegularExplicit !== undefined ? isRegularExplicit : !supp;
+            const courseGroupId = Number(
+              row.courseGroupId ??
+                row.fk_course_group_id ??
+                row.course_group_id ??
+                bid ??
+                0,
+            );
             const payload = {
-              branchId: bid ?? groupCode,
+              branchId: courseGroupId || bid || groupCode,
+              courseGroupId: courseGroupId || undefined,
               date: dateKey,
               session: sess,
               subjectCode:
@@ -710,6 +710,11 @@ export default function ExamTimetablePage() {
                 row.sub_name ??
                 row.paperTitle ??
                 row.paper_title ??
+                "",
+              examLabBatchName:
+                row.examLabBatchName ??
+                row.exam_lab_batch_name ??
+                row.labBatchName ??
                 "",
               room: row.room ?? row.block ?? "",
               remarks: row.remarks ?? "",
@@ -723,6 +728,15 @@ export default function ExamTimetablePage() {
                     row.exam_session_id ??
                     0,
                 ) || undefined,
+              examsessioninCatCode:
+                row.examsessioninCatCode ??
+                row.exam_session_code ??
+                row.sessionCode ??
+                sess,
+              examTypeCatCode:
+                row.examTypeCatCode ??
+                row.exam_type_cat_code ??
+                (isRegular ? "Regular" : "Supple"),
               sessionStartTime: row.sessionStartTime ?? row.session_start_time,
               sessionEndTime: row.sessionEndTime ?? row.session_end_time,
               examName: row.examName ?? row.exam_name,
@@ -740,8 +754,11 @@ export default function ExamTimetablePage() {
             };
             const branchPrefixes = Array.from(
               new Set(
-                [bid, groupCode]
-                  .filter((x) => x != null && String(x).trim() !== "")
+                [courseGroupId, bid, groupCode]
+                  .filter(
+                    (x) =>
+                      x != null && String(x).trim() !== "" && Number(x) !== 0,
+                  )
                   .map(String),
               ),
             );
@@ -749,39 +766,28 @@ export default function ExamTimetablePage() {
               pushScheduleEntry(`${p}-${dateKey}-${sess}`, payload);
             }
           }
-          // Prefer timetable-derived branches, then filter/entity list.
-          // Always de-dupe by group CODE — filter rows and timetable rows can
-          // carry different ids for the same CSE/CSD/… and otherwise show twice.
-          const byCode = new Map<string, any>();
-          for (const x of [...Array.from(brIdx.values()), ...baseBranches]) {
-            const code = String(
-              x.dept_code ?? x.groupCode ?? x.branch_code ?? "",
-            )
-              .trim()
-              .toUpperCase();
-            if (!code) continue;
-            const existing = byCode.get(code);
-            if (!existing) {
-              byCode.set(code, { ...x, dept_code: code });
-              continue;
-            }
-            // Keep a numeric courseGroupId when only one side has it
-            const nextId = x.fk_dept_id ?? x.courseGroupId ?? x.dept_id;
-            const prevId =
-              existing.fk_dept_id ?? existing.courseGroupId ?? existing.dept_id;
-            if (
-              (prevId == null || prevId === "") &&
-              nextId != null &&
-              nextId !== ""
-            ) {
+          // Angular keeps rows from courseGroups (filter proc); only add groups
+          // that appear in timetable when filter list was empty.
+          if (baseBranches.length > 0) {
+            setBranches(baseBranches);
+          } else {
+            const byCode = new Map<string, any>();
+            for (const x of Array.from(brIdx.values())) {
+              const code = String(
+                x.dept_code ?? x.groupCode ?? x.group_code ?? "",
+              )
+                .trim()
+                .toUpperCase();
+              if (!code) continue;
               byCode.set(code, {
-                ...existing,
-                fk_dept_id: nextId,
+                fk_course_group_id: x.fk_dept_id ?? x.courseGroupId,
+                group_code: code,
+                fk_dept_id: x.fk_dept_id ?? x.courseGroupId,
                 dept_code: code,
               });
             }
+            setBranches(Array.from(byCode.values()));
           }
-          setBranches(Array.from(byCode.values()));
           // dates from master range if available, else collected from rows
           if (range) {
             setDates(range);
@@ -1183,68 +1189,54 @@ export default function ExamTimetablePage() {
 
   function getCellBadge(branch: any, d: Date) {
     const branchId =
+      branch.fk_course_group_id ??
       branch.fk_dept_id ??
       branch.fk_branch_id ??
       branch.dept_id ??
-      branch.branch_id ??
-      branch.dept_code;
-    const branchCode = branch.dept_code ?? branch.branch_code;
+      branch.branch_id;
+    const branchCode =
+      branch.group_code ?? branch.dept_code ?? branch.branch_code;
     const dateStr = fmtYMD(d);
     const mList = listForSession(branchId, branchCode, dateStr, "M");
     const aList = listForSession(branchId, branchCode, dateStr, "A");
+    const all = [...mList, ...aList];
 
-    function renderChip(
-      item: any,
-      sess: "M" | "A",
-      index: number,
-      branchRow: any,
-    ) {
-      const cls =
-        sess === "M"
-          ? "border-yellow-200 bg-yellow-50 text-yellow-800"
-          : "border-indigo-200 bg-indigo-50 text-indigo-700";
-      const badge = sess === "M" ? "bg-yellow-600" : "bg-indigo-600";
-      const rs = item?.isRegular === false ? "S" : "R";
+    if (!all.length) {
       return (
-        <button
-          type="button"
-          key={`${sess}-${index}-${item?.examTimetableDetId ?? ""}-${item?.subjectCode ?? ""}-${String(item?.isRegular)}`}
-          className={`inline-flex max-w-full cursor-pointer items-center gap-1 rounded-md border px-2 py-0.5 text-left text-[11px] font-medium transition-opacity hover:opacity-90 hover:ring-2 hover:ring-sky-400/50 ${cls}`}
-          title="Click to edit"
-          onClick={() =>
-            openEditTimetable(
-              branchRow,
-              dateStr,
-              sess,
-              item as Record<string, unknown>,
-            )
-          }
-        >
-          {item?.subjectCode || "—"}
-          <span
-            className={`inline-block shrink-0 rounded px-1 text-[10px] text-white ${badge}`}
-          >
-            {sess}
-          </span>
-          <span className="inline-block shrink-0 rounded bg-red-600 px-0.5 text-[9px] font-bold leading-4 text-white">
-            {rs}
-          </span>
-        </button>
-      );
-    }
-
-    if (!mList.length && !aList.length) {
-      return (
-        <div className="flex min-h-[44px] items-center justify-center px-0.5">
-          <span className="text-slate-300 text-[12px] leading-5">—</span>
+        <div className="min-h-[36px] px-1 py-2 text-center text-[12px] text-slate-400">
+          —
         </div>
       );
     }
 
     return (
-      <div className="flex min-h-[44px] flex-col items-center justify-center gap-1.5 px-0.5 py-1">
-        {mList.map((item, i) => renderChip(item, "M", i, branch))}
-        {aList.map((item, i) => renderChip(item, "A", i, branch))}
+      <div className="min-h-[36px] px-0.5 py-1 text-left">
+        {all.map((item, index) => {
+          const row = item as Record<string, unknown>;
+          const sess = rowIsAfternoon(row) ? "A" : "M";
+          const batch = String(row.examLabBatchName ?? "").trim();
+          const typeLetter = examTypeLetter(row);
+          return (
+            <button
+              type="button"
+              key={`${index}-${String(row.examTimetableDetId ?? "")}-${String(row.subjectCode ?? "")}`}
+              className="relative mb-0.5 block w-full cursor-pointer rounded-[3px] border border-[#c5c5c5] px-0.5 py-0.5 text-left text-[12px] font-medium transition-opacity hover:opacity-90"
+              style={{
+                background: sess === "A" ? "#ffee23c2" : "#92dcffee",
+              }}
+              title="Click to edit"
+              onClick={() => openEditTimetable(branch, dateStr, sess, row)}
+            >
+              <span className="mr-8 inline-block">
+                {String(row.subjectCode ?? "—")}
+                {batch ? ` (${batch})` : ""}
+              </span>
+              <span className="absolute bottom-0.5 right-0.5 rounded-[3px] bg-[#ff5968] px-1 text-[10px] font-bold leading-4 text-white">
+                {typeLetter}
+              </span>
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -1343,36 +1335,26 @@ export default function ExamTimetablePage() {
               {titleLine}
             </p>
           </div>
-          <div className="px-3 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3 text-[12px]">
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-block rounded bg-yellow-600 text-white h-4 px-1 text-[10px] leading-4">
-                  M
-                </span>{" "}
-                MORNING
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="inline-block rounded bg-indigo-600 text-white h-4 px-1 text-[10px] leading-4">
-                  A
-                </span>{" "}
-                AFTERNOON
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setConflictsOpen(true)}
-                disabled={!selectedExamId || !selectedAcademicYearId}
+          <div className="flex items-center justify-between px-3 py-3">
+            <p className="m-0 text-right text-[12px] text-black">
+              <span
+                className="inline-block border border-[#bbbbbb] px-[3px]"
+                style={{ background: "#99deff" }}
               >
-                <ShieldAlert className="h-3.5 w-3.5 mr-1.5" />
-                Check Conflicts
-              </Button>
-              <Button type="button" size="sm" onClick={openCreateSchedule}>
-                + Create Schedule
-              </Button>
-            </div>
+                M
+              </span>{" "}
+              MORNING{" "}
+              <span
+                className="inline-block border border-[#bbbbbb] px-[3px]"
+                style={{ background: "#fff258" }}
+              >
+                A
+              </span>{" "}
+              AFTERNOON
+            </p>
+            <Button type="button" size="sm" onClick={openCreateSchedule}>
+              + Create Schedule
+            </Button>
           </div>
 
           {loadingGrid && (
@@ -1385,15 +1367,8 @@ export default function ExamTimetablePage() {
             <table className="w-full border-separate border-spacing-0 border-t border-border">
               <thead>
                 <tr>
-                  <th
-                    className="sticky left-0 top-0 z-30 w-48 min-w-[12rem] border-b border-r border-primary/20 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-primary"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.08))",
-                      backgroundColor: "hsl(var(--card))",
-                    }}
-                  >
-                    BRANCH
+                  <th className="sticky left-0 top-0 z-30 w-48 min-w-[12rem] border-b border-r border-[#c5c5c5] bg-[#C3D9FF] px-2 py-1.5 text-center text-[12px] font-medium uppercase text-black">
+                    Branch
                   </th>
                   {dates.map((d) => {
                     const day = d
@@ -1409,17 +1384,10 @@ export default function ExamTimetablePage() {
                     return (
                       <th
                         key={d.toISOString()}
-                        className="sticky top-0 z-20 min-w-[160px] border-b border-r border-primary/20 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-primary"
-                        style={{
-                          backgroundImage:
-                            "linear-gradient(hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.08))",
-                          backgroundColor: "hsl(var(--card))",
-                        }}
+                        className="sticky top-0 z-20 min-w-[160px] border-b border-r border-[#c5c5c5] bg-[#C3D9FF] px-2 py-1.5 text-center text-[12px] font-medium text-black"
                       >
                         <div>{dayNum}</div>
-                        <div className="text-[10px] font-medium normal-case tracking-normal text-primary/70">
-                          ({day})
-                        </div>
+                        <p className="m-0 text-blue-700">({day})</p>
                       </th>
                     );
                   })}
@@ -1428,21 +1396,23 @@ export default function ExamTimetablePage() {
               <tbody>
                 {branches.map((b, i) => {
                   const id =
-                    b.fk_dept_id ?? b.fk_branch_id ?? b.dept_id ?? b.branch_id;
+                    b.fk_course_group_id ??
+                    b.fk_dept_id ??
+                    b.fk_branch_id ??
+                    b.dept_id ??
+                    b.branch_id;
                   const name =
+                    b.group_code ??
                     b.dept_code ??
                     b.dept_name ??
                     b.departmentCode ??
                     b.departmentName ??
-                    b.deptShortName ??
                     b.branch_code ??
                     b.branch_name ??
-                    b.branchShortName ??
-                    b.branchName ??
                     `Branch ${i + 1}`;
                   return (
                     <tr key={id ?? `row-${i}`} className="hover:bg-muted/30">
-                      <td className="sticky left-0 z-10 w-48 min-w-[12rem] border-b border-r border-border bg-card px-3 py-2 text-[12px] font-medium text-blue-700">
+                      <td className="sticky left-0 z-10 w-48 min-w-[12rem] border-b border-r border-border bg-card px-2 py-2 text-center text-[12px] font-medium uppercase text-blue-700">
                         {name}
                       </td>
                       {dates.map((d) => (
@@ -1468,6 +1438,17 @@ export default function ExamTimetablePage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="flex justify-end px-4 py-3">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setConflictsOpen(true)}
+              disabled={!selectedExamId || !selectedAcademicYearId}
+            >
+              <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
+              Check Conflicts
+            </Button>
           </div>
         </div>
       )}

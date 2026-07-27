@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Angular parity: academics/master/subjects/subjects-modal
+ * (Subject Master — has Question Paper Code + Syllabus upload; no University/Course in dialog)
+ */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormModal } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
@@ -53,6 +57,8 @@ export interface SubjectModalProps {
   onClose: () => void;
   row?: AnyRow | null;
   courseId: number;
+  universityId?: number;
+  universityName?: string;
   courseName?: string;
   courseCode?: string;
   existingRows?: AnyRow[];

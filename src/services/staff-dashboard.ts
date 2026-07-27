@@ -102,14 +102,18 @@ export interface LiveScheduleRow extends StaffDashRow {
 
 export interface DashboardNotification extends StaffDashRow {
   notificationTitle?: string;
+  /** Angular `app-notifications` uses `description` (not notificationMessage). */
+  description?: string;
   notificationMessage?: string;
   publishDate?: string;
+  notificationDocPath?: string | null;
 }
 
 export interface LeaveApplicationRow extends StaffDashRow {
   leaveApplictionId?: number;
   leaveApplicationId?: number;
   leaveName?: string;
+  leaveCode?: string;
   leaveDescription?: string;
   leaveFromDate?: string;
   leaveToDate?: string;

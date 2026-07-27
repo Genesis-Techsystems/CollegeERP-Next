@@ -6,7 +6,7 @@ import { GM_CODES } from "@/config/constants/ui";
 import { ENTITIES } from "@/config/constants/entities";
 import { parseApiError } from "@/lib/errors";
 import type { ApiResponse } from "@/types/api";
-import { buildQuery, domainList } from "../crud";
+import { buildQuery, domainCreate, domainList } from "../crud";
 
 type AnyRow = Record<string, unknown>;
 
@@ -205,6 +205,14 @@ export async function deactivateSubject(
     success: true,
     message: "Deactivated",
   }))) as ApiResponse<unknown>;
+}
+
+/**
+ * Angular curriculum Add Subject dialog:
+ * `crudService.addDetails('Subject', details)` → POST domain/create/Subject
+ */
+export async function createSubjectDomain(payload: AnyRow): Promise<AnyRow> {
+  return domainCreate<AnyRow>(ENTITIES.SUBJECT.name, payload);
 }
 
 /** Legacy wrappers used by older callers — prefer multipart helpers above. */

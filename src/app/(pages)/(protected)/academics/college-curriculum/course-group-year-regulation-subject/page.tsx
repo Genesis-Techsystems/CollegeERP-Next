@@ -8,7 +8,8 @@ import { FilteredListPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import SubjectModal from "@/app/(pages)/(protected)/academics/subjects/SubjectModal";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { AddCurriculumSubjectModal } from "../_components/AddCurriculumSubjectModal";
 import {
   listGroupYearRegulationSubjects,
   listSubjectCategories,
@@ -115,16 +116,16 @@ const BASE_COLS = {
   },
   internal: {
     field: "internalmarks",
-    headerName: "Internal",
-    minWidth: 90,
-    maxWidth: 110,
+    headerName: "Internal Marks",
+    minWidth: 110,
+    maxWidth: 130,
     flex: 0,
   },
   external: {
     field: "externalmarks",
-    headerName: "External",
-    minWidth: 90,
-    maxWidth: 110,
+    headerName: "External Marks",
+    minWidth: 110,
+    maxWidth: 130,
     flex: 0,
   },
   credits: {
@@ -135,11 +136,11 @@ const BASE_COLS = {
     flex: 0,
   },
   bridge: {
-    headerName: "Bridge",
-    minWidth: 90,
-    maxWidth: 100,
+    headerName: "isBridgeCourse",
+    minWidth: 110,
+    maxWidth: 130,
     valueGetter: (p: ICellRendererParams<AnyRow>) =>
-      p.data?.isBridgeCourse ? "Yes" : "No",
+      p.data?.isBridgeCourse ? "true" : "false",
     flex: 0,
   } as ColDef<AnyRow>,
   actions: {
@@ -307,6 +308,10 @@ export default function CourseGroupYearRegulationSubjectPage() {
   }
 
   function onAddOrUpdate() {
+    if (!form.subjectId) {
+      toastInfo("Subject Code and Subject Name not be Empty.");
+      return;
+    }
     const row = buildRowFromForm(
       rows.find((x) => num(x.subjectId) === editingId),
     );
@@ -315,7 +320,10 @@ export default function CourseGroupYearRegulationSubjectPage() {
       const duplicate = rows.some(
         (x) => num(x.subjectId) === num(row.subjectId),
       );
-      if (duplicate) return;
+      if (duplicate) {
+        toastInfo("Subject Already Present in Subject List.");
+        return;
+      }
       setRows((prev) => [...prev, row]);
       clearForm();
       return;
@@ -362,6 +370,9 @@ export default function CourseGroupYearRegulationSubjectPage() {
       }
       if (rows.length > 0) await saveGroupYearRegulationSubjects(rows);
       await loadRows();
+      toastSuccess("Subjects saved successfully.");
+    } catch {
+      toastError("Failed to save subjects. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -393,18 +404,19 @@ export default function CourseGroupYearRegulationSubjectPage() {
     <>
       <FilteredListPage
         title="University Curriculum Regulation Subjects"
-        notice={(
+        notice={
           <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
             <strong className="font-medium text-primary">
               University Curriculum Regulation Subjects
             </strong>
             <div className="font-medium text-muted-foreground">
-              {context.universityName} / {context.courseName} / {context.groupName}{" "}
-              / {context.courseYearName} / {context.regulationName}
+              {context.universityName} / {context.courseName} /{" "}
+              {context.groupName} / {context.courseYearName} /{" "}
+              {context.regulationName}
             </div>
           </div>
-        )}
-        filters={(
+        }
+        filters={
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Add Regulation Subject</h3>
@@ -524,7 +536,7 @@ export default function CourseGroupYearRegulationSubjectPage() {
               </Button>
             </div>
           </div>
-        )}
+        }
         rowData={rows}
         columnDefs={columnDefs}
         loading={loading}
@@ -547,10 +559,9 @@ export default function CourseGroupYearRegulationSubjectPage() {
       </div>
 
       {context.courseId ? (
-        <SubjectModal
+        <AddCurriculumSubjectModal
           open={subjectModalOpen}
           onClose={() => setSubjectModalOpen(false)}
-          row={null}
           universityId={context.universityId}
           courseId={context.courseId}
           existingRows={subjects}
