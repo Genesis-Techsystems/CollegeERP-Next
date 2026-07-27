@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { PlusIcon, BookOpen, DownloadIcon } from "lucide-react";
+import { PlusIcon, DownloadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -160,7 +160,7 @@ function makeAddQuestionsRenderer(
 
 export default function QuestionBankPage() {
   const router = useRouter();
-  const { user } = useSession();
+  const { user, isLoading: sessionLoading } = useSession();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<Assessment | null>(null);
@@ -170,9 +170,8 @@ export default function QuestionBankPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingImportBank = useRef<Assessment | null>(null);
 
-  // Angular: roleName == 'ADMIN' → list all; else filter by preparedbyUser.userId
-  const userId =
-    user?.roleName === "ADMIN" ? undefined : (user?.userId ?? undefined);
+  // Angular: always preparedbyUser.userId (admin SKOLOADMIN uses session userId, e.g. 1739)
+  const userId = user?.userId ?? 0;
 
   const {
     data: banks,
@@ -181,7 +180,8 @@ export default function QuestionBankPage() {
   } = useCrudList({
     queryKey: QK.questionBanks.list(userId),
     queryFn: () => listQuestionBanks(userId),
-    enabled: user !== null,
+    enabled: !sessionLoading && userId > 0,
+    staleTime: 0,
   });
 
   const openEdit = (bank: Assessment) => {
@@ -294,12 +294,6 @@ export default function QuestionBankPage() {
             <PlusIcon className="h-4 w-4 mr-1" />
             Create Question Bank
           </Button>
-        </div>
-      }
-      emptyState={
-        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card py-16 text-muted-foreground">
-          <BookOpen className="h-10 w-10 mb-3 opacity-40" />
-          <p className="text-sm">No question banks found</p>
         </div>
       }
     >

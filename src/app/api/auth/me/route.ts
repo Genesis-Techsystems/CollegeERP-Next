@@ -68,6 +68,19 @@ export async function GET() {
     await session.save();
   }
 
+  // Backfill isAdmin for college admins (SKOLOADMIN) on older sessions.
+  const ur = String(session.user.userRole ?? "").toUpperCase();
+  const rn = String(session.user.roleName ?? "").toUpperCase();
+  const shouldBeAdmin =
+    ur === "ADMIN" ||
+    ur === "SUPERADMIN" ||
+    rn === "SKOLOADMIN" ||
+    rn === "ADMIN";
+  if (shouldBeAdmin && !session.user.isAdmin) {
+    session.user.isAdmin = true;
+    await session.save();
+  }
+
   // Return session user only — modules/pages are never included (nav tree built server-side)
   return NextResponse.json({ user: session.user });
 }

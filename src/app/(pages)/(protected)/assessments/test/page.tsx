@@ -157,7 +157,7 @@ export default function TestPage() {
     isLoading: loading,
     invalidate,
   } = useCrudList({
-    queryKey: [...QK.questionBanks.list(), "tests"],
+    queryKey: [...QK.questionBanks.all, "tests"],
     queryFn: () => listTests(),
   });
 

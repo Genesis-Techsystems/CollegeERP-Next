@@ -21,6 +21,7 @@ import type {
 import type { ApiResponse } from "@/types/api";
 import {
   domainList,
+  domainListRawQuery,
   buildQuery,
   postDetails,
   putDetails,
@@ -33,24 +34,36 @@ import { AppError } from "@/lib/errors";
 // ─── Question Bank CRUD ───────────────────────────────────────────────────────
 
 /**
- * List question banks.
- * ADMIN: Angular `listAllDetails(Assessment)` → order(createdDt=desc), all rows.
- * Non-ADMIN: Angular `listDetailsByTwoIdWithSort` → preparedbyUser.userId + isActive=true,
- * sorted by createdDt DESC.
- * Client filter: `isForQuestionbank === true` (same as Angular).
+ * Angular `listDetailsByTwoIdWithSort` query — literal `&` between clauses:
+ * `preparedbyUser.userId==1739&isActive==true.order(createdDt=DESC)`
+ * (do not use buildQuery `.and.` — domainList encodes `&` as %26).
  */
-export async function listQuestionBanks(
-  userId?: number,
-): Promise<Assessment[]> {
-  const query =
-    userId !== undefined
-      ? buildQuery(
-          { "preparedbyUser.userId": userId, isActive: true },
-          { field: "createdDt", direction: "DESC" },
-        )
-      : buildQuery({}, { field: "createdDt", direction: "DESC" });
-  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query);
-  return rows.filter((r) => r.isForQuestionbank);
+function buildQuestionBankListQuery(userId: number): string {
+  return `preparedbyUser.userId==${userId}&isActive==true.order(createdDt=DESC)`;
+}
+
+function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
+  return rows.filter((r) => {
+    if (r.isForQuestionbank === true) return true;
+    if (r.isForQuestionbank === false) return false;
+    return true;
+  });
+}
+
+/**
+ * List question banks for the logged-in preparer.
+ * Angular (admin + QuestionPaperSetter): same payload shape —
+ * `preparedbyUser.userId=={userId}&isActive==true.order(createdDt=DESC)`.
+ * Client filter: `isForQuestionbank` (same as Angular).
+ */
+export async function listQuestionBanks(userId: number): Promise<Assessment[]> {
+  if (!userId) return [];
+  const query = buildQuestionBankListQuery(userId);
+  const rows = await domainListRawQuery<Assessment>(
+    ENTITIES.ASSESSMENT.name,
+    query,
+  );
+  return filterQuestionBankRows(rows);
 }
 
 /**

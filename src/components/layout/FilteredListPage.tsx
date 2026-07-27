@@ -16,6 +16,8 @@ export interface FilteredListPageProps<T> extends Omit<
   title?: string;
   /** Filter fields / actions rendered inside the same card as the table. */
   filters: ReactNode;
+  /** Optional content rendered below filters and above the search toolbar. */
+  filtersFooter?: ReactNode;
   /** Optional notice / alert above the card. */
   notice?: ReactNode;
   /**
@@ -40,6 +42,7 @@ export interface FilteredListPageProps<T> extends Omit<
 export function FilteredListPage<T>({
   title,
   filters,
+  filtersFooter,
   notice,
   body,
   bodyClassName,
@@ -81,6 +84,7 @@ export function FilteredListPage<T>({
         subtitle=""
         bordered
         filters={filters}
+        filtersFooter={filtersFooter}
         filtersCollapsible={filtersCollapsible}
         filtersDefaultOpen={filtersDefaultOpen}
         rowData={rowData ?? []}
