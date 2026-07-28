@@ -6,6 +6,7 @@ import {
   domainList,
   domainUpdate,
   fetchDetails,
+  fetchDetailsEnvelope,
   getAllRecords,
   postDetails,
 } from "./crud";
@@ -157,32 +158,57 @@ export async function listCounselorStudentsInDateRange(params: {
  * Angular Schedule PTM `selectedEmployee`:
  * - ADMIN: `counselordetails?fromDate=&toDate=&status=true`
  * - STAFF: `counselordetails?employeeId=&fromDate=&toDate=&status=true`
- * (no collegeId on either call)
+ * Dates are Angular `momentFormatYMD` → `YYYY/MM/DD` (slashes). No collegeId.
  */
+function toCounselorDetailsDate(value: string): string {
+  const s = String(value ?? "").trim();
+  if (!s) return "";
+  // Accept YYYY-MM-DD or YYYY/MM/DD → always slash form for Spring.
+  const m = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+  if (m) return `${m[1]}/${m[2]}/${m[3]}`;
+  return s;
+}
+
+function isNoRecordsMessage(message: unknown): boolean {
+  return String(message ?? "")
+    .toLowerCase()
+    .includes("no record");
+}
+
+async function fetchCounselorDetailsStudents(
+  params: Record<string, string | number>,
+): Promise<MentorshipRow[]> {
+  const envelope = await fetchDetailsEnvelope<unknown>(
+    MENTORSHIP_API.COUNSELOR_DETAILS,
+    params,
+  );
+  if (envelope.success) return asRows(envelope.data);
+  if (isNoRecordsMessage(envelope.message)) return [];
+  throw new Error(envelope.message || "Failed to load counselor details");
+}
+
 export async function listSchedulePtmStudents(params: {
   fromDate: string;
   toDate: string;
   employeeId?: number | null;
   isAdmin: boolean;
 }): Promise<MentorshipRow[]> {
+  const fromDate = toCounselorDetailsDate(params.fromDate);
+  const toDate = toCounselorDetailsDate(params.toDate);
   if (params.isAdmin) {
-    return asRows(
-      await fetchDetails(MENTORSHIP_API.COUNSELOR_DETAILS, {
-        fromDate: params.fromDate,
-        toDate: params.toDate,
-        status: "true",
-      }),
-    );
+    return fetchCounselorDetailsStudents({
+      fromDate,
+      toDate,
+      status: "true",
+    });
   }
   if (!params.employeeId) return [];
-  return asRows(
-    await fetchDetails(MENTORSHIP_API.COUNSELOR_DETAILS, {
-      employeeId: params.employeeId,
-      fromDate: params.fromDate,
-      toDate: params.toDate,
-      status: "true",
-    }),
-  );
+  return fetchCounselorDetailsStudents({
+    employeeId: params.employeeId,
+    fromDate,
+    toDate,
+    status: "true",
+  });
 }
 
 /**
@@ -203,7 +229,17 @@ export async function listSchedulePtmMeetings(params: {
   if (!params.isAdmin && params.employeeId) {
     query.employeeId = params.employeeId;
   }
-  const data = await fetchDetails(MENTORSHIP_API.COUNSELOR_MAPPINGS, query);
+  const envelope = await fetchDetailsEnvelope<unknown>(
+    MENTORSHIP_API.COUNSELOR_MAPPINGS,
+    query,
+  );
+  if (!envelope.success) {
+    if (isNoRecordsMessage(envelope.message)) {
+      return { mapping: null, activities: [] };
+    }
+    throw new Error(envelope.message || "Failed to load counselor mappings");
+  }
+  const data = envelope.data;
   const mapping = asRows(data)[0] ?? null;
   return {
     mapping,

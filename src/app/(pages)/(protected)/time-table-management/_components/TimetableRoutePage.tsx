@@ -1,38 +1,53 @@
-'use client'
+"use client";
 
-import type React from 'react'
-import { getTimetableConfig } from '../_lib/route-config'
-import { ManageTimetablePage } from './ManageTimetablePage'
-import { TimetableDashboardPage } from './TimetableDashboardPage'
-import { TimetablePlaceholder } from './TimetablePlaceholder'
-import { TimingSetsPage } from './TimingSetsPage'
-import { TimingSlotsPage } from './TimingSlotsPage'
-import { TimetableAllocationPage } from './TimetableAllocationPage'
-import { ViewTimetablePage } from './ViewTimetablePage'
-import { AssignResourceTimetablePage } from './AssignResourceTimetablePage'
+import type React from "react";
+import { getTimetableConfig } from "../_lib/route-config";
+import { ManageTimetablePage } from "./ManageTimetablePage";
+import { TimetableDashboardPage } from "./TimetableDashboardPage";
+import { TimetablePlaceholder } from "./TimetablePlaceholder";
+import { TimingSetsPage } from "./TimingSetsPage";
+import { TimingSlotsPage } from "./TimingSlotsPage";
+import { TimetableAllocationPage } from "./TimetableAllocationPage";
+import { ViewTimetablePage } from "./ViewTimetablePage";
+import { AssignResourceTimetablePage } from "./AssignResourceTimetablePage";
+import { SpecialActivitiesPage } from "./SpecialActivitiesPage";
+import { SpecialActivitiesAttendancePage } from "./SpecialActivitiesAttendancePage";
+import { AddSpecialActivityPage } from "./AddSpecialActivityPage";
+import { TakeSpecialActivityAttendancePage } from "./TakeSpecialActivityAttendancePage";
+import { LiveClassSchedulePage } from "./LiveClassSchedulePage";
+import { LiveClassSchedulesListPage } from "./LiveClassSchedulesListPage";
 
 const LIST_PAGES: Record<string, () => React.ReactElement> = {
-  'timing-sets': () => <TimingSetsPage />,
-  'timing-slots': () => <TimingSlotsPage />,
-  'manage-timetable': () => <ManageTimetablePage />,
-  'timetable-allocation': () => <TimetableAllocationPage />,
-  'create-timetable': () => <AssignResourceTimetablePage />,
-  'view-timetable': () => <ViewTimetablePage />,
-}
+  "timing-sets": () => <TimingSetsPage />,
+  "timing-slots": () => <TimingSlotsPage />,
+  "manage-timetable": () => <ManageTimetablePage />,
+  "timetable-allocation": () => <TimetableAllocationPage />,
+  "create-timetable": () => <AssignResourceTimetablePage />,
+  "view-timetable": () => <ViewTimetablePage />,
+  "special-activities": () => <SpecialActivitiesPage />,
+  "special-activity-attendance": () => <SpecialActivitiesAttendancePage />,
+  "special-activities/add-activity": () => <AddSpecialActivityPage />,
+  "special-activity-attendance/take-attendance": () => (
+    <TakeSpecialActivityAttendancePage />
+  ),
+  "live-class-schedule": () => <LiveClassSchedulePage />,
+  "live-class-schedules": () => <LiveClassSchedulePage />,
+  "live-class-schedule-list": () => <LiveClassSchedulesListPage />,
+};
 
-type TimetableRoutePageProps = { slug: string }
+type TimetableRoutePageProps = { slug: string };
 
 export function TimetableRoutePage({ slug }: TimetableRoutePageProps) {
-  const config = getTimetableConfig(slug)
+  const config = getTimetableConfig(slug);
 
-  if (config.kind === 'hub' || slug === 'timetable-dashboard' || slug === '') {
-    return <TimetableDashboardPage />
+  if (config.kind === "hub" || slug === "timetable-dashboard" || slug === "") {
+    return <TimetableDashboardPage />;
   }
 
-  const ListPage = LIST_PAGES[slug]
+  const ListPage = LIST_PAGES[slug];
   if (ListPage) {
-    return <ListPage />
+    return <ListPage />;
   }
 
-  return <TimetablePlaceholder slug={slug} />
+  return <TimetablePlaceholder slug={slug} />;
 }

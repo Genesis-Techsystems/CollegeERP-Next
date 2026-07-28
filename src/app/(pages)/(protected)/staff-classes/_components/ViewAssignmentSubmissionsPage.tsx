@@ -53,13 +53,41 @@ function submittedWf(wfCode: string): boolean {
   );
 }
 
-function summaryRenderer(p: ICellRendererParams<AnyRow>) {
+function studentRenderer(p: ICellRendererParams<AnyRow>) {
   const row = p.data;
   if (!row) return "—";
+  const name = txt(row, "stdName");
+  const roll = txt(row, "rollNumber");
+  if (!name && !roll) return "—";
+  if (!roll) return name;
+  return (
+    <span>
+      {name} <span className="font-medium text-blue-600">({roll})</span>
+    </span>
+  );
+}
+
+function summaryRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return "--";
   const wf = txt(row, "wfCode");
   const summary = txt(row, "studentSummary");
   if (summary && submittedWf(wf)) return summary;
-  return "—";
+  return "--";
+}
+
+function submittedOnRenderer(p: ICellRendererParams<AnyRow>) {
+  const value = p.data?.assignmentSubmittedOn;
+  if (value == null || value === "") return "--";
+  return formatDisplayDate(value);
+}
+
+function statusRenderer(p: ICellRendererParams<AnyRow>) {
+  return (
+    <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+      {txt(p.data ?? {}, "wfCode") || "—"}
+    </span>
+  );
 }
 
 function docRenderer(p: ICellRendererParams<AnyRow>) {
@@ -130,60 +158,56 @@ function makeActionsRenderer(
 
 const COL_DEFS = {
   siNo: {
+    colId: "id",
     headerName: "SI.No",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
   } as ColDef<AnyRow>,
   stdName: {
+    colId: "stdName",
     headerName: "Student",
     minWidth: 200,
-    valueGetter: (p) => {
-      const row = p.data ?? {};
-      const name = txt(row, "stdName");
-      const roll = txt(row, "rollNumber");
-      return roll ? `${name} (${roll})` : name;
-    },
   } as ColDef<AnyRow>,
   studentSummary: {
+    colId: "studentSummary",
     headerName: "Summary",
-    minWidth: 180,
-    flex: 1,
+    minWidth: 140,
   } as ColDef<AnyRow>,
   statusUpdatedOn: {
+    colId: "statusUpdatedOn",
     field: "statusUpdatedOn",
     headerName: "Status UpdatedOn",
-    minWidth: 140,
+    minWidth: 150,
     valueFormatter: (p) => formatDisplayDate(p.value),
   } as ColDef<AnyRow>,
   assignmentSubmittedOn: {
+    colId: "assignmentSubmittedOn",
     field: "assignmentSubmittedOn",
     headerName: "Submitted On",
     minWidth: 130,
-    valueFormatter: (p) => formatDisplayDate(p.value),
   } as ColDef<AnyRow>,
   wfCode: {
+    colId: "wfCode",
     field: "wfCode",
     headerName: "Status",
     minWidth: 110,
-    cellRenderer: (p: ICellRendererParams<AnyRow>) => (
-      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-        {txt(p.data ?? {}, "wfCode") || "—"}
-      </span>
-    ),
   } as ColDef<AnyRow>,
   file: {
+    colId: "file",
     headerName: "Submitted Doc",
     minWidth: 140,
     sortable: false,
     filter: false,
   } as ColDef<AnyRow>,
   marksSecured: {
+    colId: "marksSecured",
     headerName: "Marks",
     minWidth: 80,
     flex: 0,
   } as ColDef<AnyRow>,
   actions: {
+    colId: "actions",
     headerName: "Actions",
     minWidth: 110,
     flex: 0,
@@ -207,7 +231,7 @@ function ReviewModal({
   const [workflowStageId, setWorkflowStageId] = useState<string | null>(null);
   const [marksSecured, setMarksSecured] = useState("");
   const [statusComments, setStatusComments] = useState("");
-  const [statusUpdatedOn, setStatusUpdatedOn] = useState<Date | undefined>(
+  const [statusUpdatedOn, setStatusUpdatedOn] = useState<Date | null>(
     () => new Date(),
   );
   const [wfOptions, setWfOptions] = useState<SelectOption[]>([]);
@@ -219,11 +243,11 @@ function ReviewModal({
     setWorkflowStageId(
       row.workflowStageId != null ? String(row.workflowStageId) : null,
     );
-    setMarksSecured(
-      row.marksSecured != null ? String(row.marksSecured) : "",
-    );
+    setMarksSecured(row.marksSecured != null ? String(row.marksSecured) : "");
     setStatusComments(txt(row, "statusComments"));
-    const d = row.statusUpdatedOn ? new Date(String(row.statusUpdatedOn)) : new Date();
+    const d = row.statusUpdatedOn
+      ? new Date(String(row.statusUpdatedOn))
+      : new Date();
     setStatusUpdatedOn(Number.isNaN(d.getTime()) ? new Date() : d);
 
     const collegeId = Number(row.collegeId ?? 0);
@@ -444,23 +468,24 @@ export function ViewAssignmentSubmissionsPage() {
 
   const pageTitle = `Student Assignment List - ( ${subjectName} - ${title} ) [ ${courseYearName}- ${section} ]`;
 
+  // Angular displayedColumns:
+  // id, stdName, studentSummary, statusUpdatedOn, assignmentSubmittedOn, wfCode, file, marksSecured, actions
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.stdName,
+      { ...COL_DEFS.stdName, cellRenderer: studentRenderer },
       { ...COL_DEFS.studentSummary, cellRenderer: summaryRenderer },
       COL_DEFS.statusUpdatedOn,
-      COL_DEFS.assignmentSubmittedOn,
-      COL_DEFS.wfCode,
+      {
+        ...COL_DEFS.assignmentSubmittedOn,
+        cellRenderer: submittedOnRenderer,
+      },
+      { ...COL_DEFS.wfCode, cellRenderer: statusRenderer },
       { ...COL_DEFS.file, cellRenderer: docRenderer },
       { ...COL_DEFS.marksSecured, cellRenderer: marksRenderer },
       {
         ...COL_DEFS.actions,
-        cellRenderer: makeActionsRenderer(
-          check,
-          setReviewRow,
-          setMarksRow,
-        ),
+        cellRenderer: makeActionsRenderer(check, setReviewRow, setMarksRow),
       },
     ],
     [check],
@@ -496,12 +521,13 @@ export function ViewAssignmentSubmissionsPage() {
         pagination
         paginationPageSize={10}
         toolbar={{ searchPlaceholder: "Search" }}
-        toolbarTrailing={
+      >
+        <div className="flex justify-end">
           <Button type="button" variant="outline" onClick={goBack}>
             Back
           </Button>
-        }
-      />
+        </div>
+      </FilteredListPage>
 
       <ReviewModal
         open={reviewRow != null}

@@ -33,15 +33,15 @@ function formatClassDateYmdSlash(d: Date): string {
   return format(d, "yyyy/MM/dd");
 }
 
-function parseDate(value: unknown): Date | undefined {
-  if (value == null || value === "") return undefined;
-  if (value instanceof Date) return isValid(value) ? value : undefined;
+function parseDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
   const s = String(value).trim();
-  if (!s) return undefined;
+  if (!s) return null;
   const iso = parseISO(s);
   if (isValid(iso)) return iso;
   const d = new Date(s);
-  return isValid(d) ? d : undefined;
+  return isValid(d) ? d : null;
 }
 
 function positiveId(...candidates: unknown[]): number {
@@ -89,13 +89,13 @@ export function AssignmentFormModal({
   const [doc1TooLarge, setDoc1TooLarge] = useState(false);
   const [doc2TooLarge, setDoc2TooLarge] = useState(false);
 
-  const [assignmentStartDate, setAssignmentStartDate] = useState<Date | undefined>(
+  const [assignmentStartDate, setAssignmentStartDate] = useState<Date | null>(
     () => new Date(),
   );
-  const [submissionDueDate, setSubmissionDueDate] = useState<Date | undefined>(
+  const [submissionDueDate, setSubmissionDueDate] = useState<Date | null>(
     () => new Date(),
   );
-  const [allowLateDueDate, setAllowLateDueDate] = useState<Date | undefined>(
+  const [allowLateDueDate, setAllowLateDueDate] = useState<Date | null>(
     () => new Date(),
   );
   const [groupSectionId, setGroupSectionId] = useState<string | null>(null);
@@ -259,7 +259,7 @@ export function AssignmentFormModal({
     void loadSubjectUnits(section, subj);
   }, [open, groupSectionId, subjectId, staffRows, loadSubjectUnits]);
 
-  const handleStartDateChange = (d: Date | undefined) => {
+  const handleStartDateChange = (d: Date | null) => {
     if (!d) return;
     setAssignmentStartDate(d);
     if (submissionDueDate && d.getTime() > submissionDueDate.getTime()) {
@@ -268,7 +268,7 @@ export function AssignmentFormModal({
     }
   };
 
-  const handleDueDateChange = (d: Date | undefined) => {
+  const handleDueDateChange = (d: Date | null) => {
     if (!d) return;
     if (assignmentStartDate && assignmentStartDate.getTime() > d.getTime()) {
       setSubmissionDueDate(assignmentStartDate);
@@ -322,7 +322,10 @@ export function AssignmentFormModal({
 
     const doc1 = doc1Ref.current?.files?.[0] ?? null;
     const doc2 = doc2Ref.current?.files?.[0] ?? null;
-    if (!validateFile(doc1 ?? undefined, 1) || !validateFile(doc2 ?? undefined, 2)) {
+    if (
+      !validateFile(doc1 ?? undefined, 1) ||
+      !validateFile(doc2 ?? undefined, 2)
+    ) {
       return;
     }
 
@@ -385,133 +388,157 @@ export function AssignmentFormModal({
       onSubmit={handleSubmit}
       isSubmitting={saving}
       submitLabel="Save"
-      cancelLabel="Close"
+      cancelLabel="Cancel"
       size="xl"
       showHeaderDivider
     >
-      <div className="space-y-5 max-h-[65vh] overflow-y-auto pr-1">
+      <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-1">
         {staffRows.length === 0 && !loadingMeta && employeeId > 0 ? (
-          <p className="text-sm font-medium text-destructive rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+          <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm font-medium text-destructive">
             Timetable is expired, so assignment cannot be saved. Please contact
             system admin.
           </p>
         ) : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <DatePicker
-            label="Assignment Start Date *"
-            value={assignmentStartDate}
-            onChange={handleStartDateChange}
-          />
-          <Select
-            label="Course *"
-            value={groupSectionId}
-            onChange={handleSectionChange}
-            options={courseOptions}
-            isLoading={loadingMeta}
-            searchable
-            placeholder="Select course"
-            className="md:col-span-2"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField label="Assignment Title" required htmlFor="assignment-title">
-            <Input
-              id="assignment-title"
-              placeholder="Enter assignment title"
-              value={title}
-              onChange={(ev) => setTitle(ev.target.value)}
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold text-foreground">
+            Assignment details
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <DatePicker
+              label="Assignment Start Date"
+              value={assignmentStartDate}
+              onChange={handleStartDateChange}
+            />
+            <Select
+              label="Course *"
+              value={groupSectionId}
+              onChange={handleSectionChange}
+              options={courseOptions}
+              isLoading={loadingMeta}
+              searchable
+              placeholder="Select course"
+            />
+            <FormField
+              label="Assignment Title"
               required
+              htmlFor="assignment-title"
+            >
+              <Input
+                id="assignment-title"
+                placeholder="Enter assignment title"
+                value={title}
+                onChange={(ev) => setTitle(ev.target.value)}
+                required
+              />
+            </FormField>
+            <DatePicker
+              label="Submission Due Date"
+              value={submissionDueDate}
+              onChange={handleDueDateChange}
+              minDate={assignmentStartDate ?? undefined}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Select
+              label="Subject *"
+              value={subjectId}
+              onChange={handleSubjectChange}
+              options={subjectOptions}
+              searchable
+              placeholder="Select subject"
+              disabled={!groupSectionId || loadingMeta}
+            />
+            <Select
+              label="Subject Unit Topic"
+              value={subjectUnitTopicId}
+              onChange={setSubjectUnitTopicId}
+              options={subjectUnits}
+              searchable
+              clearable
+              placeholder="Select unit topic"
+              disabled={!subjectId}
+            />
+            <Select
+              label="Assignment Type"
+              value={assignTypeCatId}
+              onChange={setAssignTypeCatId}
+              options={assignmentTypes}
+              searchable
+              clearable
+              placeholder="Select assignment type"
+            />
+          </div>
+        </section>
+
+        <section className="space-y-4 border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground">
+            Submission settings
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex min-h-10 items-center gap-2 rounded-md border border-border bg-muted/30 px-3">
+              <Checkbox
+                id="allowLateSubmission"
+                checked={allowLateSubmission}
+                onCheckedChange={(v) => setAllowLateSubmission(v === true)}
+              />
+              <Label
+                htmlFor="allowLateSubmission"
+                className="cursor-pointer text-sm font-normal"
+              >
+                Allow Late Submission
+              </Label>
+            </div>
+            {allowLateSubmission ? (
+              <DatePicker
+                label="Allow Late Due Date"
+                value={allowLateDueDate}
+                onChange={setAllowLateDueDate}
+                minDate={(submissionDueDate ?? assignmentStartDate) ?? undefined}
+              />
+            ) : (
+              <div className="hidden lg:block" />
+            )}
+            <Select
+              label="Assignment Status *"
+              value={assignmentStatusCatId}
+              onChange={setAssignmentStatusCatId}
+              options={assignmentStatuses}
+              searchable
+              placeholder="Select status"
+            />
+          </div>
+          <FormField label="Description">
+            <Textarea
+              placeholder="Enter assignment description (optional)"
+              value={description}
+              onChange={(ev) => setDescription(ev.target.value)}
+              rows={3}
+              className="resize-y min-h-[80px]"
             />
           </FormField>
-          <DatePicker
-            label="Submission Due Date *"
-            value={submissionDueDate}
-            onChange={handleDueDateChange}
-            minDate={assignmentStartDate}
-          />
-        </div>
+        </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Select
-            label="Subject *"
-            value={subjectId}
-            onChange={handleSubjectChange}
-            options={subjectOptions}
-            searchable
-            placeholder="Select subject"
-            disabled={!groupSectionId || loadingMeta}
-          />
-          <Select
-            label="Subject Unit Topic"
-            value={subjectUnitTopicId}
-            onChange={setSubjectUnitTopicId}
-            options={subjectUnits}
-            searchable
-            clearable
-            placeholder="Select unit topic"
-            disabled={!subjectId}
-          />
-          <Select
-            label="Assignment Type"
-            value={assignTypeCatId}
-            onChange={setAssignTypeCatId}
-            options={assignmentTypes}
-            searchable
-            clearable
-            placeholder="Select assignment type"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-          <div className="flex items-center gap-2 pb-2">
-            <Checkbox
-              id="allowLateSubmission"
-              checked={allowLateSubmission}
-              onCheckedChange={(v) => setAllowLateSubmission(v === true)}
-            />
-            <Label htmlFor="allowLateSubmission" className="cursor-pointer text-sm">
-              Allow Late Submission
-            </Label>
+        <section className="space-y-4 border-t border-border pt-5">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              Assignment uploads
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Optional attachments — PNG, JPG, PDF, or DOC (max 24MB each)
+            </p>
           </div>
-          {allowLateSubmission ? (
-            <DatePicker
-              label="Allow Late Due Date"
-              value={allowLateDueDate}
-              onChange={setAllowLateDueDate}
-              minDate={submissionDueDate ?? assignmentStartDate}
-            />
-          ) : (
-            <div />
-          )}
-          <Select
-            label="Assignment Status *"
-            value={assignmentStatusCatId}
-            onChange={setAssignmentStatusCatId}
-            options={assignmentStatuses}
-            searchable
-            placeholder="Select status"
-          />
-        </div>
-
-        <FormField label="Description">
-          <Textarea
-            placeholder="Enter assignment description (optional)"
-            value={description}
-            onChange={(ev) => setDescription(ev.target.value)}
-            rows={3}
-          />
-        </FormField>
-
-        <div className="space-y-3 border-t pt-4">
-          <p className="text-sm font-semibold">Assignment Uploads</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Assignment Document 1">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2 rounded-md border border-border bg-card p-3">
+              <Label htmlFor="assignment-doc-1" className="text-sm font-medium">
+                Document 1
+              </Label>
               <Input
+                id="assignment-doc-1"
                 ref={doc1Ref}
                 type="file"
                 accept=".png,.jpg,.jpeg,.pdf,.doc"
+                className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
                 onChange={() => validateFile(doc1Ref.current?.files?.[0], 1)}
               />
               {doc1Path ? (
@@ -519,9 +546,9 @@ export function AssignmentFormModal({
                   href={String(doc1Path)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 underline"
+                  className="inline-block text-sm font-medium text-blue-600 underline"
                 >
-                  View existing document 1
+                  View existing document
                 </a>
               ) : null}
               {doc1TooLarge ? (
@@ -530,15 +557,20 @@ export function AssignmentFormModal({
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Accepted: PNG, JPG, PDF, DOC — max 24MB
+                  File size should not be greater than 24MB
                 </p>
               )}
-            </FormField>
-            <FormField label="Assignment Document 2">
+            </div>
+            <div className="space-y-2 rounded-md border border-border bg-card p-3">
+              <Label htmlFor="assignment-doc-2" className="text-sm font-medium">
+                Document 2
+              </Label>
               <Input
+                id="assignment-doc-2"
                 ref={doc2Ref}
                 type="file"
                 accept=".png,.jpg,.jpeg,.pdf,.doc"
+                className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
                 onChange={() => validateFile(doc2Ref.current?.files?.[0], 2)}
               />
               {doc2Path ? (
@@ -546,9 +578,9 @@ export function AssignmentFormModal({
                   href={String(doc2Path)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 underline"
+                  className="inline-block text-sm font-medium text-blue-600 underline"
                 >
-                  View existing document 2
+                  View existing document
                 </a>
               ) : null}
               {doc2TooLarge ? (
@@ -557,19 +589,22 @@ export function AssignmentFormModal({
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Accepted: PNG, JPG, PDF, DOC — max 24MB
+                  File size should not be greater than 24MB
                 </p>
               )}
-            </FormField>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <ActiveStatusField
-          isActive={isActive}
-          reason={reason}
-          onActiveChange={(v) => setIsActive(v === true)}
-          onReasonChange={setReason}
-        />
+        <section className="space-y-3 border-t border-border pt-5">
+          <h3 className="text-sm font-semibold text-foreground">Status</h3>
+          <ActiveStatusField
+            isActive={isActive}
+            reason={reason}
+            onActiveChange={(v) => setIsActive(v === true)}
+            onReasonChange={setReason}
+          />
+        </section>
       </div>
     </FormModal>
   );

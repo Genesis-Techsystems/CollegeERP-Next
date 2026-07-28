@@ -7,22 +7,34 @@ import {
   EMPLOYEE_API,
   EVENTS_API,
   SUBJECT_API,
+  TIMETABLE_MGMT_API,
 } from "@/config/constants/api";
+import { ENTITIES } from "@/config/constants/entities";
 import { GM_CODES } from "@/config/constants/ui";
 import {
   domainCreate,
+  domainList,
   domainUpdate,
   fetchDetails,
   fetchDetailsEnvelope,
   getAllRecords,
   postDetailsEnvelope,
 } from "./crud";
+import { buildQuery } from "./query";
+import {
+  createLiveClassSchedule,
+  getDigitalLiveClassEnv,
+  startZoomLiveClassSchedules,
+} from "./staff-dashboard";
 import { listGeneralDetailsByCode } from "./student-information";
 import {
   listLeaveHolidayEvents,
   toLeaveSlashYmd,
   toLeaveYmd,
 } from "./staff-faculty-leaves";
+import { listAcademicYearsForCollege } from "./timetable-management";
+import { listCoursesByUniversity } from "./pre-examination";
+import { listActiveCollegesForGeneralSettings } from "./admin/college";
 
 type AnyRow = Record<string, unknown>;
 
@@ -261,6 +273,264 @@ export async function checkAttendanceTaken(
 
 export async function listProxyProcessStatuses(): Promise<AnyRow[]> {
   return listGeneralDetailsByCode(GM_CODES.PROCESS_STATUS);
+}
+
+/** Angular Take Proxy `moment.weekdays(momentGetWeekday())`. */
+export function getTakeProxyWeekdayName(date?: Date): string {
+  const names = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  return names[getWorkloadWeekdayNumber(date)] ?? "Monday";
+}
+
+/**
+ * Academic years for Take Proxy: college → `Universities.universityId`
+ * (`listAcademicYearsForCollege` / `listAcademicYearsByUniversity`).
+ */
+export async function listAcademicYearsByCollegeForTakeProxy(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId) return [];
+  try {
+    return await listAcademicYearsForCollege(collegeId);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Take Proxy college cascade — single proc load:
+ * `s_get_collegewisedetails_bycode?in_flag=clg_filters,gm_codes&in_gm_codes=QUOTA`.
+ */
+export async function getTakeProxyCollegeFilters(
+  orgId: number,
+  employeeId: number,
+): Promise<{ filtersData: AnyRow[]; academicData: AnyRow[] }> {
+  const data = await getAllRecords<{ result?: AnyRow[][] }>(
+    "s_get_collegewisedetails_bycode",
+    {
+      in_flag: "clg_filters,gm_codes",
+      in_org_id: orgId || 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_group_section_id: 0,
+      in_academic_year_id: 0,
+      in_dept_id: 0,
+      in_isadmin: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_subject: "",
+      in_employee: "",
+      in_gm_codes: "QUOTA",
+    },
+  );
+
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  let filtersData: AnyRow[] = [];
+  let academicData: AnyRow[] = [];
+
+  for (const arr of groups) {
+    if (!Array.isArray(arr) || arr.length === 0) continue;
+    const first = arr[0] ?? {};
+    if (first.flag === "clg_filters") filtersData = arr;
+    if (first.clg_filters_ay === "clg_filters_ay") academicData = arr;
+  }
+
+  if (filtersData.length === 0) {
+    const clgGroup = groups.find(
+      (g) =>
+        Array.isArray(g) &&
+        g.length > 0 &&
+        String(g[0]?.flag ?? "") === "clg_filters",
+    );
+    if (clgGroup?.length) filtersData = clgGroup;
+  }
+
+  return { filtersData, academicData };
+}
+
+/**
+ * Courses for Take Proxy: college → `Universities.universityId`
+ * (`Course?query=Universities.universityId==…&isActive==true`).
+ */
+export async function listCoursesByCollegeForTakeProxy(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId) return [];
+  try {
+    const colleges = await listActiveCollegesForGeneralSettings();
+    const college = colleges.find((c) => Number(c.collegeId) === collegeId);
+    const universityId = Number(college?.universityId ?? 0);
+    if (!universityId) return [];
+    return await listCoursesByUniversity(universityId);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular Take Proxy sections:
+ * `GroupSection` by courseYearId + academicYearId + courseGroupId + isActive.
+ */
+export async function listGroupSectionsForTakeProxy(params: {
+  courseYearId: number;
+  academicYearId: number;
+  courseGroupId: number;
+}): Promise<AnyRow[]> {
+  const { courseYearId, academicYearId, courseGroupId } = params;
+  if (!courseYearId || !academicYearId || !courseGroupId) return [];
+  try {
+    return await domainList<AnyRow>(
+      ENTITIES.GROUP_SECTION.name,
+      buildQuery({
+        "CourseYear.courseYearId": courseYearId,
+        "AcademicYear.academicYearId": academicYearId,
+        "CourseGroup.courseGroupId": courseGroupId,
+        isActive: true,
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular Take Proxy `listByThreeIds(timetablescurr, …, 'collgeId', …)` —
+ * query key casing matches Angular typo `collgeId`.
+ */
+export async function listTimetablesForTakeProxy(params: {
+  collegeId: number;
+  academicYearId: number;
+  groupSectionId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId } = params;
+  if (!collegeId || !academicYearId || !groupSectionId) return [];
+  try {
+    const data = await fetchDetails<unknown>(
+      TIMETABLE_MGMT_API.TIMETABLES_CURR,
+      {
+        collgeId: collegeId,
+        academicYearId,
+        groupSectionId,
+      },
+    );
+    return normalizeListPayload(data);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular Take Proxy `listByFiveIds(schedules, collegeId, academicYearId,
+ * groupSectionId, timetableId, true, …)`.
+ */
+export async function listSchedulesForTakeProxy(params: {
+  collegeId: number;
+  academicYearId: number;
+  groupSectionId: number;
+  timetableId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, groupSectionId, timetableId } = params;
+  if (!collegeId || !academicYearId || !groupSectionId || !timetableId) {
+    return [];
+  }
+  try {
+    const data = await fetchDetails<unknown>(TIMETABLE_MGMT_API.SCHEDULE, {
+      collegeId,
+      academicYearId,
+      groupSectionId,
+      timetableId,
+      isActive: "true",
+    });
+    return normalizeListPayload(data);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular WorkloadStatus `getAttendance()` —
+ * `domain/list/ActualClassesSchedule?query=classEmployeeDetail.employeeId==…&…`.
+ */
+export async function listActualClassesScheduleForProxy(params: {
+  proxyEmpId: number;
+  timetableScheduleId: number;
+  classDate: string;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  const { proxyEmpId, timetableScheduleId, classDate, subjectId } = params;
+  if (!proxyEmpId || !timetableScheduleId || !classDate || !subjectId) {
+    return [];
+  }
+  try {
+    const query = buildQuery({
+      "classEmployeeDetail.employeeId": proxyEmpId,
+      "schedule.timetableScheduleId": timetableScheduleId,
+      classDate,
+      "subject.subjectId": subjectId,
+    });
+    return await domainList<AnyRow>(
+      ATTENDANCE_API.ACTUAL_CLASSES_SCHEDULE_2,
+      query,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Angular `liveSchedule(setProxyList)` after accepted proxy status change. */
+export async function scheduleProxyLiveClasses(
+  rows: AnyRow[],
+  userId: number,
+): Promise<void> {
+  if (!rows.length || !userId) return;
+  const env = getDigitalLiveClassEnv();
+
+  for (const row of rows) {
+    const payload: AnyRow = {
+      scheduledOnDate: toLeaveYmd(row.proxyDate) ?? row.proxyDate,
+      fromTime: row.startTime,
+      toTime: row.endTime,
+      password: "123456789",
+      sessionIds: [],
+      hostVideo: false,
+      isOnetime: false,
+      isRecurring: false,
+      agenda: "Proxy",
+      topic: row.subjectName,
+      collegeId: row.collegeId,
+      userId,
+      subjecttypeCatdetId: row.proxySubjecttypeId ?? row.subjectTypeId,
+      groupSectionId: row.groupSectionId,
+      clsEmpId: row.proxyEmpId,
+      subjectId: row.subjectId,
+      stdbatchId: 18,
+      weekdayId: row.weekdayId,
+      classTimingId: row.classTimingId,
+      timetableScheduleId: row.timetableScheduleId,
+    };
+    if (env === "CODIIS") payload.sessionId = 1;
+
+    try {
+      const data = await createLiveClassSchedule(payload, env);
+      if (env === "ZOOM" && Array.isArray(data) && data.length > 0) {
+        const ids = data
+          .map((item) => Number((item as AnyRow).liveClsScheduleId ?? 0))
+          .filter((id) => id > 0);
+        if (ids.length > 0) await startZoomLiveClassSchedules(ids);
+      }
+    } catch {
+      // Angular continues after partial failures
+    }
+  }
 }
 
 /** Group LAB proxies by subjectCourseyearId + proxyDate (Angular Workload tab). */

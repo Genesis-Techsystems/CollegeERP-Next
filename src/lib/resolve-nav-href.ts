@@ -404,10 +404,47 @@ export function resolveForcedNavRoute(
     return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
   }
 
+  // Staff Grievances & Suggestions — must beat generic grievance-details / student pins
+  if (
+    hrefLower.includes("staff-grievances") ||
+    hrefLower.includes("staff-grevievances") ||
+    labelKey === "new suggestions" ||
+    labelKey === "new suggestion" ||
+    labelKey === "suggestions list" ||
+    hrefLower.includes("new-suggestions") ||
+    hrefLower.includes("suggestions-list")
+  ) {
+    if (hrefLower.includes("grievance-details")) {
+      return "/staff-grievances-&-suggestions/grevieviance-list/grievance-details";
+    }
+    if (
+      hrefLower.includes("suggestions-list") ||
+      labelKey === "suggestions list"
+    ) {
+      return "/staff-grievances-&-suggestions/suggestions-list";
+    }
+    if (
+      hrefLower.includes("new-suggestions") ||
+      labelKey === "new suggestions" ||
+      labelKey === "new suggestion"
+    ) {
+      return "/staff-grievances-&-suggestions/new-suggestions";
+    }
+    if (
+      hrefLower.includes("grevieviance") ||
+      hrefLower.includes("grevievance") ||
+      labelKey === "grievance list"
+    ) {
+      return "/staff-grievances-&-suggestions/grevieviance-list";
+    }
+  }
+
   // Student Grievances — pin early so missing route does not 404→dashboard
   if (
-    hrefLower.includes("student-grievances/grievance-details") ||
-    hrefLower.includes("grievance-details")
+    (hrefLower.includes("student-grievances/grievance-details") ||
+      hrefLower.includes("grievance-details")) &&
+    !hrefLower.includes("staff-grievances") &&
+    !hrefLower.includes("staff-grevievances")
   ) {
     return "/student-grievances/grievance-details";
   }
@@ -528,23 +565,36 @@ export function resolveForcedNavRoute(
     return "/student-academics/student-timetable";
   }
 
-  // Student Academics Class Diary — pin early so missing route does not 404→dashboard
+  // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
+  // hrefs do not make both sidebar leaves active on the staff Class Diary page.
   if (
+    labelKey === "staff class diary" ||
+    labelKey === "staff class dairy" ||
+    labelKey === "student class diary" ||
+    labelKey === "student class dairy" ||
+    (labelKey.includes("staff") &&
+      (labelKey.includes("class diary") || labelKey.includes("class dairy"))) ||
     hrefLower.includes("student-class-diary") ||
     hrefLower.includes("student-class-dairy") ||
     hrefLower.includes("student-academics/student-class-diary") ||
     hrefLower.includes("student-academics/student-class-dairy") ||
-    hrefLower.includes("class-diary") ||
-    hrefLower.includes("class-dairy") ||
-    labelKey === "class diary" ||
-    labelKey === "class dairy" ||
-    labelKey === "student class diary" ||
-    labelKey === "student class dairy" ||
+    hrefLower.includes("staff-class-diary") ||
+    hrefLower.includes("staff-class-dairy") ||
     (hrefLower.includes("student-academics") &&
       (labelLower.includes("class diary") ||
         labelLower.includes("class dairy")))
   ) {
     return "/student-academics/student-class-dairy";
+  }
+
+  // Staff Academics Class Diary (Angular staff-classes/class-dairy)
+  if (
+    hrefLower.includes("staff-classes/class-diary") ||
+    hrefLower.includes("staff-classes/class-dairy") ||
+    labelKey === "class diary" ||
+    labelKey === "class dairy"
+  ) {
+    return "/staff-classes/class-dairy";
   }
 
   // Student Academics Assignments — pin early so missing route does not 404→dashboard

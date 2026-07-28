@@ -62,7 +62,7 @@ export function AttendanceConflictDialog({ open, onClose, rows }: AttendanceConf
         columnDefs={columnDefs}
         rowData={rows}
         toolbar={{ search: true, exportExcel: false, exportPdf: false, columnPicker: false }}
-        domLayout="autoHeight"
+        height="auto"
       />
     </FormModal>
   )

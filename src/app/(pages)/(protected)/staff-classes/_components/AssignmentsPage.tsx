@@ -293,10 +293,10 @@ export function AssignmentsPage() {
     if (sessionLoading || isResolving || !loginEmployeeId) return;
     if (check === "2") {
       if (!selectedEmployeeId || !employeeListRequested) {
-        setRows([]);
-        setLoading(false);
-        return;
-      }
+      setRows([]);
+      setLoading(false);
+      return;
+    }
     }
     void loadAssignments().then((list) => {
       if (
@@ -352,25 +352,25 @@ export function AssignmentsPage() {
     // Angular selectedSection: reload immediately when course year changes
     if (check !== "1") return;
     if (!loginEmployeeId) return;
-    void (async () => {
-      setLoading(true);
-      try {
+      void (async () => {
+        setLoading(true);
+        try {
         const sectionId = positiveId(next);
-        const list = await listStaffAssignments({
+          const list = await listStaffAssignments({
           employeeId: loginEmployeeId,
           groupSectionId: sectionId > 0 ? sectionId : undefined,
-        });
-        setRows(list);
+          });
+          setRows(list);
         if (list.length === 0) {
           toastInfo("No assignments found.");
         }
-      } catch (e) {
-        toastError(e, "Failed to load assignments");
+        } catch (e) {
+          toastError(e, "Failed to load assignments");
         setRows([]);
-      } finally {
-        setLoading(false);
-      }
-    })();
+        } finally {
+          setLoading(false);
+        }
+      })();
   };
 
   const handleEmployeeSearch = async (term: string) => {

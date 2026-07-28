@@ -1577,10 +1577,47 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
     }
 
+    // Staff Grievances & Suggestions — must beat generic grievance-details / student pins
+    if (
+      hrefLower.includes("staff-grievances") ||
+      hrefLower.includes("staff-grevievances") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestions" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestion" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "suggestions list" ||
+      hrefLower.includes("new-suggestions") ||
+      hrefLower.includes("suggestions-list")
+    ) {
+      if (hrefLower.includes("grievance-details")) {
+        return "/staff-grievances-&-suggestions/grevieviance-list/grievance-details";
+      }
+      if (
+        hrefLower.includes("suggestions-list") ||
+        labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "suggestions list"
+      ) {
+        return "/staff-grievances-&-suggestions/suggestions-list";
+      }
+      if (
+        hrefLower.includes("new-suggestions") ||
+        labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestions" ||
+        labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestion"
+      ) {
+        return "/staff-grievances-&-suggestions/new-suggestions";
+      }
+      if (
+        hrefLower.includes("grevieviance") ||
+        hrefLower.includes("grevievance") ||
+        labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "grievance list"
+      ) {
+        return "/staff-grievances-&-suggestions/grevieviance-list";
+      }
+    }
+
     // Student Grievances — pin early so missing route does not 404→dashboard
     if (
-      hrefLower.includes("student-grievances/grievance-details") ||
-      hrefLower.includes("grievance-details")
+      (hrefLower.includes("student-grievances/grievance-details") ||
+        hrefLower.includes("grievance-details")) &&
+      !hrefLower.includes("staff-grievances") &&
+      !hrefLower.includes("staff-grevievances")
     ) {
       return "/student-grievances/grievance-details";
     }
@@ -1702,23 +1739,37 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/student-academics/student-timetable";
     }
 
-    // Student Academics Class Diary — pin early so missing route does not 404→dashboard
+    // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
+    // hrefs do not make both sidebar leaves active on the staff Class Diary page.
     if (
+      labelKey === "staff class diary" ||
+      labelKey === "staff class dairy" ||
+      labelKey === "student class diary" ||
+      labelKey === "student class dairy" ||
+      (labelKey.includes("staff") &&
+        (labelKey.includes("class diary") ||
+          labelKey.includes("class dairy"))) ||
       hrefLower.includes("student-class-diary") ||
       hrefLower.includes("student-class-dairy") ||
       hrefLower.includes("student-academics/student-class-diary") ||
       hrefLower.includes("student-academics/student-class-dairy") ||
-      hrefLower.includes("class-diary") ||
-      hrefLower.includes("class-dairy") ||
-      labelKey === "class diary" ||
-      labelKey === "class dairy" ||
-      labelKey === "student class diary" ||
-      labelKey === "student class dairy" ||
+      hrefLower.includes("staff-class-diary") ||
+      hrefLower.includes("staff-class-dairy") ||
       (hrefLower.includes("student-academics") &&
         (labelLower.includes("class diary") ||
           labelLower.includes("class dairy")))
     ) {
       return "/student-academics/student-class-dairy";
+    }
+
+    // Staff Academics Class Diary (Angular staff-classes/class-dairy)
+    if (
+      hrefLower.includes("staff-classes/class-diary") ||
+      hrefLower.includes("staff-classes/class-dairy") ||
+      labelKey === "class diary" ||
+      labelKey === "class dairy"
+    ) {
+      return "/staff-classes/class-dairy";
     }
 
     // Student Academics Assignments — pin early so missing route does not 404→dashboard
@@ -3742,12 +3793,83 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const hostelAllocationActive =
     canonicalHref === "/hostel/rooms-list" &&
     isHostelRoomAllocationPath(normPathname);
-  const isSelfActive =
+  let isSelfActive =
     !!canonicalHref &&
     canonicalHref.length > 1 &&
     (normPathname === canonicalHref ||
       normPathname.startsWith(`${canonicalHref}/`) ||
       hostelAllocationActive);
+  // Class Diary vs Staff Class Diary share similar hrefs in DB menus — force
+  // exact leaf matching so only the clicked item highlights.
+  const diaryLabelKey = (item.label ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const onStaffClassDiary =
+    normPathname === "/staff-classes/class-dairy" ||
+    normPathname.startsWith("/staff-classes/class-dairy/");
+  const onStudentClassDiary =
+    normPathname === "/student-academics/student-class-dairy" ||
+    normPathname.startsWith("/student-academics/student-class-dairy/");
+  if (diaryLabelKey === "class diary" || diaryLabelKey === "class dairy") {
+    isSelfActive = onStaffClassDiary;
+  } else if (
+    diaryLabelKey === "staff class diary" ||
+    diaryLabelKey === "staff class dairy" ||
+    diaryLabelKey === "student class diary" ||
+    diaryLabelKey === "student class dairy" ||
+    (diaryLabelKey.includes("staff") &&
+      (diaryLabelKey.includes("class diary") ||
+        diaryLabelKey.includes("class dairy")))
+  ) {
+    isSelfActive = onStudentClassDiary;
+  }
+  // Special Activities vs Special Activities Attendance — exact leaf highlight
+  // (Time-Table Management only; do not affect Student Academics Special Activities)
+  const onSpecialActivities =
+    normPathname === "/time-table-management/special-activities" ||
+    normPathname.startsWith("/time-table-management/special-activities/");
+  const onSpecialActivityAttendance =
+    normPathname === "/time-table-management/special-activity-attendance" ||
+    normPathname.startsWith(
+      "/time-table-management/special-activity-attendance/",
+    );
+  const specialActHref = (canonicalHref ?? "").toLowerCase();
+  if (
+    specialActHref.includes("/time-table-management/") &&
+    (diaryLabelKey === "special activities" ||
+      diaryLabelKey === "special activity")
+  ) {
+    isSelfActive = onSpecialActivities;
+  } else if (
+    specialActHref.includes("/time-table-management/") &&
+    diaryLabelKey.includes("special") &&
+    diaryLabelKey.includes("attendance")
+  ) {
+    isSelfActive = onSpecialActivityAttendance;
+  }
+  // Live Class Schedule vs Live Class Schedules List (Digital Class Room)
+  const onLiveClassScheduleList =
+    normPathname === "/time-table-management/live-class-schedule-list";
+  const onLiveClassSchedule =
+    normPathname === "/time-table-management/live-class-schedule" ||
+    (normPathname.startsWith("/time-table-management/live-class-schedule/") &&
+      !onLiveClassScheduleList &&
+      !normPathname.startsWith(
+        "/time-table-management/live-class-schedule-list",
+      ));
+  if (
+    diaryLabelKey.includes("live") &&
+    diaryLabelKey.includes("class") &&
+    diaryLabelKey.includes("list")
+  ) {
+    isSelfActive = onLiveClassScheduleList;
+  } else if (
+    diaryLabelKey.includes("live") &&
+    diaryLabelKey.includes("class")
+  ) {
+    isSelfActive = onLiveClassSchedule;
+  }
   const isChildActive =
     (hasChildren ? hasActiveDescendant(item, pathname) : false) ||
     modulePathActive;

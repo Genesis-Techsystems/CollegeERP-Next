@@ -81,6 +81,8 @@ export interface LiveScheduleRow extends StaffDashRow {
   timetableScheduleId?: number;
   agenda?: string;
   topic?: string;
+  subjectName?: string;
+  courseName?: string;
   fromTime?: string;
   toTime?: string;
   collegeCode?: string;
@@ -384,15 +386,102 @@ export async function getLiveClassSchedules(params: {
   env?: DigitalLiveClassEnv;
 }): Promise<LiveScheduleRow[]> {
   const env = params.env ?? getDigitalLiveClassEnv();
+  const query: Record<string, string | number> = {
+    employeeId: params.employeeId,
+  };
+  if (params.scheduledOnDate !== undefined) {
+    query.scheduledOnDate = params.scheduledOnDate;
+  } else {
+    query.scheduledOnDate = formatScheduleDateYmd();
+  }
+  const envelope = await fetchDetailsEnvelope<LiveScheduleRow[]>(
+    liveSchedulePath(env),
+    query,
+  );
+  if (!envelope.success) return [];
+  return asArray<LiveScheduleRow>(envelope.data);
+}
+
+/**
+ * Angular `live-class-schedule-list` — all schedules for employee (no date filter).
+ */
+export async function listEmployeeLiveClassSchedules(params: {
+  employeeId: number;
+  env?: DigitalLiveClassEnv;
+}): Promise<LiveScheduleRow[]> {
+  const env = params.env ?? getDigitalLiveClassEnv();
+  const envelope = await fetchDetailsEnvelope<LiveScheduleRow[]>(
+    liveSchedulePath(env),
+    { employeeId: params.employeeId },
+  );
+  if (!envelope.success) return [];
+  return [...asArray<LiveScheduleRow>(envelope.data)].sort((a, b) => {
+    const ad = new Date(String(a.scheduledOnDate ?? 0)).getTime();
+    const bd = new Date(String(b.scheduledOnDate ?? 0)).getTime();
+    return bd - ad;
+  });
+}
+
+/**
+ * Angular modal `listByThreeIds(..., employeeId, timetableScheduleId, groupSectionId)`.
+ */
+export async function listLiveClassSchedulesForSlot(params: {
+  employeeId: number;
+  timetableScheduleId: number;
+  groupSectionId: number;
+  env?: DigitalLiveClassEnv;
+}): Promise<LiveScheduleRow[]> {
+  const env = params.env ?? getDigitalLiveClassEnv();
   const envelope = await fetchDetailsEnvelope<LiveScheduleRow[]>(
     liveSchedulePath(env),
     {
       employeeId: params.employeeId,
-      scheduledOnDate: params.scheduledOnDate ?? formatScheduleDateYmd(),
+      timetableScheduleId: params.timetableScheduleId,
+      groupSectionId: params.groupSectionId,
     },
   );
   if (!envelope.success) return [];
   return asArray<LiveScheduleRow>(envelope.data);
+}
+
+export function liveClassSchedulePostPath(env?: DigitalLiveClassEnv): string {
+  const resolved = env ?? getDigitalLiveClassEnv();
+  if (resolved === "CODIIS")
+    return TIMETABLE_MGMT_API.CODISS_LIVE_CLASS_SCHEDULE;
+  if (resolved === "TEAMS") return TIMETABLE_MGMT_API.TEAM_MEETING_SCHEDULE;
+  return TIMETABLE_MGMT_API.LIVE_CLASS_SCHEDULE;
+}
+
+/** Angular `add(liveScheduleUrl, details)` from Schedule PTM / live-class modal. */
+export async function createLiveClassSchedule(
+  payload: StaffDashRow,
+  env?: DigitalLiveClassEnv,
+): Promise<unknown> {
+  const envelope = await postDetailsEnvelope(
+    liveClassSchedulePostPath(env),
+    payload,
+  );
+  if (!envelope.success) {
+    throw new Error(envelope.message || "Failed to schedule live class");
+  }
+  return envelope.data;
+}
+
+/** Angular Zoom `addDataById(liveClassScheduleUrl + '/' + id + '/start')`. */
+export async function startZoomLiveClassSchedules(
+  ids: number[],
+): Promise<void> {
+  for (const id of ids) {
+    if (!id) continue;
+    try {
+      await postDetailsEnvelope(
+        `${TIMETABLE_MGMT_API.LIVE_CLASS_SCHEDULE}/${id}/start`,
+        {},
+      );
+    } catch {
+      // Angular continues after partial failures
+    }
+  }
 }
 
 export function mergeClassesWithSchedules(params: {
