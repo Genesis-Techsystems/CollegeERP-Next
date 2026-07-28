@@ -15,6 +15,7 @@ import { DataTableToolbar } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { cn } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
@@ -238,6 +239,197 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function printHtmlInIframe(html: string): void {
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+  if (!doc) {
+    iframe.remove();
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const printFrame = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } finally {
+      setTimeout(() => iframe.remove(), 1000);
+    }
+  };
+
+  if (iframe.contentWindow?.document.readyState === "complete") {
+    setTimeout(printFrame, 250);
+  } else {
+    iframe.onload = () => setTimeout(printFrame, 250);
+  }
+}
+
+function printFinalAnalysisReport(args: {
+  collegeName: string;
+  courseLabel: string;
+  title: string;
+  logoUrl: string;
+  rows: Row[];
+}): void {
+  if (!args.rows.length) return;
+
+  const body = args.rows
+    .map(
+      (r, i) => `<tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(dash(r.course_name))}</td>
+        <td>${escapeHtml(dash(r.course_group))}</td>
+        <td>${escapeHtml(dash(r.course_year))}</td>
+        <td>${escapeHtml(dash(r.Appeared ?? r.appeared))}</td>
+        <td>${escapeHtml(dash(r.passed))}</td>
+        <td>${escapeHtml(dash(r.Pass_percentage ?? r.Passed_percent))}</td>
+        <td>${escapeHtml(dash(r.Promoted))}</td>
+        <td>${escapeHtml(dash(r.Promoted_Percentage))}</td>
+        <td>${escapeHtml(dash(r.Detained))}</td>
+        <td>${escapeHtml(dash(r.Detained_Percentage))}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const courseLine = args.courseLabel
+    ? `<p class="meta">Course : ${escapeHtml(args.courseLabel)}</p>`
+    : "";
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(args.title)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: "Times New Roman", Times, serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body { font-size: 12px; line-height: 1.25; }
+    .sheet {
+      width: 98%;
+      margin: 0 auto;
+    }
+    .header {
+      display: grid;
+      grid-template-columns: 72px 1fr 72px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 64px;
+    }
+    .logo {
+      max-width: 60px;
+      max-height: 60px;
+      object-fit: contain;
+    }
+    .title-wrap {
+      text-align: center;
+    }
+    .college-name {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .report-title {
+      margin: 2px 0 0;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .meta {
+      margin: 0 0 6px;
+      font-size: 11px;
+    }
+    table {
+      width: 99%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 0 auto;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 3px;
+      vertical-align: middle;
+      text-align: center;
+      word-break: break-word;
+    }
+    th {
+      font-size: 9.5px;
+      font-weight: 700;
+    }
+    td {
+      font-size: 9.5px;
+    }
+    .left { text-align: left; }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div class="logo-wrap">
+        <img class="logo" src="${escapeHtml(args.logoUrl)}" alt="College Logo" />
+      </div>
+      <div class="title-wrap">
+        ${
+          args.collegeName
+            ? `<p class="college-name">${escapeHtml(args.collegeName)}</p>`
+            : ""
+        }
+        <p class="report-title">${escapeHtml(args.title)}</p>
+      </div>
+      <div></div>
+    </div>
+    ${courseLine}
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2" style="width:5%">SI.No</th>
+          <th rowspan="2" style="width:13%">Course</th>
+          <th rowspan="2" style="width:10%">Course Group</th>
+          <th rowspan="2" style="width:11%">Course Year</th>
+          <th colspan="1" style="width:8%">Appeared</th>
+          <th colspan="2" style="width:16%">Passed</th>
+          <th colspan="2" style="width:16%">Promoted</th>
+          <th colspan="2" style="width:18%">Detained</th>
+        </tr>
+        <tr>
+          <th>Count</th>
+          <th>Count</th>
+          <th>%</th>
+          <th>Count</th>
+          <th>%</th>
+          <th>Count</th>
+          <th>%</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+
+  printHtmlInIframe(html);
+}
+
 /** Angular print layout — Branch & Subject-Wise Result Analysis (table only). */
 function printGroupSubjectwiseReport(args: {
   collegeName: string;
@@ -370,6 +562,7 @@ export function ExamFinalAnalysisReportPage({
   const [isReevaluation, setIsReevaluation] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const collegeLogo = useCollegeLogo(Number(collegeId) || null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -816,7 +1009,31 @@ export function ExamFinalAnalysisReportPage({
                       type="button"
                       size="sm"
                       className="h-9 text-[12px]"
-                      onClick={() => window.print()}
+                      onClick={() => {
+                        const college =
+                          colleges.find(
+                            (r) => num(r.fk_college_id) === Number(collegeId),
+                          ) ?? null;
+                        const course =
+                          courses.find(
+                            (r) => num(r.fk_course_id) === Number(courseId),
+                          ) ?? null;
+
+                        printFinalAnalysisReport({
+                          collegeName:
+                            txt(college?.college_name) ||
+                            txt(rows[0]?.college_name) ||
+                            txt(college?.college_code) ||
+                            "",
+                          courseLabel:
+                            txt(course?.course_code) ||
+                            txt(filteredFinalRows[0]?.course_name) ||
+                            "",
+                          title,
+                          logoUrl: collegeLogo,
+                          rows: filteredFinalRows,
+                        });
+                      }}
                     >
                       <Printer className="mr-1.5 h-3.5 w-3.5" />
                       Print Report

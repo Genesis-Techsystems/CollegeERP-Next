@@ -1,5 +1,7 @@
 import { EXAM_EVAL_API } from "@/config/constants/api";
 import {
+  buildQuery,
+  domainList,
   fetchDetails,
   getAllRecords,
   postDetails,
@@ -115,6 +117,42 @@ export async function getAnswerPaperPresignedUrl(
     EXAM_EVAL_API.GENERATE_PRESIGNED_URLS,
     { answerPaperPath: path },
   );
+}
+
+export async function listStudentAnswerPaperRows(
+  examTimetableDetId: number,
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!examTimetableDetId || !collegeId) return [];
+
+  const queries = [
+    buildQuery({
+      "examTimetableDetail.examTimetableDetId": examTimetableDetId,
+      "college.collegeId": collegeId,
+    }),
+    buildQuery({
+      "ExamTimetableDetail.examTimetableDetId": examTimetableDetId,
+      "College.collegeId": collegeId,
+    }),
+    buildQuery({
+      examTimetableDetId,
+      collegeId,
+    }),
+  ];
+
+  for (const query of queries) {
+    try {
+      const rows = await domainList<AnyRow>(
+        EXAM_EVAL_API.STUDENT_ANSWER_PAPER,
+        query,
+      );
+      if (Array.isArray(rows) && rows.length > 0) return rows;
+    } catch {
+      // try next query variant
+    }
+  }
+
+  return [];
 }
 
 export async function addExamEvaluators(payload: unknown): Promise<unknown> {

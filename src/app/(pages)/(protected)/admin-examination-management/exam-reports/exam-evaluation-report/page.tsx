@@ -15,6 +15,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
@@ -26,7 +27,6 @@ import {
   getExamEvaluationDetailReport,
   type AnyRow,
 } from "@/services";
-import { useRouter } from "next/navigation";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -60,60 +60,136 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Angular printPage() — title + same columns as on-screen table. */
-function printEvaluationReport(rows: AnyRow[]) {
+/** Angular printPage() — portrait report with logo + compact table. */
+function printEvaluationReport(rows: AnyRow[], logoUrl: string) {
   if (!rows.length) return;
-  const columns = [
-    { key: "si", header: "SI.No" },
-    { key: "semester", header: "Semester" },
-    { key: "subjectCode", header: "Subject Code" },
-    { key: "subjectName", header: "Subject Name" },
-    { key: "totalPapers", header: "Total Papers" },
-    { key: "assigned", header: "Assigned" },
-    { key: "notAssigned", header: "Not Assigned" },
-    { key: "completed", header: "Completed" },
-    { key: "evaluatorType", header: "Evaluator Type" },
-    { key: "name", header: "Name" },
-    { key: "email", header: "Email" },
-    { key: "mobile", header: "Mobile" },
-    { key: "evalAssigned", header: "Assigned" },
-    { key: "evalCompleted", header: "Completed" },
-    { key: "due", header: "Due" },
-  ];
-  const data = rows.map((row, i) => {
-    const assigned = num(row.evaluator_subject_evaluation_cnt);
-    const done = num(row.evaluator_subject_evaluation_completed_cnt);
-    return {
-      si: i + 1,
-      semester: txt(row.course_year_code),
-      subjectCode: txt(row.subject_code),
-      subjectName: txt(row.subject_name),
-      totalPapers: num(row.total_uploaded),
-      assigned: num(row.total_evaluation_assgn_cnt),
-      notAssigned: num(row.total_unassigned),
-      completed: num(row.total_subject_evaluation_completed_cnt),
-      evaluatorType: txt(row.evaluator_type),
-      name: txt(row.evaluator_name),
-      email: txt(row.email),
-      mobile: txt(row.mobile_number),
-      evalAssigned: assigned,
-      evalCompleted: done,
-      due: assigned - done,
-    };
-  });
-  const tableHtml = buildHtmlTable(columns, data);
+  const rowHtml = rows
+    .map((row, i) => {
+      const assigned = num(row.evaluator_subject_evaluation_cnt);
+      const done = num(row.evaluator_subject_evaluation_completed_cnt);
+      const due = assigned - done;
+
+      return `<tr>
+        <td class="text-center">${i + 1}</td>
+        <td class="text-center">${escapeHtml(txt(row.course_year_code))}</td>
+        <td>${escapeHtml(txt(row.subject_code))}</td>
+        <td>${escapeHtml(txt(row.subject_name))}</td>
+        <td class="num">${num(row.total_uploaded)}</td>
+        <td class="num">${num(row.total_evaluation_assgn_cnt)}</td>
+        <td class="num">${num(row.total_unassigned)}</td>
+        <td class="num">${num(row.total_subject_evaluation_completed_cnt)}</td>
+        <td>${escapeHtml(txt(row.evaluator_type))}</td>
+        <td>${escapeHtml(txt(row.evaluator_name))}</td>
+        <td>${escapeHtml(txt(row.email))}</td>
+        <td>${escapeHtml(txt(row.mobile_number))}</td>
+        <td class="num">${assigned}</td>
+        <td class="num">${done}</td>
+        <td class="num">${due}</td>
+      </tr>`;
+    })
+    .join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Evaluation Report</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.collegeName { text-align: center; font-size: 16px; font-weight: bold; margin: 8px 0 12px; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: top; }
-th { background: #f2f2f2; font-weight: 600; }
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: #000;
+  font-family: Arial, sans-serif;
+  font-size: 7px;
+  line-height: 1.25;
+}
+.report-shell {
+  width: 100%;
+}
+.report-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.logo-wrap {
+  width: 68px;
+  min-width: 68px;
+  text-align: center;
+}
+.logo {
+  max-width: 60px;
+  max-height: 60px;
+  object-fit: contain;
+}
+.title-wrap {
+  flex: 1;
+  text-align: center;
+  padding-right: 68px;
+}
+.collegeName {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+th, td {
+  border: 1px solid #000;
+  padding: 3px 4px;
+  vertical-align: middle;
+  word-break: break-word;
+}
+th {
+  background: #f2f2f2;
+  font-size: 7px;
+  font-weight: 700;
+  text-align: center;
+}
+td {
+  font-size: 6.8px;
+}
+.text-center {
+  text-align: center;
+}
+.num {
+  color: #1d4ed8;
+  font-weight: 700;
+  text-align: center;
+}
 </style></head>
 <body>
-  <p class="collegeName">Exam Evaluation Report</p>
-  ${tableHtml}
+  <div class="report-shell">
+    <div class="report-header">
+      <div class="logo-wrap">
+        <img src="${escapeHtml(logoUrl)}" class="logo" alt="College Logo" />
+      </div>
+      <div class="title-wrap">
+        <p class="collegeName">Exam Evaluation Report</p>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 5%;">SI.No</th>
+          <th style="width: 8%;">Semester</th>
+          <th style="width: 9%;">Subject Code</th>
+          <th style="width: 15%;">Subject Name</th>
+          <th style="width: 7%;">Total Papers</th>
+          <th style="width: 7%;">Assigned</th>
+          <th style="width: 7%;">Not Assigned</th>
+          <th style="width: 7%;">Completed</th>
+          <th style="width: 9%;">Evaluator Type</th>
+          <th style="width: 9%;">Name</th>
+          <th style="width: 11%;">Email</th>
+          <th style="width: 8%;">Mobile</th>
+          <th style="width: 6%;">A</th>
+          <th style="width: 6%;">C</th>
+          <th style="width: 6%;">Due</th>
+        </tr>
+      </thead>
+      <tbody>${rowHtml}</tbody>
+    </table>
+  </div>
 </body></html>`;
 
   const frame = document.createElement("iframe");
@@ -140,7 +216,7 @@ th { background: #f2f2f2; font-weight: 600; }
 export default function ExamEvaluationReportPage() {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
-  const router = useRouter();
+  const collegeLogo = useCollegeLogo(null);
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
   const [subjectFilterRows, setSubjectFilterRows] = useState<AnyRow[]>([]);
@@ -346,16 +422,6 @@ export default function ExamEvaluationReportPage() {
 
   function clearResults() {
     setRows([]);
-  }
-
-  function onBack() {
-    try {
-      sessionStorage.removeItem("examVerificationBack");
-    } catch {
-      /* ignore */
-    }
-    // Angular goBack() → location.back()
-    router.back();
   }
 
   async function onGetList() {
@@ -652,14 +718,6 @@ export default function ExamEvaluationReportPage() {
             >
               Get List
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onBack}
-              className="h-[30px] px-3 text-[12px] bg-amber-400 text-black hover:bg-amber-500"
-            >
-              Back
-            </Button>
           </div>
         </GlobalFilterField>
       </GlobalFilterBarRow>
@@ -688,7 +746,7 @@ export default function ExamEvaluationReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printEvaluationReport(rows)}
+              onClick={() => printEvaluationReport(rows, collegeLogo)}
             >
               Print Report
             </Button>
