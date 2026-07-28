@@ -3,12 +3,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { QK } from "@/lib/query-keys";
 import {
+  isEmployeeDepartmentHead,
   resolveStaffDeptId,
   resolveStaffIsHod,
+  syncEmployeeLoginContextToStorage,
   type EmployeeLoginContext,
 } from "@/lib/employee-login-context";
 import { resolveLoginEmployeeId } from "@/lib/user-context";
-import { getEmployeeLoginContextByUserId } from "@/services/auth";
+import {
+  getEmployeeLoginContextByUserId,
+  listDepartmentHeads,
+} from "@/services";
 import type { SessionUser } from "@/types/user";
 
 function positiveId(...candidates: unknown[]): number {
@@ -20,8 +25,9 @@ function positiveId(...candidates: unknown[]): number {
 }
 
 /**
- * Angular login parity: `employeedetailsbyid` → `isHOD`, `empDeptId`, `uName`.
- * Used by assignments (HOD radios + employee search) and similar staff pages.
+ * Angular login parity: `employeedetailsbyid` + EmpDeptHeads → `isHOD`, `empDeptId`.
+ * Assignments radios use `isHod === true` the same way Angular uses
+ * `localStorage.getItem('isHOD') === 'true'`.
  */
 export function useStaffLoginContext(
   user: SessionUser | null,
@@ -42,14 +48,46 @@ export function useStaffLoginContext(
     cachedEmployeeId,
     user?.employeeId,
   );
-  const isHod = resolveStaffIsHod(user, loginCtx);
-  const deptId = resolveStaffDeptId(loginCtx);
+
+  // Angular login also marks HOD when the employee is in EmpDeptHeads.
+  const { data: deptHeadMatch, isLoading: headsLoading } = useQuery({
+    queryKey: QK.staffLoginDeptHead(employeeId),
+    queryFn: async () => {
+      const heads = await listDepartmentHeads();
+      return isEmployeeDepartmentHead(
+        employeeId,
+        heads as Array<Record<string, unknown>>,
+      );
+    },
+    enabled: !sessionLoading && employeeId > 0,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+
+  const mergedCtx: EmployeeLoginContext | null = (() => {
+    if (!loginCtx && !deptHeadMatch?.isHod) return loginCtx ?? null;
+    const base: EmployeeLoginContext = loginCtx ?? {
+      employeeId,
+      empDeptId: 0,
+      isHod: false,
+      uName: "",
+      empNumber: "",
+    };
+    const isHod = base.isHod || Boolean(deptHeadMatch?.isHod);
+    const empDeptId = positiveId(base.empDeptId, deptHeadMatch?.empDeptId);
+    const next = { ...base, employeeId, isHod, empDeptId };
+    if (isHod) syncEmployeeLoginContextToStorage(next);
+    return next;
+  })();
+
+  const isHod = resolveStaffIsHod(user, mergedCtx);
+  const deptId = resolveStaffDeptId(mergedCtx);
 
   return {
     employeeId,
     isHod,
     deptId,
-    loginCtx,
-    isResolving: sessionLoading || ctxLoading,
+    loginCtx: mergedCtx,
+    isResolving:
+      sessionLoading || ctxLoading || (employeeId > 0 && headsLoading),
   };
 }

@@ -2468,6 +2468,8 @@ export const SUBJECT_REGISTRATION_API = {
   STD_SUB_REGISTRATION: "StdSubRegistration",
   /** Angular `stdsubregUrl` */
   STDSUBREG: "stdsubreg",
+  /** Angular `stdSubregistrationPostUrl` */
+  STD_SUB_REGISTRATION_POST: "stdsubregistration",
 } as const;
 
 // ─── Live Classes / Digital Library storage ───────────────────────────────────────────────

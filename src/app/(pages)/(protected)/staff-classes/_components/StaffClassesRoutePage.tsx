@@ -1,83 +1,75 @@
-'use client'
+"use client";
 
+import type { ReactElement } from "react";
 
+import { PageContainer, PageHeader } from "@/components/layout";
 
-import type { ReactElement } from 'react'
+import { ClassStudentsListPage } from "./ClassStudentsListPage";
 
-import { PageContainer, PageHeader } from '@/components/layout'
+import { CourseYearSubjectsPage } from "./CourseYearSubjectsPage";
 
-import { ClassStudentsListPage } from './ClassStudentsListPage'
+import { CourseYearTimetablePage } from "./CourseYearTimetablePage";
 
-import { CourseYearSubjectsPage } from './CourseYearSubjectsPage'
+import { JoinLivePage } from "./JoinLivePage";
 
-import { CourseYearTimetablePage } from './CourseYearTimetablePage'
+import { MarkClassAttendancePage } from "./MarkClassAttendancePage";
 
-import { JoinLivePage } from './JoinLivePage'
+import { MyClassesPage } from "./MyClassesPage";
 
-import { MarkClassAttendancePage } from './MarkClassAttendancePage'
+import { MyTimetablePage } from "./MyTimetablePage";
 
-import { MyClassesPage } from './MyClassesPage'
+import { AssignmentsPage } from "./AssignmentsPage";
 
-import { MyTimetablePage } from './MyTimetablePage'
+import { ViewAssignmentSubmissionsPage } from "./ViewAssignmentSubmissionsPage";
 
-import { AssignmentsPage } from './AssignmentsPage'
+import { ViewStudentAttendancePage } from "./ViewStudentAttendancePage";
 
-import { ViewAssignmentSubmissionsPage } from './ViewAssignmentSubmissionsPage'
+import { ClassDiaryPage } from "./ClassDiaryPage";
 
-import { ViewStudentAttendancePage } from './ViewStudentAttendancePage'
+import { ClassDiaryNotesPage } from "./ClassDiaryNotesPage";
 
-
-
-type StaffClassesRoutePageProps = { slug: string }
-
-
+type StaffClassesRoutePageProps = { slug: string };
 
 const PAGE_MAP: Record<string, () => ReactElement> = {
+  "my-classes": () => <MyClassesPage />,
 
-  'my-classes': () => <MyClassesPage />,
-
-  'my-timetable': () => <MyTimetablePage />,
+  "my-timetable": () => <MyTimetablePage />,
 
   assignments: () => <AssignmentsPage />,
 
-  'assignments/view-submissions': () => <ViewAssignmentSubmissionsPage />,
+  "assignments/view-submissions": () => <ViewAssignmentSubmissionsPage />,
 
-  'my-classes/students-list': () => <ClassStudentsListPage />,
+  "my-classes/students-list": () => <ClassStudentsListPage />,
 
-  'my-classes/course-year-subjects': () => <CourseYearSubjectsPage />,
+  "my-classes/course-year-subjects": () => <CourseYearSubjectsPage />,
 
-  'my-classes/course-year-timetable': () => <CourseYearTimetablePage />,
+  "my-classes/course-year-timetable": () => <CourseYearTimetablePage />,
 
-  'my-classes/mark-attendance': () => <MarkClassAttendancePage mode="mark" />,
+  "my-classes/mark-attendance": () => <MarkClassAttendancePage mode="mark" />,
 
-  'my-classes/View-attendance': () => <ViewStudentAttendancePage />,
+  "my-classes/View-attendance": () => <ViewStudentAttendancePage />,
 
-  'join-live': () => <JoinLivePage />,
+  "join-live": () => <JoinLivePage />,
 
-}
+  "class-dairy": () => <ClassDiaryPage />,
 
+  "class-dairy/add-notes": () => <ClassDiaryNotesPage mode="add" />,
 
+  "class-dairy/edit-notes": () => <ClassDiaryNotesPage mode="edit" />,
+};
 
 export function StaffClassesRoutePage({ slug }: StaffClassesRoutePageProps) {
+  const Page = PAGE_MAP[slug];
 
-  const Page = PAGE_MAP[slug]
-
-  if (Page) return <Page />
-
-
+  if (Page) return <Page />;
 
   return (
-
     <PageContainer>
-
       <PageHeader title="Staff Classes" />
 
-      <p className="text-sm text-muted-foreground">Unknown route: {slug || 'staff-classes'}</p>
-
+      <p className="text-sm text-muted-foreground">
+        Unknown route: {slug || "staff-classes"}
+      </p>
     </PageContainer>
-
-  )
-
+  );
 }
-
-

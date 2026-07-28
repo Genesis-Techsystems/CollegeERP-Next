@@ -131,8 +131,7 @@ const COL_DEFS = {
     field: "subjectName",
     headerName: "Subject",
     minWidth: 160,
-    valueGetter: (p) =>
-      txt(p.data, ["subjectName", "subject_name"]) || "—",
+    valueGetter: (p) => txt(p.data, ["subjectName", "subject_name"]) || "—",
   } as ColDef<AnyRow>,
   unit: {
     field: "unitName",
@@ -220,11 +219,8 @@ export function StudentClassDiaryPage() {
         num(detail, ["academicYearId", "fk_academic_year_id"]) ||
         positiveId(readStorage("academicYearId"));
       const groupSectionId =
-        num(detail, [
-          "groupSectionId",
-          "fk_group_section_id",
-          "sectionId",
-        ]) || positiveId(readStorage("groupSectionId"));
+        num(detail, ["groupSectionId", "fk_group_section_id", "sectionId"]) ||
+        positiveId(readStorage("groupSectionId"));
       const sid =
         num(detail, ["studentId", "fk_student_id", "student_id"]) || studentId;
       const courseYearId =
@@ -278,11 +274,14 @@ export function StudentClassDiaryPage() {
       setListLoading(true);
       try {
         // Angular listByThreeIds(getLessonstatus, academicYearId, subjectId, groupSectionId, …)
-        const data = await fetchDetails<unknown>(ASSESSMENT_API.GET_LESSONSTATUS, {
-          academicYearId: ctx.academicYearId,
-          subjectId,
-          groupSectionId: ctx.groupSectionId,
-        });
+        const data = await fetchDetails<unknown>(
+          ASSESSMENT_API.GET_LESSONSTATUS,
+          {
+            academicYearId: ctx.academicYearId,
+            subjectId,
+            groupSectionId: ctx.groupSectionId,
+          },
+        );
         const list = normalizeLessonRows(asRows(data));
         setRows(list);
         if (list.length === 0) toastInfo("No class diary entries found.");

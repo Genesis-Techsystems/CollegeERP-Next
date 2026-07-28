@@ -7,6 +7,7 @@ import {
   DASHBOARD_API,
   FEEDBACK_API,
   GRIEVANCE_API,
+  SETUP_API,
   WORKFLOW_API,
 } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
@@ -97,6 +98,135 @@ export async function listComplaintWorkflowStages(): Promise<AnyRow[]> {
 /** Angular general details for grievance hierarchy codes (UNVSR / CLG / DEPT). */
 export async function listGrievanceHierarchyCats(): Promise<AnyRow[]> {
   return listGeneralDetailsByCode(GM_CODES.GRIEVANCE) as Promise<AnyRow[]>;
+}
+
+// ─── Staff grievance list (Angular `staff-grievance/grievance-list`) ─────────
+
+/** Angular `listDetailsById(CommitteeMember, empId, 'employeeDetail.employeeId')`. */
+export async function listCommitteeMembersByEmployee(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  if (!employeeId) return [];
+  return domainList<AnyRow>(
+    GRIEVANCE_API.COMMITTEE_MEMBER,
+    buildQuery({ "employeeDetail.employeeId": employeeId }),
+  );
+}
+
+/**
+ * Angular `listDetailsByThreeIds(WorkflowStage, collegeId, 'COMPLAINT', 'true',
+ * 'College.collegeId', 'wfForCode', isActive)`.
+ */
+export async function listComplaintWorkflowStagesByCollege(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId) return [];
+  return domainList<AnyRow>(
+    WORKFLOW_API.WORKFLOW_STAGE,
+    buildQuery({
+      "College.collegeId": collegeId,
+      wfForCode: "COMPLAINT",
+      isActive: true,
+    }),
+  );
+}
+
+/**
+ * Angular pending list:
+ * `listDetailsByThreeIds(Complaint, grvCommitteeId, 'false', collegeId,
+ * 'grievanceCommittee.grvCommitteeId', 'isAcknowledged', 'studentDetail.college.collegeId')`.
+ */
+export async function listPendingStaffGrievances(
+  grvCommitteeId: number,
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!grvCommitteeId || !collegeId) return [];
+  return domainList<AnyRow>(
+    GRIEVANCE_API.COMPLAINT,
+    buildQuery({
+      "grievanceCommittee.grvCommitteeId": grvCommitteeId,
+      isAcknowledged: false,
+      "studentDetail.college.collegeId": collegeId,
+    }),
+  );
+}
+
+/**
+ * Angular acknowledged list:
+ * `listDetailsByThreeIds(Complaint, grvCommitteeId, empId, 'true',
+ * 'grievanceCommittee.grvCommitteeId', 'ackEmp.employeeId', 'isAcknowledged')`.
+ */
+export async function listAcknowledgedStaffGrievances(
+  grvCommitteeId: number,
+  employeeId: number,
+): Promise<AnyRow[]> {
+  if (!grvCommitteeId || !employeeId) return [];
+  return domainList<AnyRow>(
+    GRIEVANCE_API.COMPLAINT,
+    buildQuery({
+      "grievanceCommittee.grvCommitteeId": grvCommitteeId,
+      "ackEmp.employeeId": employeeId,
+      isAcknowledged: true,
+    }),
+  );
+}
+
+/** Angular acknowledge flow — `POST complaint` then `addDetails(ComplaintsWf, …)`. */
+export async function acknowledgeStaffGrievance(params: {
+  grievance: AnyRow;
+  employeeId: number;
+  acceptedStageId: number;
+}): Promise<void> {
+  const { grievance, employeeId, acceptedStageId } = params;
+  const complaintPayload: AnyRow = {
+    ...grievance,
+    ackEmpId: employeeId,
+    isAcknowledged: true,
+    fromWfStageId: acceptedStageId,
+    workflowStageId: acceptedStageId,
+  };
+  await updateComplaint(complaintPayload);
+
+  const wfPayload: AnyRow = {
+    ...grievance,
+    fromGrvCommitteeId: grievance.grvCommitteeId,
+    fromEmpId: employeeId,
+    toEmpId: employeeId,
+    isCurrentStatus: true,
+    fromDate: new Date().toISOString(),
+  };
+  await domainCreate(GRIEVANCE_API.COMPLAINTS_WF, wfPayload);
+}
+
+// ─── Staff suggestions (Angular `staff-grievance/new-suggestion`) ────────────
+
+/** Angular `listDetailsById(CollegeSuggestion, userId, 'suggestionbyUser.userId')`. */
+export async function listCollegeSuggestionsByUser(
+  userId: number,
+): Promise<AnyRow[]> {
+  if (!userId) return [];
+  return domainList<AnyRow>(
+    SETUP_API.COLLEGE_SUGGESTION,
+    buildQuery({ "suggestionbyUser.userId": userId }),
+  );
+}
+
+/** Angular `addDetails(CollegeSuggestion, details)`. */
+export async function createCollegeSuggestion(data: AnyRow): Promise<void> {
+  await domainCreate(SETUP_API.COLLEGE_SUGGESTION, data);
+}
+
+/** Angular `updateDetails(CollegeSuggestion, details, suggestionId, 'suggestionId')`. */
+export async function updateCollegeSuggestion(
+  suggestionId: number,
+  data: AnyRow,
+): Promise<void> {
+  await domainUpdate(
+    SETUP_API.COLLEGE_SUGGESTION,
+    "suggestionId",
+    suggestionId,
+    data,
+  );
 }
 
 /** Angular `POST complaint`. Returns created complaintId from `data`. */

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { PlusIcon } from "lucide-react";
+import { DataTable } from "@/common/components/table";
 import { PageContainer } from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,7 +11,7 @@ import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import { utcMidnightIso } from "@/common/generic-functions";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
-import { cn } from "@/lib/utils";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   getDefaultWorkloadDayName,
   getDefaultWorkloadTabIndex,
@@ -54,6 +56,208 @@ function StatusText({ name }: { name: unknown }) {
   return <span className="text-amber-600 font-medium">{n}</span>;
 }
 
+function statusRenderer(p: ICellRendererParams<AnyRow>) {
+  return <StatusText name={p.data?.processStatusName} />;
+}
+
+function assignedStaffRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  return (
+    <span>
+      {String(row.proxyFirstName ?? "")}
+      {row.proxyEmpNumber ? (
+        <span className="font-medium text-blue-600">
+          {" "}
+          ({String(row.proxyEmpNumber)})
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function requestedStaffRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  return (
+    <span>
+      {String(row.assignedFirstName ?? "")}
+      {row.assignedEmpNumber ? (
+        <span className="font-medium text-blue-600">
+          {" "}
+          ({String(row.assignedEmpNumber)})
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function workloadSubjectRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  const type = String(row.proxySubjecttypeDisplayName ?? "");
+  const batch =
+    type === "LAB" && row.batchName ? ` - ${String(row.batchName)}` : "";
+  return `${String(row.subjectName ?? "")} (${type}${batch})`;
+}
+
+function courseDetailsRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  return [
+    row.collegeCode,
+    row.courseName,
+    row.groupName,
+    row.courseYearName,
+    row.groupSectionName ? `section ${row.groupSectionName}` : "",
+  ]
+    .filter(Boolean)
+    .join("/");
+}
+
+function workloadTimingRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  const times = Array.isArray(row.times) ? (row.times as AnyRow[]) : [];
+  if (times.length === 0) return "—";
+  return (
+    <div className="space-y-0.5">
+      {times.map((prx, ti) => (
+        <p key={ti} className="m-0 text-[13px] leading-snug">
+          {String(row.classTimingName ?? "")}({tConvert(prx.startTime)} -{" "}
+          {tConvert(prx.endTime)})
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function proxyDateRenderer(p: ICellRendererParams<AnyRow>) {
+  return formatProxyDate(p.data?.proxyDate);
+}
+
+function makeDayProxyActionsRenderer(
+  onEdit: (detail: AnyRow, proxy: AnyRow) => void,
+  detail: AnyRow,
+) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const proxy = p.data;
+    if (!proxy) return null;
+    if (String(proxy.processStatusName) === "Accepted") return <span>—</span>;
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-xs"
+        onClick={() => onEdit(detail, proxy)}
+      >
+        Edit
+      </Button>
+    );
+  };
+}
+
+function makeRequestedActionsRenderer(onChange: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    return (
+      <Button
+        size="sm"
+        className="h-7 px-3 text-xs"
+        onClick={() => onChange(row)}
+      >
+        Change
+      </Button>
+    );
+  };
+}
+
+const ASSIGNED_COL_DEFS = {
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  staff: {
+    headerName: "Proxy Assigned Staff",
+    minWidth: 180,
+  } as ColDef<AnyRow>,
+  subject: {
+    headerName: "Proxy Assigned Subject",
+    minWidth: 200,
+  } as ColDef<AnyRow>,
+  proxyDate: {
+    headerName: "Proxy Date",
+    minWidth: 120,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  course: { headerName: "Course Details", minWidth: 240 } as ColDef<AnyRow>,
+  timing: { headerName: "Timing", minWidth: 160, flex: 0 } as ColDef<AnyRow>,
+  status: { headerName: "Status", minWidth: 110, flex: 0 } as ColDef<AnyRow>,
+};
+
+const REQUESTED_COL_DEFS = {
+  siNo: ASSIGNED_COL_DEFS.siNo,
+  staff: {
+    headerName: "Requested Staff",
+    minWidth: 180,
+  } as ColDef<AnyRow>,
+  subject: {
+    headerName: "Requested Subject",
+    minWidth: 200,
+  } as ColDef<AnyRow>,
+  proxyDate: {
+    headerName: "Requested Date",
+    minWidth: 120,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  course: ASSIGNED_COL_DEFS.course,
+  timing: ASSIGNED_COL_DEFS.timing,
+  status: ASSIGNED_COL_DEFS.status,
+  actions: {
+    headerName: "Actions",
+    minWidth: 100,
+    flex: 0,
+    width: 100,
+  } as ColDef<AnyRow>,
+};
+
+const DAY_PROXY_COL_DEFS = {
+  siNo: ASSIGNED_COL_DEFS.siNo,
+  proxyStaff: {
+    field: "proxyFirstName",
+    headerName: "Proxy Staff",
+    minWidth: 140,
+  } as ColDef<AnyRow>,
+  proxySubject: {
+    headerName: "Proxy Subject",
+    minWidth: 180,
+  } as ColDef<AnyRow>,
+  proxyDate: {
+    headerName: "Proxy Date",
+    minWidth: 120,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  status: ASSIGNED_COL_DEFS.status,
+  actions: {
+    headerName: "Actions",
+    minWidth: 90,
+    flex: 0,
+    width: 90,
+  } as ColDef<AnyRow>,
+};
+
+function dayProxySubjectRenderer(p: ICellRendererParams<AnyRow>) {
+  const row = p.data;
+  if (!row) return null;
+  const type = String(row.proxySubjecttypeDisplayName ?? "");
+  const batch =
+    type === "LAB" && row.batchName ? ` - ${String(row.batchName)}` : "";
+  return `${String(row.subjectName ?? "")} (${type}${batch})`;
+}
+
 export function WorkloadAdjustmentPage() {
   const { user, isLoading: sessionLoading } = useSessionContext();
   const { employeeId, isResolving } = useLoginEmployeeId(user, sessionLoading);
@@ -76,6 +280,38 @@ export function WorkloadAdjustmentPage() {
   } | null>(null);
   const [changeTarget, setChangeTarget] = useState<AnyRow | null>(null);
   const [takeOpen, setTakeOpen] = useState(false);
+
+  const assignedColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      ASSIGNED_COL_DEFS.siNo,
+      { ...ASSIGNED_COL_DEFS.staff, cellRenderer: assignedStaffRenderer },
+      { ...ASSIGNED_COL_DEFS.subject, cellRenderer: workloadSubjectRenderer },
+      { ...ASSIGNED_COL_DEFS.proxyDate, cellRenderer: proxyDateRenderer },
+      { ...ASSIGNED_COL_DEFS.course, cellRenderer: courseDetailsRenderer },
+      { ...ASSIGNED_COL_DEFS.timing, cellRenderer: workloadTimingRenderer },
+      { ...ASSIGNED_COL_DEFS.status, cellRenderer: statusRenderer },
+    ],
+    [],
+  );
+
+  const requestedColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      REQUESTED_COL_DEFS.siNo,
+      { ...REQUESTED_COL_DEFS.staff, cellRenderer: requestedStaffRenderer },
+      { ...REQUESTED_COL_DEFS.subject, cellRenderer: workloadSubjectRenderer },
+      { ...REQUESTED_COL_DEFS.proxyDate, cellRenderer: proxyDateRenderer },
+      { ...REQUESTED_COL_DEFS.course, cellRenderer: courseDetailsRenderer },
+      { ...REQUESTED_COL_DEFS.timing, cellRenderer: workloadTimingRenderer },
+      { ...REQUESTED_COL_DEFS.status, cellRenderer: statusRenderer },
+      {
+        ...REQUESTED_COL_DEFS.actions,
+        cellRenderer: makeRequestedActionsRenderer((row) =>
+          setChangeTarget(row),
+        ),
+      },
+    ],
+    [],
+  );
 
   const loadSchedules = useCallback(
     async (dayName: string) => {
@@ -305,72 +541,39 @@ export function WorkloadAdjustmentPage() {
                         </Button>
                       </div>
                       {proxies.length > 0 ? (
-                        <div className="mt-3 overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="bg-[#C3D9FF] text-left">
-                                <th className="p-1.5">SI.No</th>
-                                <th className="p-1.5">Proxy Staff</th>
-                                <th className="p-1.5">Proxy Subject</th>
-                                <th className="p-1.5">Proxy Date</th>
-                                <th className="p-1.5">Status</th>
-                                <th className="p-1.5">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {proxies.map((proxy, i) => (
-                                <tr
-                                  key={String(proxy.staffProxyId ?? i)}
-                                  className={cn(
-                                    "border-t",
-                                    i % 2 === 0 ? "bg-white" : "bg-[#f1f6ff]",
-                                  )}
-                                >
-                                  <td className="p-1.5">{i + 1}</td>
-                                  <td className="p-1.5">
-                                    {String(proxy.proxyFirstName ?? "")}
-                                  </td>
-                                  <td className="p-1.5">
-                                    {String(proxy.subjectName ?? "")} (
-                                    {String(
-                                      proxy.proxySubjecttypeDisplayName ?? "",
-                                    )}
-                                    {String(
-                                      proxy.proxySubjecttypeDisplayName,
-                                    ) === "LAB" && proxy.batchName
-                                      ? ` - ${String(proxy.batchName)}`
-                                      : ""}
-                                    )
-                                  </td>
-                                  <td className="p-1.5">
-                                    {formatProxyDate(proxy.proxyDate)}
-                                  </td>
-                                  <td className="p-1.5">
-                                    <StatusText
-                                      name={proxy.processStatusName}
-                                    />
-                                  </td>
-                                  <td className="p-1.5">
-                                    {String(proxy.processStatusName) !==
-                                    "Accepted" ? (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-7 px-2 text-xs"
-                                        onClick={() =>
-                                          setEditTarget({ detail, proxy })
-                                        }
-                                      >
-                                        Edit
-                                      </Button>
-                                    ) : (
-                                      <span>-</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="mt-3">
+                          <DataTable
+                            title="Proxies"
+                            rowData={proxies}
+                            columnDefs={[
+                              DAY_PROXY_COL_DEFS.siNo,
+                              DAY_PROXY_COL_DEFS.proxyStaff,
+                              {
+                                ...DAY_PROXY_COL_DEFS.proxySubject,
+                                cellRenderer: dayProxySubjectRenderer,
+                              },
+                              {
+                                ...DAY_PROXY_COL_DEFS.proxyDate,
+                                cellRenderer: proxyDateRenderer,
+                              },
+                              {
+                                ...DAY_PROXY_COL_DEFS.status,
+                                cellRenderer: statusRenderer,
+                              },
+                              {
+                                ...DAY_PROXY_COL_DEFS.actions,
+                                cellRenderer: makeDayProxyActionsRenderer(
+                                  (proxyRow) =>
+                                    setEditTarget({ detail, proxy: proxyRow }),
+                                  detail,
+                                ),
+                              },
+                            ]}
+                            bordered
+                            height="auto"
+                            pagination={false}
+                            toolbar={false}
+                          />
                         </div>
                       ) : null}
                     </div>
@@ -384,16 +587,25 @@ export function WorkloadAdjustmentPage() {
                 <Button onClick={() => setTakeOpen(true)}>Take Proxy</Button>
               </div>
 
-              <WorkloadTable
+              <DataTable
                 title="Assigned Workloads"
-                rows={myWorkLoads}
-                mode="assigned"
+                rowData={myWorkLoads}
+                columnDefs={assignedColumnDefs}
+                loading={loading}
+                bordered
+                height="auto"
+                pagination
+                toolbar={{ search: true, searchPlaceholder: "Search" }}
               />
-              <WorkloadTable
+              <DataTable
                 title="Requested Workloads"
-                rows={acceptedWorkloads}
-                mode="requested"
-                onChange={(row) => setChangeTarget(row)}
+                rowData={acceptedWorkloads}
+                columnDefs={requestedColumnDefs}
+                loading={loading}
+                bordered
+                height="auto"
+                pagination
+                toolbar={{ search: true, searchPlaceholder: "Search" }}
               />
             </TabsContent>
           </Tabs>
@@ -442,120 +654,5 @@ export function WorkloadAdjustmentPage() {
         }}
       />
     </PageContainer>
-  );
-}
-
-function WorkloadTable({
-  title,
-  rows,
-  mode,
-  onChange,
-}: {
-  title: string;
-  rows: AnyRow[];
-  mode: "assigned" | "requested";
-  onChange?: (row: AnyRow) => void;
-}) {
-  return (
-    <div className="rounded-md border p-3">
-      <p className="mb-2 font-semibold text-sm">{title}</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-[#C3D9FF] text-left">
-              <th className="p-1.5">SI.No</th>
-              <th className="p-1.5">
-                {mode === "assigned"
-                  ? "Proxy Assigned Staff"
-                  : "Requested Staff"}
-              </th>
-              <th className="p-1.5">
-                {mode === "assigned"
-                  ? "Proxy Assigned Subject"
-                  : "Requested Subject"}
-              </th>
-              <th className="p-1.5">
-                {mode === "assigned" ? "Proxy Date" : "Requested Date"}
-              </th>
-              <th className="p-1.5">Course Details</th>
-              <th className="p-1.5">Timing</th>
-              <th className="p-1.5">Status</th>
-              {mode === "requested" ? <th className="p-1.5">Actions</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((proxy, i) => {
-              const times = Array.isArray(proxy.times)
-                ? (proxy.times as AnyRow[])
-                : [];
-              return (
-                <tr
-                  key={`${String(proxy.staffProxyId ?? i)}-${i}`}
-                  className={cn(
-                    "border-t",
-                    i % 2 === 0 ? "bg-white" : "bg-[#f1f6ff]",
-                  )}
-                >
-                  <td className="p-1.5">{i + 1}</td>
-                  <td className="p-1.5">
-                    {mode === "assigned"
-                      ? String(proxy.proxyFirstName ?? "")
-                      : String(proxy.assignedFirstName ?? "")}
-                    <span className="text-blue-600">
-                      {" "}
-                      (
-                      {mode === "assigned"
-                        ? String(proxy.proxyEmpNumber ?? "")
-                        : String(proxy.assignedEmpNumber ?? "")}
-                      )
-                    </span>
-                  </td>
-                  <td className="p-1.5">
-                    {String(proxy.subjectName ?? "")} (
-                    {String(proxy.proxySubjecttypeDisplayName ?? "")}
-                    {mode === "assigned" &&
-                    String(proxy.proxySubjecttypeDisplayName) === "LAB" &&
-                    proxy.batchName
-                      ? ` - ${String(proxy.batchName)}`
-                      : ""}
-                    )
-                  </td>
-                  <td className="p-1.5">{formatProxyDate(proxy.proxyDate)}</td>
-                  <td className="p-1.5">
-                    {String(proxy.collegeCode ?? "")}/
-                    {String(proxy.courseName ?? "")}/
-                    {String(proxy.groupName ?? "")}/
-                    {String(proxy.courseYearName ?? "")}/section{" "}
-                    {String(proxy.groupSectionName ?? "")}
-                  </td>
-                  <td className="p-1.5">
-                    {times.map((prx, ti) => (
-                      <p key={ti} className="m-0 text-[13px]">
-                        {String(proxy.classTimingName ?? "")}(
-                        {tConvert(prx.startTime)} - {tConvert(prx.endTime)})
-                      </p>
-                    ))}
-                  </td>
-                  <td className="p-1.5">
-                    <StatusText name={proxy.processStatusName} />
-                  </td>
-                  {mode === "requested" ? (
-                    <td className="p-1.5">
-                      <button
-                        type="button"
-                        className="text-blue-600 underline text-xs"
-                        onClick={() => onChange?.(proxy)}
-                      >
-                        Change
-                      </button>
-                    </td>
-                  ) : null}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }

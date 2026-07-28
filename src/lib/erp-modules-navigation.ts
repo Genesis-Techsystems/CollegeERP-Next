@@ -169,7 +169,12 @@ export function mapStaffClassesLabelToRoute(label?: string): string | null {
   ) {
     return `${STAFF_CLASSES_BASE}/my-timetable`;
   }
-  if (key.includes("classdiary") || key.includes("classdairy")) {
+  // Bare "Class Diary" only — do not steal "Staff Class Diary" / "Student Class Diary".
+  if (
+    (key === "classdiary" || key === "classdairy") &&
+    !key.includes("staff") &&
+    !key.includes("student")
+  ) {
     return `${STAFF_CLASSES_BASE}/class-dairy`;
   }
   return null;
@@ -179,6 +184,19 @@ export function mapStaffClassesNavRoute(
   href?: string,
   label?: string,
 ): string | null {
+  const labelKey = label ? normalizeLabelKey(label) : "";
+  // Staff/Student Class Diary menu items belong to student-class-dairy page.
+  if (
+    labelKey === "staffclassdiary" ||
+    labelKey === "staffclassdairy" ||
+    labelKey === "studentclassdiary" ||
+    labelKey === "studentclassdairy" ||
+    (labelKey.includes("staff") &&
+      (labelKey.includes("classdiary") || labelKey.includes("classdairy")))
+  ) {
+    return null;
+  }
+
   const byLabel = mapStaffClassesLabelToRoute(label);
   if (byLabel) return byLabel;
 
@@ -335,6 +353,16 @@ export function mapStudentAcademicsNavRoute(
   // Staff Academics (staff-classes) is a separate module — do not remap here.
   if (hrefLower.includes("staff-classes")) return null;
 
+  // Menu label "Staff Class Diary" keeps the existing student-class-dairy page.
+  if (
+    (labelKey.includes("staff") &&
+      (labelKey.includes("classdiary") || labelKey.includes("classdairy"))) ||
+    hrefLower.includes("staff-class-diary") ||
+    hrefLower.includes("staff-class-dairy")
+  ) {
+    return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
+  }
+
   const inStudentAcademics =
     hrefLower.includes("student-academics") ||
     hrefLower.includes("/apps/student-academics") ||
@@ -343,8 +371,6 @@ export function mapStudentAcademicsNavRoute(
     hrefLower.includes("student-my-subjects") ||
     hrefLower.includes("student-class-diary") ||
     hrefLower.includes("student-class-dairy") ||
-    hrefLower.includes("class-diary") ||
-    hrefLower.includes("class-dairy") ||
     hrefLower.includes("student-assignments") ||
     hrefLower.includes("student-my-attendance");
 
@@ -375,9 +401,7 @@ export function mapStudentAcademicsNavRoute(
     }
     if (
       hrefLower.includes("student-class-diary") ||
-      hrefLower.includes("student-class-dairy") ||
-      hrefLower.includes("class-diary") ||
-      hrefLower.includes("class-dairy")
+      hrefLower.includes("student-class-dairy")
     ) {
       return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
     }
@@ -407,7 +431,10 @@ export function mapStudentAcademicsNavRoute(
     ) {
       return `${STUDENT_ACADEMICS_BASE}/student-timetable`;
     }
-    if (labelKey.includes("classdiary") || labelKey.includes("classdairy")) {
+    if (
+      labelKey.includes("student") &&
+      (labelKey.includes("classdiary") || labelKey.includes("classdairy"))
+    ) {
       return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
     }
     if (labelKey === "assignments" || labelKey.includes("studentassignment")) {
@@ -859,9 +886,24 @@ export function mapErpModuleNavRoute(
   const institutional = mapAdminInstitutionalRoomRoute(href, label);
   if (institutional) return institutional;
 
+  // Staff Classes before Student Academics so bare "Class Diary" /
+  // staff-classes/class-dairy is not stolen by student-class-dairy pins.
+  // But prefer student academics when the label is Staff/Student Class Diary.
+  const labelKey = normalizeLabelKey(label ?? "");
+  if (
+    labelKey === "staffclassdiary" ||
+    labelKey === "staffclassdairy" ||
+    labelKey === "studentclassdiary" ||
+    labelKey === "studentclassdairy" ||
+    (labelKey.includes("staff") &&
+      (labelKey.includes("classdiary") || labelKey.includes("classdairy")))
+  ) {
+    return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
+  }
+
   return (
-    mapStudentAcademicsNavRoute(href, label) ??
     mapStaffClassesNavRoute(href, label) ??
+    mapStudentAcademicsNavRoute(href, label) ??
     mapAttendanceNavRoute(href, label) ??
     mapMentorshipNavRoute(href, label) ??
     mapEventsNavRoute(href, label) ??

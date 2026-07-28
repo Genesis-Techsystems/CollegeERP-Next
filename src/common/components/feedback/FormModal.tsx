@@ -50,6 +50,8 @@ export interface FormModalProps {
   showFooterDivider?: boolean;
   /** Show the secondary cancel button. Defaults to true. */
   showCancelButton?: boolean;
+  /** Show the primary submit button. Defaults to true. */
+  showSubmitButton?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -75,6 +77,7 @@ export function FormModal({
   showHeaderDivider = false,
   showFooterDivider = true,
   showCancelButton = true,
+  showSubmitButton = true,
 }: Readonly<FormModalProps>) {
   return (
     <Dialog
@@ -144,17 +147,19 @@ export function FormModal({
                 {cancelLabel}
               </Button>
             ) : null}
-            <Button
-              type="submit"
-              size="sm"
-              className="h-9 min-w-[5.5rem]"
-              disabled={isSubmitting}
-            >
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {submitLabel}
-            </Button>
+            {showSubmitButton ? (
+              <Button
+                type="submit"
+                size="sm"
+                className="h-9 min-w-[5.5rem]"
+                disabled={isSubmitting}
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {submitLabel}
+              </Button>
+            ) : null}
           </DialogFooter>
         </form>
       </DialogContent>

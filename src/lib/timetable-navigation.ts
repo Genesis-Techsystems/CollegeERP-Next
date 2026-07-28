@@ -109,7 +109,11 @@ const SLUG_ALIASES: Record<string, string> = {
   "timetable-dashboard": "timetable-dashboard",
   "special-activities": "special-activities",
   "special-activity-attendance": "special-activity-attendance",
-  "live-class-schedules": "live-class-schedules",
+  "live-class-schedule": "live-class-schedule",
+  "live-class-schedule-list": "live-class-schedule-list",
+  "live-class-schedules-list": "live-class-schedule-list",
+  /** Legacy hub slug → schedule grid (Angular `live-class-schedule`) */
+  "live-class-schedules": "live-class-schedule",
 };
 
 function normalizeLabelKey(label: string): string {
@@ -167,8 +171,15 @@ export function mapTimetableLabelToRoute(label?: string): string | null {
   }
   if (key.includes("specialactivit"))
     return `${TIMETABLE_MGMT_BASE}/special-activities`;
-  if (key.includes("liveclass"))
-    return `${TIMETABLE_MGMT_BASE}/live-class-schedules`;
+  if (
+    key.includes("liveclass") &&
+    (key.includes("list") || key.includes("scheduleslist"))
+  ) {
+    return `${TIMETABLE_MGMT_BASE}/live-class-schedule-list`;
+  }
+  if (key.includes("liveclass")) {
+    return `${TIMETABLE_MGMT_BASE}/live-class-schedule`;
+  }
 
   return null;
 }
@@ -235,6 +246,27 @@ export function mapTimetableNavRoute(
   if (byLabel) return byLabel;
 
   if (!hrefRaw || hrefRaw === "#") return null;
+
+  if (
+    hrefLower.includes("staff-digital-class-room") ||
+    hrefLower.includes("staff-digital-classroom")
+  ) {
+    const seg = lastPathSegment(hrefLower);
+    if (
+      seg === "live-class-schedule-list" ||
+      seg.includes("schedule-list") ||
+      seg.includes("schedules-list")
+    ) {
+      return `${TIMETABLE_MGMT_BASE}/live-class-schedule-list`;
+    }
+    if (
+      seg === "live-class-schedule" ||
+      seg === "live-class-schedules" ||
+      seg.includes("live-class-schedule")
+    ) {
+      return `${TIMETABLE_MGMT_BASE}/live-class-schedule`;
+    }
+  }
 
   if (hrefLower.includes("time-table-management")) {
     const idx = hrefLower.indexOf("time-table-management");

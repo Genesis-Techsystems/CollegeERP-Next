@@ -7,12 +7,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type {
+  CellStyleFunc,
+  ColDef,
+  ICellRendererParams,
+} from "ag-grid-community";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown, LibraryBig, Loader2 } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
 import {
   Collapsible,
   CollapsibleContent,
@@ -29,7 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, rowIndexGetter } from "@/lib/utils";
 import {
   LEAVE_DAYS,
   listEmpProxyDetails,
@@ -61,6 +67,85 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+
+const PROXY_COL_DEFS = {
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  classDate: { headerName: "Class Date", minWidth: 110 } as ColDef<AnyRow>,
+  course: { headerName: "Course", minWidth: 180 } as ColDef<AnyRow>,
+  subject: {
+    field: "subjectName",
+    headerName: "Subject",
+    minWidth: 100,
+  } as ColDef<AnyRow>,
+  proxyEmployee: {
+    headerName: "Proxy Employee",
+    minWidth: 140,
+  } as ColDef<AnyRow>,
+  period: { headerName: "Peroid", minWidth: 90, flex: 0 } as ColDef<AnyRow>,
+  timing: { headerName: "Timing", minWidth: 110, flex: 0 } as ColDef<AnyRow>,
+};
+
+const proxyMissingCellStyle: CellStyleFunc<AnyRow> = (params) => {
+  if (Number(params.data?.assinedProxy) === 0) {
+    return { backgroundColor: "#ffa0a0" };
+  }
+  return undefined;
+};
+
+function proxyClassDateRenderer(p: ICellRendererParams<AnyRow>) {
+  return formatShortDate(p.data?.classDate);
+}
+
+function proxyCourseRenderer(p: ICellRendererParams<AnyRow>) {
+  return String(p.data?.secDisplayName ?? "");
+}
+
+function proxyEmployeeRenderer(p: ICellRendererParams<AnyRow>) {
+  return String(p.data?.proxyEmp ?? "");
+}
+
+function proxyPeriodRenderer(p: ICellRendererParams<AnyRow>) {
+  return String(p.data?.periodno ?? "");
+}
+
+function proxyTimingRenderer(p: ICellRendererParams<AnyRow>) {
+  return `${String(p.data?.startTime ?? "")} - ${String(p.data?.endTime ?? "")}`;
+}
+
+const PROXY_COLUMN_DEFS: ColDef<AnyRow>[] = [
+  { ...PROXY_COL_DEFS.siNo, cellStyle: proxyMissingCellStyle },
+  {
+    ...PROXY_COL_DEFS.classDate,
+    cellRenderer: proxyClassDateRenderer,
+    cellStyle: proxyMissingCellStyle,
+  },
+  {
+    ...PROXY_COL_DEFS.course,
+    cellRenderer: proxyCourseRenderer,
+    cellStyle: proxyMissingCellStyle,
+  },
+  { ...PROXY_COL_DEFS.subject, cellStyle: proxyMissingCellStyle },
+  {
+    ...PROXY_COL_DEFS.proxyEmployee,
+    cellRenderer: proxyEmployeeRenderer,
+    cellStyle: proxyMissingCellStyle,
+  },
+  {
+    ...PROXY_COL_DEFS.period,
+    cellRenderer: proxyPeriodRenderer,
+    cellStyle: proxyMissingCellStyle,
+  },
+  {
+    ...PROXY_COL_DEFS.timing,
+    cellRenderer: proxyTimingRenderer,
+    cellStyle: proxyMissingCellStyle,
+  },
+];
 
 export interface AddLeaveDialogData {
   collegeId: number;
@@ -107,9 +192,6 @@ export function AddLeaveModal({
   const [proxyOk, setProxyOk] = useState(true);
   const [loading, setLoading] = useState(false);
   const [availableCount, setAvailableCount] = useState(0);
-  const [consumedLeaves, setConsumedLeaves] = useState(0);
-  const [remainingLeaves, setRemainingLeaves] = useState(0);
-  const [appliedLeaves, setAppliedLeaves] = useState(1);
   const [noOfLeaves, setNoOfLeaves] = useState(1);
   const [toDateOverride, setToDateOverride] = useState<Date | null>(null);
   const [lopOpen, setLopOpen] = useState(false);
@@ -148,7 +230,6 @@ export function AddLeaveModal({
     },
   });
 
-  const leaveTypeId = watch("leavetypeId");
   const dayCode = watch("isForenoonAfternoon");
   const fromDate = watch("leaveFromDate");
 
@@ -178,22 +259,15 @@ export function AddLeaveModal({
     (leavetypeId: number) => {
       if (!data || !leavetypeId) {
         setAvailableCount(0);
-        setConsumedLeaves(0);
-        setRemainingLeaves(0);
         return;
       }
       const match = data.leaveCounts.find(
         (x) => Number(x.leavetypeId) === leavetypeId,
       );
       if (match) {
-        const bal = Number(match.balanceLeaves ?? 0);
-        setAvailableCount(bal);
-        setRemainingLeaves(bal - 1);
-        setConsumedLeaves(Number(match.consumedLeaves ?? 0));
+        setAvailableCount(Number(match.balanceLeaves ?? 0));
       } else {
         setAvailableCount(0);
-        setRemainingLeaves(0);
-        setConsumedLeaves(0);
       }
     },
     [data],
@@ -272,8 +346,6 @@ export function AddLeaveModal({
         setEvents(rows);
         if (rows.length > 0) {
           setNoOfLeaves((n) => n - rows.length);
-          setAppliedLeaves((n) => n - rows.length);
-          setRemainingLeaves((n) => n + rows.length);
         }
       } catch (e) {
         toastError(e, "Failed to load holidays");
@@ -318,9 +390,7 @@ export function AddLeaveModal({
           values.isForenoonAfternoon === "F" ||
           values.isForenoonAfternoon === "A"
         ) {
-          setAppliedLeaves(0.5);
           setNoOfLeaves(0.5);
-          setRemainingLeaves(availableCount - 0.5);
           return true;
         }
         return false;
@@ -328,10 +398,6 @@ export function AddLeaveModal({
 
       if (hasEl) {
         setNoOfLeaves(diffDays);
-        setAppliedLeaves(diffDays);
-        if (values.leavetypeId) {
-          setRemainingLeaves(availableCount - diffDays);
-        }
         if (!applyHalfDay()) {
           /* full day already set */
         }
@@ -339,19 +405,12 @@ export function AddLeaveModal({
         toastInfo("From date should be less then To date.");
         setValue("leaveFromDate", effectiveTo);
         setNoOfLeaves(1);
-        setAppliedLeaves(1);
       } else {
         setNoOfLeaves(diffDays);
-        setAppliedLeaves(diffDays);
-        if (values.leavetypeId) {
-          setRemainingLeaves(availableCount - diffDays);
-        }
         if (!applyHalfDay()) {
           const rem = availableCount - diffDays;
           if (rem < 0) {
             toastInfo("Leaves are exceeding.");
-            setRemainingLeaves(availableCount);
-            setAppliedLeaves(1);
             setNoOfLeaves(1);
             setValue("leaveToDate", values.leaveFromDate);
             diffDays = 1;
@@ -429,7 +488,6 @@ export function AddLeaveModal({
         }
         if (data.noOfLeaves != null) {
           setNoOfLeaves(Number(data.noOfLeaves));
-          setAppliedLeaves(Number(data.noOfLeaves));
         }
 
         // defer proxy/day calc after form reset
@@ -454,14 +512,10 @@ export function AddLeaveModal({
       const from = getValues("leaveFromDate");
       setValue("leaveToDate", from);
       setToDateOverride(from);
-      setAppliedLeaves(0.5);
       setNoOfLeaves(0.5);
-      setRemainingLeaves(availableCount - 0.5);
     } else {
       setToDateOverride(null);
-      setAppliedLeaves(1);
       setNoOfLeaves(1);
-      setRemainingLeaves(availableCount - 1);
     }
     if (applicationId) void calDays("from");
     void loadProxies();
@@ -691,27 +745,6 @@ export function AddLeaveModal({
                 <TimeBadge>{dayCode === "F" ? "1:00 PM" : "4:00 PM"}</TimeBadge>
               </div>
 
-              {leaveTypeId ? (
-                <div className="grid grid-cols-2 gap-2 text-[15px] font-medium md:grid-cols-4">
-                  <p>
-                    <span className="text-blue-600">Available Leaves : </span>
-                    {availableCount}
-                  </p>
-                  <p>
-                    <span className="text-blue-600">Leaves Taken : </span>
-                    {consumedLeaves}
-                  </p>
-                  <p>
-                    <span className="text-blue-600">Remaining Leaves : </span>
-                    {remainingLeaves}
-                  </p>
-                  <p>
-                    <span className="text-blue-600">No. of days : </span>
-                    {appliedLeaves}
-                  </p>
-                </div>
-              ) : null}
-
               {proxies.length > 0 ? (
                 <Collapsible
                   open={classesOpen}
@@ -737,58 +770,16 @@ export function AddLeaveModal({
                     </button>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="overflow-x-auto border-t border-border">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="bg-[#C3D9FF] text-left">
-                            <th className="p-1.5 font-medium w-[3%]">SI.No</th>
-                            <th className="p-1.5 font-medium">Class Date</th>
-                            <th className="p-1.5 font-medium">Course</th>
-                            <th className="p-1.5 font-medium">Subject</th>
-                            <th className="p-1.5 font-medium">
-                              Proxy Employee
-                            </th>
-                            <th className="p-1.5 font-medium">Peroid</th>
-                            <th className="p-1.5 font-medium">Timing</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {proxies.map((p, i) => (
-                            <tr
-                              key={`${String(p.classDate)}-${i}`}
-                              className={cn(
-                                "border-t border-border/60",
-                                Number(p.assinedProxy) === 0
-                                  ? "bg-[#ffa0a0]"
-                                  : i % 2 === 0
-                                    ? "bg-white"
-                                    : "bg-[#f1f6ff]",
-                              )}
-                            >
-                              <td className="p-1.5 font-medium">{i + 1}</td>
-                              <td className="p-1.5 font-medium">
-                                {formatShortDate(p.classDate)}
-                              </td>
-                              <td className="p-1.5 font-medium">
-                                {String(p.secDisplayName ?? "")}
-                              </td>
-                              <td className="p-1.5 font-medium">
-                                {String(p.subjectName ?? "")}
-                              </td>
-                              <td className="p-1.5 font-medium">
-                                {String(p.proxyEmp ?? "")}
-                              </td>
-                              <td className="p-1.5 font-medium">
-                                {String(p.periodno ?? "")}
-                              </td>
-                              <td className="p-1.5 font-medium">
-                                {String(p.startTime ?? "")} -{" "}
-                                {String(p.endTime ?? "")}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="border-t border-border px-2 pb-2 pt-1">
+                      <DataTable
+                        rowData={proxies}
+                        columnDefs={PROXY_COLUMN_DEFS}
+                        bordered={false}
+                        height="auto"
+                        pagination={false}
+                        toolbar={false}
+                        fitColumnsToWidth={false}
+                      />
                     </div>
                   </CollapsibleContent>
                 </Collapsible>

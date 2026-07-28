@@ -15,6 +15,8 @@ export const QK = {
   session: ["session"] as const,
   loginEmployeeId: (userId: number) => ["loginEmployeeId", userId] as const,
   staffLoginContext: (userId: number) => ["staffLoginContext", userId] as const,
+  staffLoginDeptHead: (employeeId: number) =>
+    ["staffLoginDeptHead", employeeId] as const,
 
   // ── Exam Sessions ─────────────────────────────────────────────────────
   examSessions: {
@@ -861,6 +863,8 @@ export const QK = {
   trainings: {
     all: ["Training"] as const,
     list: () => ["Training", "list"] as const,
+    byCollege: (collegeId: number) =>
+      ["Training", "byCollege", collegeId] as const,
   },
   trainingDetails: {
     all: ["TrainingDetail"] as const,
@@ -876,6 +880,10 @@ export const QK = {
     all: ["TrainingStudent"] as const,
     byEmployee: (employeeId: number) =>
       ["TrainingStudent", "byEmployee", employeeId] as const,
+  },
+  programRegistrationApproval: {
+    byEmployee: (employeeId: number) =>
+      ["ProgramRegistrationApproval", employeeId] as const,
   },
   // ─── Placements & Achievements ───────────────────────────────────────────────
   placements: {
@@ -1238,6 +1246,20 @@ export const QK = {
     detail: (complaintId: number) =>
       ["StudentGrievances", "detail", complaintId] as const,
     lookup: () => ["StudentGrievances", "lookup"] as const,
+  },
+  staffGrievances: {
+    all: ["StaffGrievances"] as const,
+    pending: (grvCommitteeId: number, collegeId: number) =>
+      ["StaffGrievances", "pending", grvCommitteeId, collegeId] as const,
+    acknowledged: (grvCommitteeId: number, employeeId: number) =>
+      ["StaffGrievances", "acknowledged", grvCommitteeId, employeeId] as const,
+    committee: (employeeId: number) =>
+      ["StaffGrievances", "committee", employeeId] as const,
+  },
+  staffSuggestions: {
+    all: ["StaffSuggestions"] as const,
+    byUser: (userId: number) => ["StaffSuggestions", "byUser", userId] as const,
+    lookup: () => ["StaffSuggestions", "lookup"] as const,
   },
   studentSurveyFeedback: {
     all: ["StudentSurveyFeedback"] as const,
