@@ -14,6 +14,9 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { useSessionContext } from "@/context/SessionContext";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { printHtmlInIframe } from "@/lib/print";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
@@ -112,47 +115,173 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   });
 }
 
-function printAnswerSheetsReport(rows: AnyRow[], subtitle: string) {
-  if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Answer Sheets Report</title>
-<style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
-</style></head>
-<body>
-  <p class="title">Exam Answer Sheets Report</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
-</body></html>`;
-
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
+const REPORT_PRINT_CSS = `
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+  .wrap {
+    width: 100%;
+    padding: 10px 12px 12px;
+  }
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .logo-col {
+    width: 12%;
+    flex: 0 0 12%;
+    padding-right: 10px;
+  }
+  .logo-col img {
+    max-width: 100%;
+    max-height: 64px;
+    object-fit: contain;
+    display: block;
+  }
+  .title-col {
+    width: 88%;
+    flex: 1 1 88%;
+    text-align: left;
+  }
+  .collegeName {
+    margin: 0 0 2px;
+    font-size: 17px;
+    font-weight: 700;
+    color: #000;
+  }
+  .title {
+    margin: 0 0 2px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #000;
+  }
+  .details {
+    margin: 0;
+    font-size: 12px;
+    color: #000;
+  }
+  table.report {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  table.report th,
+  table.report td {
+    border: 1px solid #000;
+    padding: 4px 5px;
+    vertical-align: middle;
+    word-break: break-word;
+  }
+  table.report th {
+    background: #f2f2f2;
+    font-size: 8px;
+    font-weight: 700;
+    text-align: center;
+  }
+  table.report td {
+    font-size: 7.5px;
+  }
+  .text-center {
+    text-align: center;
+  }
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+`;
+
+function printAnswerSheetsReport(args: {
+  rows: AnyRow[];
+  collegeName: string;
+  collegeLogo: string;
+  subtitle: string;
+}) {
+  const { rows, collegeName, collegeLogo, subtitle } = args;
+  if (!rows.length) return;
+  const bodyRows = rows
+    .map((row, index) => {
+      const m = rowMetrics(row);
+      return `<tr>
+        <td class="text-center">${index + 1}</td>
+        <td>${escapeHtml(txt(row.exam_date))}</td>
+        <td>${escapeHtml(txt(row.college_code))}</td>
+        <td>${escapeHtml(txt(row.course_year_code))}</td>
+        <td>${escapeHtml(txt(row.group_code))}</td>
+        <td>${escapeHtml(txt(row.subject_name))}</td>
+        <td class="text-center">${num(row.total_students)}</td>
+        <td class="text-center">${m.present}</td>
+        <td class="text-center">${m.absent}</td>
+        <td class="text-center">${m.expected}</td>
+        <td class="text-center">${m.uploaded}</td>
+        <td class="text-center">${m.notUploaded}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Exam Answer Sheets Report</title>
+  <style>${REPORT_PRINT_CSS}</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header-row">
+      <div class="logo-col">
+        ${collegeLogo ? `<img src="${escapeHtml(collegeLogo)}" alt="College Logo" />` : ""}
+      </div>
+      <div class="title-col">
+        ${collegeName ? `<p class="collegeName">${escapeHtml(collegeName)}</p>` : ""}
+        <p class="title">Exam Answer Sheets Report</p>
+        ${subtitle ? `<p class="details">${escapeHtml(subtitle)}</p>` : ""}
+      </div>
+    </div>
+    <table class="report">
+      <thead>
+        <tr>
+          <th style="width:5%">SI.No</th>
+          <th style="width:8%">Exam Date</th>
+          <th style="width:8%">College Code</th>
+          <th style="width:8%">Course Year</th>
+          <th style="width:8%">Group</th>
+          <th style="width:21%">Subject</th>
+          <th style="width:9%">Registered Students</th>
+          <th style="width:7%">Present</th>
+          <th style="width:7%">Absent</th>
+          <th style="width:8%">Scripts Expected</th>
+          <th style="width:6%">Uploaded</th>
+          <th style="width:5%">Not Uploaded</th>
+        </tr>
+      </thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+
+  printHtmlInIframe(html);
 }
 
 export default function ExamAnswerSheetsReportPage() {
   const router = useRouter();
+  const { user } = useSessionContext();
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [showBack, setShowBack] = useState(false);
@@ -172,6 +301,8 @@ export default function ExamAnswerSheetsReportPage() {
   const organizationId = Number(
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
+  const collegeLogo = useCollegeLogo(user?.collegeId ?? null);
+  const collegeName = String(user?.collegeName ?? user?.collegeCode ?? "").trim();
 
   useEffect(() => {
     try {
@@ -502,11 +633,7 @@ export default function ExamAnswerSheetsReportPage() {
 
   return (
     <FilteredListPage
-      title={
-        rows.length > 0
-          ? `Exam Answer Sheets Report - ${reportSubtitle}`
-          : "Exam Answer Sheets Report"
-      }
+      title="Exam Answer Sheets Report"
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
@@ -527,7 +654,14 @@ export default function ExamAnswerSheetsReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printAnswerSheetsReport(rows, reportSubtitle)}
+              onClick={() =>
+                printAnswerSheetsReport({
+                  rows,
+                  collegeName,
+                  collegeLogo,
+                  subtitle: reportSubtitle,
+                })
+              }
             >
               Print Report
             </Button>

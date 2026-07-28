@@ -8,7 +8,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { FileSpreadsheet, Loader2, Printer, RefreshCw } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -145,6 +149,108 @@ function exportTableAsExcel(tableEl: HTMLTableElement | null, filename: string) 
   URL.revokeObjectURL(url)
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function printTabulationRegister(
+  tableEl: HTMLTableElement | null,
+  branchLabel: string,
+  detailsLabel: string,
+) {
+  if (!tableEl) return
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Tabulation Register</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: "Times New Roman", Times, serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .report-shell { width: 100%; }
+    .report-title {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 25px;
+      font-weight: 400;
+      color: #000;
+    }
+    .report-meta {
+      margin: 0 0 6px;
+      text-align: left;
+      font-size: 14px;
+      color: #000;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2%;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 1px;
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    thead th {
+      font-weight: 700;
+    }
+    tbody td:first-child {
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="report-shell">
+    <p class="report-title">${escapeHtml('Tabulation Register Report')}</p>
+    ${
+      branchLabel
+        ? `<p class="report-meta">Branch : ${escapeHtml(branchLabel)}</p>`
+        : ''
+    }
+    ${detailsLabel ? `<p class="report-meta">${escapeHtml(detailsLabel)}</p>` : ''}
+    ${tableEl.outerHTML}
+  </div>
+</body>
+</html>`
+
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.cssText =
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
+  document.body.appendChild(frame)
+  const fdoc = frame.contentDocument
+  const win = frame.contentWindow
+  if (!fdoc || !win) {
+    frame.remove()
+    return
+  }
+  fdoc.open()
+  fdoc.write(html)
+  fdoc.close()
+  win.addEventListener('afterprint', () => frame.remove())
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 50)
+}
+
 export default function TabulationRegisterPage() {
   const tableRef = useRef<HTMLTableElement>(null)
   const [loading, setLoading] = useState(false)
@@ -234,6 +340,38 @@ export default function TabulationRegisterPage() {
       .filter((o) => o.value !== '0')
     return [{ value: '0', label: 'All' }, ...opts]
   }, [exams])
+
+  const selectedCourse = useMemo(
+    () => courses.find((r) => num(r.fk_course_id) === Number(courseId)),
+    [courses, courseId],
+  )
+  const selectedExam = useMemo(
+    () => exams.find((r) => num(r.fk_exam_id) === Number(examId)),
+    [exams, examId],
+  )
+  const selectedCollege = useMemo(
+    () => colleges.find((r) => num(r.fk_college_id) === Number(collegeId)),
+    [colleges, collegeId],
+  )
+  const selectedCourseGroup = useMemo(
+    () => courseGroups.find((r) => num(r.fk_course_group_id) === Number(courseGroupId)),
+    [courseGroups, courseGroupId],
+  )
+  const selectedCourseYear = useMemo(
+    () => courseYears.find((r) => num(r.fk_course_year_id) === Number(courseYearId)),
+    [courseYears, courseYearId],
+  )
+
+  const printBranchLabel = txt(selectedCourseGroup?.group_code)
+  const printDetailsLabel = [
+    txt(selectedCollege?.college_code),
+    txt(selectedCourse?.course_code),
+    txt(selectedCourseGroup?.group_code),
+    txt(selectedCourseYear?.course_year_name || selectedCourseYear?.course_year_code),
+    txt(selectedExam?.exam_name),
+  ]
+    .filter(Boolean)
+    .join(' / ')
 
   useEffect(() => {
     if (!courseId || !academicYears.length) return
@@ -367,286 +505,317 @@ export default function TabulationRegisterPage() {
 
   const showMatrix = hasFetched && mainList.length > 0 && subjectCodes.length > 0
 
-  return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="border-b border-border px-4 py-3">
-          <h1 className="text-base font-semibold text-foreground">Tabulation Register</h1>
-        </div>
-        <div className="space-y-2 border-b border-border p-4">
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course *</Label>
-              <Select
-                value={courseId || null}
-                onChange={(v) => {
-                  setCourseId(v ?? '')
-                  setAcademicYearId('')
-                  setExamId('')
-                }}
-                options={courses.map((r) => ({
-                  value: String(num(r.fk_course_id)),
-                  label: txt(r.course_code) || String(num(r.fk_course_id)),
-                }))}
-                isLoading={loadingFilters}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year *</Label>
-              <Select
-                value={academicYearId || null}
-                onChange={(v) => {
-                  setAcademicYearId(v ?? '')
-                  setExamId('')
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(num(r.fk_academic_year_id)),
-                  label: txt(r.academic_year) || String(num(r.fk_academic_year_id)),
-                }))}
-                disabled={!courseId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam Master *</Label>
-              <Select
-                value={examId || null}
-                onChange={(v) => setExamId(v ?? '')}
-                options={exams.map((r) => ({
-                  value: String(num(r.fk_exam_id)),
-                  label: examMasterLabel(r),
-                }))}
-                searchable
-                wrapOptionLabels
-                disabled={!academicYearId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Type *</Label>
-              <Select value={examTypeId} onChange={(v) => setExamTypeId(v ?? '0')} options={examTypeOptions} />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>College *</Label>
-              <Select
-                value={collegeId || null}
-                onChange={(v) => {
-                  setCollegeId(v ?? '')
-                  setCourseGroupId('')
-                  setCourseYearId('')
-                }}
-                options={colleges.map((r) => ({
-                  value: String(num(r.fk_college_id)),
-                  label: txt(r.college_code) || String(num(r.fk_college_id)),
-                }))}
-                disabled={!examId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Group *</Label>
-              <Select
-                value={courseGroupId || null}
-                onChange={(v) => {
-                  setCourseGroupId(v ?? '')
-                  setCourseYearId('')
-                }}
-                options={courseGroups.map((r) => ({
-                  value: String(num(r.fk_course_group_id)),
-                  label: txt(r.group_code) || String(num(r.fk_course_group_id)),
-                }))}
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Years *</Label>
-              <Select
-                value={courseYearId || null}
-                onChange={(v) => setCourseYearId(v ?? '')}
-                options={courseYears.map((r) => ({
-                  value: String(num(r.fk_course_year_id)),
-                  label: txt(r.course_year_code) || String(num(r.fk_course_year_id)),
-                }))}
-                disabled={!courseGroupId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-3">
-              <Label>Student</Label>
-              <Select
-                value={hallticketNo || '0'}
-                onChange={(v) => setHallticketNo(v ?? '0')}
-                options={studentSelectOptions}
-                searchable
-                isLoading={searchingStudent}
-                onSearch={(term) => void onSearchStudent(term)}
-                placeholder="Search by name or hallticket"
-              />
-            </div>
-            <div className="flex h-8 items-center gap-2 md:col-span-2">
-              <Checkbox
-                id="tabulation-reeval"
-                checked={isReEvaluation}
-                onCheckedChange={(v) => setIsReEvaluation(v === true)}
-              />
-              <Label htmlFor="tabulation-reeval" className="cursor-pointer font-normal">
-                Is Re-Evaluation
-              </Label>
-            </div>
-            <div className="flex items-end gap-2 md:col-span-2">
-              <Button type="button" className="h-8 text-[12px]" onClick={() => void onGetReport()} disabled={loading}>
-                Get Report
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Reset"
-                onClick={() => {
-                  setRows([])
-                  setHasFetched(false)
-                  setHallticketNo('0')
-                  setIsReEvaluation(false)
-                  setStudentOptions([])
-                }}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
+  const filters = (
+    <>
+      <GlobalFilterBarRow>
+        <GlobalFilterField label="Course *">
+          <Select
+            value={courseId || null}
+            onChange={(v) => {
+              setCourseId(v ?? '')
+              setAcademicYearId('')
+              setExamId('')
+            }}
+            options={courses.map((r) => ({
+              value: String(num(r.fk_course_id)),
+              label: txt(r.course_code) || String(num(r.fk_course_id)),
+            }))}
+            isLoading={loadingFilters}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam Year *">
+          <Select
+            value={academicYearId || null}
+            onChange={(v) => {
+              setAcademicYearId(v ?? '')
+              setExamId('')
+            }}
+            options={academicYears.map((r) => ({
+              value: String(num(r.fk_academic_year_id)),
+              label: txt(r.academic_year) || String(num(r.fk_academic_year_id)),
+            }))}
+            disabled={!courseId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam Master *" className="min-w-[280px] flex-[2]">
+          <Select
+            value={examId || null}
+            onChange={(v) => setExamId(v ?? '')}
+            options={exams.map((r) => ({
+              value: String(num(r.fk_exam_id)),
+              label: examMasterLabel(r),
+            }))}
+            searchable
+            wrapOptionLabels
+            disabled={!academicYearId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam Type *">
+          <Select
+            value={examTypeId}
+            onChange={(v) => setExamTypeId(v ?? '0')}
+            options={examTypeOptions}
+          />
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
 
-        {showMatrix ? (
-          <>
-            <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-9 text-[12px]"
-                onClick={() => exportTableAsExcel(tableRef.current, 'Tabulation Register Report')}
-              >
-                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-                Export Excel
-              </Button>
-              <Button type="button" size="sm" className="h-9 text-[12px]" onClick={() => window.print()}>
-                <Printer className="mr-1.5 h-3.5 w-3.5" />
-                Print Report
-              </Button>
-              <span className="ml-auto text-xs text-muted-foreground">
-                {mainList.length} student{mainList.length === 1 ? '' : 's'} · {subjectCodes.length} subject
-                {subjectCodes.length === 1 ? '' : 's'}
-              </span>
-            </div>
-            <div className="max-h-[min(70vh,720px)] overflow-auto p-2">
-              <table
-                ref={tableRef}
-                className="w-max min-w-full border-collapse text-[11px] leading-tight"
-              >
-                <thead className="sticky top-0 z-10 bg-slate-50">
-                  <tr>
-                    <th
-                      rowSpan={2}
-                      className="sticky left-0 z-20 border border-slate-300 bg-slate-100 px-2 py-1.5 text-left font-semibold whitespace-nowrap"
-                    >
-                      Hall Ticket No.
-                    </th>
-                    {subjectCodes.map((code) => (
-                      <th
-                        key={`h-${code}`}
-                        colSpan={9}
-                        className="border border-slate-300 bg-slate-100 px-1 py-1.5 text-center font-semibold whitespace-nowrap"
-                      >
-                        {code}
-                      </th>
-                    ))}
-                    <th rowSpan={2} className="border border-slate-300 bg-slate-100 px-2 py-1.5 font-semibold whitespace-nowrap">
-                      Total Marks
-                    </th>
-                    <th rowSpan={2} className="border border-slate-300 bg-slate-100 px-2 py-1.5 font-semibold whitespace-nowrap">
-                      Total Credits
-                    </th>
-                    <th rowSpan={2} className="border border-slate-300 bg-slate-100 px-2 py-1.5 font-semibold whitespace-nowrap">
-                      Perc.%
-                    </th>
-                    <th rowSpan={2} className="border border-slate-300 bg-slate-100 px-2 py-1.5 font-semibold whitespace-nowrap">
-                      Result
-                    </th>
-                    <th rowSpan={2} className="border border-slate-300 bg-slate-100 px-2 py-1.5 font-semibold whitespace-nowrap">
-                      SGPA
-                    </th>
-                    <th rowSpan={2} className="border border-slate-300 bg-slate-100 px-2 py-1.5 font-semibold whitespace-nowrap">
-                      CGPA
-                    </th>
-                  </tr>
-                  <tr>
-                    {subjectCodes.map((code) =>
-                      MARK_HEADERS.map((h) => (
-                        <th
-                          key={`${code}-${h}`}
-                          className="border border-slate-300 bg-slate-50 px-1 py-1 text-center font-medium"
-                        >
-                          {h}
-                        </th>
-                      )),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {mainList.map((list) => {
-                    const ht = txt(list[0]?.hallticket_number ?? list[0]?.hallticket_no)
-                    return (
-                      <tr key={ht} className="odd:bg-white even:bg-slate-50/60">
-                        <td className="sticky left-0 z-[1] border border-slate-200 bg-inherit px-2 py-1 whitespace-nowrap font-medium">
-                          {dash(ht)}
-                        </td>
-                        {subjectCodes.map((code) =>
-                          MARK_KEYS.map((key) => (
-                            <td
-                              key={`${ht}-${code}-${key}`}
-                              className="border border-slate-200 px-1 py-1 text-center whitespace-nowrap"
-                            >
-                              {findMarks(list, code, key)}
-                            </td>
-                          )),
-                        )}
-                        <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">
-                          {dash(list[0]?.final_sem_total_marks)}
-                        </td>
-                        <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">
-                          {dash(list[0]?.total_credits)}
-                        </td>
-                        <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">
-                          {dash(list[0]?.final_sem_percentage)}
-                        </td>
-                        <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">
-                          {dash(list[0]?.final_sem_result)}
-                        </td>
-                        <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">
-                          {dash(list[0]?.sgpa)}
-                        </td>
-                        <td className="border border-slate-200 px-2 py-1 text-center whitespace-nowrap">
-                          {dash(list[0]?.cgpa)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <div className="flex min-h-[200px] items-center justify-center px-4 py-10 text-sm text-muted-foreground">
-            {loading ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading…
-              </span>
-            ) : hasFetched ? (
-              'No rows to show'
-            ) : (
-              'Select filters and click Get Report'
-            )}
+      <GlobalFilterBarRow>
+        <GlobalFilterField label="College *">
+          <Select
+            value={collegeId || null}
+            onChange={(v) => {
+              setCollegeId(v ?? '')
+              setCourseGroupId('')
+              setCourseYearId('')
+            }}
+            options={colleges.map((r) => ({
+              value: String(num(r.fk_college_id)),
+              label: txt(r.college_code) || String(num(r.fk_college_id)),
+            }))}
+            disabled={!examId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Course Group *">
+          <Select
+            value={courseGroupId || null}
+            onChange={(v) => {
+              setCourseGroupId(v ?? '')
+              setCourseYearId('')
+            }}
+            options={courseGroups.map((r) => ({
+              value: String(num(r.fk_course_group_id)),
+              label: txt(r.group_code) || String(num(r.fk_course_group_id)),
+            }))}
+            disabled={!collegeId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Course Years *">
+          <Select
+            value={courseYearId || null}
+            onChange={(v) => setCourseYearId(v ?? '')}
+            options={courseYears.map((r) => ({
+              value: String(num(r.fk_course_year_id)),
+              label: txt(r.course_year_code) || String(num(r.fk_course_year_id)),
+            }))}
+            disabled={!courseGroupId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Student" className="min-w-[240px] flex-[1.5]">
+          <Select
+            value={hallticketNo || '0'}
+            onChange={(v) => setHallticketNo(v ?? '0')}
+            options={studentSelectOptions}
+            searchable
+            isLoading={searchingStudent}
+            onSearch={(term) => void onSearchStudent(term)}
+            placeholder="Search by name or hallticket"
+          />
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
+
+      <GlobalFilterBarRow>
+        <GlobalFilterField
+          label="Is Re-Evaluation"
+          className="global-filter-field--shrink"
+        >
+          <div className="flex h-[30px] items-center gap-2">
+            <Checkbox
+              id="tabulation-reeval"
+              checked={isReEvaluation}
+              onCheckedChange={(v) => setIsReEvaluation(v === true)}
+            />
+            <Label htmlFor="tabulation-reeval" className="cursor-pointer text-[12px] font-normal">
+              Is Re-Evaluation
+            </Label>
           </div>
-        )}
+        </GlobalFilterField>
+        <GlobalFilterField
+          label=""
+          className="global-filter-field--shrink global-filter-field--action"
+        >
+          <div className="flex items-end gap-2">
+            <Button
+              type="button"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => void onGetReport()}
+              disabled={loading}
+            >
+              Get Report
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-[30px] w-[30px]"
+              title="Reset"
+              onClick={() => {
+                setRows([])
+                setHasFetched(false)
+                setHallticketNo('0')
+                setIsReEvaluation(false)
+                setStudentOptions([])
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
+    </>
+  )
+
+  const body = showMatrix ? (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-9 text-[12px]"
+          onClick={() => exportTableAsExcel(tableRef.current, 'Tabulation Register Report')}
+        >
+          <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+          Export Excel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="h-9 text-[12px]"
+          onClick={() =>
+            printTabulationRegister(
+              tableRef.current,
+              printBranchLabel,
+              printDetailsLabel,
+            )
+          }
+        >
+          <Printer className="mr-1.5 h-3.5 w-3.5" />
+          Print Report
+        </Button>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {mainList.length} student{mainList.length === 1 ? '' : 's'} · {subjectCodes.length} subject
+          {subjectCodes.length === 1 ? '' : 's'}
+        </span>
       </div>
-    </PageContainer>
+      <div className="max-h-[min(70vh,720px)] overflow-auto rounded-md border border-border">
+        <table
+          ref={tableRef}
+          className="w-full min-w-[1400px] text-left text-sm"
+        >
+          <thead className="bg-muted/50">
+            <tr>
+              <th
+                rowSpan={2}
+                className="px-3 py-2 font-semibold whitespace-nowrap"
+              >
+                Hall Ticket No.
+              </th>
+              {subjectCodes.map((code) => (
+                <th
+                  key={`h-${code}`}
+                  colSpan={9}
+                  className="px-3 py-2 text-center font-semibold whitespace-nowrap"
+                >
+                  {code}
+                </th>
+              ))}
+              <th rowSpan={2} className="px-3 py-2 font-semibold whitespace-nowrap">
+                Total Marks
+              </th>
+              <th rowSpan={2} className="px-3 py-2 font-semibold whitespace-nowrap">
+                Total Credits
+              </th>
+              <th rowSpan={2} className="px-3 py-2 font-semibold whitespace-nowrap">
+                Perc.%
+              </th>
+              <th rowSpan={2} className="px-3 py-2 font-semibold whitespace-nowrap">
+                Result
+              </th>
+              <th rowSpan={2} className="px-3 py-2 font-semibold whitespace-nowrap">
+                SGPA
+              </th>
+              <th rowSpan={2} className="px-3 py-2 font-semibold whitespace-nowrap">
+                CGPA
+              </th>
+            </tr>
+            <tr>
+              {subjectCodes.map((code) =>
+                MARK_HEADERS.map((h) => (
+                  <th
+                    key={`${code}-${h}`}
+                    className="px-3 py-2 text-center font-semibold whitespace-nowrap"
+                  >
+                    {h}
+                  </th>
+                )),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {mainList.map((list) => {
+              const ht = txt(list[0]?.hallticket_number ?? list[0]?.hallticket_no)
+              return (
+                <tr key={ht} className="border-t">
+                  <td className="px-3 py-1.5 whitespace-nowrap">
+                    {dash(ht)}
+                  </td>
+                  {subjectCodes.map((code) =>
+                    MARK_KEYS.map((key) => (
+                      <td
+                        key={`${ht}-${code}-${key}`}
+                        className="px-3 py-1.5 text-center whitespace-nowrap"
+                      >
+                        {findMarks(list, code, key)}
+                      </td>
+                    )),
+                  )}
+                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                    {dash(list[0]?.final_sem_total_marks)}
+                  </td>
+                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                    {dash(list[0]?.total_credits)}
+                  </td>
+                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                    {dash(list[0]?.final_sem_percentage)}
+                  </td>
+                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                    {dash(list[0]?.final_sem_result)}
+                  </td>
+                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                    {dash(list[0]?.sgpa)}
+                  </td>
+                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                    {dash(list[0]?.cgpa)}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ) : (
+    <div className="flex min-h-[200px] items-center justify-center px-4 py-10 text-sm text-muted-foreground">
+      {loading ? (
+        <span className="inline-flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </span>
+      ) : hasFetched ? (
+        'No rows to show'
+      ) : (
+        'Select filters and click Get Report'
+      )}
+    </div>
+  )
+
+  return (
+    <FilteredListPage
+      title="Tabulation Register"
+      filters={filters}
+      body={body}
+      filtersCollapsible={false}
+      bodyClassName="border-t border-border px-5 py-4"
+    />
   )
 }

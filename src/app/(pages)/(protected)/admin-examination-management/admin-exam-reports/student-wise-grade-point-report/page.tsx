@@ -7,11 +7,14 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import {
+  getCollegeById,
   getGradeMemoIssueFilters,
   getGradeMemoIssueRestFilters,
+  getStudentWiseGradePointAnalysis,
   getStudentWiseGradePointReport,
 } from '@/services'
 import { toastError, toastInfo } from '@/lib/toast'
+import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 import {
   BookOpen,
   Building2,
@@ -113,6 +116,8 @@ export default function StudentWiseGradePointReportPage() {
 
   const [mainList, setMainList] = useState<StudentSubjectRows[]>([])
   const [subjectCodes, setSubjectCodes] = useState<{ subject_code: string }[]>([])
+  const [analysisRows, setAnalysisRows] = useState<AnyRow[]>([])
+  const [collegeBannerName, setCollegeBannerName] = useState('')
   const [searchText, setSearchText] = useState('')
 
   const courses = useMemo(() => dedupeBy(baseRows, ['fk_course_id', 'courseId']), [baseRows])
@@ -181,7 +186,57 @@ export default function StudentWiseGradePointReportPage() {
   function clearResults() {
     setMainList([])
     setSubjectCodes([])
+    setAnalysisRows([])
   }
+
+  const selectedCollege = useMemo(
+    () => colleges.find((r) => numFrom(r, ['fk_college_id', 'collegeId']) === Number(collegeId)) ?? null,
+    [colleges, collegeId],
+  )
+  const collegeLogo = useCollegeLogo(collegeId)
+  const selectedCourse = useMemo(
+    () => courses.find((r) => numFrom(r, ['fk_course_id', 'courseId']) === Number(courseId)) ?? null,
+    [courses, courseId],
+  )
+  const selectedCourseGroup = useMemo(
+    () =>
+      courseGroups.find((r) => numFrom(r, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId)) ??
+      null,
+    [courseGroups, courseGroupId],
+  )
+  const selectedCourseYear = useMemo(
+    () => courseYears.find((r) => numFrom(r, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId)) ?? null,
+    [courseYears, courseYearId],
+  )
+  const selectedExam = useMemo(
+    () => exams.find((r) => numFrom(r, ['fk_exam_id', 'examId']) === Number(examId)) ?? null,
+    [exams, examId],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    const fallback = strFrom(selectedCollege ?? {}, ['college_name', 'collegeName'])
+
+    if (!collegeId) {
+      setCollegeBannerName(fallback)
+      return
+    }
+
+    getCollegeById(collegeId)
+      .then((college) => {
+        if (cancelled) return
+        setCollegeBannerName(
+          strFrom(college ?? {}, ['collegeName', 'college_name']) || fallback,
+        )
+      })
+      .catch(() => {
+        if (!cancelled) setCollegeBannerName(fallback)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [collegeId, selectedCollege])
 
   useEffect(() => {
     let cancelled = false
@@ -326,14 +381,23 @@ export default function StudentWiseGradePointReportPage() {
     setLoading(true)
     clearResults()
     try {
-      const flatRows = await getStudentWiseGradePointReport({
-        examId,
-        collegeId,
-        courseId,
-        courseGroupId,
-        courseYearId,
-        hallTicketNo: hallTicketNo.trim() || undefined,
-      })
+      const [flatRows, statsRows] = await Promise.all([
+        getStudentWiseGradePointReport({
+          examId,
+          collegeId,
+          courseId,
+          courseGroupId,
+          courseYearId,
+          hallTicketNo: hallTicketNo.trim() || undefined,
+        }),
+        getStudentWiseGradePointAnalysis({
+          examId,
+          collegeId,
+          courseId,
+          courseGroupId,
+          courseYearId,
+        }),
+      ])
       if (flatRows.length === 0) {
         toastInfo('No records found')
         return
@@ -341,6 +405,7 @@ export default function StudentWiseGradePointReportPage() {
 
       setSubjectCodes(uniqueSubjectCodes(flatRows))
       setMainList(groupByHallTicket(flatRows))
+      setAnalysisRows(statsRows)
     } catch (e) {
       toastError(e instanceof Error ? e.message : 'Failed to load report')
     } finally {
@@ -400,13 +465,15 @@ export default function StudentWiseGradePointReportPage() {
 
   function handlePrint() {
     if (filteredList.length === 0) return
-    const college = colleges.find(
-      (r) => numFrom(r, ['fk_college_id', 'collegeId']) === Number(collegeId),
-    )
     printStudentWiseGradePointReport(filteredList, {
-      title: 'Grade And Grade Points Report',
-      collegeName: strFrom(college ?? {}, ['college_name', 'collegeName']),
+      title: 'Student wise grade point report',
+      collegeName:
+        collegeBannerName || strFrom(selectedCollege ?? {}, ['college_name', 'collegeName']),
+      logoUrl: collegeLogo,
+      details: strFrom(selectedExam ?? {}, ['exam_name', 'examName']),
+      branchLabel: strFrom(selectedCourseGroup ?? {}, ['group_code', 'groupCode', 'course_group_code']),
       subjectCodes: subjectCodes.map((s) => s.subject_code),
+      analysisRows,
     })
   }
 
@@ -555,8 +622,7 @@ export default function StudentWiseGradePointReportPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
+                  className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
                   onClick={handleExportExcel}
                 >
                   <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -564,8 +630,7 @@ export default function StudentWiseGradePointReportPage() {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
+                  className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
                   onClick={handlePrint}
                 >
                   <Printer className="mr-1.5 h-3.5 w-3.5" />
@@ -649,6 +714,54 @@ export default function StudentWiseGradePointReportPage() {
                 </tbody>
               </table>
             </div>
+
+            {analysisRows.length > 0 ? (
+              <div className="overflow-x-auto rounded-md border border-border">
+                <div className="border-b bg-muted/40 px-3 py-2 font-semibold">
+                  Subject Wise Analysis
+                </div>
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold">Subject Name</th>
+                      <th className="px-3 py-2 text-center font-semibold">Total Failures</th>
+                      <th className="px-3 py-2 text-center font-semibold">Pass %</th>
+                      <th className="px-3 py-2 text-center font-semibold">Absent</th>
+                      <th className="px-3 py-2 text-center font-semibold">75% - 100%</th>
+                      <th className="px-3 py-2 text-center font-semibold">60% - 75%</th>
+                      <th className="px-3 py-2 text-center font-semibold">40% - 60%</th>
+                      <th className="px-3 py-2 text-center font-semibold">&lt; 40%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analysisRows.map((row, index) => (
+                      <tr key={`${strFrom(row, ['subject_name'])}-${index}`} className="border-t">
+                        <td className="px-3 py-1.5">{strFrom(row, ['subject_name']) || ' '}</td>
+                        <td className="px-3 py-1.5 text-center">
+                          {strFrom(row, ['TotalFailures']) || ' '}
+                        </td>
+                        <td className="px-3 py-1.5 text-center">
+                          {strFrom(row, ['Pass%age']) ? `${strFrom(row, ['Pass%age'])}%` : ' '}
+                        </td>
+                        <td className="px-3 py-1.5 text-center">{strFrom(row, ['Absent']) || ' '}</td>
+                        <td className="px-3 py-1.5 text-center">
+                          {strFrom(row, ['B/w75%-100%(10pts-8pts)']) || ' '}
+                        </td>
+                        <td className="px-3 py-1.5 text-center">
+                          {strFrom(row, ['B/w60%-75%(7pts-6pts)']) || ' '}
+                        </td>
+                        <td className="px-3 py-1.5 text-center">
+                          {strFrom(row, ['B/w40%-60%(5pts-4pts)']) || ' '}
+                        </td>
+                        <td className="px-3 py-1.5 text-center">
+                          {strFrom(row, ['<40%(Lessthan4pts)']) || ' '}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </div>
         ) : null
       }

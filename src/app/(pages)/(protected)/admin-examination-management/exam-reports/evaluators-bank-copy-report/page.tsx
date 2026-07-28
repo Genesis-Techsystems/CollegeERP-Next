@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { FilteredPage } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,9 +26,10 @@ import {
   getBankCopySubjects,
   getEvaluatorsBankCopyReport,
   groupBankCopyByEvaluatorProfile,
-  type AnyRow,
   type BankCopyProfileReport,
 } from "@/services/evaluators-bank-copy-report";
+
+type AnyRow = Record<string, unknown>;
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -59,190 +59,108 @@ function payableAmount(total: number): number {
   return total > 500 ? total : 500;
 }
 
-/**
- * Angular `printPage()` — prints evaluator bills from `evaluatedReportsByProfile`
- * (hall-ticket-wrapper / page-align / subject-table-refined styles).
- */
-function printProfileReports(
-  examName: string,
-  universityCode: string,
-  reports: BankCopyProfileReport[],
-) {
-  if (!reports.length) return;
-
-  const banner =
-    universityCode === "MECS"
-      ? `<img src="/images/MECS_BANNER.png" class="college-banner" alt="" onerror="this.style.display='none'" />`
-      : universityCode === "MVSR"
-        ? `<img src="/images/MVSR_BANNER.png" class="college-banner-2" alt="" onerror="this.style.display='none'" />`
-        : "";
-
-  const pages = reports
-    .map((report) => {
-      // Angular note: Remuneration per script is {{report?.amount}}/-
-      const ratePerScript =
-        Number(report.amount) ||
-        Number(report.subjects?.[0]?.amount) ||
-        0;
-      const subjectRows = (report.subjects ?? [])
-        .map(
-          (s, i) =>
-            `<tr>
-              <td>${i + 1}</td>
-              <td>${escapeHtml(s.subject_code)}</td>
-              <td>${escapeHtml(s.subject_name)}</td>
-              <td>${s.no_of_evaluations_completed}</td>
-              <td>${s.amount}</td>
-              <td>${s.final_amount}</td>
-            </tr>`,
-        )
-        .join("");
-
-      return `
-        <div class="page-align page-break">
-          ${banner}
-          <div>
-            <p class="collegeName">Evaluators Bank Copy Report </p>
-            <p class="title">${escapeHtml(examName)} </p>
-          </div>
-          <div>
-            <div class="exam-header">
-              <div>Evaluator ID : ${escapeHtml(txt(report.user_name))}</div>
-              <div>Name of the Evaluator : ${escapeHtml(txt(report.evaluator_name))}</div>
-              <div>Mobile : ${escapeHtml(txt(report.phonenumber))}</div>
-              <div>Bank Account Number : ${escapeHtml(txt(report.account_number))}</div>
-              <div>Bank Name : ${escapeHtml(txt(report.bank_name))}</div>
-              <div>IFSC Code : ${escapeHtml(txt(report.ifsc_code))}</div>
-              <div>Branch : ${escapeHtml(txt(report.bank_address))}</div>
-              <div>PAN Card : ${escapeHtml(txt(report.pan_card))}</div>
-            </div>
-            <table class="subject-table-refined">
-              <thead>
-                <tr>
-                  <th>S.NO</th>
-                  <th>SUBJECT CODE</th>
-                  <th>NAME OF THE SUBJECT</th>
-                  <th>NO. OF SCRIPTS EVALUATED</th>
-                  <th>RATE FOR SCRIPT</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>${subjectRows}</tbody>
-              <tfoot>
-                <tr>
-                  <td colspan="3" class="grand-total-label"><b>Grand Total</b></td>
-                  <td>${report.total_scripts}</td>
-                  <td></td>
-                  <td class="grand-total-amount">${report.total_final_amount}</td>
-                </tr>
-              </tfoot>
-            </table>
-            <div class="exam-header">
-              <div> Total Amount Of : ${payableAmount(report.total_final_amount)}/- </div>
-              <div class="light-text"> *Note :<br> Remuneration per script is ${ratePerScript}/- and minimum amount to be paid is 500/- </div>
-              <div class="coe"> Controller Of Examinations </div>
-              <div class="light-text"> This is System generated bill,No signature is required</div>
-            </div>
-          </div>
-        </div>`;
-    })
-    .join("");
-
-  // Styles mirror Angular evaluators-bank-copy-report.component.scss @media print
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Evaluators Bank Copy Report</title>
-<style>
-  @page { size: A4 portrait; margin: 10mm; }
+const REPORT_PRINT_CSS = `
   * { box-sizing: border-box; }
-  body {
+  html, body {
     margin: 0;
     padding: 0;
-    color: #000;
     background: #fff;
-  }
-  .hall-ticket-wrapper {
-    font-family: Arial, sans-serif;
-    font-size: 12px;
-    margin: 0;
-    padding: 0;
     color: #000;
-    width: 98%;
+    font-family: Arial, Helvetica, sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .page-align {
-    border: 1px solid black;
-    padding: 8px;
-    font-family: 'Times New Roman', Times, serif;
-    box-sizing: border-box;
-    width: 100%;
-  }
-  .page-break {
-    page-break-after: always;
-    page-break-inside: avoid;
-    display: block;
-    width: 100%;
-    margin-bottom: 8px;
-  }
-  .page-break:last-child {
-    page-break-after: auto;
-  }
-  .college-banner { width: 100%; height: auto; }
-  .college-banner-2 { width: 100%; height: 90px; }
-  .collegeName {
+  .wrap { padding: 12px 16px; width: 98%; }
+  .college-name {
     text-align: center;
-    font-weight: bold;
-    font-size: 16px;
-    margin: 18px 0 0;
-    color: #000;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 8px 0 2px;
   }
   .title {
-    font-weight: 500;
     text-align: center;
-    font-size: 14px;
-    color: #000;
-    margin: 4px 0 10px;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 4px 0 16px;
   }
-  .exam-header {
-    font-family: Arial, sans-serif;
-    font-size: 14px;
-    margin: 10px 0;
-    line-height: 1.6;
-  }
-  .subject-table-refined {
+  table.data {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
-    margin-bottom: 3%;
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 12px;
   }
-  .subject-table-refined th,
-  .subject-table-refined td {
-    border: 1px solid black;
-    padding: 6px;
-    text-align: center;
-    vertical-align: middle;
-  }
-  .subject-table-refined th {
-    font-weight: bold;
-  }
-  .subject-table-refined td:nth-child(2),
-  .subject-table-refined td:nth-child(3) {
+  table.data th,
+  table.data td {
+    border: 1px solid #333;
+    padding: 4px 6px;
+    font-size: 11px;
     text-align: left;
-    padding-left: 10px;
-    padding-right: 10px;
+    vertical-align: top;
   }
-  .grand-total-label { text-align: right !important; }
-  .grand-total-amount { text-align: center !important; }
-  .light-text {
-    font-family: 'Roboto', Arial, sans-serif;
-    font-weight: 300;
-    margin-top: 5%;
+  table.data th {
+    background: #f2f2f2;
+    font-weight: 700;
+    text-align: center;
   }
-  .coe {
-    text-align: right !important;
-    margin-top: 5% !important;
+  table.data td.center { text-align: center; }
+  @page { margin: 1cm; }
+  @media print {
+    html, body { background: #fff !important; }
+    tr { page-break-inside: avoid; }
   }
-</style></head>
-<body><div class="hall-ticket-wrapper">${pages}</div></body></html>`;
+`;
+
+function printProfileReports(
+  examName: string,
+  collegeLabel: string,
+  rows: AnyRow[],
+) {
+  if (!rows.length) return;
+
+  const body = rows
+    .map(
+      (row, index) => `<tr>
+        <td class="center">${index + 1}</td>
+        <td>${escapeHtml(txt(row.evaluator_name))}</td>
+        <td>${escapeHtml(txt(row.subject_code))}</td>
+        <td class="center">${num(row.no_of_students_assigned)}</td>
+        <td class="center">${num(row.no_of_evaluations_completed)}</td>
+        <td class="center">${num(row.amount)}</td>
+        <td class="center">${num(row.final_amount)}</td>
+        <td>${escapeHtml(txt(row.account_number))}</td>
+        <td>${escapeHtml(txt(row.ifsc_code))}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Evaluators Bank Copy Report</title>
+  <style>${REPORT_PRINT_CSS}</style>
+</head>
+<body>
+  <div class="wrap">
+    ${collegeLabel ? `<p class="college-name">${escapeHtml(collegeLabel)}</p>` : ""}
+    <p class="title">${escapeHtml(examName || "Evaluators Bank Copy Report")}</p>
+    <table class="data" cellspacing="0" cellpadding="0">
+      <thead>
+        <tr>
+          <th>S.No</th>
+          <th>Evaluator Name</th>
+          <th>Subject Code</th>
+          <th>Assigned Answer Sheets</th>
+          <th>Evaluated Answer Sheets</th>
+          <th>Amount</th>
+          <th>Total Amount</th>
+          <th>Account No.</th>
+          <th>IFSC Code</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>
+</body>
+</html>`;
 
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
@@ -259,10 +177,29 @@ function printProfileReports(
   fdoc.write(html);
   fdoc.close();
   win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
+
+  const images = Array.from(fdoc.images);
+  const waitForImages =
+    images.length === 0
+      ? Promise.resolve()
+      : Promise.all(
+          images.map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                if (img.complete) {
+                  resolve();
+                  return;
+                }
+                img.addEventListener("load", () => resolve(), { once: true });
+                img.addEventListener("error", () => resolve(), { once: true });
+              }),
+          ),
+        );
+
+  void waitForImages.then(() => {
     win.focus();
     win.print();
-  }, 50);
+  });
 }
 
 function escapeHtml(value: string): string {
@@ -371,15 +308,15 @@ export default function EvaluatorsBankCopyReportPage() {
     [evaluatorRows],
   );
 
-  const universityCode = useMemo(() => {
-    const row = courses.find((c) => num(c.fk_course_id) === Number(courseId));
-    return txt(row?.university_code);
-  }, [courses, courseId]);
-
   const examName = useMemo(() => {
     const row = exams.find((e) => num(e.fk_exam_id) === Number(examId));
     return txt(row?.exam_name);
   }, [exams, examId]);
+
+  const collegeLabel = useMemo(() => {
+    const row = colleges.find((c) => num(c.fk_college_id) === Number(collegeId));
+    return txt(row?.college_name) || txt(row?.college_code);
+  }, [colleges, collegeId]);
 
   // Initial load
   useEffect(() => {
@@ -884,7 +821,10 @@ export default function EvaluatorsBankCopyReportPage() {
       </GlobalFilterBarRow>
 
       <GlobalFilterBarRow>
-        <GlobalFilterField label="Evaluators *" className="min-w-[260px] flex-[2]">
+        <GlobalFilterField
+          label="Evaluators *"
+          className="global-filter-field--shrink min-w-[200px]"
+        >
           <Select
             options={[
               { value: "0", label: "All" },
@@ -903,7 +843,10 @@ export default function EvaluatorsBankCopyReportPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Is Re-Evaluation">
+        <GlobalFilterField
+          label="Is Re-Evaluation"
+          className="global-filter-field--shrink"
+        >
           <div className="flex h-[30px] items-center gap-2">
             <Checkbox
               id="isReevaluation"
@@ -936,43 +879,39 @@ export default function EvaluatorsBankCopyReportPage() {
   );
 
   return (
-    <FilteredPage title="Evaluators Bank Copy Report" filters={filters}>
-      {rows.length > 0 && (
-        <DataTable
-          title="Evaluators Bank Copy Report"
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={loadingList}
-          pagination
-          bordered
-          toolbar={TOOLBAR}
-          toolbarTrailing={
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={exportAsExcel}
-              >
-                Excel Export
-              </Button>
-              <Button
-                type="button"
-                className="h-[30px] px-3 text-[12px]"
-                onClick={() =>
-                  printProfileReports(examName, universityCode, profileReports)
-                }
-              >
-                Print Report
-              </Button>
-            </div>
-          }
-          getRowId={(p) =>
-            String(
-              `${txt(p.data?.fk_exam_evaluator_profile_id)}-${txt(p.data?.subject_code)}-${txt(p.data?.account_number)}`,
-            )
-          }
-        />
-      )}
-    </FilteredPage>
+    <FilteredListPage
+      title="Evaluators Bank Copy Report"
+      filters={filters}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      toolbar={TOOLBAR}
+      toolbarTrailing={
+        rows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              className="h-[30px] bg-blue-600 px-3 text-[12px] text-white hover:bg-blue-700"
+              onClick={exportAsExcel}
+            >
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              className="h-[30px] bg-blue-600 px-3 text-[12px] text-white hover:bg-blue-700"
+              onClick={() => printProfileReports(examName, collegeLabel, rows)}
+            >
+              Print Report
+            </Button>
+          </div>
+        ) : null
+      }
+      getRowId={(p) =>
+        String(
+          `${txt(p.data?.fk_exam_evaluator_profile_id)}-${txt(p.data?.subject_code)}-${txt(p.data?.account_number)}`,
+        )
+      }
+    />
   );
 }

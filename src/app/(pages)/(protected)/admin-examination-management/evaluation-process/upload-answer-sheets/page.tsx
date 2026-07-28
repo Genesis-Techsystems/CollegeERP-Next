@@ -8,8 +8,8 @@ import {
 } from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
+import { Upload } from "lucide-react";
 import {
-  getAnswerPaperPresignedUrl,
   runEvaluationProc,
   uploadExamOmr,
 } from "@/services/evaluation-process-admin";
@@ -67,27 +67,6 @@ function extractUploadedPath(res: unknown): string {
   if (typeof data === "string") return data;
   if (Array.isArray(data) && typeof data[0] === "string") return data[0];
   return "";
-}
-
-async function openAnswerSheetView(path: string): Promise<void> {
-  const storedPath = path.trim();
-  if (!storedPath) {
-    toastError("Answer sheet path is missing.");
-    return;
-  }
-  try {
-    const data = await getAnswerPaperPresignedUrl(storedPath);
-    const url = String(data?.answerPaperUrl ?? "").trim();
-    if (!url) {
-      toastError("Unable to open answer sheet.");
-      return;
-    }
-    globalThis?.open?.(url, "_blank", "noopener,noreferrer");
-  } catch (error: unknown) {
-    const msg =
-      error instanceof Error ? error.message : "Failed to open answer sheet.";
-    toastError(msg);
-  }
 }
 
 /** Angular: getAnswerPaperUploadUrl → getAllRecords/s_get_answerpaperupload_details */
@@ -361,12 +340,24 @@ export default function UploadAnswerSheetsPage() {
     setUploadedFiles(arr.map(toUploadedFile));
   }
 
+  function clearSelectedFiles() {
+    setSelectedFilesCount(0);
+    setUploadedFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function resetFilePicker() {
+    setSelectedFilesCount(0);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function handleUpload() {
     const files = fileInputRef.current?.files;
     if (!files || files.length === 0) return;
     setUploading(true);
     try {
       const arr = Array.from(files);
+      const uploadResults = new Map<string, string>();
       for (const file of arr) {
         const { fileName } = toUploadedFile(file);
         setUploadedFiles((prev) =>
@@ -378,20 +369,9 @@ export default function UploadAnswerSheetsPage() {
         form.append("file", file, file.name);
         try {
           const res = await uploadExamOmr(form);
-          const view = extractUploadedPath(res);
-          setUploadedFiles((prev) =>
-            prev.map((u) =>
-              u.fileName === fileName
-                ? { ...u, status: view ? "Success" : "File not found", view }
-                : u,
-            ),
-          );
+          uploadResults.set(fileName, extractUploadedPath(res));
         } catch {
-          setUploadedFiles((prev) =>
-            prev.map((u) =>
-              u.fileName === fileName ? { ...u, status: "File not found" } : u,
-            ),
-          );
+          uploadResults.set(fileName, "");
         }
       }
       // Angular submit() -> AssignmentRun(): populate student assignment for the
@@ -408,9 +388,19 @@ export default function UploadAnswerSheetsPage() {
           in_course_year_id: 0,
         }).catch(() => null);
       }
+      setUploadedFiles((prev) =>
+        prev.map((u) => {
+          const view = uploadResults.get(u.fileName);
+          if (view === undefined) return u;
+          return {
+            ...u,
+            status: view ? "Success" : "File not found",
+            view,
+          };
+        }),
+      );
       await checkUploadStatus();
-      setSelectedFilesCount(0);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      resetFilePicker();
     } finally {
       setUploading(false);
     }
@@ -505,30 +495,15 @@ export default function UploadAnswerSheetsPage() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full rounded-md bg-sky-500 hover:bg-sky-600 transition-colors text-white py-6 px-4 flex flex-col items-center justify-center gap-2"
+                  className="mx-auto flex h-[215px] w-full max-w-[290px] flex-col items-center justify-center gap-5 rounded-md bg-[#1fb0e8] px-6 py-8 text-center shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition-colors hover:bg-[#14a6df]"
                 >
-                  <div className="h-14 w-14 rounded-full bg-card text-sky-500 flex items-center justify-center text-lg font-bold">
-                    UP
+                  <div className="flex h-[106px] w-[106px] items-center justify-center rounded-full bg-white shadow-sm">
+                    <Upload className="h-10 w-10 text-[#1f2fa3]" strokeWidth={2.4} />
                   </div>
-                  <div className="font-semibold text-[13px]">
+                  <div className="text-[18px] font-bold leading-tight text-black">
                     Upload Answer Papers
                   </div>
-                  {selectedFilesCount > 0 && (
-                    <div className="text-[11px] opacity-90">
-                      {selectedFilesCount} files selected
-                    </div>
-                  )}
                 </button>
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    type="button"
-                    className="h-8 text-[12px] w-full"
-                    disabled={uploading || selectedFilesCount === 0}
-                    onClick={handleUpload}
-                  >
-                    {uploading ? "Uploading..." : "Upload"}
-                  </Button>
-                </div>
               </div>
               <div className="md:col-span-9 border-2 border-cyan-400 rounded-sm p-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -588,11 +563,9 @@ export default function UploadAnswerSheetsPage() {
                 <table className="w-full text-[12px]">
                   <thead className="sticky top-0 bg-muted/40">
                     <tr className="border-b border-border text-left">
-                      <th className="px-2 py-2 w-12">SI.No</th>
-                      <th className="px-2 py-2">Filename</th>
-                      <th className="px-2 py-2">Folder</th>
-                      <th className="px-2 py-2 w-32">Status</th>
-                      <th className="px-2 py-2 w-16 text-center">View</th>
+                      <th className="px-2 py-2 w-12">Sl.No</th>
+                      <th className="px-2 py-2">File Name</th>
+                      <th className="px-2 py-2 w-40">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -603,7 +576,6 @@ export default function UploadAnswerSheetsPage() {
                       >
                         <td className="px-2 py-1.5">{i + 1}</td>
                         <td className="px-2 py-1.5">{u.fileName}</td>
-                        <td className="px-2 py-1.5">{u.folder}</td>
                         <td className="px-2 py-1.5">
                           <span
                             className={
@@ -619,23 +591,31 @@ export default function UploadAnswerSheetsPage() {
                             {u.status}
                           </span>
                         </td>
-                        <td className="px-2 py-1.5 text-center">
-                          {u.view ? (
-                            <button
-                              type="button"
-                              className="text-blue-700 hover:underline"
-                              onClick={() => void openAnswerSheetView(u.view)}
-                            >
-                              View
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {selectedFilesCount > 0 && (
+                  <div className="flex justify-end gap-3 border-t border-border bg-background px-4 py-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-8 px-5 text-[12px]"
+                      onClick={clearSelectedFiles}
+                      disabled={uploading}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-8 px-5 text-[12px]"
+                      disabled={uploading || selectedFilesCount === 0}
+                      onClick={handleUpload}
+                    >
+                      {uploading ? "Uploading..." : "Upload"}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>

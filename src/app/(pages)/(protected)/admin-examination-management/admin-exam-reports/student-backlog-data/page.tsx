@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/common/components/select'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+import { useCollegeLogo } from '@/hooks/useCollegeLogo'
 import {
   getAdmissionUnivFilters,
   getBatchWiseStudentBacklogReport,
@@ -83,6 +84,7 @@ export default function StudentBacklogDataPage() {
   const [searchText, setSearchText] = useState('')
 
   const colleges = useMemo(() => filterColleges(filtersData), [filtersData])
+  const collegeLogo = useCollegeLogo(collegeId)
   const courses = useMemo(
     () => filterCourses(filtersData, collegeId),
     [filtersData, collegeId],
@@ -282,6 +284,7 @@ export default function StudentBacklogDataPage() {
     printStudentBacklogReport(filteredList, {
       title: 'Student Backlog Data',
       collegeName: pickText(college ?? {}, ['college_name', 'collegeName']),
+      logoUrl: collegeLogo,
       courseYearCodes,
     })
   }
@@ -373,8 +376,7 @@ export default function StudentBacklogDataPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
+                  className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
                   onClick={handleExportExcel}
                 >
                   <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -382,8 +384,7 @@ export default function StudentBacklogDataPage() {
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
+                  className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
                   onClick={handlePrint}
                 >
                   <Printer className="mr-1.5 h-3.5 w-3.5" />
