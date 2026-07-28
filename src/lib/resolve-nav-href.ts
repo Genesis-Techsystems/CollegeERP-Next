@@ -176,7 +176,6 @@ export function resolveForcedNavRoute(
     hrefLower.includes("grace-marks-benefited") ||
     hrefLower.includes("grace-benefited-students") ||
     hrefLower.includes("gracemarks-benefited") ||
-    hrefLower.includes("exam-gracemarks") ||
     ((labelLower.includes("grace") || labelLower.includes("gracemarks")) &&
       labelLower.includes("benefited") &&
       (labelLower.includes("student") || labelLower.includes("report")))

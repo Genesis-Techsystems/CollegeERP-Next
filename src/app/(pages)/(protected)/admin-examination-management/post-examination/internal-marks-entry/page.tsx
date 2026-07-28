@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { GraduationCap } from "lucide-react";
+import { toast } from "sonner";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,9 @@ import {
   getInternalMarksEntryRestFilters,
   getInternalMarksEntryStudents,
   getInternalMarksEntrySubjects,
-  listExamMarksSetup,
+  getInternalMarksEntrySubjectMarks,
+  listInternalExamMarksSetup,
+  listExamStudentInternalMarksForEntry,
   saveInternalMarksEntry,
 } from "@/services";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -21,6 +24,9 @@ import { usePrintMode } from "@/lib/print";
 
 type AnyRow = Record<string, any>;
 type MarkRow = Record<string, any>;
+
+const THEORY_SUBJECT_TYPE_ID = 3;
+const ELECTIVE_SUBJECT_TYPE_ID = 4;
 
 function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   const seen = new Set<string>();
@@ -34,29 +40,68 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   return out;
 }
 
+function hasSemisterRole(): boolean {
+  try {
+    const raw = globalThis?.localStorage?.getItem("userDetails");
+    if (!raw) return false;
+    const user = JSON.parse(raw) as {
+      userRoles?: Array<{ roleName?: string }>;
+    };
+    const roles = user.userRoles ?? [];
+    return roles.some((role) => {
+      const name = String(role.roleName ?? "").toUpperCase();
+      return (
+        name === "OFFLINEEVALUATION" ||
+        name === "EXAMCONTROLLER" ||
+        name === "ADMIN"
+      );
+    });
+  } catch {
+    return false;
+  }
+}
+
+/** Angular save DTO sends mat-datepicker Date (serialized to ISO). */
+function toSaveExamDate(date: string): string {
+  if (!date) return date;
+  const ymd = String(date).slice(0, 10);
+  const parsed = new Date(`${ymd}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? date : parsed.toISOString();
+}
+
 function MarkInputRenderer(
   params: ICellRendererParams<MarkRow> & {
     field: string;
     maxMarks?: number;
-    onChange: (row: MarkRow, field: string, value: number) => void;
-    disabled?: boolean;
+    onChange: (row: MarkRow, field: string, value: number | "") => void;
+    /** When true, Total Internal is auto-sum (Exam+Assignment+Quiz). */
+    lockWhenBreakdown?: boolean;
   },
 ) {
-  const value = Number(params.data?.[params.field] ?? 0);
+  const raw = params.data?.[params.field];
   const max =
     params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined;
+  const display =
+    raw === "" || raw == null
+      ? ""
+      : Number.isFinite(Number(raw))
+        ? String(Number(raw))
+        : "";
+  const disabled =
+    params.data?.isPresent !== true || Boolean(params.lockWhenBreakdown);
   return (
     <Input
       type="number"
       min={0}
       max={max}
       className="h-8 text-[12px]"
-      value={Number.isFinite(value) ? String(value) : "0"}
-      disabled={Boolean(params.disabled)}
-      onChange={(e) =>
-        params.data &&
-        params.onChange(params.data, params.field, Number(e.target.value || 0))
-      }
+      value={display}
+      disabled={disabled}
+      onChange={(e) => {
+        if (!params.data || disabled) return;
+        const v = e.target.value;
+        params.onChange(params.data, params.field, v === "" ? "" : Number(v));
+      }}
     />
   );
 }
@@ -101,6 +146,10 @@ export default function InternalMarksEntryPage() {
   const empNumber = globalThis?.localStorage?.getItem("empNumber") ?? "";
   const userName = globalThis?.localStorage?.getItem("userName") ?? "";
   const roleName = globalThis?.localStorage?.getItem("roleName") ?? "";
+  const userRole = globalThis?.localStorage?.getItem("userRole") ?? "";
+  const examEvaluatorProfileId = Number(
+    globalThis?.localStorage?.getItem("examEvaluatorProfileId") ?? 0,
+  );
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -113,6 +162,7 @@ export default function InternalMarksEntryPage() {
   const [restFilters, setRestFilters] = useState<AnyRow[]>([]);
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
   const [marksSetupRows, setMarksSetupRows] = useState<AnyRow[]>([]);
+  const [examMarks, setExamMarks] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<MarkRow[]>([]);
 
   const [courseId, setCourseId] = useState<number | null>(null);
@@ -158,10 +208,18 @@ export default function InternalMarksEntryPage() {
     }
     return list;
   }, [allFilters, courseId, academicYearId, roleName]);
-  const colleges = useMemo(
-    () => dedupeBy(restFilters, "fk_college_id"),
-    [restFilters],
+  const selectedExam = useMemo(
+    () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)),
+    [exams, examId],
   );
+  const colleges = useMemo(() => {
+    const list = dedupeBy(restFilters, "fk_college_id");
+    return [...list].sort(
+      (a, b) =>
+        Number(a.clg_sort_order ?? a.clgSortOrder ?? 0) -
+        Number(b.clg_sort_order ?? b.clgSortOrder ?? 0),
+    );
+  }, [restFilters]);
   const courseGroups = useMemo(
     () =>
       dedupeBy(
@@ -197,16 +255,27 @@ export default function InternalMarksEntryPage() {
       ),
     [restFilters, collegeId, courseGroupId, courseYearId],
   );
-  const subjectTypes = useMemo(
-    () =>
-      dedupeBy(
-        subjectRows.filter(
-          (x) => Number(x.fk_regulation_id) === Number(regulationId),
-        ),
-        "fk_subjecttype_catdet_id",
+  const subjectTypes = useMemo(() => {
+    let list = dedupeBy(
+      subjectRows.filter(
+        (x) => Number(x.fk_regulation_id) === Number(regulationId),
       ),
-    [subjectRows, regulationId],
-  );
+      "fk_subjecttype_catdet_id",
+    );
+    const semister = hasSemisterRole();
+    if (
+      !semister &&
+      selectedExam?.is_regular_exam === true &&
+      list.length > 0
+    ) {
+      list = list.filter(
+        (x) =>
+          Number(x.fk_subjecttype_catdet_id) !== THEORY_SUBJECT_TYPE_ID &&
+          Number(x.fk_subjecttype_catdet_id) !== ELECTIVE_SUBJECT_TYPE_ID,
+      );
+    }
+    return list;
+  }, [subjectRows, regulationId, selectedExam]);
   const subjects = useMemo(
     () =>
       dedupeBy(
@@ -240,10 +309,6 @@ export default function InternalMarksEntryPage() {
     return firstValid ?? 0;
   }, [rows]);
   const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber;
-  const selectedExam = useMemo(
-    () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)),
-    [exams, examId],
-  );
   const selectedCollege = useMemo(
     () => colleges.find((x) => Number(x.fk_college_id) === Number(collegeId)),
     [colleges, collegeId],
@@ -304,25 +369,79 @@ export default function InternalMarksEntryPage() {
       ),
     [marksSetupRows, selectedSubjectCategoryId],
   );
-  const displayMaxMarks = useMemo(
-    () =>
-      [
-        maxMarks,
-        ...rows.flatMap((row) => [
-          row.internalmarks,
-          row.internalMarks,
-          row.internal_max_marks,
-        ]),
-        selectedSubject?.internalmarks,
-        selectedSubject?.internalMarks,
-        selectedSubject?.internal_max_marks,
-        selectedMarksSetup?.internalMarks,
-        selectedMarksSetup?.internalmarks,
-      ]
-        .map(Number)
-        .find((value) => Number.isFinite(value) && value > 0) ?? 0,
-    [maxMarks, rows, selectedSubject, selectedMarksSetup],
+  const examMarkRow = examMarks[0] ?? null;
+  const examSetupRow = marksSetupRows[0] ?? selectedMarksSetup ?? null;
+
+  const marks1 = Boolean(
+    examMarkRow?.marks1 != null || examSetupRow?.marks1 != null,
   );
+  const marks2 = Boolean(
+    examMarkRow?.marks2 != null || examSetupRow?.marks2 != null,
+  );
+  const marks3 = Boolean(
+    examMarkRow?.marks3 != null || examSetupRow?.marks3 != null,
+  );
+  const totalField = marks1 || marks2 || marks3;
+  const maxMarks1 = Number(
+    examMarkRow?.marks1 != null
+      ? examMarkRow.marks1
+      : (examSetupRow?.marks1 ?? 0),
+  );
+  const maxMarks2 = Number(
+    examMarkRow?.marks2 != null
+      ? examMarkRow.marks2
+      : (examSetupRow?.marks2 ?? 0),
+  );
+  const maxMarks3 = Number(
+    examMarkRow?.marks3 != null
+      ? examMarkRow.marks3
+      : (examSetupRow?.marks3 ?? 0),
+  );
+  const maxValue = useMemo(() => {
+    const subjectMarksRow = examMarks.find(
+      (m) => Number(m.subjectId ?? m.fk_subject_id) === Number(subjectId),
+    );
+    const fromSubject =
+      subjectMarksRow?.internalmarks ?? subjectMarksRow?.internalMarks;
+    if (fromSubject != null && fromSubject !== "")
+      return Number(fromSubject) || 0;
+    const setup =
+      marksSetupRows.find(
+        (s) =>
+          Number(
+            s.subjectCategoryCatDetId ??
+              s.subjectcategoryCatDetId ??
+              s.generalDetailId ??
+              0,
+          ) === selectedSubjectCategoryId,
+      ) ?? examSetupRow;
+    return Number(setup?.internalMarks ?? setup?.internalmarks ?? 0) || 0;
+  }, [
+    examMarks,
+    marksSetupRows,
+    subjectId,
+    selectedSubjectCategoryId,
+    examSetupRow,
+  ]);
+
+  const displayMaxMarks = useMemo(() => {
+    if (maxValue > 0) return maxValue;
+    const fallback = [
+      maxMarks,
+      ...rows.flatMap((row) => [
+        row.internalmarks,
+        row.internalMarks,
+        row.internal_max_marks,
+      ]),
+      selectedSubject?.internalmarks,
+      selectedSubject?.internalMarks,
+      selectedMarksSetup?.internalMarks,
+      selectedMarksSetup?.internalmarks,
+    ]
+      .map(Number)
+      .find((value) => Number.isFinite(value) && value > 0);
+    return fallback ?? 0;
+  }, [maxValue, maxMarks, rows, selectedSubject, selectedMarksSetup]);
 
   useEffect(() => {
     if (printMode !== "marks-sheet") return;
@@ -566,20 +685,40 @@ export default function InternalMarksEntryPage() {
   useEffect(() => {
     let cancelled = false;
     setMarksSetupRows([]);
-    if (!subjectId || !courseId || !regulationId) return;
+    setExamMarks([]);
+    if (!subjectId || !courseId || !regulationId || !subjectTypeId) return;
 
-    void listExamMarksSetup(courseId, regulationId, false)
-      .then((data) => {
-        if (!cancelled) setMarksSetupRows(Array.isArray(data) ? data : []);
+    void Promise.all([
+      listInternalExamMarksSetup({
+        courseId,
+        regulationId,
+        subjectTypeId,
+      }),
+      courseGroupId
+        ? getInternalMarksEntrySubjectMarks({
+            courseId,
+            courseGroupId,
+            regulationId,
+            subjectId,
+          })
+        : Promise.resolve([]),
+    ])
+      .then(([setups, subjectMarks]) => {
+        if (cancelled) return;
+        setMarksSetupRows(Array.isArray(setups) ? setups : []);
+        setExamMarks(Array.isArray(subjectMarks) ? subjectMarks : []);
       })
       .catch(() => {
-        if (!cancelled) setMarksSetupRows([]);
+        if (!cancelled) {
+          setMarksSetupRows([]);
+          setExamMarks([]);
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [subjectId, courseId, regulationId]);
+  }, [subjectId, courseId, regulationId, subjectTypeId, courseGroupId]);
   useEffect(() => {
     const selectedSubject = subjects.find(
       (subject) => Number(subject.fk_subject_id) === Number(subjectId),
@@ -647,41 +786,132 @@ export default function InternalMarksEntryPage() {
     );
   }
 
-  function updateMarks(row: MarkRow, field: string, value: number) {
-    const targetStudentId = Number(row.studentId ?? row.fk_student_id ?? 0);
-    const targetHallTicket = String(
-      row.hallticketNumber ?? row.hallticket_number ?? "",
-    );
-    let parsed = Number(value);
-    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0;
-    if (maxMarks > 0 && parsed > maxMarks) {
-      parsed = maxMarks;
-      toastError(`Entered marks should not exceed ${maxMarks}.`);
-    }
-    setRows((prev) =>
-      prev.map((r) => {
-        const sid = Number(r.studentId ?? r.fk_student_id ?? 0);
-        const hall = String(r.hallticketNumber ?? r.hallticket_number ?? "");
-        const sameRow =
-          (targetStudentId > 0 && sid === targetStudentId) ||
-          (targetStudentId <= 0 &&
-            targetHallTicket.length > 0 &&
-            hall === targetHallTicket);
-        if (!sameRow) return r;
-        const next = { ...r, [field]: parsed };
-        if (field !== "internal_total_marks") {
-          const total =
-            Number(next.internal_exam_marks ?? 0) +
-            Number(next.internal_assignment_marks ?? 0) +
-            Number(next.internal_quiz_marks ?? 0);
-          next.internal_total_marks = total;
-        }
-        return next;
-      }),
+  function calculateTotal(row: MarkRow): number {
+    return (
+      Number(row.internal_exam_marks ?? 0) +
+      Number(row.internal_assignment_marks ?? 0) +
+      Number(row.internal_quiz_marks ?? 0)
     );
   }
 
-  async function onGetList() {
+  function applyEnteredMarks(row: MarkRow): MarkRow {
+    const next = { ...row };
+    const total = next.internal_total_marks;
+    if (total !== "" && total != null) {
+      let parsed = Number(total);
+      if (!Number.isFinite(parsed) || parsed < 0) parsed = 0;
+      if (maxValue > 0 && parsed > maxValue) {
+        toast.info(`Entered Marks Should Less Than ${maxValue}Marks`);
+        next.internal_total_marks = "";
+      } else {
+        next.internal_total_marks = parsed;
+      }
+    }
+    if (next.isPresent === false) {
+      next.isPass = false;
+    } else if (next.isPresent != null) {
+      next.isPass = true; // Internal exam — Angular always passes if present
+    }
+    return next;
+  }
+
+  const updateMarks = useCallback(
+    (row: MarkRow, field: string, value: number | "") => {
+      const targetStudentId = Number(row.studentId ?? row.fk_student_id ?? 0);
+      const targetHallTicket = String(
+        row.hallticketNumber ?? row.hallticket_number ?? "",
+      );
+      setRows((prev) =>
+        prev.map((r) => {
+          const sid = Number(r.studentId ?? r.fk_student_id ?? 0);
+          const hall = String(r.hallticketNumber ?? r.hallticket_number ?? "");
+          const sameRow =
+            (targetStudentId > 0 && sid === targetStudentId) ||
+            (targetStudentId <= 0 &&
+              targetHallTicket.length > 0 &&
+              hall === targetHallTicket);
+          if (!sameRow) return r;
+
+          let next: MarkRow = { ...r, [field]: value };
+
+          if (field === "internal_exam_marks" && maxMarks1 > 0) {
+            const v = Number(value);
+            if (Number.isFinite(v) && v > maxMarks1) {
+              toast.info(
+                `The Exam Marks should not be greater than ${maxMarks1}`,
+              );
+              next.internal_exam_marks = "";
+            }
+          }
+          if (field === "internal_assignment_marks" && maxMarks2 > 0) {
+            const v = Number(value);
+            if (Number.isFinite(v) && v > maxMarks2) {
+              toast.info(
+                `The Assignment Marks should not be greater than ${maxMarks2}`,
+              );
+              next.internal_assignment_marks = "";
+            }
+          }
+          if (field === "internal_quiz_marks" && maxMarks3 > 0) {
+            const v = Number(value);
+            if (Number.isFinite(v) && v > maxMarks3) {
+              toast.info(
+                `The Quiz Marks should not be greater than ${maxMarks3}`,
+              );
+              next.internal_quiz_marks = "";
+            }
+          }
+
+          if (field !== "internal_total_marks") {
+            next.internal_total_marks = calculateTotal(next);
+          }
+
+          if (maxValue > 0 && Number(next.internal_total_marks) > maxValue) {
+            toast.info(
+              `The Total Internal Marks should not be greater than ${maxValue}`,
+            );
+            next.internal_total_marks = "";
+          }
+
+          return applyEnteredMarks(next);
+        }),
+      );
+    },
+    [maxMarks1, maxMarks2, maxMarks3, maxValue],
+  );
+
+  function mergeValidationRows(
+    rowsIn: MarkRow[],
+    validationRows: AnyRow[],
+  ): MarkRow[] {
+    if (!validationRows.length) return rowsIn;
+    return rowsIn.map((row) => {
+      const match = validationRows.find(
+        (v) =>
+          Number(v.studentId ?? v.fk_student_id) ===
+          Number(row.studentId ?? row.fk_student_id),
+      );
+      if (!match) return row;
+      return applyEnteredMarks({
+        ...row,
+        marks: match.marks ?? row.marks,
+        isvalidate: match.isvalidate,
+        reason: match.reason,
+        color:
+          match.isvalidate === false
+            ? "#ff7777"
+            : match.isvalidate === true
+              ? null
+              : row.color,
+      });
+    });
+  }
+
+  async function onGetList(
+    validationRows: AnyRow[] = [],
+    options?: { mergeSavedMarks?: boolean },
+  ) {
+    const mergeSavedMarks = options?.mergeSavedMarks ?? true;
     if (
       !collegeId ||
       !courseId ||
@@ -707,14 +937,69 @@ export default function InternalMarksEntryPage() {
         labBatchId,
         examDate,
       }).catch(() => []);
-      const normalized = (Array.isArray(data) ? data : []).map((r) => ({
-        ...r,
-        internal_exam_marks: Number(r.internal_exam_marks ?? 0),
-        internal_assignment_marks: Number(r.internal_assignment_marks ?? 0),
-        internal_quiz_marks: Number(r.internal_quiz_marks ?? 0),
-        internal_total_marks: Number(r.internal_total_marks ?? 0),
-      }));
-      setRows(normalized);
+      let normalized = (Array.isArray(data) ? data : []).map((r) => {
+        const internalMarkId =
+          r.examStdInternalMarkId ?? r.exam_std_internal_mark_id ?? null;
+        const base: MarkRow = {
+          ...r,
+          examStdInternalMarkId: internalMarkId,
+          exam_std_internal_mark_id: internalMarkId,
+          marks: r.marks == null ? 0 : r.marks,
+          internal_exam_marks:
+            r.internal_exam_marks == null ? 0 : r.internal_exam_marks,
+          internal_assignment_marks:
+            r.internal_assignment_marks == null
+              ? 0
+              : r.internal_assignment_marks,
+          internal_quiz_marks:
+            r.internal_quiz_marks == null ? 0 : r.internal_quiz_marks,
+          internal_total_marks:
+            r.internal_total_marks == null ? 0 : r.internal_total_marks,
+          isMarksPublished:
+            r.isMarksPublished == null ? false : r.isMarksPublished,
+          isAttSatisfied: r.isAttSatisfied == null ? true : r.isAttSatisfied,
+        };
+        if (base.isPresent === false) base.isPass = false;
+        return applyEnteredMarks(base);
+      });
+
+      if (mergeSavedMarks) {
+        const existing = await listExamStudentInternalMarksForEntry({
+          collegeId,
+          examId,
+          subjectId,
+        }).catch(() => []);
+        if (existing.length) {
+          normalized = normalized.map((row) => {
+            const match = existing.find(
+              (e) =>
+                Number(e.studentId ?? e.student?.studentId) ===
+                Number(row.studentId ?? row.fk_student_id),
+            );
+            if (!match) return row;
+            // marks_entry proc already returns the correct examStdInternalMarkId
+            // for this exam date/subject. Domain list can return a different (stale)
+            // record for the same student — keep proc id when present.
+            const procInternalMarkId =
+              row.examStdInternalMarkId ?? row.exam_std_internal_mark_id;
+            return applyEnteredMarks({
+              ...row,
+              marks: match.marks ?? row.marks,
+              extMarks: 0,
+              examStdInternalMarkId:
+                procInternalMarkId ??
+                match.examStdInternalMarkId ??
+                match.exam_std_internal_mark_id,
+              exam_std_internal_mark_id:
+                procInternalMarkId ??
+                match.examStdInternalMarkId ??
+                match.exam_std_internal_mark_id,
+            });
+          });
+        }
+      }
+
+      setRows(mergeValidationRows(normalized, validationRows));
     } finally {
       setLoading(false);
     }
@@ -727,12 +1012,20 @@ export default function InternalMarksEntryPage() {
       !examId ||
       !courseYearId ||
       !subjectId ||
-      !regulationId
+      !regulationId ||
+      !subjectTypeId
     )
       return;
     if (rows.length === 0) return;
+    if (selectedExam && selectedExam.is_internal_exam === false) return;
     setSaving(true);
     try {
+      const isExternalEvaluator =
+        userRole.toUpperCase() === "EXTERNAL EVALUATOR";
+      const subCredits = Number(
+        selectedSubject?.sub_credits ?? selectedSubject?.subCredits ?? 0,
+      );
+      const saveExamDate = toSaveExamDate(examDate);
       const payload = rows.map((row) => ({
         examStudentDetailDTO: {
           ...row,
@@ -740,31 +1033,47 @@ export default function InternalMarksEntryPage() {
           courseId,
           regulationId,
           subjectTypeId,
-          credits: row.isPass ? Number(row.sub_credits ?? 0) : 0,
+          isExtenalpersonApprove: isExternalEvaluator,
+          examEvaluatorProfileId: isExternalEvaluator
+            ? examEvaluatorProfileId || null
+            : null,
+          credits: row.isPass ? subCredits : 0,
         },
         examStudentInternalMarkDTO: {
-          examDate,
+          examDate: saveExamDate,
           isActive: true,
-          isPresent: Boolean(row.isPresent),
+          isPresent: row.isPresent,
           isPublished: false,
-          marks: Number(row.internal_total_marks ?? row.marks ?? 0),
-          internal_total_marks: Number(row.internal_total_marks ?? 0),
-          internal_exam_marks: Number(row.internal_exam_marks ?? 0),
-          internal_quiz_marks: Number(row.internal_quiz_marks ?? 0),
-          internal_assignment_marks: Number(row.internal_assignment_marks ?? 0),
+          marks: row.marks,
+          internal_total_marks: row.internal_total_marks,
+          internal_exam_marks: row.internal_exam_marks,
+          internal_quiz_marks: row.internal_quiz_marks,
+          internal_assignment_marks: row.internal_assignment_marks,
           collegeId,
           studentId: Number(row.studentId ?? row.fk_student_id ?? 0),
           courseYearId,
           subjectId,
           examId,
           employeeId,
+          createdDt: new Date().toISOString(),
           examStdInternalMarkId:
-            row.examStdInternalMarkId ?? row.exam_std_internal_mark_id ?? 0,
+            row.examStdInternalMarkId ?? row.exam_std_internal_mark_id,
         },
       }));
-      await saveInternalMarksEntry(payload);
-      toastSuccess("Marks saved successfully");
-      await onGetList();
+      const result = await saveInternalMarksEntry(payload);
+      if (result.success) {
+        toastSuccess(result.message ?? "Marks saved successfully");
+      } else {
+        toast.info(result.message ?? "Marks saved with validation notes");
+      }
+      // Angular postExamMarks → getStudentsList(result.data) twice (no ExamStudentInternalMark on this path).
+      const validation = result.validationRows;
+      void onGetList(validation, { mergeSavedMarks: false });
+      if (validation.length) {
+        void onGetList(validation, { mergeSavedMarks: false });
+      } else {
+        void onGetList([], { mergeSavedMarks: false });
+      }
     } catch (error) {
       toastError(error, "Failed to save marks");
     } finally {
@@ -778,35 +1087,110 @@ export default function InternalMarksEntryPage() {
       if (isPresent === false) return "Absent";
       return "Not Marked";
     };
-    return [
+    const invalidStyle = (p: { data?: MarkRow }) =>
+      p.data?.color ? { backgroundColor: String(p.data.color) } : undefined;
+
+    const cols: ColDef<MarkRow>[] = [
       {
         headerName: "SI No",
         width: 70,
         flex: 0,
-        valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        cellStyle: invalidStyle,
       },
       {
         field: "hallticketNumber",
         headerName: "Hallticket Number",
         minWidth: 190,
         flex: 1,
+        cellStyle: invalidStyle,
       },
-      { field: "firstName", headerName: "Student", minWidth: 240, flex: 2 },
+      {
+        field: "firstName",
+        headerName: "Student",
+        minWidth: 240,
+        flex: 2,
+        cellStyle: invalidStyle,
+      },
       {
         headerName: "Attendance Status",
         minWidth: 170,
         flex: 1,
-        valueGetter: (p: any) => attendanceValue(p.data?.isPresent),
-      },
-      {
-        headerName: "Total Internal",
-        minWidth: 170,
-        flex: 1,
-        // Read-only -- updateMarks keeps internal_total_marks = sum of the three.
-        valueGetter: (p: any) => Number(p.data?.internal_total_marks ?? 0),
+        valueGetter: (p) => attendanceValue(p.data?.isPresent),
+        cellStyle: invalidStyle,
       },
     ];
-  }, [maxMarks]);
+
+    if (marks1) {
+      cols.push({
+        headerName: "Exam",
+        minWidth: 120,
+        flex: 1,
+        cellRenderer: MarkInputRenderer,
+        cellRendererParams: {
+          field: "internal_exam_marks",
+          maxMarks: maxMarks1,
+          onChange: updateMarks,
+        },
+        cellStyle: invalidStyle,
+      });
+    }
+    if (marks2) {
+      cols.push({
+        headerName: "Assignment",
+        minWidth: 120,
+        flex: 1,
+        cellRenderer: MarkInputRenderer,
+        cellRendererParams: {
+          field: "internal_assignment_marks",
+          maxMarks: maxMarks2,
+          onChange: updateMarks,
+        },
+        cellStyle: invalidStyle,
+      });
+    }
+    if (marks3) {
+      cols.push({
+        headerName: "Quiz",
+        minWidth: 120,
+        flex: 1,
+        cellRenderer: MarkInputRenderer,
+        cellRendererParams: {
+          field: "internal_quiz_marks",
+          maxMarks: maxMarks3,
+          onChange: updateMarks,
+        },
+        cellStyle: invalidStyle,
+      });
+    }
+
+    cols.push({
+      headerName: "Total Internal",
+      minWidth: 150,
+      flex: 1,
+      cellRenderer: MarkInputRenderer,
+      cellRendererParams: {
+        field: "internal_total_marks",
+        maxMarks: maxValue || displayMaxMarks,
+        onChange: updateMarks,
+        lockWhenBreakdown: totalField,
+      },
+      cellStyle: invalidStyle,
+    });
+
+    return cols;
+  }, [
+    marks1,
+    marks2,
+    marks3,
+    totalField,
+    maxMarks1,
+    maxMarks2,
+    maxMarks3,
+    maxValue,
+    displayMaxMarks,
+    updateMarks,
+  ]);
 
   // ── Print layout ─────────────────────────────────────────────────────────
   // Mirrors Angular's #printsection: banner placeholder, MARKS SHEET title,
@@ -1281,7 +1665,7 @@ export default function InternalMarksEntryPage() {
             <div className="md:col-span-2">
               <Button
                 className="h-8 text-[12px] w-full"
-                onClick={onGetList}
+                onClick={() => void onGetList()}
                 disabled={loading}
               >
                 {loading ? "Loading..." : "Get List"}

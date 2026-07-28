@@ -1435,7 +1435,7 @@ export default function StudentExamFeeRegistrationPage() {
 
   return (
     <FilteredPage
-      title="Exam Fee Collection"
+      title="Student Exam Fee Collection"
       filters={
         <GlobalFilterBarRow>
           <div className="md:col-span-5 space-y-1">
@@ -1449,7 +1449,7 @@ export default function StudentExamFeeRegistrationPage() {
               onChange={(id, row) => void selectedStudent(id, row)}
             />
           </div>
-          <div className="md:col-span-7 space-y-1">
+          <div className="md:col-span-10 space-y-1">
             <Label>Exam *</Label>
             <Select
               value={examId ? String(examId) : null}

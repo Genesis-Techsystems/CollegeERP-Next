@@ -1,9 +1,11 @@
 import {
   buildQuery,
   domainList,
+  fetchDetails,
   getAllRecords,
   getAllRecordsEnvelope,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
   uploadFile,
 } from "@/services/crud";
@@ -32,6 +34,29 @@ function firstGroupByFlag(groups: AnyRow[][], flags: string[]): AnyRow[] {
   );
 }
 
+/** Angular momentFormatYMD1 — proc param `in_exam_date`. */
+function formatExamDateYmd(date: string): string {
+  if (!date) return "";
+  const raw = String(date).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const d = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function dedupeStudentsByHallticket(rows: AnyRow[]): AnyRow[] {
+  const byHt = new Map<string, AnyRow>();
+  for (const row of rows) {
+    const key = String(row.hallticketNumber ?? row.hallticket_number ?? "");
+    if (!key) continue;
+    byHt.set(key, row);
+  }
+  return Array.from(byHt.values());
+}
+
 export interface AttendanceFilterParams {
   courseId: number;
   examId: number;
@@ -48,7 +73,31 @@ export interface AttendanceFilterParams {
 export async function getInternalAttendanceFilters(
   employeeId: number,
 ): Promise<AnyRow[]> {
-  return getUnivExamFiltersByType(employeeId, "INT");
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_filters",
+      in_flag_type: "INT",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_filters"]);
+  return picked.length > 0 ? picked : groups.flatMap((g) => g ?? []);
 }
 
 export async function listInternalExamAverageColleges(): Promise<AnyRow[]> {
@@ -660,31 +709,73 @@ export async function getVerifyExamMarksReport(params: {
   return [];
 }
 
-export async function getInternalAttendanceStudents(
-  params: AttendanceFilterParams,
-): Promise<AnyRow[]> {
-  const payload = {
-    in_flag: "",
-    in_college_id: params.collegeId,
-    in_course_id: params.courseId,
-    in_exam_id: params.examId,
-    in_course_group_id: params.courseGroupId,
-    in_course_year_id: params.courseYearId,
-    in_regulation_id: params.regulationId,
-    in_subject_id: params.subjectId,
-    in_group_section_id: params.sectionId ?? 0,
-    in_stdbatch_id: params.labBatchId ?? 0,
-    in_eaxm_labbatch_id: params.labBatchId ?? 0,
-    is_extenalperson_approve: 0,
-    in_exam_date: "1999-01-01",
-  };
+/** Angular `getStudentsList` → `s_get_exam_allotment_details_invigilator` / `invigilator_room_details`. */
+export async function getInternalAttendanceStudents(params: {
+  collegeId: number;
+  examId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  roomId: number;
+  employeeId: number;
+  examDate: string;
+  subjectId: number;
+  labBatchId: number;
+}): Promise<AnyRow[]> {
+  const examDateYmd = formatExamDateYmd(params.examDate);
   const data = await getAllRecords<{ result: AnyRow[][] }>(
-    "s_get_exam_internal_marksdetail",
-    payload,
+    "s_get_exam_allotment_details_invigilator",
+    {
+      in_flag: "invigilator_room_details",
+      in_clg_id: params.collegeId,
+      in_exam_id: params.examId,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_room_id: params.roomId,
+      in_std_id: 0,
+      in_invgilator_emp_id: params.employeeId || 0,
+      in_regulation_id: 0,
+      from_exam_date: examDateYmd,
+      to_exam_date: examDateYmd,
+      in_subject_id: params.subjectId,
+      in_session_id: 0,
+      in_exam_labbatch_id: params.labBatchId || 0,
+    },
   );
   const groups = data?.result ?? [];
   const first = groups[0] ?? [];
   return Array.isArray(first) ? first : [];
+}
+
+/** Angular STAFF/MSTAFF: `listByIds(getExamAllotInvigilatorUrl, employeeId, 'invigilatorEmpId')`. */
+export async function listStaffExamAllotInvigilators(
+  invigilatorEmpId: number,
+): Promise<AnyRow[]> {
+  const data = await fetchDetails<AnyRow[]>(
+    EXAM_API.GET_EXAM_ALLOT_INVIGILATOR,
+    { invigilatorEmpId },
+  );
+  const rows = Array.isArray(data) ? data : [];
+  const seen = new Set<number>();
+  return rows.filter((row) => {
+    const sessionId = Number(row.fk_exam_session_id ?? 0);
+    if (seen.has(sessionId)) return false;
+    seen.add(sessionId);
+    return true;
+  });
+}
+
+/** Angular non-staff: `listByTwoIds(getExamAllotmentInvigilatorsUrl, collegeId, examId, …)`. */
+export async function listExamAllotmentInvigilators(params: {
+  collegeId: number;
+  examId: number;
+}): Promise<AnyRow[]> {
+  const data = await fetchDetails<AnyRow[]>(
+    EXAM_API.GET_EXAM_ALLOTMENT_INVIGILATORS,
+    { collegeId: params.collegeId, examId: params.examId },
+  );
+  return Array.isArray(data) ? data : [];
 }
 
 export async function saveInternalAttendance(rows: AnyRow[]): Promise<void> {
@@ -867,7 +958,9 @@ export async function getInternalMarksEntryRestFilters(params: {
       in_loginuser_empid: params.employeeId || 0,
     },
   );
-  return (data?.result ?? []).flatMap((g) => g ?? []);
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
+  return picked.length > 0 ? picked : groups.flatMap((g) => g ?? []);
 }
 
 export async function getInternalMarksEntrySubjects(params: {
@@ -902,7 +995,9 @@ export async function getInternalMarksEntrySubjects(params: {
       in_loginuser_empid: params.employeeId || 0,
     },
   );
-  return (data?.result ?? []).flatMap((g) => g ?? []);
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_sub_regexamstd"]);
+  return picked.length > 0 ? picked : groups.flatMap((g) => g ?? []);
 }
 
 export async function getInternalMarksEntryStudents(params: {
@@ -927,16 +1022,18 @@ export async function getInternalMarksEntryStudents(params: {
     in_subject_id: params.subjectId,
     in_eaxm_labbatch_id: params.labBatchId || 0,
     is_extenalperson_approve: 0,
-    in_exam_date: params.examDate,
+    in_exam_date: formatExamDateYmd(params.examDate),
   };
 
-  const procs = ["s_get_exam_markdetails", "s_get_exam_mark_details"];
+  // Angular getExamMarkDetailsUrl → getAllRecords/s_get_exam_markdetails only.
+  const procs = ["s_get_exam_markdetails"];
   for (const proc of procs) {
     try {
       const data = await getAllRecords<{ result: AnyRow[][] }>(proc, payload);
       const groups = data?.result ?? [];
-      const firstNonEmpty =
-        groups.find((g) => Array.isArray(g) && g.length > 0) ?? [];
+      const firstNonEmpty = dedupeStudentsByHallticket(
+        groups.find((g) => Array.isArray(g) && g.length > 0) ?? [],
+      );
       if (firstNonEmpty.length > 0) return firstNonEmpty;
     } catch {
       // try next proc variant
@@ -977,7 +1074,7 @@ export async function getMarksEntryStudentsBundle(params: {
     in_subject_id: params.subjectId,
     in_eaxm_labbatch_id: params.labBatchId || 0,
     is_extenalperson_approve: 0,
-    in_exam_date: params.examDate,
+    in_exam_date: formatExamDateYmd(params.examDate),
   };
   const procs = ["s_get_exam_markdetails", "s_get_exam_mark_details"];
   for (const proc of procs) {
@@ -985,13 +1082,10 @@ export async function getMarksEntryStudentsBundle(params: {
       const data = await getAllRecords<{ result: AnyRow[][] }>(proc, payload);
       const groups = data?.result ?? [];
       const rawStudents = Array.isArray(groups[0]) ? groups[0] : [];
-      if (rawStudents.length > 0) {
-        // Angular dedupes students by hallticketNumber (Map keyed on it).
-        const byHt = new Map<string, AnyRow>();
-        for (const s of rawStudents)
-          byHt.set(String(s.hallticketNumber ?? s.hallticket_number), s);
+      const students = dedupeStudentsByHallticket(rawStudents);
+      if (students.length > 0) {
         return {
-          students: Array.from(byHt.values()),
+          students,
           externalEvaluators: Array.isArray(groups[1]) ? groups[1] : [],
           internalEvaluators: Array.isArray(groups[2]) ? groups[2] : [],
         };
@@ -1003,8 +1097,19 @@ export async function getMarksEntryStudentsBundle(params: {
   return { students: [], externalEvaluators: [], internalEvaluators: [] };
 }
 
-export async function saveInternalMarksEntry(rows: AnyRow[]): Promise<void> {
-  await postDetails("examstudentinternalmarks", rows);
+export async function saveInternalMarksEntry(
+  rows: AnyRow[],
+): Promise<{ success: boolean; message?: string; validationRows: AnyRow[] }> {
+  const envelope = await postDetailsEnvelope<AnyRow[]>(
+    "examstudentinternalmarks",
+    rows,
+  );
+  const validationRows = Array.isArray(envelope.data) ? envelope.data : [];
+  return {
+    success: envelope.success,
+    message: envelope.message,
+    validationRows,
+  };
 }
 
 export async function getSecureMarksFilters(
@@ -1277,10 +1382,7 @@ export async function uploadSecureExamMarks(params: {
   formData.append("subjectCategoryId", String(params.subjectCategoryId));
   formData.append("subjectTypeId", String(params.subjectTypeId));
 
-  const response = (await uploadFile(
-    EXAM_API.UPLOADEXAMMARKS,
-    formData,
-  )) as {
+  const response = (await uploadFile(EXAM_API.UPLOADEXAMMARKS, formData)) as {
     data?: AnyRow[];
     message?: string;
   } | null;
@@ -1294,49 +1396,32 @@ export async function uploadSecureExamMarks(params: {
 export async function getExamMarksEntryFilters(
   employeeId: number,
 ): Promise<AnyRow[]> {
-  const common = {
-    in_university_id: 0,
-    in_univ_examcenter_id: 0,
-    in_college_id: 0,
-    in_course_id: 0,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_exam_id: 0,
-    in_academic_year_id: 0,
-    in_regulation_id: 0,
-    in_subject_id: 0,
-    in_sub_flag_type: "",
-    in_param1: 0,
-    in_param2: "REGSUP",
-    in_loginuser_roleid: 0,
-    in_loginuser_empid: employeeId || 0,
-  };
-  const attempts = [
-    { in_flag: "univ_exam_inep_filters", in_flag_type: "OFF_INT_EVAL" },
-    { in_flag: "univ_exam_inep_filters", in_flag_type: "QUESTION_SETTER" },
-    { in_flag: "univ_exam_inep_filters", in_flag_type: "REGSUP" },
-    { in_flag: "univ_exam_filters", in_flag_type: "OFF_INT_EVAL" },
-    { in_flag: "univ_exam_filters", in_flag_type: "REGSUP" },
-  ];
-  for (const a of attempts) {
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>(
-        "s_get_exam_filters_bycode",
-        { ...common, ...a },
-      );
-      const groups = data?.result ?? [];
-      const picked = firstGroupByFlag(groups, [
-        "univ_exam_inep_filters",
-        "univ_exam_filters",
-      ]);
-      if (picked.length > 0) return picked;
-      const fallback = firstNonEmptyGroup(groups);
-      if (fallback.length > 0) return fallback;
-    } catch {
-      // try next fallback
-    }
-  }
-  return [];
+  // Angular exam-marks-entry getExamFiltersList — exact flags only
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_inep_filters",
+      in_flag_type: "OFF_INT_EVAL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: "REGSUP",
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_inep_filters"]);
+  return picked.length > 0 ? picked : firstNonEmptyGroup(groups);
 }
 
 export async function getExamMarksEntryRestFilters(params: {
@@ -1345,51 +1430,34 @@ export async function getExamMarksEntryRestFilters(params: {
   academicYearId: number;
   employeeId: number;
 }): Promise<{ restFilters: AnyRow[]; regulations: AnyRow[] }> {
-  const common = {
-    in_university_id: 0,
-    in_univ_examcenter_id: 0,
-    in_college_id: 0,
-    in_course_id: params.courseId,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_exam_id: params.examId,
-    in_academic_year_id: params.academicYearId,
-    in_regulation_id: 0,
-    in_subject_id: 0,
-    in_sub_flag_type: "",
-    in_param1: 0,
-    in_param2: "REGSUP",
-    in_loginuser_roleid: 0,
-    in_loginuser_empid: params.employeeId || 0,
+  // Angular selectedExam — univ_exam_rest_inep_uc / OFF_INT_EVAL
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_rest_inep_uc",
+      in_flag_type: "OFF_INT_EVAL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: "REGSUP",
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  return {
+    restFilters: firstGroupByFlag(groups, ["univ_exam_rest_filters"]),
+    regulations: firstGroupByFlag(groups, ["regulations"]),
   };
-  const attempts = [
-    { in_flag: "univ_exam_rest_inep_uc", in_flag_type: "OFF_INT_EVAL" },
-    { in_flag: "univ_exam_rest_inep_uc", in_flag_type: "QUESTION_SETTER" },
-    { in_flag: "univ_exam_rest_in_regexamstd", in_flag_type: "REGSUP" },
-    { in_flag: "univ_exam_rest_in_regexamstd", in_flag_type: "ALL" },
-  ];
-  for (const a of attempts) {
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>(
-        "s_get_exam_filters_bycode",
-        { ...common, ...a },
-      );
-      const groups = data?.result ?? [];
-      const restFilters = firstGroupByFlag(groups, [
-        "univ_exam_rest_filters",
-        "univ_exam_rest_inep_uc",
-      ]);
-      const regulations = firstGroupByFlag(groups, ["regulations"]);
-      if (restFilters.length > 0 || regulations.length > 0)
-        return { restFilters, regulations };
-      const fallback = firstNonEmptyGroup(groups);
-      if (fallback.length > 0)
-        return { restFilters: fallback, regulations: [] };
-    } catch {
-      // try next fallback
-    }
-  }
-  return { restFilters: [], regulations: [] };
 }
 
 export async function getExamMarksEntrySubjects(params: {
@@ -1402,48 +1470,179 @@ export async function getExamMarksEntrySubjects(params: {
   regulationId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
-  const common = {
-    in_university_id: 0,
-    in_univ_examcenter_id: 0,
-    in_college_id: params.collegeId,
-    in_course_id: params.courseId,
-    in_course_group_id: params.courseGroupId,
-    in_course_year_id: params.courseYearId,
-    in_exam_id: params.examId,
-    in_academic_year_id: params.academicYearId,
-    in_regulation_id: params.regulationId,
-    in_sub_flag_type: "ALL",
-    in_subject_id: 0,
-    in_param1: 0,
-    in_param2: 0,
-    in_loginuser_roleid: 0,
-    in_loginuser_empid: params.employeeId || 0,
-  };
-  const attempts = [
-    { in_flag: "univ_exam_subject_inep", in_flag_type: "OFF_INT_EVAL" },
-    { in_flag: "univ_exam_subject_inep", in_flag_type: "QUESTION_SETTER" },
-    { in_flag: "univ_exam_subject_regexamstd", in_flag_type: "REGSUP" },
-    { in_flag: "univ_exam_subject_regexamstd", in_flag_type: "ALL" },
-  ];
-  for (const a of attempts) {
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>(
-        "s_get_exam_filters_bycode",
-        { ...common, ...a },
-      );
-      const groups = data?.result ?? [];
-      const picked = firstGroupByFlag(groups, [
-        "univ_exam_sub_inep",
-        "univ_exam_sub_regexamstd",
-      ]);
-      if (picked.length > 0) return picked;
-      const fallback = firstNonEmptyGroup(groups);
-      if (fallback.length > 0) return fallback;
-    } catch {
-      // try next fallback
+  // Angular selectedRegulation — univ_exam_subject_inep / OFF_INT_EVAL
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_subject_inep",
+      in_flag_type: "OFF_INT_EVAL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: params.collegeId,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: params.regulationId,
+      in_sub_flag_type: "ALL",
+      in_subject_id: 0,
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_sub_inep"]);
+  return picked.length > 0 ? picked : firstNonEmptyGroup(groups);
+}
+
+/**
+ * Angular getMarksSetup → getGroupSubjectsByRegulation
+ * GET groupyrregulationdetails/?collegeId=&coursegroupId=&courseyearId=&regulationId=
+ */
+export async function getExamMarksEntrySubjectMarks(params: {
+  collegeId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number;
+}): Promise<AnyRow[]> {
+  if (
+    !params.collegeId ||
+    !params.courseGroupId ||
+    !params.courseYearId ||
+    !params.regulationId
+  )
+    return [];
+  try {
+    const raw = await fetchDetails<unknown>("groupyrregulationdetails", {
+      collegeId: params.collegeId,
+      coursegroupId: params.courseGroupId,
+      courseyearId: params.courseYearId,
+      regulationId: params.regulationId,
+    });
+    if (Array.isArray(raw)) return raw as AnyRow[];
+    if (raw && typeof raw === "object") {
+      const obj = raw as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return obj.data as AnyRow[];
+      if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
+      if (Array.isArray(obj.result)) return obj.result as AnyRow[];
     }
+    return [];
+  } catch {
+    return [];
   }
-  return [];
+}
+
+/**
+ * Angular getMarksSetup → domain/list/ExamMarkssetup
+ * Course.courseId==…and.Regulation.regulationId==…and.isActive==true
+ */
+export async function listExamMarksSetupForEntry(
+  courseId: number,
+  regulationId: number,
+): Promise<AnyRow[]> {
+  if (!courseId || !regulationId) return [];
+  try {
+    return await domainList<AnyRow>(
+      "ExamMarkssetup",
+      buildQuery({
+        "Course.courseId": courseId,
+        "Regulation.regulationId": regulationId,
+        isActive: true,
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular internal-marks-entry getMarksSetup → listDetailsByFourIds(ExamMarkssetup)
+ * filtered by course, regulation, and subject type.
+ */
+export async function listInternalExamMarksSetup(params: {
+  courseId: number;
+  regulationId: number;
+  subjectTypeId: number;
+}): Promise<AnyRow[]> {
+  if (!params.courseId || !params.regulationId || !params.subjectTypeId)
+    return [];
+  try {
+    return await domainList<AnyRow>(
+      "ExamMarkssetup",
+      buildQuery({
+        "Course.courseId": params.courseId,
+        "Regulation.regulationId": params.regulationId,
+        "subjectCategoryCatDet.generalDetailId": params.subjectTypeId,
+        isActive: true,
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular getGroupSubjectsBySubject →
+ * GET groupyrregulationdetails/?courseId=&coursegroupId=&regulationId=&subjectId=
+ */
+export async function getInternalMarksEntrySubjectMarks(params: {
+  courseId: number;
+  courseGroupId: number;
+  regulationId: number;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  if (
+    !params.courseId ||
+    !params.courseGroupId ||
+    !params.regulationId ||
+    !params.subjectId
+  )
+    return [];
+  try {
+    const raw = await fetchDetails<unknown>("groupyrregulationdetails", {
+      courseId: params.courseId,
+      coursegroupId: params.courseGroupId,
+      regulationId: params.regulationId,
+      subjectId: params.subjectId,
+    });
+    if (Array.isArray(raw)) return raw as AnyRow[];
+    if (raw && typeof raw === "object") {
+      const obj = raw as Record<string, unknown>;
+      if (Array.isArray(obj.data)) return obj.data as AnyRow[];
+      if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
+      if (Array.isArray(obj.result)) return obj.result as AnyRow[];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular getStudentsList (internal exam) merges existing marks from
+ * ExamStudentInternalMark by college + exam + subject.
+ */
+export async function listExamStudentInternalMarksForEntry(params: {
+  collegeId: number;
+  examId: number;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  if (!params.collegeId || !params.examId || !params.subjectId) return [];
+  try {
+    return await domainList<AnyRow>(
+      "ExamStudentInternalMark",
+      buildQuery({
+        "college.collegeId": params.collegeId,
+        "examMaster.examId": params.examId,
+        "subject.subjectId": params.subjectId,
+      }),
+    );
+  } catch {
+    return [];
+  }
 }
 
 export async function getExamTypeMarkDetails(params: {
@@ -1463,8 +1662,8 @@ export async function getExamTypeMarkDetails(params: {
 }
 
 /**
- * Angular exam-marks-entry uses all three result sets from the by-type marks
- * procedure: students, external evaluators, and internal evaluators.
+ * Angular exam-marks-entry Get List —
+ * getAllRecords/s_get_exam_lab_markdetails with flag `marks_entry`.
  */
 export async function getExamTypeMarkDetailsBundle(params: {
   collegeId: number;
@@ -1496,44 +1695,32 @@ export async function getExamTypeMarkDetailsBundle(params: {
     in_exam_date: params.examDate,
     in_exam_type: params.examTypeId || 0,
   };
-  const procedures = [
-    "s_get_exam_markdetails_bytype",
-    "s_get_exam_markdetails",
-    "s_get_exam_mark_details",
-  ];
-  for (const proc of procedures) {
-    try {
-      const data = await getAllRecords<{ result: AnyRow[][] }>(proc, payload);
-      const groups = data?.result ?? [];
-      const rawStudents =
-        groups.find(
-          (g) =>
-            Array.isArray(g) &&
-            g.some((row) => row?.hallticketNumber || row?.studentId),
-        ) ?? firstNonEmptyGroup(groups);
-      if (rawStudents.length > 0) {
-        const studentsByHallTicket = new Map<string, AnyRow>();
-        for (const student of rawStudents) {
-          studentsByHallTicket.set(
-            String(
-              student.hallticketNumber ??
-                student.hallticket_number ??
-                student.studentId,
-            ),
-            student,
-          );
-        }
-        return {
-          students: Array.from(studentsByHallTicket.values()),
-          externalEvaluators: Array.isArray(groups[1]) ? groups[1] : [],
-          internalEvaluators: Array.isArray(groups[2]) ? groups[2] : [],
-        };
-      }
-    } catch {
-      // try next procedure
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>(
+      "s_get_exam_lab_markdetails",
+      payload,
+    );
+    const groups = data?.result ?? [];
+    const rawStudents = Array.isArray(groups[0]) ? groups[0] : [];
+    const studentsByHallTicket = new Map<string, AnyRow>();
+    for (const student of rawStudents) {
+      studentsByHallTicket.set(
+        String(
+          student.hallticketNumber ??
+            student.hallticket_number ??
+            student.studentId,
+        ),
+        student,
+      );
     }
+    return {
+      students: Array.from(studentsByHallTicket.values()),
+      externalEvaluators: Array.isArray(groups[1]) ? groups[1] : [],
+      internalEvaluators: Array.isArray(groups[2]) ? groups[2] : [],
+    };
+  } catch {
+    return { students: [], externalEvaluators: [], internalEvaluators: [] };
   }
-  return { students: [], externalEvaluators: [], internalEvaluators: [] };
 }
 
 export async function getInternalAttendanceRestFilters(params: {
@@ -1566,6 +1753,8 @@ export async function getInternalAttendanceRestFilters(params: {
       },
     );
     const groups = data?.result ?? [];
+    const picked = firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
+    if (picked.length > 0) return picked;
     const flat = groups.flatMap((g) => g || []);
     if (flat.length > 0) return flat;
   } catch {
@@ -1574,9 +1763,7 @@ export async function getInternalAttendanceRestFilters(params: {
 
   const bundle = await getUnivExamRestNoTtBundle(params);
   const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : [];
-  const regs = Array.isArray(bundle?.regulations) ? bundle.regulations : [];
-  const regsTagged = regs.map((r) => ({ ...r, flag: r.flag ?? "regulations" }));
-  return [...rest, ...regsTagged];
+  return rest;
 }
 
 export async function getInternalAttendanceSubjects(params: {
@@ -1613,6 +1800,8 @@ export async function getInternalAttendanceSubjects(params: {
       },
     );
     const groups = data?.result ?? [];
+    const picked = firstGroupByFlag(groups, ["univ_exam_sub_regexamstd"]);
+    if (picked.length > 0) return picked;
     const flat = groups.flatMap((g) => g || []);
     if (flat.length > 0) return flat;
   } catch {

@@ -1,30 +1,49 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+/**
+ * Exam Marks Entry — Angular
+ * `examination/post-examination/exam-marks-entry`
+ *
+ * Marks Edit modal exists in Angular TS but Action column is commented out
+ * (not reachable). Publish Marks also has no UI in Angular HTML.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Download, GraduationCap, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select as CommonSelect } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
 import {
   downloadSecureMarksTemplate,
   getCollegeById,
   getExamMarksEntryFilters,
   getExamMarksEntryRestFilters,
+  getExamMarksEntrySubjectMarks,
   getExamMarksEntrySubjects,
   getExamTypeMarkDetailsBundle,
   listExamFeeTypes,
+  listExamMarksSetupForEntry,
+  listExamStudentInternalMarksForEntry,
   saveInternalMarksEntry,
   uploadSecureExamMarks,
 } from "@/services";
 import { MINIO_URL } from "@/config/constants/api";
+import { USER_ROLES } from "@/config/constants/app";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { useSecureMarksPrint } from "../secure-exam-marks-entry/_print/useSecureMarksPrint";
+import { format, parseISO, isValid } from "date-fns";
 
 type AnyRow = Record<string, any>;
+
+/** Angular CONSTANTS.THEORY / ELECTIVE */
+const THEORY_SUBJECT_TYPE_ID = 3;
+const ELECTIVE_SUBJECT_TYPE_ID = 4;
 
 function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   const seen = new Set<string>();
@@ -47,29 +66,59 @@ function numFrom(row: AnyRow, keys: string[]): number {
   return 0;
 }
 
-function MarksInputRenderer(
-  params: ICellRendererParams<AnyRow> & {
-    maxMarks?: number;
-    onChange: (row: AnyRow, value: number) => void;
-  },
-) {
-  const val = Number(params.data?.marks ?? 0);
-  const disabled = params.data?.isPresent !== true;
-  const max =
-    params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined;
-  return (
-    <Input
-      type="number"
-      min={0}
-      max={max}
-      className="h-8 text-[12px]"
-      value={Number.isFinite(val) ? String(val) : "0"}
-      disabled={disabled}
-      onChange={(e) =>
-        params.data && params.onChange(params.data, Number(e.target.value || 0))
-      }
-    />
-  );
+function n(v: unknown): number {
+  const num = Number(v);
+  return Number.isFinite(num) ? num : 0;
+}
+
+/** Normalize API / picker values to `yyyy-MM-dd` for payload. */
+function toYmd(value: unknown): string {
+  if (value instanceof Date) {
+    return isValid(value) ? format(value, "yyyy-MM-dd") : "";
+  }
+  const raw = String(value ?? "").trim();
+  if (!raw || raw === "null" || raw === "undefined") return "";
+  // Already yyyy-MM-dd (or ISO datetime)
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  // dd/MM/yyyy (Angular mat-datepicker display)
+  const dmy = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  try {
+    const d = new Date(raw);
+    return isValid(d) ? format(d, "yyyy-MM-dd") : "";
+  } catch {
+    return "";
+  }
+}
+
+function ymdToDate(ymd: string): Date | null {
+  const s = toYmd(ymd);
+  if (!s) return null;
+  try {
+    const d = parseISO(s);
+    return isValid(d) ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseUserRoles(): string[] {
+  try {
+    const raw =
+      globalThis?.localStorage?.getItem("userDetails") ??
+      globalThis?.localStorage?.getItem("userdetails");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const roles = parsed?.userRoles ?? parsed?.roles ?? [];
+    if (!Array.isArray(roles)) return [];
+    return roles
+      .map((r: AnyRow | string) =>
+        typeof r === "string" ? r : String(r?.roleName ?? r?.name ?? ""),
+      )
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function attendanceText(row: AnyRow): string {
@@ -78,12 +127,155 @@ function attendanceText(row: AnyRow): string {
   return "Not Marked";
 }
 
+function findSubjectMarksRow(
+  examMarks: AnyRow[],
+  subjectId: number,
+): AnyRow | null {
+  return (
+    examMarks.find(
+      (x) => n(x.subjectId ?? x.fk_subject_id ?? x.subject_id) === subjectId,
+    ) ?? null
+  );
+}
+
+function findMarksSetupRow(
+  setups: AnyRow[],
+  categoryId: number,
+): AnyRow | null {
+  if (!categoryId) return null;
+  return (
+    setups.find(
+      (x) =>
+        n(
+          x.subjectCategoryCatDetId ??
+            x.subjectCategoryCatdetId ??
+            x.fk_subjectcategory_catdet_id,
+        ) === categoryId,
+    ) ?? null
+  );
+}
+
+/** Angular enteredMarks — max + isPass */
+function applyEnteredMarks(
+  item: AnyRow,
+  opts: {
+    isInternalExam: boolean;
+    examMarks: AnyRow[];
+    examMarkSetups: AnyRow[];
+    toastOverMax?: boolean;
+  },
+): { row: AnyRow; maxValue: number; cleared?: boolean } {
+  const subjectId = n(item.subjectId ?? item.fk_subject_id);
+  const categoryId = n(
+    item.subjectCategoryCatDetId ??
+      item.fk_subjectcategory_catdet_id ??
+      item.subjectCategoryId,
+  );
+  const marksRow = findSubjectMarksRow(opts.examMarks, subjectId);
+  const setupRow = findMarksSetupRow(opts.examMarkSetups, categoryId);
+
+  let maxValue = 0;
+  if (opts.isInternalExam) {
+    const fromSubject = marksRow?.internalmarks ?? marksRow?.internalMarks;
+    maxValue =
+      fromSubject != null && fromSubject !== ""
+        ? n(fromSubject)
+        : n(setupRow?.internalMarks ?? setupRow?.internalmarks);
+  } else {
+    const fromSubject = marksRow?.externalmarks ?? marksRow?.externalMarks;
+    maxValue =
+      fromSubject != null && fromSubject !== ""
+        ? n(fromSubject)
+        : n(setupRow?.externalMarks ?? setupRow?.externalmarks);
+  }
+
+  let marks: number | string = item.marks;
+  let cleared = false;
+  if (marks !== "" && marks != null) {
+    let parsed = n(marks);
+    if (parsed < 0) parsed = 0;
+    if (maxValue > 0 && parsed > maxValue) {
+      if (opts.toastOverMax) {
+        toast.info(`Entered Marks Should Less Than ${maxValue}Marks`);
+      }
+      marks = "";
+      cleared = true;
+      parsed = 0;
+    } else {
+      marks = parsed;
+    }
+  }
+
+  const extMax =
+    marksRow?.externalmarks != null && marksRow.externalmarks !== ""
+      ? n(marksRow.externalmarks)
+      : n(setupRow?.externalMarks ?? setupRow?.externalmarks);
+  const passPct = n(
+    setupRow?.externalPassPercentage ?? setupRow?.external_pass_percentage,
+  );
+  const isMarks =
+    extMax > 0 && passPct > 0 ? (extMax * passPct) / 100 > n(marks) : false;
+
+  const next: AnyRow = { ...item, marks: cleared ? "" : marks };
+  if (item.isPresent === false) {
+    next.isPass = false;
+  } else if (item.isPresent != null) {
+    if (item.examTypeCode === "Internal") {
+      next.isPass = true;
+    } else {
+      next.isPass = !isMarks;
+    }
+  }
+  return { row: next, maxValue, cleared };
+}
+
+function MarksInputRenderer(
+  params: ICellRendererParams<AnyRow> & {
+    maxMarks?: number;
+    onChange: (row: AnyRow, value: number | "") => void;
+  },
+) {
+  const raw = params.data?.marks;
+  const disabled = params.data?.isPresent !== true;
+  const max =
+    params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined;
+  const display =
+    raw === "" || raw == null
+      ? ""
+      : Number.isFinite(Number(raw))
+        ? String(Number(raw))
+        : "";
+  return (
+    <Input
+      type="number"
+      min={0}
+      max={max}
+      className="h-8 text-[12px]"
+      value={display}
+      disabled={disabled}
+      onChange={(e) => {
+        if (!params.data) return;
+        const v = e.target.value;
+        params.onChange(params.data, v === "" ? "" : Number(v));
+      }}
+    />
+  );
+}
+
 export default function ExamMarksEntryPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
   const empNumber = globalThis?.localStorage?.getItem("empNumber") ?? "";
   const userName = globalThis?.localStorage?.getItem("userName") ?? "";
+  const roleName = globalThis?.localStorage?.getItem("roleName") ?? "";
+  const userRole = globalThis?.localStorage?.getItem("userRole") ?? "";
+  const examEvaluatorProfileId = Number(
+    globalThis?.localStorage?.getItem("examEvaluatorProfileId") ?? 0,
+  );
+  const orgCode = globalThis?.localStorage?.getItem("orgCode") ?? "";
+
+  const [semister, setSemister] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -93,6 +285,8 @@ export default function ExamMarksEntryPage() {
   const [restFilters, setRestFilters] = useState<AnyRow[]>([]);
   const [regRows, setRegRows] = useState<AnyRow[]>([]);
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
+  const [examMarks, setExamMarks] = useState<AnyRow[]>([]);
+  const [examMarkSetups, setExamMarkSetups] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [allExamFeeTypes, setAllExamFeeTypes] = useState<AnyRow[]>([]);
   const [marksView, setMarksView] = useState<"list" | "import">("list");
@@ -103,6 +297,7 @@ export default function ExamMarksEntryPage() {
   const [internalEvaluators, setInternalEvaluators] = useState<AnyRow[]>([]);
   const [externalEvaluators, setExternalEvaluators] = useState<AnyRow[]>([]);
   const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null);
+  const [maxValue, setMaxValue] = useState(0);
 
   const [courseId, setCourseId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -116,8 +311,26 @@ export default function ExamMarksEntryPage() {
   const [subjectId, setSubjectId] = useState<number | null>(null);
   const [labBatchId, setLabBatchId] = useState(0);
   const [examDate, setExamDate] = useState("");
+  const [marksEnteredEmpId, setMarksEnteredEmpId] = useState(employeeId);
 
   const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber;
+
+  useEffect(() => {
+    const roles = parseUserRoles();
+    const roleLower = roles.map((r) => r.toLowerCase());
+    const allowSemister =
+      roleLower.includes(USER_ROLES.OFFLINE_EVALUATION.toLowerCase()) ||
+      roleLower.includes("examcontroller") ||
+      roleLower.includes("admin") ||
+      roleName.toUpperCase() === "ADMIN";
+    setSemister(allowSemister);
+    const staff =
+      roleLower.includes("mstaff") ||
+      roleLower.includes("staff") ||
+      roles.length === 0;
+    if (staff) setMarksEnteredEmpId(employeeId);
+  }, [employeeId, roleName]);
+
   const selectedCourseFilter = allFilters.find(
     (row) => Number(row.fk_course_id) === Number(courseId),
   );
@@ -127,7 +340,6 @@ export default function ExamMarksEntryPage() {
       globalThis?.localStorage?.getItem("universityCode") ??
       "",
   );
-  const orgCode = globalThis?.localStorage?.getItem("orgCode") ?? "";
   const { printMode, printButton, printView } = useSecureMarksPrint({
     students: rows,
     internalEvaluators,
@@ -135,32 +347,38 @@ export default function ExamMarksEntryPage() {
     logoUrl: collegeLogoUrl,
     orgCode,
     universityCode,
+    documentTitle: "Exam Marks Entry",
   });
 
   const courses = useMemo(
     () => dedupeBy(allFilters, "fk_course_id"),
     [allFilters],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        allFilters.filter((x) => Number(x.fk_course_id) === Number(courseId)),
-        "fk_academic_year_id",
+  const academicYears = useMemo(() => {
+    const list = dedupeBy(
+      allFilters.filter((x) => Number(x.fk_course_id) === Number(courseId)),
+      "fk_academic_year_id",
+    );
+    return [...list].sort(
+      (a, b) => n(b.is_curr_ay ?? b.isCurrAy) - n(a.is_curr_ay ?? a.isCurrAy),
+    );
+  }, [allFilters, courseId]);
+
+  const exams = useMemo(() => {
+    let list = dedupeBy(
+      allFilters.filter(
+        (x) =>
+          Number(x.fk_course_id) === Number(courseId) &&
+          Number(x.fk_academic_year_id) === Number(academicYearId),
       ),
-    [allFilters, courseId],
-  );
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        allFilters.filter(
-          (x) =>
-            Number(x.fk_course_id) === Number(courseId) &&
-            Number(x.fk_academic_year_id) === Number(academicYearId),
-        ),
-        "fk_exam_id",
-      ),
-    [allFilters, courseId, academicYearId],
-  );
+      "fk_exam_id",
+    );
+    if (roleName !== "ADMIN") {
+      list = list.filter((x) => x.is_published === false);
+    }
+    return list;
+  }, [allFilters, courseId, academicYearId, roleName]);
+
   const examTypes = useMemo(() => {
     const ex = exams.find((x) => Number(x.fk_exam_id) === Number(examId));
     const opts: Array<{ id: number; code: string }> = [{ id: 0, code: "All" }];
@@ -182,10 +400,16 @@ export default function ExamMarksEntryPage() {
       opts.push({ id: Number(internal.generalDetailId), code: "Internal" });
     return opts;
   }, [exams, examId, allExamFeeTypes]);
-  const colleges = useMemo(
-    () => dedupeBy(restFilters, "fk_college_id"),
-    [restFilters],
-  );
+
+  const colleges = useMemo(() => {
+    const list = dedupeBy(restFilters, "fk_college_id");
+    return [...list].sort(
+      (a, b) =>
+        n(a.clg_sort_order ?? a.sort_order) -
+        n(b.clg_sort_order ?? b.sort_order),
+    );
+  }, [restFilters]);
+
   const courseGroups = useMemo(
     () =>
       dedupeBy(
@@ -208,10 +432,6 @@ export default function ExamMarksEntryPage() {
       ),
     [restFilters, collegeId, courseGroupId],
   );
-  const regulations = useMemo(
-    () => dedupeBy(regRows, "fk_regulation_id"),
-    [regRows],
-  );
   const regulationsFlex = useMemo(() => {
     const source = (regRows.length > 0 ? regRows : restFilters).filter((r) => {
       return (
@@ -233,6 +453,13 @@ export default function ExamMarksEntryPage() {
     }
     return out;
   }, [regRows, restFilters]);
+
+  const selectedExam = useMemo(
+    () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)),
+    [exams, examId],
+  );
+  const isInternalExam = Boolean(selectedExam?.is_internal_exam);
+
   const subjectTypes = useMemo(() => {
     const currentRegId = Number(regulationId ?? 0);
     const filtered = subjectRows.filter((x) => {
@@ -244,7 +471,7 @@ export default function ExamMarksEntryPage() {
       return rowRegId === 0 || currentRegId === 0 || rowRegId === currentRegId;
     });
     const seen = new Set<number>();
-    const out: AnyRow[] = [];
+    let out: AnyRow[] = [];
     for (const row of filtered) {
       const id = numFrom(row, [
         "fk_subjecttype_catdet_id",
@@ -255,8 +482,20 @@ export default function ExamMarksEntryPage() {
       seen.add(id);
       out.push(row);
     }
+    // Angular: non-semister roles hide THEORY/ELECTIVE on regular exams
+    if (!semister && selectedExam?.is_regular_exam) {
+      out = out.filter((x) => {
+        const id = numFrom(x, [
+          "fk_subjecttype_catdet_id",
+          "subjectTypeId",
+          "subject_type_id",
+        ]);
+        return id !== THEORY_SUBJECT_TYPE_ID && id !== ELECTIVE_SUBJECT_TYPE_ID;
+      });
+    }
     return out;
-  }, [subjectRows, regulationId]);
+  }, [subjectRows, regulationId, semister, selectedExam]);
+
   const subjects = useMemo(() => {
     const currentRegId = Number(regulationId ?? 0);
     const currentTypeId = Number(subjectTypeId ?? 0);
@@ -292,6 +531,26 @@ export default function ExamMarksEntryPage() {
     }
     return out;
   }, [subjectRows, regulationId, subjectTypeId]);
+
+  const selectedSubject = useMemo(
+    () =>
+      subjects.find(
+        (x) =>
+          numFrom(x, [
+            "fk_subject_id",
+            "subjectId",
+            "subject_id",
+            "fk_sub_id",
+          ]) === Number(subjectId),
+      ),
+    [subjects, subjectId],
+  );
+
+  const isLabSubject =
+    String(
+      selectedSubject?.subject_type ?? selectedSubject?.subjectType ?? "",
+    ).toUpperCase() === "LAB";
+
   const labBatches = useMemo(
     () =>
       dedupeBy(
@@ -305,16 +564,29 @@ export default function ExamMarksEntryPage() {
     [subjectRows, subjectId],
   );
 
+  function clearResults() {
+    setRows([]);
+    setHasFetched(false);
+    setMarksView("list");
+    setInternalEvaluators([]);
+    setExternalEvaluators([]);
+    setMaxValue(0);
+  }
+
   useEffect(() => {
     async function run() {
       setLoading(true);
       try {
         const [filtersData, feeTypesData] = await Promise.all([
-          getExamMarksEntryFilters(employeeId).catch(() => []),
-          listExamFeeTypes().catch(() => []),
+          getExamMarksEntryFilters(employeeId),
+          listExamFeeTypes(),
         ]);
         setAllFilters(Array.isArray(filtersData) ? filtersData : []);
         setAllExamFeeTypes(Array.isArray(feeTypesData) ? feeTypesData : []);
+      } catch (e) {
+        toastError(e, "Failed to load filters");
+        setAllFilters([]);
+        setAllExamFeeTypes([]);
       } finally {
         setLoading(false);
       }
@@ -349,52 +621,92 @@ export default function ExamMarksEntryPage() {
   }, [collegeId]);
 
   useEffect(() => {
-    if (courses[0]?.fk_course_id) setCourseId(Number(courses[0].fk_course_id));
-  }, [courses]);
+    if (courses[0]?.fk_course_id && !courseId)
+      setCourseId(Number(courses[0].fk_course_id));
+  }, [courses, courseId]);
+
   useEffect(() => {
-    if (academicYears[0]?.fk_academic_year_id)
+    if (!academicYears.length) return;
+    if (
+      !academicYears.some(
+        (r) => Number(r.fk_academic_year_id) === Number(academicYearId),
+      )
+    ) {
       setAcademicYearId(Number(academicYears[0].fk_academic_year_id));
-  }, [academicYears]);
+    }
+  }, [academicYears, academicYearId]);
+
   useEffect(() => {
-    if (exams[0]?.fk_exam_id) setExamId(Number(exams[0].fk_exam_id));
-  }, [exams]);
+    if (!exams.length) {
+      setExamId(null);
+      return;
+    }
+    if (!exams.some((r) => Number(r.fk_exam_id) === Number(examId))) {
+      setExamId(Number(exams[0].fk_exam_id));
+    }
+  }, [exams, examId]);
+
   useEffect(() => {
-    setExamTypeId(examTypes[0]?.id ?? 0);
-  }, [examTypes]);
+    if (!examTypes.some((t) => t.id === examTypeId)) {
+      setExamTypeId(examTypes[0]?.id ?? 0);
+    }
+  }, [examTypes, examTypeId]);
 
   useEffect(() => {
     async function run() {
       setRestFilters([]);
       setRegRows([]);
       setSubjectRows([]);
+      setExamMarks([]);
+      setExamMarkSetups([]);
       if (!courseId || !examId || !academicYearId) return;
-      const data = await getExamMarksEntryRestFilters({
-        courseId,
-        examId,
-        academicYearId,
-        employeeId,
-      }).catch(() => ({
-        restFilters: [],
-        regulations: [],
-      }));
-      setRestFilters(Array.isArray(data.restFilters) ? data.restFilters : []);
-      setRegRows(Array.isArray(data.regulations) ? data.regulations : []);
+      try {
+        const data = await getExamMarksEntryRestFilters({
+          courseId,
+          examId,
+          academicYearId,
+          employeeId,
+        });
+        setRestFilters(Array.isArray(data.restFilters) ? data.restFilters : []);
+        setRegRows(Array.isArray(data.regulations) ? data.regulations : []);
+      } catch (e) {
+        toastError(e, "Failed to load college filters");
+        setRestFilters([]);
+        setRegRows([]);
+      }
     }
     void run();
   }, [courseId, examId, academicYearId, employeeId]);
 
   useEffect(() => {
-    if (colleges[0]?.fk_college_id)
+    if (!colleges.length) return;
+    if (!colleges.some((r) => Number(r.fk_college_id) === Number(collegeId))) {
       setCollegeId(Number(colleges[0].fk_college_id));
-  }, [colleges]);
+    }
+  }, [colleges, collegeId]);
+
   useEffect(() => {
-    if (courseGroups[0]?.fk_course_group_id)
+    if (!courseGroups.length) return;
+    if (
+      !courseGroups.some(
+        (r) => Number(r.fk_course_group_id) === Number(courseGroupId),
+      )
+    ) {
       setCourseGroupId(Number(courseGroups[0].fk_course_group_id));
-  }, [courseGroups]);
+    }
+  }, [courseGroups, courseGroupId]);
+
   useEffect(() => {
-    if (courseYears[0]?.fk_course_year_id)
+    if (!courseYears.length) return;
+    if (
+      !courseYears.some(
+        (r) => Number(r.fk_course_year_id) === Number(courseYearId),
+      )
+    ) {
       setCourseYearId(Number(courseYears[0].fk_course_year_id));
-  }, [courseYears]);
+    }
+  }, [courseYears, courseYearId]);
+
   useEffect(() => {
     const first = regulationsFlex[0];
     const id = numFrom(first ?? {}, [
@@ -402,8 +714,21 @@ export default function ExamMarksEntryPage() {
       "regulationId",
       "regulation_id",
     ]);
-    if (id > 0) setRegulationId(id);
-  }, [regulationsFlex]);
+    if (id > 0) {
+      if (
+        !regulationsFlex.some(
+          (r) =>
+            numFrom(r, [
+              "fk_regulation_id",
+              "regulationId",
+              "regulation_id",
+            ]) === Number(regulationId),
+        )
+      ) {
+        setRegulationId(id);
+      }
+    }
+  }, [regulationsFlex, regulationId]);
 
   useEffect(() => {
     async function run() {
@@ -418,17 +743,22 @@ export default function ExamMarksEntryPage() {
         !regulationId
       )
         return;
-      const data = await getExamMarksEntrySubjects({
-        collegeId,
-        courseId,
-        courseGroupId,
-        courseYearId,
-        examId,
-        academicYearId,
-        regulationId,
-        employeeId,
-      }).catch(() => []);
-      setSubjectRows(Array.isArray(data) ? data : []);
+      try {
+        const data = await getExamMarksEntrySubjects({
+          collegeId,
+          courseId,
+          courseGroupId,
+          courseYearId,
+          examId,
+          academicYearId,
+          regulationId,
+          employeeId,
+        });
+        setSubjectRows(Array.isArray(data) ? data : []);
+      } catch (e) {
+        toastError(e, "Failed to load subjects");
+        setSubjectRows([]);
+      }
     }
     void run();
   }, [
@@ -449,8 +779,21 @@ export default function ExamMarksEntryPage() {
       "subjectTypeId",
       "subject_type_id",
     ]);
-    if (id > 0) setSubjectTypeId(id);
-  }, [subjectTypes]);
+    if (
+      id > 0 &&
+      !subjectTypes.some(
+        (r) =>
+          numFrom(r, [
+            "fk_subjecttype_catdet_id",
+            "subjectTypeId",
+            "subject_type_id",
+          ]) === Number(subjectTypeId),
+      )
+    ) {
+      setSubjectTypeId(id);
+    }
+  }, [subjectTypes, subjectTypeId]);
+
   useEffect(() => {
     const first = subjects[0];
     const id = numFrom(first ?? {}, [
@@ -459,44 +802,130 @@ export default function ExamMarksEntryPage() {
       "subject_id",
       "fk_sub_id",
     ]);
-    if (id > 0) setSubjectId(id);
-  }, [subjects]);
-  useEffect(() => {
-    const selected = subjects.find(
-      (subject) =>
-        numFrom(subject, [
-          "fk_subject_id",
-          "subjectId",
-          "subject_id",
-          "fk_sub_id",
-        ]) === Number(subjectId),
-    );
-    setExamDate(
-      String(selected?.exam_date ?? selected?.examDate ?? "").slice(0, 10),
-    );
+    if (
+      id > 0 &&
+      !subjects.some(
+        (r) =>
+          numFrom(r, [
+            "fk_subject_id",
+            "subjectId",
+            "subject_id",
+            "fk_sub_id",
+          ]) === Number(subjectId),
+      )
+    ) {
+      setSubjectId(id);
+    } else if (!subjects.length) {
+      setSubjectId(null);
+    }
   }, [subjects, subjectId]);
 
-  function onMarkChange(target: AnyRow, marks: number) {
-    const sid = Number(target.studentId ?? target.fk_student_id ?? 0);
-    let parsed = Number(marks);
-    if (!Number.isFinite(parsed) || parsed < 0) parsed = 0;
-    if (maxMarks > 0 && parsed > maxMarks) {
-      parsed = maxMarks;
-      toastError(`Entered marks should not exceed ${maxMarks}.`);
+  // Angular getMarksSetup on subject type change
+  useEffect(() => {
+    async function run() {
+      setExamMarks([]);
+      setExamMarkSetups([]);
+      if (
+        !collegeId ||
+        !courseGroupId ||
+        !courseYearId ||
+        !regulationId ||
+        !courseId ||
+        !subjects.length
+      )
+        return;
+      try {
+        const [marks, setups] = await Promise.all([
+          getExamMarksEntrySubjectMarks({
+            collegeId,
+            courseGroupId,
+            courseYearId,
+            regulationId,
+          }),
+          listExamMarksSetupForEntry(courseId, regulationId),
+        ]);
+        setExamMarks(Array.isArray(marks) ? marks : []);
+        setExamMarkSetups(Array.isArray(setups) ? setups : []);
+      } catch {
+        setExamMarks([]);
+        setExamMarkSetups([]);
+      }
     }
-    setRows((prev) =>
-      prev.map((row) => {
-        const rid = Number(row.studentId ?? row.fk_student_id ?? 0);
-        if (
-          sid > 0
-            ? rid !== sid
-            : String(row.hallticketNumber) !== String(target.hallticketNumber)
-        )
-          return row;
-        return { ...row, marks: parsed };
-      }),
+    void run();
+  }, [
+    collegeId,
+    courseGroupId,
+    courseYearId,
+    regulationId,
+    courseId,
+    subjectTypeId,
+    subjects.length,
+  ]);
+
+  // Default exam date (Angular cascade) — user can override via DatePicker.
+  // Priority: lab batch exam_date → subject exam_date → exam from_date.
+  useEffect(() => {
+    if (labBatchId > 0) {
+      const batch = labBatches.find(
+        (b) => Number(b.fk_exam_labbatch_id) === Number(labBatchId),
+      );
+      const d = toYmd(batch?.exam_date ?? batch?.examDate);
+      if (d) {
+        setExamDate(d);
+        return;
+      }
+    }
+    const fromSubject = toYmd(
+      selectedSubject?.exam_date ?? selectedSubject?.examDate,
     );
-  }
+    if (fromSubject) {
+      setExamDate(fromSubject);
+      return;
+    }
+    setExamDate(toYmd(selectedExam?.from_date ?? selectedExam?.fromDate));
+  }, [selectedSubject, selectedExam, labBatchId, labBatches]);
+
+  const examMinDate = useMemo(
+    () => ymdToDate(toYmd(selectedExam?.from_date ?? selectedExam?.fromDate)),
+    [selectedExam],
+  );
+  const examMaxDate = useMemo(
+    () => ymdToDate(toYmd(selectedExam?.to_date ?? selectedExam?.toDate)),
+    [selectedExam],
+  );
+
+  useEffect(() => {
+    if (!isLabSubject) setLabBatchId(0);
+  }, [isLabSubject, subjectId]);
+
+  const onMarkChange = useCallback(
+    (target: AnyRow, marks: number | "") => {
+      const sid = Number(target.studentId ?? target.fk_student_id ?? 0);
+      setRows((prev) =>
+        prev.map((row) => {
+          const rid = Number(row.studentId ?? row.fk_student_id ?? 0);
+          if (
+            sid > 0
+              ? rid !== sid
+              : String(row.hallticketNumber) !== String(target.hallticketNumber)
+          )
+            return row;
+          const { row: next, maxValue: mv } = applyEnteredMarks(
+            { ...row, marks },
+            {
+              isInternalExam,
+              examMarks,
+              examMarkSetups,
+              toastOverMax: true,
+            },
+          );
+          if (mv > 0) setMaxValue(mv);
+          return next;
+        }),
+      );
+    },
+    [isInternalExam, examMarks, examMarkSetups],
+  );
 
   async function onGetList() {
     if (
@@ -507,9 +936,15 @@ export default function ExamMarksEntryPage() {
       !courseYearId ||
       !regulationId ||
       !subjectId ||
-      !examDate
-    )
+      !subjectTypeId
+    ) {
+      toast.info("Please Select Valid Filters");
       return;
+    }
+    if (!examDate) {
+      toast.info("Choose a exam date.");
+      return;
+    }
     setLoading(true);
     setHasFetched(true);
     try {
@@ -524,19 +959,62 @@ export default function ExamMarksEntryPage() {
         labBatchId,
         examDate,
         examTypeId,
-      }).catch(() => ({
-        students: [],
-        externalEvaluators: [],
-        internalEvaluators: [],
-      }));
-      setRows(
-        (Array.isArray(bundle.students) ? bundle.students : []).map((r) => ({
-          ...r,
-          marks: Number(r.marks ?? 0),
-        })),
+      });
+      let list = (Array.isArray(bundle.students) ? bundle.students : []).map(
+        (r) => {
+          const base: AnyRow = {
+            ...r,
+            marks: r.marks == null ? 0 : r.marks,
+            isMarksPublished: r.isMarksPublished ?? false,
+            subjectId: n(r.subjectId ?? subjectId),
+            subjectCategoryCatDetId: n(
+              r.subjectCategoryCatDetId ??
+                r.fk_subjectcategory_catdet_id ??
+                selectedSubject?.fk_subjectcategory_catdet_id,
+            ),
+          };
+          if (base.isPresent === false) base.isPass = false;
+          const { row: next, maxValue: mv } = applyEnteredMarks(base, {
+            isInternalExam,
+            examMarks,
+            examMarkSetups,
+          });
+          if (mv > 0) setMaxValue(mv);
+          return next;
+        },
       );
+
+      if (isInternalExam) {
+        const existing = await listExamStudentInternalMarksForEntry({
+          collegeId,
+          examId,
+          subjectId,
+        });
+        if (existing.length) {
+          list = list.map((row) => {
+            const match = existing.find(
+              (e) =>
+                n(e.studentId ?? e.student?.studentId) === n(row.studentId),
+            );
+            if (!match) return row;
+            return {
+              ...row,
+              marks: match.marks ?? row.marks,
+              extMarks: 0,
+              examStdInternalMarkId:
+                match.examStdInternalMarkId ?? match.exam_std_internal_mark_id,
+            };
+          });
+        }
+      }
+
+      setRows(list);
       setExternalEvaluators(bundle.externalEvaluators ?? []);
       setInternalEvaluators(bundle.internalEvaluators ?? []);
+      if (!list.length) toast.info("No Records Found.");
+    } catch (e) {
+      toastError(e, "Failed to load students");
+      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -550,9 +1028,10 @@ export default function ExamMarksEntryPage() {
       !courseGroupId ||
       !courseYearId ||
       !examDate
-    )
+    ) {
+      toast.info("Please Select Valid Filters");
       return;
-
+    }
     setDownloadingTemplate(true);
     try {
       const blob = await downloadSecureMarksTemplate({
@@ -578,7 +1057,7 @@ export default function ExamMarksEntryPage() {
 
   async function onUploadImportMarks() {
     if (!importFile) {
-      toastError("Please choose a file.");
+      toast.info("Please choose a file.");
       return;
     }
     if (
@@ -589,8 +1068,10 @@ export default function ExamMarksEntryPage() {
       !examId ||
       !regulationId ||
       !subjectTypeId
-    )
+    ) {
+      toast.info("Please Select Valid Filters");
       return;
+    }
 
     const subjectCategoryId = numFrom(selectedSubject ?? {}, [
       "fk_subjectcategory_catdet_id",
@@ -621,7 +1102,7 @@ export default function ExamMarksEntryPage() {
             numFrom(row, ["studentId", "fk_student_id"]),
           );
           if (!uploaded) return row;
-          return {
+          const merged = {
             ...row,
             marks: Number(
               uploaded.examMarks ?? uploaded.marks ?? row.marks ?? 0,
@@ -629,6 +1110,17 @@ export default function ExamMarksEntryPage() {
             isvalidate: uploaded.isvalidate,
             reason: uploaded.reason,
             color: uploaded.isvalidate === false ? "#ff7070" : null,
+          };
+          const { row: next } = applyEnteredMarks(merged, {
+            isInternalExam,
+            examMarks,
+            examMarkSetups,
+          });
+          return {
+            ...next,
+            color: merged.color,
+            isvalidate: merged.isvalidate,
+            reason: merged.reason,
           };
         }),
       );
@@ -650,41 +1142,56 @@ export default function ExamMarksEntryPage() {
       !examId ||
       !courseYearId ||
       !subjectId ||
-      !regulationId
-    )
+      !regulationId ||
+      !subjectTypeId
+    ) {
+      toast.info("Please Select Valid Filters");
       return;
+    }
     setSaving(true);
     try {
-      const payload = rows.map((row) => ({
-        examStudentDetailDTO: {
+      const isExternalEvaluator =
+        userRole.toUpperCase() === "EXTERNAL EVALUATOR";
+      const subCredits = n(
+        selectedSubject?.sub_credits ?? selectedSubject?.subCredits,
+      );
+      const payload = rows.map((row) => {
+        const detail = {
           ...row,
-          marksEnteredEmpId: employeeId,
+          marksEnteredEmpId: marksEnteredEmpId || employeeId,
           courseId,
           regulationId,
           subjectTypeId,
-          credits: row.isPass ? Number(row.sub_credits ?? 0) : 0,
-        },
-        examStudentInternalMarkDTO:
-          row.examTypeCode === "Internal"
+          isExtenalpersonApprove: isExternalEvaluator,
+          examEvaluatorProfileId: isExternalEvaluator
+            ? examEvaluatorProfileId || null
+            : null,
+          credits: row.isPass ? subCredits : 0,
+        };
+        return {
+          examStudentDetailDTO: detail,
+          examStudentInternalMarkDTO: isInternalExam
             ? {
                 examDate,
                 isActive: true,
-                isPresent: Boolean(row.isPresent),
+                isPresent: row.isPresent,
                 isPublished: false,
-                marks: Number(row.marks ?? 0),
+                marks: row.marks === "" ? 0 : Number(row.marks ?? 0),
                 collegeId,
                 studentId: Number(row.studentId ?? row.fk_student_id ?? 0),
                 courseYearId,
                 subjectId,
                 examId,
-                employeeId,
+                employeeId: marksEnteredEmpId || employeeId,
+                createdDt: new Date().toISOString(),
                 examStdInternalMarkId:
                   row.examStdInternalMarkId ??
                   row.exam_std_internal_mark_id ??
-                  0,
+                  null,
               }
             : null,
-      }));
+        };
+      });
       await saveInternalMarksEntry(payload);
       toastSuccess("Marks saved successfully");
       await onGetList();
@@ -695,21 +1202,6 @@ export default function ExamMarksEntryPage() {
     }
   }
 
-  const maxMarks = useMemo(
-    () =>
-      Number(
-        rows.find(
-          (r) =>
-            Number(r.maxMarks ?? r.externalmarks ?? r.internalmarks ?? 0) > 0,
-        )?.maxMarks ?? 0,
-      ),
-    [rows],
-  );
-
-  const selectedExam = useMemo(
-    () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)),
-    [exams, examId],
-  );
   const selectedCollege = useMemo(
     () => colleges.find((x) => Number(x.fk_college_id) === Number(collegeId)),
     [colleges, collegeId],
@@ -734,14 +1226,12 @@ export default function ExamMarksEntryPage() {
   );
   const selectedRegulation = useMemo(
     () =>
-      regulations.find(
-        (x) => Number(x.fk_regulation_id) === Number(regulationId),
+      regulationsFlex.find(
+        (x) =>
+          numFrom(x, ["fk_regulation_id", "regulationId", "regulation_id"]) ===
+          Number(regulationId),
       ),
-    [regulations, regulationId],
-  );
-  const selectedSubject = useMemo(
-    () => subjects.find((x) => Number(x.fk_subject_id) === Number(subjectId)),
-    [subjects, subjectId],
+    [regulationsFlex, regulationId],
   );
   const selectedAy = useMemo(
     () =>
@@ -750,6 +1240,17 @@ export default function ExamMarksEntryPage() {
       ),
     [academicYears, academicYearId],
   );
+
+  const examTypeLabel =
+    examTypes.find((t) => t.id === examTypeId)?.code ??
+    (isInternalExam
+      ? "Internal"
+      : selectedExam?.is_supply_exam
+        ? "Supple"
+        : "Regular");
+
+  const marksHeader = isInternalExam ? "Internal Marks" : "External Marks";
+
   const courseOptions = useMemo(
     () =>
       courses.map((x) => ({
@@ -868,10 +1369,16 @@ export default function ExamMarksEntryPage() {
       { value: "0", label: "All" },
       ...labBatches.map((x) => ({
         value: String(x.fk_exam_labbatch_id),
-        label: String(x.labbatch_name ?? "-"),
+        label: String(x.labbatch_name ?? x.lab_batch_name ?? "-"),
       })),
     ],
     [labBatches],
+  );
+
+  const invalidRowStyle = useCallback(
+    (p: { data?: AnyRow }) =>
+      p.data?.color ? { backgroundColor: String(p.data.color) } : undefined,
+    [],
   );
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
@@ -880,30 +1387,40 @@ export default function ExamMarksEntryPage() {
         headerName: "SI No",
         width: 70,
         flex: 0,
-        valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        cellStyle: invalidRowStyle,
       },
       {
         field: "hallticketNumber",
         headerName: "Hallticket Number",
         minWidth: 190,
         flex: 1,
+        cellStyle: invalidRowStyle,
       },
-      { field: "firstName", headerName: "Student", minWidth: 240, flex: 2 },
+      {
+        field: "firstName",
+        headerName: "Student",
+        minWidth: 240,
+        flex: 2,
+        cellStyle: invalidRowStyle,
+      },
       {
         headerName: "Attendance Status",
         minWidth: 170,
         flex: 1,
-        valueGetter: (p: any) => attendanceText(p.data),
+        valueGetter: (p) => attendanceText(p.data ?? {}),
+        cellStyle: invalidRowStyle,
       },
       {
-        headerName: "Marks",
+        headerName: marksHeader,
         minWidth: 170,
         flex: 1,
         cellRenderer: MarksInputRenderer,
-        cellRendererParams: { maxMarks, onChange: onMarkChange },
+        cellRendererParams: { maxMarks: maxValue, onChange: onMarkChange },
+        cellStyle: invalidRowStyle,
       },
     ],
-    [maxMarks],
+    [maxValue, marksHeader, onMarkChange, invalidRowStyle],
   );
 
   if (printMode) return <>{printView}</>;
@@ -918,7 +1435,12 @@ export default function ExamMarksEntryPage() {
               <Label>Course *</Label>
               <CommonSelect
                 value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setCourseId(v ? Number(v) : null);
+                  setAcademicYearId(null);
+                  setExamId(null);
+                  clearResults();
+                }}
                 options={courseOptions}
                 placeholder="Course"
                 searchable
@@ -928,7 +1450,11 @@ export default function ExamMarksEntryPage() {
               <Label>Academic Year *</Label>
               <CommonSelect
                 value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setAcademicYearId(v ? Number(v) : null);
+                  setExamId(null);
+                  clearResults();
+                }}
                 options={academicYearOptions}
                 placeholder="Academic Year"
                 searchable
@@ -938,37 +1464,53 @@ export default function ExamMarksEntryPage() {
               <Label>Exam *</Label>
               <CommonSelect
                 value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setExamId(v ? Number(v) : null);
+                  clearResults();
+                }}
                 options={examOptions}
                 placeholder="Exam"
                 searchable
+                wrapOptionLabels
               />
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label>Exam Type *</Label>
               <CommonSelect
                 value={String(examTypeId)}
-                onChange={(v) => setExamTypeId(Number(v || 0))}
+                onChange={(v) => {
+                  setExamTypeId(Number(v || 0));
+                  clearResults();
+                }}
                 options={examTypeOptions}
                 placeholder="Exam Type"
                 searchable
               />
             </div>
             <div className="space-y-1 md:col-span-3">
-              <Label>College *</Label>
+              <Label>Faculty *</Label>
               <CommonSelect
                 value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setCollegeId(v ? Number(v) : null);
+                  setCourseGroupId(null);
+                  setCourseYearId(null);
+                  clearResults();
+                }}
                 options={collegeOptions}
-                placeholder="College"
+                placeholder="Faculty"
                 searchable
               />
             </div>
             <div className="space-y-1 md:col-span-3">
-              <Label>Course Group *</Label>
+              <Label>course Group *</Label>
               <CommonSelect
                 value={courseGroupId ? String(courseGroupId) : null}
-                onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setCourseGroupId(v ? Number(v) : null);
+                  setCourseYearId(null);
+                  clearResults();
+                }}
                 options={groupOptions}
                 placeholder="Course Group"
                 searchable
@@ -978,27 +1520,37 @@ export default function ExamMarksEntryPage() {
               <Label>Course Year *</Label>
               <CommonSelect
                 value={courseYearId ? String(courseYearId) : null}
-                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setCourseYearId(v ? Number(v) : null);
+                  clearResults();
+                }}
                 options={courseYearOptions}
                 placeholder="Course Year"
                 searchable
               />
             </div>
             <div className="space-y-1 md:col-span-2">
-              <Label>Regulation</Label>
+              <Label>Regulation *</Label>
               <CommonSelect
                 value={regulationId ? String(regulationId) : null}
-                onChange={(v) => setRegulationId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setRegulationId(v ? Number(v) : null);
+                  clearResults();
+                }}
                 options={regulationOptions}
                 placeholder="Regulation"
                 searchable
               />
             </div>
             <div className="space-y-1 md:col-span-2">
-              <Label>Subject Type</Label>
+              <Label>Subject Type *</Label>
               <CommonSelect
                 value={subjectTypeId ? String(subjectTypeId) : null}
-                onChange={(v) => setSubjectTypeId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setSubjectTypeId(v ? Number(v) : null);
+                  setSubjectId(null);
+                  clearResults();
+                }}
                 options={subjectTypeOptions}
                 placeholder="Subject Type"
                 searchable
@@ -1008,24 +1560,47 @@ export default function ExamMarksEntryPage() {
               <Label>Subject</Label>
               <CommonSelect
                 value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  setSubjectId(v ? Number(v) : null);
+                  setLabBatchId(0);
+                  clearResults();
+                }}
                 options={subjectOptions}
                 placeholder="Subject"
                 searchable
+                wrapOptionLabels
               />
             </div>
-            {labBatches.length > 0 && (
+            {isLabSubject && (
               <div className="space-y-1 md:col-span-2">
                 <Label>Lab Batch</Label>
                 <CommonSelect
                   value={String(labBatchId)}
-                  onChange={(v) => setLabBatchId(Number(v || 0))}
+                  onChange={(v) => {
+                    setLabBatchId(Number(v || 0));
+                    clearResults();
+                  }}
                   options={labBatchOptions}
                   placeholder="All"
                   searchable
                 />
               </div>
             )}
+            <div className="space-y-1 md:col-span-2">
+              <DatePicker
+                label="Choose a exam date."
+                placeholder="dd/MM/yyyy"
+                displayFormat="dd/MM/yyyy"
+                value={ymdToDate(examDate)}
+                minDate={examMinDate ?? undefined}
+                maxDate={examMaxDate ?? undefined}
+                clearable={false}
+                onChange={(date) => {
+                  setExamDate(date ? format(date, "yyyy-MM-dd") : "");
+                  clearResults();
+                }}
+              />
+            </div>
             <div className="space-y-1 md:col-span-2">
               <Label>Employee</Label>
               <Input
@@ -1034,34 +1609,29 @@ export default function ExamMarksEntryPage() {
                 disabled
               />
             </div>
-            {subjectId && (
-              <div className="space-y-1 md:col-span-2">
-                <Label>Exam Date</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  type="date"
-                  value={examDate}
-                  disabled
-                />
+            {courseYearId ? (
+              <div className="md:col-span-2">
+                <Button
+                  className="h-8 w-full text-[12px]"
+                  onClick={() => void onGetList()}
+                  disabled={loading}
+                >
+                  {loading ? "Loading..." : "Get List"}
+                </Button>
               </div>
-            )}
-            <div className="md:col-span-2">
-              <Button
-                className="h-8 text-[12px] w-full"
-                onClick={onGetList}
-                disabled={loading}
-              >
-                {loading ? "Loading..." : "Get List"}
-              </Button>
-            </div>
+            ) : null}
           </div>
           {hasFetched && rows.length > 0 && (
             <RadioGroup
               className="flex items-center gap-5 px-1 py-1"
               value={marksView}
-              onValueChange={(value) =>
-                setMarksView(value as "list" | "import")
-              }
+              onValueChange={(value) => {
+                const next = value as "list" | "import";
+                setMarksView(next);
+                // Angular clear(): Import reloads list; List clears rows.
+                if (next === "import") void onGetList();
+                else setRows([]);
+              }}
             >
               <div className="flex items-center gap-2">
                 <RadioGroupItem id="exam-marks-list" value="list" />
@@ -1148,14 +1718,14 @@ export default function ExamMarksEntryPage() {
                   </p>
                   <p className="font-semibold text-slate-800">
                     {selectedSubject?.subject_name ?? "-"} (
-                    {selectedRegulation?.regulation_code ?? "-"}) -{" "}
+                    {selectedRegulation?.regulation_code ??
+                      selectedRegulation?.regulationCode ??
+                      "-"}
+                    ) -{" "}
                     <span className="text-blue-700">
                       {selectedSubject?.subject_type ?? "-"}
                     </span>{" "}
-                    <span>
-                      ({selectedExam?.is_internal_exam ? "Internal" : "Regular"}
-                      )
-                    </span>
+                    <span>({examTypeLabel})</span>
                   </p>
                 </div>
               </div>
@@ -1163,7 +1733,9 @@ export default function ExamMarksEntryPage() {
           ) : null}
         </div>
       }
-      rowData={hasFetched ? rows : []}
+      rowData={
+        hasFetched && marksView === "list" ? rows : hasFetched ? rows : []
+      }
       columnDefs={columnDefs}
       loading={loading}
       getRowId={(p) =>
@@ -1178,19 +1750,22 @@ export default function ExamMarksEntryPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Exam Marks Entry",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
-        <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-          Max Marks : <span className="font-semibold">{maxMarks || "-"}</span>
-        </div>
+        hasFetched && rows.length > 0 ? (
+          <div className="order-first shrink-0 whitespace-nowrap text-[12px] text-slate-600">
+            Max Marks : <span className="font-semibold">{maxValue || "-"}</span>
+          </div>
+        ) : undefined
       }
     >
       {hasFetched && (
         <div className="flex items-center justify-end gap-2">
           <Button
             className="h-8 text-[12px]"
-            onClick={onSave}
+            onClick={() => void onSave()}
             disabled={saving || rows.length === 0}
           >
             {saving ? "Saving..." : "Save Marks"}

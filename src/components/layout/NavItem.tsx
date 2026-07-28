@@ -1321,11 +1321,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return `${examReportsAltBase}/${slug}`;
       }
       // Angular folder aliases → App Router folder names (admin-exam-reports).
-      if (
-        slug === "grace-benefited-students-report" ||
-        slug === "exam-gracemarks-reports"
-      ) {
+      if (slug === "grace-benefited-students-report") {
         return `${examReportsBase}/grace-marks-benefited-students-report`;
+      }
+      if (
+        slug === "exam-gracemarks-reports" ||
+        slug === "exam-grace-marks-reports"
+      ) {
+        return `${examReportsBase}/exam-gracemarks-reports`;
       }
       if (slug === "re-evaluation-comparison-report") {
         return `${examReportsBase}/re-evaluation-comparision-report`;
@@ -1363,7 +1366,6 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       hrefLower.includes("grace-marks-benefited") ||
       hrefLower.includes("grace-benefited-students") ||
       hrefLower.includes("gracemarks-benefited") ||
-      hrefLower.includes("exam-gracemarks") ||
       ((labelLower.includes("grace") || labelLower.includes("gracemarks")) &&
         labelLower.includes("benefited") &&
         (labelLower.includes("student") || labelLower.includes("report")))

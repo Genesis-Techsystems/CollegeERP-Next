@@ -608,18 +608,20 @@ export async function getUnivExamRestNoTtBundle(params: {
   return { restFilters, regulations };
 }
 
-/** Angular exam-timetable-report `selectedExam` — flag `univ_exam_rest_in_regexamstd`. */
+/** Angular exam-timetable-report / gracemarks / moderation `selectedExam` — flag `univ_exam_rest_in_regexamstd`. */
 export async function getUnivExamRestInRegExamStd(params: {
   courseId: number;
   examId: number;
   academicYearId: number;
   employeeId: number;
+  /** Angular exam-gracemarks / moderation use `REGSUP`; timetable-report uses `ALL`. */
+  flagType?: "REGSUP" | "ALL";
 }): Promise<{ restFilters: AnyRow[]; regulations: AnyRow[] }> {
   const data = await getAllRecords<{ result: AnyRow[][] }>(
     "s_get_exam_filters_bycode",
     {
       in_flag: "univ_exam_rest_in_regexamstd",
-      in_flag_type: "ALL",
+      in_flag_type: params.flagType ?? "ALL",
       in_university_id: 0,
       in_college_id: 0,
       in_course_id: params.courseId,

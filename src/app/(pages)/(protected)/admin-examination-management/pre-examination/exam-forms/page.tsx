@@ -10,7 +10,10 @@ import {
   getUnivExamSubjectUc,
 } from "@/services/pre-examination";
 import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { useExamFormsPrint } from "./_print/useExamFormsPrint";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 
@@ -183,6 +186,14 @@ export default function ExamFormsPage() {
     examName: printExamName,
     logoUrl: collegeLogo,
     groupName: printGroupName,
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    examId,
+    subjectId,
+    regulationId,
   });
 
   useEffect(() => {
@@ -363,7 +374,19 @@ export default function ExamFormsPage() {
         regulationId: selectedBackendRegulationId || regulationId || 0,
         subjectId,
       }).catch(() => []);
-      setStudents(Array.isArray(rows) ? rows : []);
+      const list = Array.isArray(rows) ? rows : [];
+      setStudents(
+        list.map((r) => ({
+          ...r,
+          hallticket_number: r.hallticket_number ?? r.hallticketNumber,
+          StudentName: r.StudentName ?? r.student_name ?? r.studentName,
+          student_name: r.student_name ?? r.studentName ?? r.StudentName,
+          omr_serial_no: r.omr_serial_no ?? r.omrSerialNo,
+          is_present: r.is_present ?? r.isPresent ?? null,
+          isPresent: r.is_present ?? r.isPresent ?? null,
+          isUfm: r.isUfm ?? r.is_ufm ?? false,
+        })),
+      );
     } finally {
       setLoading(false);
     }
@@ -372,7 +395,7 @@ export default function ExamFormsPage() {
   return (
     <FilteredPage
       title="Exam Forms"
-      filters={(
+      filters={
         <GlobalFilterBarRow>
           <GlobalFilterField label="Course">
             <Select
@@ -399,8 +422,7 @@ export default function ExamFormsPage() {
                 value: String(
                   pickNum(a, ["fk_academic_year_id", "academicYearId"]),
                 ),
-                label:
-                  pickText(a, ["academic_year", "academicYear"]) || "-",
+                label: pickText(a, ["academic_year", "academicYear"]) || "-",
               }))}
               placeholder="Exam Year"
             />
@@ -511,7 +533,10 @@ export default function ExamFormsPage() {
               placeholder="Subject"
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Action" className="global-filter-field--shrink global-filter-field--action">
+          <GlobalFilterField
+            label="Action"
+            className="global-filter-field--shrink global-filter-field--action"
+          >
             <Button
               type="button"
               onClick={getList}
@@ -522,7 +547,7 @@ export default function ExamFormsPage() {
             </Button>
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      )}
+      }
     >
       {selectedData && (
         <div className="app-card px-4 py-3">

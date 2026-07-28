@@ -12,10 +12,10 @@
  * All styles below mirror exam-hallticket.component.scss.
  */
 
-import { type CSSProperties, type ReactNode, useRef } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { usePrintMode } from "@/lib/print";
+import { printHtmlInIframe } from "@/lib/print";
 import { MINIO_URL } from "@/config/constants/api";
 
 type AnyRow = Record<string, any>;
@@ -293,9 +293,9 @@ const S = {
 
 type UniKind = "MECS" | "MVSR" | "OTHER";
 
-function PhotoCell({ head }: { head: AnyRow }) {
+function PhotoCell({ head, rowSpan = 5 }: { head: AnyRow; rowSpan?: number }) {
   return (
-    <td rowSpan={5} style={S.photoCell}>
+    <td rowSpan={rowSpan} style={S.photoCell}>
       <div style={S.photoLayout}>
         <div style={S.photoRow}>
           <div style={S.photoContainer}>
@@ -339,18 +339,30 @@ function SubjectTable({ rows, kind }: { rows: AnyRow[]; kind: UniKind }) {
       <tbody>
         {rows.map((d, i) => {
           const isLab =
-            txt(d.subjecttype ?? d.subject_type).toUpperCase() === "LAB";
+            txt(
+              d.subjecttype ?? d.subject_type ?? d.subjectType,
+            ).toUpperCase() === "LAB";
+          const start = txt(
+            d.session_start_time ?? d.sessionStartTime ?? d.start_time,
+          );
+          const end = txt(d.session_end_time ?? d.sessionEndTime ?? d.end_time);
           const time =
             kind === "MVSR" && isLab
               ? "-"
-              : d.session_start_time && d.session_end_time
-                ? `${tConvert(txt(d.session_start_time))} - ${tConvert(txt(d.session_end_time))}`
+              : start && end
+                ? `${tConvert(start)} - ${tConvert(end)}`
                 : "";
           return (
-            <tr key={`${txt(d.subject_code)}-${i}`}>
-              <td style={S.subjTdCenter}>{txt(d.subject_code)}</td>
-              <td style={S.subjTdLeft}>{txt(d.subject_name)}</td>
-              <td style={S.subjTdLeft}>{fmtDate(d.exam_date)}</td>
+            <tr key={`${txt(d.subject_code ?? d.subjectCode)}-${i}`}>
+              <td style={S.subjTdCenter}>
+                {txt(d.subject_code ?? d.subjectCode)}
+              </td>
+              <td style={S.subjTdLeft}>
+                {txt(d.subject_name ?? d.subjectName)}
+              </td>
+              <td style={S.subjTdLeft}>
+                {fmtDate(txt(d.exam_date ?? d.examDate))}
+              </td>
               <td style={S.subjTdLeft}>{time}</td>
               <td style={S.subjTdCenter} />
             </tr>
@@ -374,14 +386,22 @@ function Instructions({ kind }: { kind: UniKind }) {
         <li>NOTE : CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li>
       </ol>
       <ol style={S.instrOl}>
-        {items.map((line) => (
-          <li key={line.slice(0, 28)} style={{ marginBottom: "2px" }}>
+        {items.map((line, idx) => (
+          <li key={`instr-${idx}`} style={{ marginBottom: "2px" }}>
             {line}
           </li>
         ))}
       </ol>
     </div>
   );
+}
+
+function headVal(head: AnyRow, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = head?.[k];
+    if (v != null && String(v).trim() !== "") return String(v);
+  }
+  return "";
 }
 
 function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
@@ -393,6 +413,43 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
         ? "/assets/images/avatars/MVSR-NEW-BANNER.png"
         : "";
   const bannerHeight = kind === "MVSR" ? "90px" : "105px";
+  const examTitle = headVal(
+    head,
+    "exam_label_name",
+    "examLabelName",
+    "exam_name",
+    "examName",
+  );
+  const regulation = headVal(head, "regulation_code", "regulationCode");
+  const courseCode = headVal(head, "course_code", "courseCode");
+  const groupName = headVal(
+    head,
+    "group_name",
+    "groupName",
+    "group_code",
+    "groupCode",
+  );
+  const hallticket = headVal(
+    head,
+    "hallticket_number",
+    "hallticketNumber",
+    "hallticketNo",
+  );
+  const studentName = headVal(
+    head,
+    "first_name",
+    "firstName",
+    "student_name",
+    "studentName",
+  );
+  const fatherName = headVal(head, "father_name", "fatherName");
+  const motherName = headVal(head, "mother_name", "motherName");
+  const center = headVal(
+    head,
+    "examcenter_name",
+    "examcenterName",
+    "examcenter",
+  );
 
   return (
     <div style={S.pageAlign}>
@@ -415,19 +472,15 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
       ) : null}
 
       <div style={S.examHeader}>
-        <h4 style={S.examTitle}>
-          {txt(head.exam_label_name ?? head.exam_name)}
-        </h4>
-        {head.regulation_code ? (
-          <div style={S.regulationBox}>{txt(head.regulation_code)}</div>
-        ) : null}
+        <h4 style={S.examTitle}>{examTitle}</h4>
+        {regulation ? <div style={S.regulationBox}>{regulation}</div> : null}
       </div>
 
       <div style={S.titleBar}>
         <div>HALL TICKET</div>
         <div>
-          {txt(head.course_code)}. (
-          {txt(head.group_name ?? head.group_code).toUpperCase()})
+          {courseCode}
+          {courseCode ? ". " : ""}({groupName.toUpperCase()})
         </div>
       </div>
 
@@ -435,28 +488,30 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
         <tbody>
           <tr>
             <td style={S.infoLabelTd}>Hall Ticket No&nbsp;&nbsp;:</td>
-            <td style={S.infoValTd}>{txt(head.hallticket_number)}</td>
-            <PhotoCell head={head} />
+            <td style={S.infoValTd}>{hallticket}</td>
+            <PhotoCell head={head} rowSpan={motherName ? 6 : 5} />
           </tr>
           <tr>
             <td style={S.infoLabelTd}>Student Name&nbsp;&nbsp;:</td>
-            <td style={S.infoValTd}>
-              {txt(head.first_name ?? head.student_name)}
-            </td>
+            <td style={S.infoValTd}>{studentName}</td>
           </tr>
           <tr>
             <td style={S.infoLabelTd}>Father Name&nbsp;&nbsp;:</td>
-            <td style={S.infoValTd}>{txt(head.father_name)}</td>
+            <td style={S.infoValTd}>{fatherName}</td>
           </tr>
+          {motherName ? (
+            <tr>
+              <td style={S.infoLabelTd}>Mother Name&nbsp;&nbsp;:</td>
+              <td style={S.infoValTd}>{motherName}</td>
+            </tr>
+          ) : null}
           <tr>
             <td style={S.infoLabelTd}>
               Center Name&nbsp;&nbsp;:
               <br />
               &amp; Address
             </td>
-            <td style={S.infoValTd}>
-              {txt(head.examcenter_name ?? head.examcenter)}
-            </td>
+            <td style={S.infoValTd}>{center}</td>
           </tr>
         </tbody>
       </table>
@@ -511,6 +566,282 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
   );
 }
 
+/** Resolve Angular universityCode for print layout (student / college / org). */
+export function resolveHallticketUniversityCode(
+  ...candidates: Array<string | null | undefined>
+): string {
+  for (const c of candidates) {
+    const v = String(c ?? "")
+      .trim()
+      .toUpperCase();
+    if (v) return v;
+  }
+  if (typeof window !== "undefined") {
+    const org = String(window.localStorage.getItem("orgCode") ?? "")
+      .trim()
+      .toUpperCase();
+    if (org) return org;
+  }
+  return "";
+}
+
+export function resolveHallticketKind(universityCode: string): UniKind {
+  const code = universityCode.toUpperCase();
+  if (code === "MECS") return "MECS";
+  if (code === "MVSR") return "MVSR";
+  return "OTHER";
+}
+
+/** Shared print document used by the section print preview route. */
+export function HallticketPrintDocuments({
+  rows,
+  universityCode,
+}: {
+  rows: AnyRow[];
+  universityCode: string;
+}) {
+  const kind = resolveHallticketKind(universityCode);
+  const groups = groupByStudentAndYear(rows);
+  return (
+    <div
+      className="hall-ticket-wrapper text-black"
+      data-print-root
+      style={{ fontFamily: "Arial, sans-serif", fontSize: "12px" }}
+    >
+      {groups.length === 0 ? (
+        <p className="py-6 text-center text-[11px]">
+          No hallticket rows to print.
+        </p>
+      ) : (
+        groups.map((group, i) => (
+          <HallTicketPage key={`ht-${i}`} group={group} kind={kind} />
+        ))
+      )}
+    </div>
+  );
+}
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+function absUrl(src: string): string {
+  if (!src) return "";
+  if (/^(https?:\/\/|data:)/i.test(src)) return src;
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}${src.startsWith("/") ? src : `/${src}`}`;
+  }
+  return src.startsWith("/") ? src : `/${src}`;
+}
+
+/**
+ * Build a standalone HTML document for iframe print.
+ * Avoids AppShell @media print blank PDFs (Angular in-page print equivalent).
+ */
+export function buildHallticketPrintHtml(
+  rows: AnyRow[],
+  universityCode: string,
+): string {
+  const kind = resolveHallticketKind(universityCode);
+  const groups = groupByStudentAndYear(rows);
+  const instrItems = kind === "MECS" ? INSTRUCTIONS : INSTRUCTIONS.slice(0, 10);
+  const instrHtml = instrItems
+    .map((line) => `<li style="margin-bottom:2px;">${escapeHtml(line)}</li>`)
+    .join("");
+
+  const pages = groups
+    .map((group) => {
+      const head = group[0] ?? {};
+      const banner =
+        kind === "MECS"
+          ? absUrl("/assets/images/avatars/MECS_BANNER.png")
+          : kind === "MVSR"
+            ? absUrl("/assets/images/avatars/MVSR-NEW-BANNER.png")
+            : "";
+      const bannerH = kind === "MVSR" ? "90px" : "105px";
+      const examTitle = headVal(
+        head,
+        "exam_label_name",
+        "examLabelName",
+        "exam_name",
+        "examName",
+      );
+      const regulation = headVal(head, "regulation_code", "regulationCode");
+      const courseCode = headVal(head, "course_code", "courseCode");
+      const groupName = headVal(
+        head,
+        "group_name",
+        "groupName",
+        "group_code",
+        "groupCode",
+      );
+      const hallticket = headVal(
+        head,
+        "hallticket_number",
+        "hallticketNumber",
+        "hallticketNo",
+      );
+      const studentName = headVal(
+        head,
+        "first_name",
+        "firstName",
+        "student_name",
+        "studentName",
+      );
+      const fatherName = headVal(head, "father_name", "fatherName");
+      const motherName = headVal(head, "mother_name", "motherName");
+      const center = headVal(
+        head,
+        "examcenter_name",
+        "examcenterName",
+        "examcenter",
+      );
+      const photo = absUrl(studentPhotoSrc(head));
+      const e = escapeHtml;
+      const motherRow = motherName
+        ? `<tr><td class="lbl">Mother Name&nbsp;&nbsp;:</td><td class="val">${e(motherName)}</td></tr>`
+        : "";
+      const subjectRows = group
+        .map((d) => {
+          const isLab =
+            txt(
+              d.subjecttype ?? d.subject_type ?? d.subjectType,
+            ).toUpperCase() === "LAB";
+          const start = txt(
+            d.session_start_time ?? d.sessionStartTime ?? d.start_time,
+          );
+          const end = txt(d.session_end_time ?? d.sessionEndTime ?? d.end_time);
+          const time =
+            kind === "MVSR" && isLab
+              ? "-"
+              : start && end
+                ? `${tConvert(start)} - ${tConvert(end)}`
+                : "";
+          return `<tr>
+            <td class="c">${e(txt(d.subject_code ?? d.subjectCode))}</td>
+            <td class="l">${e(txt(d.subject_name ?? d.subjectName))}</td>
+            <td class="l">${e(fmtDate(txt(d.exam_date ?? d.examDate)))}</td>
+            <td class="l">${e(time)}</td>
+            <td class="c"></td>
+          </tr>`;
+        })
+        .join("");
+
+      const coeSign =
+        kind === "MVSR"
+          ? absUrl("/assets/images/avatars/MVSR_COE-SIGN.jpg")
+          : absUrl("/assets/images/avatars/MECS_EXAMINATION_SIGN.png");
+
+      const signatures =
+        kind === "OTHER"
+          ? `<div class="sigs-other">
+              <div>Signature of the Student</div>
+              <div>Controller of Examinations</div>
+              <div>Principal</div>
+            </div>`
+          : `<div class="sigs">
+              <div class="sig-block"><div>Signature of HOD</div></div>
+              <div class="sig-block">
+                <img src="${e(coeSign)}" alt="" style="width:120px;height:30px;margin-bottom:5px;"
+                  onerror="this.style.display='none'" />
+                <div>Controller of Examinations</div>
+              </div>
+            </div>`;
+
+      return `<div class="page">
+        ${
+          banner
+            ? `<div style="text-align:center;"><img src="${e(banner)}" alt="" style="width:100%;height:${bannerH};object-fit:contain;" onerror="this.style.display='none'" /></div>`
+            : ""
+        }
+        <div class="exam-header">
+          <h4>${e(examTitle)}</h4>
+          ${regulation ? `<div class="reg">${e(regulation)}</div>` : ""}
+        </div>
+        <div class="title-bar">
+          <div>HALL TICKET</div>
+          <div>${e(courseCode)}${courseCode ? ". " : ""}(${e(groupName.toUpperCase())})</div>
+        </div>
+        <table class="info">
+          <tr>
+            <td class="lbl">Hall Ticket No&nbsp;&nbsp;:</td>
+            <td class="val">${e(hallticket)}</td>
+            <td class="photo" rowspan="${motherName ? 6 : 5}">
+              <div class="photo-layout">
+                <div class="photo-row">
+                  <div class="photo-box"><img src="${e(photo)}" alt="" onerror="this.src='${e(absUrl(DEFAULT_STUDENT))}'" /></div>
+                  <div class="affix">Affix latest photo of the candidate<br/>duly attested by the HOD</div>
+                </div>
+                <div class="sig-row"><div class="sig-box"></div><div class="sig-box"></div></div>
+              </div>
+            </td>
+          </tr>
+          <tr><td class="lbl">Student Name&nbsp;&nbsp;:</td><td class="val">${e(studentName)}</td></tr>
+          <tr><td class="lbl">Father Name&nbsp;&nbsp;:</td><td class="val">${e(fatherName)}</td></tr>
+          ${motherRow}
+          <tr><td class="lbl">Center Name&nbsp;&nbsp;:<br/>&amp; Address</td><td class="val">${e(center)}</td></tr>
+        </table>
+        <table class="subj">
+          <thead><tr>
+            <th>Subject Code</th><th>Registered Subjects</th><th>Date of Exam</th><th>Time</th><th>Invigilator Sign</th>
+          </tr></thead>
+          <tbody>${subjectRows}</tbody>
+        </table>
+        ${signatures}
+        <div class="cut"><div class="left-line"></div><div class="dashed"></div></div>
+        <div class="instr">
+          <h4>Hall ticket should be preserved till the end of the examinations</h4>
+          <ol class="none"><li>INSTRUCTIONS TO THE CANDIDATES</li>
+          <li>NOTE : CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li></ol>
+          <ol>${instrHtml}</ol>
+        </div>
+      </div>`;
+    })
+    .join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Hall Ticket</title>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .page{border:1px solid #000;min-height:100vh;padding:8px;font-family:'Times New Roman',serif;page-break-after:always;color:#000;}
+  .page:last-child{page-break-after:auto;}
+  .exam-header{display:flex;justify-content:center;align-items:center;position:relative;margin:5px 0 2px;}
+  .exam-header h4{text-align:center;font-weight:700;margin:0;font-size:15px;}
+  .reg{position:absolute;right:0;bottom:2px;border:1px solid #000;padding:2px 10px;font-size:13px;font-weight:700;min-width:45px;text-align:center;text-transform:uppercase;}
+  .title-bar{display:flex;justify-content:space-between;align-items:center;background:#b6b5b5;border:1px solid #000;padding:3px;font-weight:700;font-size:12px;margin:3px 0 1.4%;text-transform:uppercase;}
+  .info{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;}
+  .info .lbl,.info .val{padding:4px 6px;font-weight:550;border:none;vertical-align:middle;}
+  .info .lbl{white-space:nowrap;width:180px;}
+  .photo{text-align:center;vertical-align:top;width:210px;border:none;padding:4px 6px;}
+  .photo-layout{display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .photo-row{display:flex;gap:5px;justify-content:center;}
+  .photo-box{border:1px solid #000;width:90px;height:110px;}
+  .photo-box img{width:100%;height:100%;object-fit:cover;}
+  .affix{border:1px dotted #000;width:90px;height:110px;font-size:10px;color:#555;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;}
+  .sig-row{display:flex;gap:8px;justify-content:center;}
+  .sig-box{width:100px;height:35px;border:1px solid #000;}
+  .subj{width:100%;border-collapse:collapse;margin-top:1%;font-size:12px;}
+  .subj th,.subj td{border:1px solid #000;padding:4px;vertical-align:middle;}
+  .subj th{font-weight:700;text-align:center;}
+  .subj .c{text-align:center;} .subj .l{text-align:left;padding-left:8px;}
+  .sigs{display:flex;justify-content:space-between;align-items:flex-end;margin-top:2%;padding:0 20px;font-weight:700;}
+  .sig-block{text-align:center;width:30%;font-size:13px;}
+  .sigs-other{display:flex;justify-content:space-between;margin-top:8%;font-weight:700;padding:0 10px;}
+  .cut{display:flex;align-items:flex-start;margin-top:2%;}
+  .left-line{width:1px;height:20px;background:#000;margin-right:2px;}
+  .dashed{flex-grow:1;border-top:2px dashed #000;height:2px;}
+  .instr{margin-top:-2.5%;margin-bottom:15px;}
+  .instr h4{text-align:center;text-decoration:underline;margin-bottom:5px;font-size:13px;}
+  .instr ol{margin:0;padding-left:18px;font-size:12px;}
+  .instr ol.none{list-style:none;padding-left:0;}
+  @page{margin:1cm;size:A4 portrait;}
+  @media print{tr{page-break-inside:avoid;} thead{display:table-header-group;}}
+</style></head><body>${pages || "<p>No hallticket rows to print.</p>"}</body></html>`;
+}
+
 export function useHallticketPrint(
   rows: AnyRow[],
   universityCode: string,
@@ -520,13 +851,13 @@ export function useHallticketPrint(
   printStudent: (studentRows: AnyRow[]) => void;
   printView: ReactNode;
 } {
-  const { mode: printMode, triggerPrint } = usePrintMode<"hallticket">();
-  const printRowsRef = useRef<AnyRow[]>(rows);
-  printRowsRef.current = rows;
+  const doPrint = (printRows: AnyRow[]) => {
+    if (!printRows.length) return;
+    printHtmlInIframe(buildHallticketPrintHtml(printRows, universityCode));
+  };
 
   const printStudent = (studentRows: AnyRow[]) => {
-    printRowsRef.current = studentRows;
-    triggerPrint("hallticket");
+    doPrint(studentRows);
   };
 
   const printButton = (label: string) => (
@@ -535,43 +866,18 @@ export function useHallticketPrint(
       size="sm"
       className="h-[30px] px-3 text-[12px]"
       disabled={rows.length === 0}
-      onClick={() => {
-        printRowsRef.current = rows;
-        triggerPrint("hallticket");
-      }}
+      onClick={() => doPrint(rows)}
     >
       <Printer className="mr-1.5 h-3.5 w-3.5" />
       {label}
     </Button>
   );
 
-  let printView: ReactNode = null;
-  if (printMode === "hallticket") {
-    const code = universityCode.toUpperCase();
-    const kind: UniKind =
-      code === "MECS" || code === ""
-        ? "MECS"
-        : code === "MVSR"
-          ? "MVSR"
-          : "OTHER";
-    const groups = groupByStudentAndYear(printRowsRef.current);
-    printView = (
-      <div
-        className="hall-ticket-wrapper text-black"
-        style={{ fontFamily: "Arial, sans-serif", fontSize: "12px" }}
-      >
-        {groups.length === 0 ? (
-          <p className="text-[11px] text-center py-6">
-            No hallticket rows to print.
-          </p>
-        ) : (
-          groups.map((group, i) => (
-            <HallTicketPage key={`ht-${i}`} group={group} kind={kind} />
-          ))
-        )}
-      </div>
-    );
-  }
-
-  return { printMode, printButton, printStudent, printView };
+  // printMode/printView kept for API compatibility — iframe print does not swap the page.
+  return {
+    printMode: null,
+    printButton,
+    printStudent,
+    printView: null,
+  };
 }

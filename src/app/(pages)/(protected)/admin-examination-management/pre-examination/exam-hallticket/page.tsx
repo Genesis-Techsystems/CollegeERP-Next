@@ -9,7 +9,7 @@ import { Select } from "@/common/components/select";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import defaultStudent from "@/assets/images/avatars/default_Student.png";
 import { format, parseISO } from "date-fns";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import type { ColDef } from "ag-grid-community";
 import {
   getExamHalltickets,
   getStudentExamHallticketDetail,
@@ -23,7 +23,11 @@ import {
 } from "@/services";
 import { FilteredListPage } from "@/components/layout";
 import { useSessionContext } from "@/context/SessionContext";
-import { useHallticketPrint } from "./_print/useHallticketPrint";
+import {
+  useHallticketPrint,
+  resolveHallticketUniversityCode,
+} from "./_print/useHallticketPrint";
+import { saveExamHallticketPrintPayload } from "./_print/store";
 import { Printer } from "lucide-react";
 import { MINIO_URL } from "@/config/constants/api";
 
@@ -98,22 +102,14 @@ const STUDENT_HALLTICKET_COL_DEFS: ColDef[] = [
   },
   { field: "subject_code", headerName: "Subject Code", minWidth: 130 },
   { field: "subject_name", headerName: "Subject Name", flex: 1, minWidth: 160 },
+  {
+    headerName: "Subject Type",
+    minWidth: 110,
+    flex: 0,
+    valueGetter: (p: any) =>
+      pick(p.data ?? {}, ["subjecttype", "subjectType", "subject_type"]) || "-",
+  },
 ];
-
-function makeSectionPrintRenderer(onPrint: (rows: AnyRow[]) => void) {
-  return (p: ICellRendererParams) => (
-    <Button
-      type="button"
-      size="sm"
-      variant="ghost"
-      className="h-7 w-7 p-0"
-      onClick={() => onPrint((p.data?._subjectRows as AnyRow[]) ?? [])}
-      aria-label="Print hallticket"
-    >
-      <Printer className="h-3.5 w-3.5" />
-    </Button>
-  );
-}
 
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   const seen = new Set<string | number>();
@@ -445,6 +441,26 @@ export function ExamHallticketPage({
       ).filter((r) => Number(r.fk_course_year_id) > 0),
     [restRows, collegeId, courseGroupId],
   );
+
+  // Angular selectedCollege / selectedGroup — auto-pick first group then year.
+  useEffect(() => {
+    if (!collegeId || groups.length === 0) {
+      if (!collegeId) setCourseGroupId(null);
+      return;
+    }
+    const first = Number(groups[0]?.fk_course_group_id ?? 0);
+    if (first > 0) setCourseGroupId(first);
+  }, [collegeId, groups]);
+
+  useEffect(() => {
+    if (!courseGroupId || years.length === 0) {
+      if (!courseGroupId) setCourseYearId(null);
+      return;
+    }
+    const first = Number(years[0]?.fk_course_year_id ?? 0);
+    if (first > 0) setCourseYearId(first);
+  }, [courseGroupId, years]);
+
   const studentExamOptions = useMemo(
     () =>
       dedupeBy(studentExams, (r) =>
@@ -515,12 +531,64 @@ export function ExamHallticketPage({
   const rowsForPrint =
     mode === "section" ? sectionSubjectRows : studentDisplayRows;
 
-  // Printable HALL TICKET documents (Angular print section) — grouped per student.
-  const { printMode, printButton, printStudent, printView } =
-    useHallticketPrint(
-      isStudentPortal ? [] : rowsForPrint,
-      user?.universityCode ?? "",
+  // Angular: Mode1 uses student.universityCode; Mode2 uses college.university_code.
+  const printUniversityCode = useMemo(() => {
+    const fromStudent = String(
+      selectedStudent?.universityCode ?? selectedStudent?.university_code ?? "",
     );
+    const fromCollege = String(
+      colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))
+        ?.university_code ??
+        colleges.find((c) => Number(c.fk_college_id) === Number(collegeId))
+          ?.universityCode ??
+        "",
+    );
+    const fromRows = String(
+      rowsForPrint[0]?.university_code ?? rowsForPrint[0]?.universityCode ?? "",
+    );
+    return resolveHallticketUniversityCode(
+      mode === "student" ? fromStudent : fromCollege,
+      fromRows,
+      fromCollege,
+      fromStudent,
+      user?.universityCode,
+      orgCode,
+    );
+  }, [
+    mode,
+    selectedStudent,
+    colleges,
+    collegeId,
+    rowsForPrint,
+    user?.universityCode,
+    orgCode,
+  ]);
+
+  // Printable HALL TICKET — iframe print (avoids AppShell blank PDF).
+  const { printButton } = useHallticketPrint(
+    isStudentPortal ? [] : mode === "student" ? rowsForPrint : [],
+    printUniversityCode,
+  );
+
+  function handleSectionPrintAll() {
+    if (rowsForPrint.length === 0) return;
+    // Angular printBulk() → navigate to print-exam-hallticket with ParametersService.
+    saveExamHallticketPrintPayload({
+      rows: rowsForPrint,
+      universityCode: printUniversityCode,
+      formValues: {
+        collegeId: collegeId ?? undefined,
+        academicYearId: academicYearId ?? undefined,
+        courseId: courseId ?? undefined,
+        courseGroupId: courseGroupId ?? undefined,
+        courseYearId: courseYearId ?? undefined,
+        examId: examId ?? undefined,
+      },
+    });
+    router.push(
+      "/admin-examination-management/pre-examination/exam-hallticket/print-hallticket",
+    );
+  }
 
   function handleStudentPortalPrint() {
     if (!studentId || !studentExamId) return;
@@ -575,7 +643,7 @@ export function ExamHallticketPage({
         flex: 1,
       },
     ],
-    [printStudent],
+    [],
   );
 
   useEffect(() => {
@@ -603,8 +671,15 @@ export function ExamHallticketPage({
         rows.filter((r) => Number(r.fk_course_id) === firstCourse),
         (r) => Number(r.fk_academic_year_id),
       ).filter((r) => Number(r.fk_academic_year_id) > 0);
-      const firstAy = ay[0]?.fk_academic_year_id
-        ? Number(ay[0].fk_academic_year_id)
+      // Angular selectedCourse — prefer is_curr_ay, else sort by academic_year DESC
+      const sortedAy = [...ay].sort(
+        (a, b) =>
+          Number(b.is_curr_ay ?? b.isCurrAy ?? 0) -
+            Number(a.is_curr_ay ?? a.isCurrAy ?? 0) ||
+          Number(b.academic_year ?? 0) - Number(a.academic_year ?? 0),
+      );
+      const firstAy = sortedAy[0]?.fk_academic_year_id
+        ? Number(sortedAy[0].fk_academic_year_id)
         : null;
       setAcademicYearId(firstAy);
       if (!firstAy) return;
@@ -842,10 +917,6 @@ export function ExamHallticketPage({
       ? studentDisplayRows.length > 0
       : sectionTableRows.length > 0);
 
-  // While the print dialog is open, replace the page with the hall-ticket
-  // documents (AppShell @media print rules hide the app chrome).
-  if (printMode && !isStudentPortal) return <>{printView}</>;
-
   return (
     <FilteredListPage
       title="Exam Hallticket"
@@ -986,7 +1057,35 @@ export function ExamHallticketPage({
                 <Label>Course</Label>
                 <Select
                   value={courseId ? String(courseId) : null}
-                  onChange={(v) => setCourseId(v ? Number(v) : null)}
+                  onChange={(v) => {
+                    const next = v ? Number(v) : null;
+                    setCourseId(next);
+                    setAcademicYearId(null);
+                    setExamId(null);
+                    setCollegeId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRestRows([]);
+                    setRows([]);
+                    setHasFetched(false);
+                    if (!next) return;
+                    const ay = dedupeBy(
+                      filterRows.filter((r) => Number(r.fk_course_id) === next),
+                      (r) => Number(r.fk_academic_year_id),
+                    ).filter((r) => Number(r.fk_academic_year_id) > 0);
+                    const sortedAy = [...ay].sort(
+                      (a, b) =>
+                        Number(b.is_curr_ay ?? b.isCurrAy ?? 0) -
+                          Number(a.is_curr_ay ?? a.isCurrAy ?? 0) ||
+                        Number(b.academic_year ?? 0) -
+                          Number(a.academic_year ?? 0),
+                    );
+                    if (sortedAy[0]?.fk_academic_year_id) {
+                      setAcademicYearId(
+                        Number(sortedAy[0].fk_academic_year_id),
+                      );
+                    }
+                  }}
                   options={courses.map((c) => ({
                     value: String(c.fk_course_id),
                     label: c.course_code,
@@ -998,7 +1097,46 @@ export function ExamHallticketPage({
                 <Label>Exam Year</Label>
                 <Select
                   value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                  onChange={(v) => {
+                    const next = v ? Number(v) : null;
+                    setAcademicYearId(next);
+                    setExamId(null);
+                    setCollegeId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRestRows([]);
+                    setRows([]);
+                    setHasFetched(false);
+                    if (!next || !courseId) return;
+                    const ex = dedupeBy(
+                      filterRows.filter(
+                        (r) =>
+                          Number(r.fk_course_id) === Number(courseId) &&
+                          Number(r.fk_academic_year_id) === next,
+                      ),
+                      (r) => Number(r.fk_exam_id),
+                    ).filter((r) => Number(r.fk_exam_id) > 0);
+                    if (ex[0]?.fk_exam_id) {
+                      const eid = Number(ex[0].fk_exam_id);
+                      setExamId(eid);
+                      void getUnivExamRestNoTt({
+                        courseId,
+                        examId: eid,
+                        academicYearId: next,
+                        employeeId,
+                      })
+                        .then((rest) => {
+                          setRestRows(rest);
+                          const firstCollege = dedupeBy(rest, (r) =>
+                            Number(r.fk_college_id),
+                          )[0]?.fk_college_id;
+                          setCollegeId(
+                            firstCollege ? Number(firstCollege) : null,
+                          );
+                        })
+                        .catch(() => setRestRows([]));
+                    }
+                  }}
                   options={academicYears.map((a) => ({
                     value: String(a.fk_academic_year_id),
                     label: a.academic_year,
@@ -1013,7 +1151,15 @@ export function ExamHallticketPage({
                   onChange={async (v) => {
                     const next = v ? Number(v) : null;
                     setExamId(next);
-                    if (!next || !courseId || !academicYearId) return;
+                    setCollegeId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRows([]);
+                    setHasFetched(false);
+                    if (!next || !courseId || !academicYearId) {
+                      setRestRows([]);
+                      return;
+                    }
                     const rest = await getUnivExamRestNoTt({
                       courseId,
                       examId: next,
@@ -1037,7 +1183,13 @@ export function ExamHallticketPage({
                 <Label>College</Label>
                 <Select
                   value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                  onChange={(v) => {
+                    setCollegeId(v ? Number(v) : null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRows([]);
+                    setHasFetched(false);
+                  }}
                   options={colleges.map((c) => ({
                     value: String(c.fk_college_id),
                     label: c.college_code,
@@ -1116,8 +1268,19 @@ export function ExamHallticketPage({
               Print
             </Button>
           ) : null
+        ) : mode === "section" ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            disabled={rowsForPrint.length === 0}
+            onClick={handleSectionPrintAll}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print All
+          </Button>
         ) : (
-          printButton(mode === "student" ? "Print" : "Print All")
+          printButton("Print")
         )
       }
     />

@@ -64,6 +64,8 @@ export function useSecureMarksPrint(params: {
   logoUrl: string | null;
   orgCode?: string;
   universityCode?: string;
+  /** Browser print document title (Angular exam-marks-entry uses marks sheet). */
+  documentTitle?: string;
 }): {
   printMode: "marks" | null;
   printButton: ReactNode;
@@ -76,6 +78,7 @@ export function useSecureMarksPrint(params: {
     logoUrl,
     orgCode,
     universityCode,
+    documentTitle = "Secure Exam Marks Entry",
   } = params;
   const [printMode, setPrintMode] = useState<"marks" | null>(null);
   const normalizedUniversity = (universityCode ?? "").trim().toUpperCase();
@@ -333,7 +336,7 @@ export function useSecureMarksPrint(params: {
         <head>
           <meta charset="utf-8" />
           <base href="${window.location.origin}/" />
-          <title>Secure Exam Marks Entry</title>
+          <title>${documentTitle.replace(/</g, "")}</title>
           <style>
             * { box-sizing: border-box; }
             html, body { margin: 0; padding: 0; background: #fff; color: #000; }
@@ -399,7 +402,7 @@ export function useSecureMarksPrint(params: {
     return () => {
       if (!cleanedUp) frame.remove();
     };
-  }, [printMode]);
+  }, [printMode, documentTitle]);
 
   return { printMode, printButton, printView };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
 import { toDateStr } from "@/common/generic-functions";
@@ -17,7 +17,10 @@ import {
   listInvigilatorDesignations,
 } from "@/services/pre-examination";
 import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import {
   InvigilatorAllotmentModal,
   type InvigilatorModalContext,
@@ -50,6 +53,44 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
     return true;
   });
 };
+
+/** Angular invigilator-allotment.component — hover “Employee Details” tooltip. */
+function EmployeeDetailsTooltip({
+  name,
+  empNumber,
+  dept,
+  mobile,
+  children,
+}: {
+  name: string;
+  empNumber: string;
+  dept: string;
+  mobile: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="group/emp relative overflow-hidden hover:z-20 hover:overflow-visible">
+      {children}
+      <div
+        className="pointer-events-none absolute bottom-[calc(100%+6px)] left-0 z-30 min-w-[190px] max-w-[200px] border border-slate-700 bg-white p-3 text-[10px] leading-tight tracking-wide text-black opacity-0 shadow-[0_5px_25px_5px_rgba(205,210,214,0.8)] transition-opacity duration-300 group-hover/emp:opacity-100"
+        role="tooltip"
+      >
+        <h5 className="mb-2.5 mt-0.5 bg-[#00bcd433] py-[7px] text-center text-[11px] font-semibold">
+          Employee Details
+        </h5>
+        <span className="block font-semibold text-black">Name :</span>
+        {name || "-"} {empNumber ? <small>({empNumber})</small> : null}
+        <p className="mb-0 mt-1">
+          <span className="font-semibold text-black">Dept :</span> {dept || "-"}
+        </p>
+        <p className="mb-0 mt-1">
+          <span className="font-semibold text-black">Mobile :</span>{" "}
+          {mobile || "-"}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function getExamTimetableParts(row: AnyRow): {
   examDate: string;
@@ -465,8 +506,8 @@ export default function InvigilatorAllotmentPage() {
 
   return (
     <FilteredPage
-      title="Invigilation Allotment"
-      filters={(
+      title="Exam Invigilator Allotment"
+      filters={
         <GlobalFilterBarRow>
           <GlobalFilterField label="College">
             <Select
@@ -504,8 +545,7 @@ export default function InvigilatorAllotmentPage() {
                 ]);
                 return {
                   value: String(id || i),
-                  label:
-                    pickText(a, ["academicYear", "academic_year"]) || "-",
+                  label: pickText(a, ["academicYear", "academic_year"]) || "-",
                 };
               })}
               placeholder="Exam Year"
@@ -554,10 +594,7 @@ export default function InvigilatorAllotmentPage() {
               value={examTimetableId ? String(examTimetableId) : null}
               onChange={(v) => setExamTimetableId(v ? Number(v) : 0)}
               options={examTimetables.map((t, i) => {
-                const id = pickNum(t, [
-                  "examTimetableId",
-                  "exam_timetable_id",
-                ]);
+                const id = pickNum(t, ["examTimetableId", "exam_timetable_id"]);
                 return {
                   value: String(id || i),
                   label: `${toDateStr(t.examDate)} (${pickText(t, ["examSessionName", "exam_session_name"]) || "-"})`,
@@ -567,7 +604,7 @@ export default function InvigilatorAllotmentPage() {
             />
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      )}
+      }
     >
       {examTimetableId && (
         <>
@@ -600,7 +637,7 @@ export default function InvigilatorAllotmentPage() {
                 ? `${observer.invigilatorEmpName ?? "-"} (${observer.invigilatorEmpNumber ?? "-"})`
                 : "currently no observer"}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 overflow-visible md:grid-cols-3">
               {rooms.map((r, i) => {
                 const roomId = Number(r.roomId ?? 0);
                 const list = byRoom.get(roomId) ?? [];
@@ -611,12 +648,12 @@ export default function InvigilatorAllotmentPage() {
                     tabIndex={0}
                     onClick={() => openRoomModal(r)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        openRoomModal(r)
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openRoomModal(r);
                       }
                     }}
-                    className="cursor-pointer rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
+                    className="cursor-pointer overflow-visible rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
                   >
                     <div className="font-semibold text-[13px]">
                       {r.roomName ?? r.roomCode ?? "-"}
@@ -649,22 +686,45 @@ export default function InvigilatorAllotmentPage() {
                             "INVIGILATOR",
                         )
                         .map((x, idx) => (
-                          <div
+                          <EmployeeDetailsTooltip
                             key={`inv-${idx}`}
-                            className="rounded border px-2 py-1"
-                            style={{
-                              backgroundColor: `${colorByDesignationId.get(Number(x.invgdesignationCatId ?? 0)) ?? "#E2E8F0"}22`,
-                              borderColor:
-                                colorByDesignationId.get(
-                                  Number(x.invgdesignationCatId ?? 0),
-                                ) ?? "#CBD5E1",
-                            }}
+                            name={pickText(x, [
+                              "invigilatorEmpName",
+                              "employeeName",
+                              "firstName",
+                            ])}
+                            empNumber={pickText(x, [
+                              "invigilatorEmpNumber",
+                              "empNumber",
+                              "employeeCode",
+                            ])}
+                            dept={pickText(x, [
+                              "empDeptName",
+                              "departmentName",
+                              "deptName",
+                            ])}
+                            mobile={pickText(x, [
+                              "mobile",
+                              "mobileNumber",
+                              "mobileNo",
+                            ])}
                           >
-                            {x.invigilatorEmpName}{" "}
-                            <span className="text-muted-foreground">
-                              ({x.invigilatorEmpNumber})
-                            </span>
-                          </div>
+                            <div
+                              className="rounded border px-2 py-1"
+                              style={{
+                                backgroundColor: `${colorByDesignationId.get(Number(x.invgdesignationCatId ?? 0)) ?? "#E2E8F0"}22`,
+                                borderColor:
+                                  colorByDesignationId.get(
+                                    Number(x.invgdesignationCatId ?? 0),
+                                  ) ?? "#CBD5E1",
+                              }}
+                            >
+                              {x.invigilatorEmpName}{" "}
+                              <span className="text-muted-foreground">
+                                ({x.invigilatorEmpNumber})
+                              </span>
+                            </div>
+                          </EmployeeDetailsTooltip>
                         ))}
                       {list.filter(
                         (x) =>

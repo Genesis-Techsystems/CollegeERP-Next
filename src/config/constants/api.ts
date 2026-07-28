@@ -284,6 +284,8 @@ export const EXAM_API = {
   UPLOAD_INVIGILATOR_ATTENDANCE_SHEET: "uploadInvigilatorAttendanceSheet",
   /** Angular `getExamAllotInvigilatorUrl` */
   GET_EXAM_ALLOT_INVIGILATOR: "getExamAllotInvigilator",
+  /** Angular `getExamAllotmentInvigilatorsUrl` */
+  GET_EXAM_ALLOTMENT_INVIGILATORS: "getExamAllotmentInvigilators",
   /** Angular `examFeeStructureCourseyrUrl` */
   EXAM_FEE_STRUCTURE_COURSEYR: "ExamFeeStructureCourseyr",
   /** Angular `getStudentExamFeeStructureUrl` */
