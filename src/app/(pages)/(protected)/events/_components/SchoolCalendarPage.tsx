@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 import { FileSpreadsheet, Printer } from 'lucide-react'
 import type { ColDef } from 'ag-grid-community'
 import { ListPage } from '@/components/layout'
+import { usePageNavLabel } from '@/common/components/breadcrumb'
 import { Button } from '@/components/ui/button'
 import { useSessionContext } from '@/context/SessionContext'
 import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from '@/hooks/useCollegeLogo'
@@ -13,15 +14,16 @@ import { rowIndexGetter } from '@/lib/utils'
 import { toastError } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
 import {
-  fetchStudentDetail,
-  fetchStudentDetailByUserId,
-  listAcademicYearsForCollege,
   listActiveCollegesForGeneralSettings,
   listSchoolCalendarEvents,
   type CollegeEventRow,
 } from '@/services'
 
-/** Positive id helper (Angular localStorage ids are always > 0). */
+function readStorage(key: string): string {
+  if (typeof globalThis.window === 'undefined') return ''
+  return globalThis.localStorage.getItem(key) ?? ''
+}
+
 function positiveId(...candidates: unknown[]): number {
   for (const c of candidates) {
     const n = Number(c)
@@ -30,55 +32,9 @@ function positiveId(...candidates: unknown[]): number {
   return 0
 }
 
-function readStorage(key: string): string {
-  if (typeof globalThis.window === 'undefined') return ''
-  return globalThis.localStorage.getItem(key) ?? ''
-}
-
-function writeStorage(key: string, value: number | string) {
-  if (typeof globalThis.window === 'undefined') return
-  globalThis.localStorage.setItem(key, String(value))
-}
-
 /**
- * College Calendar holidays are keyed by the **college default / current**
- * academic year (Angular login → localStorage `academicYearId`, e.g. 101),
- * not a student's enrollment year (often 94/95 with no holiday rows).
+ * Angular `startDate | date: 'MMM d, y'`
  */
-function pickCollegeCalendarAcademicYearId(
-  years: Array<Record<string, unknown>>,
-  preferredId: number,
-): number {
-  if (!years.length) return preferredId
-
-  const idOf = (y: Record<string, unknown>) => positiveId(y.academicYearId)
-
-  const def = years.find(
-    (y) => y.isDefault === true || y.isDefault === 'true' || y.isDefault === 1,
-  )
-  if (def) return idOf(def)
-
-  const today = Date.now()
-  const inRange = years.find((y) => {
-    const from = y.fromDate ? new Date(String(y.fromDate)).getTime() : NaN
-    const to = y.toDate ? new Date(String(y.toDate)).getTime() : NaN
-    return Number.isFinite(from) && Number.isFinite(to) && today >= from && today <= to
-  })
-  if (inRange) return idOf(inRange)
-
-  if (preferredId && years.some((y) => idOf(y) === preferredId)) {
-    return preferredId
-  }
-
-  const sorted = [...years].sort((a, b) => {
-    const ta = new Date(String(a.fromDate ?? 0)).getTime()
-    const tb = new Date(String(b.fromDate ?? 0)).getTime()
-    return tb - ta
-  })
-  return idOf(sorted[0] ?? {}) || preferredId
-}
-
-/** Angular school-calender: `startDate | date: 'MMM d, y'`. */
 function formatEventDate(raw: string | undefined): string {
   if (!raw) return '-'
   const dt = new Date(String(raw))
@@ -90,6 +46,10 @@ function eventStartRaw(row: CollegeEventRow | undefined): string {
   return String(row?.startDate ?? row?.eventDate ?? '')
 }
 
+/**
+ * Angular school-calender columns:
+ * id | eventName | eventTypeName | eventDate (startDate | date:'MMM d, y')
+ */
 const COL_DEFS: ColDef<CollegeEventRow>[] = [
   { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 },
   { field: 'eventName', headerName: 'Event Name', minWidth: 180, flex: 1.2 },
@@ -104,9 +64,7 @@ const COL_DEFS: ColDef<CollegeEventRow>[] = [
 ]
 
 /**
- * Angular `printPage()` → `window.print()` on the **same** page.
- * Body class hides AppShell (which otherwise prints a blank white sheet) and
- * shows only the portaled letterhead + table.
+ * Angular `printPage()` → `window.print()`
  */
 function printSchoolCalendarReport() {
   if (typeof document === 'undefined') return
@@ -130,8 +88,8 @@ function printSchoolCalendarReport() {
 }
 
 /**
- * Angular `SchoolCalenderComponent.exportAsExcel()`:
- * - reads `#excelTable` innerHTML (hidden title + mat-table)
+ * Angular `exportAsExcel()`:
+ * - reads `#excelTable` innerHTML
  * - wraps in Excel HTML template
  * - downloads `College Calendar.xls`
  */
@@ -153,10 +111,7 @@ function exportAsExcel(excelTableEl: HTMLElement | null) {
   })
 
   const link = document.createElement('a')
-  // Angular: trafoexternalItem = 'College Calendar'
   link.download = 'College Calendar.xls'
-
-  // Blob download is more reliable for large holiday lists; same .xls content as Angular.
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' })
   const objectUrl = URL.createObjectURL(blob)
   link.href = objectUrl
@@ -167,10 +122,9 @@ function exportAsExcel(excelTableEl: HTMLElement | null) {
 }
 
 /**
- * Angular `getData()` letterhead line:
- * `localStorage.userName + '(' + localStorage.rollNumber + ')'`
+ * Angular letterhead line: `localStorage.userName + '(' + localStorage.rollNumber + ')'`
  */
-function buildAngularStudentDetails(userName: string, rollNumber: string): string {
+function buildStudentDetails(userName: string, rollNumber: string): string {
   const name = userName.trim()
   const roll = rollNumber.trim()
   if (!name) return ''
@@ -178,39 +132,20 @@ function buildAngularStudentDetails(userName: string, rollNumber: string): strin
   return name
 }
 
-function studentDisplayNameFromDetail(detail: Record<string, unknown>): string {
-  const parts = [detail.firstName, detail.middleName, detail.lastName]
-    .map((p) => String(p ?? '').trim())
-    .filter(Boolean)
-  if (parts.length) return parts.join(' ')
-  for (const key of ['studentName', 'name', 'userName'] as const) {
-    const v = String(detail[key] ?? '').trim()
-    if (v) return v
-  }
-  return ''
-}
-
-function studentRollFromDetail(detail: Record<string, unknown>): string {
-  for (const key of [
-    'hallticketNumber',
-    'hallTicketNumber',
-    'rollNumber',
-    'rollNo',
-    'admissionNumber',
-  ] as const) {
-    const v = String(detail[key] ?? '').trim()
-    if (v) return v
-  }
-  return ''
-}
-
 /**
- * Angular `SchoolCalenderComponent`:
- * - getData() → GET collegecalendar?collegeId=&academicYearId=&isHoliday=true
- * - getColleges() → GET domain/list/College?size=99999&query=isActive==true
+ * College Calendar — Angular `SchoolCalenderComponent` parity.
+ *
+ * Angular getData():
+ *   collegeId  = +localStorage.getItem('collegeId')
+ *   academicYearId = +localStorage.getItem('academicYearId')
+ *   GET collegecalendar?collegeId=&academicYearId=&isHoliday=true
+ *
+ * Angular getColleges() — called after data, only for print logo.
  */
 export function SchoolCalendarPage() {
   const { user } = useSessionContext()
+  const navLabel = usePageNavLabel()
+  const pageTitle = navLabel ?? 'College Calendar'
 
   const [collegeId, setCollegeId] = useState(0)
   const [collegeName, setCollegeName] = useState('')
@@ -227,120 +162,54 @@ export function SchoolCalendarPage() {
     async function load() {
       setLoading(true)
       try {
-        // ── Angular getColleges() ──────────────────────────────────────────
-        // GET /api/proxy/domain/list/College?size=99999&query=isActive==true
-        const colleges = await listActiveCollegesForGeneralSettings()
-        if (cancelled) return
+        // ── Angular getData() ─────────────────────────────────────────────
+        // Uses localStorage directly — no fallback year resolution.
+        const cid = positiveId(readStorage('collegeId'), user?.collegeId)
+        const ayId = positiveId(readStorage('academicYearId'), user?.academicYearId)
 
-        // Resolve collegeId like Angular localStorage, then session, then list.
-        let cid = positiveId(
-          user?.collegeId,
-          readStorage('collegeId'),
-        )
-        if (!cid && colleges.length > 0) {
-          const byName = colleges.find(
-            (c) =>
-              c.collegeName ===
-              (user?.collegeName || readStorage('currentCollege')),
-          )
-          cid = positiveId(byName?.collegeId, colleges[0]?.collegeId)
-        }
-
-        // Angular uses localStorage academicYearId. Student React sessions often
-        // carry enrollment year (94) while holidays live on college default (101).
-        // Try session/storage first; if empty, fall back to isDefault / current year.
-        const preferredAy = positiveId(
-          readStorage('academicYearId'),
-          user?.academicYearId,
-        )
-        let ayId = preferredAy
-
-        if (!cid) {
-          toastError(
-            'College / academic year not found. Please log in again.',
-          )
-          setRows([])
+        if (!cid || !ayId) {
+          if (!cancelled) setRows([])
           return
         }
 
-        const years = (await listAcademicYearsForCollege(cid)) as Array<
-          Record<string, unknown>
-        >
-        if (cancelled) return
+        // Letterhead: userName(rollNumber) — Angular `getData()` sets this.
+        const userName = readStorage('userName') || user?.userName || ''
+        const rollNumber = readStorage('rollNumber') || ''
+        const detailsLine = buildStudentDetails(userName, rollNumber)
 
-        if (!ayId) {
-          ayId = pickCollegeCalendarAcademicYearId(years, 0)
-        }
-
-        if (!ayId) {
-          toastError(
-            'College / academic year not found. Please log in again.',
-          )
-          setRows([])
-          return
-        }
-
+        // College name for letterhead — Angular `localStorage.getItem('currentCollege')`.
         const name =
-          user?.collegeName ||
           readStorage('currentCollege') ||
-          colleges.find((c) => Number(c.collegeId) === cid)?.collegeName ||
+          user?.collegeName ||
           readStorage('collegeName') ||
           ''
-        if (name) writeStorage('currentCollege', name)
-
-        // Angular letterhead: userName(rollNumber) from localStorage after login getStudent().
-        let printUserName = readStorage('userName') || user?.userName || ''
-        let printRoll = readStorage('rollNumber')
-        // Session sync incorrectly mirrored userName into rollNumber — ignore that.
-        if (printRoll && printRoll === (user?.userName || printUserName)) {
-          printRoll = ''
-        }
-        const sid = positiveId(user?.studentId, readStorage('studentId'))
-        const uid = positiveId(user?.userId)
-        if (sid || uid) {
-          const detail = (sid
-            ? await fetchStudentDetail(sid)
-            : await fetchStudentDetailByUserId(uid)) as Record<
-            string,
-            unknown
-          > | null
-          if (cancelled) return
-          if (detail) {
-            const fromDetail = studentDisplayNameFromDetail(detail)
-            const rollFromDetail = studentRollFromDetail(detail)
-            if (fromDetail) {
-              printUserName = fromDetail
-              writeStorage('userName', fromDetail)
-            }
-            if (rollFromDetail) {
-              printRoll = rollFromDetail
-              writeStorage('rollNumber', rollFromDetail)
-            }
-          }
-        }
-        const detailsLine = buildAngularStudentDetails(printUserName, printRoll)
 
         if (!cancelled) {
-          setCollegeId(cid)
           setCollegeName(name)
           setStudentDetails(detailsLine)
         }
 
-        // ── Angular getData() ──────────────────────────────────────────────
-        // GET /api/proxy/collegecalendar?collegeId=&academicYearId=&isHoliday=true
-        let data = await listSchoolCalendarEvents(cid, ayId)
-        if (
-          (!Array.isArray(data) || data.length === 0) &&
-          years.length > 0
-        ) {
-          const fallbackAy = pickCollegeCalendarAcademicYearId(years, 0)
-          if (fallbackAy > 0 && fallbackAy !== ayId) {
-            data = await listSchoolCalendarEvents(cid, fallbackAy)
-            if (Array.isArray(data) && data.length > 0) ayId = fallbackAy
-          }
-        }
+        // GET collegecalendar?collegeId=&academicYearId=&isHoliday=true
+        const data = await listSchoolCalendarEvents(cid, ayId)
+
         if (!cancelled) {
+          setCollegeId(cid)
           setRows(Array.isArray(data) ? data : [])
+        }
+
+        // ── Angular getColleges() ─────────────────────────────────────────
+        // Called after data loads, only to resolve the college logo.
+        // We use useCollegeLogo(collegeId) hook which handles this — no separate call needed.
+        if (!name && !cancelled) {
+          try {
+            const colleges = await listActiveCollegesForGeneralSettings()
+            if (!cancelled) {
+              const found = colleges.find((c) => Number(c.collegeId) === cid)
+              if (found?.collegeName) setCollegeName(found.collegeName)
+            }
+          } catch {
+            // logo fallback — non-critical
+          }
         }
       } catch (e) {
         if (!cancelled) {
@@ -360,14 +229,13 @@ export function SchoolCalendarPage() {
     user?.collegeId,
     user?.academicYearId,
     user?.collegeName,
-    user?.studentId,
-    user?.userId,
     user?.userName,
   ])
 
   const columnDefs = useMemo(() => COL_DEFS, [])
   const [portalReady, setPortalReady] = useState(false)
   const excelTableRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     setPortalReady(true)
   }, [])
@@ -442,7 +310,7 @@ export function SchoolCalendarPage() {
     <>
       <div id="printNone">
         <ListPage
-          title="College Calendar"
+          title={pageTitle}
           rowData={rows}
           columnDefs={columnDefs}
           loading={loading}
@@ -482,10 +350,7 @@ export function SchoolCalendarPage() {
         />
       </div>
 
-      {/*
-        Angular `#excelTable` — off-screen source for exportAsExcel().
-        Contains hidden title + holidays table (same columns as screen grid).
-      */}
+      {/* Angular #excelTable — off-screen source for exportAsExcel(). */}
       <div
         ref={excelTableRef}
         id="excelTable"
@@ -523,13 +388,10 @@ export function SchoolCalendarPage() {
         </table>
       </div>
 
-      {/* Portal to body so AppShell overflow/opacity cannot blank the sheet. */}
-      {portalReady
-        ? createPortal(printSheet, document.body)
-        : null}
+      {/* Portal to body so AppShell cannot blank the print sheet. */}
+      {portalReady ? createPortal(printSheet, document.body) : null}
 
       <style jsx global>{`
-        /* Screen: keep print sheet out of the layout (Angular print block is off-screen / CSS-hidden). */
         #school-calendar-print-root {
           display: none !important;
         }
@@ -539,7 +401,6 @@ export function SchoolCalendarPage() {
             margin: 0;
           }
 
-          /* Hide AppShell + page UI; only the portaled print root remains. */
           body.school-calendar-printing > *:not(#school-calendar-print-root) {
             display: none !important;
             visibility: hidden !important;

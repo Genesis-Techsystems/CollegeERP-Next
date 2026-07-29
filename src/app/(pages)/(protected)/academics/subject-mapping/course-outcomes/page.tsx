@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
-import { Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Pencil, Plus } from "lucide-react";
 import { FormModal } from "@/common/components/feedback";
 import { ActiveStatusField, FormField } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
@@ -10,11 +10,14 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   createProgramOutcome,
   getDigitalOnlineSyncFilters,
   listProgramOutcomeCategoryDetails,
+  listProgramOutcomes,
+  updateProgramOutcome,
 } from "@/services";
 
 type AnyRow = Record<string, any>;
@@ -43,12 +46,32 @@ const pickText = (row: AnyRow, keys: string[]) => {
   return "";
 };
 
+function makeActionsRenderer(onEdit: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="h-7 px-2 text-primary"
+        aria-label="Edit program outcome"
+        onClick={() => onEdit(row)}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </Button>
+    );
+  };
+}
+
 export default function CourseOutcomesPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [academicData, setAcademicData] = useState<AnyRow[]>([]);
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<AnyRow | null>(null);
   const [coCode, setCoCode] = useState("");
   const [coCategory, setCoCategory] = useState<string | null>(null);
   const [coCredits, setCoCredits] = useState("");
@@ -61,6 +84,8 @@ export default function CourseOutcomesPage() {
     >
   >({});
   const [poCategoryRows, setPoCategoryRows] = useState<AnyRow[]>([]);
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [loadingRows, setLoadingRows] = useState(false);
   const [saving, setSaving] = useState(false);
 
   function clearFieldError(field: keyof typeof formErrors) {
@@ -107,6 +132,7 @@ export default function CourseOutcomesPage() {
       ),
     );
   }, [academicData, filtersData, collegeId]);
+
   // Program Outcome category options. Value = generalDetailId (sent as
   // `prgoutcomeCatdetId` on save, mirroring the Angular modal), label =
   // generalDetailDisplayName.
@@ -136,6 +162,47 @@ export default function CourseOutcomesPage() {
         return true;
       });
   }, [poCategoryRows]);
+
+  const categoryLabelById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const opt of poCategoryOptions) {
+      map.set(n(opt.value), opt.label);
+    }
+    return map;
+  }, [poCategoryOptions]);
+
+  function resolveCategoryLabel(row: AnyRow): string {
+    const fromRow = pickText(row, [
+      "prgoutcomeCatdetDisplayName",
+      "prgoutcomeCatdetName",
+      "prgOutcomeCatdetDisplayName",
+      "prgOutcomeCatdetName",
+      "category",
+      "generalDetailDisplayName",
+    ]);
+    if (fromRow) return fromRow;
+    return categoryLabelById.get(n(row.prgoutcomeCatdetId)) ?? "";
+  }
+
+  const reloadRows = useCallback(async (yearId: number) => {
+    const list = await listProgramOutcomes(yearId);
+    setRows(Array.isArray(list) ? list : []);
+  }, []);
+
+  const onOpenEdit = useCallback((row: AnyRow) => {
+    setEditing(row);
+    setCoCode(s(row.code));
+    setCoCategory(
+      n(row.prgoutcomeCatdetId) ? String(n(row.prgoutcomeCatdetId)) : null,
+    );
+    setCoCredits(s(row.credits));
+    setCoDescription(s(row.description));
+    setCoActive(row.isActive !== false);
+    setCoReason(s(row.reason) || "active");
+    setFormErrors({});
+    setModalOpen(true);
+  }, []);
+
   const tableColumns = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
@@ -146,10 +213,10 @@ export default function CourseOutcomesPage() {
       },
       { field: "code", headerName: "Code", minWidth: 120 },
       {
-        field: "category",
         headerName: "Program Outcomes Category",
         minWidth: 220,
         flex: 1,
+        valueGetter: (p) => resolveCategoryLabel(p.data ?? {}),
       },
       {
         field: "description",
@@ -158,11 +225,17 @@ export default function CourseOutcomesPage() {
         flex: 1,
       },
       { field: "credits", headerName: "Credits", width: 100, flex: 0 },
-      { field: "actions", headerName: "Actions", width: 120, flex: 0 },
+      {
+        headerName: "Actions",
+        width: 100,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        cellRenderer: makeActionsRenderer(onOpenEdit),
+      },
     ],
-    [],
+    [categoryLabelById, onOpenEdit],
   );
-  const tableRows = useMemo<AnyRow[]>(() => [], []);
 
   useEffect(() => {
     if (!collegeId && colleges.length)
@@ -175,11 +248,39 @@ export default function CourseOutcomesPage() {
 
   useEffect(() => {
     listProgramOutcomeCategoryDetails()
-      .then((rows) => setPoCategoryRows(Array.isArray(rows) ? rows : []))
+      .then((list) => setPoCategoryRows(Array.isArray(list) ? list : []))
       .catch(() => setPoCategoryRows([]));
   }, []);
 
-  function resetAddForm() {
+  // Angular: CmProgramOutcome?query=AcademicYear.academicYearId=={id}.and.isActive==true
+  useEffect(() => {
+    if (!academicYearId) {
+      setRows([]);
+      setLoadingRows(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRows(true);
+    listProgramOutcomes(academicYearId)
+      .then((list) => {
+        if (!cancelled) setRows(Array.isArray(list) ? list : []);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setRows([]);
+          toastInfo(getErrorMessage(error));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRows(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academicYearId]);
+
+  function resetForm() {
+    setEditing(null);
     setCoCode("");
     setCoCategory(null);
     setCoCredits("");
@@ -190,14 +291,19 @@ export default function CourseOutcomesPage() {
   }
 
   function onOpenAddModal() {
-    resetAddForm();
-    setAddOpen(true);
+    resetForm();
+    setModalOpen(true);
   }
 
-  async function onSaveAdd(e: { preventDefault: () => void }) {
+  function onCloseModal() {
+    if (saving) return;
+    setModalOpen(false);
+    resetForm();
+  }
+
+  async function onSave(e: { preventDefault: () => void }) {
     e.preventDefault();
-    // Mirrors the Angular ProgramOutcomesModal submit + parent addDetails('CmProgramOutcome').
-    // Required fields (Angular form validators + UI asterisks): category, code, credits, description.
+    // Mirrors Angular ProgramOutcomesModal create/update for CmProgramOutcome.
     const prgoutcomeCatdetId = n(coCategory);
     if (!collegeId || !academicYearId) {
       toastError("Select College and Academic Year first", "Validation");
@@ -226,16 +332,30 @@ export default function CourseOutcomesPage() {
     };
     try {
       setSaving(true);
-      await createProgramOutcome(payload);
-      toastSuccess("Program outcome added successfully");
-      setAddOpen(false);
-      resetAddForm();
+      const programOutcomeId = n(editing?.programOutcomeId);
+      if (programOutcomeId > 0) {
+        await updateProgramOutcome(programOutcomeId, payload);
+        toastSuccess("Program outcome updated successfully");
+      } else {
+        await createProgramOutcome(payload);
+        toastSuccess("Program outcome added successfully");
+      }
+      setModalOpen(false);
+      resetForm();
+      await reloadRows(academicYearId);
     } catch (error) {
-      toastError(error, "Failed to add program outcome");
+      toastError(
+        error,
+        editing
+          ? "Failed to update program outcome"
+          : "Failed to add program outcome",
+      );
     } finally {
       setSaving(false);
     }
   }
+
+  const isEdit = editing != null;
 
   return (
     <>
@@ -267,9 +387,9 @@ export default function CourseOutcomesPage() {
             />
           </div>
         }
-        rowData={academicYearId ? tableRows : []}
+        rowData={academicYearId ? rows : []}
         columnDefs={tableColumns}
-        loading={false}
+        loading={loadingRows}
         toolbar={{ search: true, searchPlaceholder: "Search" }}
         toolbarTrailing={
           <Button
@@ -284,11 +404,11 @@ export default function CourseOutcomesPage() {
         pagination
       />
       <FormModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        title="Add Program Outcomes"
+        open={modalOpen}
+        onClose={onCloseModal}
+        title={isEdit ? "Edit Program Outcomes" : "Add Program Outcomes"}
         titleClassName="text-left text-primary"
-        onSubmit={onSaveAdd}
+        onSubmit={onSave}
         isSubmitting={saving}
         submitLabel="Save"
         cancelLabel="Cancel"

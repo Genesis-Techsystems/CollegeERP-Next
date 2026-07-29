@@ -31,9 +31,14 @@ export const NOTIFICATIONS_HUB_CARDS: {
 
 const PAGE_META: Record<string, Omit<NotificationsPageConfig, 'slug'>> = {
   'employee-inbox': {
-    title: 'Employee Notifications',
+    title: 'Notifications & Announcements',
     kind: 'inbox',
-    angularPath: 'notifications-&-announcements',
+    angularPath: 'principal-communications/announcements',
+  },
+  announcements: {
+    title: 'Notifications & Announcements',
+    kind: 'inbox',
+    angularPath: 'principal-communications/announcements',
   },
   'notifications-list': {
     title: 'Notifications List',
@@ -43,7 +48,8 @@ const PAGE_META: Record<string, Omit<NotificationsPageConfig, 'slug'>> = {
   'add-notification': {
     title: 'Add Notification',
     kind: 'form',
-    angularPath: 'notifications-&-announcements/add-notification',
+    angularPath:
+      'principal-communications/notifications/send-notifications/add-notification',
   },
 }
 

@@ -506,6 +506,27 @@ export function normalizeHref(path: string): string {
       /\/notifications-&-announcements$/i,
       "/notifications-and-announcements/employee-inbox",
     )
+    // Angular Communications → Notifications (emp-notifications module).
+    .replace(
+      /\/principal-communications\/announcements\/add-notification\/?/gi,
+      "/notifications-and-announcements/add-notification",
+    )
+    .replace(
+      /\/principal-communications\/announcements\/?/gi,
+      "/notifications-and-announcements/employee-inbox",
+    )
+    .replace(
+      /\/principal-communications\/notifications\/send-notifications\/add-notification\/?/gi,
+      "/notifications-and-announcements/add-notification",
+    )
+    .replace(
+      /\/principal-communications\/notifications\/send-notifications\/?/gi,
+      "/notifications-and-announcements/employee-inbox",
+    )
+    .replace(
+      /\/principal-communications\/notifications\/?/gi,
+      "/notifications-and-announcements/employee-inbox",
+    )
     // Student my notifications → App Router path.
     .replace(
       /\/student-communications\/student-announcements\/?/gi,
