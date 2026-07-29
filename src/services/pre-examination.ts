@@ -353,14 +353,22 @@ export async function deactivateExamInvigilationAllotment(
   );
 }
 
-export async function autoAssignInvigilators(
-  examTimetableId: number,
-): Promise<any> {
-  // Angular popExamInvigilatorUrl → s_pop_exam_invigilator (the previous
-  // s_get_collegewisedetails_bycode call hit the wrong proc → server error).
+export async function autoAssignInvigilators(params: {
+  examTimetableId: number;
+  examId: number;
+  userId?: number;
+}): Promise<any> {
+  // Angular autoAssign() → getDetailsByRequest(popExamInvigilatorUrl, request, '&')
+  // GET /cms/getAllRecords/s_pop_exam_invigilator
+  //   ?in_flag=popexaminvigilator
+  //   &in_timetable_id=<examTimetableId>
+  //   &in_exam_id=<examId>
+  //   &in_user_id=<userId>
   return getAllRecords<any>("s_pop_exam_invigilator", {
     in_flag: "popexaminvigilator",
-    in_timetable_det_id: examTimetableId,
+    in_timetable_id: params.examTimetableId,
+    in_exam_id: params.examId,
+    in_user_id: params.userId ?? 0,
   });
 }
 
@@ -1299,28 +1307,26 @@ export async function listExamSubjectStudents(params: {
   subjectId: number;
   subjectTypeId: number;
 }): Promise<AnyRow[]> {
+  // Angular: listByEightIds(CONSTANTS.examSubjectStudentsUrl → 'examsubjectstudents', …)
   const key = `ess:${params.collegeId}:${params.academicYearId}:${params.courseId}:${params.courseGroupId}:${params.courseYearId}:${params.regulationId}:${params.subjectId}:${params.subjectTypeId}`;
   return dedupeInflight(inflightExamSubjectStudents, key, async () => {
-    const variants = ["examsubjectstudents", "examSubjectStudents"];
-    for (const path of variants) {
-      try {
-        const rows = await fetchDetails<any>(path, {
-          collegeId: params.collegeId,
-          academicYearId: params.academicYearId,
-          courseId: params.courseId,
-          courseGroupId: params.courseGroupId,
-          courseYearId: params.courseYearId,
-          regulationId: params.regulationId,
-          subjectId: params.subjectId,
-          subjectTypeId: params.subjectTypeId,
-        });
-        if (Array.isArray(rows)) return rows;
-        if (Array.isArray(rows?.resultList)) return rows.resultList;
-        if (Array.isArray(rows?.result)) return rows.result;
-        if (Array.isArray(rows?.data)) return rows.data;
-      } catch {
-        // try next path
-      }
+    try {
+      const rows = await fetchDetails<any>(EXAM_API.EXAM_SUBJECT_STUDENTS, {
+        collegeId: params.collegeId,
+        academicYearId: params.academicYearId,
+        courseId: params.courseId,
+        courseGroupId: params.courseGroupId,
+        courseYearId: params.courseYearId,
+        regulationId: params.regulationId,
+        subjectId: params.subjectId,
+        subjectTypeId: params.subjectTypeId,
+      });
+      if (Array.isArray(rows)) return rows;
+      if (Array.isArray(rows?.resultList)) return rows.resultList;
+      if (Array.isArray(rows?.result)) return rows.result;
+      if (Array.isArray(rows?.data)) return rows.data;
+    } catch {
+      // Angular shows error toast; return empty for the UI lists.
     }
     return [];
   });
@@ -1336,12 +1342,14 @@ export async function listRegisteredStudentsForExam(params: {
   subjectId: number;
   examId: number;
 }): Promise<AnyRow[]> {
+  // Angular: listByEightIds(CONSTANTS.registeredStudentForExamUrl → 'registeredstudentforexam', …)
+  // No ExamStudent domain fallback — Angular does not call that on subject select.
   const key = `rsfe:${params.collegeId}:${params.academicYearId}:${params.courseId}:${params.courseGroupId}:${params.courseYearId}:${params.regulationId}:${params.subjectId}:${params.examId}`;
   return dedupeInflight(inflightRegisteredStudentsForExam, key, async () => {
-    const variants = ["registeredstudentforexam", "registeredStudentForExam"];
-    for (const path of variants) {
-      try {
-        const rows = await fetchDetails<any>(path, {
+    try {
+      const rows = await fetchDetails<any>(
+        EXAM_API.REGISTERED_STUDENT_FOR_EXAM,
+        {
           collegeId: params.collegeId,
           academicYearId: params.academicYearId,
           courseId: params.courseId,
@@ -1350,76 +1358,14 @@ export async function listRegisteredStudentsForExam(params: {
           regulationId: params.regulationId,
           subjectId: params.subjectId,
           examId: params.examId,
-        });
-        if (Array.isArray(rows)) return rows;
-        if (Array.isArray(rows?.resultList)) return rows.resultList;
-        if (Array.isArray(rows?.result)) return rows.result;
-        if (Array.isArray(rows?.data)) return rows.data;
-      } catch {
-        // try next path
-      }
-    }
-
-    // Fallback: derive registered students from ExamStudent domain records.
-    // Some environments don't expose the legacy endpoint but keep domain data consistent.
-    const queries = [
-      buildQuery({
-        "College.collegeId": params.collegeId,
-        courseGroupId: params.courseGroupId,
-        courseYearId: params.courseYearId,
-        regulationId: params.regulationId,
-        examId: params.examId,
-        isActive: true,
-      }),
-      buildQuery({
-        "college.collegeId": params.collegeId,
-        courseGroupId: params.courseGroupId,
-        courseYearId: params.courseYearId,
-        regulationId: params.regulationId,
-        examId: params.examId,
-        isActive: true,
-      }),
-    ];
-
-    for (const q of queries) {
-      try {
-        const rows = await domainList<AnyRow>("ExamStudent", q);
-        if (!Array.isArray(rows) || rows.length === 0) continue;
-        const out: AnyRow[] = [];
-        for (const row of rows) {
-          const details =
-            row.examStudentDetailDTOs ??
-            row.examStudentDetails ??
-            row.examStudentDetailList ??
-            [];
-          const hasSubject =
-            Array.isArray(details) &&
-            details.some(
-              (d: AnyRow) =>
-                Number(d.subjectId ?? d.fk_subject_id ?? d.subject_id ?? 0) ===
-                Number(params.subjectId),
-            );
-          if (!hasSubject) continue;
-          out.push({
-            ...row,
-            studentId:
-              row.studentId ??
-              row.fk_student_id ??
-              row.student_id ??
-              row.std_id,
-            firstName:
-              row.firstName ??
-              row.studentName ??
-              row.stdName ??
-              row.student_name,
-            hallticketNumber:
-              row.hallticketNumber ?? row.rollNumber ?? row.roll_number,
-          });
-        }
-        if (out.length > 0) return out;
-      } catch {
-        // try next fallback query
-      }
+        },
+      );
+      if (Array.isArray(rows)) return rows;
+      if (Array.isArray(rows?.resultList)) return rows.resultList;
+      if (Array.isArray(rows?.result)) return rows.result;
+      if (Array.isArray(rows?.data)) return rows.data;
+    } catch {
+      // Angular shows error toast; return empty for the Registered list.
     }
     return [];
   });
@@ -1719,30 +1665,19 @@ export async function listStudentSubjects(params: {
 
 export async function saveRegisteredExamSubjects(
   payload: AnyRow[],
-): Promise<any> {
-  try {
-    // Angular app uses /cms/examstudent for exam student registration.
-    return await postDetails<any>("examstudent", payload);
-  } catch {
-    // fallback below
+): Promise<ApiResponse<any>> {
+  // Angular internal-exam-registration-multiple: crudService.add('examstudent', selectedStudents)
+  const envelope = await postDetailsEnvelope<any>(
+    EXAM_API.EXAM_STUDENT_POST,
+    payload,
+  );
+  if (!envelope.success) {
+    throw new Error(
+      envelope.message ??
+        "Unable to process your request at this time, please try again!",
+    );
   }
-
-  try {
-    // Legacy path used by Angular screen
-    return await postDetails<any>("saveExamStudentDetails", payload);
-  } catch {
-    // Fallback: create one-by-one through domain create
-    const created: AnyRow[] = [];
-    for (const row of payload) {
-      try {
-        const one = await domainCreate<AnyRow>("ExamStudent", row);
-        created.push(one);
-      } catch {
-        // continue best-effort
-      }
-    }
-    return { success: created.length > 0, data: created };
-  }
+  return envelope;
 }
 
 /**
@@ -2705,7 +2640,7 @@ export async function getStudentSubjectsForSupplyExam(params: {
   examId: number;
 }): Promise<AnyRow[]> {
   try {
-    const rows = await fetchDetails<AnyRow[]>("studentsubjectsforsupplyexam", {
+    const rows = await fetchDetails<AnyRow[]>("studentSubjectsForSupplyExam", {
       collegeId: params.collegeId,
       courseYearId: params.courseYearId,
       studentId: params.studentId,

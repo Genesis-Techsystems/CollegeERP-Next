@@ -1000,7 +1000,8 @@
 }
 
 /* Primary action in toolbar (Add / New …) — pages don't add a special class */
-.app-data-table-toolbar-wrap button:not(.app-data-table-toolbar-btn) {
+.app-data-table-toolbar-wrap
+  button:not(.app-data-table-toolbar-btn):not([role="radio"]) {
   height: 2.25rem;
   border-radius: calc(var(--radius) - 2px);
   padding-inline: 0.875rem;

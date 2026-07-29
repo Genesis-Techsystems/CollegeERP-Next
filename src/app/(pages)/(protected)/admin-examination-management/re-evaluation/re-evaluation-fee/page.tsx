@@ -141,6 +141,40 @@ function todayYmd(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/** Angular `genericFunctions.momentYMD()` — uses `presentDate` (DD-MM-YYYY) when set. */
+function presentDateYmd(): string {
+  const raw = String(
+    globalThis?.localStorage?.getItem("presentDate") ?? "",
+  ).trim();
+  if (raw) {
+    const parts = raw.split("-");
+    if (parts.length === 3 && parts[2]?.length === 4) {
+      const [d, m, y] = parts;
+      return `${y}-${m}-${d}`;
+    }
+  }
+  return todayYmd();
+}
+
+function parseUserRoleNames(): string[] {
+  try {
+    const raw =
+      globalThis?.localStorage?.getItem("userDetails") ??
+      globalThis?.localStorage?.getItem("userdetails");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as {
+      userRoles?: Array<{ roleName?: string } | string>;
+    };
+    const roles = parsed?.userRoles ?? [];
+    if (!Array.isArray(roles)) return [];
+    return roles
+      .map((r) => (typeof r === "string" ? r : String(r?.roleName ?? "")))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
 function resolvePhotoUrl(row: AnyRow | null): string | null {
   if (!row) return null;
   const path = strFrom(row, [
@@ -327,6 +361,11 @@ export default function ReEvaluationFeeCollectionPage() {
 
   const eachCourseFee = Number(coursesYearList[0]?.fee ?? 0);
   const examFeeAmount = duplicateSelectedList.length * eachCourseFee;
+
+  const isAllowPayment = useMemo(() => {
+    const roles = parseUserRoleNames();
+    return roles.some((r) => r === "ADMIN" || r === "ExamController");
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -578,8 +617,14 @@ export default function ReEvaluationFeeCollectionPage() {
       );
   }
 
-  // AddData(): move newly-checked subjects into the selected (duplicate) list
+  // Angular validExamDate() → AddData()
   function addData() {
+    setChequeNo("");
+    setDdno("");
+    setReferenceNumber("");
+    setOtherPaymentNumber("");
+    setTransactionNo("");
+
     const newlyChecked = examRevisionStdDetails.filter(
       (row) =>
         row.checked === true &&
@@ -592,6 +637,32 @@ export default function ReEvaluationFeeCollectionPage() {
       return;
     }
     setDuplicateSelectedList((prev) => [...prev, ...newlyChecked]);
+  }
+
+  function validExamDate() {
+    if (isAllowPayment) {
+      addData();
+      return;
+    }
+
+    const examRow =
+      exams.find(
+        (x) => numFrom(x, ["fk_exam_id", "examId"]) === Number(examId),
+      ) ?? null;
+    const toDate = strFrom(examRow ?? {}, ["to_date", "toDate"]);
+
+    if (!toDate) {
+      toast.info("No Exam To Date For The Selected Exam");
+      return;
+    }
+
+    const currentDate = presentDateYmd();
+    if (currentDate > toDate) {
+      toast.info("Exam Payment Date Had Expired");
+      return;
+    }
+
+    addData();
   }
 
   async function payFee() {
@@ -1050,7 +1121,7 @@ export default function ReEvaluationFeeCollectionPage() {
                     </span>
                     <Button
                       className="h-8 text-[12px]"
-                      onClick={addData}
+                      onClick={validExamDate}
                       disabled={
                         examRevisionStdDetails.filter((r) => r.checked)
                           .length === 0
@@ -1263,8 +1334,16 @@ export default function ReEvaluationFeeCollectionPage() {
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-[hsl(var(--primary))]"
-                        title="View subjects for this receipt"
-                        onClick={() => openViewDetails(r)}
+                        title={
+                          isPhotoCopy
+                            ? "View photocopy / evaluation details"
+                            : "View subjects for this receipt"
+                        }
+                        onClick={() =>
+                          isPhotoCopy
+                            ? void openPhotocopy()
+                            : openViewDetails(r)
+                        }
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

@@ -1,376 +1,518 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, type SelectOption } from '@/common/components/select'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { listExamLabBatches } from '@/services/exam-lab-batches'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Trash2, Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, type SelectOption } from "@/common/components/select";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { listExamLabBatches } from "@/services/exam-lab-batches";
 import {
   getAssignSubjectsEvaluatorRoles,
   getEvaluatorSubjectRolesExamFilters,
   getEvaluationModerationRest,
   getEvaluatorSubjectRolesSubjects,
+  listExamEvaluationCenters,
   listEvaluatorProfiles,
   listExamEvaluatorProfileDetails,
   popProfileEmployees,
   setupExamCommittees,
   updateEvaluatorProfile,
-} from '@/services/evaluation-process'
-import { FilteredPage } from '@/components/layout'
-import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
+} from "@/services/evaluation-process";
+import { FilteredPage } from "@/components/layout";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
-const ROLE_EXTRA_FILTER_IDS = new Set([64, 70, 96, 97, 116])
+const ROLE_EXTRA_FILTER_IDS = new Set([96, 97]);
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
+  if (!row) return 0;
   for (const k of keys) {
-    const n = Number(row[k])
-    if (n > 0) return n
+    const n = Number(row[k]);
+    if (n > 0) return n;
   }
-  return 0
-}
+  return 0;
+};
 
 const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
-}
+  return "";
+};
 
 function dedupeBy<T>(rows: T[], keyFn: (r: T) => string | number) {
-  const seen = new Set<string | number>()
+  const seen = new Set<string | number>();
   return rows.filter((r) => {
-    const key = keyFn(r)
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+    const key = keyFn(r);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function formatYmd(v: unknown) {
-  if (v == null || v === '') return ''
-  let raw: string | number | Date = ''
-  if (typeof v === 'string' || typeof v === 'number') raw = v
-  else if (v instanceof Date) raw = v.getTime()
-  if (raw === '') return ''
-  const d = new Date(raw)
-  if (Number.isNaN(d.getTime())) return ''
-  const day = String(d.getDate()).padStart(2, '0')
-  const mon = String(d.getMonth() + 1).padStart(2, '0')
-  const y = d.getFullYear()
-  return `${day}-${mon}-${y}`
+  if (v == null || v === "") return "";
+  let raw: string | number | Date = "";
+  if (typeof v === "string" || typeof v === "number") raw = v;
+  else if (v instanceof Date) raw = v.getTime();
+  if (raw === "") return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const mon = String(d.getMonth() + 1).padStart(2, "0");
+  const y = d.getFullYear();
+  return `${day}-${mon}-${y}`;
 }
 
 function roleLabel(roleId: number) {
   const m: Record<number, string> = {
-    64: 'Evaluator',
-    67: 'Moderator',
-    70: 'Exam Question Paper Setter',
-    96: 'External Evaluator',
-    97: 'Internal Evaluator',
-    116: 'Chief Evaluator',
-  }
-  return m[roleId] ?? `Role ${roleId}`
+    64: "Evaluator",
+    67: "Moderator",
+    70: "Exam Question Paper Setter",
+    96: "External Evaluator",
+    97: "Internal Evaluator",
+    116: "Chief Evaluator",
+  };
+  return m[roleId] ?? `Role ${roleId}`;
 }
 
-function tableCell(value: unknown): string {
-  if (value == null) return '-'
-  if (typeof value === 'boolean') return String(value)
-  const text = String(value).trim()
-  return text === '' ? '-' : text
+function examOptionLabel(exam: AnyRow) {
+  const name = pickText(exam, ["exam_name", "examName"]);
+  const from = formatYmd(exam.from_date ?? exam.fromDate);
+  const to = formatYmd(exam.to_date ?? exam.toDate);
+  const badges = [
+    exam.is_internal_exam || exam.isInternalExam ? "(Internal)" : "",
+    exam.is_regular_exam || exam.isRegularExam ? "(Regular)" : "",
+    exam.is_supply_exam || exam.isSupplyExam ? "(Supple)" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${name} (${from} – ${to})${badges ? ` ${badges}` : ""}`;
+}
+
+function mapSubjectsWithGroups(raw: AnyRow[]): AnyRow[] {
+  const distinct = dedupeBy(raw, (s) =>
+    pickNum(s, ["fk_subject_id", "subjectId"]),
+  );
+  return distinct.map((subject) => {
+    const sid = pickNum(subject, ["fk_subject_id", "subjectId"]);
+    const groupNames = [
+      ...new Set(
+        raw
+          .filter((x) => pickNum(x, ["fk_subject_id", "subjectId"]) === sid)
+          .map((x) => pickText(x, ["group_name", "groupName"]))
+          .filter(Boolean),
+      ),
+    ].join(", ");
+    return { ...subject, groupNames };
+  });
 }
 
 export default function EvaluatorSubjectRolesPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const profileId = Number(searchParams.get('examEvaluatorProfileId') ?? 0)
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const profileId = Number(searchParams.get("examEvaluatorProfileId") ?? 0);
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
 
-  const [loading, setLoading] = useState(false)
-  const [profile, setProfile] = useState<AnyRow | null>(null)
-  const [dialogTitle, setDialogTitle] = useState('Add Evaluator Details')
+  const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<AnyRow | null>(null);
+  const [dialogTitle, setDialogTitle] = useState("Add Evaluator Details");
 
-  const [filterRows, setFilterRows] = useState<AnyRow[]>([])
-  const [regulationFullRows, setRegulationFullRows] = useState<AnyRow[]>([])
-  const [subjectsAll, setSubjectsAll] = useState<AnyRow[]>([])
-  const [roleRows, setRoleRows] = useState<AnyRow[]>([])
-  const [examLabBatches, setExamLabBatches] = useState<AnyRow[]>([])
+  const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
+  const [regulationFullRows, setRegulationFullRows] = useState<AnyRow[]>([]);
+  const [subjectsAll, setSubjectsAll] = useState<AnyRow[]>([]);
+  const [roleRows, setRoleRows] = useState<AnyRow[]>([]);
+  const [examLabBatches, setExamLabBatches] = useState<AnyRow[]>([]);
+  const [evaluationCenters, setEvaluationCenters] = useState<AnyRow[]>([]);
 
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
-  const [regulationId, setRegulationId] = useState<number | null>(null)
-  const [subjectId, setSubjectId] = useState<number | null>(null)
-  const [roleId, setRoleId] = useState<number | null>(null)
-  const [isReEvaluation, setIsReEvaluation] = useState(false)
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [examLabBatchesId, setExamLabBatchesId] = useState<number | null>(null)
-  const [maxNoOfEvaluationsAssign, setMaxNoOfEvaluationsAssign] = useState('')
-  const [maxNoOfReevaluationsAssign, setMaxNoOfReevaluationsAssign] = useState('')
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [examId, setExamId] = useState<number | null>(null);
+  const [regulationId, setRegulationId] = useState<number | null>(null);
+  const [subjectId, setSubjectId] = useState<number | null>(null);
+  const [roleId, setRoleId] = useState<number | null>(null);
+  const [isReEvaluation, setIsReEvaluation] = useState(false);
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
+  const [courseYearId, setCourseYearId] = useState<number | null>(null);
+  const [examLabBatchesId, setExamLabBatchesId] = useState<number | null>(null);
+  const [univEvaluationCenterId, setUnivEvaluationCenterId] = useState<
+    number | null
+  >(null);
+  const [maxNoOfEvaluationsAssign, setMaxNoOfEvaluationsAssign] = useState("");
+  const [maxNoOfReevaluationsAssign, setMaxNoOfReevaluationsAssign] =
+    useState("");
+  const [isEdit, setIsEdit] = useState(false);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
-  const [examSearch, setExamSearch] = useState('')
-  const [subjectSearch, setSubjectSearch] = useState('')
+  const [examSearch, setExamSearch] = useState("");
+  const [subjectSearch, setSubjectSearch] = useState("");
 
-  const [detailPayloads, setDetailPayloads] = useState<AnyRow[]>([])
-  const [tableRows, setTableRows] = useState<AnyRow[]>([])
+  const [detailPayloads, setDetailPayloads] = useState<AnyRow[]>([]);
+  const [tableRows, setTableRows] = useState<AnyRow[]>([]);
 
-  const displayFilters = roleId != null && ROLE_EXTRA_FILTER_IDS.has(roleId)
+  const displayFilters = useMemo(() => {
+    if (roleId != null && ROLE_EXTRA_FILTER_IDS.has(roleId)) return true;
+    return tableRows.some((r) =>
+      ROLE_EXTRA_FILTER_IDS.has(Number(r.evaluatorRoleId)),
+    );
+  }, [roleId, tableRows]);
 
   const courses = useMemo(
-    () => dedupeBy(filterRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
+    () => dedupeBy(filterRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
     [filterRows],
-  )
+  );
   const academicYears = useMemo(() => {
-    if (!courseId) return []
+    if (!courseId) return [];
     return dedupeBy(
-      filterRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
-      (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
+      filterRows.filter(
+        (r) => pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId),
+      ),
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
     ).sort((a, b) => {
-      const ya = Number.parseInt(String(pickText(a, ['academic_year']) || '0'), 10)
-      const yb = Number.parseInt(String(pickText(b, ['academic_year']) || '0'), 10)
-      return yb - ya
-    })
-  }, [filterRows, courseId])
+      const ya = Number.parseInt(
+        String(pickText(a, ["academic_year"]) || "0"),
+        10,
+      );
+      const yb = Number.parseInt(
+        String(pickText(b, ["academic_year"]) || "0"),
+        10,
+      );
+      return yb - ya;
+    });
+  }, [filterRows, courseId]);
 
   const exams = useMemo(() => {
-    if (!courseId || !academicYearId) return []
+    if (!courseId || !academicYearId) return [];
     return dedupeBy(
       filterRows.filter(
         (r) =>
-          pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
-          pickNum(r, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId),
+          pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId) &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
+            Number(academicYearId),
       ),
-      (r) => pickNum(r, ['fk_exam_id', 'examId']),
-    )
-  }, [filterRows, courseId, academicYearId])
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+  }, [filterRows, courseId, academicYearId]);
 
   const examsFiltered = useMemo(() => {
-    const t = examSearch.trim().toLowerCase()
-    if (!t) return exams
-    return exams.filter((e) => pickText(e, ['exam_name', 'examName']).toLowerCase().includes(t))
-  }, [exams, examSearch])
+    const t = examSearch.trim().toLowerCase();
+    if (!t) return exams;
+    return exams.filter((e) =>
+      pickText(e, ["exam_name", "examName"]).toLowerCase().includes(t),
+    );
+  }, [exams, examSearch]);
 
   const regulations = useMemo(
     () =>
-      dedupeBy(regulationFullRows, (r) => pickNum(r, ['fk_regulation_id', 'regulationId'])),
+      dedupeBy(regulationFullRows, (r) =>
+        pickNum(r, ["fk_regulation_id", "regulationId"]),
+      ),
     [regulationFullRows],
-  )
+  );
 
   const subjectsFiltered = useMemo(() => {
-    const t = subjectSearch.trim().toLowerCase()
-    if (!t) return subjectsAll
+    const t = subjectSearch.trim().toLowerCase();
+    if (!t) return subjectsAll;
     return subjectsAll.filter((s) => {
-      const name = pickText(s, ['subject_name', 'subjectName']).toLowerCase()
-      const code = pickText(s, ['subject_code', 'subjectCode']).toLowerCase()
-      return name.includes(t) || code.includes(t)
-    })
-  }, [subjectsAll, subjectSearch])
+      const name = pickText(s, ["subject_name", "subjectName"]).toLowerCase();
+      const code = pickText(s, ["subject_code", "subjectCode"]).toLowerCase();
+      return name.includes(t) || code.includes(t);
+    });
+  }, [subjectsAll, subjectSearch]);
 
   const courseYears = useMemo(() => {
-    const list = dedupeBy(regulationFullRows, (r) => pickNum(r, ['fk_course_year_id', 'courseYearId']))
+    const list = dedupeBy(regulationFullRows, (r) =>
+      pickNum(r, ["fk_course_year_id", "courseYearId"]),
+    );
     return list.sort(
       (a, b) =>
-        (pickNum(a, ['cy_sort_order']) || 0) - (pickNum(b, ['cy_sort_order']) || 0),
-    )
-  }, [regulationFullRows])
+        (pickNum(a, ["cy_sort_order"]) || 0) -
+        (pickNum(b, ["cy_sort_order"]) || 0),
+    );
+  }, [regulationFullRows]);
 
   const colleges = useMemo(() => {
-    if (!regulationId) return []
-    return dedupeBy(
-      regulationFullRows.filter((r) => pickNum(r, ['fk_regulation_id', 'regulationId']) === Number(regulationId)),
-      (r) => pickNum(r, ['fk_college_id', 'collegeId']),
-    )
-  }, [regulationFullRows, regulationId])
-
-  const courseGroups = useMemo(() => {
-    if (!collegeId || !regulationId) return []
+    if (!regulationId) return [];
     return dedupeBy(
       regulationFullRows.filter(
         (r) =>
-          pickNum(r, ['fk_college_id', 'collegeId']) === Number(collegeId) &&
-          pickNum(r, ['fk_regulation_id', 'regulationId']) === Number(regulationId),
+          pickNum(r, ["fk_regulation_id", "regulationId"]) ===
+          Number(regulationId),
       ),
-      (r) => pickNum(r, ['fk_course_group_id', 'courseGroupId']),
-    )
-  }, [regulationFullRows, collegeId, regulationId])
+      (r) => pickNum(r, ["fk_college_id", "collegeId"]),
+    );
+  }, [regulationFullRows, regulationId]);
 
-  const showWideTable = displayFilters || tableRows.some((r) => pickNum(r, ['collegeId', 'fk_college_id']) > 0)
+  const courseGroups = useMemo(() => {
+    if (!collegeId || !regulationId) return [];
+    return dedupeBy(
+      regulationFullRows.filter(
+        (r) =>
+          pickNum(r, ["fk_college_id", "collegeId"]) === Number(collegeId) &&
+          pickNum(r, ["fk_regulation_id", "regulationId"]) ===
+            Number(regulationId),
+      ),
+      (r) => pickNum(r, ["fk_course_group_id", "courseGroupId"]),
+    );
+  }, [regulationFullRows, collegeId, regulationId]);
 
-  const resetDownstream = useCallback((from: 'course' | 'year' | 'exam' | 'regulation' | 'role') => {
-    if (from === 'course') {
-      setAcademicYearId(null)
-      setExamId(null)
-      setRegulationId(null)
-      setSubjectId(null)
-      setRoleId(null)
-      setRegulationFullRows([])
-      setSubjectsAll([])
-      setRoleRows([])
-      setCollegeId(null)
-      setCourseGroupId(null)
-      setCourseYearId(null)
-      setExamLabBatchesId(null)
-      setExamLabBatches([])
-      return
-    }
-    if (from === 'year') {
-      setExamId(null)
-      setRegulationId(null)
-      setSubjectId(null)
-      setRoleId(null)
-      setRegulationFullRows([])
-      setSubjectsAll([])
-      setRoleRows([])
-      setCollegeId(null)
-      setCourseGroupId(null)
-      setCourseYearId(null)
-      setExamLabBatchesId(null)
-      setExamLabBatches([])
-      return
-    }
-    if (from === 'exam') {
-      setRegulationId(null)
-      setSubjectId(null)
-      setRoleId(null)
-      setRegulationFullRows([])
-      setSubjectsAll([])
-      setRoleRows([])
-      setCollegeId(null)
-      setCourseGroupId(null)
-      setCourseYearId(null)
-      setExamLabBatchesId(null)
-      setExamLabBatches([])
-      return
-    }
-    if (from === 'regulation') {
-      setSubjectId(null)
-      setRoleId(null)
-      setSubjectsAll([])
-      setRoleRows([])
-      setCollegeId(null)
-      setCourseGroupId(null)
-      setCourseYearId(null)
-      setExamLabBatchesId(null)
-      setExamLabBatches([])
-      return
-    }
-    if (from === 'role') {
-      setCollegeId(null)
-      setCourseGroupId(null)
-      setCourseYearId(null)
-      setExamLabBatchesId(null)
-      setExamLabBatches([])
-    }
-  }, [])
+  const showWideTable =
+    displayFilters ||
+    tableRows.some((r) => pickNum(r, ["collegeId", "fk_college_id"]) > 0);
+
+  function tableCell(value: unknown): string {
+    if (value == null) return "-";
+    if (typeof value === "boolean") return String(value);
+    const text = String(value).trim();
+    return text === "" ? "-" : text;
+  }
+
+  function getEvaluationCenterLabel(centerId: number | null) {
+    if (!centerId) return "";
+    const row = evaluationCenters.find(
+      (c) =>
+        pickNum(c, [
+          "pk_univ_evaluation_center_id",
+          "univEvaluationCenterId",
+        ]) === centerId,
+    );
+    return pickText(row, [
+      "evalution_center_name",
+      "evaluationCenterName",
+      "evalution_center_code",
+      "evaluationCenterCode",
+    ]);
+  }
+
+  const resetDownstream = useCallback(
+    (from: "course" | "year" | "exam" | "regulation" | "role") => {
+      if (from === "course") {
+        setAcademicYearId(null);
+        setExamId(null);
+        setRegulationId(null);
+        setSubjectId(null);
+        setRoleId(null);
+        setRegulationFullRows([]);
+        setSubjectsAll([]);
+        setRoleRows([]);
+        setCollegeId(null);
+        setCourseGroupId(null);
+        setCourseYearId(null);
+        setExamLabBatchesId(null);
+        setExamLabBatches([]);
+        return;
+      }
+      if (from === "year") {
+        setExamId(null);
+        setRegulationId(null);
+        setSubjectId(null);
+        setRoleId(null);
+        setRegulationFullRows([]);
+        setSubjectsAll([]);
+        setRoleRows([]);
+        setCollegeId(null);
+        setCourseGroupId(null);
+        setCourseYearId(null);
+        setExamLabBatchesId(null);
+        setExamLabBatches([]);
+        return;
+      }
+      if (from === "exam") {
+        setRegulationId(null);
+        setSubjectId(null);
+        setRoleId(null);
+        setRegulationFullRows([]);
+        setSubjectsAll([]);
+        setRoleRows([]);
+        setCollegeId(null);
+        setCourseGroupId(null);
+        setCourseYearId(null);
+        setExamLabBatchesId(null);
+        setExamLabBatches([]);
+        return;
+      }
+      if (from === "regulation") {
+        setSubjectId(null);
+        setRoleId(null);
+        setSubjectsAll([]);
+        setRoleRows([]);
+        setCollegeId(null);
+        setCourseGroupId(null);
+        setCourseYearId(null);
+        setExamLabBatchesId(null);
+        setExamLabBatches([]);
+        return;
+      }
+      if (from === "role") {
+        setCollegeId(null);
+        setCourseGroupId(null);
+        setCourseYearId(null);
+        setExamLabBatchesId(null);
+        setExamLabBatches([]);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    const raw = globalThis?.localStorage?.getItem('evaluatorSubjectRoleProfile')
+    const raw = globalThis?.localStorage?.getItem(
+      "evaluatorSubjectRoleProfile",
+    );
     if (raw) {
       try {
-        setProfile(JSON.parse(raw) as AnyRow)
+        setProfile(JSON.parse(raw) as AnyRow);
       } catch {
-        setProfile(null)
+        setProfile(null);
       }
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    if (profile || !profileId) return
+    if (profile || !profileId) return;
     void (async () => {
-      const list = await listEvaluatorProfiles().catch(() => [])
-      const rows = Array.isArray(list) ? list : []
-      const row = rows.find((r) => Number(r?.examEvaluatorProfileId) === profileId)
-      if (row) setProfile(row)
-    })()
-  }, [profile, profileId])
+      const list = await listEvaluatorProfiles().catch(() => []);
+      const rows = Array.isArray(list) ? list : [];
+      const row = rows.find(
+        (r) => Number(r?.examEvaluatorProfileId) === profileId,
+      );
+      if (row) setProfile(row);
+    })();
+  }, [profile, profileId]);
 
   useEffect(() => {
-    if (!profileId) return
+    if (!profileId) return;
     void (async () => {
-      setLoading(true)
+      setLoading(true);
       try {
         // Angular getExamFiltersList(): univ_exam_filters with REGSUP flag_type.
-        const filters = await getEvaluatorSubjectRolesExamFilters(employeeId).catch(() => [])
-        const f = Array.isArray(filters) ? filters : []
-        setFilterRows(f)
-        if (f[0]) setCourseId(pickNum(f[0], ['fk_course_id', 'courseId']))
+        const [filters, centers] = await Promise.all([
+          getEvaluatorSubjectRolesExamFilters(employeeId).catch(() => []),
+          listExamEvaluationCenters(employeeId).catch(() => []),
+        ]);
+        const f = Array.isArray(filters) ? filters : [];
+        setFilterRows(f);
+        setEvaluationCenters(Array.isArray(centers) ? centers : []);
+        if (f[0]) setCourseId(pickNum(f[0], ["fk_course_id", "courseId"]));
 
-        const existing = await listExamEvaluatorProfileDetails(profileId).catch(() => [])
+        const existing = await listExamEvaluatorProfileDetails(profileId).catch(
+          () => [],
+        );
         if (Array.isArray(existing) && existing.length > 0) {
-          setDialogTitle('Edit Evaluator Details')
-          setDetailPayloads(existing.map((r) => ({ ...r })))
+          setDialogTitle("Edit Evaluator Details");
+          setDetailPayloads(existing.map((r) => ({ ...r })));
           setTableRows(
             existing.map((r) => ({
-              examEvaluatorProfileDetId: pickNum(r, ['examEvaluatorProfileDetId', 'exam_evaluator_profile_det_id']),
-              examName: pickText(r, ['examName', 'exam_name']),
-              evaluatorRoleId: pickNum(r, ['evaluatorRoleId', 'evaluator_role_id']),
-              regulationCode: pickText(r, ['regulationCode', 'regulation_code']),
-              subjectCode: pickText(r, ['subjectCode', 'subject_code']),
-              subjectId: pickNum(r, ['subjectId', 'subject_id']),
-              collegeCode: pickText(r, ['collegeCode', 'college_code']),
-              courseGroupCode: pickText(r, ['courseGroupCode', 'course_group_code', 'group_code']),
-              courseYearCode: pickText(r, ['courseYearCode', 'course_year_code']),
-              examLabBatchName: pickText(r, ['examLabBatchName', 'batchName', 'exam_lab_batch_name']),
+              examEvaluatorProfileDetId: pickNum(r, [
+                "examEvaluatorProfileDetId",
+                "exam_evaluator_profile_det_id",
+              ]),
+              examName: pickText(r, ["examName", "exam_name"]),
+              evaluatorRoleId: pickNum(r, [
+                "evaluatorRoleId",
+                "evaluator_role_id",
+              ]),
+              regulationCode: pickText(r, [
+                "regulationCode",
+                "regulation_code",
+              ]),
+              subjectName: pickText(r, [
+                "subjectName",
+                "subject_name",
+                "subjectCode",
+                "subject_code",
+              ]),
+              subjectCode: pickText(r, ["subjectCode", "subject_code"]),
+              subjectId: pickNum(r, ["subjectId", "subject_id"]),
+              collegeCode: pickText(r, ["collegeCode", "college_code"]),
+              courseGroupCode: pickText(r, [
+                "courseGroupCode",
+                "course_group_code",
+                "group_code",
+              ]),
+              courseYearCode: pickText(r, [
+                "courseYearCode",
+                "course_year_code",
+              ]),
+              examLabBatchName: pickText(r, [
+                "examLabBatchName",
+                "batchName",
+                "exam_lab_batch_name",
+              ]),
+              evaluationCenterName: pickText(r, [
+                "evaluationCenterName",
+                "evalution_center_name",
+              ]),
               isReEvaluation: Boolean(r?.isReEvaluation ?? r?.is_re_evaluation),
-              maxNoOfEvaluationsAssign: r?.maxNoOfEvaluationsAssign ?? r?.max_no_of_evaluations_assign,
-              maxNoOfReevaluationsAssign: r?.maxNoOfReevaluationsAssign ?? r?.max_no_of_reevaluations_assign,
-              collegeId: pickNum(r, ['collegeId', 'college_id']),
-              roleName: roleLabel(pickNum(r, ['evaluatorRoleId', 'evaluator_role_id'])),
+              maxNoOfEvaluationsAssign:
+                r?.maxNoOfEvaluationsAssign ?? r?.max_no_of_evaluations_assign,
+              maxNoOfReevaluationsAssign:
+                r?.maxNoOfReevaluationsAssign ??
+                r?.max_no_of_reevaluations_assign,
+              collegeId: pickNum(r, ["collegeId", "college_id"]),
+              roleName: roleLabel(
+                pickNum(r, ["evaluatorRoleId", "evaluator_role_id"]),
+              ),
             })),
-          )
+          );
         }
       } catch {
-        toastError('Failed to load evaluator subject data.')
+        toastError("Failed to load evaluator subject data.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    })()
-  }, [profileId, employeeId])
+    })();
+  }, [profileId, employeeId]);
 
   useEffect(() => {
-    if (!courseId || !academicYearId || !examId) return
+    if (!courseId || !academicYearId || !examId) return;
     void (async () => {
       const rows = await getEvaluationModerationRest({
         employeeId,
         courseId,
         academicYearId,
         examId,
-      }).catch(() => [])
-      setRegulationFullRows(Array.isArray(rows) ? rows : [])
-    })()
-  }, [courseId, academicYearId, examId, employeeId])
+      }).catch(() => []);
+      setRegulationFullRows(Array.isArray(rows) ? rows : []);
+    })();
+  }, [courseId, academicYearId, examId, employeeId]);
 
   useEffect(() => {
     if (!academicYearId && academicYears[0]) {
-      setAcademicYearId(pickNum(academicYears[0], ['fk_academic_year_id', 'academicYearId']))
+      setAcademicYearId(
+        pickNum(academicYears[0], ["fk_academic_year_id", "academicYearId"]),
+      );
     }
-  }, [academicYears, academicYearId])
+  }, [academicYears, academicYearId]);
 
   useEffect(() => {
     if (!examId && exams[0]) {
-      setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
+      setExamId(pickNum(exams[0], ["fk_exam_id", "examId"]));
     }
-  }, [exams, examId])
+  }, [exams, examId]);
 
   useEffect(() => {
     if (!regulationId && regulations[0]) {
-      setRegulationId(pickNum(regulations[0], ['fk_regulation_id', 'regulationId']))
+      setRegulationId(
+        pickNum(regulations[0], ["fk_regulation_id", "regulationId"]),
+      );
     }
-  }, [regulations, regulationId])
+  }, [regulations, regulationId]);
 
   useEffect(() => {
-    if (!courseId || !academicYearId || !examId || !regulationId) return
+    if (!courseId || !academicYearId || !examId || !regulationId) return;
     void (async () => {
       const [subjects, roles] = await Promise.all([
         getEvaluatorSubjectRolesSubjects({
@@ -381,27 +523,37 @@ export default function EvaluatorSubjectRolesPage() {
           employeeId,
         }).catch(() => []),
         getAssignSubjectsEvaluatorRoles().catch(() => []),
-      ])
-      setSubjectsAll(Array.isArray(subjects) ? subjects : [])
-      setRoleRows(Array.isArray(roles) ? roles : [])
-    })()
-  }, [courseId, academicYearId, examId, regulationId, employeeId])
+      ]);
+      setSubjectsAll(
+        mapSubjectsWithGroups(Array.isArray(subjects) ? subjects : []),
+      );
+      setRoleRows(Array.isArray(roles) ? roles : []);
+    })();
+  }, [courseId, academicYearId, examId, regulationId, employeeId]);
 
   useEffect(() => {
     if (!subjectId && subjectsAll[0]) {
-      setSubjectId(pickNum(subjectsAll[0], ['fk_subject_id', 'subjectId']))
+      setSubjectId(pickNum(subjectsAll[0], ["fk_subject_id", "subjectId"]));
     }
-  }, [subjectsAll, subjectId])
+  }, [subjectsAll, subjectId]);
 
   useEffect(() => {
     if (!roleId && roleRows[0]) {
-      setRoleId(pickNum(roleRows[0], ['pk_role_id', 'roleId']))
+      setRoleId(pickNum(roleRows[0], ["pk_role_id", "roleId"]));
     }
-  }, [roleRows, roleId])
+  }, [roleRows, roleId]);
 
   useEffect(() => {
-    if (!displayFilters || !collegeId || !courseGroupId || !courseYearId || !examId || !regulationId || !subjectId) {
-      return
+    if (
+      !displayFilters ||
+      !collegeId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !examId ||
+      !regulationId ||
+      !subjectId
+    ) {
+      return;
     }
     void (async () => {
       const rows = await listExamLabBatches({
@@ -411,46 +563,85 @@ export default function EvaluatorSubjectRolesPage() {
         courseGroupId,
         regulationId,
         subjectId,
-      }).catch(() => [])
-      setExamLabBatches(Array.isArray(rows) ? rows : [])
-    })()
-  }, [displayFilters, collegeId, courseGroupId, courseYearId, examId, regulationId, subjectId])
+      }).catch(() => []);
+      setExamLabBatches(Array.isArray(rows) ? rows : []);
+    })();
+  }, [
+    displayFilters,
+    collegeId,
+    courseGroupId,
+    courseYearId,
+    examId,
+    regulationId,
+    subjectId,
+  ]);
 
   function getExamRow(eid: number) {
-    return exams.find((e) => pickNum(e, ['fk_exam_id', 'examId']) === eid)
+    return exams.find((e) => pickNum(e, ["fk_exam_id", "examId"]) === eid);
   }
   function getRegRow(rid: number) {
-    return regulations.find((r) => pickNum(r, ['fk_regulation_id', 'regulationId']) === rid)
+    return regulations.find(
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]) === rid,
+    );
   }
   function getSubjectRow(sid: number) {
-    return subjectsAll.find((s) => pickNum(s, ['fk_subject_id', 'subjectId']) === sid)
+    return subjectsAll.find(
+      (s) => pickNum(s, ["fk_subject_id", "subjectId"]) === sid,
+    );
   }
 
   function addToTable() {
-    // Required only up to Role; college / course group / course year / lab
-    // batch are optional (Angular: the form is valid once role is chosen).
-    if (!courseId || !academicYearId || !examId || !regulationId || !subjectId || !roleId) {
-      toastError('Please select course, academic year, exam, regulation, subject, and role.')
-      return
+    if (
+      !courseId ||
+      !academicYearId ||
+      !examId ||
+      !regulationId ||
+      !subjectId ||
+      !roleId
+    ) {
+      toastError(
+        "Please select exam, role, regulation, and at least one subject.",
+      );
+      return;
     }
 
-    const exam = getExamRow(examId)
-    const reg = getRegRow(regulationId)
-    const sub = getSubjectRow(subjectId)
-    const role = roleRows.find((r) => pickNum(r, ['pk_role_id', 'roleId']) === roleId)
+    const exam = getExamRow(examId);
+    const reg = getRegRow(regulationId);
+    const sub = getSubjectRow(subjectId);
+    const role = roleRows.find(
+      (r) => pickNum(r, ["pk_role_id", "roleId"]) === roleId,
+    );
 
-    const examName = pickText(exam, ['exam_name', 'examName'])
-    const regulationCode = pickText(reg, ['regulation_code', 'regulationCode'])
-    const subjectCode = pickText(sub, ['subject_code', 'subjectCode'])
-    const roleName = pickText(role, ['role_name', 'roleName'])
+    const examName = pickText(exam, ["exam_name", "examName"]);
+    const regulationCode = pickText(reg, ["regulation_code", "regulationCode"]);
+    const subjectName = pickText(sub, ["subject_name", "subjectName"]);
+    const subjectCode = pickText(sub, ["subject_code", "subjectCode"]);
+    const roleName = pickText(role, ["role_name", "roleName"]);
+    const evaluationCenterName = getEvaluationCenterLabel(
+      univEvaluationCenterId,
+    );
 
-    const college = colleges.find((c) => pickNum(c, ['fk_college_id', 'collegeId']) === Number(collegeId))
-    const cg = courseGroups.find((g) => pickNum(g, ['fk_course_group_id', 'courseGroupId']) === Number(courseGroupId))
-    const cy = courseYears.find((y) => pickNum(y, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId))
-    const batch = examLabBatches.find((b) => pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId']) === Number(examLabBatchesId))
+    const college = colleges.find(
+      (c) => pickNum(c, ["fk_college_id", "collegeId"]) === Number(collegeId),
+    );
+    const cg = courseGroups.find(
+      (g) =>
+        pickNum(g, ["fk_course_group_id", "courseGroupId"]) ===
+        Number(courseGroupId),
+    );
+    const cy = courseYears.find(
+      (y) =>
+        pickNum(y, ["fk_course_year_id", "courseYearId"]) ===
+        Number(courseYearId),
+    );
+    const batch = examLabBatches.find(
+      (b) =>
+        pickNum(b, ["eaxmLabBatchId", "examLabBatchesId"]) ===
+        Number(examLabBatchesId),
+    );
 
     const baseDetail =
-      dialogTitle === 'Add Evaluator Details'
+      dialogTitle === "Add Evaluator Details"
         ? {
             examId,
             evaluatorRoleId: roleId,
@@ -460,9 +651,10 @@ export default function EvaluatorSubjectRolesPage() {
             courseGroupId: courseGroupId ?? null,
             courseYearId: courseYearId ?? null,
             examLabBatchesId: examLabBatchesId ?? null,
+            univEvaluationCenterId: univEvaluationCenterId ?? null,
             isReEvaluation,
-            maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
-            maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
+            maxNoOfEvaluationsAssign: Number(maxNoOfEvaluationsAssign || 0),
+            maxNoOfReevaluationsAssign: Number(maxNoOfReevaluationsAssign || 0),
             isActive: true,
             reason: null,
             createdUser: employeeId,
@@ -477,249 +669,505 @@ export default function EvaluatorSubjectRolesPage() {
             courseGroupId: courseGroupId ?? null,
             courseYearId: courseYearId ?? null,
             examLabBatchesId: examLabBatchesId ?? null,
+            univEvaluationCenterId: univEvaluationCenterId ?? null,
             isReEvaluation,
-            maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
-            maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
+            maxNoOfEvaluationsAssign: Number(maxNoOfEvaluationsAssign || 0),
+            maxNoOfReevaluationsAssign: Number(maxNoOfReevaluationsAssign || 0),
             isActive: true,
             reason: null,
             updatedUser: employeeId,
             examName,
             regulationCode,
+            subjectName,
             subjectCode,
-            collegeCode: pickText(college, ['college_code', 'collegeCode']),
-            courseGroupCode: pickText(cg, ['group_code', 'groupCode']),
-            courseYearCode: pickText(cy, ['course_year_code', 'courseYearCode']),
-            examLabBatchName: pickText(batch, ['batchName', 'examLabBatchName']),
-          }
+            collegeCode: pickText(college, ["college_code", "collegeCode"]),
+            courseGroupCode: pickText(cg, ["group_code", "groupCode"]),
+            courseYearCode: pickText(cy, [
+              "course_year_code",
+              "courseYearCode",
+            ]),
+            examLabBatchName: pickText(batch, [
+              "batchName",
+              "examLabBatchName",
+            ]),
+            evaluationCenterName,
+          };
 
     const display = {
       examName,
       evaluatorRoleId: roleId,
       regulationCode,
+      subjectName,
       subjectCode,
       subjectId,
       roleName,
-      collegeCode: pickText(college, ['college_code', 'collegeCode']),
-      courseGroupCode: pickText(cg, ['group_code', 'groupCode']),
-      courseYearCode: pickText(cy, ['course_year_code', 'courseYearCode']),
-      examLabBatchName: pickText(batch, ['batchName', 'examLabBatchName']),
+      collegeCode: pickText(college, ["college_code", "collegeCode"]),
+      courseGroupCode: pickText(cg, ["group_code", "groupCode"]),
+      courseYearCode: pickText(cy, ["course_year_code", "courseYearCode"]),
+      examLabBatchName: pickText(batch, ["batchName", "examLabBatchName"]),
+      evaluationCenterName,
       isReEvaluation,
-      maxNoOfEvaluationsAssign: isReEvaluation ? undefined : Number(maxNoOfEvaluationsAssign || 0),
-      maxNoOfReevaluationsAssign: isReEvaluation ? Number(maxNoOfReevaluationsAssign || 0) : undefined,
+      maxNoOfEvaluationsAssign: Number(maxNoOfEvaluationsAssign || 0),
+      maxNoOfReevaluationsAssign: Number(maxNoOfReevaluationsAssign || 0),
       collegeId: collegeId ?? 0,
-    }
+    };
 
-    setDetailPayloads((prev) => [...prev, baseDetail])
-    setTableRows((prev) => [...prev, display])
+    setDetailPayloads((prev) => [...prev, baseDetail]);
+    setTableRows((prev) => [...prev, display]);
 
-    setSubjectId(null)
-    setRoleId(null)
-    setIsReEvaluation(false)
-    setMaxNoOfEvaluationsAssign('')
-    setMaxNoOfReevaluationsAssign('')
+    setSubjectId(null);
+    setRoleId(null);
+    setIsReEvaluation(false);
+    setMaxNoOfEvaluationsAssign("");
+    setMaxNoOfReevaluationsAssign("");
+    setUnivEvaluationCenterId(null);
+  }
+
+  function editDetails(row: AnyRow) {
+    setIsEdit(true);
+    setEditIndex(
+      pickNum(row, [
+        "examEvaluatorProfileDetId",
+        "exam_evaluator_profile_det_id",
+      ]) || null,
+    );
+    setIsReEvaluation(Boolean(row.isReEvaluation));
+    setMaxNoOfEvaluationsAssign(String(row.maxNoOfEvaluationsAssign ?? ""));
+    setMaxNoOfReevaluationsAssign(String(row.maxNoOfReevaluationsAssign ?? ""));
+  }
+
+  function updateCount() {
+    if (editIndex == null) return;
+    const patch = {
+      isReEvaluation,
+      maxNoOfEvaluationsAssign: Number(maxNoOfEvaluationsAssign || 0),
+      maxNoOfReevaluationsAssign: Number(maxNoOfReevaluationsAssign || 0),
+    };
+    setTableRows((prev) =>
+      prev.map((row) =>
+        pickNum(row, ["examEvaluatorProfileDetId"]) === editIndex
+          ? { ...row, ...patch }
+          : row,
+      ),
+    );
+    setDetailPayloads((prev) =>
+      prev.map((row) =>
+        pickNum(row, [
+          "examEvaluatorProfileDetId",
+          "exam_evaluator_profile_det_id",
+        ]) === editIndex
+          ? { ...row, ...patch }
+          : row,
+      ),
+    );
+    setIsEdit(false);
+    setEditIndex(null);
+    setIsReEvaluation(false);
+    setMaxNoOfEvaluationsAssign("");
+    setMaxNoOfReevaluationsAssign("");
   }
 
   function deleteRow(row: AnyRow, rowIndex: number) {
-    const sid = pickNum(row, ['subjectId'])
-    const detId = pickNum(row, ['examEvaluatorProfileDetId', 'exam_evaluator_profile_det_id'])
-    if (dialogTitle === 'Add Evaluator Details') {
-      setDetailPayloads((prev) => prev.filter((_, i) => i !== rowIndex))
-      setTableRows((prev) => prev.filter((_, i) => i !== rowIndex))
-      return
+    const sid = pickNum(row, ["subjectId"]);
+    const detId = pickNum(row, [
+      "examEvaluatorProfileDetId",
+      "exam_evaluator_profile_det_id",
+    ]);
+    if (dialogTitle === "Add Evaluator Details") {
+      setDetailPayloads((prev) => prev.filter((_, i) => i !== rowIndex));
+      setTableRows((prev) => prev.filter((_, i) => i !== rowIndex));
+      return;
     }
     setDetailPayloads((prev) =>
       prev.map((d) => {
         const match =
           detId > 0
-            ? pickNum(d, ['examEvaluatorProfileDetId', 'exam_evaluator_profile_det_id']) === detId
-            : pickNum(d, ['subjectId']) === sid && d.isActive !== false
-        return match ? { ...d, isActive: false } : d
+            ? pickNum(d, [
+                "examEvaluatorProfileDetId",
+                "exam_evaluator_profile_det_id",
+              ]) === detId
+            : pickNum(d, ["subjectId"]) === sid && d.isActive !== false;
+        return match ? { ...d, isActive: false } : d;
       }),
-    )
-    setTableRows((prev) => prev.filter((_, i) => i !== rowIndex))
+    );
+    setTableRows((prev) => prev.filter((_, i) => i !== rowIndex));
   }
 
   async function submit() {
-    if (!profileId) return
+    if (!profileId) return;
     if (!profile) {
-      toastError('Loading evaluator profile… try again in a moment, or open from Evaluators profile → Subjects.')
-      return
+      toastError(
+        "Loading evaluator profile… try again in a moment, or open from Evaluators profile → Subjects.",
+      );
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       await updateEvaluatorProfile({
         ...profile,
         examEvaluatorProfileId: profileId,
         examEvaluatorProfileDetailsDTOS: detailPayloads,
-      })
+      });
       // Angular submit() success chain: map profile→employees, then set up
       // exam committees (the implicit "Map evaluators" side effects).
-      await popProfileEmployees(profileId)
-      await setupExamCommittees()
-      toastSuccess('Saved successfully.')
-      router.push('/admin-examination-management/evaluation-process/create-evaluators')
+      await popProfileEmployees(profileId);
+      await setupExamCommittees();
+      toastSuccess("Saved successfully.");
+      router.push(
+        "/admin-examination-management/evaluation-process/create-evaluators",
+      );
     } catch (e: any) {
-      toastError(e?.message ?? 'Save failed.')
+      toastError(e?.message ?? "Save failed.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  const evaluatorName = pickText(profile, ['evaluatorName', 'evaluator_name']) || 'Evaluator'
+  const evaluatorName =
+    pickText(profile, ["evaluatorName", "evaluator_name"]) || "Evaluator";
 
   if (!profileId) {
     return (
       <div className="p-6">
         <div className="app-card overflow-hidden p-4 text-[13px]">
-          <p>Missing exam evaluator profile id. Use Subjects from Create Evaluators.</p>
-          <Button type="button" variant="outline" className="mt-2" onClick={() => router.push('/admin-examination-management/evaluation-process/create-evaluators')}>
+          <p>
+            Missing exam evaluator profile id. Use Subjects from Create
+            Evaluators.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2"
+            onClick={() =>
+              router.push(
+                "/admin-examination-management/evaluation-process/create-evaluators",
+              )
+            }
+          >
             Back
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <FilteredPage
       title={`${dialogTitle} — ${evaluatorName}`}
-      filters={(
+      filters={
         <div className="space-y-4 text-[13px]">
           <GlobalFilterBarRow>
             <GlobalFilterField label="Course">
-              <Select value={courseId ? String(courseId) : null} onChange={(v) => { setCourseId(v ? Number(v) : null); resetDownstream('course') }} options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))} placeholder="Course" />
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => {
+                  setCourseId(v ? Number(v) : null);
+                  resetDownstream("course");
+                }}
+                options={courses.map(
+                  (c) =>
+                    ({
+                      value: String(pickNum(c, ["fk_course_id"])),
+                      label: pickText(c, ["course_code", "courseCode"]),
+                    }) as SelectOption,
+                )}
+                placeholder="Course"
+              />
             </GlobalFilterField>
             <GlobalFilterField label="Academic Year">
-              <Select value={academicYearId ? String(academicYearId) : null} onChange={(v) => { setAcademicYearId(v ? Number(v) : null); resetDownstream('year') }} options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))} placeholder="Academic Year" />
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => {
+                  setAcademicYearId(v ? Number(v) : null);
+                  resetDownstream("year");
+                }}
+                options={academicYears.map(
+                  (a) =>
+                    ({
+                      value: String(pickNum(a, ["fk_academic_year_id"])),
+                      label: pickText(a, ["academic_year"]),
+                    }) as SelectOption,
+                )}
+                placeholder="Academic Year"
+              />
             </GlobalFilterField>
             <GlobalFilterField label="Exam">
-              <Select value={examId ? String(examId) : null} onChange={(v) => { setExamId(v ? Number(v) : null); resetDownstream('exam') }} options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: `${pickText(e, ['exam_name'])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})` } as SelectOption))} placeholder="Exam" searchable />
-            </GlobalFilterField>
-            <GlobalFilterField label="Regulation">
-              <Select value={regulationId ? String(regulationId) : null} onChange={(v) => { setRegulationId(v ? Number(v) : null); resetDownstream('regulation') }} options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))} placeholder="Regulation" />
-            </GlobalFilterField>
-            <GlobalFilterField label="Subject">
-              <Select value={subjectId ? String(subjectId) : null} onChange={(v) => setSubjectId(v ? Number(v) : null)} options={subjectsAll.map((s) => ({ value: String(pickNum(s, ['fk_subject_id'])), label: `${pickText(s, ['subject_name'])} (${pickText(s, ['subject_code'])})` } as SelectOption))} placeholder="Subjects" searchable />
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => {
+                  setExamId(v ? Number(v) : null);
+                  resetDownstream("exam");
+                }}
+                options={exams.map(
+                  (e) =>
+                    ({
+                      value: String(pickNum(e, ["fk_exam_id"])),
+                      label: examOptionLabel(e),
+                    }) as SelectOption,
+                )}
+                placeholder="Exam"
+                searchable
+              />
             </GlobalFilterField>
             <GlobalFilterField label="Role">
-              <Select value={roleId ? String(roleId) : null} onChange={(v) => { setRoleId(v ? Number(v) : null); resetDownstream('role') }} options={roleRows.map((r) => ({ value: String(pickNum(r, ['pk_role_id'])), label: pickText(r, ['role_name']) } as SelectOption))} placeholder="Select Role" />
+              <Select
+                value={roleId ? String(roleId) : null}
+                onChange={(v) => {
+                  setRoleId(v ? Number(v) : null);
+                  resetDownstream("role");
+                }}
+                options={roleRows.map(
+                  (r) =>
+                    ({
+                      value: String(pickNum(r, ["pk_role_id"])),
+                      label: pickText(r, ["role_name"]),
+                    }) as SelectOption,
+                )}
+                placeholder="Select Role"
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Regulation">
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => {
+                  setRegulationId(v ? Number(v) : null);
+                  resetDownstream("regulation");
+                }}
+                options={regulations.map(
+                  (r) =>
+                    ({
+                      value: String(pickNum(r, ["fk_regulation_id"])),
+                      label: pickText(r, ["regulation_code", "regulationCode"]),
+                    }) as SelectOption,
+                )}
+                placeholder="Regulation"
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Subject">
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                options={subjectsAll.map(
+                  (s) =>
+                    ({
+                      value: String(pickNum(s, ["fk_subject_id"])),
+                      label: `${pickText(s, ["subject_name"])} (${pickText(s, ["subject_code"])})${s.groupNames ? ` — ${s.groupNames}` : ""}`,
+                    }) as SelectOption,
+                )}
+                placeholder="Subjects"
+                searchable
+              />
             </GlobalFilterField>
             <GlobalFilterField label="Re-Evaluation">
               <label className="inline-flex items-center gap-2 text-[12px] h-[30px]">
-                <Checkbox checked={isReEvaluation} onCheckedChange={(v) => setIsReEvaluation(v === true)} />
+                <Checkbox
+                  checked={isReEvaluation}
+                  onCheckedChange={(v) => setIsReEvaluation(v === true)}
+                />
                 <span>Is Re-Evaluation</span>
               </label>
             </GlobalFilterField>
           </GlobalFilterBarRow>
 
-          {displayFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border-t border-slate-100 pt-3">
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Course Year</Label>
-                <Select
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-                  options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id'])), label: pickText(y, ['course_year_code']) } as SelectOption))}
-                  placeholder="Course Year"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">College</Label>
-                <Select
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => { setCollegeId(v ? Number(v) : null); setCourseGroupId(null); setExamLabBatchesId(null) }}
-                  options={colleges.map((c) => ({ value: String(pickNum(c, ['fk_college_id'])), label: pickText(c, ['college_code']) } as SelectOption))}
-                  placeholder="College"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">Course Group</Label>
-                <Select
-                  value={courseGroupId ? String(courseGroupId) : null}
-                  onChange={(v) => { setCourseGroupId(v ? Number(v) : null); setExamLabBatchesId(null) }}
-                  options={courseGroups.map((g) => ({ value: String(pickNum(g, ['fk_course_group_id'])), label: pickText(g, ['group_code']) } as SelectOption))}
-                  placeholder="Course Group"
-                />
-              </div>
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">Exam Lab Batch</Label>
-                <Select
-                  value={examLabBatchesId ? String(examLabBatchesId) : null}
-                  onChange={(v) => setExamLabBatchesId(v ? Number(v) : null)}
-                  options={examLabBatches.map((b) => ({
-                    value: String(pickNum(b, ['eaxmLabBatchId', 'examLabBatchesId', 'exam_lab_batches_id', 'pk_eaxm_lab_batch_id'])),
-                    label: pickText(b, ['batchName', 'examLabBatchName', 'batch_name', 'exam_lab_batch_name']),
-                  } as SelectOption))}
-                  placeholder="Exam Lab Batch"
-                />
-              </div>
-              {!isReEvaluation && (
-                <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">Max evaluations</Label>
-                  <Input
-                    type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max evaluations"
-                    value={maxNoOfEvaluationsAssign}
-                    onChange={(e) => setMaxNoOfEvaluationsAssign(e.target.value)}
-                  />
-                </div>
-              )}
-              {isReEvaluation && (
-                <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">Max re-evaluations</Label>
-                  <Input
-                    type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max re-evaluations"
-                    value={maxNoOfReevaluationsAssign}
-                    onChange={(e) => setMaxNoOfReevaluationsAssign(e.target.value)}
-                  />
-                </div>
-              )}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border-t border-slate-100 pt-3">
+            <div className="md:col-span-2">
+              <Label className="text-[12px] text-muted-foreground">
+                Course Year
+              </Label>
+              <Select
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                options={courseYears.map(
+                  (y) =>
+                    ({
+                      value: String(pickNum(y, ["fk_course_year_id"])),
+                      label: pickText(y, ["course_year_code"]),
+                    }) as SelectOption,
+                )}
+                placeholder="Course Year"
+              />
             </div>
-          )}
 
-          {!displayFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              {!isReEvaluation && (
+            {displayFilters && (
+              <>
                 <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">Max evaluations</Label>
-                  <Input
-                    type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max evaluations"
-                    value={maxNoOfEvaluationsAssign}
-                    onChange={(e) => setMaxNoOfEvaluationsAssign(e.target.value)}
+                  <Label className="text-[12px] text-muted-foreground">
+                    College
+                  </Label>
+                  <Select
+                    value={collegeId ? String(collegeId) : null}
+                    onChange={(v) => {
+                      setCollegeId(v ? Number(v) : null);
+                      setCourseGroupId(null);
+                      setExamLabBatchesId(null);
+                    }}
+                    options={colleges.map(
+                      (c) =>
+                        ({
+                          value: String(pickNum(c, ["fk_college_id"])),
+                          label: pickText(c, ["college_code"]),
+                        }) as SelectOption,
+                    )}
+                    placeholder="College"
                   />
                 </div>
-              )}
-              {isReEvaluation && (
                 <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">Max re-evaluations</Label>
-                  <Input
-                    type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max re-evaluations"
-                    value={maxNoOfReevaluationsAssign}
-                    onChange={(e) => setMaxNoOfReevaluationsAssign(e.target.value)}
+                  <Label className="text-[12px] text-muted-foreground">
+                    Course Group
+                  </Label>
+                  <Select
+                    value={courseGroupId ? String(courseGroupId) : null}
+                    onChange={(v) => {
+                      setCourseGroupId(v ? Number(v) : null);
+                      setExamLabBatchesId(null);
+                    }}
+                    options={courseGroups.map(
+                      (g) =>
+                        ({
+                          value: String(pickNum(g, ["fk_course_group_id"])),
+                          label: pickText(g, ["group_code"]),
+                        }) as SelectOption,
+                    )}
+                    placeholder="Course Group"
                   />
                 </div>
-              )}
+                <div className="md:col-span-2">
+                  <Label className="text-[12px] text-muted-foreground">
+                    Exam Lab Batch
+                  </Label>
+                  <Select
+                    value={examLabBatchesId ? String(examLabBatchesId) : null}
+                    onChange={(v) => setExamLabBatchesId(v ? Number(v) : null)}
+                    options={examLabBatches.map(
+                      (b) =>
+                        ({
+                          value: String(
+                            pickNum(b, [
+                              "eaxmLabBatchId",
+                              "examLabBatchesId",
+                              "exam_lab_batches_id",
+                              "pk_eaxm_lab_batch_id",
+                            ]),
+                          ),
+                          label: pickText(b, [
+                            "batchName",
+                            "examLabBatchName",
+                            "batch_name",
+                            "exam_lab_batch_name",
+                          ]),
+                        }) as SelectOption,
+                    )}
+                    placeholder="Exam Lab Batch"
+                  />
+                </div>
+              </>
+            )}
+
+            {!isReEvaluation && (
+              <div className="md:col-span-2">
+                <Label className="text-[12px] text-muted-foreground">
+                  Max No Of Evaluations
+                </Label>
+                <Input
+                  type="number"
+                  className="h-8 text-[12px]"
+                  placeholder="Max No Of Evaluations"
+                  value={maxNoOfEvaluationsAssign}
+                  onChange={(e) => setMaxNoOfEvaluationsAssign(e.target.value)}
+                />
+              </div>
+            )}
+            {isReEvaluation && (
+              <div className="md:col-span-2">
+                <Label className="text-[12px] text-muted-foreground">
+                  Max No Of Re-Evaluations
+                </Label>
+                <Input
+                  type="number"
+                  className="h-8 text-[12px]"
+                  placeholder="Max No Of Re-Evaluations"
+                  value={maxNoOfReevaluationsAssign}
+                  onChange={(e) =>
+                    setMaxNoOfReevaluationsAssign(e.target.value)
+                  }
+                />
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+              <Label className="text-[12px] text-muted-foreground">
+                Exam Evaluation Center
+              </Label>
+              <Select
+                value={
+                  univEvaluationCenterId ? String(univEvaluationCenterId) : null
+                }
+                onChange={(v) =>
+                  setUnivEvaluationCenterId(v ? Number(v) : null)
+                }
+                options={evaluationCenters.map(
+                  (c) =>
+                    ({
+                      value: String(
+                        pickNum(c, [
+                          "pk_univ_evaluation_center_id",
+                          "univEvaluationCenterId",
+                        ]),
+                      ),
+                      label: pickText(c, [
+                        "evalution_center_code",
+                        "evaluationCenterCode",
+                        "evalution_center_name",
+                        "evaluationCenterName",
+                      ]),
+                    }) as SelectOption,
+                )}
+                placeholder="Exam Evaluation Center"
+              />
             </div>
-          )}
+          </div>
 
           <div className="flex justify-end gap-2 px-5 pb-3">
-            <Button type="button" className="h-8 text-[12px]" onClick={addToTable} disabled={loading}>Add</Button>
-            <Button type="button" variant="outline" className="h-8 text-[12px]" onClick={() => router.push('/admin-examination-management/evaluation-process/create-evaluators')}>Back</Button>
+            {!isEdit ? (
+              <Button
+                type="button"
+                className="h-8 text-[12px]"
+                onClick={addToTable}
+                disabled={loading}
+              >
+                Add
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="h-8 text-[12px]"
+                onClick={updateCount}
+                disabled={loading}
+              >
+                Update
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={() =>
+                router.push(
+                  "/admin-examination-management/evaluation-process/create-evaluators",
+                )
+              }
+            >
+              Back
+            </Button>
           </div>
         </div>
-      )}
+      }
     >
-
       {tableRows.length > 0 && (
         <div className="app-card overflow-hidden">
-          <div className="px-3 py-2 border-b border-border bg-muted/40 text-[13px] font-medium">{dialogTitle}</div>
+          <div className="px-3 py-2 border-b border-border bg-muted/40 text-[13px] font-medium">
+            {dialogTitle}
+          </div>
           <div className="overflow-x-auto p-2">
             <table className="w-full text-[12px] border-collapse">
               <thead>
@@ -736,6 +1184,7 @@ export default function EvaluatorSubjectRolesPage() {
                       <th className="p-2 font-medium">Lab Batch</th>
                     </>
                   )}
+                  <th className="p-2 font-medium">Evaluation Center</th>
                   <th className="p-2 font-medium">Re-eval</th>
                   <th className="p-2 font-medium">Max eval</th>
                   <th className="p-2 font-medium">Max re-eval</th>
@@ -744,31 +1193,61 @@ export default function EvaluatorSubjectRolesPage() {
               </thead>
               <tbody>
                 {tableRows.map((row, index) => (
-                  <tr key={`row-${index}-${row.subjectId}`} className="border-b border-slate-100">
+                  <tr
+                    key={`row-${index}-${row.subjectId}`}
+                    className="border-b border-slate-100"
+                  >
                     <td className="p-2">{tableCell(row.examName)}</td>
-                    <td className="p-2">{tableCell(row.roleName ?? roleLabel(Number(row.evaluatorRoleId)))}</td>
+                    <td className="p-2">
+                      {tableCell(
+                        row.roleName ?? roleLabel(Number(row.evaluatorRoleId)),
+                      )}
+                    </td>
                     <td className="p-2">{tableCell(row.regulationCode)}</td>
-                    <td className="p-2">{tableCell(row.subjectCode)}</td>
+                    <td className="p-2">
+                      {tableCell(row.subjectName ?? row.subjectCode)}
+                    </td>
                     {showWideTable && (
                       <>
                         <td className="p-2">{tableCell(row.collegeCode)}</td>
-                        <td className="p-2">{tableCell(row.courseGroupCode)}</td>
+                        <td className="p-2">
+                          {tableCell(row.courseGroupCode)}
+                        </td>
                         <td className="p-2">{tableCell(row.courseYearCode)}</td>
-                        <td className="p-2">{tableCell(row.examLabBatchName)}</td>
+                        <td className="p-2">
+                          {tableCell(row.examLabBatchName)}
+                        </td>
                       </>
                     )}
-                    <td className="p-2">{tableCell(row.isReEvaluation)}</td>
-                    <td className="p-2">{tableCell(row.maxNoOfEvaluationsAssign)}</td>
-                    <td className="p-2">{tableCell(row.maxNoOfReevaluationsAssign)}</td>
                     <td className="p-2">
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Remove row"
-                        onClick={() => deleteRow(row, index)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {tableCell(row.evaluationCenterName)}
+                    </td>
+                    <td className="p-2">{tableCell(row.isReEvaluation)}</td>
+                    <td className="p-2">
+                      {tableCell(row.maxNoOfEvaluationsAssign)}
+                    </td>
+                    <td className="p-2">
+                      {tableCell(row.maxNoOfReevaluationsAssign)}
+                    </td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="text-blue-600 hover:text-blue-800"
+                          aria-label="Edit row"
+                          onClick={() => editDetails(row)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-600 hover:text-red-800"
+                          aria-label="Remove row"
+                          onClick={() => deleteRow(row, index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -776,12 +1255,17 @@ export default function EvaluatorSubjectRolesPage() {
             </table>
           </div>
           <div className="p-3 flex justify-end border-t border-slate-100">
-            <Button type="button" className="h-8 text-[12px]" onClick={() => void submit()} disabled={loading}>
+            <Button
+              type="button"
+              className="h-8 text-[12px]"
+              onClick={() => void submit()}
+              disabled={loading}
+            >
               Save
             </Button>
           </div>
         </div>
       )}
     </FilteredPage>
-  )
+  );
 }

@@ -2060,7 +2060,7 @@ export default function StudentExamFeeRegistrationPage() {
                     `${(p.data as AnyRow)?.subjectCode}-${(p.data as AnyRow)?.subjectName}`,
                 )
               }
-              pagination={false}
+              pagination={true}
               toolbar={SEARCH_ONLY_TOOLBAR}
               height="360px"
             />

@@ -328,6 +328,8 @@ export const EXAM_API = {
   EXAM_SUBJECT_STUDENTS: "examsubjectstudents",
   /** Angular `registeredStudentForExamUrl` */
   REGISTERED_STUDENT_FOR_EXAM: "registeredstudentforexam",
+  /** Angular `examStudentPostUrl` / `examstudentUrl` */
+  EXAM_STUDENT_POST: "examstudent",
   /** Angular `examroomtudentdetailsUrl` */
   EXAMROOMTUDENTDETAILS: "examroomstudentdetails",
   /** Angular `exammarksdownloadUrl` */

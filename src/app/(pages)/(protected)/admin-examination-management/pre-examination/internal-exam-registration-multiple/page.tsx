@@ -15,8 +15,13 @@ import {
   listRegisteredStudentsForExam,
   saveRegisteredExamSubjects,
 } from "@/services/pre-examination";
+import { listExamFeeTypeGeneralDetails } from "@/services";
+import { utcMidnightIso } from "@/common/generic-functions";
 import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow, GlobalFilterField } from "@/common/components/forms";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 
 type AnyRow = Record<string, any>;
 
@@ -93,6 +98,7 @@ export default function InternalExamRegistrationMultiplePage() {
   const [regulationId, setRegulationId] = useState<number | null>(null);
   const [subjectTypeId, setSubjectTypeId] = useState<number | null>(null);
   const [subjectId, setSubjectId] = useState<number | null>(null);
+  const [examtypeCatId, setExamtypeCatId] = useState<number | null>(null);
 
   const [searchAll, setSearchAll] = useState("");
   const [searchSelected, setSearchSelected] = useState("");
@@ -224,13 +230,22 @@ export default function InternalExamRegistrationMultiplePage() {
     async function init() {
       setLoading(true);
       try {
-        const rows = await getUnivExamFiltersByType(employeeId, "INT").catch(
-          () => [],
-        );
+        const [rows, examFeeTypes] = await Promise.all([
+          getUnivExamFiltersByType(employeeId, "INT").catch(() => []),
+          listExamFeeTypeGeneralDetails().catch(() => []),
+        ]);
         const list = Array.isArray(rows) ? rows : [];
         setBaseRows(list);
         const c = dedupeBy(list, (r) => Number(r.fk_course_id))[0];
         if (c?.fk_course_id) setCourseId(Number(c.fk_course_id));
+
+        // Angular getData(): examtypeCatId = Internal general detail
+        const internalType = (
+          Array.isArray(examFeeTypes) ? examFeeTypes : []
+        ).find((t) => String(t.generalDetailCode ?? "") === "Internal");
+        if (internalType?.generalDetailId) {
+          setExamtypeCatId(Number(internalType.generalDetailId));
+        }
       } finally {
         setLoading(false);
       }
@@ -377,6 +392,81 @@ export default function InternalExamRegistrationMultiplePage() {
     setSubjectId(Number(list[0]?.fk_subject_id ?? 0) || null);
   }, [subjectFilterRows, regulationId, subjectTypeId]);
 
+  async function loadSubjectStudents() {
+    if (
+      !collegeId ||
+      !academicYearId ||
+      !courseId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !regulationId ||
+      !subjectId ||
+      !subjectTypeId ||
+      !examId
+    ) {
+      return;
+    }
+
+    const [all, reg] = await Promise.all([
+      listExamSubjectStudents({
+        collegeId,
+        academicYearId,
+        courseId,
+        courseGroupId,
+        courseYearId,
+        regulationId,
+        subjectId,
+        subjectTypeId,
+      }).catch(() => []),
+      listRegisteredStudentsForExam({
+        collegeId,
+        academicYearId,
+        courseId,
+        courseGroupId,
+        courseYearId,
+        regulationId,
+        subjectId,
+        examId,
+      }).catch(() => []),
+    ]);
+
+    const allList = Array.isArray(all) ? all : [];
+    const regList = Array.isArray(reg) ? reg : [];
+    const stableRegList = (
+      regList.length > 0 ? regList : lastNonEmptyRegisteredRef.current
+    ).map(normalizeStudentRow);
+    setRegisteredStudents(stableRegList);
+    const regSet = new Set(stableRegList.map((s) => getStudentKey(s)));
+
+    const mapped = allList.map((s) => {
+      const sid = getStudentKey(s);
+      const already = regSet.has(sid);
+      const row = enrichStudentRow(s, { already });
+      return {
+        ...row,
+        checked: !already,
+        c: !already,
+      };
+    });
+    setStudents(mapped);
+    setSelectedStudents(mapped.filter((s) => s.c));
+  }
+
+  function enrichStudentRow(s: AnyRow, overrides?: Partial<AnyRow>): AnyRow {
+    return {
+      ...s,
+      studentId: getStudentId(s),
+      collegeId: Number(collegeId),
+      courseYearId: Number(courseYearId),
+      examId: Number(examId),
+      examtypeCatId: examtypeCatId ?? undefined,
+      subjectId: Number(subjectId),
+      isActive: true,
+      registrationDate: utcMidnightIso(),
+      ...overrides,
+    };
+  }
+
   useEffect(() => {
     if (
       !collegeId ||
@@ -391,46 +481,7 @@ export default function InternalExamRegistrationMultiplePage() {
     )
       return;
     const timer = window.setTimeout(() => {
-      void (async () => {
-        const [all, reg] = await Promise.all([
-          listExamSubjectStudents({
-            collegeId,
-            academicYearId,
-            courseId,
-            courseGroupId,
-            courseYearId,
-            regulationId,
-            subjectId,
-            subjectTypeId,
-          }).catch(() => []),
-          listRegisteredStudentsForExam({
-            collegeId,
-            academicYearId,
-            courseId,
-            courseGroupId,
-            courseYearId,
-            regulationId,
-            subjectId,
-            examId,
-          }).catch(() => []),
-        ]);
-
-        const allList = Array.isArray(all) ? all : [];
-        const regList = Array.isArray(reg) ? reg : [];
-        const stableRegList = (
-          regList.length > 0 ? regList : lastNonEmptyRegisteredRef.current
-        ).map(normalizeStudentRow);
-        setRegisteredStudents(stableRegList);
-        const regSet = new Set(stableRegList.map((s) => getStudentKey(s)));
-
-        const mapped = allList.map((s) => {
-          const sid = getStudentKey(s);
-          const already = regSet.has(sid);
-          return { ...s, checked: true, c: true, already };
-        });
-        setStudents(mapped);
-        setSelectedStudents(mapped.filter((s) => s.c));
-      })();
+      void loadSubjectStudents();
     }, 120);
     return () => window.clearTimeout(timer);
   }, [
@@ -447,17 +498,26 @@ export default function InternalExamRegistrationMultiplePage() {
 
   function toggleAll(checked: boolean) {
     const nextStudents = students.map((s) => {
-      return { ...s, checked, c: checked };
+      if (s.already) {
+        return { ...s, checked: false, c: false };
+      }
+      const row = enrichStudentRow(s, { checked, c: checked });
+      return row;
     });
     setStudents(nextStudents);
     setSelectedStudents(nextStudents.filter((s) => s.c));
   }
 
   function toggleStudent(sid: number, checked: boolean) {
+    const target = students.find((s) => getStudentId(s) === sid);
+    if (target?.already) {
+      toastError("Student is already registered with this subject.");
+      return;
+    }
     const next = students.map((s) => {
       const id = getStudentId(s);
       if (id !== sid) return s;
-      return { ...s, checked, c: checked };
+      return enrichStudentRow(s, { checked, c: checked });
     });
     setStudents(next);
     setSelectedStudents(next.filter((s) => s.c));
@@ -474,6 +534,13 @@ export default function InternalExamRegistrationMultiplePage() {
       !subjectId
     )
       return;
+    if (!examtypeCatId) {
+      toastError(
+        "Internal exam type is not configured. Please contact administrator.",
+      );
+      return;
+    }
+
     const toRegister = selectedStudents.filter((s) => !s.already);
     if (toRegister.length === 0) {
       toastError(
@@ -481,109 +548,37 @@ export default function InternalExamRegistrationMultiplePage() {
       );
       return;
     }
-    const selectedSubjectRow =
-      subjectFilterRows.find(
-        (r) =>
-          Number(r.fk_subject_id ?? r.subjectId ?? 0) === Number(subjectId),
-      ) ?? null;
-    const resolvedExamTypeCatId =
-      Number(
-        selectedSubjectRow?.examtypeCatId ??
-          selectedSubjectRow?.fk_examtype_catdet_id ??
-          selectedSubjectRow?.examtype_catdet_id ??
-          3,
-      ) || 3;
 
-    const payload = toRegister.map((s) => ({
-      studentId: getStudentId(s),
-      firstName: s.firstName ?? s.studentName ?? "",
-      rollNumber: s.rollNumber ?? s.hallticketNumber ?? "",
-      hallticketNumber: s.hallticketNumber ?? s.rollNumber ?? "",
-      groupSectionId:
-        Number(s.groupSectionId ?? s.group_section_id ?? 0) || undefined,
-      section: s.section ?? "",
-      courseId: Number(courseId),
-      courseName: s.courseName ?? s.course_name ?? "",
-      courseCode: s.courseCode ?? s.course_code ?? "",
-      courseGroupId: Number(courseGroupId),
-      groupName: s.groupName ?? s.group_name ?? "",
-      groupCode: s.groupCode ?? s.group_code ?? "",
-      courseYearId: Number(courseYearId),
-      courseYearName: s.courseYearName ?? s.course_year_name ?? "",
-      courseYearCode: s.courseYearCode ?? s.course_year_code ?? "",
-      academicYearId: Number(academicYearId),
-      academicYear: s.academicYear ?? s.academic_year ?? "",
-      regulationId: Number(regulationId),
-      regulationName: s.regulationName ?? s.regulation_name ?? "",
-      regulationCode: s.regulationCode ?? s.regulation_code ?? "",
-      collegeId,
-      examId,
-      examtypeCatId: resolvedExamTypeCatId,
-      examtypeCatCode: "Internal",
-      isInternalExam: true,
-      isActive: true,
-      registrationDate: new Date().toISOString(),
-      examStudentDetailDTOs: [{ collegeId, subjectId, isActive: true }],
-    }));
+    // Angular registerStudents(): selectedStudents + examStudentDetailDTOs
+    const payload = toRegister.map((s) => {
+      const row = enrichStudentRow(s);
+      const { checked: _checked, c: _c, already: _already, ...student } = row;
+      return {
+        ...student,
+        isInternalExam: true,
+        regulationId: Number(regulationId),
+        courseGroupId: Number(courseGroupId),
+        examStudentDetailDTOs: [
+          {
+            collegeId: Number(collegeId),
+            subjectId: Number(student.subjectId ?? subjectId),
+            isActive: student.isActive !== false,
+          },
+        ],
+      };
+    });
+
     setLoading(true);
     try {
-      await saveRegisteredExamSubjects(payload);
+      const result = await saveRegisteredExamSubjects(payload);
+      toastSuccess(
+        String(result?.message ?? "Students registered successfully"),
+      );
       setSelectedStudents([]);
+      setStudents([]);
       setSearchRegistered("");
-
-      // Optimistic update so newly saved students appear immediately in Registered list.
-      const optimisticRegistered = dedupeBy(
-        [...registeredStudents, ...toRegister].map(normalizeStudentRow),
-        (s) => getStudentKey(s),
-      );
-      setRegisteredStudents(optimisticRegistered);
-
-      // reload
-      const reg = await listRegisteredStudentsForExam({
-        collegeId,
-        academicYearId: Number(academicYearId),
-        courseId: Number(courseId),
-        courseGroupId: Number(courseGroupId),
-        courseYearId: Number(courseYearId),
-        regulationId: Number(regulationId),
-        subjectId: Number(subjectId),
-        examId: Number(examId),
-      }).catch(() => []);
-      const regList = Array.isArray(reg) ? reg.map(normalizeStudentRow) : [];
-      const finalRegList = regList.length > 0 ? regList : optimisticRegistered;
-      setRegisteredStudents(finalRegList);
-      const regSet = new Set(finalRegList.map((s) => getStudentKey(s)));
-      const savedKeys = new Set(toRegister.map((s) => getStudentKey(s)));
-      const persistedCount = Array.from(savedKeys).filter((k) =>
-        regSet.has(k),
-      ).length;
-      const skipped = selectedStudents.length - toRegister.length;
-
-      if (persistedCount === 0) {
-        toastError("Students are not saved in DB. Please try again.");
-      } else if (persistedCount < savedKeys.size) {
-        toastError(
-          `Only ${persistedCount}/${savedKeys.size} student(s) are persisted.`,
-        );
-      } else if (skipped > 0) {
-        toastSuccess(
-          `Students registered successfully. Skipped ${skipped} already-registered student(s).`,
-        );
-      } else {
-        toastSuccess("Students registered successfully");
-      }
-
-      setStudents((prev) =>
-        prev.map((s) => {
-          const key = getStudentKey(s);
-          if (
-            regSet.has(key) ||
-            toRegister.some((x) => getStudentKey(x) === key)
-          )
-            return { ...s, checked: false, c: false, already: true };
-          return s;
-        }),
-      );
+      // Angular: selectedSubject(subjectId) → registeredstudentforexam + examsubjectstudents
+      await loadSubjectStudents();
     } catch (e: any) {
       toastError(e?.message ?? "Failed to register");
     } finally {
@@ -594,7 +589,7 @@ export default function InternalExamRegistrationMultiplePage() {
   return (
     <FilteredPage
       title="Internal Exam Registration Multiple Students"
-      filters={(
+      filters={
         <GlobalFilterBarRow>
           <GlobalFilterField label="Course">
             <Select
@@ -674,7 +669,7 @@ export default function InternalExamRegistrationMultiplePage() {
             />
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      )}
+      }
     >
       {!!regulationId && (
         <div className="app-card p-3 space-y-2">

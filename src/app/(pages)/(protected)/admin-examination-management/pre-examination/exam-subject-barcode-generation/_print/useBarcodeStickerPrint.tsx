@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * Exam Subject Barcode — print modes (mirrors Angular exam-subject-barcode-generation):
+ * Exam Subject Barcode — print modes (Angular exam-subject-barcode-generation):
  *
- *  - 'stickers'              Angular Stickers()
- *  - 'stickers-with-bn'      Angular StickersWithBn()
- *  - 'stickers-without-usn'  Angular StickersHallTicketNo()
- *  - 'omr-sheets'            Angular omrpage() → omr-sheets-design
- *  - 'answer-sheets'         Angular omrSinglePage() → omr-single-page-design
+ *  presence-barcode     → printPresencebarcode()  printHn:false barcodeNo:true  is_present only
+ *  stickers             → Stickers()               printHn:true  barcodeNo:false
+ *  stickers-with-bn     → StickersWithBn()         printHn:true  barcodeNo:true
+ *  stickers-without-usn → StickersHallTicketNo()   printHn:false barcodeNo:true
+ *  omr-sheets           → omrpage()                → omr-sheets-design (ANSWER SHEET + details)
+ *  answer-sheets        → omrSinglePage()          → omr-single-page-design (barcode only)
  *
- * Stickers render in-page via usePrintMode. OMR / Answer sheets print through a
- * hidden iframe with Angular HTML/CSS (omr-sheets-design / omr-single-page-design)
- * so AppShell grey backgrounds never bleed into the print preview.
+ * All modes print via hidden iframe so AppShell @media print never blanks the preview.
  */
 
 import { useCallback, type ReactNode } from "react";
@@ -23,27 +22,46 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Printer } from "lucide-react";
-import { usePrintMode } from "@/lib/print";
+import { printHtmlInIframe } from "@/lib/print";
+import { toast } from "sonner";
 
 type AnyRow = Record<string, any>;
 
 export type BarcodePrintMode =
+  | "presence-barcode"
   | "stickers"
   | "stickers-with-bn"
   | "stickers-without-usn"
   | "omr-sheets"
   | "answer-sheets";
 
-const STICKER_FLAGS: Record<
-  string,
-  { showHallticket: boolean; showSerial: boolean }
-> = {
-  stickers: { showHallticket: true, showSerial: false },
-  "stickers-with-bn": { showHallticket: true, showSerial: true },
-  "stickers-without-usn": { showHallticket: false, showSerial: true },
+/** Angular query params for print-barcode-stickers / omr pages */
+export type BarcodePrintMeta = {
+  examName: string;
+  collegeName: string;
+  collegeCode: string;
+  academicYear: string;
+  courseCode: string;
+  courseGroupCode: string;
+  courseYear: string;
 };
 
-const txt = (v: unknown) => (v == null ? "" : String(v));
+const STICKER_FLAGS: Record<string, { printHn: boolean; barcodeNo: boolean }> =
+  {
+    "presence-barcode": { printHn: false, barcodeNo: true },
+    stickers: { printHn: true, barcodeNo: false },
+    "stickers-with-bn": { printHn: true, barcodeNo: true },
+    "stickers-without-usn": { printHn: false, barcodeNo: true },
+  };
+
+function isPresentStudent(row: AnyRow): boolean {
+  const v = row?.is_present ?? row?.isPresent;
+  return (
+    v === true || v === 1 || v === "1" || String(v).toLowerCase() === "true"
+  );
+}
+
+const txt = (v: unknown) => (v == null ? "" : String(v).trim());
 
 const escapeHtml = (value: string) =>
   value
@@ -52,31 +70,97 @@ const escapeHtml = (value: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-const barcodeOf = (r: AnyRow) => {
+const barcodeSrc = (r: AnyRow) => {
   const b = txt(r.omr_barcode ?? r.omrBarcode);
-  return b && b !== "-" ? b : "";
+  if (!b || b === "-") return "";
+  if (b.startsWith("data:")) return b;
+  return `data:image/jpg;base64,${b}`;
 };
+
+/** Angular print-barcode-stickers.component */
+const STICKER_STYLES = `
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: #fff !important;
+    color: #000;
+    font-family: arial, sans-serif;
+  }
+  .layout {
+    margin: 0 auto;
+    width: 990px;
+  }
+  #table-print {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed !important;
+  }
+  thead { display: table-header-group; }
+  .header-cell {
+    width: 100%;
+    border: 1px solid #000;
+    padding: 25px 0 9px 0;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 10px !important;
+    font-weight: bold;
+  }
+  .span-1 { font-size: 10px !important; font-weight: bold !important; }
+  tbody tr {
+    margin: 0 4px;
+    display: block;
+  }
+  .sticker-td {
+    margin: auto;
+    float: left;
+    width: 25%;
+    border: none !important;
+    vertical-align: middle !important;
+    padding: 27px 0 9px 0 !important;
+    text-align: center;
+    page-break-inside: avoid;
+  }
+  .sticker-td .top {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 3px;
+    font-size: 12px !important;
+  }
+  .sticker-td img {
+    height: 30px;
+    width: 180px !important;
+    display: block;
+    margin: 0 auto;
+  }
+  .sticker-td .bottom {
+    display: flex;
+    justify-content: center;
+    font-size: 7px;
+    margin-top: 1px;
+  }
+  .empty { text-align: center; font-size: 12px; padding: 24px; }
+  @page { size: A4; margin: 10mm; }
+`;
 
 /** Angular omr-sheets-design.component.scss */
 const OMR_SHEET_STYLES = `
-  h2 { font-weight: bold; margin-bottom: -15px; }
+  h2 { font-weight: bold; margin-bottom: -15px; text-align: center; }
   .sheet { text-align: center !important; margin-bottom: 35px; }
-  h3 { margin-bottom: -15px; }
+  h3 { margin-bottom: -15px; text-align: center; }
   .main-card {
     margin-left: 10px !important;
     border-radius: 0;
     border: 1px solid #d87093;
     margin-right: 2px !important;
-    padding: 4px 0;
   }
   table {
     width: 100%;
-    table-layout: fixed;
     font-family: arial, sans-serif;
-    font-size: 16px !important;
+    font-size: 11px !important;
     border-collapse: collapse;
   }
-  td, th { padding: 8px; }
+  td, th { padding: 3px; }
   th {
     text-align: right;
     width: 26%;
@@ -87,12 +171,9 @@ const OMR_SHEET_STYLES = `
   td {
     text-align: left;
     border: none !important;
-    width: 74%;
   }
   .layout {
-    padding:0.5rem !important;
     margin: 0 auto !important;
-    margin-top: 0 !important;
     width: 990px !important;
   }
   body {
@@ -100,6 +181,13 @@ const OMR_SHEET_STYLES = `
     margin: 0;
     color: #000;
   }
+  .page {
+    height: 1048px;
+    max-height: 1048px !important;
+    overflow: hidden !important;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; }
   .barcode {
     padding: 11px;
     display: flex;
@@ -116,9 +204,7 @@ const OMR_SHEET_STYLES = `
 /** Angular omr-single-page-design — barcode page only */
 const ANSWER_SHEET_STYLES = `
   .layout {
-    padding:5px;
     margin: 0 auto !important;
-    margin-top: 0 !important;
     width: 990px !important;
   }
   body {
@@ -126,52 +212,102 @@ const ANSWER_SHEET_STYLES = `
     margin: 0;
     color: #000;
   }
+  .page {
+    height: 1048px;
+    max-height: 1048px !important;
+    overflow: hidden !important;
+    page-break-after: always;
+  }
+  .page:last-child { page-break-after: auto; }
   @page { margin: 1cm; }
 `;
 
-function printHtmlInIframe(html: string): void {
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
+function firstRow(rows: AnyRow[]): AnyRow {
+  return rows[0] ?? {};
+}
 
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
+/** Angular print-barcode-stickers header (single continuous sticker sheet). */
+function buildStickerDocument(
+  targetRows: AnyRow[],
+  meta: BarcodePrintMeta,
+  printHn: boolean,
+  barcodeNo: boolean,
+): string {
+  if (targetRows.length === 0) {
+    return `<!doctype html><html><head><meta charset="utf-8"><title>Stickers</title><style>${STICKER_STYLES}</style></head><body><p class="empty">No students with barcodes to print.</p></body></html>`;
   }
 
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
+  const head = firstRow(targetRows);
+  const examName = escapeHtml(
+    txt(head.exam_name ?? head.examName ?? meta.examName),
+  );
+  const examDate = escapeHtml(txt(head.exam_date ?? head.examDate));
+  const session = escapeHtml(
+    txt(head.exam_session_name ?? head.examSessionName ?? head.session_name),
+  );
+  const subjectName = escapeHtml(txt(head.subject_name ?? head.subjectName));
+  const subjectCode = escapeHtml(txt(head.subject_code ?? head.subjectCode));
 
-  const cleanup = () => frame.remove();
-  win.addEventListener("afterprint", cleanup);
-  setTimeout(() => {
-    win.focus();
-    win.print();
-    setTimeout(cleanup, 1500);
-  }, 50);
+  const cells = targetRows
+    .map((data) => {
+      const ht = printHn
+        ? escapeHtml(txt(data.hallticket_number ?? data.hallticketNumber))
+        : "";
+      const serial = barcodeNo
+        ? escapeHtml(txt(data.omr_serial_no ?? data.omrSerialNo))
+        : "";
+      const top = [ht, serial].filter(Boolean).join("&nbsp;&nbsp;");
+      const src = barcodeSrc(data);
+      const img = src
+        ? `<img src="${src}" alt="" />`
+        : `<div style="height:30px;width:180px;margin:0 auto;"></div>`;
+      const date = escapeHtml(txt(data.exam_date ?? data.examDate));
+      const code = escapeHtml(txt(data.subject_code ?? data.subjectCode));
+      return `
+        <td class="sticker-td">
+          <span class="top">${top}</span>
+          ${img}
+          <span class="bottom">${date}&nbsp;&nbsp;${code}</span>
+        </td>
+      `;
+    })
+    .join("");
+
+  const body = `
+    <div class="layout">
+      <table id="table-print">
+        <thead>
+          <tr>
+            <td class="header-cell">
+              <span class="span-1">${examName}</span><br>
+              <span>${escapeHtml(meta.collegeCode)} | ${escapeHtml(meta.academicYear)} | ${escapeHtml(meta.courseCode)} | ${escapeHtml(meta.courseGroupCode)} | ${escapeHtml(meta.courseYear)}</span><br>
+              <span>${examDate}</span>&nbsp;<span>${session}</span><br>
+              <span>${subjectName}-(${subjectCode})</span>
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>${cells}</tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${examName || "Stickers"}</title><style>${STICKER_STYLES}</style></head><body>${body}</body></html>`;
 }
 
 function omrSheetSection(
   data: AnyRow,
-  examName: string,
   collegeName: string,
-  bulk: boolean,
+  examNameFallback: string,
 ): string {
-  const pageStyle = bulk
-    ? "height:1048px; max-height:1048px !important; overflow:auto !important;"
-    : "";
-  const barcode = barcodeOf(data);
-  const barcodeImg = barcode
-    ? `<img src="data:image/jpg;base64,${barcode}" style="height:30px; width:382px !important;" alt="" />`
+  const src = barcodeSrc(data);
+  const barcodeImg = src
+    ? `<img src="${src}" style="height:30px; width:382px !important;" alt="" />`
     : "";
 
   const rows: Array<[string, string]> = [
-    ["Examination :", txt(data.exam_name ?? examName)],
+    ["Examination :", txt(data.exam_name ?? data.examName ?? examNameFallback)],
     [
       "Hall Ticket Number :",
       txt(data.hallticket_number ?? data.hallticketNumber),
@@ -199,41 +335,35 @@ function omrSheetSection(
     .join("");
 
   return `
-    <div class="layout">
-      <div id="printsection" class="page-layout simple" style="${pageStyle}">
-        <div class="sheet">
-          <h3><b>ANSWER SHEET</b></h3>
-        </div>
-        <div class="main-card">
-          <table>${tableRows}</table>
-        </div>
-        <div class="barcode">
-          <div style="padding:5px; margin-left:20px; font-size:16px !important;">
-            <p style="padding-bottom:8px; margin-left:10px !important; margin-top:0; margin-bottom:0;">${escapeHtml(txt(data.omr_serial_no ?? data.omrSerialNo))}</p>
-            ${barcodeImg}
-          </div>
+    <div class="page">
+      <div class="sheet">
+        <h2>${escapeHtml(collegeName)}</h2>
+        <h3><b>ANSWER SHEET</b></h3>
+      </div>
+      <div class="main-card">
+        <table>${tableRows}</table>
+      </div>
+      <div class="barcode">
+        <div style="margin-left:20px; font-size:11px !important;">
+          <p style="margin-left:10px !important;">${escapeHtml(txt(data.omr_serial_no ?? data.omrSerialNo))}</p>
+          ${barcodeImg}
         </div>
       </div>
     </div>
   `;
 }
 
-function answerSheetSection(data: AnyRow, bulk: boolean): string {
-  const pageStyle = bulk
-    ? "height:1048px; max-height:1048px !important; overflow:auto !important;"
-    : "";
-  const barcode = barcodeOf(data);
-  const barcodeImg = barcode
-    ? `<img src="data:image/jpg;base64,${barcode}" style="height:50px; width:420px !important;" alt="" />`
+function answerSheetSection(data: AnyRow): string {
+  const src = barcodeSrc(data);
+  const barcodeImg = src
+    ? `<img src="${src}" style="height:40px; width:400px !important;" alt="" />`
     : "";
 
   return `
-    <div class="layout">
-      <div id="printsection" class="page-layout simple" style="${pageStyle}">
-        <div style="text-align:center; margin-left:20px; font-size:16px !important;">
-          ${barcodeImg}
-          <p style="text-align:center; margin:0;">${escapeHtml(txt(data.omr_serial_no ?? data.omrSerialNo))}</p>
-        </div>
+    <div class="page">
+      <div style="text-align:center; margin-left:20px; font-size:11px !important;">
+        ${barcodeImg}
+        <p style="text-align:center; margin:0; display:flex; justify-content:center;">${escapeHtml(txt(data.omr_serial_no ?? data.omrSerialNo))}</p>
       </div>
     </div>
   `;
@@ -241,48 +371,63 @@ function answerSheetSection(data: AnyRow, bulk: boolean): string {
 
 function buildOmrDocument(
   targetRows: AnyRow[],
-  examName: string,
-  collegeName: string,
+  meta: BarcodePrintMeta,
 ): string {
-  const bulk = targetRows.length > 1;
   const body = targetRows
-    .map((row) => omrSheetSection(row, examName, collegeName, bulk))
+    .map((row) => omrSheetSection(row, meta.collegeName, meta.examName))
     .join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(collegeName || "Answer Sheet")}</title><style>${OMR_SHEET_STYLES}</style></head><body>${body}</body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(meta.collegeName || "Answer Sheet")}</title><style>${OMR_SHEET_STYLES}</style></head><body><div class="layout">${body}</div></body></html>`;
 }
 
 function buildAnswerDocument(targetRows: AnyRow[]): string {
-  const bulk = targetRows.length > 1;
-  const body = targetRows.map((row) => answerSheetSection(row, bulk)).join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Answer Page</title><style>${ANSWER_SHEET_STYLES}</style></head><body>${body}</body></html>`;
+  const body = targetRows.map((row) => answerSheetSection(row)).join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Answer Page</title><style>${ANSWER_SHEET_STYLES}</style></head><body><div class="layout">${body}</div></body></html>`;
 }
 
 export function useBarcodeStickerPrint(
   rows: AnyRow[],
-  examName: string,
-  collegeName?: string,
+  meta: BarcodePrintMeta,
 ): {
-  printMode: BarcodePrintMode | null;
   printButton: ReactNode;
-  printView: ReactNode;
   printOmrFor: (row: AnyRow) => void;
   printAnswerFor: (row: AnyRow) => void;
 } {
-  const { mode: printMode, triggerPrint } = usePrintMode<BarcodePrintMode>();
-  const college = collegeName ?? "";
-
   const printOmrSheets = useCallback(
     (targetRows: AnyRow[]) => {
-      if (targetRows.length === 0) return;
-      printHtmlInIframe(buildOmrDocument(targetRows, examName, college));
+      if (targetRows.length === 0) {
+        toast.info("No students to print.");
+        return;
+      }
+      printHtmlInIframe(buildOmrDocument(targetRows, meta));
     },
-    [examName, college],
+    [meta],
   );
 
   const printAnswerSheets = useCallback((targetRows: AnyRow[]) => {
-    if (targetRows.length === 0) return;
+    if (targetRows.length === 0) {
+      toast.info("No students to print.");
+      return;
+    }
     printHtmlInIframe(buildAnswerDocument(targetRows));
   }, []);
+
+  const printStickers = useCallback(
+    (mode: keyof typeof STICKER_FLAGS, targetRows: AnyRow[]) => {
+      if (targetRows.length === 0) {
+        toast.info(
+          mode === "presence-barcode"
+            ? "No present students with barcodes to print."
+            : "No students with barcodes to print.",
+        );
+        return;
+      }
+      const flags = STICKER_FLAGS[mode];
+      printHtmlInIframe(
+        buildStickerDocument(targetRows, meta, flags.printHn, flags.barcodeNo),
+      );
+    },
+    [meta],
+  );
 
   const startBulk = useCallback(
     (mode: BarcodePrintMode) => {
@@ -294,9 +439,11 @@ export function useBarcodeStickerPrint(
         printAnswerSheets(rows);
         return;
       }
-      triggerPrint(mode);
+      const stickerRows =
+        mode === "presence-barcode" ? rows.filter(isPresentStudent) : rows;
+      printStickers(mode, stickerRows);
     },
-    [rows, printOmrSheets, printAnswerSheets, triggerPrint],
+    [rows, printOmrSheets, printAnswerSheets, printStickers],
   );
 
   const printOmrFor = useCallback(
@@ -331,6 +478,12 @@ export function useBarcodeStickerPrint(
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuItem
           className="text-[12px]"
+          onClick={() => startBulk("presence-barcode")}
+        >
+          Print Presence Barcode
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-[12px]"
           onClick={() => startBulk("stickers")}
         >
           Print Stickers
@@ -363,157 +516,5 @@ export function useBarcodeStickerPrint(
     </DropdownMenu>
   );
 
-  function StickerCell({
-    data,
-    showHallticket,
-    showSerial,
-  }: {
-    data: AnyRow;
-    showHallticket: boolean;
-    showSerial: boolean;
-  }) {
-    return (
-      <div
-        style={{
-          width: "25%",
-          boxSizing: "border-box",
-          padding: "27px 0 9px 0",
-          textAlign: "center",
-          float: "left",
-          pageBreakInside: "avoid",
-          breakInside: "avoid",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "-3px",
-            fontSize: "12px",
-          }}
-        >
-          {showHallticket ? (
-            <span>{txt(data.hallticket_number ?? data.hallticketNumber)}</span>
-          ) : null}
-          {showSerial && txt(data.omr_serial_no ?? data.omrSerialNo) ? (
-            <>
-              &nbsp;&nbsp;
-              <span>{txt(data.omr_serial_no ?? data.omrSerialNo)}</span>
-            </>
-          ) : null}
-        </div>
-        {barcodeOf(data) ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`data:image/jpg;base64,${barcodeOf(data)}`}
-            style={{ height: "30px", width: "180px" }}
-            alt=""
-          />
-        ) : null}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            fontSize: "7px",
-            marginTop: "1px",
-          }}
-        >
-          {txt(data.exam_date ?? data.examDate)} &nbsp;&nbsp;{" "}
-          {txt(data.subject_code ?? data.subjectCode)}
-        </div>
-      </div>
-    );
-  }
-
-  function StickerHeader({ row }: { row: AnyRow }) {
-    return (
-      <div
-        style={{
-          border: "1px solid #000",
-          padding: "25px 0 9px 0",
-          textAlign: "center",
-          fontSize: "10px",
-          fontWeight: "bold",
-          marginBottom: "8px",
-          pageBreakAfter: "avoid",
-          breakAfter: "avoid",
-        }}
-      >
-        <div style={{ fontSize: "10px", fontWeight: "bold" }}>
-          {row?.exam_name ?? examName}
-        </div>
-        <div>|{row?.university_code ?? "—"}|</div>
-        <div>
-          <span>{txt(row?.exam_date)}</span> &nbsp;
-          <span>{txt(row?.exam_session_name ?? row?.session_name)}</span>
-        </div>
-        <div>
-          <span>Room: {row?.room_name ?? "—"}</span>
-          {row?.subject_code ? (
-            <>
-              {" "}
-              | <span>Subject: {row.subject_code}</span>
-            </>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  let printView: ReactNode = null;
-
-  if (printMode && printMode in STICKER_FLAGS) {
-    const { showHallticket, showSerial } = STICKER_FLAGS[printMode];
-    const byRoom = new Map<string, AnyRow[]>();
-    for (const s of rows) {
-      const key = String(s.room_id ?? s.room_name ?? "all");
-      if (!byRoom.has(key)) byRoom.set(key, []);
-      byRoom.get(key)!.push(s);
-    }
-    const groups = Array.from(byRoom.values());
-    printView = (
-      <div
-        data-print-root
-        className="text-black"
-        style={{
-          fontFamily: "Times New Roman, Times, serif",
-          padding: "20px",
-          maxWidth: "990px",
-          margin: "0 auto",
-          backgroundColor: "#fff",
-        }}
-      >
-        {groups.length === 0 || rows.length === 0 ? (
-          <p className="text-[11px] text-center py-6">
-            No students with barcodes to print.
-          </p>
-        ) : (
-          groups.map((groupStudents, gi) => {
-            const head = groupStudents[0];
-            return (
-              <div
-                key={`stk-${gi}`}
-                className={gi > 0 ? "page-break" : ""}
-                style={{ marginBottom: "20px" }}
-              >
-                <StickerHeader row={head} />
-                <div style={{ overflow: "auto", margin: "0 4px" }}>
-                  {groupStudents.map((stu, ci) => (
-                    <StickerCell
-                      key={`stk-${gi}-${ci}`}
-                      data={stu}
-                      showHallticket={showHallticket}
-                      showSerial={showSerial}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    );
-  }
-
-  return { printMode, printButton, printView, printOmrFor, printAnswerFor };
+  return { printButton, printOmrFor, printAnswerFor };
 }

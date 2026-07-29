@@ -1717,6 +1717,38 @@ export async function getEvaluatorSubjectRolesSubjects(params: {
   );
 }
 
+/** Angular assign-evaluator-subjectroles getEvaluationCenters() → getExamCenterFiltersUrl */
+export async function listExamEvaluationCenters(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_center_filters",
+    {
+      in_flag: "exam_evaluation_center",
+      in_univ_examcenter_id: 0,
+      in_exam_group_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_academic_year_id: 0,
+      in_exam_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_university_id: 0,
+      in_exam_date: "1900-01-01",
+      in_questionpaper_code: "",
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_id: 0,
+      in_loginuser_roleid: 0,
+      in_param1: 0,
+      in_param2: "",
+    },
+  );
+  const groups = data?.result ?? [];
+  return Array.isArray(groups[0]) ? groups[0] : [];
+}
+
 /**
  * Post-save "map evaluators" side effects fired by the Angular subject-roles
  * submit(): populate the profile→employee mapping, then set up exam committees.

@@ -166,8 +166,9 @@ export default function HostelVisitorPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search visitors…",
-        exportPdf: true,
+        exportPdf: false,
         pdfDocumentTitle: "Hostel Visitor",
+        exportExcel: false,
       }}
       toolbarTrailing={
         <Button

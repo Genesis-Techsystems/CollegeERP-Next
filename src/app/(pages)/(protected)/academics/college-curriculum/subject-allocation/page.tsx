@@ -48,46 +48,51 @@ type ViewModalState = { open: boolean; row: AnyRow | null; rows: AnyRow[] };
  * keep regs for selected course group, then unique by regulationId.
  */
 function removeDuplicateRegulations(arr: AnyRow[], groupId: number): AnyRow[] {
-  const forGroup = arr.filter((x) => num(x.courseGroupId ?? x.fk_course_group_id) === groupId)
-  const unique: AnyRow[] = []
+  const forGroup = arr.filter(
+    (x) => num(x.courseGroupId ?? x.fk_course_group_id) === groupId,
+  );
+  const unique: AnyRow[] = [];
   for (const item of forGroup) {
-    const rid = num(item.regulationId ?? item.fk_regulation_id)
-    if (!rid) continue
-    if (unique.some((u) => num(u.regulationId ?? u.fk_regulation_id) === rid)) continue
-    unique.push(item)
+    const rid = num(item.regulationId ?? item.fk_regulation_id);
+    if (!rid) continue;
+    if (unique.some((u) => num(u.regulationId ?? u.fk_regulation_id) === rid))
+      continue;
+    unique.push(item);
   }
-  return unique
+  return unique;
 }
 
 function normalizeCourseYearRow(r: AnyRow, courseGroupId: number): AnyRow {
-  const raw = Array.isArray(r.subjectregulations) ? (r.subjectregulations as AnyRow[]) : []
-  const regs = removeDuplicateRegulations(raw, courseGroupId)
+  const raw = Array.isArray(r.subjectregulations)
+    ? (r.subjectregulations as AnyRow[])
+    : [];
+  const regs = removeDuplicateRegulations(raw, courseGroupId);
   return {
     ...r,
     subjectregulations: regs,
-    academicYear: regs[0]?.academicYear ?? '',
-  }
+    academicYear: regs[0]?.academicYear ?? "",
+  };
 }
 
 function regulationRenderer(p: ICellRendererParams<AnyRow>) {
   const regs = Array.isArray(p.data?.subjectregulations)
     ? (p.data.subjectregulations as AnyRow[])
-    : []
-  if (regs.length === 0) return null
+    : [];
+  if (regs.length === 0) return null;
   return (
     <div className="flex flex-col gap-0.5 py-1 leading-tight">
       {regs.map((item, i) => {
-        const code = text(item.regulationCode)
-        if (!code) return null
-        const key = num(item.regulationId) || `${code}-${i}`
+        const code = text(item.regulationCode);
+        if (!code) return null;
+        const key = num(item.regulationId) || `${code}-${i}`;
         return (
           <span key={key} className="block text-sm">
             {code}
           </span>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
 
 function makeActionsRenderer(
@@ -368,7 +373,8 @@ export default function SubjectAllocationPage() {
         valueGetter: (p) =>
           (Array.isArray(p.data?.subjectregulations)
             ? (p.data.subjectregulations as AnyRow[])
-            : [])
+            : []
+          )
             .map((x) => text(x.regulationCode))
             .filter(Boolean)
             .join(" "),
@@ -380,8 +386,8 @@ export default function SubjectAllocationPage() {
         valueGetter: (p) => {
           const regs = Array.isArray(p.data?.subjectregulations)
             ? (p.data.subjectregulations as AnyRow[])
-            : []
-          return text(regs[0]?.academicYear ?? p.data?.academicYear)
+            : [];
+          return text(regs[0]?.academicYear ?? p.data?.academicYear);
         },
       },
       {
@@ -458,14 +464,18 @@ export default function SubjectAllocationPage() {
   return (
     <>
       <FilteredListPage
-        title="Assign Course Year Subjects"
-        notice={courseYears.length > 0 ? (
-          <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
-            <strong className="font-medium text-primary">Assign Course Year Subjects</strong>
-            <div className="font-medium text-muted-foreground">{summary}</div>
-          </div>
-        ) : undefined}
-        filters={(
+        title="Assign Semester Subjects"
+        notice={
+          courseYears.length > 0 ? (
+            <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
+              <strong className="font-medium text-primary">
+                Assign Course Year Subjects
+              </strong>
+              <div className="font-medium text-muted-foreground">{summary}</div>
+            </div>
+          ) : undefined
+        }
+        filters={
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <Select
               label="University"
@@ -522,7 +532,7 @@ export default function SubjectAllocationPage() {
               disabled={!courseGroupId}
             />
           </div>
-        )}
+        }
         rowData={courseYears}
         columnDefs={columnDefs}
         loading={loading}

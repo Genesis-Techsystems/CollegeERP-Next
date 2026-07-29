@@ -491,10 +491,14 @@ export default function InvigilatorAllotmentPage() {
   }
 
   async function onAutoAssign() {
-    if (!examTimetableId) return;
+    if (!examTimetableId || !examId) return;
     setAutoAssigning(true);
     try {
-      await autoAssignInvigilators(examTimetableId);
+      await autoAssignInvigilators({
+        examTimetableId,
+        examId,
+        userId: employeeId,
+      });
       await refreshAllotments();
       alert("Invigilators auto-assigned successfully");
     } catch (e: any) {
