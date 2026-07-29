@@ -2225,6 +2225,8 @@ export const EVENTS_API = {
   NOTIFICATIONS: "notifications",
   /** Angular `notificationbyaudienceUrl` */
   NOTIFICATIONBYAUDIENCE: "notificationbyaudience",
+  /** Angular `notificationUploadUrl` */
+  NOTIFICATION_UPLOAD: "notificationupload",
   /** Angular `eventCrudUrl` */
   EVENT: "Event",
 } as const;

@@ -84,19 +84,19 @@ function makeActionsRenderer(
     if (searchMode === "book") qs.set("check", "1");
     if (searchMode === "all") qs.set("check", "2");
     return (
-      <div className="flex min-h-[3rem] flex-wrap items-center gap-x-2 gap-y-1 py-2 text-[12px] leading-snug">
+      <div className="flex items-center gap-2 whitespace-nowrap py-1 text-[12px]">
         <Link
           href={`/library/add-more-books?${qs}`}
-          className="shrink-0 whitespace-nowrap text-primary hover:underline"
+          className="text-primary hover:underline"
         >
           Add More Books
         </Link>
-        <span className="shrink-0 text-muted-foreground" aria-hidden>
+        <span className="text-muted-foreground" aria-hidden>
           |
         </span>
         <Link
           href={`/library/book-details?${qs}`}
-          className="shrink-0 whitespace-nowrap text-primary hover:underline"
+          className="text-primary hover:underline"
         >
           Book Details
         </Link>
@@ -394,7 +394,7 @@ export function BooksPage() {
     setGeneratingBarcode(true);
     try {
       await generateBooksBarcode();
-      toastSuccess("Book barcodes generated");
+      toastSuccess("Book barcode generated successfully");
     } catch (e) {
       toastError(e, "Could not generate book barcodes");
     } finally {
@@ -437,11 +437,9 @@ export function BooksPage() {
       },
       {
         headerName: "Actions",
-        minWidth: 220,
-        width: 220,
+        minWidth: 260,
+        width: 260,
         flex: 0,
-        autoHeight: true,
-        wrapText: true,
         sortable: false,
         cellRenderer: makeActionsRenderer(
           collegeId,

@@ -619,7 +619,17 @@ export function mapNotificationsAnnouncementsNavRoute(
     }
   }
 
-  if (hrefLower.includes("principal-communications/notifications")) {
+  // Angular Communications → Notifications
+  // `#/principal-communications/announcements` and
+  // `#/principal-communications/notifications/send-notifications`
+  // both load EmployeeNotificationsAndAnnouncementsModule.
+  if (
+    hrefLower.includes("principal-communications/announcements") ||
+    hrefLower.includes("principal-communications/notifications")
+  ) {
+    if (hrefLower.includes("add-notification")) {
+      return `${NOTIFICATIONS_ANNOUNCEMENTS_BASE}/add-notification`;
+    }
     return `${NOTIFICATIONS_ANNOUNCEMENTS_BASE}/employee-inbox`;
   }
 
@@ -753,6 +763,9 @@ const DIGITAL_LIBRARY_SLUGS: Record<string, string> = {
   viewcoursecontent: "view-course-content",
   "upload-course-content": "upload-course-content",
   uploadcoursecontent: "upload-course-content",
+  // Angular staff portal uses "Upload Program Content" label → same route
+  "upload-program-content": "upload-course-content",
+  uploadprogramcontent: "upload-course-content",
 };
 
 /** Paths that contain `library/` but are Digital Library / knowledge-store, not book Library. */
@@ -780,7 +793,12 @@ export function mapDigitalLibraryLabelToRoute(label?: string): string | null {
   if (key.includes("viewcoursecontent") || key.includes("viewcourse")) {
     return `${DIGITAL_LIBRARY_BASE}/view-course-content`;
   }
-  if (key.includes("uploadcoursecontent") || key.includes("uploadcourse")) {
+  if (
+    key.includes("uploadcoursecontent") ||
+    key.includes("uploadcourse") ||
+    key.includes("uploadprogramcontent") ||
+    key.includes("uploadprogram")
+  ) {
     return `${DIGITAL_LIBRARY_BASE}/upload-course-content`;
   }
   return null;
@@ -809,6 +827,27 @@ export function mapDigitalLibraryNavRoute(
     mapModuleTail(
       hrefRaw,
       "knowledge-store/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "staff-digital-library/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "student-digital-library/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "employee-digital-library/",
       DIGITAL_LIBRARY_BASE,
       DIGITAL_LIBRARY_SLUGS,
       "manage-course-content",

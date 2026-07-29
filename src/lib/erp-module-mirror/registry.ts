@@ -1010,10 +1010,10 @@ export const EVENTS_MODULE: ErpModuleMirrorConfig = {
       "Student events calendar.",
       "transaction",
     ),
-    r("staff-events", "Staff Events", "Staff events calendar.", "transaction"),
+    r("staff-events", "Events Calendar", "Staff events calendar.", "transaction"),
     r(
       "school-calendar",
-      "School Calendar",
+      "Faculty Calendar",
       "School holidays calendar.",
       "transaction",
     ),

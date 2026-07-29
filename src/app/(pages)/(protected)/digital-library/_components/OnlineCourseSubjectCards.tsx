@@ -39,13 +39,8 @@ export function OnlineCourseSubjectCards({
   if (subjects.length === 0) return null;
 
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card",
-        className,
-      )}
-    >
-      <p className="m-0 border-b-2 border-[#ffcf46] bg-white px-3 py-2 text-[19px] font-semibold">
+    <div className={cn(className)}>
+      <p className="m-0 bg-white px-3 py-2 text-[19px] font-semibold">
         <span className="text-blue-600"> Upload</span> Video Class
       </p>
       <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">

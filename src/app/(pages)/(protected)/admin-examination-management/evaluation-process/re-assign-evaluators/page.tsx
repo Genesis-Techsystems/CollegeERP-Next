@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { FilteredPage } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Button } from '@/components/ui/button'
 import { SearchInput } from '@/common/components/search'
@@ -384,7 +384,7 @@ export default function ReAssignEvaluatorsPage() {
   const summary = summaryRows[0] ?? {}
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Re-Assign Evaluator"
       filters={(
         <GlobalFilterBarRow>
@@ -417,96 +417,105 @@ export default function ReAssignEvaluatorsPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       )}
-    >
-      {showPanel && (
-        <div className="app-card p-3 space-y-3">
-          {errorMsg && <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">{errorMsg}</div>}
-          <p className="text-[12px] font-semibold">
-            UnAssigned: <span className="text-red-600">{num(summary.UnAssinged)}</span> | Total Students: <span className="text-red-600">{num(summary.totalStudents)}</span> | Selected Serials: <span className="text-red-600">{selectedAssignmentIds.length}</span>
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <div className="md:col-span-3 rounded border p-2">
-              <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Assigned Evaluator Names</h3>
-              <SearchInput value={searchSource} onChange={setSearchSource} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
-              <Select
-                value={sourceEvaluatorId ? String(sourceEvaluatorId) : null}
-                onChange={(v) => onSourceEvaluatorChange(num(v))}
-                options={sourceEvaluatorOptions}
-                placeholder="Evaluator Name"
-                searchable
-              />
-            </div>
-
-            <div className="md:col-span-4 rounded border p-2">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <SearchInput value={searchOmr} onChange={setSearchOmr} placeholder="Search OMR…" className="min-w-0 w-full max-w-sm" />
-                <span className="shrink-0 text-[12px] font-semibold text-blue-700">Serial No: {selectedAssignmentIds.length}</span>
+      body={
+        showPanel ? (
+          <div className="space-y-3">
+            {errorMsg && (
+              <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
+                {errorMsg}
               </div>
-              <div className="max-h-[340px] overflow-auto border rounded">
-                <table className="w-full text-[12px]">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="px-2 py-1 text-left w-[20%]">
-                        <label className="inline-flex items-center gap-2">
-                          <input type="checkbox" checked={checkAllOmr} onChange={(e) => toggleAllOmr(e.target.checked)} />
-                          <span>All</span>
-                        </label>
-                      </th>
-                      <th className="px-2 py-1 text-left">Serial No</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOmrRows.length === 0 ? (
+            )}
+            <p className="text-[12px] font-semibold">
+              UnAssigned: <span className="text-red-600">{num(summary.UnAssinged)}</span>
+              {' '}| Total Students: <span className="text-red-600">{num(summary.totalStudents)}</span>
+              {' '}| Selected Serials: <span className="text-red-600">{selectedAssignmentIds.length}</span>
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="md:col-span-3 rounded border p-2">
+                <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Assigned Evaluator Names</h3>
+                <SearchInput value={searchSource} onChange={setSearchSource} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
+                <Select
+                  value={sourceEvaluatorId ? String(sourceEvaluatorId) : null}
+                  onChange={(v) => onSourceEvaluatorChange(num(v))}
+                  options={sourceEvaluatorOptions}
+                  placeholder="Evaluator Name"
+                  searchable
+                />
+              </div>
+
+              <div className="md:col-span-4 rounded border p-2">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <SearchInput value={searchOmr} onChange={setSearchOmr} placeholder="Search OMR…" className="min-w-0 w-full max-w-sm" />
+                  <span className="shrink-0 text-[12px] font-semibold text-blue-700">Serial No: {selectedAssignmentIds.length}</span>
+                </div>
+                <div className="max-h-[340px] overflow-auto border rounded">
+                  <table className="w-full text-[12px]">
+                    <thead className="bg-muted/40">
                       <tr>
-                        <td colSpan={2} className="px-2 py-6 text-center text-muted-foreground text-[12px]">
-                          {sourceEvaluatorId
-                            ? 'No OMR serials for this evaluator.'
-                            : 'Select an assigned evaluator to load serials.'}
-                        </td>
+                        <th className="px-2 py-1 text-left w-[20%]">
+                          <label className="inline-flex items-center gap-2">
+                            <input type="checkbox" checked={checkAllOmr} onChange={(e) => toggleAllOmr(e.target.checked)} />
+                            <span>All</span>
+                          </label>
+                        </th>
+                        <th className="px-2 py-1 text-left">Serial No</th>
                       </tr>
-                    ) : (
-                      filteredOmrRows.map((r, i) => {
-                        const assignmentId = assignmentIdOf(r)
-                        const checked = selectedAssignmentIds.includes(assignmentId)
-                        return (
-                          <tr key={`${assignmentId}-${txt(r.omr_serial_no)}-${i}`} className="border-t">
-                            <td className="px-2 py-1">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={!assignmentId}
-                                onChange={(e) => toggleOmr(assignmentId, e.target.checked)}
-                              />
-                            </td>
-                            <td className="px-2 py-1">{txt(r.omr_serial_no)} ({txt(r.evaluationstatus) || '-'})</td>
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredOmrRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={2} className="px-2 py-6 text-center text-muted-foreground text-[12px]">
+                            {sourceEvaluatorId
+                              ? 'No OMR serials for this evaluator.'
+                              : 'Select an assigned evaluator to load serials.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredOmrRows.map((r, i) => {
+                          const assignmentId = assignmentIdOf(r)
+                          const checked = selectedAssignmentIds.includes(assignmentId)
+                          return (
+                            <tr key={`${assignmentId}-${txt(r.omr_serial_no)}-${i}`} className="border-t">
+                              <td className="px-2 py-1">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={!assignmentId}
+                                  onChange={(e) => toggleOmr(assignmentId, e.target.checked)}
+                                />
+                              </td>
+                              <td className="px-2 py-1">{txt(r.omr_serial_no)} ({txt(r.evaluationstatus) || '-'})</td>
+                            </tr>
+                          )
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
 
-            <div className="md:col-span-3 rounded border p-2">
-              <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Re-Assign Evaluator Names</h3>
-              <SearchInput value={searchTarget} onChange={setSearchTarget} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
-              <Select
-                value={String(targetEvaluatorId)}
-                onChange={(v) => setTargetEvaluatorId(num(v))}
-                options={targetEvaluatorOptions}
-                placeholder="Evaluator Name"
-                searchable
-              />
-            </div>
+              <div className="md:col-span-3 rounded border p-2">
+                <h3 className="text-[13px] font-semibold text-blue-700 mb-2">Re-Assign Evaluator Names</h3>
+                <SearchInput value={searchTarget} onChange={setSearchTarget} placeholder="Search names…" className="mb-2 w-full max-w-sm" />
+                <Select
+                  value={String(targetEvaluatorId)}
+                  onChange={(v) => setTargetEvaluatorId(num(v))}
+                  options={targetEvaluatorOptions}
+                  placeholder="Evaluator Name"
+                  searchable
+                />
+              </div>
 
-            <div className="md:col-span-2 flex items-end justify-end">
-              <Button type="button" onClick={assign} disabled={loading || selectedAssignmentIds.length === 0}>Assign</Button>
+              <div className="md:col-span-2 flex items-end justify-end">
+                <Button type="button" onClick={assign} disabled={loading || selectedAssignmentIds.length === 0}>
+                  Assign
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </FilteredPage>
+        ) : null
+      }
+    />
   )
 }
 

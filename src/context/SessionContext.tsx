@@ -29,6 +29,7 @@ function syncUserToLocalStorage(user: SessionUser): void {
     ["organizationId", user.organizationId],
     // Angular login: localStorage.orgCode = organizationCode
     ["orgCode", user.organizationCode],
+    ["universityId", user.universityId],
     ["universityCode", user.universityCode],
     ["collegeId", user.collegeId],
     ["collegeName", user.collegeName],

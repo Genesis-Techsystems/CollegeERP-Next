@@ -571,6 +571,9 @@ export async function getExamCenterFilterGroups(args: {
   univExamcenterId?: number;
   examGroupId?: number;
   academicYearId?: number;
+  /** Session / Angular localStorage universityId — required for non-admin (e.g. Scan Admin) roles. */
+  universityId?: number;
+  collegeId?: number;
   examDate?: string;
   questionPaperCode?: string;
 }): Promise<AnyRow[][]> {
@@ -581,7 +584,7 @@ export async function getExamCenterFilterGroups(args: {
       in_flag_type: args.flagType ?? "REGSUP",
       in_univ_examcenter_id: args.univExamcenterId ?? 0,
       in_exam_group_id: args.examGroupId ?? 0,
-      in_college_id: 0,
+      in_college_id: args.collegeId ?? 0,
       in_course_id: 0,
       in_course_group_id: 0,
       in_course_year_id: 0,
@@ -589,11 +592,14 @@ export async function getExamCenterFilterGroups(args: {
       in_exam_id: 0,
       in_regulation_id: 0,
       in_subject_id: 0,
-      in_university_id: 0,
+      in_university_id: args.universityId ?? 0,
       in_exam_date: args.examDate ?? "1900-01-01",
       in_questionpaper_code: args.questionPaperCode ?? "",
     },
-  );
+  ).catch((error: unknown) => {
+    if (isNoRecordsProcError(error)) return { result: [] };
+    throw error;
+  });
   const raw = data?.result;
   if (!Array.isArray(raw)) return [];
   return raw.map((g) =>
@@ -603,6 +609,15 @@ export async function getExamCenterFilterGroups(args: {
         ? [g as AnyRow]
         : [],
   );
+}
+
+/** Pick eg_ay_filter rows; fall back to first non-empty group (Scan Admin responses). */
+export function pickEgAyFilterRows(groups: AnyRow[][]): AnyRow[] {
+  const byFlag = groups.find(
+    (g) => g.length > 0 && String(g[0]?.flag ?? "") === "eg_ay_filter",
+  );
+  if (byFlag?.length) return byFlag;
+  return groups.find((g) => g.length > 0) ?? [];
 }
 
 /** PUT examstudentdetails — Angular `update1(examStudentDetailsUrl, rows)`. */
