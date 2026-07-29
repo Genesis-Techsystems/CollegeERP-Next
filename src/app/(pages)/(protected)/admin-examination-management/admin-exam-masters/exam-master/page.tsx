@@ -35,6 +35,17 @@ import ExamMasterModal from "./ExamMasterModal";
 import { StatusBadge } from "@/common/components/data-display";
 import { FilteredListPage } from "@/components/layout";
 
+function filterCode(
+  row: CollegeWiseFilterRow,
+  keys: string[],
+): string {
+  for (const key of keys) {
+    const value = row[key];
+    if (value != null && String(value).trim() !== "") return String(value);
+  }
+  return "";
+}
+
 export default function ExamMasterPage() {
   const router = useRouter();
   const { user } = useSessionContext();
@@ -511,7 +522,10 @@ export default function ExamMasterPage() {
                 onChange={(v) => v && handleUniversityChange(Number(v))}
                 options={universities.map((u) => ({
                   value: String(u.fk_university_id),
-                  label: u.university_name ?? "",
+                  label: filterCode(u, [
+                    "university_code",
+                    "universityCode",
+                  ]),
                 }))}
                 placeholder="All universities"
                 disabled={loadingFilters}
@@ -527,7 +541,7 @@ export default function ExamMasterPage() {
                 onChange={(v) => v && handleCourseChange(Number(v))}
                 options={courses.map((c) => ({
                   value: String(c.fk_course_id),
-                  label: c.course_name ?? "",
+                  label: filterCode(c, ["course_code", "courseCode"]),
                 }))}
                 placeholder="All courses"
                 disabled={courses.length === 0}
@@ -560,7 +574,7 @@ export default function ExamMasterPage() {
                   onChange={(v) => v && handleCollegeChange(Number(v))}
                   options={colleges.map((c) => ({
                     value: String(c.fk_college_id),
-                    label: c.college_name ?? "",
+                    label: filterCode(c, ["college_code", "collegeCode"]),
                   }))}
                   placeholder="All colleges"
                   disabled={colleges.length === 0}

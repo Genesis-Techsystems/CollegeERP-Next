@@ -16,7 +16,7 @@ import { toastError, toastSuccess } from '@/lib/toast'
 import { getGeneralDetails } from '@/services/exam-master'
 import {
   createUnivEcProfile,
-  listAllActiveUnivEcProfiles,
+  listAllUnivEcProfiles,
   pickUnivEcProfileId,
   updateUnivEcProfile,
   type AnyRow,
@@ -152,7 +152,7 @@ export default function ExamScanProfilePage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const list = await listAllActiveUnivEcProfiles()
+      const list = await listAllUnivEcProfiles()
       setRows(Array.isArray(list) ? list : [])
     } catch (e) {
       toastError(e, 'Failed to load exam scan profiles')

@@ -15,6 +15,7 @@ import {
   clearExamFormsPrintPayload,
   EXAM_FORMS_RETURN_HREF,
   loadExamFormsPrintPayload,
+  saveReturnStateFromPrintPayload,
   type ExamFormsPrintPayload,
   type ExamFormsPrintVariant,
 } from "../_print/store";
@@ -63,6 +64,7 @@ function HtmlFormPrintPage({
   }, [payload, meta, buildDocument]);
 
   function goBack() {
+    if (payload) saveReturnStateFromPrintPayload(payload);
     clearExamFormsPrintPayload();
     router.push(EXAM_FORMS_RETURN_HREF);
   }
