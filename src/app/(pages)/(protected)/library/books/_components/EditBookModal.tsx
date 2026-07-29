@@ -279,6 +279,7 @@ export function EditBookModal({
           </Label>
           <Input
             className={LIBRARY_INPUT_CLASS}
+            placeholder="Book Title"
             {...register("title")}
             disabled={loadingBook}
           />
@@ -331,6 +332,7 @@ export function EditBookModal({
           <Input
             className={LIBRARY_INPUT_CLASS}
             type="number"
+            placeholder="No of pages"
             {...register("noOfPages")}
           />
         </div>
@@ -341,23 +343,36 @@ export function EditBookModal({
           </Label>
           <Input
             className={LIBRARY_INPUT_CLASS}
+            placeholder="Library Referance Prefix"
             {...register("libraryRefPrefix")}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>Tags</Label>
-          <Input className={LIBRARY_INPUT_CLASS} {...register("tags")} />
+          <Input
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Tags"
+            {...register("tags")}
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>Custom Tags</Label>
-          <Input className={LIBRARY_INPUT_CLASS} {...register("customTags")} />
+          <Input
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Custom Tags"
+            {...register("customTags")}
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>ISBN</Label>
-          <Input className={LIBRARY_INPUT_CLASS} {...register("isbn")} />
+          <Input
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="ISBN"
+            {...register("isbn")}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -365,18 +380,27 @@ export function EditBookModal({
           <Input
             className={LIBRARY_INPUT_CLASS}
             type="number"
+            placeholder="Year"
             {...register("year")}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>Edition</Label>
-          <Input className={LIBRARY_INPUT_CLASS} {...register("edition")} />
+          <Input
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Edition"
+            {...register("edition")}
+          />
         </div>
 
         <div className="space-y-1.5">
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>Volume</Label>
-          <Input className={LIBRARY_INPUT_CLASS} {...register("vol")} />
+          <Input
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Volume"
+            {...register("vol")}
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -395,13 +419,18 @@ export function EditBookModal({
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>Subject Headings</Label>
           <Input
             className={LIBRARY_INPUT_CLASS}
+            placeholder="Subject Headings"
             {...register("subjectHeadings")}
           />
         </div>
 
         <div className="space-y-1.5">
           <Label className={LIBRARY_FIELD_LABEL_CLASS}>Call Number</Label>
-          <Input className={LIBRARY_INPUT_CLASS} {...register("callNumber")} />
+          <Input
+            className={LIBRARY_INPUT_CLASS}
+            placeholder="Call Number"
+            {...register("callNumber")}
+          />
         </div>
       </div>
     </FormModal>

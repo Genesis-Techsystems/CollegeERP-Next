@@ -102,7 +102,7 @@ export default function BooksBarcodePage() {
         await generateBooksBarcode(
           accessionNumber ? [accessionNumber] : undefined,
         );
-        toastSuccess("Book barcodes generated");
+        toastSuccess("Book barcode generated successfully");
         await queryClient.invalidateQueries({
           queryKey: QK.library.booksWithoutBarcode(),
         });

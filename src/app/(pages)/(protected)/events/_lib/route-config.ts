@@ -35,7 +35,7 @@ export const EVENTS_HUB_SECTIONS: {
         description: "Department-level events",
       },
       {
-        label: "College Calendar",
+        label: "Faculty Calendar",
         href: "/events/school-calendar",
         description: "Holidays and events calendar",
       },
@@ -50,7 +50,7 @@ export const EVENTS_HUB_SECTIONS: {
         description: "Student events calendar (event-calendar module)",
       },
       {
-        label: "Staff Events",
+        label: "Events Calendar",
         href: "/events/staff-events",
         description: "Staff events calendar",
       },
@@ -90,12 +90,12 @@ const PAGE_META: Record<string, Omit<EventsPageConfig, "slug">> = {
     angularPath: "events/events-calendar",
   },
   "staff-events": {
-    title: "Staff Events",
+    title: "Events Calendar",
     kind: "calendar",
     angularPath: "events/staff-events",
   },
   "school-calendar": {
-    title: "College Calendar",
+    title: "Faculty Calendar",
     kind: "calendar",
     angularPath: "events/school-calendar",
   },

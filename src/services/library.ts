@@ -8,7 +8,7 @@ import type { Campus } from "@/types/campus";
 import type { Organization } from "@/types/organization";
 import { GM_CODES } from "@/config/constants/ui";
 import type { GeneralDetail } from "@/types/exam-master";
-import { parseApiError } from "@/lib/errors";
+import { parseApiError, AppError } from "@/lib/errors";
 import {
   buildQuery,
   domainCreate,
@@ -21,7 +21,9 @@ import {
   fetchDetailsById,
   getAllRecords,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
+  putDetailsEnvelope,
 } from "@/services/crud";
 import type {
   LibraryAuthor,
@@ -1854,8 +1856,57 @@ export async function generateLibraryMemberBarcode(): Promise<void> {
 export async function generateBooksBarcode(
   accessionNumbers?: string[],
 ): Promise<void> {
-  await putDetails(
+  const response = await putDetailsEnvelope(
     LIBRARY_API.GENERATE_BOOK_BARCODE,
     accessionNumbers?.length ? accessionNumbers : null,
+  );
+  // Angular treats any 200 response as success; API may return "no record found"
+  // when barcodes already exist — caller shows a friendly success message.
+  if (response.statusCode === 200) return;
+  if (response.success === false) {
+    throw new AppError(
+      "API_ERROR",
+      response.message ?? "Could not generate book barcodes",
+    );
+  }
+}
+
+export type UpdateLibraryBookDetailPayload = {
+  bookDetailsId: number;
+  bookId: number;
+  libraryId: number;
+  accessionno?: string;
+  bookregTypeId: number;
+  libraryRefNumber?: string;
+  shelveId?: number | string | null;
+  bookPosition?: string;
+  bookAmount: number | string;
+  bookconditionId?: number | string | null;
+  availabilityStatus?: number;
+  isActive?: boolean;
+  reason?: string;
+  bookbarCode?: string;
+};
+
+/** Angular `updateBookDetailsUrl` — edit a single book copy. */
+export async function updateLibraryBookDetail(
+  payload: UpdateLibraryBookDetailPayload,
+): Promise<void> {
+  await putDetails(LIBRARY_API.UPDATE_BOOK_DETAILS, payload);
+}
+
+/** Angular `checkaccessionnumberUrl` before changing accession no. */
+export async function checkLibraryAccessionNumber(
+  accessionno: string,
+  libraryId: number,
+): Promise<void> {
+  const response = await postDetailsEnvelope(LIBRARY_API.CHECKACCESSIONNUMBER, {
+    accessionno: [accessionno],
+    libraryId,
+  });
+  if (response.statusCode === 200 && response.success === true) return;
+  throw new AppError(
+    "API_ERROR",
+    response.message ?? "Accession number is not available",
   );
 }

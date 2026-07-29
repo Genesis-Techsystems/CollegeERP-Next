@@ -173,11 +173,12 @@ export async function updateFeeCategory(
   feeCategoryId: number,
   data: Partial<FeeCategoryPayload>,
 ): Promise<FeeCategory> {
+  // Angular PUT body includes feeCategoryId alongside the form fields.
   return domainUpdate<FeeCategory>(
     ENTITIES.FEE_CATEGORY.name,
     ENTITIES.FEE_CATEGORY.pk,
     feeCategoryId,
-    data,
+    { ...data, feeCategoryId },
   );
 }
 
@@ -200,11 +201,12 @@ export async function updateFeeParticular(
   feeParticularsId: number,
   data: Partial<FeeParticularPayload>,
 ): Promise<FeeParticular> {
+  // Angular PUT body includes feeParticularsId alongside the form fields.
   return domainUpdate<FeeParticular>(
     ENTITIES.FEE_PARTICULAR.name,
     ENTITIES.FEE_PARTICULAR.pk,
     feeParticularsId,
-    data,
+    { ...data, feeParticularsId },
   );
 }
 

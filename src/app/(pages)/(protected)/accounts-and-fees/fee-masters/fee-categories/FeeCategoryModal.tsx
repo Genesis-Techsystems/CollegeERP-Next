@@ -27,8 +27,8 @@ import type { FeeCategory } from "@/types/fee-category";
 
 const schema = z.object({
   collegeId: z.number().min(1, "College is required"),
-  feeCategoryCode: z.string().min(1, "Category code is required"),
-  categoryName: z.string().min(1, "Category name is required"),
+  feeCategoryCode: z.string().trim().min(1, "Category code is required"),
+  categoryName: z.string().trim().min(1, "Category name is required"),
   description: z.string().optional(),
   isMaster: z.boolean(),
   isHostel: z.boolean(),
@@ -65,7 +65,7 @@ export function FeeCategoryModal({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      collegeId: undefined,
+      collegeId: 0,
       feeCategoryCode: "",
       categoryName: "",
       description: "",
@@ -101,7 +101,7 @@ export function FeeCategoryModal({
       });
     } else {
       reset({
-        collegeId: undefined,
+        collegeId: 0,
         feeCategoryCode: "",
         categoryName: "",
         description: "",
@@ -179,7 +179,7 @@ export function FeeCategoryModal({
                   required
                   value={field.value ? String(field.value) : null}
                   onChange={(value) =>
-                    field.onChange(value ? Number(value) : undefined)
+                    field.onChange(value ? Number(value) : 0)
                   }
                   options={collegeOptions}
                   placeholder="Select college"
@@ -188,11 +188,15 @@ export function FeeCategoryModal({
                 />
               )}
             />
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="feeCategoryCode">Category Code *</Label>
-              <Input id="feeCategoryCode" {...register("feeCategoryCode")} />
+              <Input
+                id="feeCategoryCode"
+                placeholder="Enter category code"
+                {...register("feeCategoryCode")}
+              />
               {errors.feeCategoryCode ? (
-                <p className="text-xs text-red-500">
+                <p className="text-xs text-destructive">
                   {errors.feeCategoryCode.message}
                 </p>
               ) : null}
@@ -200,18 +204,26 @@ export function FeeCategoryModal({
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="categoryName">Category Name *</Label>
-              <Input id="categoryName" {...register("categoryName")} />
+              <Input
+                id="categoryName"
+                placeholder="Enter category name"
+                {...register("categoryName")}
+              />
               {errors.categoryName ? (
-                <p className="text-xs text-red-500">
+                <p className="text-xs text-destructive">
                   {errors.categoryName.message}
                 </p>
               ) : null}
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="description">Description</Label>
-              <Input id="description" {...register("description")} />
+              <Input
+                id="description"
+                placeholder="Enter description"
+                {...register("description")}
+              />
             </div>
           </div>
 
@@ -258,7 +270,7 @@ export function FeeCategoryModal({
           />
 
           {submitError ? (
-            <p className="text-sm text-red-600">{submitError}</p>
+            <p className="text-sm text-destructive">{submitError}</p>
           ) : null}
           <DialogFooter className="pt-1">
             <Button variant="outline" type="button" onClick={onClose}>

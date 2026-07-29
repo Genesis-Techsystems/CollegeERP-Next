@@ -10,6 +10,7 @@ import { Select } from "@/common/components/select";
 import { DataTable, TableCard } from "@/common/components/table";
 import { StatusBadge } from "@/common/components/data-display";
 import { FilteredListPage, PageContainer } from "@/components/layout";
+import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -49,6 +50,37 @@ type CollegeEventsPageProps = {
 function readStorageNum(key: string): number {
   if (typeof globalThis.window === "undefined") return 0;
   return Number(globalThis.localStorage.getItem(key) || 0) || 0;
+}
+
+function readStorage(key: string): string {
+  if (typeof globalThis.window === "undefined") return "";
+  return globalThis.localStorage.getItem(key) ?? "";
+}
+
+/** Angular `momentFormatYMDPrint` → moment `ll` (e.g. Jul 29, 2026). */
+function formatStaffListEventDate(raw: string | undefined): string {
+  if (!raw) return "";
+  const dt = new Date(String(raw));
+  if (Number.isNaN(dt.getTime())) return String(raw);
+  return format(dt, "MMM d, yyyy");
+}
+
+function sortEventsAscending(events: CollegeEventRow[]): CollegeEventRow[] {
+  return [...events].sort((a, b) => {
+    const da = new Date(String(a.startDate ?? a.eventDate ?? 0)).getTime();
+    const db = new Date(String(b.startDate ?? b.eventDate ?? 0)).getTime();
+    return da - db;
+  });
+}
+
+function StaffInactiveBanner() {
+  return (
+    <div className="overflow-hidden rounded-md border border-red-200 bg-red-50 px-3 py-2">
+      <p className="text-center text-sm font-medium text-red-600">
+        Employee in Resigned State
+      </p>
+    </div>
+  );
 }
 
 function formatDisplayDate(raw: string | undefined): string {
@@ -155,6 +187,9 @@ export function CollegeEventsPage({
   title,
   variant,
 }: Readonly<CollegeEventsPageProps>) {
+  const navLabel = usePageNavLabel();
+  const pageTitle = navLabel ?? title;
+
   const isManage = variant === "manage";
   const isStaff = variant === "staff";
   const isStudent = variant === "student";
@@ -222,16 +257,21 @@ export function CollegeEventsPage({
 
   useEffect(() => {
     if (isStaff) {
+      // Angular: Teaching → TCHNGSTF, else → NTCHNGSTF
+      const empCategoryName = readStorage("empCategoryName");
+      const audienceCode =
+        empCategoryName === "Teaching" ? "TCHNGSTF" : "NTCHNGSTF";
       void listGeneralDetailsByMaster(GM_CODES.AUDIENCE).then((list) => {
-        const emp = list.find(
+        const match = list.find(
           (a) =>
             String((a as { generalDetailCode?: string }).generalDetailCode) ===
-            "EMP",
+            audienceCode,
         );
-        if (emp)
+        if (match) {
           setStaffAudienceId(
-            Number((emp as { generalDetailId?: number }).generalDetailId),
+            Number((match as { generalDetailId?: number }).generalDetailId),
           );
+        }
       });
     }
     if (isStudent) {
@@ -291,6 +331,14 @@ export function CollegeEventsPage({
   const loadEvents = useCallback(
     async (modeOverride?: "month" | "list") => {
       if (!collegeId || !academicYearId) return;
+
+      // Angular staff-events: inactive employees see UI shell only (flag = true).
+      if (isStaff && readStorage("empStatusCode") !== "ACTV") {
+        setCalendarLoaded(true);
+        setRows([]);
+        return;
+      }
+
       setLoading(true);
       setRows([]);
       // Angular sets `flag = true` before the request so the calendar/list shell shows.
@@ -309,13 +357,18 @@ export function CollegeEventsPage({
                   date: viewMonth,
                 });
         } else if (isStaff && staffAudienceId) {
-          data = await listStaffAudienceEvents({
-            collegeId,
-            academicYearId,
-            departmentId: readStorageNum("empDeptId"),
-            audienceTypeId: staffAudienceId,
-            date: apiDate,
-          });
+          if (calendarMode === "list") {
+            data = await listEventsByCollegeAndYear(collegeId, academicYearId);
+          } else {
+            data = await listStaffAudienceEvents({
+              collegeId,
+              academicYearId,
+              departmentId: readStorageNum("empDeptId"),
+              audienceTypeId: staffAudienceId,
+              date: apiDate,
+            });
+            data = sortEventsAscending(data);
+          }
         } else if (isStudent && staffAudienceId) {
           data = await listStudentAudienceEvents({
             collegeId,
@@ -354,15 +407,26 @@ export function CollegeEventsPage({
   );
 
   useEffect(() => {
-    if (collegeId && academicYearId && useStorageFilters) {
-      void loadEvents();
-    }
-  }, [collegeId, academicYearId, useStorageFilters, loadEvents]);
+    if (!collegeId || !academicYearId || !useStorageFilters) return;
+    // Staff/student wait for audience gdId (Angular ngOnInit → getEvents after audience resolve).
+    if (isStaff && !staffAudienceId) return;
+    if (isStudent && !staffAudienceId) return;
+    void loadEvents();
+  }, [
+    collegeId,
+    academicYearId,
+    useStorageFilters,
+    loadEvents,
+    isStaff,
+    isStudent,
+    staffAudienceId,
+  ]);
 
   useEffect(() => {
     if (!calendarLoaded || !collegeId || !academicYearId || !useMonthCalendar)
       return;
     if (isCalendarView && calendarViewMode === "list") return;
+    if (isStaff && calendarViewMode === "list") return;
     void loadEvents();
     // Reload only when the visible month changes after the calendar is loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -488,6 +552,48 @@ export function CollegeEventsPage({
     [],
   );
 
+  /** Angular staff-events All Events List grid columns. */
+  const staffListColumnDefs = useMemo<ColDef<CollegeEventRow>[]>(
+    () => [
+      {
+        headerName: "S.No",
+        colId: "id",
+        valueGetter: rowIndexGetter,
+        width: 70,
+        flex: 0,
+        sortable: true,
+      },
+      {
+        field: "eventName",
+        headerName: "Event Name",
+        minWidth: 180,
+        flex: 1.2,
+        sortable: true,
+      },
+      {
+        headerName: "Event Date",
+        colId: "startDateF",
+        minWidth: 140,
+        flex: 1,
+        sortable: true,
+        valueGetter: (p) =>
+          formatStaffListEventDate(
+            String(p.data?.startDate ?? p.data?.eventDate ?? ""),
+          ),
+      },
+      {
+        headerName: "Week Day",
+        colId: "weekDay",
+        minWidth: 130,
+        flex: 0.8,
+        sortable: true,
+        valueGetter: (p) =>
+          formatWeekday(String(p.data?.startDate ?? p.data?.eventDate ?? "")),
+      },
+    ],
+    [],
+  );
+
   async function handleSaveEvent(payload: CollegeEventRow) {
     try {
       await saveCollegeEvents([payload]);
@@ -513,7 +619,7 @@ export function CollegeEventsPage({
     }
   }
 
-  const showFilters = !useStorageFilters || isStaff || isStudent;
+  const showFilters = !useStorageFilters || isStudent;
 
   const filterFields = (
     <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -593,6 +699,99 @@ export function CollegeEventsPage({
       />
     </>
   );
+
+  if (isStaff) {
+    const empStatusCode = readStorage("empStatusCode") || "ACTV";
+    const isActiveEmployee = empStatusCode === "ACTV";
+
+    return (
+      <PageContainer>
+        <div className="app-data-table app-data-table-card flex flex-col">
+          <div className="app-data-table-heading px-5 pt-5 pb-3">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+              {pageTitle}
+            </h2>
+          </div>
+
+          {calendarLoaded ? (
+            <div className="px-5 pb-3">
+              <RadioGroup
+                value={calendarViewMode}
+                onValueChange={(v) =>
+                  onCalendarViewModeChange(v as "month" | "list")
+                }
+                className="flex flex-wrap gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="month" id="staff-events-month" />
+                  <Label htmlFor="staff-events-month">Month Wise View</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="list" id="staff-events-list" />
+                  <Label htmlFor="staff-events-list">All Events List</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          ) : null}
+
+          {!isActiveEmployee && calendarLoaded ? (
+            <div className="px-5 pb-3">
+              <StaffInactiveBanner />
+            </div>
+          ) : null}
+
+          {calendarLoaded && calendarViewMode === "month" ? (
+            <div className="pb-4">
+              <EventsCalendarPanel
+                variant="staff"
+                embedded
+                viewMonth={viewMonth}
+                onViewMonthChange={(month) => {
+                  setViewMonth(month);
+                  setSelectedDate(month);
+                }}
+                events={rows}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                readOnly
+                sidebarEmptyMessage={
+                  isActiveEmployee && rows.length === 0
+                    ? "No Events in this month."
+                    : undefined
+                }
+              />
+            </div>
+          ) : null}
+
+          {calendarLoaded && calendarViewMode === "list" ? (
+            <>
+              {rows.length > 0 ? (
+                <DataTable
+                  rowData={rows}
+                  columnDefs={staffListColumnDefs}
+                  loading={loading}
+                  pagination
+                  paginationPageSize={10}
+                  bordered={false}
+                  toolbar={{
+                    search: true,
+                    searchPlaceholder: "Search",
+                    pdfDocumentTitle: "All Events",
+                  }}
+                />
+              ) : (
+                <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                  No events found.
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+
+        {eventModals}
+      </PageContainer>
+    );
+  }
 
   if (isManage || isCalendarView) {
     const pageFilters = isCalendarView ? (

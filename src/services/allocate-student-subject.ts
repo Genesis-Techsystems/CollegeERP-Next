@@ -1,4 +1,5 @@
-import { getAllRecords } from './crud'
+import { getAllRecords, getAllRecordsEnvelope } from './crud'
+import type { ApiResponse } from '@/types/api'
 
 type AnyRow = Record<string, any>
 type ProcResponse = { result?: Array<Array<AnyRow>> }
@@ -63,6 +64,9 @@ export async function getAllocateStudentSubjectFilters(
  * `getAllRecords/s_pop_std_student_subjects` (constant `allocateStudentSubjadctsUrl`) via a GET
  * request built with `getDetailsByRequest(url, '', request, '&')`, i.e. the params below become the
  * query string. `in_student_id` is fixed to 0 (allocate for the whole filtered cohort).
+ *
+ * Returns the full envelope so the page can surface `message` (e.g. "No Records(s) found.")
+ * without a red error toast when `success` is false.
  */
 export async function allocateStudentSubjects(params: {
   collegeId: number
@@ -71,8 +75,8 @@ export async function allocateStudentSubjects(params: {
   courseYearId: number
   regulationId: number
   studentId?: number
-}): Promise<unknown> {
-  return getAllRecords<unknown>('s_pop_std_student_subjects', {
+}): Promise<ApiResponse<unknown>> {
+  return getAllRecordsEnvelope<unknown>('s_pop_std_student_subjects', {
     in_college_id: params.collegeId,
     in_academic_year_id: params.academicYearId,
     in_course_group_id: params.courseGroupId,

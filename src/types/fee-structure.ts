@@ -37,6 +37,8 @@ export type FeeStructureParticularLine = {
   lateralFeeAmount?: number;
   categoryName?: string;
   particularName?: string;
+  /** Angular / API field name */
+  particularsName?: string;
   courseYearId?: number;
   courseYearName?: string;
   feeLabel?: string;
@@ -47,6 +49,9 @@ export type FeeStructureParticularLine = {
   bankAccountTypeId?: number | null;
   cashAccountTypeId?: number | null;
   mappingAccountTypeId?: number | null;
+  feeStructureParticularId?: number;
+  feeStructureId?: number;
+  [key: string]: unknown;
 };
 
 export type FeeStructureCourseYearTab = {
@@ -86,7 +91,7 @@ export type CollegeFeeStructureCreatePayload = {
   batch?: string;
   academicYear?: string;
   description?: string | null;
-  isMapped?: boolean;
+  isMapped?: boolean | null;
 };
 
 export type UnivFeeStructureDetailRow = {

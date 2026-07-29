@@ -17,7 +17,7 @@ const PAGE_MAP: Record<string, () => ReactElement> = {
   'add-event': () => <CollegeEventsPage title="Add Event" variant="manage" />,
   'college-calendar': () => <SchoolCalendarPage />,
   'events-calendar': () => <CollegeEventsPage title="Events Calendar" variant="student" />,
-  'staff-events': () => <CollegeEventsPage title="Staff Events" variant="staff" />,
+  'staff-events': () => <CollegeEventsPage title="Events Calendar" variant="staff" />,
   'school-calendar': () => <SchoolCalendarPage />,
 }
 
