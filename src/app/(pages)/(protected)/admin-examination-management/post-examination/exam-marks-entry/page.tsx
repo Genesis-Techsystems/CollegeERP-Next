@@ -34,7 +34,10 @@ import {
   uploadSecureExamMarks,
 } from "@/services";
 import { MINIO_URL } from "@/config/constants/api";
-import { USER_ROLES } from "@/config/constants/app";
+import {
+  USER_ROLES,
+  isOfflineInternalEvaluatorRole,
+} from "@/config/constants/app";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { useSecureMarksPrint } from "../secure-exam-marks-entry/_print/useSecureMarksPrint";
 import { format, parseISO, isValid } from "date-fns";
@@ -274,6 +277,9 @@ export default function ExamMarksEntryPage() {
     globalThis?.localStorage?.getItem("examEvaluatorProfileId") ?? 0,
   );
   const orgCode = globalThis?.localStorage?.getItem("orgCode") ?? "";
+  const isOfflineInternalEvaluator = isOfflineInternalEvaluatorRole(
+    roleName || userRole,
+  );
 
   const [semister, setSemister] = useState(false);
 
@@ -328,8 +334,12 @@ export default function ExamMarksEntryPage() {
       roleLower.includes("mstaff") ||
       roleLower.includes("staff") ||
       roles.length === 0;
-    if (staff) setMarksEnteredEmpId(employeeId);
-  }, [employeeId, roleName]);
+    // Offline Internal Evaluator / staff: lock marks emp to login member only.
+    // ADMIN path unchanged (can still use marksEnteredEmpId as initialized).
+    if (isOfflineInternalEvaluator || staff) {
+      setMarksEnteredEmpId(employeeId);
+    }
+  }, [employeeId, roleName, isOfflineInternalEvaluator]);
 
   const selectedCourseFilter = allFilters.find(
     (row) => Number(row.fk_course_id) === Number(courseId),
@@ -373,8 +383,12 @@ export default function ExamMarksEntryPage() {
       ),
       "fk_exam_id",
     );
+    // Angular: ADMIN sees all; others (incl. Offline Internal Evaluator) hide published.
+    // Use loose == like Angular (`is_published == false`).
     if (roleName !== "ADMIN") {
-      list = list.filter((x) => x.is_published === false);
+      list = list.filter(
+        (x) => x.is_published == false || x.isPublished == false,
+      );
     }
     return list;
   }, [allFilters, courseId, academicYearId, roleName]);
@@ -1586,29 +1600,34 @@ export default function ExamMarksEntryPage() {
                 />
               </div>
             )}
-            <div className="space-y-1 md:col-span-2">
-              <DatePicker
-                label="Choose a exam date."
-                placeholder="dd/MM/yyyy"
-                displayFormat="dd/MM/yyyy"
-                value={ymdToDate(examDate)}
-                minDate={examMinDate ?? undefined}
-                maxDate={examMaxDate ?? undefined}
-                clearable={false}
-                onChange={(date) => {
-                  setExamDate(date ? format(date, "yyyy-MM-dd") : "");
-                  clearResults();
-                }}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Employee</Label>
-              <Input
-                className="h-8 text-[12px]"
-                value={employeeDisplay}
-                disabled
-              />
-            </div>
+            {subjectId ? (
+              <>
+                <div className="space-y-1 md:col-span-2">
+                  <DatePicker
+                    label="Choose a exam date."
+                    placeholder="dd/MM/yyyy"
+                    displayFormat="dd/MM/yyyy"
+                    value={ymdToDate(examDate)}
+                    minDate={examMinDate ?? undefined}
+                    maxDate={examMaxDate ?? undefined}
+                    clearable={false}
+                    disabled
+                    onChange={(date) => {
+                      setExamDate(date ? format(date, "yyyy-MM-dd") : "");
+                      clearResults();
+                    }}
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Employee</Label>
+                  <Input
+                    className="h-8 text-[12px]"
+                    value={employeeDisplay}
+                    disabled
+                  />
+                </div>
+              </>
+            ) : null}
             {courseYearId ? (
               <div className="md:col-span-2">
                 <Button
@@ -1738,6 +1757,7 @@ export default function ExamMarksEntryPage() {
       }
       columnDefs={columnDefs}
       loading={loading}
+      hideEmptyGrid
       getRowId={(p) =>
         String(
           p.data.studentId ??
@@ -1747,12 +1767,17 @@ export default function ExamMarksEntryPage() {
         )
       }
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        exportExcel: false,
-        exportPdf: false,
-      }}
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              exportExcel: false,
+              exportPdf: false,
+              columnPicker: true,
+            }
+          : false
+      }
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
           <div className="order-first shrink-0 whitespace-nowrap text-[12px] text-slate-600">

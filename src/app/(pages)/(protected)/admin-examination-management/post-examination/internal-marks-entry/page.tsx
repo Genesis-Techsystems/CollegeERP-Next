@@ -1718,6 +1718,7 @@ export default function InternalMarksEntryPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
+      hideEmptyGrid
       getRowId={(p) =>
         String(
           p.data.studentId ??
@@ -1728,16 +1729,22 @@ export default function InternalMarksEntryPage() {
         )
       }
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Internal Marks Entry",
-      }}
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              pdfDocumentTitle: "Internal Marks Entry",
+            }
+          : false
+      }
       toolbarTrailing={
-        <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-          Max Marks :{" "}
-          <span className="font-semibold">{displayMaxMarks || "-"}</span>
-        </div>
+        hasFetched && rows.length > 0 ? (
+          <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+            Max Marks :{" "}
+            <span className="font-semibold">{displayMaxMarks || "-"}</span>
+          </div>
+        ) : undefined
       }
     >
       {hasFetched && (

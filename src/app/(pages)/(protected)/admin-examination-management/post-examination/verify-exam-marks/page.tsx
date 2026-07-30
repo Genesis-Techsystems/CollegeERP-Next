@@ -817,9 +817,10 @@ export default function VerifyExamMarksPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      hideEmptyGrid
       pagination
       fitColumnsToWidth={false}
-      toolbar={TOOLBAR}
+      toolbar={rows.length > 0 ? TOOLBAR : false}
       toolbarTrailing={
         rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">

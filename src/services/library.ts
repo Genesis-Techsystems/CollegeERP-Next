@@ -1855,20 +1855,20 @@ export async function generateLibraryMemberBarcode(): Promise<void> {
 
 export async function generateBooksBarcode(
   accessionNumbers?: string[],
-): Promise<void> {
+): Promise<boolean> {
   const response = await putDetailsEnvelope(
     LIBRARY_API.GENERATE_BOOK_BARCODE,
     accessionNumbers?.length ? accessionNumbers : null,
   );
   // Angular treats any 200 response as success; API may return "no record found"
-  // when barcodes already exist — caller shows a friendly success message.
-  if (response.statusCode === 200) return;
+  // when barcodes already exist or there is nothing to generate.
+  if (response.statusCode === 200) return true;
   if (response.success === false) {
-    throw new AppError(
-      "API_ERROR",
-      response.message ?? "Could not generate book barcodes",
-    );
+    const message = response.message ?? "Could not generate book barcodes";
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return false;
+    throw new AppError("API_ERROR", message);
   }
+  return true;
 }
 
 export type UpdateLibraryBookDetailPayload = {

@@ -44,6 +44,8 @@ const LIST_PATH = "/inventory-management/purchase-orders";
 type ItemLine = InvPoItemRow & {
   key: string;
   isActive?: boolean;
+  itemTotalActualAmount?: number;
+  itemTaxPercentage?: number;
   itemTotalDiscountAmount?: number;
   authorizedByEmpId?: number;
   receivedQty?: number;
@@ -75,7 +77,9 @@ function newLine(employeeId: number): ItemLine {
     orderQuantity: 0,
     receivedQty: 2,
     isReqTracking: true,
+    itemTotalActualAmount: 0,
     itemDiscountPercentage: 0,
+    itemTaxPercentage: 0,
     itemTotalDiscountAmount: 0,
     itemTotalCost: 0,
     itemName: "",
@@ -89,12 +93,38 @@ function calcLine(row: ItemLine): ItemLine {
   const unit = Number(row.unitPrice) || 0;
   const qty = Number(row.orderQuantity) || 0;
   const discPct = Number(row.itemDiscountPercentage) || 0;
-  let cost = unit * qty;
-  if (discPct > 0) cost -= (cost * discPct) / 100;
+  const actual = unit * qty;
+  let cost = actual;
+  if (discPct > 0) cost -= (actual * discPct) / 100;
   return {
     ...row,
-    itemTotalDiscountAmount: discPct > 0 ? (unit * qty * discPct) / 100 : 0,
+    itemTotalActualAmount: actual,
+    itemTotalDiscountAmount: discPct > 0 ? (actual * discPct) / 100 : 0,
     itemTotalCost: cost,
+  };
+}
+
+/** Strip UI-only fields (`key`) so Spring DTO deserialize does not 422. */
+function toInvPoItemPayload(l: ItemLine, employeeId: number) {
+  return {
+    isActive: l.isActive !== false,
+    itemCode: l.itemCode ?? "TEST",
+    itemId: Number(l.itemId) || 0,
+    unitPrice: Number(l.unitPrice) || 0,
+    orderQuantity: Number(l.orderQuantity) || 0,
+    receivedQty: Number(l.receivedQty ?? l.orderQuantity) || 0,
+    isReqTracking: true,
+    itemTotalActualAmount:
+      Number(l.itemTotalActualAmount) ||
+      (Number(l.unitPrice) || 0) * (Number(l.orderQuantity) || 0),
+    itemDiscountPercentage: Number(l.itemDiscountPercentage) || 0,
+    itemTaxPercentage: Number(l.itemTaxPercentage) || 0,
+    itemTotalDiscountAmount: Number(l.itemTotalDiscountAmount) || 0,
+    itemTotalCost: Number(l.itemTotalCost) || 0,
+    itemName: l.itemName ?? "",
+    authorizedByEmpId: Number(l.authorizedByEmpId) || employeeId,
+    reason: l.reason ?? "",
+    igst: Number(l.igst) || 0,
   };
 }
 
@@ -497,14 +527,15 @@ export function PurchaseOrderForm({ poId }: Props) {
       const activeLines = lines.filter((l) => l.isActive !== false && l.itemId);
       const invPoItems = activeLines.map((l) => {
         const master = items.find((m) => m.itemId === Number(l.itemId));
-        return {
-          ...l,
-          itemCode: master?.itemCode ?? l.itemCode,
-          itemName: master?.itemName ?? l.itemName,
-          receivedQty: l.orderQuantity,
-          isReqTracking: true,
-          authorizedByEmpId: ctx.employeeId,
-        };
+        return toInvPoItemPayload(
+          {
+            ...l,
+            itemCode: master?.itemCode ?? l.itemCode,
+            itemName: master?.itemName ?? l.itemName,
+            receivedQty: l.orderQuantity,
+          },
+          ctx.employeeId,
+        );
       });
 
       if (isEdit && poId) {
@@ -590,17 +621,20 @@ export function PurchaseOrderForm({ poId }: Props) {
         electricityChargesPaidTo: supplierName,
         electricityChargesMonth: `${monthName(prevMonth)} ${prevYear}`,
         budgetAllotedAmountInWords: numToWords(approved),
-        invPoItems: [...invPoItems, ...deletedLines],
+        invPoItems: [
+          ...invPoItems,
+          ...deletedLines.map((l) => toInvPoItemPayload(l, ctx.employeeId)),
+        ],
         ...totals,
-        createdDt,
         isActive: true,
       };
       if (showIndent && indentId)
         payload.invInternalIndentIds = String(indentId);
 
+      // Angular: poRefFileDoc1 = Comparative Statement, poRefFileDoc2 = P.O. Ref File 1
       await createPurchaseOrderMultipart(payload, {
-        comparative: comparativeFile,
-        note: noteFile,
+        poRefFileDoc1: comparativeFile,
+        poRefFileDoc2: noteFile,
       });
     },
     onSuccess: () => {
