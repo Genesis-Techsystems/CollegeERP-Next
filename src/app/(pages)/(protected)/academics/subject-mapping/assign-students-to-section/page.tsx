@@ -10,8 +10,8 @@ import { toastError, toastSuccess } from "@/lib/toast";
 import { studentPhotoSrc } from "@/app/(pages)/(protected)/admin-student-information-system/students-profile/profile-utils";
 import {
   getDigitalOnlineSyncFilters,
-  listGroupSectionsByFilters,
-  listStudentsForStudentDetails,
+  listAssignStudentSectionOptionsExact,
+  listStudentsForStudentDetailsExact,
   submitAssignedStudentSections,
 } from "@/services";
 
@@ -255,8 +255,7 @@ export default function AssignStudentsToSectionPage() {
         setSections([]);
         return;
       }
-      // Same GroupSection domain list as the Sections admin page / Angular assign-student-to-section.
-      const list = await listGroupSectionsByFilters({
+      const list = await listAssignStudentSectionOptionsExact({
         collegeId,
         academicYearId,
         courseGroupId,
@@ -280,7 +279,7 @@ export default function AssignStudentsToSectionPage() {
     }
     setLoading(true);
     // Angular selectedYear: studentsList by college + AY + course + group + year (all sections).
-    const list = await listStudentsForStudentDetails({
+    const list = await listStudentsForStudentDetailsExact({
       collegeId,
       academicYearId,
       courseId,

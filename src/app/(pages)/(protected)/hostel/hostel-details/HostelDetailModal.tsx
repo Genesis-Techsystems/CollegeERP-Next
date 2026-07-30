@@ -13,6 +13,7 @@ import { QK } from "@/lib/query-keys";
 import {
   createHostelDetail,
   listHostelForOptions,
+  listHostelDetails,
   listHostelTypes,
   listOrganizations,
   updateHostelDetail,
@@ -27,6 +28,8 @@ import {
   HOSTEL_SELECT_CLASS,
 } from "../_lib/modal-styles";
 
+const PHONE_PATTERN = /^[6-9][0-9]{9}$/;
+
 const schema = z.object({
   organizationId: z.coerce.number().min(1, "Organization is required"),
   hostelTypeId: z.coerce.number().min(1, "Hostel type is required"),
@@ -34,7 +37,10 @@ const schema = z.object({
   hostelCode: z.string().min(1, "Code is required"),
   hostelName: z.string().min(1, "Name is required"),
   noOfFloors: z.coerce.number().min(1, "No of floors is required"),
-  phoneNumber: z.string().min(10, "Phone is required"),
+  phoneNumber: z
+    .string()
+    .min(1, "Phone is required")
+    .regex(PHONE_PATTERN, "Enter 10 digit number"),
   hostelAddress: z.string().min(1, "Address is required"),
   otherInfo: z.string().optional(),
   isActive: z.boolean(),
@@ -61,6 +67,8 @@ export function HostelDetailModal({
     register,
     handleSubmit,
     reset,
+    clearErrors,
+    setError,
     watch,
     setValue,
     control,
@@ -87,6 +95,11 @@ export function HostelDetailModal({
     queryFn: listHostelForOptions,
     enabled: open,
   });
+  const { data: hostelDetails = [], refetch: refetchHostelDetails } = useQuery({
+    queryKey: QK.hostel.details(),
+    queryFn: listHostelDetails,
+    enabled: open,
+  });
 
   const typeOptions = useMemo(() => {
     if (!organizationId) return [];
@@ -94,7 +107,7 @@ export function HostelDetailModal({
       .filter((t) => t.organizationId === organizationId)
       .map((t) => ({
         value: String(t.hostelTypeId),
-        label: t.hostelTypeName ?? t.hostelTypeCode ?? String(t.hostelTypeId),
+        label: t.hostelTypeCode ?? t.hostelTypeName ?? String(t.hostelTypeId),
       }));
   }, [organizationId, hostelTypes]);
 
@@ -120,8 +133,34 @@ export function HostelDetailModal({
   }, [open, row, reset]);
 
   async function onSubmit(data: FormValues) {
+    clearErrors("hostelCode");
+    const latestHostels =
+      hostelDetails.length > 0
+        ? hostelDetails
+        : ((await refetchHostelDetails()).data ?? []);
+    const normalizedCode = data.hostelCode.trim().toLowerCase();
+    const duplicateHostel = latestHostels.find((hostel) => {
+      const existingCode = (hostel.hostelCode ?? "").trim().toLowerCase();
+      if (existingCode !== normalizedCode) return false;
+      if (row?.hostelId && hostel.hostelId === row.hostelId) return false;
+      return true;
+    });
+
+    if (duplicateHostel) {
+      setError("hostelCode", {
+        type: "manual",
+        message: "Hostel code already exists",
+      });
+      return;
+    }
+
     const payload = {
       ...data,
+      hostelCode: data.hostelCode.trim(),
+      hostelName: data.hostelName.trim(),
+      phoneNumber: data.phoneNumber.trim(),
+      hostelAddress: data.hostelAddress.trim(),
+      otherInfo: data.otherInfo?.trim() || "",
       reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
     };
     try {
@@ -148,7 +187,10 @@ export function HostelDetailModal({
   const forOptions = hostelForOptions.map((g) => ({
     value: String(g.generalDetailId),
     label:
-      g.generalDetailName ?? g.generalDetailCode ?? String(g.generalDetailId),
+      g.generalDetailDisplayName ??
+      g.generalDetailName ??
+      g.generalDetailCode ??
+      String(g.generalDetailId),
   }));
 
   return (

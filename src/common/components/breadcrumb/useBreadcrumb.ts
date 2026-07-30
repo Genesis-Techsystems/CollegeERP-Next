@@ -219,6 +219,23 @@ function assignRegulationToStudentsBreadcrumb(
   return items.filter((item) => !/subject\s*mapping/i.test(item.label));
 }
 
+function hostelRoomsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/hostel\/rooms$/i.test(path)) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Hostel", href: "/hostel/hostel-details" },
+    { label: "Hostel", href: "/hostel/hostel-details" },
+    { label: "Hostel Rooms" },
+  ];
+}
+
 /**
  * Builds breadcrumb items from the current Next.js pathname.
  *
@@ -297,6 +314,7 @@ export function useBreadcrumb(
   items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
   items = assignRegulationToStudentsBreadcrumb(pathname, items);
+  items = hostelRoomsBreadcrumb(pathname, items);
 
   if (lastSegmentLabel && items.length > 0) {
     const last = items[items.length - 1];

@@ -224,12 +224,107 @@ export async function listExamTimetablesByExam(
   return [];
 }
 
-/** Angular parity: listByThreeIds(..., collegeId, examId, examTimetableId, collegeId/examMasterId/examTimetableId). */
+/**
+ * Flatten ExamRoomAllotment / examroomallotment DTO rows so roomId, roomName,
+ * buildingCode, blockCode, floorNo are always available at the top level
+ * (Angular invigilator-allotment tile fields).
+ */
+export function flattenExamRoomAllotmentRow(row: AnyRow): AnyRow {
+  const room = (row?.room ?? row?.Room ?? {}) as AnyRow;
+  const block = (row?.block ??
+    row?.Block ??
+    room?.block ??
+    room?.Block ??
+    {}) as AnyRow;
+  const building = (row?.building ??
+    row?.Building ??
+    room?.building ??
+    room?.Building ??
+    {}) as AnyRow;
+  const floor = (row?.floor ??
+    row?.Floor ??
+    room?.floor ??
+    room?.Floor ??
+    {}) as AnyRow;
+  const roomId =
+    Number(
+      row?.roomId ??
+        row?.fk_room_id ??
+        row?.fkRoomId ??
+        room?.roomId ??
+        room?.pk_room_id ??
+        0,
+    ) || 0;
+  const roomName =
+    row?.roomName ?? row?.room_name ?? room?.roomName ?? room?.room_name ?? "";
+  const roomCode =
+    row?.roomCode ?? row?.room_code ?? room?.roomCode ?? room?.room_code ?? "";
+  const buildingCode =
+    row?.buildingCode ??
+    row?.building_code ??
+    building?.buildingCode ??
+    building?.building_code ??
+    "";
+  const blockCode =
+    row?.blockCode ??
+    row?.block_code ??
+    block?.blockCode ??
+    block?.block_code ??
+    "";
+  const floorNo =
+    row?.floorNo ??
+    row?.floor_no ??
+    floor?.floorNo ??
+    floor?.floor_no ??
+    floor?.floorName ??
+    "";
+  return {
+    ...row,
+    roomId,
+    roomName,
+    roomCode,
+    buildingCode,
+    blockCode,
+    floorNo,
+    examRoomAllotmentId:
+      row?.examRoomAllotmentId ??
+      row?.exam_room_allotment_id ??
+      row?.examRoomAllotmentID ??
+      null,
+  };
+}
+
+/**
+ * Angular invigilator-allotment `selectedExamTimetable` —
+ * `listByThreeIds(examRoomAllotmentPostUrl, collegeId, examId, examTimetableId,
+ *  'collegeId', 'examMasterId', 'examTimetableId')` → GET examroomallotment?…
+ * Falls back to domain/list when the custom endpoint returns nothing.
+ */
 export async function listExamRoomAllotments(
   collegeId: number,
   examId: number,
   examTimetableId: number,
 ): Promise<AnyRow[]> {
+  const normalize = (rows: AnyRow[]) =>
+    rows.map(flattenExamRoomAllotmentRow).filter((r) => Number(r.roomId) > 0);
+
+  try {
+    const data = await fetchDetails<unknown>(EXAM_API.EXAM_ROOM_ALLOTMENT, {
+      collegeId,
+      examMasterId: examId,
+      examTimetableId,
+    });
+    const rows = Array.isArray(data)
+      ? data
+      : Array.isArray((data as AnyRow)?.resultList)
+        ? ((data as AnyRow).resultList as AnyRow[])
+        : [];
+    const flat = normalize(rows as AnyRow[]);
+    if (flat.length > 0) return flat;
+  } catch {
+    // fall through to domain list
+  }
+
   const angularMatch = buildQuery({
     collegeId,
     examMasterId: examId,
@@ -251,7 +346,7 @@ export async function listExamRoomAllotments(
   async function rowsFor(q: string): Promise<AnyRow[]> {
     try {
       const r = await domainList<AnyRow>("ExamRoomAllotment", q);
-      return Array.isArray(r) ? r : [];
+      return normalize(Array.isArray(r) ? r : []);
     } catch {
       return [];
     }
@@ -334,8 +429,8 @@ function sanitizeInvigilationAllotmentRows(rows: AnyRow[]): AnyRow[] {
 /** Angular examinvigilationallotmentUrl — bulk POST from modal Save. */
 export async function saveExamInvigilationAllotmentsList(
   payload: AnyRow[],
-): Promise<AnyRow> {
-  return postDetails<AnyRow>(
+): Promise<ApiResponse<AnyRow[] | AnyRow>> {
+  return postDetailsEnvelope<AnyRow[] | AnyRow>(
     EXAM_API.EXAM_INVIGILATION_ALLOTMENT,
     sanitizeInvigilationAllotmentRows(payload),
   );

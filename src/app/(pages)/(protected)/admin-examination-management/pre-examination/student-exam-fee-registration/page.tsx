@@ -10,7 +10,6 @@ import type {
 import { ClipboardList, Eye, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/common/components/select";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import { DatePicker } from "@/common/components/date-picker";
@@ -37,9 +36,19 @@ import {
   listStudents,
   payExamFeeReceipts,
 } from "@/services/pre-examination";
-import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow } from "@/common/components/forms";
-import { saveExamFeePrintPayload } from "./_print/store";
+import { FilteredListPage } from "@/components/layout";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { useSessionContext } from "@/context/SessionContext";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  clearExamFeeReturnState,
+  loadExamFeeReturnState,
+  saveExamFeePrintPayload,
+  saveExamFeeReturnState,
+} from "./_print/store";
 
 type AnyRow = Record<string, any>;
 
@@ -364,6 +373,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function StudentExamFeeRegistrationPage() {
   const router = useRouter();
+  const { user } = useSessionContext();
   // --- selection / lookups ---
   const [students, setStudents] = useState<AnyRow[]>([]);
   const [studentSearchLoading, setStudentSearchLoading] = useState(false);
@@ -371,11 +381,18 @@ export default function StudentExamFeeRegistrationPage() {
   studentsRef.current = students;
   const [studentId, setStudentId] = useState<number | null>(null);
   const [student, setStudent, studentRef] = useStateRef<AnyRow>({});
+  const collegeLogoUrl = useCollegeLogo(
+    Number(
+      student?.collegeId ?? student?.fk_college_id ?? user?.collegeId ?? 0,
+    ) || null,
+  );
   const [examsList, setExamsList] = useState<AnyRow[]>([]);
   const [examId, setExamId, examIdRef] = useStateRef<number | null>(null);
   const [flag, setFlag] = useState(false);
   const [photoError, setPhotoError] = useState(false);
   const rollDeepLinkAppliedRef = useRef(false);
+  const restoredFromPrintRef = useRef(false);
+  const deepLinkExamAppliedRef = useRef(false);
 
   const [paymentModes, setPaymentModes] = useState<AnyRow[]>([]);
   const [, setExamFeeTypes, examFeeTypesRef] = useStateRef<AnyRow[]>([]);
@@ -430,16 +447,75 @@ export default function StudentExamFeeRegistrationPage() {
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
 
+  // Restore filters + working data after print → Back (no remount refresh).
+  useEffect(() => {
+    const snap = loadExamFeeReturnState();
+    if (!snap) return;
+    restoredFromPrintRef.current = true;
+    rollDeepLinkAppliedRef.current = true;
+    deepLinkExamAppliedRef.current = true;
+
+    setStudents(Array.isArray(snap.students) ? snap.students : []);
+    setStudentId(snap.studentId ?? null);
+    setStudent(
+      snap.student && typeof snap.student === "object" ? snap.student : {},
+    );
+    setExamsList(Array.isArray(snap.examsList) ? snap.examsList : []);
+    examIdRef.current = snap.examId ?? null;
+    setExamId(snap.examId ?? null);
+    setFlag(!!snap.flag);
+    setAllCourseYears(
+      Array.isArray(snap.allCourseYears) ? snap.allCourseYears : [],
+    );
+    setCourseYearsList(
+      Array.isArray(snap.courseYearsList) ? snap.courseYearsList : [],
+    );
+    setExamDetailsList(
+      Array.isArray(snap.examDetailsList) ? snap.examDetailsList : [],
+    );
+    setCourseYears(Array.isArray(snap.courseYears) ? snap.courseYears : []);
+    setCourseYearId(snap.courseYearId ?? null);
+    setCheckExam(snap.checkExam === 2 ? 2 : 1);
+    studentCurrentCourseYearIdRef.current =
+      snap.studentCurrentCourseYearId ?? null;
+    setStudentSubjects(
+      Array.isArray(snap.studentSubjects) ? snap.studentSubjects : [],
+    );
+    setChecksubject(snap.checksubject !== false);
+    setSearchText(String(snap.searchText ?? ""));
+    setExamFeeStructure(
+      Array.isArray(snap.examFeeStructure) ? snap.examFeeStructure : [],
+    );
+    setCourseYearFee(
+      Array.isArray(snap.courseYearFee) ? snap.courseYearFee : [],
+    );
+    setPaymentModeCatId(snap.paymentModeCatId ?? 131);
+    setChequeNo(String(snap.chequeNo ?? ""));
+    setDdno(String(snap.ddno ?? ""));
+    setReferenceNumber(String(snap.referenceNumber ?? ""));
+    setTransactionNo(String(snap.transactionNo ?? ""));
+    setReceiptDate(snap.receiptDate ? new Date(snap.receiptDate) : new Date());
+    setFeeComments(String(snap.feeComments ?? ""));
+    setFeeReceipts(Array.isArray(snap.feeReceipts) ? snap.feeReceipts : []);
+    setCoursesYearList(
+      Array.isArray(snap.coursesYearList) ? snap.coursesYearList : [],
+    );
+
+    // Defer clear so React Strict Mode remount can still read the snapshot.
+    const t = window.setTimeout(() => clearExamFeeReturnState(), 0);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Deep-link context forwarded from online-exam-fee-registration
   // (?collegeId&courseId&academicYearId&examId). This page is student-driven,
   // so the exam dropdown only populates after a student is picked. Once it does,
   // pre-select the exam that matches the deep-linked examId (once), so the
   // operator does not lose the context they came in with. Absent params => no-op.
   const searchParams = useSearchParams();
-  const deepLinkExamAppliedRef = useRef(false);
 
   useEffect(() => {
-    if (deepLinkExamAppliedRef.current) return;
+    if (restoredFromPrintRef.current || deepLinkExamAppliedRef.current) return;
     const qpExam = Number(searchParams.get("examId") ?? 0);
     if (!qpExam || examsList.length === 0 || examId) return;
     const match = examsList.find((e) => Number(e.examId) === qpExam);
@@ -452,8 +528,9 @@ export default function StudentExamFeeRegistrationPage() {
   }, [examsList, searchParams]);
 
   // Angular printForm/printreceipt goBack → ?stdRollNumber=… re-searches the student
+  // (skipped when returning from print with a full session snapshot).
   useEffect(() => {
-    if (rollDeepLinkAppliedRef.current) return;
+    if (restoredFromPrintRef.current || rollDeepLinkAppliedRef.current) return;
     const roll = String(searchParams.get("stdRollNumber") ?? "").trim();
     if (!roll || roll.length < 5) return;
     rollDeepLinkAppliedRef.current = true;
@@ -1048,7 +1125,25 @@ export default function StudentExamFeeRegistrationPage() {
       collegeName:
         receipt.collegeName ?? stu.collegeName ?? stu.college_name ?? "",
       address: receipt.address ?? stu.collegeAddress ?? stu.address ?? "",
-      orgLogo: receipt.orgLogo ?? stu.orgLogo ?? stu.logoPath ?? "",
+      orgLogo:
+        receipt.orgLogo ??
+        receipt.org_logo ??
+        receipt.collegeLogo ??
+        receipt.college_logo ??
+        receipt.logoPath ??
+        receipt.logo ??
+        stu.orgLogo ??
+        stu.org_logo ??
+        stu.collegeLogo ??
+        stu.college_logo ??
+        stu.logoPath ??
+        stu.logo ??
+        user?.collegeLogo ??
+        // useCollegeLogo may already be an absolute /assets or MINIO URL
+        (collegeLogoUrl && !collegeLogoUrl.includes("default_logo")
+          ? collegeLogoUrl
+          : "") ??
+        "",
       courseCode: receipt.courseCode ?? stu.courseCode ?? "",
       groupCode: receipt.groupCode ?? stu.groupCode ?? "",
       section: receipt.section ?? stu.section ?? "",
@@ -1273,8 +1368,41 @@ export default function StudentExamFeeRegistrationPage() {
   }
 
   // ============== PRINT (Angular printForm / printreceipt) ==============
+  function captureReturnState() {
+    saveExamFeeReturnState({
+      students,
+      studentId,
+      student: studentRef.current ?? {},
+      examsList,
+      examId: examIdRef.current,
+      flag,
+      allCourseYears: allCourseYearsRef.current ?? [],
+      courseYearsList: courseYearsListRef.current ?? [],
+      examDetailsList: examDetailsListRef.current ?? [],
+      courseYears,
+      courseYearId: courseYearIdRef.current,
+      checkExam: checkExamRef.current,
+      studentCurrentCourseYearId: studentCurrentCourseYearIdRef.current,
+      studentSubjects: studentSubjectsRef.current ?? [],
+      checksubject,
+      searchText,
+      examFeeStructure: examFeeStructureRef.current ?? [],
+      courseYearFee: courseYearFeeRef.current ?? [],
+      paymentModeCatId,
+      chequeNo,
+      ddno,
+      referenceNumber,
+      transactionNo,
+      receiptDate: receiptDate ? receiptDate.toISOString() : null,
+      feeComments,
+      feeReceipts,
+      coursesYearList,
+    });
+  }
+
   function printExamForm(row: AnyRow) {
     if (!row) return;
+    captureReturnState();
     saveExamFeePrintPayload(buildPrintPayload(row));
     router.push(
       "/admin-examination-management/pre-examination/student-exam-fee-registration/print-exam-form",
@@ -1283,6 +1411,7 @@ export default function StudentExamFeeRegistrationPage() {
 
   function printFeeReceipt(row: AnyRow) {
     if (!row) return;
+    captureReturnState();
     saveExamFeePrintPayload(buildPrintPayload(row));
     router.push(
       "/admin-examination-management/pre-examination/student-exam-fee-registration/print-receipt",
@@ -1376,7 +1505,7 @@ export default function StudentExamFeeRegistrationPage() {
           return (
             <button
               type="button"
-              className="rounded bg-[#ffcf46] px-2 py-1 text-[12px]"
+              className="rounded bg-[hsl(var(--primary))] px-2 py-1 text-[12px] text-primary-foreground"
               onClick={() => viewCourseYearSubjects(row, "receipt")}
             >
               Courses
@@ -1434,23 +1563,29 @@ export default function StudentExamFeeRegistrationPage() {
   );
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Student Exam Fee Collection"
       filters={
-        <GlobalFilterBarRow>
-          <div className="md:col-span-5 space-y-1">
+        <GlobalFilterBarRow className="!flex-nowrap !items-end">
+          <GlobalFilterField
+            label="Student"
+            className="global-filter-field--shrink !min-w-0 w-[22rem] max-w-[calc(50%-0.5rem)]"
+          >
             <StudentSearchSelect
-              label="Student"
+              label=""
               value={studentId}
               students={students}
               selectedStudent={!isEmptyObject(student) ? student : null}
               isLoading={studentSearchLoading}
               onSearch={(term) => void enteredStudent(term)}
               onChange={(id, row) => void selectedStudent(id, row)}
+              className="w-full min-w-0 [&>div]:max-w-none [&_input]:h-9"
             />
-          </div>
-          <div className="md:col-span-10 space-y-1">
-            <Label>Exam *</Label>
+          </GlobalFilterField>
+          <GlobalFilterField
+            label="Exam *"
+            className="global-filter-field--shrink !min-w-0 w-[28rem] max-w-[calc(50%-0.5rem)]"
+          >
             <Select
               value={examId ? String(examId) : null}
               onChange={(v) => {
@@ -1465,497 +1600,513 @@ export default function StudentExamFeeRegistrationPage() {
               }))}
               placeholder="Select Exam"
               searchable
+              className="w-full min-w-0"
             />
-          </div>
+          </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-    >
-      {/* Student banner */}
-      {!isEmptyObject(student) && flag && (
-        <div className="rounded border-4 border-[#c3d9ff] p-3">
-          <div className="flex gap-4">
-            <div className="w-[120px] shrink-0">
-              {student.studentPhotoPath && !photoError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={student.studentPhotoPath}
-                  alt="student"
-                  className="w-full bg-[#c3d9ff] p-1.5"
-                  style={{ maxHeight: 110 }}
-                  onError={() => setPhotoError(true)}
-                />
-              ) : (
-                <div
-                  className="flex w-full items-center justify-center bg-[#c3d9ff] p-1.5 text-[28px] font-semibold text-white"
-                  style={{ height: 110 }}
-                >
-                  {String(student.firstName ?? "?")
-                    .trim()
-                    .charAt(0)
-                    .toUpperCase() || "?"}
+      body={
+        <div className="space-y-4">
+          {/* Student banner */}
+          {!isEmptyObject(student) && flag && (
+            <div className="rounded border-4 border-[#c3d9ff] p-3">
+              <div className="flex gap-4">
+                <div className="w-[120px] shrink-0">
+                  {student.studentPhotoPath && !photoError ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={student.studentPhotoPath}
+                      alt="student"
+                      className="w-full bg-[#c3d9ff] p-1.5"
+                      style={{ maxHeight: 110 }}
+                      onError={() => setPhotoError(true)}
+                    />
+                  ) : (
+                    <div
+                      className="flex w-full items-center justify-center bg-[#c3d9ff] p-1.5 text-[28px] font-semibold text-white"
+                      style={{ height: 110 }}
+                    >
+                      {String(student.firstName ?? "?")
+                        .trim()
+                        .charAt(0)
+                        .toUpperCase() || "?"}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex-1 text-[13px] leading-5">
-              <p className="font-medium">
-                {student.firstName} (
-                <span className="text-blue-600">
-                  {student.isLateral ? "LATERAL" : "REGULAR"}
-                </span>
-                )
-              </p>
-              <p className="text-[#8c8c8c]">{student.hallticketNumber}</p>
-              <p className="text-[#8c8c8c]">
-                {student.collegeCode} / {student.academicYear} /{" "}
-                {student.courseCode} / {student.groupCode} /{" "}
-                {student.courseYearName} / Section {student.section}
-              </p>
-              <p className="text-[#8c8c8c]">{student.mobile}</p>
-            </div>
-            <div className="text-[14px]">
-              <div className="py-1">
-                Quota :{" "}
-                <span className="text-blue-600">
-                  {student.quotaDisplayName}
-                </span>
-              </div>
-              <div className="py-1">
-                Student Status :{" "}
-                <span
-                  className={
-                    STATUS_CLASS[String(student.studentStatusCode)] ??
-                    "text-green-700 font-medium"
-                  }
-                >
-                  {student.studentStatusDisplayName}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Select Exam Fee Courses */}
-      {studentId && flag && (
-        <div className="rounded border-2 border-[#89c5ff] p-2.5">
-          <h2 className="mb-2 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
-            Select Exam Fee Courses
-          </h2>
-
-          <div className="bg-white px-2 py-2">
-            <div className="flex items-center gap-8 text-[13px]">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="checkExam"
-                  checked={checkExam === 1}
-                  onChange={() => onChangeCheckExam(1)}
-                />
-                Regular
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="checkExam"
-                  checked={checkExam === 2}
-                  onChange={() => onChangeCheckExam(2)}
-                />
-                Supplementary
-              </label>
-            </div>
-          </div>
-
-          <div className="mt-2 grid grid-cols-1 md:grid-cols-12 gap-2">
-            {/* Semester */}
-            {courseYears.length > 0 && (
-              <div className="md:col-span-2 bg-white p-2">
-                <Select
-                  value={courseYearId ? String(courseYearId) : null}
-                  onChange={(v) => {
-                    const id = v ? Number(v) : null;
-                    setCourseYearId(id);
-                    if (id) getRelevantExamSubjects(id);
-                  }}
-                  options={courseYears.map((o) => ({
-                    value: String(o.fromCourseYearId),
-                    label: o.fromCourseYearName ?? `Sem ${o.fromCourseYearId}`,
-                  }))}
-                  placeholder="Semester"
-                  label="Semester"
-                />
-                {courseYearId && checkExam === 2 && (
-                  <div className="mt-2 flex gap-4">
+                <div className="flex-1 text-[13px] leading-5">
+                  <p className="font-medium">
+                    {student.firstName} (
+                    <span className="text-blue-600">
+                      {student.isLateral ? "LATERAL" : "REGULAR"}
+                    </span>
+                    )
+                  </p>
+                  <p className="text-[#8c8c8c]">{student.hallticketNumber}</p>
+                  <p className="text-[#8c8c8c]">
+                    {student.collegeCode} / {student.academicYear} /{" "}
+                    {student.courseCode} / {student.groupCode} /{" "}
+                    {student.courseYearName} / Section {student.section}
+                  </p>
+                  <p className="text-[#8c8c8c]">{student.mobile}</p>
+                </div>
+                <div className="text-[14px]">
+                  <div className="py-1">
+                    Quota :{" "}
+                    <span className="text-blue-600">
+                      {student.quotaDisplayName}
+                    </span>
+                  </div>
+                  <div className="py-1">
+                    Student Status :{" "}
                     <span
-                      className="cursor-pointer text-[13px] text-blue-600 underline"
-                      onClick={() =>
-                        void getStudentSubjects(
-                          Number(courseYearId),
-                          2,
-                          Number(examIdRef.current),
-                        )
+                      className={
+                        STATUS_CLASS[String(student.studentStatusCode)] ??
+                        "text-green-700 font-medium"
                       }
                     >
-                      All
+                      {student.studentStatusDisplayName}
                     </span>
-                    <span
-                      className="cursor-pointer text-[13px] text-blue-600 underline"
-                      onClick={() =>
-                        getRelevantExamSubjects(Number(courseYearId))
-                      }
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Select Exam Fee Courses */}
+          {studentId && flag && (
+            <div className="rounded border-2 border-[#89c5ff] p-2.5">
+              <h2 className="mb-2 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                Select Exam Fee Courses
+              </h2>
+
+              <div className="bg-white px-2 py-2">
+                <div className="flex items-center gap-8 text-[13px]">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="checkExam"
+                      checked={checkExam === 1}
+                      onChange={() => onChangeCheckExam(1)}
+                    />
+                    Regular
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="checkExam"
+                      checked={checkExam === 2}
+                      onChange={() => onChangeCheckExam(2)}
+                    />
+                    Supplementary
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-12 gap-2">
+                {/* Semester */}
+                {courseYears.length > 0 && (
+                  <div className="md:col-span-2 bg-white p-2">
+                    <Select
+                      value={courseYearId ? String(courseYearId) : null}
+                      onChange={(v) => {
+                        const id = v ? Number(v) : null;
+                        setCourseYearId(id);
+                        if (id) getRelevantExamSubjects(id);
+                      }}
+                      options={courseYears.map((o) => ({
+                        value: String(o.fromCourseYearId),
+                        label:
+                          o.fromCourseYearName ?? `Sem ${o.fromCourseYearId}`,
+                      }))}
+                      placeholder="Semester"
+                      label="Semester"
+                    />
+                    {courseYearId && checkExam === 2 && (
+                      <div className="mt-2 flex gap-4">
+                        <span
+                          className="cursor-pointer text-[13px] text-blue-600 underline"
+                          onClick={() =>
+                            void getStudentSubjects(
+                              Number(courseYearId),
+                              2,
+                              Number(examIdRef.current),
+                            )
+                          }
+                        >
+                          All
+                        </span>
+                        <span
+                          className="cursor-pointer text-[13px] text-blue-600 underline"
+                          onClick={() =>
+                            getRelevantExamSubjects(Number(courseYearId))
+                          }
+                        >
+                          Supple
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Subjects table */}
+                {studentSubjects.length > 0 && (
+                  <div className="md:col-span-3 border border-[#dedede] bg-white">
+                    <div className="flex items-center justify-between gap-2 p-1.5">
+                      <div className="relative flex-1">
+                        <Input
+                          className="h-7 pl-7 text-[12px]"
+                          placeholder="Search..."
+                          value={searchText}
+                          onChange={(e) => setSearchText(e.target.value)}
+                        />
+                        <span className="material-icons absolute left-2 top-1.5 text-[14px] text-muted-foreground">
+                          🔍
+                        </span>
+                      </div>
+                      <span className="text-[13px] font-medium text-blue-600">
+                        Courses: {selectedCount}
+                      </span>
+                    </div>
+                    <table className="w-full text-[12px]">
+                      <thead
+                        className="block overflow-y-auto"
+                        style={{ scrollbarGutter: "stable" }}
+                      >
+                        <tr className="flex w-full bg-[#C3D9FF]">
+                          <th className="w-[40px] px-1 py-1 text-center">
+                            <input
+                              type="checkbox"
+                              checked={
+                                checksubject && selectableSubjectCount > 0
+                              }
+                              disabled={selectableSubjectCount === 0}
+                              onChange={(e) =>
+                                onToggleSelectAll(e.target.checked)
+                              }
+                            />
+                            <span className="ml-1">All</span>
+                          </th>
+                          <th className="flex-1 px-1 py-1 text-left">
+                            Subjects
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody
+                        className="block max-h-[150px] overflow-y-auto"
+                        style={{ scrollbarGutter: "stable" }}
+                      >
+                        {filteredSubjects.map((obj, i) => (
+                          <tr
+                            key={`sub-${obj.subjectId}-${obj.courseYearId}-${obj.examType ?? ""}-${i}`}
+                            className={`flex w-full ${obj.subjAlreadyRegistered ? "bg-[#f2f0f0]" : ""}`}
+                          >
+                            <td className="w-[40px] px-1 py-1 text-center">
+                              <input
+                                type="checkbox"
+                                disabled={obj.subjAlreadyRegistered}
+                                checked={!!obj.checked}
+                                onChange={() =>
+                                  !obj.subjAlreadyRegistered &&
+                                  checkedSubjects(!obj.checked, obj)
+                                }
+                              />
+                            </td>
+                            <td className="flex-1 px-1 py-1">
+                              {obj.shortName}
+                              {obj.subjectCode != null && (
+                                <>
+                                  {" "}
+                                  -{" "}
+                                  <span className="text-blue-600">
+                                    {obj.subjectCode}
+                                  </span>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Selected Courses */}
+                {selectedSubjects.length > 0 && (
+                  <div className="md:col-span-3 border border-[#dedede] bg-white">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="bg-[#C3D9FF]">
+                          <th className="px-1 py-1 text-left text-blue-700">
+                            Selected Courses : {selectedCount}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="block max-h-[150px] overflow-y-auto">
+                        {selectedSubjects.map((sub, i) => (
+                          <tr key={`sel-${i}`} className="flex w-full">
+                            <td className="flex-1 px-1 py-1">
+                              {sub.shortName}
+                              {sub.subjectCode != null && (
+                                <>
+                                  {" "}
+                                  -{" "}
+                                  <span className="text-blue-600">
+                                    {sub.subjectCode}
+                                  </span>
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Additional Fee */}
+                {examFeeStructure.length > 0 &&
+                  additionalStructures.length > 0 && (
+                    <div className="md:col-span-3 border border-[#dedede] bg-white">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr className="bg-[#C3D9FF]">
+                            <th className="px-1 py-1 text-left">
+                              Additional Fee
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="block max-h-[150px] overflow-y-auto">
+                          {additionalStructures.map((addFeeStr, i) =>
+                            addFeeStr.applyToAll === true ? (
+                              <tr
+                                key={`addl-${i}`}
+                                className="flex w-full items-center"
+                              >
+                                <td className="flex flex-1 items-center justify-between gap-2 px-1 py-1">
+                                  <span>
+                                    {addFeeStr.adtExamfeetypeCatDisplayName}
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-20 border-2 border-[#c4c4c4] text-right text-[12px]"
+                                    value={String(addFeeStr.fee ?? 0)}
+                                    onChange={(e) =>
+                                      updateAdditionalFee(
+                                        i,
+                                        Number(e.target.value || 0),
+                                      )
+                                    }
+                                  />
+                                </td>
+                              </tr>
+                            ) : null,
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                {/* Add Fee — disabled when all subjects already registered / none selectable */}
+                {studentSubjects.length > 0 && (
+                  <div className="md:col-span-1 flex items-end">
+                    <Button
+                      className="h-8 w-full text-[12px]"
+                      onClick={addExamSubjects}
+                      disabled={!canAddFee}
                     >
-                      Supple
-                    </span>
+                      Add Fee
+                    </Button>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Subjects table */}
-            {studentSubjects.length > 0 && (
-              <div className="md:col-span-3 border border-[#dedede] bg-white">
-                <div className="flex items-center justify-between gap-2 p-1.5">
-                  <div className="relative flex-1">
-                    <Input
-                      className="h-7 pl-7 text-[12px]"
-                      placeholder="Search..."
-                      value={searchText}
-                      onChange={(e) => setSearchText(e.target.value)}
-                    />
-                    <span className="material-icons absolute left-2 top-1.5 text-[14px] text-muted-foreground">
-                      🔍
-                    </span>
-                  </div>
-                  <span className="text-[13px] font-medium text-blue-600">
-                    Courses: {selectedCount}
-                  </span>
+          {/* Exam Fee Payment summary */}
+          {studentId && courseYearFee.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                Exam Fee Payment
+              </h2>
+              <DataTable
+                title=""
+                bordered={false}
+                rowData={courseYearFee}
+                columnDefs={paymentColumnDefs}
+                getRowId={(p) =>
+                  String(
+                    (p.data as AnyRow)?.courseYearId ??
+                      `${(p.data as AnyRow)?.courseYearName}-${(p.data as AnyRow)?.examType}`,
+                  )
+                }
+                pagination={false}
+                toolbar={COMPACT_TOOLBAR}
+                height="auto"
+              />
+              <div className="flex items-center justify-between rounded border bg-white px-3 py-2 text-[13px]">
+                <span className="font-bold text-blue-700">Summary</span>
+                <span className="font-bold">
+                  Total Fees{" "}
+                  <span className="ml-6 tabular-nums">{totalReceiptAmt}</span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Payment section */}
+          {courseYearFee.length > 0 && (
+            <div className="rounded border-[10px] border-[#c3d9ff] bg-[#f1f6ff] p-2">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-full sm:w-56">
+                  <Select
+                    value={paymentModeCatId ? String(paymentModeCatId) : null}
+                    onChange={(v) => setPaymentModeCatId(v ? Number(v) : null)}
+                    options={paymentModes.map((m) => ({
+                      value: String(m.generalDetailId),
+                      label:
+                        m.generalDetailDisplayName ??
+                        m.generalDetailName ??
+                        "-",
+                    }))}
+                    placeholder="Pay Mode"
+                    label="Pay Mode"
+                  />
                 </div>
-                <table className="w-full text-[12px]">
-                  <thead
-                    className="block overflow-y-auto"
-                    style={{ scrollbarGutter: "stable" }}
+                {paymentModeCatId === 133 && (
+                  <div className="w-full sm:w-56">
+                    <label className="text-[12px] text-muted-foreground">
+                      Cheque Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={chequeNo}
+                      onChange={(e) => setChequeNo(e.target.value)}
+                    />
+                  </div>
+                )}
+                {paymentModeCatId === 134 && (
+                  <div className="w-full sm:w-56">
+                    <label className="text-[12px] text-muted-foreground">
+                      DD Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={ddno}
+                      onChange={(e) => setDdno(e.target.value)}
+                    />
+                  </div>
+                )}
+                {paymentModeCatId === 131 && (
+                  <div className="w-full sm:w-56">
+                    <label className="text-[12px] text-muted-foreground">
+                      Reference Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={referenceNumber}
+                      onChange={(e) => setReferenceNumber(e.target.value)}
+                    />
+                  </div>
+                )}
+                {(paymentModeCatId === 135 || paymentModeCatId === 132) && (
+                  <div className="w-full sm:w-56">
+                    <label className="text-[12px] text-muted-foreground">
+                      Transaction Number
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={transactionNo}
+                      onChange={(e) => setTransactionNo(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="ml-auto text-right">
+                  <label className="block text-[14px] font-medium">
+                    Payment Amount
+                  </label>
+                  <Input
+                    type="number"
+                    disabled
+                    readOnly
+                    className="h-9 w-40 text-right text-[18px] font-bold"
+                    value={String(totalReceiptAmt)}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <div className="w-full sm:w-56">
+                  <label className="text-[12px] text-muted-foreground">
+                    Payment Date *
+                  </label>
+                  <DatePicker
+                    value={receiptDate}
+                    onChange={setReceiptDate}
+                    placeholder="Payment Date"
+                  />
+                </div>
+                <div className="min-w-[200px] flex-1">
+                  <label className="text-[12px] text-muted-foreground">
+                    Fee Comments
+                  </label>
+                  <Input
+                    className="h-8 text-[12px]"
+                    value={feeComments}
+                    onChange={(e) => setFeeComments(e.target.value)}
+                  />
+                </div>
+                <div className="w-full sm:w-40">
+                  <Button
+                    className="h-9 w-full text-[12px]"
+                    onClick={payExamFees}
+                    disabled={paying}
                   >
-                    <tr className="flex w-full bg-[#C3D9FF]">
-                      <th className="w-[40px] px-1 py-1 text-center">
-                        <input
-                          type="checkbox"
-                          checked={checksubject && selectableSubjectCount > 0}
-                          disabled={selectableSubjectCount === 0}
-                          onChange={(e) => onToggleSelectAll(e.target.checked)}
-                        />
-                        <span className="ml-1">All</span>
-                      </th>
-                      <th className="flex-1 px-1 py-1 text-left">Subjects</th>
-                    </tr>
-                  </thead>
-                  <tbody
-                    className="block max-h-[150px] overflow-y-auto"
-                    style={{ scrollbarGutter: "stable" }}
+                    Pay fees
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Exam Fee Receipts (one block per course-year) */}
+          {coursesYearList.map((cyl, idx) => {
+            const rows = feeReceipts.filter(
+              (r) => Number(r.courseYearId) === Number(cyl.courseYearId),
+            );
+            return (
+              <div key={`cyl-${idx}`} className="space-y-2">
+                <h2 className="flex items-center justify-between rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                  <span>Exam Fee Receipts</span>
+                  <button
+                    type="button"
+                    className="rounded bg-[hsl(var(--primary))] px-2 py-1 text-[12px] text-primary-foreground"
+                    onClick={() => printExamForm(cyl)}
+                    title="Print Exam Form"
                   >
-                    {filteredSubjects.map((obj, i) => (
-                      <tr
-                        key={`sub-${obj.subjectId || i}`}
-                        className={`flex w-full ${obj.subjAlreadyRegistered ? "bg-[#f2f0f0]" : ""}`}
-                      >
-                        <td className="w-[40px] px-1 py-1 text-center">
-                          <input
-                            type="checkbox"
-                            disabled={obj.subjAlreadyRegistered}
-                            checked={!!obj.checked}
-                            onChange={() =>
-                              !obj.subjAlreadyRegistered &&
-                              checkedSubjects(!obj.checked, obj)
-                            }
-                          />
-                        </td>
-                        <td className="flex-1 px-1 py-1">
-                          {obj.shortName}
-                          {obj.subjectCode != null && (
-                            <>
-                              {" "}
-                              -{" "}
-                              <span className="text-blue-600">
-                                {obj.subjectCode}
-                              </span>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    <Printer className="mr-1 inline h-3.5 w-3.5" />
+                    Exam Form
+                  </button>
+                </h2>
+                <DataTable
+                  title=""
+                  bordered={false}
+                  rowData={rows}
+                  columnDefs={receiptColumnDefs}
+                  getRowId={(p) =>
+                    String(
+                      (p.data as AnyRow)?.examFeeReceiptId ??
+                        `${(p.data as AnyRow)?.feeReceiptNo}-${(p.data as AnyRow)?.courseYearId}`,
+                    )
+                  }
+                  pagination={false}
+                  toolbar={COMPACT_TOOLBAR}
+                  height="auto"
+                />
               </div>
-            )}
-
-            {/* Selected Courses */}
-            {selectedSubjects.length > 0 && (
-              <div className="md:col-span-3 border border-[#dedede] bg-white">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="bg-[#C3D9FF]">
-                      <th className="px-1 py-1 text-left text-blue-700">
-                        Selected Courses : {selectedCount}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="block max-h-[150px] overflow-y-auto">
-                    {selectedSubjects.map((sub, i) => (
-                      <tr key={`sel-${i}`} className="flex w-full">
-                        <td className="flex-1 px-1 py-1">
-                          {sub.shortName}
-                          {sub.subjectCode != null && (
-                            <>
-                              {" "}
-                              -{" "}
-                              <span className="text-blue-600">
-                                {sub.subjectCode}
-                              </span>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Additional Fee */}
-            {examFeeStructure.length > 0 && additionalStructures.length > 0 && (
-              <div className="md:col-span-3 border border-[#dedede] bg-white">
-                <table className="w-full text-[12px]">
-                  <thead>
-                    <tr className="bg-[#C3D9FF]">
-                      <th className="px-1 py-1 text-left">Additional Fee</th>
-                    </tr>
-                  </thead>
-                  <tbody className="block max-h-[150px] overflow-y-auto">
-                    {additionalStructures.map((addFeeStr, i) =>
-                      addFeeStr.applyToAll === true ? (
-                        <tr
-                          key={`addl-${i}`}
-                          className="flex w-full items-center"
-                        >
-                          <td className="flex flex-1 items-center justify-between gap-2 px-1 py-1">
-                            <span>
-                              {addFeeStr.adtExamfeetypeCatDisplayName}
-                            </span>
-                            <Input
-                              type="number"
-                              className="h-7 w-20 border-2 border-[#c4c4c4] text-right text-[12px]"
-                              value={String(addFeeStr.fee ?? 0)}
-                              onChange={(e) =>
-                                updateAdditionalFee(
-                                  i,
-                                  Number(e.target.value || 0),
-                                )
-                              }
-                            />
-                          </td>
-                        </tr>
-                      ) : null,
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Add Fee — disabled when all subjects already registered / none selectable */}
-            {studentSubjects.length > 0 && (
-              <div className="md:col-span-1 flex items-end">
-                <Button
-                  className="h-8 w-full text-[12px]"
-                  onClick={addExamSubjects}
-                  disabled={!canAddFee}
-                >
-                  Add Fee
-                </Button>
-              </div>
-            )}
-          </div>
+            );
+          })}
         </div>
-      )}
-
-      {/* Exam Fee Payment summary */}
-      {studentId && courseYearFee.length > 0 && (
-        <div className="mx-1 space-y-2">
-          <h2 className="rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
-            Exam Fee Payment
-          </h2>
-          <DataTable
-            title=""
-            bordered={false}
-            rowData={courseYearFee}
-            columnDefs={paymentColumnDefs}
-            getRowId={(p) =>
-              String(
-                (p.data as AnyRow)?.courseYearId ??
-                  `${(p.data as AnyRow)?.courseYearName}-${(p.data as AnyRow)?.examType}`,
-              )
-            }
-            pagination={false}
-            toolbar={COMPACT_TOOLBAR}
-            height="auto"
-          />
-          <div className="flex items-center justify-between rounded border bg-white px-3 py-2 text-[13px]">
-            <span className="font-bold text-blue-700">Summary</span>
-            <span className="font-bold">
-              Total Fees{" "}
-              <span className="ml-6 tabular-nums">{totalReceiptAmt}</span>
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Payment section */}
-      {courseYearFee.length > 0 && (
-        <div className="mx-1 rounded border-[10px] border-[#c3d9ff] bg-[#f1f6ff] p-2">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-full sm:w-56">
-              <Select
-                value={paymentModeCatId ? String(paymentModeCatId) : null}
-                onChange={(v) => setPaymentModeCatId(v ? Number(v) : null)}
-                options={paymentModes.map((m) => ({
-                  value: String(m.generalDetailId),
-                  label:
-                    m.generalDetailDisplayName ?? m.generalDetailName ?? "-",
-                }))}
-                placeholder="Pay Mode"
-                label="Pay Mode"
-              />
-            </div>
-            {paymentModeCatId === 133 && (
-              <div className="w-full sm:w-56">
-                <label className="text-[12px] text-muted-foreground">
-                  Cheque Number
-                </label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={chequeNo}
-                  onChange={(e) => setChequeNo(e.target.value)}
-                />
-              </div>
-            )}
-            {paymentModeCatId === 134 && (
-              <div className="w-full sm:w-56">
-                <label className="text-[12px] text-muted-foreground">
-                  DD Number
-                </label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={ddno}
-                  onChange={(e) => setDdno(e.target.value)}
-                />
-              </div>
-            )}
-            {paymentModeCatId === 131 && (
-              <div className="w-full sm:w-56">
-                <label className="text-[12px] text-muted-foreground">
-                  Reference Number
-                </label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                />
-              </div>
-            )}
-            {(paymentModeCatId === 135 || paymentModeCatId === 132) && (
-              <div className="w-full sm:w-56">
-                <label className="text-[12px] text-muted-foreground">
-                  Transaction Number
-                </label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={transactionNo}
-                  onChange={(e) => setTransactionNo(e.target.value)}
-                />
-              </div>
-            )}
-            <div className="ml-auto text-right">
-              <label className="block text-[14px] font-medium">
-                Payment Amount
-              </label>
-              <Input
-                type="number"
-                disabled
-                readOnly
-                className="h-9 w-40 text-right text-[18px] font-bold"
-                value={String(totalReceiptAmt)}
-              />
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <div className="w-full sm:w-56">
-              <label className="text-[12px] text-muted-foreground">
-                Payment Date *
-              </label>
-              <DatePicker
-                value={receiptDate}
-                onChange={setReceiptDate}
-                placeholder="Payment Date"
-              />
-            </div>
-            <div className="min-w-[200px] flex-1">
-              <label className="text-[12px] text-muted-foreground">
-                Fee Comments
-              </label>
-              <Input
-                className="h-8 text-[12px]"
-                value={feeComments}
-                onChange={(e) => setFeeComments(e.target.value)}
-              />
-            </div>
-            <div className="w-full sm:w-40">
-              <Button
-                className="h-9 w-full text-[12px]"
-                onClick={payExamFees}
-                disabled={paying}
-              >
-                Pay fees
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Exam Fee Receipts (one block per course-year) */}
-      {coursesYearList.map((cyl, idx) => {
-        const rows = feeReceipts.filter(
-          (r) => Number(r.courseYearId) === Number(cyl.courseYearId),
-        );
-        return (
-          <div key={`cyl-${idx}`} className="mx-1 space-y-2">
-            <h2 className="flex items-center justify-between rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
-              <span>Exam Fee Receipts</span>
-              <button
-                type="button"
-                className="rounded bg-[#ffcf46] px-2 py-1 text-[12px]"
-                onClick={() => printExamForm(cyl)}
-                title="Print Exam Form"
-              >
-                <Printer className="mr-1 inline h-3.5 w-3.5" />
-                Exam Form
-              </button>
-            </h2>
-            <DataTable
-              title=""
-              bordered={false}
-              rowData={rows}
-              columnDefs={receiptColumnDefs}
-              getRowId={(p) =>
-                String(
-                  (p.data as AnyRow)?.examFeeReceiptId ??
-                    `${(p.data as AnyRow)?.feeReceiptNo}-${(p.data as AnyRow)?.courseYearId}`,
-                )
-              }
-              pagination={false}
-              toolbar={COMPACT_TOOLBAR}
-              height="auto"
-            />
-          </div>
-        );
-      })}
-
+      }
+    >
       {/* Pay confirmation modal — Angular ExamFeePayDialog parity */}
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
         <DialogContent className="max-w-4xl">
@@ -2076,6 +2227,6 @@ export default function StudentExamFeeRegistrationPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </FilteredPage>
+    </FilteredListPage>
   );
 }

@@ -49,6 +49,7 @@ export interface HostelRoomCharge {
 export interface HostelRoom {
   hstlRoomId: number;
   hostelId?: number;
+  organizationId?: number;
   floorName?: string;
   floorNo?: number | string;
   roomNumber?: string;
@@ -60,6 +61,7 @@ export interface HostelRoom {
   availableBeds?: number;
   amount?: number;
   isActive: boolean;
+  reason?: string;
 }
 
 export interface HostelDiscount {
