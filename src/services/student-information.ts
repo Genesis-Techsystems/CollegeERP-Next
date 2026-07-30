@@ -2,6 +2,7 @@ import { STUDENT_API } from "@/config/constants/api";
 import type { ApiResponse } from "@/types/api";
 import {
   buildQuery,
+  crud,
   domainCreate,
   domainList,
   domainUpdate,
@@ -893,6 +894,83 @@ export async function listStudentsForStudentDetails(params: {
   }
 
   return lastRows.map((row) => ({ ...normalizeStudentRow(row), ...row }));
+}
+
+/**
+ * Angular assign-student-to-section exact calls:
+ * - `domain/list/GroupSection?query=College.collegeId==...and.CourseYear.courseYearId==...`
+ * - `studentsList?collegeId=...&academicYearId=...&courseId=...&courseGroupId=...&courseYearId=...`
+ *
+ * These helpers intentionally do not try fallback key variants, so the page emits
+ * one request per resource instead of multiple compatibility probes.
+ */
+export async function listAssignStudentSectionOptionsExact(params: {
+  collegeId: number;
+  academicYearId: number;
+  courseGroupId: number;
+  courseYearId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseGroupId, courseYearId } = params;
+  if (!collegeId || !academicYearId || !courseGroupId || !courseYearId)
+    return [];
+  const query =
+    `College.collegeId==${collegeId}` +
+    `.and.CourseYear.courseYearId==${courseYearId}` +
+    `.and.AcademicYear.academicYearId==${academicYearId}` +
+    `.and.CourseGroup.courseGroupId==${courseGroupId}` +
+    `.and.isActive==true`;
+  const rows = await crud.listRawQuery<AnyRow>("GroupSection", query, true);
+  return rows.map((row) => ({
+    ...row,
+    groupSectionId: num(row, [
+      "groupSectionId",
+      "pk_group_section_id",
+      "fk_group_section_id",
+      "group_section_id",
+    ]),
+    groupSectionName: text(row, [
+      "groupSectionName",
+      "group_section_name",
+      "section",
+      "sectionName",
+    ]),
+    groupSectionCode: text(row, [
+      "groupSectionCode",
+      "group_section_code",
+      "section_code",
+    ]),
+  }));
+}
+
+export async function listStudentsForStudentDetailsExact(params: {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseId, courseGroupId, courseYearId } =
+    params;
+  if (
+    !collegeId ||
+    !academicYearId ||
+    !courseId ||
+    !courseGroupId ||
+    !courseYearId
+  ) {
+    return [];
+  }
+  const data = await fetchDetails<any>("studentsList", {
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+  });
+  return asArray<AnyRow>(data).map((row) => ({
+    ...normalizeStudentRow(row),
+    ...row,
+  }));
 }
 
 /** Angular `sendStudentMailsUrl` — POST student credential emails. */

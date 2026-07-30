@@ -1,45 +1,53 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { FormModal } from '@/common/components/feedback'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { useEffect, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormModal } from "@/common/components/feedback";
+import { Select, type SelectOption } from "@/common/components/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { QK } from "@/lib/query-keys";
 import {
   TRANSPORT_FIELD_LABEL_CLASS,
   TRANSPORT_INPUT_CLASS,
   TRANSPORT_MODAL_TITLE_CLASS,
-} from '../_lib/modal-styles'
+} from "../_lib/modal-styles";
 import {
   createTransportDetail,
   listCampusesByOrganization,
   listCollegesByCampus,
   listOrganizations,
+  listTransportDetails,
   updateTransportDetail,
-} from '@/services'
-import type { TransportDetail } from '@/types/transport'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "@/services";
+import type { TransportDetail } from "@/types/transport";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { useQuery } from "@tanstack/react-query";
 
 const schema = z.object({
-  organizationId: z.coerce.number().min(1, 'Organization is required'),
-  campusId: z.coerce.number().min(1, 'Campus is required'),
-  collegeId: z.coerce.number().min(1, 'College is required'),
-  transportName: z.string().min(1, 'Transport name is required'),
+  organizationId: z.coerce.number().min(1, "Organization is required"),
+  campusId: z.coerce.number().min(1, "Campus is required"),
+  collegeId: z.coerce.number().min(1, "College is required"),
+  transportName: z.string().min(1, "Transport name is required"),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
+
+function codeLabel(code?: string | null, fallback?: string | number) {
+  const trimmed = String(code ?? "").trim();
+  return trimmed || String(fallback ?? "");
+}
 
 interface TransportDetailsModalProps {
-  open: boolean
-  onClose: () => void
-  row: TransportDetail | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  row: TransportDetail | null;
+  onSaved: () => void;
 }
 
 export function TransportDetailsModal({
@@ -48,17 +56,19 @@ export function TransportDetailsModal({
   row,
   onSaved,
 }: Readonly<TransportDetailsModalProps>) {
-  const isEditing = row != null
-  const [organizations, setOrganizations] = useState<SelectOption[]>([])
-  const [campuses, setCampuses] = useState<SelectOption[]>([])
-  const [colleges, setColleges] = useState<SelectOption[]>([])
-  const [loadingCampuses, setLoadingCampuses] = useState(false)
-  const [loadingColleges, setLoadingColleges] = useState(false)
+  const isEditing = row != null;
+  const [organizations, setOrganizations] = useState<SelectOption[]>([]);
+  const [campuses, setCampuses] = useState<SelectOption[]>([]);
+  const [colleges, setColleges] = useState<SelectOption[]>([]);
+  const [loadingCampuses, setLoadingCampuses] = useState(false);
+  const [loadingColleges, setLoadingColleges] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
+    clearErrors,
+    setError,
     watch,
     setValue,
     control,
@@ -69,17 +79,24 @@ export function TransportDetailsModal({
       organizationId: undefined,
       campusId: undefined,
       collegeId: undefined,
-      transportName: '',
+      transportName: "",
       isActive: true,
-      reason: 'active',
+      reason: "active",
     },
-  })
+  });
 
-  const organizationId = watch('organizationId')
-  const campusId = watch('campusId')
+  const organizationId = watch("organizationId");
+  const campusId = watch("campusId");
+
+  const { data: existingDetails = [], refetch: refetchExistingDetails } =
+    useQuery({
+      queryKey: QK.transport.details(),
+      queryFn: listTransportDetails,
+      enabled: open,
+    });
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     void listOrganizations()
       .then((orgs) => {
         setOrganizations(
@@ -87,89 +104,126 @@ export function TransportDetailsModal({
             .filter((o) => o.isActive !== false)
             .map((o) => ({
               value: String(o.organizationId),
-              label: o.orgCode ?? o.orgName ?? String(o.organizationId),
+              label: codeLabel(o.orgCode, o.organizationId),
+              title: o.orgName,
             })),
-        )
+        );
       })
       .catch((err) => {
-        toastError(err, 'Failed to load organizations')
-      })
+        toastError(err, "Failed to load organizations");
+      });
     reset(
       row
         ? {
             organizationId: row.organizationId,
             campusId: row.campusId,
             collegeId: row.collegeId,
-            transportName: row.transportName ?? '',
+            transportName: row.transportName ?? "",
             isActive: row.isActive ?? true,
-            reason: row.reason ?? 'active',
+            reason: row.reason ?? "active",
           }
         : {
             organizationId: undefined,
             campusId: undefined,
             collegeId: undefined,
-            transportName: '',
+            transportName: "",
             isActive: true,
-            reason: 'active',
+            reason: "active",
           },
-    )
-  }, [open, row, reset])
+    );
+  }, [open, row, reset]);
 
   useEffect(() => {
     if (!organizationId) {
-      setCampuses([])
-      return
+      setCampuses([]);
+      return;
     }
-    setLoadingCampuses(true)
+    setLoadingCampuses(true);
     void listCampusesByOrganization(organizationId)
       .then((rows) => {
         setCampuses(
           rows.map((c) => ({
             value: String(c.campusId),
-            label: c.campusCode ?? c.campusName ?? String(c.campusId),
+            label: codeLabel(c.campusCode, c.campusId),
+            title: c.campusName,
           })),
-        )
+        );
       })
-      .catch((err) => toastError(err, 'Failed to load campuses'))
-      .finally(() => setLoadingCampuses(false))
-  }, [organizationId])
+      .catch((err) => toastError(err, "Failed to load campuses"))
+      .finally(() => setLoadingCampuses(false));
+  }, [organizationId]);
 
   useEffect(() => {
     if (!campusId) {
-      setColleges([])
-      return
+      setColleges([]);
+      return;
     }
-    setLoadingColleges(true)
+    setLoadingColleges(true);
     void listCollegesByCampus(campusId)
       .then((rows) => {
         setColleges(
           rows.map((c) => ({
             value: String(c.collegeId),
-            label: String(c.collegeCode ?? c.collegeName ?? c.collegeId),
+            label: codeLabel(c.collegeCode, c.collegeId),
+            title: c.collegeName,
           })),
-        )
+        );
       })
-      .catch((err) => toastError(err, 'Failed to load colleges'))
-      .finally(() => setLoadingColleges(false))
-  }, [campusId])
+      .catch((err) => toastError(err, "Failed to load colleges"))
+      .finally(() => setLoadingColleges(false));
+  }, [campusId]);
 
   async function onSubmit(data: FormValues) {
+    clearErrors("transportName");
+    const latestDetails =
+      existingDetails.length > 0
+        ? existingDetails
+        : ((await refetchExistingDetails()).data ?? []);
+    const normalizedName = data.transportName.trim().toLowerCase();
+    const duplicate = latestDetails.find((item) => {
+      const existingName = (item.transportName ?? "").trim().toLowerCase();
+      if (existingName !== normalizedName) return false;
+      if (Number(item.organizationId) !== Number(data.organizationId))
+        return false;
+      if (Number(item.campusId) !== Number(data.campusId)) return false;
+      if (Number(item.collegeId) !== Number(data.collegeId)) return false;
+      if (
+        row?.transportDetailId &&
+        item.transportDetailId === row.transportDetailId
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    if (duplicate) {
+      setError("transportName", {
+        type: "manual",
+        message: "Transport name already exists",
+      });
+      return;
+    }
+
     const payload = {
       ...data,
-      reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
-    }
+      transportName: data.transportName.trim(),
+      reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
+    };
     try {
       if (isEditing && row?.transportDetailId) {
-        await updateTransportDetail(row.transportDetailId, payload)
-        toastSuccess('Transport details updated')
+        await updateTransportDetail(row.transportDetailId, payload);
+        toastSuccess("Transport details updated");
       } else {
-        await createTransportDetail(payload)
-        toastSuccess('Transport details created')
+        await createTransportDetail(payload);
+        toastSuccess("Transport details created");
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err) {
-      toastError(err, `Failed to ${isEditing ? 'update' : 'create'} transport details`)
+      toastError(
+        err,
+        `Failed to ${isEditing ? "update" : "create"} transport details`,
+      );
     }
   }
 
@@ -177,12 +231,12 @@ export function TransportDetailsModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEditing ? 'Edit Transport Details' : 'Add Transport Details'}
+      title={isEditing ? "Edit Transport Details" : "Add Transport Details"}
       titleClassName={TRANSPORT_MODAL_TITLE_CLASS}
       showHeaderDivider
       onSubmit={(e) => {
-        e.preventDefault()
-        void handleSubmit(onSubmit)()
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
       }}
       submitLabel="Save"
       cancelLabel="Close"
@@ -199,9 +253,9 @@ export function TransportDetailsModal({
                 label="Organization *"
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => {
-                  field.onChange(v ? Number(v) : undefined)
-                  setValue('campusId', undefined as unknown as number)
-                  setValue('collegeId', undefined as unknown as number)
+                  field.onChange(v ? Number(v) : undefined);
+                  setValue("campusId", undefined as unknown as number);
+                  setValue("collegeId", undefined as unknown as number);
                 }}
                 options={organizations}
                 placeholder="Select organization"
@@ -218,8 +272,8 @@ export function TransportDetailsModal({
                 label="Campus *"
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => {
-                  field.onChange(v ? Number(v) : undefined)
-                  setValue('collegeId', undefined as unknown as number)
+                  field.onChange(v ? Number(v) : undefined);
+                  setValue("collegeId", undefined as unknown as number);
                 }}
                 options={campuses}
                 placeholder="Select campus"
@@ -251,16 +305,21 @@ export function TransportDetailsModal({
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="space-y-1">
-            <Label htmlFor="transportName" className={TRANSPORT_FIELD_LABEL_CLASS}>
+            <Label
+              htmlFor="transportName"
+              className={TRANSPORT_FIELD_LABEL_CLASS}
+            >
               Transport Name *
             </Label>
             <Input
               id="transportName"
               className={TRANSPORT_INPUT_CLASS}
-              {...register('transportName')}
+              {...register("transportName")}
             />
             {errors.transportName ? (
-              <p className="text-xs text-destructive">{errors.transportName.message}</p>
+              <p className="text-xs text-destructive">
+                {errors.transportName.message}
+              </p>
             ) : null}
           </div>
         </div>
@@ -276,20 +335,26 @@ export function TransportDetailsModal({
                   checked={field.value}
                   onCheckedChange={field.onChange}
                 />
-                <Label htmlFor="transportIsActive" className={TRANSPORT_FIELD_LABEL_CLASS}>
+                <Label
+                  htmlFor="transportIsActive"
+                  className={TRANSPORT_FIELD_LABEL_CLASS}
+                >
                   Active
                 </Label>
               </div>
               {!field.value ? (
                 <div className="max-w-md space-y-1">
-                  <Label htmlFor="transportReason" className={TRANSPORT_FIELD_LABEL_CLASS}>
+                  <Label
+                    htmlFor="transportReason"
+                    className={TRANSPORT_FIELD_LABEL_CLASS}
+                  >
                     Reason
                   </Label>
                   <Input
                     id="transportReason"
                     className={TRANSPORT_INPUT_CLASS}
-                    value={watch('reason') ?? ''}
-                    onChange={(e) => setValue('reason', e.target.value)}
+                    value={watch("reason") ?? ""}
+                    onChange={(e) => setValue("reason", e.target.value)}
                     placeholder="Reason for deactivation"
                   />
                 </div>
@@ -299,5 +364,5 @@ export function TransportDetailsModal({
         />
       </div>
     </FormModal>
-  )
+  );
 }

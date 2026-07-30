@@ -1,69 +1,69 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useState } from 'react'
-import { ClipboardList, Pencil, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
+import { useCallback, useEffect, useState } from "react";
+import { ClipboardList, Pencil, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Select } from '@/common/components/select'
-import { searchEmployeesForHr } from '@/services/hr-payroll'
-import { saveExamInvigilationAllotmentsList } from '@/services/pre-examination'
+} from "@/components/ui/dialog";
+import { Select } from "@/common/components/select";
+import { searchEmployeesForHr } from "@/services";
+import { saveExamInvigilationAllotmentsList } from "@/services";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
 export type InvigilatorModalContext = {
-  collegeId: number
-  examTimetableId: number
-  collegeCode: string
-  courseCode: string
-  academicYear: string
-  examName: string
-  examDate: string
-}
+  collegeId: number;
+  examTimetableId: number;
+  collegeCode: string;
+  courseCode: string;
+  academicYear: string;
+  examName: string;
+  examDate: string;
+};
 
 export type InvigilatorModalRoom = {
-  roomId: number
-  roomName?: string
-  roomCode?: string
-  buildingCode?: string
-  blockCode?: string
-  floorNo?: string | number
-}
+  roomId: number;
+  roomName?: string;
+  roomCode?: string;
+  buildingCode?: string;
+  blockCode?: string;
+  floorNo?: string | number;
+};
 
 type Props = {
-  open: boolean
-  onClose: () => void
-  context: InvigilatorModalContext | null
-  room: InvigilatorModalRoom | null
-  initialRows: AnyRow[]
-  invigDesgs: AnyRow[]
-  onSaved: () => void | Promise<void>
-}
+  open: boolean;
+  onClose: () => void;
+  context: InvigilatorModalContext | null;
+  room: InvigilatorModalRoom | null;
+  initialRows: AnyRow[];
+  invigDesgs: AnyRow[];
+  onSaved: () => void | Promise<void>;
+};
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
+  if (!row) return 0;
   for (const k of keys) {
-    const n = Number(row[k])
-    if (n > 0) return n
+    const n = Number(row[k]);
+    if (n > 0) return n;
   }
-  return 0
-}
+  return 0;
+};
 
 const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
-}
+  return "";
+};
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
@@ -73,7 +73,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
         <span className="text-[#0d29ff]">{value}</span>
       </p>
     </div>
-  )
+  );
 }
 
 export function InvigilatorAllotmentModal({
@@ -85,76 +85,119 @@ export function InvigilatorAllotmentModal({
   invigDesgs,
   onSaved,
 }: Props) {
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [employeeId, setEmployeeId] = useState<number | null>(null)
-  const [designationId, setDesignationId] = useState<number | null>(null)
-  const [isActive, setIsActive] = useState(true)
-  const [editingAllotmentId, setEditingAllotmentId] = useState<number | null>(null)
-  const [employeeOptions, setEmployeeOptions] = useState<{ value: string; label: string }[]>([])
-  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false)
-  const [employeeCache, setEmployeeCache] = useState<AnyRow[]>([])
-  const [saving, setSaving] = useState(false)
-  const [formOpen, setFormOpen] = useState(true)
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+  const [designationId, setDesignationId] = useState<number | null>(null);
+  const [isActive, setIsActive] = useState(true);
+  const [editingAllotmentId, setEditingAllotmentId] = useState<number | null>(
+    null,
+  );
+  const [employeeOptions, setEmployeeOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false);
+  const [employeeCache, setEmployeeCache] = useState<AnyRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
 
   useEffect(() => {
-    if (!open) return
-    setRows(initialRows.map((r) => ({ ...r })))
-    clearForm()
-  }, [open, initialRows])
+    if (!open) return;
+    setRows(initialRows.map((r) => ({ ...r })));
+    clearForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset form only when dialog opens / rows change
+  }, [open, initialRows]);
 
   function clearForm() {
-    setEmployeeId(null)
-    setDesignationId(null)
-    setIsActive(true)
-    setEditingAllotmentId(null)
-    setEmployeeOptions([])
-    setEmployeeCache([])
+    setEmployeeId(null);
+    setDesignationId(null);
+    setIsActive(true);
+    setEditingAllotmentId(null);
+    setEmployeeOptions([]);
+    setEmployeeCache([]);
   }
 
   const onEmployeeSearch = useCallback(
     async (term: string) => {
       if (!context?.collegeId || term.trim().length < 4) {
-        setEmployeeOptions([])
-        return
+        setEmployeeOptions([]);
+        return;
       }
-      setEmployeeSearchLoading(true)
+      setEmployeeSearchLoading(true);
       try {
-        const list = await searchEmployeesForHr(term, context.collegeId)
-        const rows = Array.isArray(list) ? list : []
-        setEmployeeCache(rows)
+        // Angular enteredEmployee: employeesearch?q=&empStatus=ACTV then filter by collegeId client-side.
+        // Prefer college-scoped search when the API supports it; still filter client-side for parity.
+        const list = await searchEmployeesForHr(term, context.collegeId);
+        const rows = (Array.isArray(list) ? list : []).filter((e) => {
+          const cid = pickNum(e, ["collegeId", "fk_college_id", "fkCollegeId"]);
+          return cid === 0 || cid === Number(context.collegeId);
+        });
+        setEmployeeCache(rows);
         setEmployeeOptions(
           rows.map((e, i) => ({
-            value: String(pickNum(e, ['employeeId', 'fk_employee_id']) || i),
-            label: `${pickText(e, ['empNumber', 'employeeCode'])} (${pickText(e, ['firstName', 'employeeName'])})`,
+            value: String(
+              pickNum(e, ["employeeId", "fk_employee_id", "empId"]) || i,
+            ),
+            label: `${pickText(e, ["empNumber", "employeeCode"])} (${pickText(e, ["firstName", "employeeName", "empName"])})`,
           })),
-        )
+        );
       } finally {
-        setEmployeeSearchLoading(false)
+        setEmployeeSearchLoading(false);
       }
     },
     [context?.collegeId],
-  )
+  );
 
   function onUpdateRow() {
-    if (!employeeId || !designationId || !context || !room) return
+    if (!employeeId || !designationId || !context || !room) {
+      alert("Please select Employee and Invigilator Designation");
+      return;
+    }
+    if (!room.roomId) {
+      alert("Room id is missing");
+      return;
+    }
 
     const emp = employeeCache.find(
-      (e) => pickNum(e, ['employeeId', 'fk_employee_id']) === Number(employeeId),
-    )
+      (e) =>
+        pickNum(e, ["employeeId", "fk_employee_id", "empId"]) ===
+        Number(employeeId),
+    );
+    const selectedOpt = employeeOptions.find(
+      (o) => o.value === String(employeeId),
+    );
     const desg = invigDesgs.find(
       (d) => Number(d.generalDetailId ?? 0) === Number(designationId),
-    )
-    if (!emp || !desg) return
+    );
+    if (!desg) {
+      alert("Please select a valid Invigilator Designation");
+      return;
+    }
 
-    const duplicate = rows.find(
-      (r) =>
-        Number(r.invigilatorEmpId ?? 0) === Number(employeeId) &&
+    const empName =
+      pickText(emp, ["firstName", "employeeName", "empName"]) ||
+      (selectedOpt?.label.match(/\(([^)]+)\)/)?.[1] ?? "");
+    const empNumber =
+      pickText(emp, ["empNumber", "employeeCode"]) ||
+      (selectedOpt?.label.split(" ")[0] ?? "");
+
+    if (!emp && !selectedOpt) {
+      alert("Please search and select an Employee");
+      return;
+    }
+
+    // Angular: block duplicate employee unless editing that same allotment row
+    const duplicate = rows.find((r) => {
+      const sameEmp = Number(r.invigilatorEmpId ?? 0) === Number(employeeId);
+      if (!sameEmp) return false;
+      if (!editingAllotmentId) return true;
+      return (
         Number(r.examInvgAllotmentId ?? r.examInvigilationAllotmentId ?? 0) !==
-          Number(editingAllotmentId ?? 0),
-    )
-    if (duplicate) {
-      alert('Same employee already allocated to the same day')
-      return
+        Number(editingAllotmentId)
+      );
+    });
+    if (duplicate && !editingAllotmentId) {
+      alert("Same employee already allocated to the same day");
+      return;
     }
 
     const nextRow: AnyRow = {
@@ -164,71 +207,102 @@ export function InvigilatorAllotmentModal({
       collegeId: context.collegeId,
       roomId: room.roomId,
       invgdesignationCatId: designationId,
-      invigilatorEmpName: pickText(emp, ['firstName', 'employeeName']),
-      invigilatorEmpNumber: pickText(emp, ['empNumber', 'employeeCode']),
-      invgdesignationCatCode: pickText(desg, ['generalDetailCode']),
+      invigilatorEmpName: empName,
+      invigilatorEmpNumber: empNumber,
+      invgdesignationCatCode: pickText(desg, [
+        "generalDetailCode",
+        "generalDetailDisplayName",
+      ]),
       isActive,
-      dataDetails: 'oldRoom',
-    }
+      dataDetails: "oldRoom",
+    };
 
     if (editingAllotmentId) {
       setRows((prev) =>
         prev.map((r) =>
-          Number(r.examInvgAllotmentId ?? r.examInvigilationAllotmentId ?? 0) ===
-          editingAllotmentId
+          Number(
+            r.examInvgAllotmentId ?? r.examInvigilationAllotmentId ?? 0,
+          ) === editingAllotmentId
             ? { ...r, ...nextRow, examInvgAllotmentId: editingAllotmentId }
             : r,
         ),
-      )
+      );
     } else {
-      setRows((prev) => [...prev, nextRow])
+      setRows((prev) => [...prev, nextRow]);
     }
-    clearForm()
+    clearForm();
   }
 
   function onEditRow(row: AnyRow) {
-    const id = Number(row.examInvgAllotmentId ?? row.examInvigilationAllotmentId ?? 0)
-    const empId = Number(row.invigilatorEmpId ?? 0)
-    setEditingAllotmentId(id || null)
-    setEmployeeId(empId || null)
-    setDesignationId(Number(row.invgdesignationCatId ?? 0) || null)
-    setIsActive(row.isActive !== false)
+    const id = Number(
+      row.examInvgAllotmentId ?? row.examInvigilationAllotmentId ?? 0,
+    );
+    const empId = Number(row.invigilatorEmpId ?? 0);
+    setEditingAllotmentId(id || null);
+    setEmployeeId(empId || null);
+    setDesignationId(Number(row.invgdesignationCatId ?? 0) || null);
+    setIsActive(row.isActive !== false);
     setEmployeeOptions([
       {
         value: String(empId),
-        label: `${row.invigilatorEmpNumber ?? ''} (${row.invigilatorEmpName ?? ''})`,
+        label: `${row.invigilatorEmpNumber ?? ""} (${row.invigilatorEmpName ?? ""})`,
       },
-    ])
+    ]);
     setEmployeeCache([
       {
         employeeId: empId,
         firstName: row.invigilatorEmpName,
         empNumber: row.invigilatorEmpNumber,
+        collegeId: context?.collegeId,
       },
-    ])
-    setFormOpen(true)
+    ]);
+    setFormOpen(true);
   }
 
   async function onSave() {
-    if (!context || !room) return
+    if (!context || !room) return;
     if (rows.length === 0) {
-      alert('No staff allocated to room')
-      return
+      alert("No staff allocated to room");
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
-      await saveExamInvigilationAllotmentsList(rows)
-      await onSaved()
-      onClose()
+      const payload = rows.map((r) => ({
+        ...r,
+        examTimeTableId: context.examTimetableId,
+        collegeId: context.collegeId,
+        roomId: room.roomId,
+        dataDetails: "oldRoom",
+      }));
+      const result = await saveExamInvigilationAllotmentsList(payload);
+      if (result.success) {
+        await onSaved();
+        onClose();
+        return;
+      }
+      // Angular: success:false may still return conflicting allotments in data
+      const conflict = result.data;
+      const conflictCount = Array.isArray(conflict) ? conflict.length : 0;
+      if (conflictCount > 0) {
+        alert(
+          result.message ??
+            `Some invigilators are already allotted (${conflictCount}). Refreshing list.`,
+        );
+        await onSaved();
+        onClose();
+        return;
+      }
+      alert(result.message ?? "Failed to save invigilator allotment");
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Failed to save invigilator allotment'
-      alert(msg)
+      const msg =
+        e instanceof Error ? e.message : "Failed to save invigilator allotment";
+      alert(msg);
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
-  if (!context || !room) return null
+  if (!context || !room) return null;
 
   const roomLine = [
     room.buildingCode,
@@ -236,12 +310,17 @@ export function InvigilatorAllotmentModal({
     room.floorNo,
     room.roomName,
   ]
-    .filter((x) => x != null && String(x).trim() !== '')
-    .join(' / ')
-  const roomValue = `${roomLine} - ( ${room.roomCode ?? room.roomName ?? ''} )`
+    .filter((x) => x != null && String(x).trim() !== "")
+    .join(" / ");
+  const roomValue = `${roomLine} - ( ${room.roomCode ?? room.roomName ?? ""} )`;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent className="max-w-[950px] max-h-[92vh] overflow-y-auto p-0 gap-0">
         <DialogHeader className="px-4 py-3 border-b border-[#B2EBF2] bg-muted/20">
           <DialogTitle className="flex items-center gap-2 text-[15px] font-semibold">
@@ -261,7 +340,7 @@ export function InvigilatorAllotmentModal({
               label="Exam Timetable :"
               value={`${context.examName} - (${context.examDate})`}
             />
-            {room.buildingCode != null && (
+            {(room.buildingCode != null || room.roomName || room.roomCode) && (
               <SummaryRow label="Room :" value={roomValue} />
             )}
           </div>
@@ -273,7 +352,9 @@ export function InvigilatorAllotmentModal({
               onClick={() => setFormOpen((v) => !v)}
             >
               <Plus className="h-3.5 w-3.5 text-blue-700" />
-              <strong className="text-[13px] text-blue-800">Allot Invigilator</strong>
+              <strong className="text-[13px] text-blue-800">
+                Allot Invigilator
+              </strong>
             </button>
             {formOpen && (
               <div className="p-3 grid grid-cols-1 md:grid-cols-12 gap-3 items-end border-t">
@@ -285,7 +366,7 @@ export function InvigilatorAllotmentModal({
                     value={employeeId ? String(employeeId) : null}
                     onChange={(v) => setEmployeeId(v ? Number(v) : null)}
                     options={employeeOptions}
-                    placeholder="Employee"
+                    placeholder="Search Employee (min 4 chars)"
                     searchable
                     onSearch={onEmployeeSearch}
                     isLoading={employeeSearchLoading}
@@ -293,14 +374,19 @@ export function InvigilatorAllotmentModal({
                 </div>
                 <div className="md:col-span-3 space-y-1">
                   <Label>
-                    Invigilator Designation <span className="text-destructive">*</span>
+                    Invigilator Designation{" "}
+                    <span className="text-destructive">*</span>
                   </Label>
                   <Select
                     value={designationId ? String(designationId) : null}
                     onChange={(v) => setDesignationId(v ? Number(v) : null)}
                     options={invigDesgs.map((d, i) => ({
                       value: String(d.generalDetailId ?? i),
-                      label: String(d.generalDetailCode ?? d.generalDetailDisplayName ?? '-'),
+                      label: String(
+                        d.generalDetailCode ??
+                          d.generalDetailDisplayName ??
+                          "-",
+                      ),
                     }))}
                     placeholder="Invigilator Designation"
                   />
@@ -311,12 +397,19 @@ export function InvigilatorAllotmentModal({
                     checked={isActive}
                     onCheckedChange={(v) => setIsActive(v === true)}
                   />
-                  <Label htmlFor="inv-active" className="text-[12px] cursor-pointer">
+                  <Label
+                    htmlFor="inv-active"
+                    className="text-[12px] cursor-pointer"
+                  >
                     Active
                   </Label>
                 </div>
                 <div className="md:col-span-3 flex gap-2">
-                  <Button type="button" className="h-8 text-[12px] flex-1" onClick={onUpdateRow}>
+                  <Button
+                    type="button"
+                    className="h-8 text-[12px] flex-1"
+                    onClick={onUpdateRow}
+                  >
                     Update
                   </Button>
                   <Button
@@ -337,31 +430,48 @@ export function InvigilatorAllotmentModal({
               <thead>
                 <tr className="bg-[#C3D9FF]">
                   <th className="px-2 py-2 text-left font-medium w-12">No.</th>
-                  <th className="px-2 py-2 text-left font-medium">Invigilator Name</th>
-                  <th className="px-2 py-2 text-left font-medium">Invigilator Designation</th>
-                  <th className="px-2 py-2 text-left font-medium w-24">Status</th>
-                  <th className="px-2 py-2 text-left font-medium w-20">Actions</th>
+                  <th className="px-2 py-2 text-left font-medium">
+                    Invigilator Name
+                  </th>
+                  <th className="px-2 py-2 text-left font-medium">
+                    Invigilator Designation
+                  </th>
+                  <th className="px-2 py-2 text-left font-medium w-24">
+                    Status
+                  </th>
+                  <th className="px-2 py-2 text-left font-medium w-20">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, idx) => (
-                  <tr key={`inv-row-${row.examInvgAllotmentId ?? idx}`} className="border-t">
+                  <tr
+                    key={`inv-row-${row.examInvgAllotmentId ?? idx}`}
+                    className="border-t"
+                  >
                     <td className="px-2 py-2">{idx + 1}</td>
                     <td className="px-2 py-2">
                       {row.invigilatorEmpName}
                       {row.invigilatorEmpNumber ? (
                         <span className="text-muted-foreground">
-                          {' '}
+                          {" "}
                           ({row.invigilatorEmpNumber})
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-2 py-2">{row.invgdesignationCatCode ?? '-'}</td>
+                    <td className="px-2 py-2">
+                      {row.invgdesignationCatCode ?? "-"}
+                    </td>
                     <td className="px-2 py-2">
                       {row.isActive !== false ? (
-                        <span className="text-green-600 font-medium">Active</span>
+                        <span className="text-green-600 font-medium">
+                          Active
+                        </span>
                       ) : (
-                        <span className="text-red-600 font-medium">InActive</span>
+                        <span className="text-red-600 font-medium">
+                          InActive
+                        </span>
                       )}
                     </td>
                     <td className="px-2 py-2">
@@ -380,7 +490,10 @@ export function InvigilatorAllotmentModal({
                 ))}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-2 py-4 text-center text-muted-foreground">
+                    <td
+                      colSpan={5}
+                      className="px-2 py-4 text-center text-muted-foreground"
+                    >
                       No invigilators allotted
                     </td>
                   </tr>
@@ -391,14 +504,19 @@ export function InvigilatorAllotmentModal({
         </div>
 
         <DialogFooter className="px-4 py-3 border-t gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={saving}
+          >
             Close
           </Button>
           <Button type="button" onClick={onSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -15,24 +15,30 @@ import type {
   VehicleDetail,
   VehicleDriver,
   VehicleRoute,
-} from '@/types/transport'
-import { ENTITIES } from '@/config/constants/entities'
-import { TRANSPORT_API } from '@/config/constants/api'
+} from "@/types/transport";
+import { ENTITIES } from "@/config/constants/entities";
+import { TRANSPORT_API } from "@/config/constants/api";
 import {
   angularLowerActiveReason,
   asNullableNumber,
   asString,
-} from './angular-payload'
-import { domainCreate, domainList, domainUpdate, getAllRecords, postDetails } from './crud'
-import { buildQuery } from './query'
+} from "./angular-payload";
+import {
+  domainCreate,
+  domainList,
+  domainUpdate,
+  getAllRecords,
+  postDetails,
+} from "./crud";
+import { buildQuery } from "./query";
 
 // ─── Transport details ───────────────────────────────────────────────────────
 
-type TransportDetailRow = TransportDetail & Record<string, unknown>
+type TransportDetailRow = TransportDetail & Record<string, unknown>;
 
 function asFiniteId(value: unknown, fallback?: unknown): number {
-  const num = Number(value ?? fallback)
-  return Number.isFinite(num) ? num : 0
+  const num = Number(value ?? fallback);
+  return Number.isFinite(num) ? num : 0;
 }
 
 function pickNestedId(
@@ -42,51 +48,84 @@ function pickNestedId(
   nestedIdKey: string,
 ): number {
   for (const key of nestedKeys) {
-    const nested = row[key] as Record<string, unknown> | undefined
+    const nested = row[key] as Record<string, unknown> | undefined;
     if (nested?.[nestedIdKey] != null) {
-      return asFiniteId(nested[nestedIdKey])
+      return asFiniteId(nested[nestedIdKey]);
     }
   }
-  return asFiniteId(row[flatKey])
+  return asFiniteId(row[flatKey]);
 }
 
 /** Angular `listDetailsByTwoIds(..., 'true', id, 'isActive', 'TransportDetail.transportDetailId')`. */
 function buildTransportDetailActiveQuery(transportDetailId: number): string {
   return buildQuery({
     isActive: true,
-    'TransportDetail.transportDetailId': transportDetailId,
-  })
+    "TransportDetail.transportDetailId": transportDetailId,
+  });
 }
 
 /** Flatten nested Organization / Campus / College FKs Spring returns on list. */
 function normalizeTransportDetail(row: TransportDetail): TransportDetail {
-  const r = row as TransportDetailRow
+  const r = row as TransportDetailRow;
   const organization = (r.organization ?? r.Organization) as
     | { organizationId?: number; orgCode?: string; orgName?: string }
-    | undefined
+    | undefined;
   const campus = (r.campus ?? r.Campus) as
     | { campusId?: number; campusCode?: string; campusName?: string }
-    | undefined
+    | undefined;
   const college = (r.college ?? r.College) as
     | { collegeId?: number; collegeCode?: string; collegeName?: string }
-    | undefined
+    | undefined;
 
+  // Flat searchable row (Courses-style) — no nested entities in list data.
   return {
-    ...row,
+    transportDetailId:
+      asFiniteId(
+        row.transportDetailId ??
+          r.transport_detail_id ??
+          r.fk_transport_detail_id,
+      ) || undefined,
+    transportName: asString(
+      row.transportName ?? r.transport_name ?? r.name ?? r.transportName,
+    ).trim(),
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     campusId:
-      pickNestedId(r, 'campusId', ['campus', 'Campus'], 'campusId') || row.campusId,
+      pickNestedId(r, "campusId", ["campus", "Campus"], "campusId") ||
+      row.campusId,
     collegeId:
-      pickNestedId(r, 'collegeId', ['college', 'College'], 'collegeId') || row.collegeId,
-    orgCode: row.orgCode ?? organization?.orgCode,
-    orgName: row.orgName ?? organization?.orgName,
-    campusCode: row.campusCode ?? campus?.campusCode,
-    campusName: row.campusName ?? campus?.campusName,
-    collegeCode: row.collegeCode ?? college?.collegeCode,
-    collegeName: row.collegeName ?? college?.collegeName,
-  }
+      pickNestedId(r, "collegeId", ["college", "College"], "collegeId") ||
+      row.collegeId,
+    orgCode:
+      asString(row.orgCode ?? organization?.orgCode ?? r.org_code).trim() ||
+      undefined,
+    orgName:
+      asString(row.orgName ?? organization?.orgName ?? r.org_name).trim() ||
+      undefined,
+    campusCode:
+      asString(row.campusCode ?? campus?.campusCode ?? r.campus_code).trim() ||
+      undefined,
+    campusName:
+      asString(row.campusName ?? campus?.campusName ?? r.campus_name).trim() ||
+      undefined,
+    collegeCode:
+      asString(
+        row.collegeCode ?? college?.collegeCode ?? r.college_code,
+      ).trim() || undefined,
+    collegeName:
+      asString(
+        row.collegeName ?? college?.collegeName ?? r.college_name,
+      ).trim() || undefined,
+    isActive: (row.isActive ?? r.is_active ?? r.isActive) as
+      | boolean
+      | undefined,
+    reason: asString(row.reason ?? r.reason).trim() || undefined,
+  };
 }
 
 /**
@@ -98,10 +137,10 @@ function buildTransportDetailPayload(
   data: Partial<TransportDetailPayload>,
   transportDetailId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const campusId = asFiniteId(data.campusId)
-  const collegeId = asFiniteId(data.collegeId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const campusId = asFiniteId(data.campusId);
+  const collegeId = asFiniteId(data.collegeId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -113,18 +152,20 @@ function buildTransportDetailPayload(
     transportName: asString(data.transportName).trim(),
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (transportDetailId != null) {
-    payload.transportDetailId = transportDetailId
+    payload.transportDetailId = transportDetailId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listTransportDetails(): Promise<TransportDetail[]> {
-  const rows = await domainList<TransportDetail>(ENTITIES.TRANSPORT_DETAIL.name)
-  return rows.map(normalizeTransportDetail)
+  const rows = await domainList<TransportDetail>(
+    ENTITIES.TRANSPORT_DETAIL.name,
+  );
+  return rows.map(normalizeTransportDetail);
 }
 
 export async function listTransportDetailsByOrganization(
@@ -132,16 +173,21 @@ export async function listTransportDetailsByOrganization(
 ): Promise<TransportDetail[]> {
   const rows = await domainList<TransportDetail>(
     ENTITIES.TRANSPORT_DETAIL.name,
-    buildQuery({ isActive: true, 'Organization.organizationId': organizationId }),
-  )
-  return rows.map(normalizeTransportDetail)
+    buildQuery({
+      isActive: true,
+      "Organization.organizationId": organizationId,
+    }),
+  );
+  return rows.map(normalizeTransportDetail);
 }
 
-export async function createTransportDetail(data: TransportDetailPayload): Promise<TransportDetail> {
+export async function createTransportDetail(
+  data: TransportDetailPayload,
+): Promise<TransportDetail> {
   return domainCreate<TransportDetail>(
     ENTITIES.TRANSPORT_DETAIL.name,
     buildTransportDetailPayload(data),
-  )
+  );
 }
 
 export async function updateTransportDetail(
@@ -153,32 +199,40 @@ export async function updateTransportDetail(
     ENTITIES.TRANSPORT_DETAIL.pk,
     transportDetailId,
     buildTransportDetailPayload(data, transportDetailId),
-  )
+  );
 }
 
 // ─── Vehicles ────────────────────────────────────────────────────────────────
 
-type VehicleDetailRow = VehicleDetail & Record<string, unknown>
+type VehicleDetailRow = VehicleDetail & Record<string, unknown>;
 
 /** Flatten nested Organization / TransportDetail / GeneralDetail FKs Spring returns on list. */
 function normalizeVehicleDetail(row: VehicleDetail): VehicleDetail {
-  const r = row as VehicleDetailRow
+  const r = row as VehicleDetailRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
     generalDetailId:
-      pickNestedId(r, 'generalDetailId', ['generalDetail', 'GeneralDetail'], 'generalDetailId') ||
-      row.generalDetailId,
-  }
+      pickNestedId(
+        r,
+        "generalDetailId",
+        ["generalDetail", "GeneralDetail"],
+        "generalDetailId",
+      ) || row.generalDetailId,
+  };
 }
 
 /**
@@ -190,10 +244,10 @@ function buildVehicleDetailPayload(
   data: Partial<VehicleDetail>,
   vehicleDetailId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asNullableNumber(data.transportDetailId)
-  const generalDetailId = asNullableNumber(data.generalDetailId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asNullableNumber(data.transportDetailId);
+  const generalDetailId = asNullableNumber(data.generalDetailId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -222,28 +276,28 @@ function buildVehicleDetailPayload(
     yearOfManufacture: data.yearOfManufacture ?? null,
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (transportDetailId != null && transportDetailId > 0) {
-    payload.transportDetailId = transportDetailId
-    payload.transportDetail = { transportDetailId }
+    payload.transportDetailId = transportDetailId;
+    payload.transportDetail = { transportDetailId };
   }
 
   if (generalDetailId != null && generalDetailId > 0) {
-    payload.generalDetailId = generalDetailId
-    payload.generalDetail = { generalDetailId }
+    payload.generalDetailId = generalDetailId;
+    payload.generalDetail = { generalDetailId };
   }
 
   if (vehicleDetailId != null) {
-    payload.vehicleDetailId = vehicleDetailId
+    payload.vehicleDetailId = vehicleDetailId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listVehicles(): Promise<VehicleDetail[]> {
-  const rows = await domainList<VehicleDetail>(ENTITIES.VEHICLE_DETAIL.name)
-  return rows.map(normalizeVehicleDetail)
+  const rows = await domainList<VehicleDetail>(ENTITIES.VEHICLE_DETAIL.name);
+  return rows.map(normalizeVehicleDetail);
 }
 
 export async function listVehiclesByTransportDetail(
@@ -252,15 +306,17 @@ export async function listVehiclesByTransportDetail(
   const rows = await domainList<VehicleDetail>(
     ENTITIES.VEHICLE_DETAIL.name,
     buildTransportDetailActiveQuery(transportDetailId),
-  )
-  return rows.map(normalizeVehicleDetail)
+  );
+  return rows.map(normalizeVehicleDetail);
 }
 
-export async function createVehicle(data: Partial<VehicleDetail>): Promise<VehicleDetail> {
+export async function createVehicle(
+  data: Partial<VehicleDetail>,
+): Promise<VehicleDetail> {
   return domainCreate<VehicleDetail>(
     ENTITIES.VEHICLE_DETAIL.name,
     buildVehicleDetailPayload(data),
-  )
+  );
 }
 
 export async function updateVehicle(
@@ -272,29 +328,33 @@ export async function updateVehicle(
     ENTITIES.VEHICLE_DETAIL.pk,
     vehicleDetailId,
     buildVehicleDetailPayload(data, vehicleDetailId),
-  )
+  );
 }
 
 // ─── Drivers ─────────────────────────────────────────────────────────────────
 
-type DriverRow = Driver & Record<string, unknown>
+type DriverRow = Driver & Record<string, unknown>;
 
 /** Flatten nested Organization / TransportDetail FKs Spring returns on list. */
 function normalizeDriver(row: Driver): Driver {
-  const r = row as DriverRow
+  const r = row as DriverRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
-  }
+  };
 }
 
 /**
@@ -302,13 +362,16 @@ function normalizeDriver(row: Driver): Driver {
  * Spring returns success:false ("Unable to process…") when update omits driverId
  * or sends NaN / invalid FK shapes from raw form coercion.
  */
-function buildDriverPayload(data: Partial<Driver>, driverId?: number): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asNullableNumber(data.transportDetailId)
-  const genderId = asNullableNumber(data.genderId)
-  const bloodgroupId = asNullableNumber(data.bloodgroupId)
-  const maritalStatusId = asNullableNumber(data.maritalStatusId)
-  const isActive = data.isActive !== false
+function buildDriverPayload(
+  data: Partial<Driver>,
+  driverId?: number,
+): Record<string, unknown> {
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asNullableNumber(data.transportDetailId);
+  const genderId = asNullableNumber(data.genderId);
+  const bloodgroupId = asNullableNumber(data.bloodgroupId);
+  const maritalStatusId = asNullableNumber(data.maritalStatusId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -328,78 +391,87 @@ function buildDriverPayload(data: Partial<Driver>, driverId?: number): Record<st
     drivingLicencePath: asString(data.drivingLicencePath),
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (transportDetailId != null && transportDetailId > 0) {
-    payload.transportDetailId = transportDetailId
-    payload.transportDetail = { transportDetailId }
+    payload.transportDetailId = transportDetailId;
+    payload.transportDetail = { transportDetailId };
   }
 
   if (genderId != null && genderId > 0) {
-    payload.genderId = genderId
+    payload.genderId = genderId;
   }
 
   if (bloodgroupId != null && bloodgroupId > 0) {
-    payload.bloodgroupId = bloodgroupId
+    payload.bloodgroupId = bloodgroupId;
   }
 
   if (maritalStatusId != null && maritalStatusId > 0) {
-    payload.maritalStatusId = maritalStatusId
+    payload.maritalStatusId = maritalStatusId;
   }
 
   if (driverId != null) {
-    payload.driverId = driverId
+    payload.driverId = driverId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listDrivers(): Promise<Driver[]> {
-  const rows = await domainList<Driver>(ENTITIES.DRIVER.name)
-  return rows.map(normalizeDriver)
+  const rows = await domainList<Driver>(ENTITIES.DRIVER.name);
+  return rows.map(normalizeDriver);
 }
 
-export async function listDriversByTransportDetail(transportDetailId: number): Promise<Driver[]> {
+export async function listDriversByTransportDetail(
+  transportDetailId: number,
+): Promise<Driver[]> {
   const rows = await domainList<Driver>(
     ENTITIES.DRIVER.name,
     buildTransportDetailActiveQuery(transportDetailId),
-  )
-  return rows.map(normalizeDriver)
+  );
+  return rows.map(normalizeDriver);
 }
 
 export async function createDriver(data: Partial<Driver>): Promise<Driver> {
-  return domainCreate<Driver>(ENTITIES.DRIVER.name, buildDriverPayload(data))
+  return domainCreate<Driver>(ENTITIES.DRIVER.name, buildDriverPayload(data));
 }
 
-export async function updateDriver(driverId: number, data: Partial<Driver>): Promise<Driver> {
+export async function updateDriver(
+  driverId: number,
+  data: Partial<Driver>,
+): Promise<Driver> {
   return domainUpdate<Driver>(
     ENTITIES.DRIVER.name,
     ENTITIES.DRIVER.pk,
     driverId,
     buildDriverPayload(data, driverId),
-  )
+  );
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-type HelperRow = Helper & Record<string, unknown>
+type HelperRow = Helper & Record<string, unknown>;
 
 /** Flatten nested Organization / TransportDetail FKs Spring returns on list. */
 function normalizeHelper(row: Helper): Helper {
-  const r = row as HelperRow
+  const r = row as HelperRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
-  }
+  };
 }
 
 /**
@@ -407,13 +479,16 @@ function normalizeHelper(row: Helper): Helper {
  * Spring returns success:false ("Unable to process…") when update omits helperId
  * or sends NaN / invalid FK shapes from raw form coercion.
  */
-function buildHelperPayload(data: Partial<Helper>, helperId?: number): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asNullableNumber(data.transportDetailId)
-  const genderId = asNullableNumber(data.genderId)
-  const bloodgroupId = asNullableNumber(data.bloodgroupId)
-  const maritalStatusId = asNullableNumber(data.maritalStatusId)
-  const isActive = data.isActive !== false
+function buildHelperPayload(
+  data: Partial<Helper>,
+  helperId?: number,
+): Record<string, unknown> {
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asNullableNumber(data.transportDetailId);
+  const genderId = asNullableNumber(data.genderId);
+  const bloodgroupId = asNullableNumber(data.bloodgroupId);
+  const maritalStatusId = asNullableNumber(data.maritalStatusId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -430,78 +505,87 @@ function buildHelperPayload(data: Partial<Helper>, helperId?: number): Record<st
     photoPath: asString(data.photoPath),
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (transportDetailId != null && transportDetailId > 0) {
-    payload.transportDetailId = transportDetailId
-    payload.transportDetail = { transportDetailId }
+    payload.transportDetailId = transportDetailId;
+    payload.transportDetail = { transportDetailId };
   }
 
   if (genderId != null && genderId > 0) {
-    payload.genderId = genderId
+    payload.genderId = genderId;
   }
 
   if (bloodgroupId != null && bloodgroupId > 0) {
-    payload.bloodgroupId = bloodgroupId
+    payload.bloodgroupId = bloodgroupId;
   }
 
   if (maritalStatusId != null && maritalStatusId > 0) {
-    payload.maritalStatusId = maritalStatusId
+    payload.maritalStatusId = maritalStatusId;
   }
 
   if (helperId != null) {
-    payload.helperId = helperId
+    payload.helperId = helperId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listHelpers(): Promise<Helper[]> {
-  const rows = await domainList<Helper>(ENTITIES.HELPER.name)
-  return rows.map(normalizeHelper)
+  const rows = await domainList<Helper>(ENTITIES.HELPER.name);
+  return rows.map(normalizeHelper);
 }
 
-export async function listHelpersByTransportDetail(transportDetailId: number): Promise<Helper[]> {
+export async function listHelpersByTransportDetail(
+  transportDetailId: number,
+): Promise<Helper[]> {
   const rows = await domainList<Helper>(
     ENTITIES.HELPER.name,
     buildTransportDetailActiveQuery(transportDetailId),
-  )
-  return rows.map(normalizeHelper)
+  );
+  return rows.map(normalizeHelper);
 }
 
 export async function createHelper(data: Partial<Helper>): Promise<Helper> {
-  return domainCreate<Helper>(ENTITIES.HELPER.name, buildHelperPayload(data))
+  return domainCreate<Helper>(ENTITIES.HELPER.name, buildHelperPayload(data));
 }
 
-export async function updateHelper(helperId: number, data: Partial<Helper>): Promise<Helper> {
+export async function updateHelper(
+  helperId: number,
+  data: Partial<Helper>,
+): Promise<Helper> {
   return domainUpdate<Helper>(
     ENTITIES.HELPER.name,
     ENTITIES.HELPER.pk,
     helperId,
     buildHelperPayload(data, helperId),
-  )
+  );
 }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
-type TransportRouteRow = TransportRoute & Record<string, unknown>
+type TransportRouteRow = TransportRoute & Record<string, unknown>;
 
 /** Flatten nested Organization / TransportDetail FKs Spring returns on list. */
 function normalizeTransportRoute(row: TransportRoute): TransportRoute {
-  const r = row as TransportRouteRow
+  const r = row as TransportRouteRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
-  }
+  };
 }
 
 /**
@@ -513,9 +597,9 @@ function buildRoutePayload(
   data: Partial<TransportRoute>,
   routeId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asNullableNumber(data.transportDetailId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asNullableNumber(data.transportDetailId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -526,18 +610,18 @@ function buildRoutePayload(
     routeDropPlace: asString(data.routeDropPlace),
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (transportDetailId != null && transportDetailId > 0) {
-    payload.transportDetailId = transportDetailId
-    payload.transportDetail = { transportDetailId }
+    payload.transportDetailId = transportDetailId;
+    payload.transportDetail = { transportDetailId };
   }
 
   if (routeId != null) {
-    payload.routeId = routeId
+    payload.routeId = routeId;
   }
 
-  return payload
+  return payload;
 }
 
 /** Merge latest RouteStop rows into Route list rows (Angular nested routeStops parity). */
@@ -545,34 +629,34 @@ function mergeStopsIntoRoutes(
   routes: TransportRoute[],
   stopRows: RouteStop[],
 ): TransportRoute[] {
-  const byRouteId = new Map<number, RouteStop[]>()
+  const byRouteId = new Map<number, RouteStop[]>();
   for (const raw of stopRows) {
-    const r = raw as RouteStop & Record<string, unknown>
+    const r = raw as RouteStop & Record<string, unknown>;
     const routeId =
-      pickNestedId(r, 'routeId', ['route', 'Route'], 'routeId') || raw.routeId
-    if (routeId == null) continue
-    const bucket = byRouteId.get(routeId) ?? []
-    bucket.push(raw)
-    byRouteId.set(routeId, bucket)
+      pickNestedId(r, "routeId", ["route", "Route"], "routeId") || raw.routeId;
+    if (routeId == null) continue;
+    const bucket = byRouteId.get(routeId) ?? [];
+    bucket.push(raw);
+    byRouteId.set(routeId, bucket);
   }
   return routes.map((route) => {
-    if (route.routeId == null) return route
-    const merged = byRouteId.get(route.routeId)
-    return merged?.length ? { ...route, routeStops: merged } : route
-  })
+    if (route.routeId == null) return route;
+    const merged = byRouteId.get(route.routeId);
+    return merged?.length ? { ...route, routeStops: merged } : route;
+  });
 }
 
 export async function listRoutes(): Promise<TransportRoute[]> {
   const rows = await domainList<TransportRoute>(
     ENTITIES.ROUTE.name,
-    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
-  )
-  const routes = rows.map(normalizeTransportRoute)
+    buildQuery({}, { field: "createdDt", direction: "DESC" }),
+  );
+  const routes = rows.map(normalizeTransportRoute);
   try {
-    const stopRows = await domainList<RouteStop>(ENTITIES.ROUTE_STOP.name)
-    return mergeStopsIntoRoutes(routes, stopRows)
+    const stopRows = await domainList<RouteStop>(ENTITIES.ROUTE_STOP.name);
+    return mergeStopsIntoRoutes(routes, stopRows);
   } catch {
-    return routes
+    return routes;
   }
 }
 
@@ -582,21 +666,28 @@ export async function listRoutesByTransportDetail(
   const rows = await domainList<TransportRoute>(
     ENTITIES.ROUTE.name,
     buildTransportDetailActiveQuery(transportDetailId),
-  )
-  return rows.map(normalizeTransportRoute)
+  );
+  return rows.map(normalizeTransportRoute);
 }
 
-export async function getRouteById(routeId: number): Promise<TransportRoute | null> {
+export async function getRouteById(
+  routeId: number,
+): Promise<TransportRoute | null> {
   const rows = await domainList<TransportRoute>(
     ENTITIES.ROUTE.name,
     buildQuery({ routeId }),
-  )
-  const row = rows[0]
-  return row ? normalizeTransportRoute(row) : null
+  );
+  const row = rows[0];
+  return row ? normalizeTransportRoute(row) : null;
 }
 
-export async function createRoute(data: Partial<TransportRoute>): Promise<TransportRoute> {
-  return domainCreate<TransportRoute>(ENTITIES.ROUTE.name, buildRoutePayload(data))
+export async function createRoute(
+  data: Partial<TransportRoute>,
+): Promise<TransportRoute> {
+  return domainCreate<TransportRoute>(
+    ENTITIES.ROUTE.name,
+    buildRoutePayload(data),
+  );
 }
 
 export async function updateRoute(
@@ -608,37 +699,49 @@ export async function updateRoute(
     ENTITIES.ROUTE.pk,
     routeId,
     buildRoutePayload(data, routeId),
-  )
+  );
 }
 
 // ─── Route stops ─────────────────────────────────────────────────────────────
 
-type RouteStopRow = RouteStop & Record<string, unknown>
+type RouteStopRow = RouteStop & Record<string, unknown>;
 
 /** Flatten nested FKs Spring returns on RouteStop list rows. */
 function normalizeRouteStop(row: RouteStop): RouteStop {
-  const r = row as RouteStopRow
+  const r = row as RouteStopRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
     feeFrequencyId:
-      pickNestedId(r, 'feeFrequencyId', ['feeFrequency', 'FeeFrequency'], 'generalDetailId') ||
-      row.feeFrequencyId,
+      pickNestedId(
+        r,
+        "feeFrequencyId",
+        ["feeFrequency", "FeeFrequency"],
+        "generalDetailId",
+      ) || row.feeFrequencyId,
     routeId:
-      pickNestedId(r, 'routeId', ['route', 'Route'], 'routeId') || row.routeId,
+      pickNestedId(r, "routeId", ["route", "Route"], "routeId") || row.routeId,
     distanceFeeId:
-      pickNestedId(r, 'distanceFeeId', ['distanceFee', 'DistanceFee'], 'distanceFeeId') ||
-      row.distanceFeeId,
-  }
+      pickNestedId(
+        r,
+        "distanceFeeId",
+        ["distanceFee", "DistanceFee"],
+        "distanceFeeId",
+      ) || row.distanceFeeId,
+  };
 }
 
 /**
@@ -650,12 +753,12 @@ function buildRouteStopPayload(
   data: Partial<RouteStop>,
   routeStopId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asFiniteId(data.transportDetailId)
-  const feeFrequencyId = asFiniteId(data.feeFrequencyId)
-  const routeId = asFiniteId(data.routeId)
-  const distanceFeeId = asFiniteId(data.distanceFeeId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asFiniteId(data.transportDetailId);
+  const feeFrequencyId = asFiniteId(data.feeFrequencyId);
+  const routeId = asFiniteId(data.routeId);
+  const distanceFeeId = asFiniteId(data.distanceFeeId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -675,28 +778,32 @@ function buildRouteStopPayload(
     dropTime: data.dropTime ?? null,
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (routeStopId != null) {
-    payload.routeStopId = routeStopId
+    payload.routeStopId = routeStopId;
   }
 
-  return payload
+  return payload;
 }
 
-export async function listRouteStopsByRoute(routeId: number): Promise<RouteStop[]> {
+export async function listRouteStopsByRoute(
+  routeId: number,
+): Promise<RouteStop[]> {
   const rows = await domainList<RouteStop>(
     ENTITIES.ROUTE_STOP.name,
-    buildQuery({ 'Route.routeId': routeId }),
-  )
-  return rows.map(normalizeRouteStop)
+    buildQuery({ "Route.routeId": routeId }),
+  );
+  return rows.map(normalizeRouteStop);
 }
 
-export async function createRouteStop(data: Partial<RouteStop>): Promise<RouteStop> {
+export async function createRouteStop(
+  data: Partial<RouteStop>,
+): Promise<RouteStop> {
   return domainCreate<RouteStop>(
     ENTITIES.ROUTE_STOP.name,
     buildRouteStopPayload(data),
-  )
+  );
 }
 
 export async function updateRouteStop(
@@ -708,39 +815,46 @@ export async function updateRouteStop(
     ENTITIES.ROUTE_STOP.pk,
     routeStopId,
     buildRouteStopPayload(data, routeStopId),
-  )
+  );
 }
 
 // ─── Vehicle drivers ─────────────────────────────────────────────────────────
 
-type VehicleDriverRow = VehicleDriver & Record<string, unknown>
+type VehicleDriverRow = VehicleDriver & Record<string, unknown>;
 
 /** Flatten nested FKs Spring returns on VehicleDriver list rows. */
 function normalizeVehicleDriver(row: VehicleDriver): VehicleDriver {
-  const r = row as VehicleDriverRow
+  const r = row as VehicleDriverRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
     vehicleDetailId:
       pickNestedId(
         r,
-        'vehicleDetailId',
-        ['vehicleDetail', 'VehicleDetail'],
-        'vehicleDetailId',
+        "vehicleDetailId",
+        ["vehicleDetail", "VehicleDetail"],
+        "vehicleDetailId",
       ) || row.vehicleDetailId,
     driverId:
-      pickNestedId(r, 'driverId', ['driver', 'Driver'], 'driverId') || row.driverId,
-    helperId: pickNestedId(r, 'helperId', ['helper', 'Helper'], 'helperId') || row.helperId,
-  }
+      pickNestedId(r, "driverId", ["driver", "Driver"], "driverId") ||
+      row.driverId,
+    helperId:
+      pickNestedId(r, "helperId", ["helper", "Helper"], "helperId") ||
+      row.helperId,
+  };
 }
 
 /**
@@ -752,12 +866,12 @@ function buildVehicleDriverPayload(
   data: Partial<VehicleDriver>,
   vehicleDriverId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asFiniteId(data.transportDetailId)
-  const vehicleDetailId = asNullableNumber(data.vehicleDetailId)
-  const driverId = asNullableNumber(data.driverId)
-  const helperId = asNullableNumber(data.helperId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asFiniteId(data.transportDetailId);
+  const vehicleDetailId = asNullableNumber(data.vehicleDetailId);
+  const driverId = asNullableNumber(data.driverId);
+  const helperId = asNullableNumber(data.helperId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -766,41 +880,43 @@ function buildVehicleDriverPayload(
     transportDetail: { transportDetailId },
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (vehicleDetailId != null && vehicleDetailId > 0) {
-    payload.vehicleDetailId = vehicleDetailId
-    payload.vehicleDetail = { vehicleDetailId }
+    payload.vehicleDetailId = vehicleDetailId;
+    payload.vehicleDetail = { vehicleDetailId };
   }
 
   if (driverId != null && driverId > 0) {
-    payload.driverId = driverId
-    payload.driver = { driverId }
+    payload.driverId = driverId;
+    payload.driver = { driverId };
   }
 
   if (helperId != null && helperId > 0) {
-    payload.helperId = helperId
-    payload.helper = { helperId }
+    payload.helperId = helperId;
+    payload.helper = { helperId };
   }
 
   // Some Spring controllers also expect the PK inside body on update (Angular edits do this too).
   if (vehicleDriverId != null) {
-    payload.vehicleDriverId = vehicleDriverId
+    payload.vehicleDriverId = vehicleDriverId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listVehicleDrivers(): Promise<VehicleDriver[]> {
-  const rows = await domainList<VehicleDriver>(ENTITIES.VEHICLE_DRIVER.name)
-  return rows.map(normalizeVehicleDriver)
+  const rows = await domainList<VehicleDriver>(ENTITIES.VEHICLE_DRIVER.name);
+  return rows.map(normalizeVehicleDriver);
 }
 
-export async function createVehicleDriver(data: Partial<VehicleDriver>): Promise<VehicleDriver> {
+export async function createVehicleDriver(
+  data: Partial<VehicleDriver>,
+): Promise<VehicleDriver> {
   return domainCreate<VehicleDriver>(
     ENTITIES.VEHICLE_DRIVER.name,
     buildVehicleDriverPayload(data),
-  )
+  );
 }
 
 export async function updateVehicleDriver(
@@ -812,39 +928,48 @@ export async function updateVehicleDriver(
     ENTITIES.VEHICLE_DRIVER.pk,
     vehicleDriverId,
     buildVehicleDriverPayload(data, vehicleDriverId),
-  )
+  );
 }
 
 // ─── Vehicle route map ───────────────────────────────────────────────────────
 
-type VehicleRouteRow = VehicleRoute & Record<string, unknown>
+type VehicleRouteRow = VehicleRoute & Record<string, unknown>;
 
 /** Flatten nested FKs Spring returns on VechicleRoute list rows. */
 function normalizeVehicleRoute(row: VehicleRoute): VehicleRoute {
-  const r = row as VehicleRouteRow
+  const r = row as VehicleRouteRow;
   return {
     ...row,
     organizationId:
-      pickNestedId(r, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        r,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         r,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
-    routeId: pickNestedId(r, 'routeId', ['route', 'Route'], 'routeId') || row.routeId,
+    routeId:
+      pickNestedId(r, "routeId", ["route", "Route"], "routeId") || row.routeId,
     vehicleDetailId:
       pickNestedId(
         r,
-        'vehicleDetailId',
-        ['vehicleDetail', 'VehicleDetail'],
-        'vehicleDetailId',
+        "vehicleDetailId",
+        ["vehicleDetail", "VehicleDetail"],
+        "vehicleDetailId",
       ) || row.vehicleDetailId,
-    driverId: pickNestedId(r, 'driverId', ['driver', 'Driver'], 'driverId') || row.driverId,
-    helperId: pickNestedId(r, 'helperId', ['helper', 'Helper'], 'helperId') || row.helperId,
-  }
+    driverId:
+      pickNestedId(r, "driverId", ["driver", "Driver"], "driverId") ||
+      row.driverId,
+    helperId:
+      pickNestedId(r, "helperId", ["helper", "Helper"], "helperId") ||
+      row.helperId,
+  };
 }
 
 /**
@@ -856,13 +981,13 @@ function buildVehicleRoutePayload(
   data: Partial<VehicleRoute>,
   vechicleRouteId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asNullableNumber(data.transportDetailId)
-  const routeId = asNullableNumber(data.routeId)
-  const vehicleDetailId = asNullableNumber(data.vehicleDetailId)
-  const driverId = asNullableNumber(data.driverId)
-  const helperId = asNullableNumber(data.helperId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asNullableNumber(data.transportDetailId);
+  const routeId = asNullableNumber(data.routeId);
+  const vehicleDetailId = asNullableNumber(data.vehicleDetailId);
+  const driverId = asNullableNumber(data.driverId);
+  const helperId = asNullableNumber(data.helperId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -873,50 +998,52 @@ function buildVehicleRoutePayload(
     status: asString(data.status) || null,
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (transportDetailId != null && transportDetailId > 0) {
-    payload.transportDetailId = transportDetailId
-    payload.transportDetail = { transportDetailId }
+    payload.transportDetailId = transportDetailId;
+    payload.transportDetail = { transportDetailId };
   }
 
   if (routeId != null && routeId > 0) {
-    payload.routeId = routeId
-    payload.route = { routeId }
+    payload.routeId = routeId;
+    payload.route = { routeId };
   }
 
   if (vehicleDetailId != null && vehicleDetailId > 0) {
-    payload.vehicleDetailId = vehicleDetailId
-    payload.vehicleDetail = { vehicleDetailId }
+    payload.vehicleDetailId = vehicleDetailId;
+    payload.vehicleDetail = { vehicleDetailId };
   }
 
   if (driverId != null && driverId > 0) {
-    payload.driverId = driverId
-    payload.driver = { driverId }
+    payload.driverId = driverId;
+    payload.driver = { driverId };
   }
 
   if (helperId != null && helperId > 0) {
-    payload.helperId = helperId
-    payload.helper = { helperId }
+    payload.helperId = helperId;
+    payload.helper = { helperId };
   }
 
   if (vechicleRouteId != null) {
-    payload.vechicleRouteId = vechicleRouteId
+    payload.vechicleRouteId = vechicleRouteId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listVehicleRoutes(): Promise<VehicleRoute[]> {
-  const rows = await domainList<VehicleRoute>(ENTITIES.VEHICLE_ROUTE.name)
-  return rows.map(normalizeVehicleRoute)
+  const rows = await domainList<VehicleRoute>(ENTITIES.VEHICLE_ROUTE.name);
+  return rows.map(normalizeVehicleRoute);
 }
 
-export async function createVehicleRoute(data: Partial<VehicleRoute>): Promise<VehicleRoute> {
+export async function createVehicleRoute(
+  data: Partial<VehicleRoute>,
+): Promise<VehicleRoute> {
   return domainCreate<VehicleRoute>(
     ENTITIES.VEHICLE_ROUTE.name,
     buildVehicleRoutePayload(data),
-  )
+  );
 }
 
 export async function updateVehicleRoute(
@@ -928,31 +1055,39 @@ export async function updateVehicleRoute(
     ENTITIES.VEHICLE_ROUTE.pk,
     vechicleRouteId,
     buildVehicleRoutePayload(data, vechicleRouteId),
-  )
+  );
 }
 
 // ─── Distance fee ──────────────────────────────────────────────────────────────
 
-type DistanceFeeRow = DistanceFee & Record<string, unknown>
+type DistanceFeeRow = DistanceFee & Record<string, unknown>;
 
 /** Flatten nested Organization / TransportDetail / feeFrequency FKs Spring returns on list. */
 function normalizeDistanceFee(row: DistanceFeeRow): DistanceFee {
   return {
     ...row,
     organizationId:
-      pickNestedId(row, 'organizationId', ['organization', 'Organization'], 'organizationId') ||
-      row.organizationId,
+      pickNestedId(
+        row,
+        "organizationId",
+        ["organization", "Organization"],
+        "organizationId",
+      ) || row.organizationId,
     transportDetailId:
       pickNestedId(
         row,
-        'transportDetailId',
-        ['transportDetail', 'TransportDetail'],
-        'transportDetailId',
+        "transportDetailId",
+        ["transportDetail", "TransportDetail"],
+        "transportDetailId",
       ) || row.transportDetailId,
     feeFrequencyId:
-      pickNestedId(row, 'feeFrequencyId', ['feeFrequency', 'FeeFrequency'], 'generalDetailId') ||
-      row.feeFrequencyId,
-  }
+      pickNestedId(
+        row,
+        "feeFrequencyId",
+        ["feeFrequency", "FeeFrequency"],
+        "generalDetailId",
+      ) || row.feeFrequencyId,
+  };
 }
 
 /**
@@ -964,10 +1099,10 @@ function buildDistanceFeePayload(
   data: Partial<DistanceFee>,
   distanceFeeId?: number,
 ): Record<string, unknown> {
-  const organizationId = asFiniteId(data.organizationId)
-  const transportDetailId = asFiniteId(data.transportDetailId)
-  const feeFrequencyId = asNullableNumber(data.feeFrequencyId)
-  const isActive = data.isActive !== false
+  const organizationId = asFiniteId(data.organizationId);
+  const transportDetailId = asFiniteId(data.transportDetailId);
+  const feeFrequencyId = asNullableNumber(data.feeFrequencyId);
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     organizationId,
@@ -981,18 +1116,18 @@ function buildDistanceFeePayload(
     toDate: data.toDate ?? null,
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason),
-  }
+  };
 
   if (feeFrequencyId != null && feeFrequencyId > 0) {
-    payload.feeFrequencyId = feeFrequencyId
-    payload.feeFrequency = { generalDetailId: feeFrequencyId }
+    payload.feeFrequencyId = feeFrequencyId;
+    payload.feeFrequency = { generalDetailId: feeFrequencyId };
   }
 
   if (distanceFeeId != null) {
-    payload.distanceFeeId = distanceFeeId
+    payload.distanceFeeId = distanceFeeId;
   }
 
-  return payload
+  return payload;
 }
 
 function filterDistanceFeesByTransportAndFrequency(
@@ -1000,8 +1135,8 @@ function filterDistanceFeesByTransportAndFrequency(
   transportDetailId: number,
   feeFrequencyId: number,
 ): DistanceFee[] {
-  const transportId = Number(transportDetailId)
-  const frequencyId = Number(feeFrequencyId)
+  const transportId = Number(transportDetailId);
+  const frequencyId = Number(feeFrequencyId);
   return rows
     .map(normalizeDistanceFee)
     .filter(
@@ -1010,12 +1145,12 @@ function filterDistanceFeesByTransportAndFrequency(
         Number(d.feeFrequencyId) === frequencyId &&
         d.isActive !== false &&
         d.distanceFeeId != null,
-    )
+    );
 }
 
 export async function listDistanceFees(): Promise<DistanceFee[]> {
-  const rows = await domainList<DistanceFeeRow>(ENTITIES.DISTANCE_FEE.name)
-  return rows.map(normalizeDistanceFee)
+  const rows = await domainList<DistanceFeeRow>(ENTITIES.DISTANCE_FEE.name);
+  return rows.map(normalizeDistanceFee);
 }
 
 /**
@@ -1026,12 +1161,12 @@ export async function listDistanceFeesByTransportAndFrequency(
   transportDetailId: number,
   feeFrequencyId: number,
 ): Promise<DistanceFee[]> {
-  if (!transportDetailId || !feeFrequencyId) return []
+  if (!transportDetailId || !feeFrequencyId) return [];
 
   const queries = [
     buildQuery({
-      'TransportDetail.transportDetailId': transportDetailId,
-      'feeFrequency.generalDetailId': feeFrequencyId,
+      "TransportDetail.transportDetailId": transportDetailId,
+      "feeFrequency.generalDetailId": feeFrequencyId,
       isActive: true,
     }),
     buildQuery({
@@ -1040,45 +1175,54 @@ export async function listDistanceFeesByTransportAndFrequency(
       isActive: true,
     }),
     buildQuery({
-      'TransportDetail.transportDetailId': transportDetailId,
+      "TransportDetail.transportDetailId": transportDetailId,
       feeFrequencyId,
       isActive: true,
     }),
     buildQuery({
       transportDetailId,
-      'feeFrequency.generalDetailId': feeFrequencyId,
+      "feeFrequency.generalDetailId": feeFrequencyId,
       isActive: true,
     }),
     buildQuery({
-      'TransportDetail.transportDetailId': transportDetailId,
-      'feeFrequency.generalDetailId': feeFrequencyId,
+      "TransportDetail.transportDetailId": transportDetailId,
+      "feeFrequency.generalDetailId": feeFrequencyId,
     }),
     buildQuery({ transportDetailId, feeFrequencyId }),
-  ]
+  ];
 
   for (const q of queries) {
     try {
-      const rows = await domainList<DistanceFeeRow>(ENTITIES.DISTANCE_FEE.name, q)
+      const rows = await domainList<DistanceFeeRow>(
+        ENTITIES.DISTANCE_FEE.name,
+        q,
+      );
       const matched = filterDistanceFeesByTransportAndFrequency(
         rows,
         transportDetailId,
         feeFrequencyId,
-      )
-      if (matched.length > 0) return matched
+      );
+      if (matched.length > 0) return matched;
     } catch {
       // try next query shape
     }
   }
 
-  const all = await domainList<DistanceFeeRow>(ENTITIES.DISTANCE_FEE.name)
-  return filterDistanceFeesByTransportAndFrequency(all, transportDetailId, feeFrequencyId)
+  const all = await domainList<DistanceFeeRow>(ENTITIES.DISTANCE_FEE.name);
+  return filterDistanceFeesByTransportAndFrequency(
+    all,
+    transportDetailId,
+    feeFrequencyId,
+  );
 }
 
-export async function createDistanceFee(data: Partial<DistanceFee>): Promise<DistanceFee> {
+export async function createDistanceFee(
+  data: Partial<DistanceFee>,
+): Promise<DistanceFee> {
   return domainCreate<DistanceFee>(
     ENTITIES.DISTANCE_FEE.name,
     buildDistanceFeePayload(data),
-  )
+  );
 }
 
 export async function updateDistanceFee(
@@ -1090,7 +1234,7 @@ export async function updateDistanceFee(
     ENTITIES.DISTANCE_FEE.pk,
     distanceFeeId,
     buildDistanceFeePayload(data, distanceFeeId),
-  )
+  );
 }
 
 // ─── Transport allocation ────────────────────────────────────────────────────
@@ -1100,24 +1244,21 @@ export async function listTransportAllocations(
   personId?: number,
 ): Promise<TransportAllocation[]> {
   const filters: Record<string, string | number> = personId
-    ? allocationFor === 'S'
-      ? { 'studentDetail.studentId': personId }
-      : { 'employeeDetail.employeeId': personId }
-    : { allocationFor }
+    ? allocationFor === "S"
+      ? { "studentDetail.studentId": personId }
+      : { "employeeDetail.employeeId": personId }
+    : { allocationFor };
   return domainList<TransportAllocation>(
     ENTITIES.TRANSPORT_ALLOCATION.name,
-    buildQuery(
-      filters,
-      { field: 'createdDt', direction: 'DESC' },
-    ),
-  )
+    buildQuery(filters, { field: "createdDt", direction: "DESC" }),
+  );
 }
 
 export async function updateTransportAllocation(
   transportAllocationId: number,
   data: Partial<TransportAllocation>,
 ): Promise<TransportAllocation> {
-  const isActive = data.isActive !== false
+  const isActive = data.isActive !== false;
   return domainUpdate<TransportAllocation>(
     ENTITIES.TRANSPORT_ALLOCATION.name,
     ENTITIES.TRANSPORT_ALLOCATION.pk,
@@ -1128,13 +1269,13 @@ export async function updateTransportAllocation(
       isActive,
       reason: angularLowerActiveReason(isActive, data.reason),
     },
-  )
+  );
 }
 
 export async function allocateTransportForStudent(
   payload: Record<string, unknown>,
 ): Promise<unknown> {
-  return postDetails(TRANSPORT_API.TRANSPORT_ALLOCATION, payload)
+  return postDetails(TRANSPORT_API.TRANSPORT_ALLOCATION, payload);
 }
 
 export async function getStudentTransportReport(
@@ -1143,10 +1284,14 @@ export async function getStudentTransportReport(
   const rows = await getAllRecords<unknown[] | { resultList?: unknown[] }>(
     TRANSPORT_API.GET_STUDENT_TRANSPORT,
     params,
-  )
-  if (Array.isArray(rows)) return rows
-  if (rows && typeof rows === 'object' && Array.isArray((rows as { resultList?: unknown[] }).resultList)) {
-    return (rows as { resultList: unknown[] }).resultList
+  );
+  if (Array.isArray(rows)) return rows;
+  if (
+    rows &&
+    typeof rows === "object" &&
+    Array.isArray((rows as { resultList?: unknown[] }).resultList)
+  ) {
+    return (rows as { resultList: unknown[] }).resultList;
   }
-  return []
+  return [];
 }

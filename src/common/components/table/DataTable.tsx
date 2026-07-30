@@ -41,6 +41,11 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 export interface DataTableToolbarConfig {
   /** Client-side filter across row values. Default **true**. */
   search?: boolean;
+  /**
+   * When set, toolbar search only matches these row fields (partial, case-insensitive).
+   * When omitted, search walks all string/number values on the row (default).
+   */
+  searchFields?: string[];
   columnPicker?: boolean;
   exportPdf?: boolean;
   /** Export visible columns as CSV (shown as “Excel”). Default **true**. */
@@ -255,9 +260,23 @@ function collectStrings(
   }
 }
 
-function rowMatchesSearch<T>(row: T, q: string): boolean {
+function rowMatchesSearch<T>(
+  row: T,
+  q: string,
+  searchFields?: string[],
+): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
+
+  if (searchFields && searchFields.length > 0) {
+    const record = row as Record<string, unknown>;
+    return searchFields.some((field) => {
+      const value = record?.[field];
+      if (value == null) return false;
+      return String(value).toLowerCase().includes(needle);
+    });
+  }
+
   const hay: string[] = [];
   collectStrings(row, 0, hay, new WeakSet());
   // Per-field match (userName, mobile, …)
@@ -386,6 +405,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
     return {
       show: false,
       search: false,
+      searchFields: undefined as string[] | undefined,
       columnPicker: false,
       exportPdf: false,
       exportExcel: false,
@@ -401,6 +421,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
   return {
     show: true,
     search: t.search !== false,
+    searchFields: t.searchFields,
     columnPicker: t.columnPicker !== false,
     exportPdf: t.exportPdf !== false,
     exportExcel: t.exportExcel !== false,
@@ -504,8 +525,10 @@ export function DataTable<T>({
   const filteredRowData = useMemo(() => {
     if (!tb.show || !tb.search || !searchQuery.trim())
       return inactiveFilteredData;
-    return inactiveFilteredData.filter((r) => rowMatchesSearch(r, searchQuery));
-  }, [inactiveFilteredData, tb.show, tb.search, searchQuery]);
+    return inactiveFilteredData.filter((r) =>
+      rowMatchesSearch(r, searchQuery, tb.searchFields),
+    );
+  }, [inactiveFilteredData, tb.show, tb.search, tb.searchFields, searchQuery]);
 
   const [clientPage, setClientPage] = useState(0);
   const [clientPageSize, setClientPageSize] = useState<DataTablePageSize>(
