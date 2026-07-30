@@ -742,8 +742,8 @@ export default function ExamRegistrationStudentReportPage() {
     <FilteredListPage
       title={
         rows.length > 0
-          ? `Exam Student Registration Report - ${reportSubtitle}`
-          : "Exam Student Registration Report"
+          ? `Exam Registration Students - ${reportSubtitle}`
+          : "Exam Registration Students"
       }
       filters={filters}
       rowData={rows}

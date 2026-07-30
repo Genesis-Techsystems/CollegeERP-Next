@@ -274,9 +274,14 @@ export function useBreadcrumb(
       currentPath += "/" + segment;
       const isLast = index === segments.length - 1;
 
+      // Avoid linking module folder roots with no `page.tsx` (Next prefetch 404).
+      // Leaf page keeps no href; real intermediate pages can still be linked when
+      // they exist under nav metadata (preferred path above).
+      const isExamMgmtRoot = currentPath === "/admin-examination-management";
+
       items.push({
         label: segmentToLabel(segment),
-        href: isLast ? undefined : currentPath,
+        href: isLast || isExamMgmtRoot ? undefined : currentPath,
       });
 
       // Admin module: insert a submodule label for fallback breadcrumbs when

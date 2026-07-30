@@ -775,7 +775,55 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: hsl(var(--app-table-header-color));
+  color: hsl(var(--primary));
+  text-transform: uppercase;
+  white-space: normal;
+  line-height: 1.25;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+/* Column-group headers (Appeared / Passed / …) — match leaf header row */
+.app-data-table .ag-theme-quartz .ag-header-group-cell {
+  background-color: hsl(var(--primary) / 0.06) !important;
+}
+
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell
+  .ag-header-group-cell-label,
+.app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-group-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: hsl(var(--primary)) !important;
+  text-transform: uppercase;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-group-cell.app-table-header-group,
+.app-data-table .ag-theme-quartz .ag-header-cell.app-table-header-group {
+  background-color: hsl(var(--primary) / 0.06) !important;
+}
+
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell.app-table-header-group
+  .ag-header-group-cell-label,
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell
+  .ag-header-group-cell-label,
+.app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-group-text,
+.app-data-table .ag-theme-quartz .ag-header-group-cell-label,
+.app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-cell-text,
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-cell.app-table-header-group
+  .ag-header-cell-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: hsl(var(--primary)) !important;
   text-transform: uppercase;
 }
 
@@ -790,7 +838,7 @@
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-icon-filter,
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-sort-indicator-icon {
   opacity: 0.9;
-  color: hsl(var(--app-table-header-color));
+  color: hsl(var(--primary));
 }
 
 .app-data-table .ag-theme-quartz .ag-cell {
@@ -1149,6 +1197,36 @@
 .app-data-table .ag-theme-quartz .ag-pinned-right-header,
 .app-data-table .ag-theme-quartz .ag-pinned-left-header {
   border-color: hsl(var(--border)) !important;
+}
+
+/* Wide tables (fitColumnsToWidth=false) — scroll every column, not just the viewport */
+.app-data-table-wide.app-data-table-card {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll,
+.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll-viewport {
+  display: block !important;
+  min-height: 14px !important;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-center-cols-viewport {
+  overflow-x: auto !important;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-header-cell-text,
+.app-data-table-wide .ag-theme-quartz .ag-header-group-text {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-horizontal-left-spacer,
+.app-data-table-wide .ag-theme-quartz .ag-horizontal-right-spacer {
+  display: block !important;
+  width: auto !important;
+  min-width: unset !important;
+  overflow: visible !important;
 }
 
 /* Hide horizontal-scroll track under pinned SI.No / Actions columns —

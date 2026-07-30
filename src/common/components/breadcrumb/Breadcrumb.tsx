@@ -72,6 +72,7 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
               ) : isHome ? (
                 <Link
                   href={item.href!}
+                  prefetch={false}
                   className="inline-flex items-center text-muted-foreground transition-colors hover:text-foreground"
                   aria-label="Home"
                 >
@@ -91,6 +92,7 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
               ) : (
                 <Link
                   href={item.href}
+                  prefetch={false}
                   className="font-normal text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {item.label}

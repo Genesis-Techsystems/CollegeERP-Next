@@ -202,7 +202,8 @@ export default function GenderWiseExamReportPage() {
     const groupNum = Number(courseGroupId);
     const filtered = restRows.filter((r) => {
       if (num(r.fk_college_id) !== Number(collegeId)) return false;
-      if (groupNum !== 0 && num(r.fk_course_group_id) !== groupNum) return false;
+      if (groupNum !== 0 && num(r.fk_course_group_id) !== groupNum)
+        return false;
       return true;
     });
     const list = dedupeBy(filtered, (r) => num(r.fk_course_year_id));
@@ -348,9 +349,7 @@ export default function GenderWiseExamReportPage() {
       return false;
     });
     setExamFeeTypes(types);
-    setExamTypeCatdetId(
-      types.length ? String(feeTypeId(types[0])) : "0",
-    );
+    setExamTypeCatdetId(types.length ? String(feeTypeId(types[0])) : "0");
 
     async function loadRest() {
       setLoadingFilters(true);
@@ -374,14 +373,7 @@ export default function GenderWiseExamReportPage() {
       }
     }
     void loadRest();
-  }, [
-    examId,
-    selectedExam,
-    allFeeTypes,
-    courseId,
-    academicYearId,
-    employeeId,
-  ]);
+  }, [examId, selectedExam, allFeeTypes, courseId, academicYearId, employeeId]);
 
   useEffect(() => {
     setCourseYearId("0");
@@ -408,7 +400,8 @@ export default function GenderWiseExamReportPage() {
     const groupNum = Number(courseGroupId);
     const filtered = restRows.filter((r) => {
       if (num(r.fk_college_id) !== Number(collegeId)) return false;
-      if (groupNum !== 0 && num(r.fk_course_group_id) !== groupNum) return false;
+      if (groupNum !== 0 && num(r.fk_course_group_id) !== groupNum)
+        return false;
       return true;
     });
     const years = dedupeBy(filtered, (r) => num(r.fk_course_year_id)).sort(
@@ -651,8 +644,8 @@ export default function GenderWiseExamReportPage() {
     <FilteredListPage
       title={
         rows.length > 0
-          ? `Gender Wise Result — ${reportSubtitle}`
-          : "Gender Wise Result"
+          ? `Gender Wise Exam Result — ${reportSubtitle}`
+          : "Gender Wise Exam Result"
       }
       filters={filters}
       rowData={rows}

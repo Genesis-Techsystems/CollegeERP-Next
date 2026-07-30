@@ -219,7 +219,9 @@ export default function SubjectWiseEvaluatorsReportPage() {
   );
   const selectedCourseYear = useMemo(
     () =>
-      courseYears.find((y) => num(y.fk_course_year_id) === Number(courseYearId)),
+      courseYears.find(
+        (y) => num(y.fk_course_year_id) === Number(courseYearId),
+      ),
     [courseYears, courseYearId],
   );
   const selectedSubject = useMemo(
@@ -504,7 +506,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Course *">
           <Select
-            value={courseId || undefined}
+            value={courseId || null}
             onChange={(v) => setCourseId(v ?? "")}
             isLoading={loadingFilters}
             options={courses.map((c) => ({
@@ -517,7 +519,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Exam Year *">
           <Select
-            value={academicYearId || undefined}
+            value={academicYearId || null}
             onChange={(v) => setAcademicYearId(v ?? "")}
             isLoading={loadingFilters}
             options={academicYears.map((y) => ({
@@ -528,9 +530,12 @@ export default function SubjectWiseEvaluatorsReportPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Exam Master *" className="min-w-[280px] flex-[2]">
+        <GlobalFilterField
+          label="Exam Master *"
+          className="min-w-[280px] flex-[2]"
+        >
           <Select
-            value={examId || undefined}
+            value={examId || null}
             onChange={(v) => setExamId(v ?? "")}
             isLoading={loadingFilters}
             options={exams.map((e) => ({
@@ -546,7 +551,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="College *">
           <Select
-            value={collegeId || undefined}
+            value={collegeId || null}
             onChange={(v) => setCollegeId(v ?? "")}
             isLoading={loadingFilters}
             options={colleges.map((c) => ({
@@ -559,7 +564,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Course Group *">
           <Select
-            value={courseGroupId || undefined}
+            value={courseGroupId || null}
             onChange={(v) => setCourseGroupId(v ?? "")}
             isLoading={loadingFilters}
             options={[
@@ -578,7 +583,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Course Years *">
           <Select
-            value={courseYearId || undefined}
+            value={courseYearId || null}
             onChange={(v) => setCourseYearId(v ?? "")}
             isLoading={loadingFilters}
             options={[
@@ -594,7 +599,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Regulation">
           <Select
-            value={regulationId || undefined}
+            value={regulationId || null}
             onChange={(v) => setRegulationId(v ?? "")}
             isLoading={loadingFilters}
             options={[
@@ -610,7 +615,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Subject *" className="min-w-[240px] flex-[2]">
           <Select
-            value={subjectId || undefined}
+            value={subjectId || null}
             onChange={(v) => {
               setSubjectId(v ?? "");
               clearResults();

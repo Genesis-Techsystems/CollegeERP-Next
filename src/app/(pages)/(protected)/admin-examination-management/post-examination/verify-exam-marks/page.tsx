@@ -39,7 +39,6 @@ const TOOLBAR = {
   columnPicker: false,
   exportPdf: false,
   exportExcel: false,
-  columnFilters: false,
 } as const;
 
 const PANEL_TITLE: Record<VerifyExamMarksMode, string> = {
@@ -165,47 +164,107 @@ function cellByKey(row: AnyRow, key: string): string {
   return "";
 }
 
+/**
+ * Angular printPage() → window.print() (no popup window).
+ * Wide Internal/All modes have many dynamic columns; table-layout:fixed + scaled
+ * type keep every column on landscape A4 instead of clipping overflow.
+ */
 function printReport(
   title: string,
   subtitle: string,
   columns: { key: string; header: string }[],
   rows: Record<string, unknown>[],
 ) {
-  if (!rows.length) return;
+  if (!rows.length || !columns.length) return;
+
+  const colCount = columns.length;
+  const thFont =
+    colCount >= 22 ? 4.5 : colCount >= 16 ? 5.5 : colCount >= 12 ? 6.5 : 8;
+  const tdFont = Math.max(4, thFont - 0.5);
+  const pad =
+    colCount >= 16 ? "1px 2px" : colCount >= 12 ? "2px 3px" : "3px 4px";
+
+  const head = columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
+  const body = rows
+    .map(
+      (row) =>
+        `<tr>${columns
+          .map((c) => `<td>${escapeHtml(String(row[c.key] ?? ""))}</td>`)
+          .join("")}</tr>`,
+    )
+    .join("");
+
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
+@page { size: A4 landscape; margin: 5mm; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  color: #000;
+  font-family: Arial, sans-serif;
+}
+.title, .sub { text-align: center; margin: 2px 0 4px; }
+.title { font-size: 13px; font-weight: 700; }
+.sub { font-size: 10px; }
+table.report {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 6px;
+}
+table.report th,
+table.report td {
+  border: 1px solid #000;
+  padding: ${pad};
+  vertical-align: top;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+table.report th {
+  background: #f2f2f2;
+  font-size: ${thFont}px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+table.report td {
+  font-size: ${tdFont}px;
+  line-height: 1.2;
+}
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 </style></head>
 <body>
   <p class="title">${escapeHtml(title)}</p>
   <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable(columns, rows)}
+  <table class="report"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
 </body></html>`;
 
+  // Same pattern as other exam reports — hidden iframe, no about:blank popup.
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.style.cssText =
     "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
   document.body.appendChild(frame);
   const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
+  const fwin = frame.contentWindow;
+  if (!fdoc || !fwin) {
     frame.remove();
     return;
   }
   fdoc.open();
   fdoc.write(html);
   fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
+  const cleanup = () => frame.remove();
+  fwin.addEventListener("afterprint", cleanup);
   setTimeout(() => {
-    win.focus();
-    win.print();
+    fwin.focus();
+    fwin.print();
+    // Fallback cleanup if afterprint never fires (some browsers).
+    setTimeout(cleanup, 60_000);
   }, 50);
 }
 

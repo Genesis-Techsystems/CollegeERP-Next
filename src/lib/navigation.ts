@@ -1388,9 +1388,16 @@ export function findNavBreadcrumbItems(
 
   const segments: NavBreadcrumbSegment[] = match.chain.map((item, index) => {
     const isLast = index === match.chain.length - 1;
+    // Folder modules often have a module.url with no App Router page
+    // (e.g. `/admin-examination-management`). Linking them causes Next.js
+    // Link prefetch → 404 fetch noise that is not a Spring/API call.
+    const hasChildren =
+      Array.isArray(item.children) && item.children.length > 0;
+    const resolved = !isLast ? resolveNavItemHrefForBreadcrumb(item) : null;
+    const href = !isLast && resolved && !hasChildren ? resolved : undefined;
     return {
       label: item.label,
-      href: !isLast && item.href ? normalizeHref(item.href) : undefined,
+      href,
     };
   });
 
