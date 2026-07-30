@@ -892,9 +892,14 @@ export default function GradeMemoIssuePage() {
       rowData={showStudentTable ? resultRows : undefined}
       columnDefs={showStudentTable ? SUBJECT_COLS : undefined}
       loading={loading}
+      hideEmptyGrid
       pagination
       exportCsv
-      toolbar={{ search: true, searchPlaceholder: "Search…", exportPdf: false }}
+      toolbar={
+        showStudentTable
+          ? { search: true, searchPlaceholder: "Search…", exportPdf: false }
+          : false
+      }
       toolbarLeading={
         showStudentTable ? (
           <span className="whitespace-nowrap text-[12px] text-muted-foreground">

@@ -79,6 +79,19 @@ export function LibraryGridPage({
           description={getErrorMessage(error)}
           action={{ label: "Retry", onClick: () => void refetch() }}
         />
+      ) : !isLoading && rows.length === 0 ? (
+        <div className="app-card overflow-hidden bg-card">
+          {!showHeaderCard ? (
+            <div className="px-5 pt-5 pb-3">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                {tableTitle ?? title}
+              </h2>
+            </div>
+          ) : null}
+          <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+            {emptyMessage}
+          </p>
+        </div>
       ) : (
         <TableCard withHeaderBorder={false}>
           <DataTable
@@ -96,11 +109,6 @@ export function LibraryGridPage({
             }}
             toolbarTrailing={toolbarTrailing}
           />
-          {!isLoading && rows.length === 0 ? (
-            <p className="border-t px-4 py-6 text-center text-sm text-muted-foreground">
-              {emptyMessage}
-            </p>
-          ) : null}
         </TableCard>
       )}
     </LibraryScreenShell>

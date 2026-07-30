@@ -1555,23 +1555,16 @@ export async function listUnivExamCentersByUniversity(
   universityId: number,
 ): Promise<AnyRow[]> {
   if (!universityId) return [];
-  const queries = [
-    buildQuery({ "Universities.universityId": universityId, isActive: true }),
-    buildQuery({ "University.universityId": universityId, isActive: true }),
-    buildQuery({ "university.universityId": universityId, isActive: true }),
-    buildQuery({ universityId, isActive: true }),
-    buildQuery({ "Universities.universityId": universityId }),
-  ];
-  let firstErr: unknown;
-  for (const q of queries) {
-    try {
-      return await domainList<AnyRow>(UNIV_EXAM_CENTER_API.EXAM_CENTERS, q);
-    } catch (e) {
-      if (firstErr === undefined) firstErr = e;
-    }
-  }
-  if (firstErr instanceof Error) throw firstErr;
-  throw new AppError("API_ERROR", "Failed to list exam centers");
+  // Angular: listDetailsByIdsWithSort(UnivExamCenters, universityId, 'Universities.universityId')
+  // → query=Universities.universityId=={id}  (no isActive filter — inactive rows stay visible)
+  // Latest-first: order(createdDt=DESC)
+  return domainList<AnyRow>(
+    UNIV_EXAM_CENTER_API.EXAM_CENTERS,
+    buildQuery(
+      { "Universities.universityId": universityId },
+      { field: "createdDt", direction: "DESC" },
+    ),
+  );
 }
 
 export async function createUnivExamCenter(

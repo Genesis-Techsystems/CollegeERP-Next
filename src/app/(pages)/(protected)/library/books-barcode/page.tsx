@@ -99,9 +99,10 @@ export default function BooksBarcodePage() {
     async (accessionNumber?: string) => {
       setGenerating(true);
       try {
-        await generateBooksBarcode(
+        const generated = await generateBooksBarcode(
           accessionNumber ? [accessionNumber] : undefined,
         );
+        if (!generated) return;
         toastSuccess("Book barcode generated successfully");
         await queryClient.invalidateQueries({
           queryKey: QK.library.booksWithoutBarcode(),

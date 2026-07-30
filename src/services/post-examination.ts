@@ -816,7 +816,32 @@ export async function uploadInvigilatorAttendanceSheet(params: {
 export async function getExternalAttendanceFilters(
   employeeId: number,
 ): Promise<AnyRow[]> {
-  return getUnivExamFiltersByType(employeeId, "REGSUP");
+  // Angular getExamFiltersList — univ_exam_filters / REGSUP + pick flag group only
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_filters",
+      in_flag_type: "REGSUP",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_filters"]);
+  return picked.length > 0 ? picked : firstNonEmptyGroup(groups);
 }
 
 export async function getExternalAttendanceSubjects(params: {
@@ -825,6 +850,7 @@ export async function getExternalAttendanceSubjects(params: {
   academicYearId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
+  // Angular selectedExam — univ_exam_subject_regexamstd / REGSUP, pick sub flag group
   const data = await getAllRecords<{ result: AnyRow[][] }>(
     "s_get_exam_filters_bycode",
     {
@@ -848,7 +874,11 @@ export async function getExternalAttendanceSubjects(params: {
     },
   );
   const groups = data?.result ?? [];
-  return groups.flatMap((g) => g || []);
+  const picked = firstGroupByFlag(groups, [
+    "univ_exam_sub_regexamstd",
+    "univ_exam_subject_regexamstd",
+  ]);
+  return picked.length > 0 ? picked : firstNonEmptyGroup(groups);
 }
 
 export async function getExternalAttendanceRestFilters(params: {
@@ -859,6 +889,7 @@ export async function getExternalAttendanceRestFilters(params: {
   subjectId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
+  // Angular selectedSubject — univ_exam_rest_in_regexamstd / ALL, pick rest_filters
   const data = await getAllRecords<{ result: AnyRow[][] }>(
     "s_get_exam_filters_bycode",
     {
@@ -882,7 +913,8 @@ export async function getExternalAttendanceRestFilters(params: {
     },
   );
   const groups = data?.result ?? [];
-  return groups.flatMap((g) => g || []);
+  const picked = firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
+  return picked.length > 0 ? picked : firstNonEmptyGroup(groups);
 }
 
 export async function listExternalAttendanceStudents(params: {
@@ -895,6 +927,7 @@ export async function listExternalAttendanceStudents(params: {
   examDate: string;
   subjectId: number;
 }): Promise<AnyRow[]> {
+  // Angular getStudentsList — in_invgilator_emp_id always 0
   const data = await getAllRecords<{ result: AnyRow[][] }>(
     "s_get_exam_allotment_details_invigilator",
     {

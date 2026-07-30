@@ -1096,12 +1096,26 @@
 
 /* Primary action in toolbar (Add / New …) — pages don't add a special class */
 .app-data-table-toolbar-wrap
-  button:not(.app-data-table-toolbar-btn):not([role="radio"]) {
+  button:not(.app-data-table-toolbar-btn):not([role="radio"]):not(
+    [role="checkbox"]
+  ) {
   height: 2.25rem;
   border-radius: calc(var(--radius) - 2px);
   padding-inline: 0.875rem;
   font-size: 12px;
   font-weight: 600;
+}
+
+/* Radix checkboxes in toolbar — keep compact (same as grid row checkboxes) */
+.app-data-table-toolbar-wrap [role="checkbox"] {
+  height: 1rem !important;
+  width: 1rem !important;
+  min-height: 1rem !important;
+  min-width: 1rem !important;
+  max-height: 1rem !important;
+  max-width: 1rem !important;
+  padding: 0 !important;
+  flex-shrink: 0;
 }
 
 /* College Counselling — fit all columns without horizontal scroll */

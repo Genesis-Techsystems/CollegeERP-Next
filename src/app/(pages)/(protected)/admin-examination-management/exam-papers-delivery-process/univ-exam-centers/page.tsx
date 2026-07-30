@@ -171,7 +171,10 @@ export default function UnivExamCentersPage() {
     isActive: true,
     reason: "",
   });
-  const [formErrors, setFormErrors] = useState<{ cityId?: string }>({});
+  const [formErrors, setFormErrors] = useState<{
+    examcenterName?: string;
+    cityId?: string;
+  }>({});
 
   const universityOptions: SelectOption[] = useMemo(
     () =>
@@ -443,11 +446,10 @@ export default function UnivExamCentersPage() {
       toastError("Select exam regional center.");
       return;
     }
-    if (!form.examcenterName.trim()) {
-      toastError("Exam center name is required.");
-      return;
-    }
     const nextErrors: typeof formErrors = {};
+    if (!form.examcenterName.trim()) {
+      nextErrors.examcenterName = "Exam center name is required.";
+    }
     if (!form.cityId.trim()) nextErrors.cityId = "City is required.";
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -579,16 +581,25 @@ export default function UnivExamCentersPage() {
               placeholder="Exam Regional Center"
             />
           </div>
-          <div className="space-y-1">
-            <Label>Exam Center Name</Label>
+          <FormField
+            label="Exam Center Name"
+            required
+            error={formErrors.examcenterName}
+          >
             <Input
               value={form.examcenterName}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, examcenterName: e.target.value }))
-              }
+              onChange={(e) => {
+                setFormErrors((prev) => {
+                  if (!prev.examcenterName) return prev;
+                  const next = { ...prev };
+                  delete next.examcenterName;
+                  return next;
+                });
+                setForm((f) => ({ ...f, examcenterName: e.target.value }));
+              }}
               placeholder="Exam Center Name"
             />
-          </div>
+          </FormField>
           <div className="space-y-1">
             <Label>Exam Center Code</Label>
             <Input

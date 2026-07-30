@@ -158,6 +158,11 @@ export interface DataTableProps<T> {
   rowData: T[];
   columnDefs: ColDef<T>[];
   loading?: boolean;
+  /**
+   * When true, hide the grid and pagination while there is no row data
+   * (title / filters / toolbar stay visible). Default false.
+   */
+  hideEmptyGrid?: boolean;
   height?: string;
   getRowId?: GetRowIdFunc<T>;
   onCellClicked?: (event: CellClickedEvent<T>) => void;
@@ -499,6 +504,7 @@ export function DataTable<T>({
   rowData,
   columnDefs,
   loading = false,
+  hideEmptyGrid = false,
   height = "auto",
   getRowId,
   onCellClicked,
@@ -778,6 +784,8 @@ export function DataTable<T>({
   const exportExcelEnabled = tb.exportExcel || exportCsv;
 
   const isGridEmpty = !loading && pagedRowData.length === 0;
+  const suppressGrid =
+    hideEmptyGrid && !loading && (!rowData || rowData.length === 0);
 
   const showMainToolbar =
     tb.show &&
@@ -972,52 +980,54 @@ export function DataTable<T>({
             )}
           >
             <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
-              <div
-                className={cn(
-                  "ag-theme-quartz",
-                  isGridEmpty && "app-data-table-grid-empty",
-                  isWideTable && "app-data-table-grid-wide",
-                )}
-                style={
-                  isAutoHeight
-                    ? undefined
-                    : { height: resolvedGridHeight ?? height }
-                }
-              >
-                <AgGridReact<T>
-                  ref={gridRef}
-                  context={{ __rowNumberOffset: rowNumberOffset }}
-                  rowData={pagedRowData}
-                  columnDefs={resolvedColumnDefs}
-                  defaultColDef={defaultColDef}
-                  domLayout={isAutoHeight ? "autoHeight" : undefined}
-                  rowHeight={rowHeight}
-                  loading={loading}
-                  suppressCellFocus
-                  overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
-                  onGridReady={handleGridReady}
-                  onFirstDataRendered={(e) => fitColumns(e.api)}
-                  onRowDataUpdated={(e) => fitColumns(e.api)}
-                  onGridSizeChanged={(e) => fitColumns(e.api)}
-                  alwaysShowHorizontalScroll={!fitColumnsToWidth}
-                  enableCellTextSelection
-                  ensureDomOrder
-                  getRowId={getRowId}
-                  onCellClicked={onCellClicked}
-                  onRowClicked={onRowClick ? handleRowClicked : undefined}
-                  popupParent={popupParent}
-                  animateRows
-                  tooltipShowMode="whenTruncated"
-                  tooltipShowDelay={400}
-                />
-              </div>
+              {!suppressGrid ? (
+                <div
+                  className={cn(
+                    "ag-theme-quartz",
+                    isGridEmpty && "app-data-table-grid-empty",
+                    isWideTable && "app-data-table-grid-wide",
+                  )}
+                  style={
+                    isAutoHeight
+                      ? undefined
+                      : { height: resolvedGridHeight ?? height }
+                  }
+                >
+                  <AgGridReact<T>
+                    ref={gridRef}
+                    context={{ __rowNumberOffset: rowNumberOffset }}
+                    rowData={pagedRowData}
+                    columnDefs={resolvedColumnDefs}
+                    defaultColDef={defaultColDef}
+                    domLayout={isAutoHeight ? "autoHeight" : undefined}
+                    rowHeight={rowHeight}
+                    loading={loading}
+                    suppressCellFocus
+                    overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
+                    onGridReady={handleGridReady}
+                    onFirstDataRendered={(e) => fitColumns(e.api)}
+                    onRowDataUpdated={(e) => fitColumns(e.api)}
+                    onGridSizeChanged={(e) => fitColumns(e.api)}
+                    alwaysShowHorizontalScroll={!fitColumnsToWidth}
+                    enableCellTextSelection
+                    ensureDomOrder
+                    getRowId={getRowId}
+                    onCellClicked={onCellClicked}
+                    onRowClicked={onRowClick ? handleRowClicked : undefined}
+                    popupParent={popupParent}
+                    animateRows
+                    tooltipShowMode="whenTruncated"
+                    tooltipShowDelay={400}
+                  />
+                </div>
+              ) : null}
             </div>
             {rightRail ? (
               <div className="min-w-0 lg:col-span-4">{rightRail}</div>
             ) : null}
           </div>
 
-          {clientPaginationEnabled && (
+          {clientPaginationEnabled && !suppressGrid && (
             <DataTableFooter
               totalRows={clientTotalRows}
               page={safePage}
@@ -1028,7 +1038,7 @@ export function DataTable<T>({
             />
           )}
 
-          {serverSide && (
+          {serverSide && !suppressGrid && (
             <DataTableFooter
               totalRows={totalCount}
               page={currentPage}

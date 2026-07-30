@@ -967,25 +967,32 @@ export default function InternalExamAttendanceMarkingPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      hideEmptyGrid
       fitColumnsToWidth={false}
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Internal Exam Attendance",
-      }}
-      toolbarTrailing={
-        <label className="inline-flex shrink-0 items-center gap-2 text-[12px]">
-          <Checkbox
-            checked={allPresent}
-            onCheckedChange={(v) =>
-              setRows((prev) =>
-                prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
-              )
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              pdfDocumentTitle: "Internal Exam Attendance",
             }
-          />
-          <span>{allPresent ? "UnMark All" : "Mark All"}</span>
-        </label>
+          : false
+      }
+      toolbarTrailing={
+        hasFetched && rows.length > 0 ? (
+          <label className="inline-flex shrink-0 items-center gap-2 text-[12px]">
+            <Checkbox
+              checked={allPresent}
+              onCheckedChange={(v) =>
+                setRows((prev) =>
+                  prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
+                )
+              }
+            />
+            <span>{allPresent ? "UnMark All" : "Mark All"}</span>
+          </label>
+        ) : undefined
       }
       rightRail={
         hasFetched ? (

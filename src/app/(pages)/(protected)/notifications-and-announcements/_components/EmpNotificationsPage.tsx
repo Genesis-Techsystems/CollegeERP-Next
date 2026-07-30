@@ -1,60 +1,60 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { format } from 'date-fns'
-import { Plus } from 'lucide-react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { ListPage } from '@/components/layout'
-import { usePageNavLabel } from '@/common/components/breadcrumb'
-import { Button } from '@/components/ui/button'
-import { useSessionContext } from '@/context/SessionContext'
-import { rowIndexGetter } from '@/lib/utils'
-import { toastError, toastInfo } from '@/lib/toast'
-import { getErrorMessage } from '@/lib/errors'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { Plus } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { ListPage } from "@/components/layout";
+import { usePageNavLabel } from "@/common/components/breadcrumb";
+import { Button } from "@/components/ui/button";
+import { useSessionContext } from "@/context/SessionContext";
+import { rowIndexGetter } from "@/lib/utils";
+import { toastError, toastInfo } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   getAudienceTypes,
   getNotificationsByAudience,
   type DashboardNotification,
-} from '@/services'
+} from "@/services";
 
 function readStorage(key: string): string {
-  if (typeof globalThis.window === 'undefined') return ''
-  return globalThis.localStorage.getItem(key) ?? ''
+  if (typeof globalThis.window === "undefined") return "";
+  return globalThis.localStorage.getItem(key) ?? "";
 }
 
 function positiveId(...candidates: unknown[]): number {
   for (const c of candidates) {
-    const n = Number(c)
-    if (Number.isFinite(n) && n > 0) return n
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
   }
-  return 0
+  return 0;
 }
 
 function formatPublishDate(raw: string | undefined): string {
-  if (!raw) return ''
-  const dt = new Date(String(raw))
-  if (Number.isNaN(dt.getTime())) return String(raw)
+  if (!raw) return "";
+  const dt = new Date(String(raw));
+  if (Number.isNaN(dt.getTime())) return String(raw);
   // Angular: publishDate | date:'MMMM d, y'
-  return format(dt, 'MMMM d, yyyy')
+  return format(dt, "MMMM d, yyyy");
 }
 
 function audiencesRenderer(p: ICellRendererParams<DashboardNotification>) {
-  const list = p.data?.notificationAudiences ?? []
-  if (list.length === 0) return ''
+  const list = p.data?.notificationAudiences ?? [];
+  if (list.length === 0) return "";
   return (
     <div className="flex flex-col gap-0.5 py-1">
       {list.map((item, index) => (
         <span key={String(item.notificationAudienceId ?? index)}>
-          {item.categoryName ?? ''}
+          {item.categoryName ?? ""}
         </span>
       ))}
     </div>
-  )
+  );
 }
 
 function documentRenderer(p: ICellRendererParams<DashboardNotification>) {
-  const path = p.data?.notificationDocPath
+  const path = p.data?.notificationDocPath;
   if (path) {
     return (
       <a
@@ -65,9 +65,9 @@ function documentRenderer(p: ICellRendererParams<DashboardNotification>) {
       >
         Document
       </a>
-    )
+    );
   }
-  return <span>No Docs Uploaded</span>
+  return <span>No Docs Uploaded</span>;
 }
 
 function statusRenderer(p: ICellRendererParams<DashboardNotification>) {
@@ -76,13 +76,13 @@ function statusRenderer(p: ICellRendererParams<DashboardNotification>) {
       <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-medium bg-sky-100 text-sky-800">
         Announcement
       </span>
-    )
+    );
   }
   return (
     <span className="inline-flex rounded px-2 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground">
       Notification
     </span>
-  )
+  );
 }
 
 /**
@@ -92,65 +92,65 @@ function statusRenderer(p: ICellRendererParams<DashboardNotification>) {
  *  - `#/principal-communications/notifications/send-notifications`
  */
 export function EmpNotificationsPage() {
-  const { user } = useSessionContext()
-  const router = useRouter()
-  const navLabel = usePageNavLabel()
-  const pageTitle = navLabel ?? 'Notifications & Announcements'
+  const { user } = useSessionContext();
+  const router = useRouter();
+  const navLabel = usePageNavLabel();
+  const pageTitle = navLabel ?? "Notifications & Announcements";
 
-  const [rows, setRows] = useState<DashboardNotification[]>([])
-  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<DashboardNotification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const empStatusCode = readStorage('empStatusCode') || 'ACTV'
-  const isActiveEmployee = empStatusCode === 'ACTV'
+  const empStatusCode = readStorage("empStatusCode") || "ACTV";
+  const isActiveEmployee = empStatusCode === "ACTV";
   const isHod =
-    readStorage('isHOD') === 'true' || readStorage('isPRINCIPAL') === 'true'
+    readStorage("isHOD") === "true" || readStorage("isPRINCIPAL") === "true";
 
-  const collegeId = positiveId(readStorage('collegeId'), user?.collegeId)
+  const collegeId = positiveId(readStorage("collegeId"), user?.collegeId);
   const academicYearId = positiveId(
-    readStorage('academicYearId'),
+    readStorage("academicYearId"),
     user?.academicYearId,
-  )
-  const employeeId = positiveId(readStorage('employeeId'), user?.employeeId)
-  const empDeptId = positiveId(readStorage('empDeptId'))
-  const empCategoryName = readStorage('empCategoryName')
-  const userRole = readStorage('userRole') || user?.userRole || ''
+  );
+  const employeeId = positiveId(readStorage("employeeId"), user?.employeeId);
+  const empDeptId = positiveId(readStorage("empDeptId"));
+  const empCategoryName = readStorage("empCategoryName");
+  const userRole = readStorage("userRole") || user?.userRole || "";
 
   const loadNotifications = useCallback(async () => {
     // Angular: only load when empStatusCode === 'ACTV'
     if (!isActiveEmployee) {
-      setRows([])
-      setLoading(false)
-      return
+      setRows([]);
+      setLoading(false);
+      return;
     }
 
     if (!collegeId || !academicYearId || !employeeId) {
-      setRows([])
-      setLoading(false)
-      return
+      setRows([]);
+      setLoading(false);
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const audiences = await getAudienceTypes()
-      const code = empCategoryName === 'Teaching' ? 'TCHNGSTF' : 'NTCHNGSTF'
+      const audiences = await getAudienceTypes();
+      const code = empCategoryName === "Teaching" ? "TCHNGSTF" : "NTCHNGSTF";
       const audience = audiences.find(
         (a) => String(a.generalDetailCode) === code,
-      )
-      const gdId = Number(audience?.generalDetailId ?? 0)
+      );
+      const gdId = Number(audience?.generalDetailId ?? 0);
       if (!gdId) {
-        setRows([])
-        return
+        setRows([]);
+        return;
       }
 
-      let data: DashboardNotification[] = []
-      if (userRole === 'NON TEACHING') {
+      let data: DashboardNotification[] = [];
+      if (userRole === "NON TEACHING") {
         data = await getNotificationsByAudience({
           notificationAudienceId: gdId,
           academicYearId,
           collegeId,
           employeeId,
           includeDept: false,
-        })
+        });
       } else if (empDeptId > 0) {
         data = await getNotificationsByAudience({
           notificationAudienceId: gdId,
@@ -159,19 +159,19 @@ export function EmpNotificationsPage() {
           employeeId,
           deptId: empDeptId,
           includeDept: true,
-        })
+        });
       } else {
-        toastInfo('Employee Not Assigned To Any Department')
-        setRows([])
-        return
+        toastInfo("Employee Not Assigned To Any Department");
+        setRows([]);
+        return;
       }
 
-      setRows(Array.isArray(data) ? data : [])
+      setRows(Array.isArray(data) ? data : []);
     } catch (e) {
-      toastError(getErrorMessage(e))
-      setRows([])
+      toastError(getErrorMessage(e));
+      setRows([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }, [
     isActiveEmployee,
@@ -181,36 +181,36 @@ export function EmpNotificationsPage() {
     empDeptId,
     empCategoryName,
     userRole,
-  ])
+  ]);
 
   useEffect(() => {
-    void loadNotifications()
-  }, [loadNotifications])
+    void loadNotifications();
+  }, [loadNotifications]);
 
   const columnDefs = useMemo<ColDef<DashboardNotification>[]>(
     () => [
       {
-        headerName: 'No.',
+        headerName: "No.",
         valueGetter: rowIndexGetter,
         width: 70,
         flex: 0,
       },
       {
-        colId: 'publishDate',
-        headerName: 'Notification Date',
+        colId: "publishDate",
+        headerName: "Notification Date",
         minWidth: 150,
         flex: 1,
         valueGetter: (p) => formatPublishDate(p.data?.publishDate),
       },
       {
-        field: 'notificationTitle',
-        headerName: 'Notification Title',
+        field: "notificationTitle",
+        headerName: "Notification Title",
         minWidth: 180,
         flex: 1.2,
       },
       {
-        colId: 'categoryName',
-        headerName: 'For',
+        colId: "categoryName",
+        headerName: "For",
         minWidth: 120,
         flex: 1,
         autoHeight: true,
@@ -218,28 +218,28 @@ export function EmpNotificationsPage() {
         cellRenderer: audiencesRenderer,
       },
       {
-        field: 'description',
-        headerName: 'Description',
+        field: "description",
+        headerName: "Description",
         minWidth: 200,
         flex: 1.4,
       },
       {
-        colId: 'file',
-        headerName: 'Document',
+        colId: "file",
+        headerName: "Document",
         minWidth: 130,
         flex: 0.8,
         cellRenderer: documentRenderer,
       },
       {
-        colId: 'isAnnouncement',
-        headerName: 'Status',
+        colId: "isAnnouncement",
+        headerName: "Status",
         minWidth: 130,
         flex: 0.8,
         cellRenderer: statusRenderer,
       },
     ],
     [],
-  )
+  );
 
   function openAddNotification() {
     // Angular openDialog():
@@ -247,10 +247,10 @@ export function EmpNotificationsPage() {
     const qs = new URLSearchParams({
       collegeId: String(collegeId),
       academicYearId: String(academicYearId),
-    })
+    });
     router.push(
       `/notifications-and-announcements/add-notification?${qs.toString()}`,
-    )
+    );
   }
 
   return (
@@ -259,11 +259,12 @@ export function EmpNotificationsPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
+      hideEmptyGrid
       pagination
       paginationPageSize={10}
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search',
+        searchPlaceholder: "Search",
         exportExcel: false,
         exportPdf: false,
       }}
@@ -290,5 +291,5 @@ export function EmpNotificationsPage() {
         ) : null
       }
     />
-  )
+  );
 }
