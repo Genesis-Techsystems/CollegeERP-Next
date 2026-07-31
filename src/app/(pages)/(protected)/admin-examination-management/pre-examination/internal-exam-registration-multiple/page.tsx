@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -87,7 +87,6 @@ export default function InternalExamRegistrationMultiplePage() {
   const [students, setStudents] = useState<AnyRow[]>([]);
   const [registeredStudents, setRegisteredStudents] = useState<AnyRow[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<AnyRow[]>([]);
-  const lastNonEmptyRegisteredRef = useRef<AnyRow[]>([]);
 
   const [courseId, setCourseId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -219,12 +218,6 @@ export default function InternalExamRegistrationMultiplePage() {
         .includes(q),
     );
   }, [registeredStudents, searchRegistered]);
-
-  useEffect(() => {
-    if (registeredStudents.length > 0) {
-      lastNonEmptyRegisteredRef.current = registeredStudents;
-    }
-  }, [registeredStudents]);
 
   useEffect(() => {
     async function init() {
@@ -431,12 +424,11 @@ export default function InternalExamRegistrationMultiplePage() {
     ]);
 
     const allList = Array.isArray(all) ? all : [];
-    const regList = Array.isArray(reg) ? reg : [];
-    const stableRegList = (
-      regList.length > 0 ? regList : lastNonEmptyRegisteredRef.current
-    ).map(normalizeStudentRow);
-    setRegisteredStudents(stableRegList);
-    const regSet = new Set(stableRegList.map((s) => getStudentKey(s)));
+    // Angular getRegisteredStudents(): always replace with API data for this subject
+    // (empty list when nobody is registered — never keep another subject's rows).
+    const regList = (Array.isArray(reg) ? reg : []).map(normalizeStudentRow);
+    setRegisteredStudents(regList);
+    const regSet = new Set(regList.map((s) => getStudentKey(s)));
 
     const mapped = allList.map((s) => {
       const sid = getStudentKey(s);
@@ -468,6 +460,14 @@ export default function InternalExamRegistrationMultiplePage() {
   }
 
   useEffect(() => {
+    // Angular selectedSubject(): clear lists immediately, then reload for this subject.
+    setStudents([]);
+    setSelectedStudents([]);
+    setRegisteredStudents([]);
+    setSearchAll("");
+    setSearchSelected("");
+    setSearchRegistered("");
+
     if (
       !collegeId ||
       !academicYearId ||

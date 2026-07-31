@@ -1,4 +1,4 @@
-import type { Module, Page } from './navigation'
+import type { Module, Page } from "./navigation";
 
 /**
  * Full user object returned by GET /api/authorization?isMobile=false
@@ -9,33 +9,33 @@ import type { Module, Page } from './navigation'
  * Use SessionUser for anything that crosses the server→client boundary.
  */
 export interface UserDTO {
-  userId: number
-  userName: string
-  firstName: string
-  lastName?: string
-  email?: string
-  mobileNumber?: string
-  userRole: string           // e.g. 'ADMIN' | 'STAFF' | 'STUDENT' | 'MSTUDENT' | 'PARENT' | 'SUPERADMIN'
-  userTypeCode: string       // e.g. 'STAFF' | 'STUDENT' | 'PARENT'
-  roleName: string
-  userRoles: UserRoleEntry[]
-  collegeId: number
-  collegeCode: string
-  collegeName: string
+  userId: number;
+  userName: string;
+  firstName: string;
+  lastName?: string;
+  email?: string;
+  mobileNumber?: string;
+  userRole: string; // e.g. 'ADMIN' | 'STAFF' | 'STUDENT' | 'MSTUDENT' | 'PARENT' | 'SUPERADMIN'
+  userTypeCode: string; // e.g. 'STAFF' | 'STUDENT' | 'PARENT'
+  roleName: string;
+  userRoles: UserRoleEntry[];
+  collegeId: number;
+  collegeCode: string;
+  collegeName: string;
   /** Logo URL/path shown in the Angular navbar (`loginUser.collegeLogo`) */
-  collegeLogo?: string
-  organizationId?: number
-  organizationCode?: string
-  organizationName?: string
-  universityId?: number
-  universityCode?: string
-  academicYearId: number
-  academicYear: string
-  employeeId?: number
-  studentId?: number
-  modules: Module[]
-  pages: Page[]
-  employeeDataSecurityCrudUrl?: string
+  collegeLogo?: string;
+  organizationId?: number;
+  organizationCode?: string;
+  organizationName?: string;
+  universityId?: number;
+  universityCode?: string;
+  academicYearId: number;
+  academicYear: string;
+  employeeId?: number;
+  studentId?: number;
+  modules: Module[];
+  pages: Page[];
+  employeeDataSecurityCrudUrl?: string;
 }
 
 /**
@@ -43,17 +43,17 @@ export interface UserDTO {
  * Source: college_erp_angular_old/src/app/main/models/userRoles.ts
  */
 export interface UserRoleEntry {
-  userRoleId: number
-  userId: number
-  roleId: number
-  roleName: string
-  userName: string
-  firstName?: string
-  lastName?: string
-  userTypeId?: number
-  isActive: boolean
-  createdDt: string
-  updatedDt?: string
+  userRoleId: number;
+  userId: number;
+  roleId: number;
+  roleName: string;
+  userName: string;
+  firstName?: string;
+  lastName?: string;
+  userTypeId?: number;
+  isActive: boolean;
+  createdDt: string;
+  updatedDt?: string;
 }
 
 /**
@@ -66,35 +66,37 @@ export interface UserRoleEntry {
  * 3. defaultDashboardPath is derived server-side from userRole.
  */
 export interface SessionUser {
-  userId: number
-  userName: string
-  firstName: string
-  lastName?: string
-  userRole: string
-  userTypeCode: string
-  roleName: string
-  collegeId: number
-  collegeCode: string
-  collegeName: string
+  userId: number;
+  userName: string;
+  firstName: string;
+  lastName?: string;
+  userRole: string;
+  userTypeCode: string;
+  roleName: string;
+  collegeId: number;
+  collegeCode: string;
+  collegeName: string;
   /** College logo URL/path from the login DTO (sidebar header) */
-  collegeLogo?: string
+  collegeLogo?: string;
   /** Organization ID -- used for college-wise filter queries */
-  organizationId?: number
+  organizationId?: number;
   /** Organization code from the login DTO -- used for upload storage paths (orgCode) */
-  organizationCode?: string
-  universityId?: number
-  universityCode?: string
-  academicYearId: number
-  academicYear: string
-  employeeId?: number
-  studentId?: number
-  libraryId?: number
+  organizationCode?: string;
+  universityId?: number;
+  universityCode?: string;
+  academicYearId: number;
+  academicYear: string;
+  employeeId?: number;
+  studentId?: number;
+  libraryId?: number;
   // Derived server-side — never trust client-provided values:
-  isAdmin: boolean            // userRole === 'ADMIN' || userRole === 'SUPERADMIN'
-  isPrincipal: boolean        // roleName includes 'PRINCIPAL'
-  isHod: boolean              // roleName includes 'HOD' or 'HEAD OF'
-  isManagement: boolean       // userTypeCode includes 'MGNT' or roleName includes 'MANAGEMENT'
-  defaultDashboardPath: string // computed from userRole/userTypeCode on the server
+  isAdmin: boolean; // userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+  isPrincipal: boolean; // roleName includes 'PRINCIPAL'
+  isHod: boolean; // roleName includes 'HOD' or 'HEAD OF'
+  isManagement: boolean; // userTypeCode includes 'MGNT' or roleName includes 'MANAGEMENT'
+  /** Angular `isDeprtAdmin` — any active userRoles entry with roleName DEPTADMIN */
+  isDeptAdmin: boolean;
+  defaultDashboardPath: string; // computed from userRole/userTypeCode on the server
 }
 
 /**
@@ -109,7 +111,7 @@ export interface SessionUser {
  * response sent to the browser. It lives here and dies here.
  */
 export interface IronSessionData {
-  jwt?: string        // NEVER sent to browser — used only for server→Spring Boot proxy calls
-  user?: SessionUser
-  issuedAt?: number   // Unix timestamp (ms) of when the session was created
+  jwt?: string; // NEVER sent to browser — used only for server→Spring Boot proxy calls
+  user?: SessionUser;
+  issuedAt?: number; // Unix timestamp (ms) of when the session was created
 }

@@ -72,9 +72,21 @@ function SessionProviderInner({
   const isLoading = session.isLoading && !initialUser;
 
   if (user) syncUserToLocalStorage(user);
-  if (user?.isHod && typeof globalThis.window !== "undefined") {
-    globalThis.localStorage.setItem("isHOD", "true");
-    globalThis.localStorage.setItem("isHODDashboard", "true");
+  if (user && typeof globalThis.window !== "undefined") {
+    // Angular login flags used by students-list / other pages
+    globalThis.localStorage.setItem("isAdmin", user.isAdmin ? "true" : "false");
+    globalThis.localStorage.setItem(
+      "isDeprtAdmin",
+      user.isDeptAdmin ? "true" : "false",
+    );
+    globalThis.localStorage.setItem("roleName", user.roleName ?? "");
+    if (user.isHod) {
+      globalThis.localStorage.setItem("isHOD", "true");
+      globalThis.localStorage.setItem("isHODDashboard", "true");
+    } else {
+      globalThis.localStorage.setItem("isHOD", "false");
+      globalThis.localStorage.setItem("isHODDashboard", "false");
+    }
   }
 
   return (

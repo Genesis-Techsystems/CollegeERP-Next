@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef, ColGroupDef } from "ag-grid-community";
+import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
@@ -13,17 +13,19 @@ import { rowIndexGetter } from "@/lib/utils";
 import {
   getGradeMemoIssueFilters,
   getGradeMemoIssueRestFilters,
-  getReEvaluationComparisionReport,
+  getOuResultSheet,
 } from "@/services";
 import { toastError, toastInfo } from "@/lib/toast";
 import {
+  Building2,
   CalendarDays,
   ClipboardList,
   GraduationCap,
   Layers,
   RotateCcw,
+  School,
 } from "lucide-react";
-import { printReEvaluationComparisionReport } from "../_components/printReEvaluationComparisionReport";
+import { printOuResultSheet } from "../_components/printOuResultSheet";
 
 type AnyRow = Record<string, any>;
 
@@ -34,8 +36,6 @@ const TOOLBAR = {
   exportPdf: true,
   exportExcel: true,
 } as const;
-
-const GROUP_HEADER = "app-table-header-group";
 
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
@@ -65,19 +65,11 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
   return out;
 }
 
-function exportHtmlTable(filename: string, title: string, bodyHtml: string) {
-  const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Worksheet</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>${title}${bodyHtml}</table></body></html>`;
-  const link = document.createElement("a");
-  link.download = filename;
-  link.href = `data:application/vnd.ms-excel;base64,${window.btoa(unescape(encodeURIComponent(template)))}`;
-  link.click();
+function humanizeCol(col: string): string {
+  return col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function cell(keys: string[]): ColDef<AnyRow>["valueGetter"] {
-  return (p) => strFrom(p.data ?? {}, keys);
-}
-
-export default function ReEvaluationComparisionReportPage() {
+export default function OuResultSheetPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
@@ -89,11 +81,15 @@ export default function ReEvaluationComparisionReportPage() {
   const [courseId, setCourseId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
   const [examId, setExamId] = useState<number | null>(null);
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<number>(0);
   const [courseYearId, setCourseYearId] = useState<number>(0);
   const [skipAutoSelect, setSkipAutoSelect] = useState(false);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
-  const [examLabel, setExamLabel] = useState("");
+  const [columns, setColumns] = useState<string[]>([]);
+  const [filterSummary, setFilterSummary] = useState("");
+  const [collegeName, setCollegeName] = useState("");
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -126,130 +122,85 @@ export default function ReEvaluationComparisionReportPage() {
       ),
     [baseRows, courseId, academicYearId],
   );
-  const courseYears = useMemo(
+  const colleges = useMemo(
     () =>
-      dedupeBy(restRows, ["fk_course_year_id", "courseYearId"]).sort(
+      dedupeBy(restRows, ["fk_college_id", "collegeId"]).sort(
         (a, b) =>
-          Number(a.year_order ?? a.cy_sort_order ?? 0) -
-          Number(b.year_order ?? b.cy_sort_order ?? 0),
+          Number(a.clg_sort_order ?? a.sort_order ?? 0) -
+          Number(b.clg_sort_order ?? b.sort_order ?? 0),
       ),
     [restRows],
   );
+  const courseGroups = useMemo(
+    () =>
+      dedupeBy(
+        restRows.filter(
+          (r) =>
+            !collegeId ||
+            numFrom(r, ["fk_college_id", "collegeId"]) === Number(collegeId),
+        ),
+        ["fk_course_group_id", "courseGroupId"],
+      ),
+    [restRows, collegeId],
+  );
+  const courseYears = useMemo(
+    () =>
+      dedupeBy(
+        restRows.filter(
+          (r) =>
+            (!collegeId ||
+              numFrom(r, ["fk_college_id", "collegeId"]) ===
+                Number(collegeId)) &&
+            (courseGroupId === 0 ||
+              numFrom(r, ["fk_course_group_id", "courseGroupId"]) ===
+                Number(courseGroupId)),
+        ),
+        ["fk_course_year_id", "courseYearId"],
+      ).sort(
+        (a, b) => Number(a.cy_sort_order ?? 0) - Number(b.cy_sort_order ?? 0),
+      ),
+    [restRows, collegeId, courseGroupId],
+  );
 
-  const columnDefs = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
         headerName: "S.No",
         valueGetter: rowIndexGetter,
-        width: 70,
+        width: 80,
         flex: 0,
       },
-      {
-        headerName: "Subject Code",
-        colId: "Subject_Code",
-        minWidth: 130,
-        flex: 0.9,
-        valueGetter: cell(["Subject_Code", "subject_code"]),
-      },
-      {
-        headerName: "Subject Name",
-        colId: "Subject_Name",
-        minWidth: 180,
-        flex: 1.4,
-        valueGetter: cell(["Subject_Name", "subject_name"]),
-      },
-      {
-        headerName: "Registered",
-        colId: "Total_Registered",
-        minWidth: 110,
-        flex: 0.8,
-        cellClass: "text-center",
-        valueGetter: cell(["Total_Registered", "total_registered"]),
-      },
-      {
-        headerName: "Appeared",
-        colId: "Total_Appeared",
-        minWidth: 100,
-        flex: 0.7,
-        cellClass: "text-center",
-        valueGetter: cell(["Total_Appeared", "total_appeared"]),
-      },
-      {
-        headerName: "Result Before RV",
-        headerClass: GROUP_HEADER,
-        marryChildren: true,
-        children: [
-          {
-            headerName: "Passed",
-            colId: "Pass_Before_RV",
-            minWidth: 90,
-            flex: 0.7,
-            cellClass: "text-center",
-            valueGetter: cell(["Pass_Before_RV", "pass_before_rv"]),
-          },
-          {
-            headerName: "Pass %",
-            colId: "Before_RV",
-            minWidth: 90,
-            flex: 0.7,
-            cellClass: "text-center",
-            valueGetter: cell(["Before_RV", "before_rv"]),
-          },
-        ],
-      },
-      {
-        headerName: "No.of Students Applied RV",
-        colId: "Students_Applied_RV",
-        minWidth: 160,
-        flex: 1,
-        cellClass: "text-center",
-        valueGetter: cell(["Students_Applied_RV", "students_applied_rv"]),
-      },
-      {
-        headerName: "No.of Students Benefited",
-        colId: "Students_Benefitted",
-        minWidth: 160,
-        flex: 1,
-        cellClass: "text-center",
-        valueGetter: cell(["Students_Benefitted", "students_benefitted"]),
-      },
-      {
-        headerName: "After RV",
-        headerClass: GROUP_HEADER,
-        marryChildren: true,
-        children: [
-          {
-            headerName: "Passed",
-            colId: "Pass_After_RV",
-            minWidth: 90,
-            flex: 0.7,
-            cellClass: "text-center",
-            valueGetter: cell(["Pass_After_RV", "pass_after_rv"]),
-          },
-          {
-            headerName: "Pass %",
-            colId: "Final_Pass",
-            minWidth: 90,
-            flex: 0.7,
-            cellClass: "text-center",
-            valueGetter: cell(["Final_Pass", "final_pass"]),
-          },
-        ],
-      },
+      ...columns.map(
+        (col) =>
+          ({
+            headerName: humanizeCol(col),
+            field: col,
+            colId: col,
+            minWidth: 120,
+            width: 140,
+            valueGetter: (p) => String(p.data?.[col] ?? ""),
+          }) as ColDef<AnyRow>,
+      ),
     ],
-    [],
+    [columns],
   );
 
-  const getRowId = useCallback(
-    (p: { data?: AnyRow }) =>
-      strFrom(p.data ?? {}, ["Subject_Code", "subject_code"]) ||
-      `row-${Math.random()}`,
-    [],
-  );
+  const getRowId = useCallback((p: { data?: AnyRow }) => {
+    const ht = strFrom(p.data ?? {}, [
+      "hallticket_number",
+      "hall_ticketno",
+      "roll_number",
+      "Roll_Number",
+    ]);
+    if (ht) return ht;
+    return `row-${Math.random()}`;
+  }, []);
 
   function clearResults() {
     setRows([]);
-    setExamLabel("");
+    setColumns([]);
+    setFilterSummary("");
+    setCollegeName("");
   }
 
   useEffect(() => {
@@ -257,6 +208,7 @@ export default function ReEvaluationComparisionReportPage() {
     async function init() {
       setLoading(true);
       try {
+        // Angular getFiltersList: univ_exam_filters + REGSUP
         const list = await getGradeMemoIssueFilters(employeeId);
         if (cancelled) return;
         setBaseRows(list);
@@ -325,11 +277,14 @@ export default function ReEvaluationComparisionReportPage() {
     async function loadRest() {
       if (!courseId || !academicYearId || !examId) {
         setRestRows([]);
+        setCollegeId(null);
+        setCourseGroupId(0);
         setCourseYearId(0);
         return;
       }
       setLoading(true);
       try {
+        // Angular selectedExam: univ_exam_rest_in_regexamstd + ALL
         const rest = await getGradeMemoIssueRestFilters({
           courseId,
           academicYearId,
@@ -339,24 +294,26 @@ export default function ReEvaluationComparisionReportPage() {
         if (cancelled) return;
         setRestRows(rest);
         if (skipAutoSelect) {
+          setCollegeId(null);
+          setCourseGroupId(0);
           setCourseYearId(0);
           return;
         }
-        const years = dedupeBy(rest, [
-          "fk_course_year_id",
-          "courseYearId",
+        const nextColleges = dedupeBy(rest, [
+          "fk_college_id",
+          "collegeId",
         ]).sort(
           (a, b) =>
-            Number(a.year_order ?? a.cy_sort_order ?? 0) -
-            Number(b.year_order ?? b.cy_sort_order ?? 0),
+            Number(a.clg_sort_order ?? a.sort_order ?? 0) -
+            Number(b.clg_sort_order ?? b.sort_order ?? 0),
         );
-        setCourseYearId(
-          years[0]
-            ? numFrom(years[0], ["fk_course_year_id", "courseYearId"])
-            : 0,
+        setCollegeId(
+          nextColleges[0]
+            ? numFrom(nextColleges[0], ["fk_college_id", "collegeId"])
+            : null,
         );
       } catch {
-        if (!cancelled) toastError("Failed to load course year filters");
+        if (!cancelled) toastError("Failed to load college filters");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -367,33 +324,116 @@ export default function ReEvaluationComparisionReportPage() {
     };
   }, [courseId, academicYearId, examId, employeeId, skipAutoSelect]);
 
+  useEffect(() => {
+    if (skipAutoSelect) return;
+    if (!collegeId) {
+      setCourseGroupId(0);
+      return;
+    }
+    const groups = dedupeBy(
+      restRows.filter(
+        (r) => numFrom(r, ["fk_college_id", "collegeId"]) === Number(collegeId),
+      ),
+      ["fk_course_group_id", "courseGroupId"],
+    );
+    setCourseGroupId(
+      groups[0]
+        ? numFrom(groups[0], ["fk_course_group_id", "courseGroupId"])
+        : 0,
+    );
+  }, [collegeId, restRows, skipAutoSelect]);
+
+  useEffect(() => {
+    if (skipAutoSelect) return;
+    const years = dedupeBy(
+      restRows.filter(
+        (r) =>
+          (!collegeId ||
+            numFrom(r, ["fk_college_id", "collegeId"]) === Number(collegeId)) &&
+          (courseGroupId === 0 ||
+            numFrom(r, ["fk_course_group_id", "courseGroupId"]) ===
+              Number(courseGroupId)),
+      ),
+      ["fk_course_year_id", "courseYearId"],
+    ).sort(
+      (a, b) => Number(a.cy_sort_order ?? 0) - Number(b.cy_sort_order ?? 0),
+    );
+    setCourseYearId(
+      years[0] ? numFrom(years[0], ["fk_course_year_id", "courseYearId"]) : 0,
+    );
+  }, [collegeId, courseGroupId, restRows, skipAutoSelect]);
+
   async function handleGetReport() {
-    if (!courseId || !examId) {
-      toastError("Please select Course and Exam");
+    if (!courseId || !academicYearId || !examId || !collegeId) {
+      toastError("Please select Course, Exam Year, Exam Master, and College");
       return;
     }
     setLoading(true);
     clearResults();
     try {
-      const data = await getReEvaluationComparisionReport({
+      const list = await getOuResultSheet({
         examId,
+        collegeId,
+        courseId,
+        courseGroupId: courseGroupId || 0,
         courseYearId: courseYearId || 0,
+        studentId: 0,
       });
-      if (data.length === 0) {
+      if (list.length === 0) {
         toastInfo("No records found");
         return;
       }
-      setExamLabel(
-        strFrom(
-          exams.find(
-            (r) => numFrom(r, ["fk_exam_id", "examId"]) === Number(examId),
-          ) ?? {},
-          ["exam_name", "examName"],
-        ),
+      setRows(list);
+      setColumns(Object.keys(list[0] ?? {}));
+
+      const college = colleges.find(
+        (r) => numFrom(r, ["fk_college_id", "collegeId"]) === collegeId,
       );
-      setRows(data);
+      const courseCode = strFrom(
+        courses.find(
+          (r) => numFrom(r, ["fk_course_id", "courseId"]) === courseId,
+        ) ?? {},
+        ["course_code", "courseCode"],
+      );
+      const examName = strFrom(
+        exams.find((r) => numFrom(r, ["fk_exam_id", "examId"]) === examId) ??
+          {},
+        ["exam_name", "examName"],
+      );
+      const groupCode = courseGroupId
+        ? strFrom(
+            courseGroups.find(
+              (r) =>
+                numFrom(r, ["fk_course_group_id", "courseGroupId"]) ===
+                courseGroupId,
+            ) ?? {},
+            ["group_code", "groupCode"],
+          )
+        : "";
+      const yearCode = courseYearId
+        ? strFrom(
+            courseYears.find(
+              (r) =>
+                numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
+                courseYearId,
+            ) ?? {},
+            ["course_year_code", "courseYearCode"],
+          )
+        : "";
+      const collegeCode = strFrom(college ?? {}, [
+        "college_code",
+        "collegeCode",
+      ]);
+      setCollegeName(strFrom(college ?? {}, ["college_name", "collegeName"]));
+      setFilterSummary(
+        [collegeCode, courseCode, groupCode, yearCode, examName]
+          .filter(Boolean)
+          .join(" / "),
+      );
     } catch (e) {
-      toastError(e instanceof Error ? e.message : "Failed to load report");
+      toastError(
+        e instanceof Error ? e.message : "Failed to load OU Result Report",
+      );
     } finally {
       setLoading(false);
     }
@@ -401,71 +441,29 @@ export default function ReEvaluationComparisionReportPage() {
 
   function handleReset() {
     setSkipAutoSelect(true);
+    clearResults();
     setCourseId(null);
     setAcademicYearId(null);
     setExamId(null);
+    setCollegeId(null);
+    setCourseGroupId(0);
     setCourseYearId(0);
     setRestRows([]);
-    clearResults();
   }
 
-  function handleExportExcel() {
+  const handlePrint = useCallback(() => {
     if (rows.length === 0) return;
-    const head = `<tr>
-      <th colspan="5"></th>
-      <th colspan="2">Result Before RV</th>
-      <th colspan="2"></th>
-      <th colspan="2">After RV</th>
-    </tr>
-    <tr>
-      <th>S.No</th><th>Subject Code</th><th>Subject Name</th><th>Registered</th><th>Appeared</th>
-      <th>Passed</th><th>Pass %</th>
-      <th>No.of Students Applied RV</th><th>No.of Students Benefited</th>
-      <th>Passed</th><th>Pass %</th>
-    </tr>`;
-    const body = rows
-      .map(
-        (r, i) => `<tr>
-        <td>${i + 1}</td>
-        <td>${strFrom(r, ["Subject_Code", "subject_code"])}</td>
-        <td>${strFrom(r, ["Subject_Name", "subject_name"])}</td>
-        <td>${strFrom(r, ["Total_Registered", "total_registered"])}</td>
-        <td>${strFrom(r, ["Total_Appeared", "total_appeared"])}</td>
-        <td>${strFrom(r, ["Pass_Before_RV", "pass_before_rv"])}</td>
-        <td>${strFrom(r, ["Before_RV", "before_rv"])}</td>
-        <td>${strFrom(r, ["Students_Applied_RV", "students_applied_rv"])}</td>
-        <td>${strFrom(r, ["Students_Benefitted", "students_benefitted"])}</td>
-        <td>${strFrom(r, ["Pass_After_RV", "pass_after_rv"])}</td>
-        <td>${strFrom(r, ["Final_Pass", "final_pass"])}</td>
-      </tr>`,
-      )
-      .join("");
-    const title = `<tr><th colspan="11" style="text-align:center;font-size:18px;font-weight:bold;background:#f2f2f2;">Re-Evaluation Comparision Result Report</th></tr>`;
-    exportHtmlTable(
-      "Re-Evaluation Comparision Result Report.xls",
-      title,
-      `${head}${body}`,
-    );
-  }
-
-  function handlePrint() {
-    if (rows.length === 0) return;
-    const course = courses.find(
-      (r) => numFrom(r, ["fk_course_id", "courseId"]) === Number(courseId),
-    );
-    printReEvaluationComparisionReport(rows, {
-      title: "Re-Evaluation Comparision Result Report",
-      examLabel,
-      universityName: strFrom(course ?? {}, [
-        "university_name",
-        "universityName",
-      ]),
+    printOuResultSheet(rows, {
+      title: "OU Result Report",
+      collegeName,
+      filterSummary,
+      columns,
     });
-  }
+  }, [rows, collegeName, filterSummary, columns]);
 
   return (
     <FilteredListPage
-      title="Re-Evaluation Comparision Result Report"
+      title="OU Result Report"
       filters={
         <div className="space-y-3">
           <GlobalFilterBarRow>
@@ -517,9 +515,9 @@ export default function ReEvaluationComparisionReportPage() {
               />
             </GlobalFilterField>
             <GlobalFilterField
-              label="Exam"
+              label="Exam Master"
               icon={ClipboardList}
-              className="!flex-[1_1_22rem] !min-w-[16rem]"
+              className="!flex-[1_1_25rem] !max-w-[25rem]"
             >
               <Select
                 value={examId ? String(examId) : null}
@@ -528,22 +526,87 @@ export default function ReEvaluationComparisionReportPage() {
                   clearResults();
                   setExamId(v ? Number(v) : null);
                 }}
-                options={exams.map((r) => ({
-                  value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                  label: strFrom(r, ["exam_name", "examName"]),
-                }))}
-                placeholder="Exam"
+                options={exams.map((r) => {
+                  const tags = [
+                    r.is_internal_exam ? "Internal" : "",
+                    r.is_regular_exam ? "Regular" : "",
+                    r.is_supply_exam ? "Supple" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(", ");
+                  const name = strFrom(r, ["exam_name", "examName"]);
+                  return {
+                    value: String(numFrom(r, ["fk_exam_id", "examId"])),
+                    label: tags ? `${name} (${tags})` : name,
+                  };
+                })}
+                placeholder="Exam Master"
                 searchable
               />
             </GlobalFilterField>
             <GlobalFilterField
-              label="Course Year"
+              label="College"
+              icon={Building2}
+              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+            >
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => {
+                  setSkipAutoSelect(false);
+                  clearResults();
+                  setCollegeId(v ? Number(v) : null);
+                }}
+                options={colleges.map((r) => ({
+                  value: String(numFrom(r, ["fk_college_id", "collegeId"])),
+                  label: strFrom(r, [
+                    "college_code",
+                    "collegeCode",
+                    "college_name",
+                  ]),
+                }))}
+                placeholder="College"
+                searchable
+                isLoading={Boolean(examId) && loading}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Course Group"
               icon={Layers}
+              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+            >
+              <Select
+                value={String(courseGroupId)}
+                onChange={(v) => {
+                  setSkipAutoSelect(false);
+                  clearResults();
+                  setCourseGroupId(v ? Number(v) : 0);
+                }}
+                options={[
+                  { value: "0", label: "All" },
+                  ...courseGroups.map((r) => ({
+                    value: String(
+                      numFrom(r, ["fk_course_group_id", "courseGroupId"]),
+                    ),
+                    label: strFrom(r, [
+                      "group_code",
+                      "groupCode",
+                      "group_name",
+                    ]),
+                  })),
+                ]}
+                placeholder="Course Group"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Course Years"
+              icon={School}
               className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
             >
               <Select
                 value={String(courseYearId)}
                 onChange={(v) => {
+                  setSkipAutoSelect(false);
                   clearResults();
                   setCourseYearId(v ? Number(v) : 0);
                 }}
@@ -556,16 +619,15 @@ export default function ReEvaluationComparisionReportPage() {
                     label: strFrom(r, [
                       "course_year_code",
                       "courseYearCode",
-                      "course_year_name",
+                      "course_year",
                     ]),
                   })),
                 ]}
-                placeholder="Course Year"
+                placeholder="Course Years"
                 searchable
-                isLoading={Boolean(examId) && loading}
               />
             </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+            <div className=" flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
               <Button
                 type="button"
                 className="h-8 text-[12px]"
@@ -589,20 +651,24 @@ export default function ReEvaluationComparisionReportPage() {
         </div>
       }
       rowData={rows}
-      columnDefs={columnDefs as ColDef<AnyRow>[]}
+      columnDefs={columnDefs}
       loading={loading}
       pagination
-      paginationPageSize={10}
+      paginationPageSize={25}
       getRowId={getRowId}
       fitColumnsToWidth={false}
-      onExportExcel={handleExportExcel}
       onExportPdf={handlePrint}
       toolbar={{
         ...TOOLBAR,
-        excelDocumentTitle: "Re-Evaluation Comparision Result Report",
-        excelFileName: "Re-Evaluation Comparision Result Report.xls",
-        pdfDocumentTitle: "Re-Evaluation Comparision Result Report",
+        excelDocumentTitle: "OU Result Report",
+        excelFileName: "Ou Result sheet.xls",
+        pdfDocumentTitle: "OU Result Report",
       }}
+      filtersFooter={
+        filterSummary ? (
+          <p className="text-sm font-medium text-primary">{filterSummary}</p>
+        ) : null
+      }
     />
   );
 }

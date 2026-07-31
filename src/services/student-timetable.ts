@@ -1,4 +1,7 @@
-import { TIMETABLE_REPORT_API } from "@/config/constants/api";
+import {
+  TIMETABLE_MGMT_API,
+  TIMETABLE_REPORT_API,
+} from "@/config/constants/api";
 import type { ApiResponse } from "@/types/api";
 import { fetchDetails, getAllRecords } from "@/services/crud";
 
@@ -1008,75 +1011,29 @@ export type StudentTimetableFetchParams = {
 };
 
 /**
- * Angular students-profile Time Table tab: GET `timetablescurr` with `studentId` + `check=1`,
- * then section/college filters as fallback.
+ * Angular students-profile Time Table tab — only
+ * `timetablescurr?College.collegeId&AcademicYear.academicYearId&groupSectionId`
+ * (no invented alternate paths).
  */
 export async function fetchStudentTimetableRows(
   params: StudentTimetableFetchParams,
 ): Promise<AnyRow[]> {
-  const {
-    studentId = 0,
-    collegeId = 0,
-    academicYearId = 0,
-    groupSectionId = 0,
-    courseGroupId = 0,
-    courseYearId = 0,
-    check,
-  } = params;
+  const { collegeId = 0, academicYearId = 0, groupSectionId = 0 } = params;
+  if (!collegeId || !academicYearId || !groupSectionId) return [];
 
-  const attempts: Record<string, string | number>[] = [];
-
-  if (studentId) {
-    if (check != null) attempts.push({ studentId, check });
-    attempts.push({ studentId });
-    if (groupSectionId) attempts.push({ studentId, groupSectionId });
-    if (collegeId && academicYearId)
-      attempts.push({ studentId, collegeId, academicYearId });
-  }
-
-  if (groupSectionId && collegeId && academicYearId) {
-    attempts.push({
-      "College.collegeId": collegeId,
-      "AcademicYear.academicYearId": academicYearId,
-      groupSectionId,
-    });
-    attempts.push({ collegeId, academicYearId, groupSectionId });
-    if (courseGroupId)
-      attempts.push({
-        collegeId,
-        academicYearId,
+  try {
+    const payload = await fetchDetails<unknown>(
+      TIMETABLE_MGMT_API.TIMETABLES_CURR,
+      {
+        "College.collegeId": collegeId,
+        "AcademicYear.academicYearId": academicYearId,
         groupSectionId,
-        courseGroupId,
-      });
-    if (courseYearId)
-      attempts.push({
-        collegeId,
-        academicYearId,
-        groupSectionId,
-        courseYearId,
-      });
+      },
+    );
+    return normalizeTimetableRows(payload);
+  } catch {
+    return [];
   }
-
-  const paths = [
-    "timetablescurr",
-    "timetablesCurr",
-    "studenttimetable",
-    "sectiontimetable",
-  ];
-
-  for (const path of paths) {
-    for (const query of attempts) {
-      try {
-        const payload = await fetchProxyPayload(path, query);
-        const rows = normalizeTimetableRows(payload);
-        if (rows.length > 0) return rows;
-      } catch {
-        // try next endpoint / param set
-      }
-    }
-  }
-
-  return [];
 }
 
 export function timetableDateRangeLabel(
@@ -1572,33 +1529,35 @@ export function buildAngularStudentTimetable(
   return { dateRangeLabel, weekdays };
 }
 
+/**
+ * Angular `listByThreeIds(timetablescurr, collegeId, academicYearId, groupSectionId,
+ *   'College.collegeId', 'AcademicYear.academicYearId', 'groupSectionId')`
+ */
 async function fetchTimetableScurrList(
   collegeId: number,
   academicYearId: number,
   groupSectionId: number,
 ): Promise<AnyRow[]> {
-  const paramSets: Record<string, string | number>[] = [
-    {
-      "College.collegeId": collegeId,
-      "AcademicYear.academicYearId": academicYearId,
-      groupSectionId,
-      isActive: "true",
-    },
-    { collegeId, academicYearId, groupSectionId, isActive: "true" },
-    { collegeId, academicYearId, groupSectionId },
-  ];
-  for (const params of paramSets) {
-    try {
-      const data = await fetchDetails<unknown>("timetablescurr", params);
-      const rows = asDetailRows(data);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next
-    }
+  try {
+    const data = await fetchDetails<unknown>(
+      TIMETABLE_MGMT_API.TIMETABLES_CURR,
+      {
+        "College.collegeId": collegeId,
+        "AcademicYear.academicYearId": academicYearId,
+        groupSectionId,
+      },
+    );
+    return asDetailRows(data);
+  } catch {
+    return [];
   }
-  return [];
 }
 
+/**
+ * Angular `listByFiveIds(schedules, collegeId, academicYearId, groupSectionId,
+ *   timetableId, 'true', 'collegeId', 'academicYearId', 'groupSectionId',
+ *   'timetableId', 'isActive')`
+ */
 async function fetchScheduleTimingsForTimetable(
   collegeId: number,
   academicYearId: number,
@@ -1606,33 +1565,18 @@ async function fetchScheduleTimingsForTimetable(
   timetableId: number,
 ): Promise<AnyRow[]> {
   if (!timetableId) return [];
-  const paramSets: Record<string, string | number>[] = [
-    {
-      "College.collegeId": collegeId,
-      "AcademicYear.academicYearId": academicYearId,
-      groupSectionId,
-      timetableId,
-      isActive: "true",
-    },
-    {
+  try {
+    const data = await fetchDetails<unknown>(TIMETABLE_MGMT_API.SCHEDULE, {
       collegeId,
       academicYearId,
       groupSectionId,
       timetableId,
       isActive: "true",
-    },
-    { collegeId, academicYearId, groupSectionId, timetableId },
-  ];
-  for (const params of paramSets) {
-    try {
-      const data = await fetchDetails<unknown>("schedules", params);
-      const rows = asDetailRows(data);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next
-    }
+    });
+    return asDetailRows(data);
+  } catch {
+    return [];
   }
-  return [];
 }
 
 /**

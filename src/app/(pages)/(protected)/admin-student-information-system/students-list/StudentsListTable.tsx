@@ -30,7 +30,10 @@ export interface StudentsListTableProps {
   headerParts: string[];
   tableFilter: string;
   onTableFilterChange: (value: string) => void;
+  /** Per-row Send Credentials — Angular: isHod || isAdmin */
   canSendCredentials: boolean;
+  /** Bulk button — Angular always shows when section mode has rows (no role gate) */
+  showBulkSendCredentials?: boolean;
   canNavigateEdit: boolean;
   canModalEdit: boolean;
   onViewProfile: (row: AnyRow) => void;
@@ -191,6 +194,7 @@ export function StudentsListTable({
   tableFilter,
   onTableFilterChange,
   canSendCredentials,
+  showBulkSendCredentials = true,
   canNavigateEdit,
   canModalEdit,
   onViewProfile,
@@ -235,6 +239,7 @@ export function StudentsListTable({
   return (
     <div
       className="overflow-hidden rounded border bg-white shadow-sm"
+      data-no-page-name
       style={{ borderColor: COLORS.border }}
     >
       {headerLabel ? (
@@ -262,7 +267,7 @@ export function StudentsListTable({
               className="h-8 border-[#dee2e6] pl-8 text-[12px]"
             />
           </div>
-          {canSendCredentials ? (
+          {showBulkSendCredentials ? (
             <Button
               type="button"
               size="sm"

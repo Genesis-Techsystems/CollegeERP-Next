@@ -1278,6 +1278,7 @@ export default function StudentExamFeeRegistrationPage() {
           {
             feeComments,
             collegeId: Number(stu.collegeId),
+            courseGroupId: Number(stu.courseGroupId),
             courseYearId: cy.courseYearId,
             examFeeAmount,
             examtypeCatId,
