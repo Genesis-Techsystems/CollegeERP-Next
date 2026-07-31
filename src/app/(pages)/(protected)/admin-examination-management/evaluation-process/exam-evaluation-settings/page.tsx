@@ -1,67 +1,73 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColDef } from 'ag-grid-community'
-import { Select, type SelectOption } from '@/common/components/select'
-import { StatusBadge } from '@/common/components/data-display'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { PencilIcon, Plus } from 'lucide-react'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { toDateOnlyISO } from '@/common/generic-functions'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { Select, type SelectOption } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PencilIcon, Plus } from "lucide-react";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { toDateOnlyISO } from "@/common/generic-functions";
 import {
   createExamEvaluationSetting,
   getExamEvaluationSettingsFilters,
   listExamEvaluationSettings,
   updateExamEvaluationSetting,
-} from '@/services/evaluation-process'
-import { FilteredListPage } from '@/components/layout'
+} from "@/services/evaluation-process";
+import { FilteredListPage } from "@/components/layout";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
+  if (!row) return 0;
   for (const k of keys) {
-    const n = Number(row[k])
-    if (n > 0) return n
+    const n = Number(row[k]);
+    if (n > 0) return n;
   }
-  return 0
-}
+  return 0;
+};
 const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
-}
+  return "";
+};
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>()
+  const seen = new Set<string | number>();
   return rows.filter((r) => {
-    const key = keyFn(r)
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
+    const key = keyFn(r);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 const toYmd = (v?: string | Date) => {
-  if (!v) return ''
-  const d = new Date(v)
-  if (Number.isNaN(d.getTime())) return ''
-  return toDateOnlyISO(d)
-}
+  if (!v) return "";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  return toDateOnlyISO(d);
+};
 const secondsToTime = (total: number) => {
-  const h = String(Math.floor(total / 3600)).padStart(2, '0')
-  const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
-  const s = String(total % 60).padStart(2, '0')
-  return `${h}:${m}:${s}`
-}
+  const h = String(Math.floor(total / 3600)).padStart(2, "0");
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+};
 
 function statusRenderer(p: { value?: boolean }) {
-  return <StatusBadge status={p.value ?? false} />
+  return <StatusBadge status={p.value ?? false} />;
 }
 
 function makeActionsRenderer(openEdit: (row: AnyRow) => void) {
@@ -76,178 +82,194 @@ function makeActionsRenderer(openEdit: (row: AnyRow) => void) {
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 type FormState = {
-  minEvaluationTIme: string
-  evaluationStartDate: string
-  evaluationEndDate: string
-  maxNoOfEvaluationsAssign: string
-  maxNoOfReevaluationsAssign: string
-  noOfEvaluations: string
-  noOfReEvaluations: string
-  marksDiffForModEvaluatoin: string
-  noOfChiefEvaluations: string
-  noOfChiefReevaluations: string
-  isActive: boolean
-  reason: string
-}
+  minEvaluationTIme: string;
+  evaluationStartDate: string;
+  evaluationEndDate: string;
+  maxNoOfEvaluationsAssign: string;
+  maxNoOfReevaluationsAssign: string;
+  noOfEvaluations: string;
+  noOfReEvaluations: string;
+  marksDiffForModEvaluatoin: string;
+  noOfChiefEvaluations: string;
+  noOfChiefReevaluations: string;
+  isActive: boolean;
+  reason: string;
+};
 
 function emptyForm(): FormState {
-  const today = toDateOnlyISO(new Date())
+  const today = toDateOnlyISO(new Date());
   return {
-    minEvaluationTIme: '',
+    minEvaluationTIme: "",
     evaluationStartDate: today,
     evaluationEndDate: today,
-    maxNoOfEvaluationsAssign: '',
-    maxNoOfReevaluationsAssign: '',
-    noOfEvaluations: '',
-    noOfReEvaluations: '',
-    marksDiffForModEvaluatoin: '',
-    noOfChiefEvaluations: '',
-    noOfChiefReevaluations: '',
+    maxNoOfEvaluationsAssign: "",
+    maxNoOfReevaluationsAssign: "",
+    noOfEvaluations: "",
+    noOfReEvaluations: "",
+    marksDiffForModEvaluatoin: "",
+    noOfChiefEvaluations: "",
+    noOfChiefReevaluations: "",
     isActive: true,
-    reason: '',
-  }
+    reason: "",
+  };
 }
 
 export default function ExamEvaluationSettingsPage() {
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
 
-  const [loading, setLoading] = useState(false)
-  const [hasFetched, setHasFetched] = useState(false)
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
-  const [filterRows, setFilterRows] = useState<AnyRow[]>([])
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
+  const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [examId, setExamId] = useState<number | null>(null);
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editRow, setEditRow] = useState<AnyRow | null>(null)
-  const [form, setForm] = useState<FormState>(emptyForm())
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editRow, setEditRow] = useState<AnyRow | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm());
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const courses = useMemo(
-    () => dedupeBy(filterRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
+    () => dedupeBy(filterRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
     [filterRows],
-  )
+  );
   const academicYears = useMemo(
     () =>
       dedupeBy(
-        filterRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
-        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
+        filterRows.filter(
+          (r) => pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId),
+        ),
+        (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
       ),
     [filterRows, courseId],
-  )
+  );
   const exams = useMemo(
     () =>
       dedupeBy(
         filterRows.filter(
           (r) =>
-            pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
-            pickNum(r, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId),
+            pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId) &&
+            pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
+              Number(academicYearId),
         ),
-        (r) => pickNum(r, ['fk_exam_id', 'examId']),
+        (r) => pickNum(r, ["fk_exam_id", "examId"]),
       ),
     [filterRows, courseId, academicYearId],
-  )
+  );
 
   useEffect(() => {
     async function init() {
-      setLoading(true)
+      setLoading(true);
       try {
-        const list = await getExamEvaluationSettingsFilters(employeeId).catch(() => [])
-        const r = Array.isArray(list) ? list : []
-        setFilterRows(r)
-        if (r[0]) setCourseId(pickNum(r[0], ['fk_course_id', 'courseId']))
+        const list = await getExamEvaluationSettingsFilters(employeeId).catch(
+          () => [],
+        );
+        const r = Array.isArray(list) ? list : [];
+        setFilterRows(r);
+        if (r[0]) setCourseId(pickNum(r[0], ["fk_course_id", "courseId"]));
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    void init()
-  }, [employeeId])
+    void init();
+  }, [employeeId]);
 
   useEffect(() => {
-    if (academicYears[0]) setAcademicYearId(pickNum(academicYears[0], ['fk_academic_year_id', 'academicYearId']))
-  }, [academicYears])
+    if (academicYears[0])
+      setAcademicYearId(
+        pickNum(academicYears[0], ["fk_academic_year_id", "academicYearId"]),
+      );
+  }, [academicYears]);
   useEffect(() => {
-    if (exams[0]) setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
-  }, [exams])
+    if (exams[0]) setExamId(pickNum(exams[0], ["fk_exam_id", "examId"]));
+  }, [exams]);
   useEffect(() => {
-    setRows([])
-    setHasFetched(false)
-  }, [courseId, academicYearId, examId])
+    setRows([]);
+    setHasFetched(false);
+  }, [courseId, academicYearId, examId]);
 
   async function getList() {
     if (!examId) {
-      toastError('Please select Exam.')
-      return
+      toastError("Please select Exam.");
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
-      const list = await listExamEvaluationSettings(examId).catch(() => [])
-      setRows(Array.isArray(list) ? list : [])
-      setHasFetched(true)
+      const list = await listExamEvaluationSettings(examId).catch(() => []);
+      setRows(Array.isArray(list) ? list : []);
+      setHasFetched(true);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   function openAdd() {
-    setEditRow(null)
-    setForm(emptyForm())
-    setFieldErrors({})
-    setModalOpen(true)
+    setEditRow(null);
+    setForm(emptyForm());
+    setFieldErrors({});
+    setModalOpen(true);
   }
 
   function openEdit(row: AnyRow) {
-    setEditRow(row)
+    setEditRow(row);
     setForm({
-      minEvaluationTIme: String(row?.minEvaluationTIme ?? ''),
+      minEvaluationTIme: String(row?.minEvaluationTIme ?? ""),
       evaluationStartDate: toYmd(row?.evaluationStartDate),
       evaluationEndDate: toYmd(row?.evaluationEndDate),
-      maxNoOfEvaluationsAssign: String(row?.maxNoOfEvaluationsAssign ?? ''),
-      maxNoOfReevaluationsAssign: String(row?.maxNoOfReevaluationsAssign ?? ''),
-      noOfEvaluations: String(row?.noOfEvaluations ?? ''),
-      noOfReEvaluations: String(row?.noOfReEvaluations ?? ''),
-      marksDiffForModEvaluatoin: String(row?.marksDiffForModEvaluatoin ?? ''),
-      noOfChiefEvaluations: String(row?.noOfChiefEvaluations ?? ''),
-      noOfChiefReevaluations: String(row?.noOfChiefReevaluations ?? ''),
+      maxNoOfEvaluationsAssign: String(row?.maxNoOfEvaluationsAssign ?? ""),
+      maxNoOfReevaluationsAssign: String(row?.maxNoOfReevaluationsAssign ?? ""),
+      noOfEvaluations: String(row?.noOfEvaluations ?? ""),
+      noOfReEvaluations: String(row?.noOfReEvaluations ?? ""),
+      marksDiffForModEvaluatoin: String(row?.marksDiffForModEvaluatoin ?? ""),
+      noOfChiefEvaluations: String(row?.noOfChiefEvaluations ?? ""),
+      noOfChiefReevaluations: String(row?.noOfChiefReevaluations ?? ""),
       isActive: Boolean(row?.isActive),
-      reason: String(row?.reason ?? ''),
-    })
-    setFieldErrors({})
-    setModalOpen(true)
+      reason: String(row?.reason ?? ""),
+    });
+    setFieldErrors({});
+    setModalOpen(true);
   }
 
   function clearFieldError(key: string) {
     setFieldErrors((prev) => {
-      if (!prev[key]) return prev
-      const next = { ...prev }
-      delete next[key]
-      return next
-    })
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   function validateForm(): boolean {
-    const next: Record<string, string> = {}
-    if (!form.noOfEvaluations.trim()) next.noOfEvaluations = 'No of evaluations is required.'
-    if (!form.noOfReEvaluations.trim()) next.noOfReEvaluations = 'No of re-evaluations is required.'
-    if (!form.marksDiffForModEvaluatoin.trim()) next.marksDiffForModEvaluatoin = 'Marks diff. for mod evaluation is required.'
-    if (!form.noOfChiefEvaluations.trim()) next.noOfChiefEvaluations = 'No of chief evaluations is required.'
-    if (!form.noOfChiefReevaluations.trim()) next.noOfChiefReevaluations = 'No of chief re-evaluations is required.'
-    setFieldErrors(next)
-    return Object.keys(next).length === 0
+    const next: Record<string, string> = {};
+    if (!form.noOfEvaluations.trim())
+      next.noOfEvaluations = "No of evaluations is required.";
+    if (!form.noOfReEvaluations.trim())
+      next.noOfReEvaluations = "No of re-evaluations is required.";
+    if (!form.marksDiffForModEvaluatoin.trim())
+      next.marksDiffForModEvaluatoin =
+        "Marks diff. for mod evaluation is required.";
+    if (!form.noOfChiefEvaluations.trim())
+      next.noOfChiefEvaluations = "No of chief evaluations is required.";
+    if (!form.noOfChiefReevaluations.trim())
+      next.noOfChiefReevaluations = "No of chief re-evaluations is required.";
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   async function onSave() {
     if (!examId) {
-      toastError('Please select Exam.')
-      return
+      toastError("Please select Exam.");
+      return;
     }
-    if (!validateForm()) return
+    if (!validateForm()) return;
     const payload = {
       examId,
       minEvaluationTIme: Number(form.minEvaluationTIme || 0),
@@ -262,68 +284,138 @@ export default function ExamEvaluationSettingsPage() {
       noOfChiefReevaluations: Number(form.noOfChiefReevaluations || 0),
       isActive: form.isActive,
       reason: form.reason || null,
-    }
-    setLoading(true)
+    };
+    setLoading(true);
     try {
       if (editRow?.evaluationSettingId) {
-        await updateExamEvaluationSetting(Number(editRow.evaluationSettingId), payload)
+        await updateExamEvaluationSetting(
+          Number(editRow.evaluationSettingId),
+          payload,
+        );
       } else {
-        await createExamEvaluationSetting(payload)
+        await createExamEvaluationSetting(payload);
       }
-      toastSuccess('Saved successfully.')
-      setModalOpen(false)
-      await getList()
+      toastSuccess("Saved successfully.");
+      setModalOpen(false);
+      await getList();
     } catch (error: any) {
-      toastError(error?.message ?? 'Failed to save.')
+      toastError(error?.message ?? "Failed to save.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   const cols = useMemo<ColDef[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
       {
-        field: 'minEvaluationTIme',
-        headerName: 'Evaluation Time',
-        minWidth: 140,
-        valueGetter: (p) => secondsToTime(Number(p.data?.minEvaluationTIme ?? 0)),
+        headerName: "SI.No",
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 80,
       },
-      { field: 'maxNoOfEvaluationsAssign', headerName: 'Max No of Evaluations', minWidth: 160 },
-      { field: 'maxNoOfReevaluationsAssign', headerName: 'Max No of Re-Evaluations', minWidth: 180 },
-      { field: 'noOfChiefEvaluations', headerName: 'No of Chief Evaluations', minWidth: 170 },
-      { field: 'noOfChiefReevaluations', headerName: 'No of Chief Re-Evaluations', minWidth: 185 },
-      { field: 'noOfEvaluations', headerName: 'No Of Evaluations', minWidth: 140 },
-      { field: 'noOfReEvaluations', headerName: 'No Of Re-Evaluations', minWidth: 160 },
-      { field: 'marksDiffForModEvaluatoin', headerName: 'Marks Diff.For ModEvaluation', minWidth: 200 },
-      { field: 'evaluationStartDate', headerName: 'Evaluation Start Date', minWidth: 160, valueGetter: (p) => toYmd(p.data?.evaluationStartDate) || '-' },
-      { field: 'evaluationEndDate', headerName: 'Evaluation End Date', minWidth: 160, valueGetter: (p) => toYmd(p.data?.evaluationEndDate) || '-' },
-      { field: 'isActive', headerName: 'Status', minWidth: 110, cellRenderer: statusRenderer },
-      { headerName: 'Actions', width: 72, flex: 0, cellRenderer: makeActionsRenderer(openEdit) },
+      {
+        field: "minEvaluationTIme",
+        headerName: "Evaluation Time",
+        minWidth: 140,
+        valueGetter: (p) =>
+          secondsToTime(Number(p.data?.minEvaluationTIme ?? 0)),
+      },
+      {
+        field: "maxNoOfEvaluationsAssign",
+        headerName: "Max No of Evaluations",
+        minWidth: 160,
+      },
+      {
+        field: "maxNoOfReevaluationsAssign",
+        headerName: "Max No of Re-Evaluations",
+        minWidth: 180,
+      },
+      {
+        field: "noOfChiefEvaluations",
+        headerName: "No of Chief Evaluations",
+        minWidth: 170,
+      },
+      {
+        field: "noOfChiefReevaluations",
+        headerName: "No of Chief Re-Evaluations",
+        minWidth: 185,
+      },
+      {
+        field: "noOfEvaluations",
+        headerName: "No Of Evaluations",
+        minWidth: 140,
+      },
+      {
+        field: "noOfReEvaluations",
+        headerName: "No Of Re-Evaluations",
+        minWidth: 160,
+      },
+      {
+        field: "marksDiffForModEvaluatoin",
+        headerName: "Marks Diff.For ModEvaluation",
+        minWidth: 200,
+      },
+      {
+        field: "evaluationStartDate",
+        headerName: "Evaluation Start Date",
+        minWidth: 160,
+        valueGetter: (p) => toYmd(p.data?.evaluationStartDate) || "-",
+      },
+      {
+        field: "evaluationEndDate",
+        headerName: "Evaluation End Date",
+        minWidth: 160,
+        valueGetter: (p) => toYmd(p.data?.evaluationEndDate) || "-",
+      },
+      {
+        field: "isActive",
+        headerName: "Status",
+        minWidth: 110,
+        cellRenderer: statusRenderer,
+      },
+      {
+        headerName: "Actions",
+        width: 72,
+        flex: 0,
+        cellRenderer: makeActionsRenderer(openEdit),
+      },
     ],
     [],
-  )
+  );
 
   return (
     <FilteredListPage
       title="Exam Evaluation Settings"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-3">
             <Label className="text-[12px] text-muted-foreground">Course</Label>
             <Select
               value={courseId ? String(courseId) : null}
               onChange={(v) => setCourseId(v ? Number(v) : null)}
-              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id'])), label: pickText(c, ['course_code', 'course_name']) } as SelectOption))}
+              options={courses.map(
+                (c) =>
+                  ({
+                    value: String(pickNum(c, ["fk_course_id"])),
+                    label: pickText(c, ["course_code", "course_name"]),
+                  }) as SelectOption,
+              )}
               placeholder="Course"
             />
           </div>
           <div className="md:col-span-3">
-            <Label className="text-[12px] text-muted-foreground">Academic Year</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Academic Year
+            </Label>
             <Select
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-              options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id'])), label: pickText(a, ['academic_year']) } as SelectOption))}
+              options={academicYears.map(
+                (a) =>
+                  ({
+                    value: String(pickNum(a, ["fk_academic_year_id"])),
+                    label: pickText(a, ["academic_year"]),
+                  }) as SelectOption,
+              )}
               placeholder="Academic Year"
             />
           </div>
@@ -332,40 +424,68 @@ export default function ExamEvaluationSettingsPage() {
             <Select
               value={examId ? String(examId) : null}
               onChange={(v) => setExamId(v ? Number(v) : null)}
-              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id'])), label: pickText(e, ['exam_name']) } as SelectOption))}
+              options={exams.map(
+                (e) =>
+                  ({
+                    value: String(pickNum(e, ["fk_exam_id"])),
+                    label: pickText(e, ["exam_name"]),
+                  }) as SelectOption,
+              )}
               placeholder="Exam"
             />
           </div>
           <div className="md:col-span-1">
-            <Button className="h-8 px-3 text-[12px] w-full" onClick={() => void getList()} disabled={loading}>Get List</Button>
+            <Button
+              className="h-8 px-3 text-[12px] w-full"
+              onClick={() => void getList()}
+              disabled={loading}
+            >
+              Get List
+            </Button>
           </div>
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
-      columnDefs={cols}
+      columnDefs={hasFetched ? cols : undefined}
+      body={!hasFetched ? null : undefined}
       pagination
       paginationPageSize={10}
       loading={loading}
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Exam Evaluation Settings',
+        searchPlaceholder: "Search…",
+        pdfDocumentTitle: "Exam Evaluation Settings",
       }}
-      toolbarTrailing={(
-        <Button type="button" size="sm" onClick={openAdd} className="h-[30px] px-3 text-[12px]">
+      toolbarTrailing={
+        <Button
+          type="button"
+          size="sm"
+          onClick={openAdd}
+          className="h-[30px] px-3 text-[12px]"
+        >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Add Evaluation Settings
         </Button>
-      )}
+      }
     >
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              {editRow ? 'Edit Evaluation Settings' : 'Add Evaluation Settings'}
-              {pickText(exams.find((e) => pickNum(e, ['fk_exam_id']) === Number(examId)), ['exam_name'])
-                ? ` — ${pickText(exams.find((e) => pickNum(e, ['fk_exam_id']) === Number(examId)), ['exam_name'])}`
-                : ''}
+              {editRow ? "Edit Evaluation Settings" : "Add Evaluation Settings"}
+              {pickText(
+                exams.find(
+                  (e) => pickNum(e, ["fk_exam_id"]) === Number(examId),
+                ),
+                ["exam_name"],
+              )
+                ? ` — ${pickText(
+                    exams.find(
+                      (e) => pickNum(e, ["fk_exam_id"]) === Number(examId),
+                    ),
+                    ["exam_name"],
+                  )}`
+                : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -374,7 +494,9 @@ export default function ExamEvaluationSettingsPage() {
               <Input
                 type="number"
                 value={form.minEvaluationTIme}
-                onChange={(e) => setForm((p) => ({ ...p, minEvaluationTIme: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, minEvaluationTIme: e.target.value }))
+                }
                 placeholder="Evaluation Time"
               />
             </div>
@@ -384,7 +506,12 @@ export default function ExamEvaluationSettingsPage() {
                 type="date"
                 className="org-modal-date-input pr-10"
                 value={form.evaluationStartDate}
-                onChange={(e) => setForm((p) => ({ ...p, evaluationStartDate: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    evaluationStartDate: e.target.value,
+                  }))
+                }
               />
             </div>
             <div className="space-y-1">
@@ -393,7 +520,9 @@ export default function ExamEvaluationSettingsPage() {
                 type="date"
                 className="org-modal-date-input pr-10"
                 value={form.evaluationEndDate}
-                onChange={(e) => setForm((p) => ({ ...p, evaluationEndDate: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, evaluationEndDate: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1">
@@ -401,7 +530,12 @@ export default function ExamEvaluationSettingsPage() {
               <Input
                 type="number"
                 value={form.maxNoOfEvaluationsAssign}
-                onChange={(e) => setForm((p) => ({ ...p, maxNoOfEvaluationsAssign: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    maxNoOfEvaluationsAssign: e.target.value,
+                  }))
+                }
                 placeholder="Max No Of Evaluations"
               />
             </div>
@@ -410,7 +544,12 @@ export default function ExamEvaluationSettingsPage() {
               <Input
                 type="number"
                 value={form.maxNoOfReevaluationsAssign}
-                onChange={(e) => setForm((p) => ({ ...p, maxNoOfReevaluationsAssign: e.target.value }))}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    maxNoOfReevaluationsAssign: e.target.value,
+                  }))
+                }
                 placeholder="Max No Of Re-Evaluations"
               />
             </div>
@@ -422,13 +561,15 @@ export default function ExamEvaluationSettingsPage() {
                 type="number"
                 value={form.noOfEvaluations}
                 onChange={(e) => {
-                  setForm((p) => ({ ...p, noOfEvaluations: e.target.value }))
-                  clearFieldError('noOfEvaluations')
+                  setForm((p) => ({ ...p, noOfEvaluations: e.target.value }));
+                  clearFieldError("noOfEvaluations");
                 }}
                 placeholder="No Of Evaluations"
               />
               {fieldErrors.noOfEvaluations ? (
-                <p className="text-[11px] text-destructive">{fieldErrors.noOfEvaluations}</p>
+                <p className="text-[11px] text-destructive">
+                  {fieldErrors.noOfEvaluations}
+                </p>
               ) : null}
             </div>
             <div className="space-y-1">
@@ -439,30 +580,38 @@ export default function ExamEvaluationSettingsPage() {
                 type="number"
                 value={form.noOfReEvaluations}
                 onChange={(e) => {
-                  setForm((p) => ({ ...p, noOfReEvaluations: e.target.value }))
-                  clearFieldError('noOfReEvaluations')
+                  setForm((p) => ({ ...p, noOfReEvaluations: e.target.value }));
+                  clearFieldError("noOfReEvaluations");
                 }}
                 placeholder="No Of Re-Evaluations"
               />
               {fieldErrors.noOfReEvaluations ? (
-                <p className="text-[11px] text-destructive">{fieldErrors.noOfReEvaluations}</p>
+                <p className="text-[11px] text-destructive">
+                  {fieldErrors.noOfReEvaluations}
+                </p>
               ) : null}
             </div>
             <div className="space-y-1">
               <Label className="text-[12px]">
-                Marks Diff. For ModEvaluation <span className="text-red-600">*</span>
+                Marks Diff. For ModEvaluation{" "}
+                <span className="text-red-600">*</span>
               </Label>
               <Input
                 type="number"
                 value={form.marksDiffForModEvaluatoin}
                 onChange={(e) => {
-                  setForm((p) => ({ ...p, marksDiffForModEvaluatoin: e.target.value }))
-                  clearFieldError('marksDiffForModEvaluatoin')
+                  setForm((p) => ({
+                    ...p,
+                    marksDiffForModEvaluatoin: e.target.value,
+                  }));
+                  clearFieldError("marksDiffForModEvaluatoin");
                 }}
                 placeholder="Marks Diff. For ModEvaluation"
               />
               {fieldErrors.marksDiffForModEvaluatoin ? (
-                <p className="text-[11px] text-destructive">{fieldErrors.marksDiffForModEvaluatoin}</p>
+                <p className="text-[11px] text-destructive">
+                  {fieldErrors.marksDiffForModEvaluatoin}
+                </p>
               ) : null}
             </div>
             <div className="space-y-1">
@@ -473,34 +622,50 @@ export default function ExamEvaluationSettingsPage() {
                 type="number"
                 value={form.noOfChiefEvaluations}
                 onChange={(e) => {
-                  setForm((p) => ({ ...p, noOfChiefEvaluations: e.target.value }))
-                  clearFieldError('noOfChiefEvaluations')
+                  setForm((p) => ({
+                    ...p,
+                    noOfChiefEvaluations: e.target.value,
+                  }));
+                  clearFieldError("noOfChiefEvaluations");
                 }}
                 placeholder="No of Chief Evaluations"
               />
               {fieldErrors.noOfChiefEvaluations ? (
-                <p className="text-[11px] text-destructive">{fieldErrors.noOfChiefEvaluations}</p>
+                <p className="text-[11px] text-destructive">
+                  {fieldErrors.noOfChiefEvaluations}
+                </p>
               ) : null}
             </div>
             <div className="space-y-1">
               <Label className="text-[12px]">
-                No of Chief Re-Evaluations <span className="text-red-600">*</span>
+                No of Chief Re-Evaluations{" "}
+                <span className="text-red-600">*</span>
               </Label>
               <Input
                 type="number"
                 value={form.noOfChiefReevaluations}
                 onChange={(e) => {
-                  setForm((p) => ({ ...p, noOfChiefReevaluations: e.target.value }))
-                  clearFieldError('noOfChiefReevaluations')
+                  setForm((p) => ({
+                    ...p,
+                    noOfChiefReevaluations: e.target.value,
+                  }));
+                  clearFieldError("noOfChiefReevaluations");
                 }}
                 placeholder="No of Chief Re-Evaluations"
               />
               {fieldErrors.noOfChiefReevaluations ? (
-                <p className="text-[11px] text-destructive">{fieldErrors.noOfChiefReevaluations}</p>
+                <p className="text-[11px] text-destructive">
+                  {fieldErrors.noOfChiefReevaluations}
+                </p>
               ) : null}
             </div>
             <div className="flex items-center gap-2 self-end pb-1">
-              <Checkbox checked={form.isActive} onCheckedChange={(v) => setForm((p) => ({ ...p, isActive: v === true }))} />
+              <Checkbox
+                checked={form.isActive}
+                onCheckedChange={(v) =>
+                  setForm((p) => ({ ...p, isActive: v === true }))
+                }
+              />
               <span className="text-[12px]">Active</span>
             </div>
             {!form.isActive && (
@@ -508,14 +673,20 @@ export default function ExamEvaluationSettingsPage() {
                 <Label className="text-[12px]">Reason</Label>
                 <Input
                   value={form.reason}
-                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, reason: e.target.value }))
+                  }
                   placeholder="Reason"
                 />
               </div>
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={loading}>
+            <Button
+              variant="outline"
+              onClick={() => setModalOpen(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button onClick={() => void onSave()} disabled={loading}>
@@ -525,6 +696,5 @@ export default function ExamEvaluationSettingsPage() {
         </DialogContent>
       </Dialog>
     </FilteredListPage>
-  )
+  );
 }
-

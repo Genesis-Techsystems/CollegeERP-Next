@@ -237,6 +237,41 @@ function hostelRoomsBreadcrumb(
 }
 
 /**
+ * Angular exam-scan-profile/profile-details crumbs:
+ * Home → Examination Management → Exam Papers Delivery Process → Profile Details → Edit/Add Scan Profile Details
+ */
+function examScanProfileDetailsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/\/admin-examination-management\/exam-papers-delivery-process\/exam-scan-profile\/profile-details$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+
+  const lastLabel =
+    items[items.length - 1]?.label ?? "Edit Scan Profile Details";
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Examination Management" },
+    {
+      label: "Exam Papers Delivery Process",
+      href: "/admin-examination-management/exam-papers-delivery-process",
+    },
+    {
+      label: "Profile Details",
+      href: "/admin-examination-management/exam-papers-delivery-process/exam-scan-profile",
+    },
+    { label: lastLabel },
+  ];
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -315,6 +350,7 @@ export function useBreadcrumb(
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
   items = assignRegulationToStudentsBreadcrumb(pathname, items);
   items = hostelRoomsBreadcrumb(pathname, items);
+  items = examScanProfileDetailsBreadcrumb(pathname, items);
 
   if (lastSegmentLabel && items.length > 0) {
     const last = items[items.length - 1];

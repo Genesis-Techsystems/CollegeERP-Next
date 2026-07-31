@@ -440,10 +440,37 @@ export type LeaveAllotmentTypeRow = {
   leaveCount: number;
   allocatedLeaves: number;
   leaveEntitlementId?: number;
+  createdDt?: unknown;
+  validFrom: string;
+  validTo: string;
   collegeId: number;
   leaveYear: string;
   employeeId: number;
 };
+
+function leaveYearBounds(leaveYear: string): {
+  validFrom: string;
+  validTo: string;
+} {
+  const year = String(leaveYear).trim() || String(new Date().getFullYear());
+  return {
+    validFrom: `${year}-01-01`,
+    validTo: `${year}-12-31`,
+  };
+}
+
+/** Normalize Spring date / ISO string to `yyyy-MM-dd` for leaveentitlement POST. */
+function toLeaveDateYmd(value: unknown, fallback: string): string {
+  if (value == null || value === "") return fallback;
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return fallback;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 /** Merge org leave types with employee entitlements (Angular leave-enrolment). */
 export function buildLeaveAllotmentTypeRows(
@@ -453,11 +480,20 @@ export function buildLeaveAllotmentTypeRows(
   leaveYear: string,
   employeeId: number,
 ): LeaveAllotmentTypeRow[] {
+  const bounds = leaveYearBounds(leaveYear);
+  const defaultFrom = entitlements[0]
+    ? toLeaveDateYmd(entitlements[0].validFrom, bounds.validFrom)
+    : bounds.validFrom;
+  const defaultTo = entitlements[0]
+    ? toLeaveDateYmd(entitlements[0].validTo, bounds.validTo)
+    : bounds.validTo;
+
   return leaveTypes.map((lt) => {
     const typeId = resolveLeaveTypeId(lt);
     const ent = entitlements.find(
       (e) => Number(e.leavetypeId ?? e.leaveTypeId) === typeId,
     );
+    const leaveEntitlementId = ent ? Number(ent.leaveEntitlementId) : undefined;
     return {
       leavetypeId: typeId,
       leaveName: String(lt.leaveName ?? ""),
@@ -466,11 +502,46 @@ export function buildLeaveAllotmentTypeRows(
       allocatedLeaves: ent
         ? Number(ent.allocatedLeaves ?? 0)
         : Number(lt.leaveCount ?? 0),
-      leaveEntitlementId: ent ? Number(ent.leaveEntitlementId) : undefined,
+      leaveEntitlementId:
+        leaveEntitlementId != null && Number.isFinite(leaveEntitlementId)
+          ? leaveEntitlementId
+          : undefined,
+      createdDt: ent?.createdDt,
+      validFrom: ent ? toLeaveDateYmd(ent.validFrom, defaultFrom) : defaultFrom,
+      validTo: ent ? toLeaveDateYmd(ent.validTo, defaultTo) : defaultTo,
       collegeId,
       leaveYear,
       employeeId,
     };
+  });
+}
+
+/**
+ * Angular leave-enrolment / Leave Entitlement POST body for `leaveentitlement`.
+ * Omits UI-only fields; sets isActive / isUpdate / validFrom / validTo / createdDt.
+ */
+export function buildLeaveAllotmentSavePayload(
+  rows: LeaveAllotmentTypeRow[],
+): AnyRow[] {
+  return rows.map((r) => {
+    const isUpdate =
+      r.leaveEntitlementId != null && Number.isFinite(r.leaveEntitlementId);
+    const base: AnyRow = {
+      collegeId: r.collegeId,
+      leaveYear: r.leaveYear,
+      employeeId: r.employeeId,
+      leavetypeId: r.leavetypeId,
+      isActive: true,
+      isUpdate,
+      allocatedLeaves: r.allocatedLeaves,
+      validFrom: r.validFrom,
+      validTo: r.validTo,
+    };
+    if (isUpdate) {
+      base.leaveEntitlementId = r.leaveEntitlementId;
+      if (r.createdDt != null) base.createdDt = r.createdDt;
+    }
+    return base;
   });
 }
 

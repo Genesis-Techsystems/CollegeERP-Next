@@ -1769,6 +1769,7 @@ export async function getUnivEcStudentsByCodeGroups(args: {
 export async function getExamCenterByCodeGroups(args: {
   flag:
     | "college_center_filters"
+    | "college_center_exam_group_filters"
     | "exam_center_clg_filters"
     | "ec_grp_yr_subjects"
     | "eg_filters"
@@ -1848,6 +1849,7 @@ export async function getExamBagsFilterRows(args: {
 export async function getExamCenterByCodeRows(args: {
   flag:
     | "college_center_filters"
+    | "college_center_exam_group_filters"
     | "exam_center_clg_filters"
     | "ec_grp_yr_subjects"
     | "eg_filters"
@@ -2356,4 +2358,130 @@ export async function listExamsForExamGroupPicker(
     }
   }
   return [...merged.values()];
+}
+
+// ─── Exam Scan Profile Details (Angular profile-details) ─────────────────────
+
+/**
+ * Angular `loadEvaluatorDetails` → getDetailsByIdWithSortOrder(
+ *   ExamScanProfileDetails, examScanProfileId, 'examScanProfile.examScanProfileId'
+ * ).
+ */
+export async function listExamScanProfileDetails(
+  examScanProfileId: number,
+): Promise<AnyRow[]> {
+  if (!examScanProfileId) return [];
+  const queries = [
+    buildQuery({
+      "examScanProfile.examScanProfileId": examScanProfileId,
+    }),
+    buildQuery({
+      "ExamScanProfile.examScanProfileId": examScanProfileId,
+    }),
+    buildQuery({ examScanProfileId }),
+  ];
+  for (const q of queries) {
+    try {
+      return await domainList<AnyRow>(
+        UNIV_EXAM_CENTER_API.EXAM_SCAN_PROFILE_DETAILS_ENTITY,
+        q,
+      );
+    } catch {
+      /* try next query shape */
+    }
+  }
+  return [];
+}
+
+/**
+ * Angular getExamFiltersList → profileDetailUrl (`s_get_exam_center_bycode`)
+ * with `in_flag=college_center_exam_group_filters`. Dedupes by exam group id.
+ */
+export async function listScanProfileExamGroups(): Promise<AnyRow[]> {
+  const groups = await getExamCenterByCodeGroups({
+    flag: "college_center_exam_group_filters",
+    flagType: "",
+  }).catch(() => [] as AnyRow[][]);
+  const first = groups.find((g) => g.length > 0) ?? [];
+  const unique = new Map<number, AnyRow>();
+  for (const item of first) {
+    const id = num(
+      item.fk_univ_exam_group_id ??
+        item.univExamGroupId ??
+        item.examGroupId ??
+        item.pk_univ_exam_group_id,
+    );
+    if (id > 0 && !unique.has(id)) unique.set(id, item);
+  }
+  return [...unique.values()];
+}
+
+/**
+ * Angular getExamRoles → getViewData on `v_get_exam_eval_roles` with
+ * `and upper(role_name) like '%SCAN%'`.
+ *
+ * Do NOT pre-encode `in_whereclause` — `URLSearchParams` encodes once.
+ * Angular's `encodeURIComponent` was for their raw query builder; double-encoding
+ * here made the LIKE pattern never match, so the Role dropdown stayed empty.
+ */
+export async function listScanProfileRoles(): Promise<AnyRow[]> {
+  const procs = [
+    "s_get_viewdata",
+    "s_get_viewdetails_bycode",
+    "s_get_view_details_bycode",
+    "s_get_viewdetails",
+  ];
+
+  async function fetchRoles(where: string): Promise<AnyRow[]> {
+    const params = {
+      in_viewname: "v_get_exam_eval_roles",
+      in_select: "",
+      in_whereclause: where,
+    };
+    for (const proc of procs) {
+      try {
+        const data = await getAllRecords<{ result: AnyRow[][] }>(proc, params);
+        const rows = (data?.result?.[0] ?? []).filter(Boolean);
+        if (rows.length > 0) return rows;
+      } catch {
+        /* try next proc */
+      }
+    }
+    return [];
+  }
+
+  const filtered = await fetchRoles("and upper(role_name) like '%SCAN%'");
+  if (filtered.length > 0) return filtered;
+
+  // Fallback: load all eval roles and keep SCAN* names client-side.
+  const all = await fetchRoles("");
+  return all.filter((r) =>
+    String(r.role_name ?? r.roleName ?? "")
+      .toUpperCase()
+      .includes("SCAN"),
+  );
+}
+
+/** Angular addToTable / deleteRow → POST saveExamScanProfileDetails. */
+export async function saveExamScanProfileDetails(
+  payload: Record<string, unknown>[],
+): Promise<void> {
+  if (!payload.length) return;
+  await postDetails(
+    UNIV_EXAM_CENTER_API.SAVE_EXAM_SCAN_PROFILE_DETAILS,
+    payload,
+  );
+}
+
+/**
+ * Angular createUser → getPoPScanProfileEmployeesUrl with in_scan_profile_id.
+ * Fire-and-forget side effect after save.
+ */
+export async function popScanProfileEmployees(
+  examScanProfileId: number,
+): Promise<void> {
+  if (!examScanProfileId) return;
+  await getAllRecords(UNIV_EXAM_CENTER_API.POP_SCAN_PROFILE_EMPLOYEES, {
+    in_scan_profile_id: examScanProfileId,
+  }).catch(() => null);
 }

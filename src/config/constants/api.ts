@@ -1628,8 +1628,8 @@ export const SUBJECT_API = {
   UPLOAD_SUBJECT_UNITS_AND_TOPICS: "uploadSubjectUnitsAndTopics",
   /** POST: import subject bulk details */
   IMPORT_SUBJECT_DETAILS: "importSubjectDetails",
-  /** POST: process staged subject bulk details */
-  PROCESS_STG_SUBJECT_DETAILS: "processStgsubjectDetails",
+  /** POST: process staged subject bulk details (Angular `processStgSubjectDetailsUrl`) */
+  PROCESS_STG_SUBJECT_DETAILS: "processStgSubjectDetails",
   /** Angular `subjectCrudUrl` */
   SUBJECT: "Subject",
   /** Angular `addSubjectAndUploadFileUrl` */
@@ -1989,6 +1989,12 @@ export const UNIV_EXAM_CENTER_API = {
   EC_PROFILES: "UnivEcProfiles",
   /** CRUD: ExamScanProfiles */
   EXAM_SCAN_PROFILES: "ExamScanProfiles",
+  /** CRUD: ExamScanProfileDetails (Angular `ExamScanProfileDetails`) */
+  EXAM_SCAN_PROFILE_DETAILS_ENTITY: "ExamScanProfileDetails",
+  /** POST: Angular `ExamScanProfileDetailsUrl` → saveExamScanProfileDetails */
+  SAVE_EXAM_SCAN_PROFILE_DETAILS: "saveExamScanProfileDetails",
+  /** GET: Angular `getPoPScanProfileEmployeesUrl` → s_pop_scan_profile_employees */
+  POP_SCAN_PROFILE_EMPLOYEES: "s_pop_scan_profile_employees",
   /** CRUD: ExamScanBundles */
   EXAM_SCAN_BUNDLES: "ExamScanBundles",
   /** CRUD: ExamScanBundleDetails */

@@ -1502,7 +1502,7 @@ export default function ExamMarksEntryPage() {
               />
             </div>
             <div className="space-y-1 md:col-span-3">
-              <Label>Faculty *</Label>
+              <Label>College *</Label>
               <CommonSelect
                 value={collegeId ? String(collegeId) : null}
                 onChange={(v) => {

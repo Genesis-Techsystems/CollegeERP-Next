@@ -11,11 +11,11 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getErrorMessage } from "@/lib/errors";
 import { toast } from "sonner";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { useSessionContext } from "@/context/SessionContext";
 import {
+  buildLeaveAllotmentSavePayload,
   buildLeaveAllotmentTypeRows,
   getLeaveYears,
   listActiveCollegesForGeneralSettings,
@@ -251,27 +251,15 @@ export function EmployeeLeaveAllotmentPage() {
     }
     setSaving(true);
     try {
-      const payload = allotmentRows.map((r) => ({
-        ...r,
-        leavetypeId: r.leavetypeId,
-        allocatedLeaves: r.allocatedLeaves,
-        collegeId: r.collegeId,
-        leaveYear: r.leaveYear,
-        employeeId: r.employeeId,
-        leaveEntitlementId: r.leaveEntitlementId,
-      }));
-      const result = (await saveLeaveEntitlements(payload)) as {
-        success?: boolean;
-        message?: string;
-      };
-      if (result?.success === false) {
-        toastError(result.message ?? "Save failed");
-        return;
-      }
-      toastSuccess(result?.message ?? "Leave allotment saved");
+      // Same POST shape as Leave Entitlement / Angular leave-enrolment
+      // (isActive, isUpdate, validFrom/validTo, createdDt on update).
+      await saveLeaveEntitlements(
+        buildLeaveAllotmentSavePayload(allotmentRows),
+      );
+      toastSuccess("Leave allotment saved");
       await loadAllotment(selectedEmployeeId);
     } catch (e) {
-      toastError(getErrorMessage(e), "Save failed");
+      toastError(e, "Save failed");
     } finally {
       setSaving(false);
     }

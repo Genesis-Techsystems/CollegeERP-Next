@@ -11,12 +11,9 @@ import {
   createExamQuestionPaper,
   downloadAndOpenQuestionPaperPdf,
   getAssignQuestionPaperTemplateList,
-  getEvaluationExamFilters,
-  getEvaluationExamRestBundle,
   getQpSetterExamFilters,
   getQpSetterSubjectFilters,
   getQuestionPaperTemplateViewRows,
-  listEvaluationSubjects,
   listFinalizableQuestionPapers,
   markQuestionPaperPdfAvailability,
   updateExamQuestionPaper,
@@ -227,9 +224,7 @@ export default function ExamQuestionPaperMarksPage() {
 
   const evaluatorRoleId = useMemo(() => {
     if (!isQpSetter) return 0;
-    return Number(
-      globalThis?.localStorage?.getItem("examEvaluatorRole") ?? 0,
-    );
+    return Number(globalThis?.localStorage?.getItem("examEvaluatorRole") ?? 0);
   }, [isQpSetter]);
   /** Angular generalDetailId 621 — QP setter status display name is Draft. */
   const PREPARED_STATUS_CAT_DET_ID = 621;
@@ -460,10 +455,10 @@ export default function ExamQuestionPaperMarksPage() {
     [regulationRows],
   );
   const courseYears = useMemo(() => {
-    // QP setter: Angular filters courseYearList by regulationId before deduplicating
+    // Angular selectedregulationCode: filter courseYearList by regulationId
     const regId = Number(regulationId ?? 0);
     let filtered = restRows;
-    if (isQpSetter && regId > 0) {
+    if (regId > 0) {
       const candidate = restRows.filter(
         (r) =>
           pickNum(r, [
@@ -473,48 +468,41 @@ export default function ExamQuestionPaperMarksPage() {
             "regulation_id",
           ]) === regId,
       );
-      // If backend returns different regulation key names for this role,
+      // If backend returns different regulation key names,
       // fallback to unfiltered data so the dropdown doesn't appear empty.
       filtered = candidate.length > 0 ? candidate : restRows;
     }
     return dedupeBy(filtered, (r) =>
       pickNum(r, ["fk_course_year_id", "courseYearId", "course_year_id"]),
     );
-  }, [restRows, isQpSetter, regulationId]);
+  }, [restRows, regulationId]);
   const subjects = useMemo(() => {
-    // QP setter: Angular filters subjectListDetails by regulation + courseYear
-    // before deduplicating.  Admin: subjectRows are already scoped by API call.
+    // Angular selectedYear: filter subjectListDetails by regulation + courseYear
+    // (courseYear 0 = "All" → regulation only).
     const regId = Number(regulationId ?? 0);
     const cyId = Number(courseYearId ?? 0);
-    let filtered = subjectRows;
-    if (isQpSetter) {
-      filtered = subjectRows.filter((r) => {
-        const regMatch =
-          regId <= 0 ||
-          pickNum(r, [
-            "fk_regulation_id",
-            "regulationId",
-            "fk_regulationId",
-            "regulation_id",
-          ]) === regId;
-        const cyMatch =
-          cyId <= 0 ||
-          pickNum(r, [
-            "fk_course_year_id",
-            "courseYearId",
-            "course_year_id",
-          ]) === cyId;
-        return regMatch && cyMatch;
-      });
-    }
+    const filtered = subjectRows.filter((r) => {
+      const regMatch =
+        regId <= 0 ||
+        pickNum(r, [
+          "fk_regulation_id",
+          "regulationId",
+          "fk_regulationId",
+          "regulation_id",
+        ]) === regId;
+      const cyMatch =
+        cyId <= 0 ||
+        pickNum(r, ["fk_course_year_id", "courseYearId", "course_year_id"]) ===
+          cyId;
+      return regMatch && cyMatch;
+    });
     return dedupeBy(filtered, (r) =>
       pickNum(r, ["subjectId", "fk_subject_id"]),
     );
-  }, [subjectRows, isQpSetter, regulationId, courseYearId]);
+  }, [subjectRows, regulationId, courseYearId]);
 
-  // QP setter: ensure courseYearId is valid. 0 = Angular "All".
+  // Ensure courseYearId stays valid for the regulation. 0 = Angular "All".
   useEffect(() => {
-    if (!isQpSetter) return;
     if (courseYears.length === 0) return;
 
     const current = Number(courseYearId ?? 0);
@@ -533,15 +521,7 @@ export default function ExamQuestionPaperMarksPage() {
         ]) || 0,
       );
     }
-  }, [isQpSetter, courseYears, courseYearId]);
-  const selectedCollegeId = useMemo(
-    () => pickNum(restRows[0], ["fk_college_id", "collegeId"]),
-    [restRows],
-  );
-  const selectedCourseGroupId = useMemo(
-    () => pickNum(restRows[0], ["fk_course_group_id", "courseGroupId"]),
-    [restRows],
-  );
+  }, [courseYears, courseYearId]);
   const selectedCourse = useMemo(
     () =>
       courses.find(
@@ -622,11 +602,9 @@ export default function ExamQuestionPaperMarksPage() {
     async function init() {
       setLoading(true);
       try {
-        // QP setter: use univ_exam_inep_filters / QUESTION_SETTER (assigned only)
-        // Admin: use univ_exam_filters / ALL (everything)
-        const list = isQpSetter
-          ? await getQpSetterExamFilters(employeeId).catch(() => [])
-          : await getEvaluationExamFilters(employeeId).catch(() => []);
+        // Angular getQuestionpaperFilterss() always uses univ_exam_inep_filters /
+        // QUESTION_SETTER for this page (exam admin and QP setter alike).
+        const list = await getQpSetterExamFilters(employeeId).catch(() => []);
         const rows = Array.isArray(list) ? list : [];
         setBaseRows(rows);
         if (rows[0])
@@ -636,7 +614,7 @@ export default function ExamQuestionPaperMarksPage() {
       }
     }
     void init();
-  }, [employeeId, isQpSetter]);
+  }, [employeeId]);
 
   useEffect(() => {
     if (academicYears[0])
@@ -649,113 +627,38 @@ export default function ExamQuestionPaperMarksPage() {
   }, [exams]);
   useEffect(() => {
     async function loadRest() {
-      if (!courseId || !examId || !academicYearId) return;
+      if (!examId) return;
 
-      if (isQpSetter) {
-        // QP setter: Angular selectedExam() calls univ_exam_subject_inep /
-        // QUESTION_SETTER which returns regulations, course years AND subjects
-        // in a single result set.  We populate restRows, regulationRows AND
-        // subjectRows from this one call so the downstream loadSubjects effect
-        // is a no-op for QP setters.
-        const bundle = await getQpSetterSubjectFilters({
-          examId,
-          employeeId,
-        }).catch(() => ({ subjectRows: [], regulations: [] }));
-        const allRows = Array.isArray(bundle.subjectRows)
-          ? bundle.subjectRows
-          : [];
-        // restRows drives courseYears dropdown; regulationRows drives regulations.
-        setRestRows(allRows);
-        setRegulationRows(allRows);
-        // subjectRows are also derived from these rows (filtered by regulation +
-        // courseYear in the subjects memo — but for QP setter, Angular derives
-        // subjects from the same flat list).  Store them so loadSubjects below
-        // can skip its API call.
-        setSubjectRows(allRows);
-        if (allRows[0]) {
-          setRegulationId(
-            pickNum(allRows[0], ["fk_regulation_id", "regulationId"]) || null,
-          );
-          // Angular selectedregulationCode defaults to the first course year
-          // (All remains available in the dropdown).
-          setCourseYearId(
-            pickNum(allRows[0], ["fk_course_year_id", "courseYearId"]) || 0,
-          );
-        }
-      } else {
-        // Admin: existing logic
-        const bundle = await getEvaluationExamRestBundle({
-          courseId,
-          examId,
-          academicYearId,
-          employeeId,
-        }).catch(() => ({ restFilters: [], regulations: [] }));
-        const rows = Array.isArray(bundle.restFilters)
-          ? bundle.restFilters
-          : [];
-        setRestRows(rows);
-        setRegulationRows(
-          Array.isArray(bundle.regulations) ? bundle.regulations : [],
+      // Angular selectedExam() always calls univ_exam_subject_inep /
+      // QUESTION_SETTER — returns regulations, course years AND subjects
+      // in one result set; client filters by regulation / course year.
+      const bundle = await getQpSetterSubjectFilters({
+        examId,
+        employeeId,
+      }).catch(() => ({ subjectRows: [], regulations: [] }));
+      const allRows = Array.isArray(bundle.subjectRows)
+        ? bundle.subjectRows
+        : [];
+      setRestRows(allRows);
+      setRegulationRows(allRows);
+      setSubjectRows(allRows);
+      if (allRows[0]) {
+        setRegulationId(
+          pickNum(allRows[0], ["fk_regulation_id", "regulationId"]) || null,
         );
-        if (rows[0]) {
-          const defaultReg = pickNum(
-            (Array.isArray(bundle.regulations) ? bundle.regulations : [])[0],
-            ["regulationId", "fk_regulation_id"],
-          );
-          setRegulationId(
-            defaultReg ||
-              pickNum(rows[0], ["fk_regulation_id", "regulationId"]) ||
-              null,
-          );
-          setCourseYearId(
-            pickNum(rows[0], ["fk_course_year_id", "courseYearId"]) || null,
-          );
-        }
+        // Angular selectedregulationCode defaults to the first course year
+        // (All remains available in the dropdown).
+        setCourseYearId(
+          pickNum(allRows[0], ["fk_course_year_id", "courseYearId"]) || 0,
+        );
+      } else {
+        setRegulationId(null);
+        setCourseYearId(0);
+        setSubjectId(null);
       }
     }
     void loadRest();
-  }, [courseId, examId, academicYearId, employeeId, isQpSetter]);
-  useEffect(() => {
-    async function loadSubjects() {
-      // QP setter already loaded subjects in the loadRest effect above
-      if (isQpSetter) return;
-
-      if (
-        !courseId ||
-        !examId ||
-        !academicYearId ||
-        !courseYearId ||
-        !regulationId ||
-        !selectedCollegeId ||
-        !selectedCourseGroupId
-      ) {
-        setSubjectRows([]);
-        return;
-      }
-      const list = await listEvaluationSubjects({
-        collegeId: selectedCollegeId,
-        courseId,
-        courseGroupId: selectedCourseGroupId,
-        courseYearId,
-        examId,
-        academicYearId,
-        regulationId,
-        employeeId,
-      }).catch(() => []);
-      setSubjectRows(Array.isArray(list) ? list : []);
-    }
-    void loadSubjects();
-  }, [
-    selectedCollegeId,
-    selectedCourseGroupId,
-    courseId,
-    examId,
-    academicYearId,
-    courseYearId,
-    regulationId,
-    employeeId,
-    isQpSetter,
-  ]);
+  }, [examId, employeeId]);
   useEffect(() => {
     if (!subjects[0]) {
       if (subjectId) setSubjectId(null);
@@ -766,7 +669,9 @@ export default function ExamQuestionPaperMarksPage() {
       (r) => pickNum(r, ["fk_subject_id", "subjectId"]) === current,
     );
     if (!hasCurrent) {
-      setSubjectId(pickNum(subjects[0], ["fk_subject_id", "subjectId"]) || null);
+      setSubjectId(
+        pickNum(subjects[0], ["fk_subject_id", "subjectId"]) || null,
+      );
     }
   }, [subjects, subjectId]);
 
@@ -793,12 +698,12 @@ export default function ExamQuestionPaperMarksPage() {
       // Angular upload/view flow APIs only:
       // 1) (upload already done) 2) s_get_examevaluation_bycodes 3) download on eye
       clearProcGetCache("s_get_examevaluation_bycodes");
+      // Angular getQuestionpapers(): send form courseYearId / subjectId /
+      // regulationId as selected (0 = Course Years "All").
       const list = await listFinalizableQuestionPapers({
         employeeId,
         examId: examId ?? 0,
-        // Angular QP-setter getQuestionpapers() sends in_course_year_id = 0
-        // for this list proc even when a course-year filter is selected.
-        courseYearId: isQpSetter ? 0 : (courseYearId ?? 0),
+        courseYearId: courseYearId ?? 0,
         subjectId: subjectId ?? 0,
         regulationId: regulationId ?? 0,
         organizationId,
@@ -1575,9 +1480,7 @@ export default function ExamQuestionPaperMarksPage() {
               Course Years *
             </label>
             <Select
-              value={
-                courseYearId == null ? null : String(courseYearId)
-              }
+              value={courseYearId == null ? null : String(courseYearId)}
               onChange={(v) => setCourseYearId(v != null ? Number(v) : 0)}
               options={[
                 { value: "0", label: "All" },

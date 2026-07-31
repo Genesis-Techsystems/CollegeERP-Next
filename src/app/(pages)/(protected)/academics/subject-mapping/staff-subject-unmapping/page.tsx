@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Select } from "@/common/components/select";
+import type { SelectOption } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +18,9 @@ import {
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   getDigitalOnlineSyncFilters,
-  listActiveEmployeesByCollege,
   listEmployeeMappedSubjects,
   saveStaffSubjectMappings,
+  searchActiveEmployeesByCollege,
 } from "@/services";
 import { toDateStr } from "@/common/generic-functions";
 import { StatusBadge } from "@/common/components/data-display";
@@ -68,6 +69,25 @@ function makeActionsRenderer(onUnmap: (row: AnyRow) => void) {
   );
 }
 
+function employeeOptionLabel(x: AnyRow): string {
+  const name = [x.firstName, x.middleName, x.lastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const empNo = s(x.empNumber);
+  return empNo ? `${name} (${empNo})` : name || s(x.employeeId);
+}
+
+function toEmployeeOptions(list: AnyRow[]): SelectOption[] {
+  return list
+    .map((x) => {
+      const id = n(x.employeeId);
+      if (!id) return null;
+      return { value: String(id), label: employeeOptionLabel(x) };
+    })
+    .filter((o): o is SelectOption => o != null);
+}
+
 export default function StaffSubjectUnmappingPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -75,7 +95,7 @@ export default function StaffSubjectUnmappingPage() {
 
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [employees, setEmployees] = useState<AnyRow[]>([]);
+  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([]);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [unmapOpen, setUnmapOpen] = useState(false);
@@ -108,23 +128,29 @@ export default function StaffSubjectUnmappingPage() {
       setCollegeId(n(colleges[0].fk_college_id));
   }, [colleges, collegeId]);
 
+  // Reset employee whenever college changes — all colleges use the same search UX
   useEffect(() => {
-    async function loadEmployees() {
-      if (!collegeId) {
-        setEmployees([]);
-        setEmployeeId(null);
+    setEmployeeId(null);
+    setEmployeeOptions([]);
+    setRows([]);
+  }, [collegeId]);
+
+  const onEmployeeSearch = useCallback(
+    (term: string) => {
+      if (!collegeId) return;
+      const q = term.trim();
+      if (q.length < 4) {
+        if (!q) setEmployeeOptions([]);
         return;
       }
       setEmployeeLoading(true);
-      const list = await listActiveEmployeesByCollege(collegeId).catch(
-        () => [],
-      );
-      setEmployees(list);
-      setEmployeeId(null);
-      setEmployeeLoading(false);
-    }
-    void loadEmployees();
-  }, [collegeId]);
+      void searchActiveEmployeesByCollege(collegeId, q)
+        .then((list) => setEmployeeOptions(toEmployeeOptions(list)))
+        .catch(() => setEmployeeOptions([]))
+        .finally(() => setEmployeeLoading(false));
+    },
+    [collegeId],
+  );
 
   useEffect(() => {
     if (!collegeId || !employeeId) return setRows([]);
@@ -265,19 +291,15 @@ export default function StaffSubjectUnmappingPage() {
               label="Employee"
               value={employeeId ? String(employeeId) : null}
               onChange={(v) => setEmployeeId(v ? Number(v) : null)}
-              options={employees.map((x) => {
-                const name = [x.firstName, x.middleName, x.lastName]
-                  .filter(Boolean)
-                  .join(" ")
-                  .trim();
-                const empNo = s(x.empNumber);
-                return {
-                  value: String(n(x.employeeId)),
-                  label: empNo ? `${name} (${empNo})` : name,
-                };
-              })}
+              options={employeeOptions}
               searchable
-              disabled={!collegeId || employeeLoading}
+              onSearch={onEmployeeSearch}
+              placeholder={
+                collegeId
+                  ? "Type at least 4 characters…"
+                  : "Select college first"
+              }
+              disabled={!collegeId}
               isLoading={employeeLoading}
             />
           </div>
