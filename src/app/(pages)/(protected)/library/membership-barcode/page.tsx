@@ -1,24 +1,24 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { generateLibraryMemberBarcode } from '@/services'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { LibraryScreenShell } from '../_components/LibraryScreenShell'
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { generateLibraryMemberBarcode } from "@/services";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { LibraryScreenShell } from "../_components/LibraryScreenShell";
 
 /** Membership barcode — Angular “Generate Member BarCode” on membership list. */
 export default function MembershipBarcodePage() {
-  const [generating, setGenerating] = useState(false)
+  const [generating, setGenerating] = useState(false);
 
   async function handleGenerate() {
-    setGenerating(true)
+    setGenerating(true);
     try {
-      await generateLibraryMemberBarcode()
-      toastSuccess('Member barcodes generated')
+      await generateLibraryMemberBarcode();
+      toastSuccess("Member barcodes generated");
     } catch (e) {
-      toastError(e, 'Could not generate member barcodes')
+      toastError(e, "Could not generate member barcodes");
     } finally {
-      setGenerating(false)
+      setGenerating(false);
     }
   }
 
@@ -39,10 +39,11 @@ export default function MembershipBarcodePage() {
     >
       <div className="app-card p-6">
         <p className="text-sm text-muted-foreground">
-          Generates library membership barcodes for members (same action as the Angular membership screen).
-          Use the Membership page to search members; use this screen to run bulk barcode generation.
+          Generates library membership barcodes for members (same action as the
+          Angular membership screen). Use the Membership page to search members;
+          use this screen to run bulk barcode generation.
         </p>
       </div>
     </LibraryScreenShell>
-  )
+  );
 }

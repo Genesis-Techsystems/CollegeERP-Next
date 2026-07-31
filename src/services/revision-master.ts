@@ -1,103 +1,107 @@
-import { buildQuery, domainCreate, domainList, domainUpdate } from '@/services/crud'
-import { GM_CODES } from '@/config/constants/ui'
+import { EXAM_API } from "@/config/constants/api";
+import { GM_CODES } from "@/config/constants/ui";
+import {
+  buildQuery,
+  domainCreate,
+  domainList,
+  domainUpdate,
+} from "@/services/crud";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
+
+const REVISION_MASTER_ENTITY = EXAM_API.EXAM_FEE_REVISION_MASTER;
 
 export async function listCollegesActive(): Promise<AnyRow[]> {
   // Use literal entity names because COLLEGE/COURSE are not in ENTITIES registry yet.
-  return domainList<AnyRow>('College', buildQuery({ isActive: true }))
+  return domainList<AnyRow>("College", buildQuery({ isActive: true }));
 }
 
-export async function listCoursesByUniversity(universityId: number): Promise<AnyRow[]> {
-  if (!universityId) return []
+export async function listCoursesByUniversity(
+  universityId: number,
+): Promise<AnyRow[]> {
+  if (!universityId) return [];
   const queries = [
-    buildQuery({ 'University.universityId': universityId, isActive: true }),
-    buildQuery({ 'Universities.universityId': universityId, isActive: true }),
-    buildQuery({ 'university.universityId': universityId, isActive: true }),
+    buildQuery({ "University.universityId": universityId, isActive: true }),
+    buildQuery({ "Universities.universityId": universityId, isActive: true }),
+    buildQuery({ "university.universityId": universityId, isActive: true }),
     buildQuery({ universityId, isActive: true }),
     buildQuery({ fk_university_id: universityId, isActive: true }),
-  ]
+  ];
   for (const query of queries) {
     try {
-      return await domainList<AnyRow>('Course', query)
+      return await domainList<AnyRow>("Course", query);
     } catch {
       // Try next query shape for backend compatibility.
     }
   }
-  return []
+  return [];
 }
 
 export async function listCoursesForRevisionFilters(params: {
-  collegeId?: number | null
-  universityId?: number | null
+  collegeId?: number | null;
+  universityId?: number | null;
 }): Promise<AnyRow[]> {
-  const universityId = Number(params.universityId ?? 0)
-  const collegeId = Number(params.collegeId ?? 0)
+  const universityId = Number(params.universityId ?? 0);
+  const collegeId = Number(params.collegeId ?? 0);
 
   if (universityId > 0) {
-    const byUniversity = await listCoursesByUniversity(universityId)
-    if (byUniversity.length > 0) return byUniversity
+    const byUniversity = await listCoursesByUniversity(universityId);
+    if (byUniversity.length > 0) return byUniversity;
   }
 
-  if (collegeId <= 0) return []
+  if (collegeId <= 0) return [];
 
   const collegeQueries = [
-    buildQuery({ 'College.collegeId': collegeId, isActive: true }),
-    buildQuery({ 'college.collegeId': collegeId, isActive: true }),
+    buildQuery({ "College.collegeId": collegeId, isActive: true }),
+    buildQuery({ "college.collegeId": collegeId, isActive: true }),
     buildQuery({ collegeId, isActive: true }),
     buildQuery({ fk_college_id: collegeId, isActive: true }),
-  ]
+  ];
 
   for (const query of collegeQueries) {
     try {
-      const rows = await domainList<AnyRow>('Course', query)
-      if (Array.isArray(rows) && rows.length > 0) return rows
+      const rows = await domainList<AnyRow>("Course", query);
+      if (Array.isArray(rows) && rows.length > 0) return rows;
     } catch {
       // Try next query shape for backend compatibility.
     }
   }
 
-  return []
+  return [];
 }
 
-export async function listRevisionMastersByCourse(courseId: number): Promise<AnyRow[]> {
-  if (!Number.isFinite(courseId) || courseId <= 0) return []
-  // Angular parity: single list call using `course.courseId` + `isActive`.
-  const query = buildQuery({ 'course.courseId': courseId, isActive: true })
-  try {
-    const rows = await domainList<AnyRow>('ExamFeeRevisionMaster', query)
-    return Array.isArray(rows) ? rows : []
-  } catch {
-    // Only fallback when the primary entity/query shape is unsupported.
-    try {
-      const rows = await domainList<AnyRow>('ExamRevisionMaster', query)
-      return Array.isArray(rows) ? rows : []
-    } catch {
-      return []
-    }
-  }
+export async function listRevisionMastersByCourse(
+  courseId: number,
+): Promise<AnyRow[]> {
+  if (!Number.isFinite(courseId) || courseId <= 0) return [];
+  // Angular parity: ExamFeeRevisionMaster with course.courseId + isActive
+  const query = buildQuery({ "course.courseId": courseId, isActive: true });
+  const rows = await domainList<AnyRow>(REVISION_MASTER_ENTITY, query);
+  return Array.isArray(rows) ? rows : [];
 }
 
 export async function listRevisionTypes(): Promise<AnyRow[]> {
   return domainList<AnyRow>(
-    'GeneralDetail',
-    buildQuery({ 'GeneralMaster.generalMasterCode': GM_CODES.REVISION_TYPE, isActive: true }),
-  )
+    "GeneralDetail",
+    buildQuery({
+      "GeneralMaster.generalMasterCode": GM_CODES.REVISION_TYPE,
+      isActive: true,
+    }),
+  );
 }
 
 export async function createRevisionMaster(payload: AnyRow): Promise<AnyRow> {
-  try {
-    return await domainCreate<AnyRow>('ExamFeeRevisionMaster', payload)
-  } catch {
-    return domainCreate<AnyRow>('ExamRevisionMaster', payload)
-  }
+  return domainCreate<AnyRow>(REVISION_MASTER_ENTITY, payload);
 }
 
-export async function updateRevisionMaster(id: number, payload: AnyRow): Promise<AnyRow> {
-  try {
-    return await domainUpdate<AnyRow>('ExamFeeRevisionMaster', 'revisionMasterId', id, payload)
-  } catch {
-    return domainUpdate<AnyRow>('ExamRevisionMaster', 'revisionMasterId', id, payload)
-  }
+export async function updateRevisionMaster(
+  id: number,
+  payload: AnyRow,
+): Promise<AnyRow> {
+  return domainUpdate<AnyRow>(
+    REVISION_MASTER_ENTITY,
+    "revisionMasterId",
+    id,
+    payload,
+  );
 }
-

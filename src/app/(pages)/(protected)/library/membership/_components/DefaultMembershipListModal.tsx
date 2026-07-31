@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { FormModal } from "@/common/components/feedback";
@@ -12,6 +12,8 @@ import {
   listEmployeesWithoutLibraryMembership,
   listStudentsWithoutLibraryMembership,
 } from "@/services";
+import { getErrorMessage } from "@/lib/errors";
+import { toastInfo } from "@/lib/toast";
 import type { LibraryMembership } from "@/types/library";
 import { LIBRARY_MODAL_TITLE_CLASS } from "../../_lib/modal-styles";
 
@@ -45,7 +47,14 @@ export function DefaultMembershipListModal({
         ? listStudentsWithoutLibraryMembership(Number(requestedCollegeId))
         : listEmployeesWithoutLibraryMembership(Number(requestedCollegeId)),
     enabled: open && Number(requestedCollegeId) > 0,
+    retry: false,
   });
+
+  // Angular: success:false still shows result.message via snotify (e.g. "Record(s) already exists")
+  useEffect(() => {
+    if (!rowsQuery.isError || !rowsQuery.error) return;
+    toastInfo(getErrorMessage(rowsQuery.error));
+  }, [rowsQuery.isError, rowsQuery.error]);
 
   const collegeOptions = (collegesQuery.data ?? []).map((college) => ({
     value: String(college.collegeId),

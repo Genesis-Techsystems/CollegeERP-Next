@@ -35,10 +35,7 @@ import ExamMasterModal from "./ExamMasterModal";
 import { StatusBadge } from "@/common/components/data-display";
 import { FilteredListPage } from "@/components/layout";
 
-function filterCode(
-  row: CollegeWiseFilterRow,
-  keys: string[],
-): string {
+function filterCode(row: CollegeWiseFilterRow, keys: string[]): string {
   for (const key of keys) {
     const value = row[key];
     if (value != null && String(value).trim() !== "") return String(value);
@@ -70,6 +67,7 @@ export default function ExamMasterPage() {
     null,
   );
   const [examsList, setExamsList] = useState<ExamMaster[]>([]);
+  const [hasFetched, setHasFetched] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [loadingExams, setLoadingExams] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -125,6 +123,7 @@ export default function ExamMasterPage() {
     setAcademicYears([]);
     setColleges([]);
     setExamsList([]);
+    setHasFetched(false);
 
     const filtered = filtersRef.filter(
       (r) => r.fk_university_id === universityId,
@@ -158,6 +157,7 @@ export default function ExamMasterPage() {
     setAcademicYears([]);
     setColleges([]);
     setExamsList([]);
+    setHasFetched(false);
 
     const filtered = academicRef.filter(
       (r) => r.fk_university_id === universityId,
@@ -199,6 +199,7 @@ export default function ExamMasterPage() {
     setSelectedAcademicYearId(academicYearId);
     setColleges([]);
     setExamsList([]);
+    setHasFetched(false);
 
     const effectiveMode = modeOverride ?? mode;
     if (effectiveMode === 1) {
@@ -248,6 +249,7 @@ export default function ExamMasterPage() {
   function handleCollegeChange(collegeId: number) {
     setSelectedCollegeId(collegeId);
     setExamsList([]);
+    setHasFetched(false);
   }
 
   async function handleGetList() {
@@ -255,6 +257,7 @@ export default function ExamMasterPage() {
       return;
     if (mode === 2 && !selectedCollegeId) return;
 
+    setHasFetched(true);
     if (mode === 1) {
       await fetchExamsByUniversity(
         selectedUniversityId,
@@ -277,6 +280,7 @@ export default function ExamMasterPage() {
     setSelectedCollegeId(null);
     setCourses([]);
     setAcademicYears([]);
+    setHasFetched(false);
     setColleges([]);
     setExamsList([]);
 
@@ -522,10 +526,7 @@ export default function ExamMasterPage() {
                 onChange={(v) => v && handleUniversityChange(Number(v))}
                 options={universities.map((u) => ({
                   value: String(u.fk_university_id),
-                  label: filterCode(u, [
-                    "university_code",
-                    "universityCode",
-                  ]),
+                  label: filterCode(u, ["university_code", "universityCode"]),
                 }))}
                 placeholder="All universities"
                 disabled={loadingFilters}
@@ -588,14 +589,7 @@ export default function ExamMasterPage() {
             >
               <Button
                 onClick={handleGetList}
-                disabled={
-                  loadingFilters ||
-                  loadingExams ||
-                  !selectedUniversityId ||
-                  !selectedCourseId ||
-                  !selectedAcademicYearId ||
-                  (mode === 2 && !selectedCollegeId)
-                }
+                disabled={loadingFilters || loadingExams}
                 className="h-[30px] px-3 text-[12px] shrink-0"
               >
                 Get List
@@ -604,9 +598,10 @@ export default function ExamMasterPage() {
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={examsList}
+      rowData={hasFetched ? examsList : []}
       columnDefs={columnDefs}
       loading={loadingExams}
+      resultsVisible={hasFetched}
       onCellClicked={onCellClicked}
       pagination
       toolbar={{

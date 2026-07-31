@@ -7,9 +7,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -283,40 +285,6 @@ export default function SubjectAllocationPage() {
     void load();
   }, [collegeId, courseId, courseGroupId, academicYearId]);
 
-  const summary = useMemo(() => {
-    const u = universities.find(
-      (x) => num(x.fk_university_id) === (universityId ?? 0),
-    );
-    const c = colleges.find((x) => num(x.fk_college_id) === (collegeId ?? 0));
-    const co = courses.find((x) => num(x.fk_course_id) === (courseId ?? 0));
-    const g = groups.find(
-      (x) => num(x.fk_course_group_id) === (courseGroupId ?? 0),
-    );
-    const ay = academicYears.find(
-      (x) => num(x.fk_academic_year_id) === (academicYearId ?? 0),
-    );
-    return [
-      u?.university_code,
-      c?.college_code,
-      co?.course_code,
-      g?.group_code,
-      ay?.academic_year,
-    ]
-      .filter(Boolean)
-      .join(" / ");
-  }, [
-    universities,
-    colleges,
-    courses,
-    groups,
-    academicYears,
-    universityId,
-    collegeId,
-    courseId,
-    courseGroupId,
-    academicYearId,
-  ]);
-
   async function openView(row: AnyRow) {
     const rows = await listSubjectRegulationsByCourseYear({
       collegeId: collegeId ?? 0,
@@ -433,10 +401,11 @@ export default function SubjectAllocationPage() {
         flex: 1.2,
       },
       {
-        field: "subjecttypeName",
         headerName: "Subject Type",
         minWidth: 130,
         flex: 1,
+        valueGetter: (p) =>
+          text(p.data?.subjectTypeName ?? p.data?.subjecttypeName),
       },
       {
         field: "regulationName",
@@ -446,14 +415,14 @@ export default function SubjectAllocationPage() {
       },
       {
         field: "internalExamMarks",
-        headerName: "Internal",
-        minWidth: 90,
+        headerName: "Internal Marks",
+        minWidth: 110,
         flex: 0,
       },
       {
         field: "externalExamMarks",
-        headerName: "External",
-        minWidth: 90,
+        headerName: "External Marks",
+        minWidth: 110,
         flex: 0,
       },
       { field: "subjectCredits", headerName: "Credits", minWidth: 90, flex: 0 },
@@ -461,20 +430,61 @@ export default function SubjectAllocationPage() {
     [],
   );
 
+  const viewCourseLine = useMemo(() => {
+    const row = viewModal.row;
+    if (!row) return "";
+    const selectedGroup = groups.find(
+      (x) => num(x.fk_course_group_id) === (courseGroupId ?? 0),
+    );
+    const selectedCollege = colleges.find(
+      (x) => num(x.fk_college_id) === (collegeId ?? 0),
+    );
+    const selectedCourse = courses.find(
+      (x) => num(x.fk_course_id) === (courseId ?? 0),
+    );
+    const regCode = text(
+      (Array.isArray(viewModal.rows) ? viewModal.rows[0] : null)
+        ?.regulationCode ??
+        (Array.isArray(row.subjectregulations)
+          ? row.subjectregulations[0]?.regulationCode
+          : "") ??
+        "",
+    );
+    return [
+      text(selectedCollege?.college_code),
+      text(selectedCourse?.course_code ?? row.courseCode),
+      text(selectedGroup?.group_code),
+      text(row.courseYearName ?? row.course_year_name),
+      regCode,
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }, [
+    viewModal.row,
+    viewModal.rows,
+    groups,
+    colleges,
+    courses,
+    courseGroupId,
+    collegeId,
+    courseId,
+  ]);
+
+  const viewAcademicYear = useMemo(() => {
+    const fromRow = text(
+      (Array.isArray(viewModal.rows) ? viewModal.rows[0] : null)?.academicYear,
+    );
+    if (fromRow) return fromRow;
+    const selectedAy = academicYears.find(
+      (x) => num(x.fk_academic_year_id) === (academicYearId ?? 0),
+    );
+    return text(selectedAy?.academic_year);
+  }, [viewModal.rows, academicYears, academicYearId]);
+
   return (
     <>
       <FilteredListPage
         title="Assign Semester Subjects"
-        notice={
-          courseYears.length > 0 ? (
-            <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
-              <strong className="font-medium text-primary">
-                Assign Course Year Subjects
-              </strong>
-              <div className="font-medium text-muted-foreground">{summary}</div>
-            </div>
-          ) : undefined
-        }
         filters={
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <Select
@@ -536,6 +546,7 @@ export default function SubjectAllocationPage() {
         rowData={courseYears}
         columnDefs={columnDefs}
         loading={loading}
+        resultsVisible={courseYears.length > 0}
         toolbar={{ search: true, searchPlaceholder: "Search" }}
         pagination
         paginationPageSize={10}
@@ -549,15 +560,42 @@ export default function SubjectAllocationPage() {
           <DialogHeader>
             <DialogTitle>Assigned Course Year Subjects List</DialogTitle>
           </DialogHeader>
+          {/* Angular course-year-subjects-model header */}
+          <div className="mb-3 rounded border border-border px-3 py-2 text-[13px]">
+            <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
+              <p>
+                <span className="font-medium">Course :</span>{" "}
+                <span>{viewCourseLine}</span>
+              </p>
+              <p>
+                <span className="font-medium">Academic Year :</span>{" "}
+                <span>{viewAcademicYear}</span>
+              </p>
+            </div>
+          </div>
           <div className="app-card p-0 overflow-hidden">
             <DataTable
               rowData={viewModal.rows}
               columnDefs={viewCols}
-              toolbar={{ search: true, searchPlaceholder: "Search" }}
-              pagination
-              paginationPageSize={10}
+              toolbar={{
+                search: true,
+                searchPlaceholder: "Search",
+                columnPicker: false,
+                exportExcel: false,
+                exportPdf: false,
+              }}
+              pagination={false}
             />
           </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setViewModal((s) => ({ ...s, open: false }))}
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

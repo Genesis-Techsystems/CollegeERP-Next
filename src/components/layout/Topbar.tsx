@@ -280,7 +280,7 @@ export function Topbar() {
             {filteredPages.length > 0 ? (
               filteredPages.map((page, index) => (
                 <button
-                  key={page.url}
+                  key={`${page.id ?? "page"}-${page.url}-${index}`}
                   id={`search-result-${index}`}
                   role="option"
                   aria-selected={index === activeResultIndex}
@@ -292,7 +292,9 @@ export function Topbar() {
                   onPointerDown={(e) => {
                     e.preventDefault();
                   }}
-                  onClick={() => navigateTo(page.url, page.displayName, page.id)}
+                  onClick={() =>
+                    navigateTo(page.url, page.displayName, page.id)
+                  }
                 >
                   <span className="block font-medium text-foreground">
                     {page.displayName}

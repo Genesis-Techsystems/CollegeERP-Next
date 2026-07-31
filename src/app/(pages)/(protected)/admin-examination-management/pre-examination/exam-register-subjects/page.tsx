@@ -732,8 +732,9 @@ export default function ExamRegisterSubjectsPage() {
     <FilteredPage
       title="Exam Register Subjects Update"
       filters={
-        <GlobalFilterBarRow>
-          <div className="md:col-span-5 space-y-1">
+        <GlobalFilterBarRow className="w-full gap-2 md:flex-nowrap">
+          {/* Angular fxFlex.gt-xs / gt-md: Student 35%, Exam 45% */}
+          <div className="w-full min-w-0 space-y-1 md:w-[35%] md:shrink-0">
             <StudentSearchSelect
               label="Student"
               value={studentId}
@@ -742,9 +743,10 @@ export default function ExamRegisterSubjectsPage() {
               isLoading={studentSearchLoading}
               onSearch={(term) => void onSearchStudents(term)}
               onChange={(id, row) => void onStudentSelect(id, row)}
+              fullWidth
             />
           </div>
-          <div className="md:col-span-7 space-y-1">
+          <div className="w-full min-w-0 space-y-1 md:w-[45%] md:shrink-0">
             <Label>Exam *</Label>
             <Select
               value={examId ? String(examId) : null}
@@ -758,6 +760,7 @@ export default function ExamRegisterSubjectsPage() {
               placeholder="Select Exam"
               searchable
               disabled={!selectedStudent}
+              className="w-full"
             />
           </div>
         </GlobalFilterBarRow>

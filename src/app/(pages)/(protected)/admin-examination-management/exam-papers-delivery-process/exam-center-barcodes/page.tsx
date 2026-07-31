@@ -11,19 +11,21 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
+import { Printer } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toastError } from "@/lib/toast";
-import { toast } from "sonner";
+import { toastError, toastInfo } from "@/lib/toast";
 import {
   getExamCenterFilterGroups,
   getUnivEcStudentsByCodeGroups,
   listExamCenterBarcodeStudents,
   type AnyRow,
 } from "@/services/exam-papers-delivery";
+import { EXAM_CENTER_BARCODES_PRINT_KEY } from "./print-storage";
 
 type Row = AnyRow;
 
@@ -39,6 +41,14 @@ function txt(v: unknown): string {
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";
+}
+
+function seatNo(r: AnyRow): number {
+  return num(r.seat_no ?? r.ec_seat_no ?? r.ec_seatno);
+}
+
+function sortBySeat(rows: AnyRow[]): AnyRow[] {
+  return [...rows].sort((a, b) => seatNo(a) - seatNo(b));
 }
 
 /** Angular `tConvert` — 24h → 12h for session window on Exam Date. */
@@ -154,6 +164,8 @@ const COL_DEFS = {
 };
 
 export default function ExamCenterBarcodesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
@@ -161,8 +173,34 @@ export default function ExamCenterBarcodesPage() {
   const [ayFilterRows, setAyFilterRows] = useState<Row[]>([]);
   const [ecFilterRows, setEcFilterRows] = useState<Row[]>([]);
   const [cgCySubRows, setCgCySubRows] = useState<Row[]>([]);
+  /** Angular `examCenterBarcodeStudents` — full list from first Get Students. */
+  const [allStudents, setAllStudents] = useState<Row[]>([]);
+  /** Angular `examCenterStudents` — displayed (optionally seat-filtered) list. */
   const [rows, setRows] = useState<Row[]>([]);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [startEcSeatNo, setStartEcSeatNo] = useState("");
+  const [endEcSeatNo, setEndEcSeatNo] = useState("");
+
+  function clearStudentState() {
+    setHasFetched(false);
+    setAllStudents([]);
+    setRows([]);
+    setStartEcSeatNo("");
+    setEndEcSeatNo("");
+  }
+
+  // Hide students grid until Get Students is clicked again after filter changes
+  useEffect(() => {
+    clearStudentState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear only when filter keys change
+  }, [
+    form.academicYearId,
+    form.examGroupId,
+    form.univExamcenterId,
+    form.courseGroupId,
+    form.courseYearId,
+    form.subjectId,
+  ]);
 
   // ── Angular getExamCenters(): eg_filters → eg_ay_filter + ec_filter ──
   useEffect(() => {
@@ -185,9 +223,21 @@ export default function ExamCenterBarcodesPage() {
         setEcFilterRows(ec);
         const years = dedupeBy(ay, (r) => num(r.fk_academic_year_id));
         if (years[0]) {
+          // Angular printBack restores filters via queryParams
+          const ayParam = searchParams?.get("academicYearId");
+          const ayOk =
+            ayParam &&
+            years.some((r) => num(r.fk_academic_year_id) === Number(ayParam));
           setForm({
             ...EMPTY_FORM,
-            academicYearId: String(num(years[0].fk_academic_year_id)),
+            academicYearId: ayOk
+              ? String(Number(ayParam))
+              : String(num(years[0].fk_academic_year_id)),
+            examGroupId: searchParams?.get("examGroupId") ?? "",
+            univExamcenterId: searchParams?.get("univExamcenterId") ?? "",
+            courseGroupId: searchParams?.get("courseGroupId") || ALL,
+            courseYearId: searchParams?.get("courseYearId") || ALL,
+            subjectId: searchParams?.get("subjectId") || ALL,
           });
         }
       } catch (e) {
@@ -197,6 +247,7 @@ export default function ExamCenterBarcodesPage() {
       }
     }
     void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init once; URL restore on mount only
   }, []);
 
   const academicYears = useMemo(
@@ -344,8 +395,7 @@ export default function ExamCenterBarcodesPage() {
       subjectId: ALL,
     }));
     setCgCySubRows([]);
-    setRows([]);
-    setHasFetched(false);
+    clearStudentState();
   }, [form.academicYearId, form.examGroupId, examGroups]);
 
   // Auto first exam center when centers list updates
@@ -391,40 +441,51 @@ export default function ExamCenterBarcodesPage() {
         const list = groups[0] ?? [];
         setCgCySubRows(list);
         const groupsDedupe = dedupeBy(list, (r) => num(r.fk_course_group_id));
-        const firstGroupId = groupsDedupe[0]
-          ? String(num(groupsDedupe[0].fk_course_group_id))
-          : ALL;
-        const yearsForGroup =
-          firstGroupId === ALL
-            ? list
-            : list.filter(
-                (r) => num(r.fk_course_group_id) === Number(firstGroupId),
-              );
-        const yearsDedupe = dedupeBy(yearsForGroup, (r) =>
-          num(r.fk_course_year_id),
-        );
-        const firstYearId = yearsDedupe[0]
-          ? String(num(yearsDedupe[0].fk_course_year_id))
-          : ALL;
-        const subSource = list.filter(
-          (r) =>
-            (Number(firstGroupId) === 0 ||
-              num(r.fk_course_group_id) === Number(firstGroupId)) &&
-            (Number(firstYearId) === 0 ||
-              num(r.fk_course_year_id) === Number(firstYearId)),
-        );
-        const subsDedupe = dedupeBy(subSource, (r) => num(r.fk_subject_id));
-        const firstSubjectId = subsDedupe[0]
-          ? String(num(subsDedupe[0].fk_subject_id))
-          : ALL;
-        setForm((f) => ({
-          ...f,
-          courseGroupId: firstGroupId,
-          courseYearId: firstYearId,
-          subjectId: firstSubjectId,
-        }));
-        setRows([]);
-        setHasFetched(false);
+        setForm((f) => {
+          const groupOk = groupsDedupe.some(
+            (r) => num(r.fk_course_group_id) === Number(f.courseGroupId),
+          );
+          const courseGroupId = groupOk
+            ? f.courseGroupId
+            : groupsDedupe[0]
+              ? String(num(groupsDedupe[0].fk_course_group_id))
+              : ALL;
+          const yearsForGroup =
+            Number(courseGroupId) === 0
+              ? list
+              : list.filter(
+                  (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+                );
+          const yearsDedupe = dedupeBy(yearsForGroup, (r) =>
+            num(r.fk_course_year_id),
+          );
+          const yearOk = yearsDedupe.some(
+            (r) => num(r.fk_course_year_id) === Number(f.courseYearId),
+          );
+          const courseYearId = yearOk
+            ? f.courseYearId
+            : yearsDedupe[0]
+              ? String(num(yearsDedupe[0].fk_course_year_id))
+              : ALL;
+          const subSource = list.filter(
+            (r) =>
+              (Number(courseGroupId) === 0 ||
+                num(r.fk_course_group_id) === Number(courseGroupId)) &&
+              (Number(courseYearId) === 0 ||
+                num(r.fk_course_year_id) === Number(courseYearId)),
+          );
+          const subsDedupe = dedupeBy(subSource, (r) => num(r.fk_subject_id));
+          const subOk = subsDedupe.some(
+            (r) => num(r.fk_subject_id) === Number(f.subjectId),
+          );
+          const subjectId = subOk
+            ? f.subjectId
+            : subsDedupe[0]
+              ? String(num(subsDedupe[0].fk_subject_id))
+              : ALL;
+          return { ...f, courseGroupId, courseYearId, subjectId };
+        });
+        clearStudentState();
       } catch (e) {
         toastError(e, "Failed to load course / subject filters");
         setCgCySubRows([]);
@@ -502,13 +563,69 @@ export default function ExamCenterBarcodesPage() {
     return `row-${ht}-${seat}-${sub}`;
   }, []);
 
+  const startSeatOptions: SelectOption[] = useMemo(() => {
+    const sorted = sortBySeat(allStudents);
+    const seen = new Set<number>();
+    const opts: SelectOption[] = [];
+    for (const r of sorted) {
+      const s = seatNo(r);
+      if (!s || seen.has(s)) continue;
+      seen.add(s);
+      opts.push({ value: String(s), label: String(s) });
+    }
+    return opts;
+  }, [allStudents]);
+
+  // Angular onStartSeatChange: end seats with seat_no > startSeat
+  const endSeatOptions: SelectOption[] = useMemo(() => {
+    const start = Number(startEcSeatNo);
+    if (!start) {
+      return startSeatOptions;
+    }
+    return startSeatOptions.filter((o) => Number(o.value) > start);
+  }, [startEcSeatNo, startSeatOptions]);
+
+  const dataDetails = useMemo(() => {
+    if (!allStudents.length) return "";
+    const center =
+      examCenterOptions.find((o) => o.value === form.univExamcenterId)?.label ??
+      "";
+    const eg =
+      examGroupOptions.find((o) => o.value === form.examGroupId)?.label ?? "";
+    const cy =
+      courseYearOptions.find((o) => o.value === form.courseYearId)?.label ?? "";
+    const cg =
+      courseGroupOptions.find((o) => o.value === form.courseGroupId)?.label ??
+      "";
+    const sub = subjects.find(
+      (r) => num(r.fk_subject_id) === Number(form.subjectId),
+    );
+    const subCode = txt(sub?.subject_code ?? sub?.subjectCode);
+    return [center, eg, cy, cg !== "All" ? cg : "", subCode]
+      .filter((x) => x && x !== "All")
+      .join(" / ");
+  }, [
+    allStudents.length,
+    examCenterOptions,
+    examGroupOptions,
+    courseYearOptions,
+    courseGroupOptions,
+    subjects,
+    form.univExamcenterId,
+    form.examGroupId,
+    form.courseYearId,
+    form.courseGroupId,
+    form.subjectId,
+  ]);
+
   async function getList() {
     if (!form.academicYearId || !form.examGroupId || !form.univExamcenterId) {
-      toast.info("Please Select Valid Filters");
+      toastInfo("Please Select Valid Filters");
       return;
     }
     setLoading(true);
-    setHasFetched(true);
+    setStartEcSeatNo("");
+    setEndEcSeatNo("");
     try {
       const list = await listExamCenterBarcodeStudents({
         univExamcenterId: Number(form.univExamcenterId),
@@ -518,20 +635,83 @@ export default function ExamCenterBarcodesPage() {
         courseYearId: Number(form.courseYearId || 0),
         subjectId: Number(form.subjectId || 0),
       });
-      setRows(Array.isArray(list) ? list : []);
-      if (!list?.length)
-        toast.info("No students found for the selected filters");
+      const next = sortBySeat(Array.isArray(list) ? list : []);
+      setAllStudents(next);
+      setRows(next);
+      setHasFetched(true);
+      if (!next.length) {
+        toastInfo("No Records(s) found.");
+      }
     } catch (e) {
       toastError(e, "Failed to load students");
+      setAllStudents([]);
       setRows([]);
+      setHasFetched(false);
     } finally {
       setLoading(false);
     }
   }
 
+  /** Angular getStudentsBySeatNo — client-side filter on barcode students. */
+  function getStudentsBySeatNo() {
+    const startSeat = Number(startEcSeatNo);
+    const endSeat = Number(endEcSeatNo);
+    if (!startSeat || !endSeat) {
+      toastInfo("Please select Start Seat No and End Seat No");
+      return;
+    }
+    const filtered = sortBySeat(
+      allStudents.filter((x) => {
+        const s = seatNo(x);
+        return s >= startSeat && s <= endSeat;
+      }),
+    );
+    setRows(filtered);
+    setHasFetched(true);
+    if (!filtered.length) {
+      toastInfo("No Records(s) found.");
+    }
+  }
+
+  function onStartSeatChange(v: string | null) {
+    setStartEcSeatNo(v ?? "");
+    setEndEcSeatNo("");
+  }
+
+  /** Angular printStickersNew → print-barcodes-gu */
+  function printStickersNew() {
+    if (!rows.length) return;
+    try {
+      sessionStorage.setItem(
+        EXAM_CENTER_BARCODES_PRINT_KEY,
+        JSON.stringify(rows),
+      );
+    } catch {
+      toastError(new Error("Unable to prepare print data"), "Print failed");
+      return;
+    }
+    const qs = new URLSearchParams({
+      academicYearId: form.academicYearId,
+      examGroupId: form.examGroupId,
+      univExamcenterId: form.univExamcenterId,
+      courseGroupId: form.courseGroupId,
+      courseYearId: form.courseYearId,
+      subjectId: form.subjectId,
+    });
+    router.push(
+      `/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes/print-barcodes-gu?${qs.toString()}`,
+    );
+  }
+
+  const showSeatFilters = allStudents.length > 0;
+  const showStudentTable = hasFetched && rows.length > 0;
+  const pageTitle = dataDetails
+    ? `Exam Center Barcodes - ${dataDetails}`
+    : "Exam Center Barcodes";
+
   return (
     <FilteredListPage
-      title="Exam Center Barcodes"
+      title={pageTitle}
       filters={
         <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
           <div className="space-y-1 md:col-span-3">
@@ -643,17 +823,71 @@ export default function ExamCenterBarcodesPage() {
           </div>
         </div>
       }
-      rowData={hasFetched ? rows : []}
+      filtersFooter={
+        showSeatFilters ? (
+          <div className="grid grid-cols-1 items-end gap-2 border-t border-border pt-3 md:grid-cols-12">
+            <div className="space-y-1 md:col-span-3">
+              <Label>Start Seat No</Label>
+              <Select
+                value={startEcSeatNo || null}
+                onChange={onStartSeatChange}
+                options={startSeatOptions}
+                placeholder="Start Seat No"
+                searchable={startSeatOptions.length > 8}
+              />
+            </div>
+            <div className="space-y-1 md:col-span-3">
+              <Label>End Seat No</Label>
+              <Select
+                value={endEcSeatNo || null}
+                onChange={(v) => setEndEcSeatNo(v ?? "")}
+                options={endSeatOptions}
+                placeholder="End Seat No"
+                searchable={endSeatOptions.length > 8}
+              />
+            </div>
+            <div className="flex flex-col justify-end md:col-span-2">
+              <Button
+                type="button"
+                onClick={getStudentsBySeatNo}
+                disabled={loading}
+                className="h-8 w-full shrink-0 px-2.5 text-[12px] md:w-auto"
+              >
+                Get Students
+              </Button>
+            </div>
+          </div>
+        ) : null
+      }
+      rowData={showStudentTable ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
-      pagination
+      pagination={showStudentTable}
       paginationPageSize={10}
       getRowId={getRowId}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search students…",
-        pdfDocumentTitle: "Exam Center Barcodes",
-      }}
+      hideEmptyGrid
+      toolbar={
+        showStudentTable
+          ? {
+              search: true,
+              searchPlaceholder: "Search students…",
+              pdfDocumentTitle: "Exam Center Barcodes",
+            }
+          : false
+      }
+      toolbarTrailing={
+        showStudentTable ? (
+          <Button
+            type="button"
+            size="sm"
+            className="app-data-table-toolbar-btn h-9 gap-1.5 px-3 text-[12px]"
+            onClick={printStickersNew}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            Print Stickers New
+          </Button>
+        ) : null
+      }
     />
   );
 }

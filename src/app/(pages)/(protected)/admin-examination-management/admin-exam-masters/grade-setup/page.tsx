@@ -420,7 +420,7 @@ export default function GradeSetupPage() {
         >
           <Button
             onClick={handleGetList}
-            disabled={!selectedCourseId || !selectedRegulationId || loadingList}
+            disabled={loadingList}
             className="h-[30px] px-3 text-[12px] shrink-0"
           >
             Get List
@@ -430,6 +430,7 @@ export default function GradeSetupPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      resultsVisible={hasFetched}
       pagination
       paginationPageSize={10}
       toolbar={{

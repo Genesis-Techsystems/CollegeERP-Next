@@ -66,6 +66,46 @@ export async function getUnivExamFiltersAll(
 }
 
 /**
+ * Angular Exam Timetable `getFiltersList`: only the result group whose first row
+ * has `flag === 'univ_exam_filters'` (login-scoped courses / years / exams).
+ * Used for Exam Admin so unrelated filter groups are not mixed in.
+ */
+export async function getUnivExamFiltersGroupForLogin(
+  employeeId: number,
+): Promise<any[]> {
+  const data = await getAllRecords<{ result?: any[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_filters",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: "ALL",
+      in_param1: 0,
+      in_param2: 0,
+    },
+  );
+  const groups = (data?.result ?? []) as any[][];
+  for (const g of groups) {
+    if (!Array.isArray(g) || g.length === 0) continue;
+    const head = g[0] as Record<string, unknown>;
+    if (String(head?.flag ?? head?.FLAG ?? "") === "univ_exam_filters") {
+      return [...g];
+    }
+  }
+  return [];
+}
+
+/**
  * Angular exam fee structure (`exam-fee-structure.component.ts` `getFiltersList`):
  * same proc as {@link getUnivExamFiltersAll} but **`in_sub_flag_type: 0`** (not `'ALL'`),
  * and uses the result group whose first row has `flag === 'univ_exam_filters'` (`CollegesListDetails`).
@@ -564,6 +604,11 @@ export async function getExamFiltersNoTimetable(params: {
   academicYearId: number;
   courseYearId?: number;
   employeeId?: number;
+  /**
+   * When true (Exam Admin), only return the `univ_exam_rest_filters` group —
+   * never flatten other groups. Admin keeps the legacy flatten fallback.
+   */
+  strictRestFiltersGroup?: boolean;
 }): Promise<any[]> {
   const data = await getAllRecords<{ result?: any[][] }>(
     "s_get_exam_filters_bycode",
@@ -590,6 +635,7 @@ export async function getExamFiltersNoTimetable(params: {
   const rest =
     groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_rest_filters") ?? [];
   if (Array.isArray(rest) && rest.length > 0) return rest;
+  if (params.strictRestFiltersGroup) return [];
   const out: any[] = [];
   for (const arr of groups) if (Array.isArray(arr)) out.push(...arr);
   return out;

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState, useEffect } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { GraduationCap } from "lucide-react";
 import { toast } from "sonner";
-import { Select } from "@/common/components/select";
+import { Select, type SelectOption } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
   listInternalExamMarksSetup,
   listExamStudentInternalMarksForEntry,
   saveInternalMarksEntry,
+  searchEmployeesForFacultyDataSecurity,
 } from "@/services";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { usePrintMode } from "@/lib/print";
@@ -139,8 +140,14 @@ function clearDownstreamFilters(
   setHasFetched(false);
 }
 
+function employeeOptionLabel(empNumber: string, firstName?: string | null) {
+  const num = String(empNumber ?? "").trim();
+  const name = String(firstName ?? "").trim();
+  return name ? `${num} (${name})` : num || "Employee";
+}
+
 export default function InternalMarksEntryPage() {
-  const employeeId = Number(
+  const loginEmployeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
   const empNumber = globalThis?.localStorage?.getItem("empNumber") ?? "";
@@ -150,7 +157,6 @@ export default function InternalMarksEntryPage() {
   const examEvaluatorProfileId = Number(
     globalThis?.localStorage?.getItem("examEvaluatorProfileId") ?? 0,
   );
-
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
@@ -176,6 +182,20 @@ export default function InternalMarksEntryPage() {
   const [subjectId, setSubjectId] = useState<number | null>(null);
   const [labBatchId, setLabBatchId] = useState<number>(0);
   const [examDate, setExamDate] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
+    loginEmployeeId || null,
+  );
+  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>(() =>
+    loginEmployeeId
+      ? [
+          {
+            value: String(loginEmployeeId),
+            label: employeeOptionLabel(empNumber, userName),
+          },
+        ]
+      : [],
+  );
+  const [employeeSearching, setEmployeeSearching] = useState(false);
 
   const courses = useMemo(
     () => dedupeBy(allFilters, "fk_course_id"),
@@ -308,7 +328,7 @@ export default function InternalMarksEntryPage() {
     const firstValid = values.find((v) => Number.isFinite(v) && v > 0);
     return firstValid ?? 0;
   }, [rows]);
-  const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber;
+  const marksEnteredEmpId = selectedEmployeeId || loginEmployeeId;
   const selectedCollege = useMemo(
     () => colleges.find((x) => Number(x.fk_college_id) === Number(collegeId)),
     [colleges, collegeId],
@@ -529,7 +549,7 @@ export default function InternalMarksEntryPage() {
     async function loadFilters() {
       setLoading(true);
       try {
-        const data = await getInternalMarksEntryFilters(employeeId).catch(
+        const data = await getInternalMarksEntryFilters(loginEmployeeId).catch(
           () => [],
         );
         if (!cancelled) setAllFilters(Array.isArray(data) ? data : []);
@@ -541,7 +561,7 @@ export default function InternalMarksEntryPage() {
     return () => {
       cancelled = true;
     };
-  }, [employeeId]);
+  }, [loginEmployeeId]);
 
   // Auto-pick only when empty/invalid — Angular clears dependents then sets [0] once.
   useEffect(() => {
@@ -577,7 +597,7 @@ export default function InternalMarksEntryPage() {
         courseId,
         academicYearId,
         examId,
-        employeeId,
+        employeeId: loginEmployeeId,
       }).catch(() => []);
       if (cancelled) return;
       setRestFilters(Array.isArray(data) ? data : []);
@@ -586,7 +606,7 @@ export default function InternalMarksEntryPage() {
     return () => {
       cancelled = true;
     };
-  }, [courseId, academicYearId, examId, employeeId, exams]);
+  }, [courseId, academicYearId, examId, loginEmployeeId, exams]);
 
   useEffect(() => {
     if (!colleges[0]?.fk_college_id) return;
@@ -646,7 +666,7 @@ export default function InternalMarksEntryPage() {
         examId,
         academicYearId,
         regulationId,
-        employeeId,
+        employeeId: loginEmployeeId,
       }).catch(() => []);
       if (cancelled) return;
       setSubjectRows(Array.isArray(data) ? data : []);
@@ -663,7 +683,7 @@ export default function InternalMarksEntryPage() {
     courseGroupId,
     courseYearId,
     regulationId,
-    employeeId,
+    loginEmployeeId,
     exams,
   ]);
 
@@ -907,6 +927,36 @@ export default function InternalMarksEntryPage() {
     });
   }
 
+  async function onEmployeeSearch(term: string) {
+    const q = term.trim();
+    if (q.length <= 4) {
+      if (!selectedEmployeeId && loginEmployeeId) {
+        setEmployeeOptions([
+          {
+            value: String(loginEmployeeId),
+            label: employeeOptionLabel(empNumber, userName),
+          },
+        ]);
+      }
+      return;
+    }
+    setEmployeeSearching(true);
+    try {
+      const found = await searchEmployeesForFacultyDataSecurity(q);
+      setEmployeeOptions(
+        found.map((e) => ({
+          value: String(e.employeeId),
+          label: employeeOptionLabel(String(e.empNumber ?? ""), e.firstName),
+        })),
+      );
+    } catch (e) {
+      toastError(e, "Failed to search employees");
+      setEmployeeOptions([]);
+    } finally {
+      setEmployeeSearching(false);
+    }
+  }
+
   async function onGetList(
     validationRows: AnyRow[] = [],
     options?: { mergeSavedMarks?: boolean },
@@ -1029,7 +1079,7 @@ export default function InternalMarksEntryPage() {
       const payload = rows.map((row) => ({
         examStudentDetailDTO: {
           ...row,
-          marksEnteredEmpId: employeeId,
+          marksEnteredEmpId: marksEnteredEmpId,
           courseId,
           regulationId,
           subjectTypeId,
@@ -1054,7 +1104,7 @@ export default function InternalMarksEntryPage() {
           courseYearId,
           subjectId,
           examId,
-          employeeId,
+          employeeId: marksEnteredEmpId,
           createdDt: new Date().toISOString(),
           examStdInternalMarkId:
             row.examStdInternalMarkId ?? row.exam_std_internal_mark_id,
@@ -1447,7 +1497,7 @@ export default function InternalMarksEntryPage() {
 
   return (
     <FilteredListPage
-      title="Internal Marks Entry"
+      title="Internal Exam Marks Entry"
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
@@ -1597,6 +1647,7 @@ export default function InternalMarksEntryPage() {
                   if (!v) return;
                   setSubjectId(null);
                   setLabBatchId(0);
+                  setExamDate("");
                   setRows([]);
                   setHasFetched(false);
                   setSubjectTypeId(Number(v));
@@ -1643,15 +1694,7 @@ export default function InternalMarksEntryPage() {
                 />
               </div>
             )}
-            <div className="space-y-1 md:col-span-2">
-              <Label>Employee</Label>
-              <Input
-                className="h-8 text-[12px]"
-                value={employeeDisplay}
-                disabled
-              />
-            </div>
-            {subjectId && (
+            {subjectId ? (
               <div className="space-y-1 md:col-span-2">
                 <Label>Exam Date</Label>
                 <Input
@@ -1661,7 +1704,27 @@ export default function InternalMarksEntryPage() {
                   disabled
                 />
               </div>
-            )}
+            ) : null}
+            <div className="space-y-1 md:col-span-2">
+              <Label>Employee</Label>
+              <Select
+                value={selectedEmployeeId ? String(selectedEmployeeId) : null}
+                onChange={(v) => {
+                  if (!v) {
+                    setSelectedEmployeeId(null);
+                    return;
+                  }
+                  setSelectedEmployeeId(Number(v));
+                  const selected = employeeOptions.find((o) => o.value === v);
+                  if (selected) setEmployeeOptions([selected]);
+                }}
+                options={employeeOptions}
+                placeholder="Search Employee"
+                searchable
+                onSearch={onEmployeeSearch}
+                isLoading={employeeSearching}
+              />
+            </div>
             <div className="md:col-span-2">
               <Button
                 className="h-8 text-[12px] w-full"

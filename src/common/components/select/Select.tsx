@@ -50,6 +50,8 @@ export interface SelectProps {
   onOpenChange?: (open: boolean) => void;
   /** Shows a centred spinner in the list area instead of options. */
   isLoading?: boolean;
+  /** Message when the options list is empty (after search filter). */
+  emptyMessage?: string;
   /** Render a × button in the trigger to clear the current value. */
   clearable?: boolean;
   /** When true, dropdown options wrap to multiple lines; the trigger always shows ellipsis. */
@@ -146,6 +148,7 @@ export function Select({
   onSearch,
   onOpenChange,
   isLoading = false,
+  emptyMessage = "No results found",
   clearable = false,
   wrapOptionLabels = false,
   listClassName,
@@ -363,7 +366,7 @@ export function Select({
               </div>
             ) : filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
-                No results found
+                {emptyMessage}
               </div>
             ) : (
               filteredOptions.map((opt, idx) => {
