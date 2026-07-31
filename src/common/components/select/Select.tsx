@@ -56,6 +56,8 @@ export interface SelectProps {
   wrapOptionLabels?: boolean;
   /** Extra classes for the scrollable options list (e.g. `max-h-40` to shorten the panel). */
   listClassName?: string;
+  /** Extra classes for the portaled PopoverContent (e.g. `z-[110]` above a high-z dialog). */
+  contentClassName?: string;
   /** Preferred dropdown direction. Radix may flip it unless avoidCollisions is false. */
   side?: "top" | "right" | "bottom" | "left";
   avoidCollisions?: boolean;
@@ -147,6 +149,7 @@ export function Select({
   clearable = false,
   wrapOptionLabels = false,
   listClassName,
+  contentClassName,
   side,
   avoidCollisions,
   className,
@@ -312,7 +315,10 @@ export function Select({
           side={side}
           avoidCollisions={avoidCollisions}
           sideOffset={4}
-          className="w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
+          className={cn(
+            "w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0",
+            contentClassName,
+          )}
           onWheel={(e) => scrollListOnWheel(e, listRef.current)}
           // Prevent closing when clicking the search input
           onInteractOutside={(e) => {

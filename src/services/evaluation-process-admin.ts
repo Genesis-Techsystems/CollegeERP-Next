@@ -119,6 +119,24 @@ export async function getAnswerPaperPresignedUrl(
   );
 }
 
+/**
+ * Angular chief-evaluation-pages `view(path)`:
+ * GET generatePresignedUrls?evaluatedAnswerPaperPath=<path>
+ * → data.evaluatedAnswerPaperUrl
+ */
+export async function getEvaluatedAnswerPaperPresignedUrl(
+  evaluatedAnswerPaperPath: string,
+): Promise<{ evaluatedAnswerPaperUrl?: string | null }> {
+  const path = String(evaluatedAnswerPaperPath ?? "").trim();
+  if (!path) {
+    throw new Error("Evaluated answer paper path is required.");
+  }
+  return fetchDetails<{ evaluatedAnswerPaperUrl?: string | null }>(
+    EXAM_EVAL_API.GENERATE_PRESIGNED_URLS,
+    { evaluatedAnswerPaperPath: path },
+  );
+}
+
 export async function listStudentAnswerPaperRows(
   examTimetableDetId: number,
   collegeId: number,

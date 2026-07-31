@@ -476,6 +476,11 @@ export const EXAM_EVAL_API = {
   STUDENT_ANSWER_PAPER: "ExamStudentAnswerPaper",
   /** GET: base64 PDF for a student answer paper — Angular: sheetDataUrl = 'sheetData', param: id= */
   SHEET_DATA: "sheetData",
+  /**
+   * GET sheetDataWithPath?path=… — Angular evaluation getPdfPath() when isValidator=true
+   * (loads previously evaluated answer paper by storage path).
+   */
+  SHEET_DATA_WITH_PATH: "sheetDataWithPath",
   /** CRUD: ExamQuestionPapers */
   QUESTION_PAPERS: "ExamQuestionPapers",
   /** CRUD: ExamQuestionPaperMarks */
@@ -619,6 +624,11 @@ export const EXAM_REVAL_API = {
   ADD_FINAL_EVAL_PAPERS: "addfinalevaluationpapers",
   /** GET/POST: sheet data */
   SHEET_DATA: "sheetData",
+  /**
+   * GET sheetDataWithPath?path=… — Angular evaluation getPdfPath() when isValidator=true
+   * (loads previously evaluated answer paper by storage path).
+   */
+  SHEET_DATA_WITH_PATH: "sheetDataWithPath",
   /** Angular `revaluationUrl` */
   REVALUATION: "revaluation",
 } as const;

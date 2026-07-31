@@ -48,7 +48,11 @@ export function AppShell({
   // is skipped here.
   const breadcrumbItems = useBreadcrumb();
   const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? "";
-  const showBreadcrumb = pathname !== "/dashboard";
+  // Hide the trail on each role's home dashboard (admin / evaluator / student).
+  const showBreadcrumb =
+    pathname !== "/dashboard" &&
+    pathname !== "/evaluator" &&
+    pathname !== "/student-dashboard";
 
   useEffect(() => {
     if (!pageTitle) return;

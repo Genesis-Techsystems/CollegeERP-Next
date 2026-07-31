@@ -45,18 +45,36 @@ export type EvaluatorProfileDetail = z.infer<typeof EvaluatorProfileDetailSchema
 export type SubjectDetail = z.infer<typeof SubjectDetailSchema>;
 export type EvaluatorDetailsData = z.infer<typeof EvaluatorDetailsDataSchema>;
 
-/** Aggregated dashboard row (output of the evaluation-dashboard aggregation). */
+/** Aggregated / per-profile dashboard row (evaluation-subjects-list parity). */
 export type EvaluatorSubjectRow = {
   examEvaluatorProfileId: string | number | null | undefined;
   examEvaluatorProfileDetId: string | number | null | undefined;
+  subjectId?: string | number | null | undefined;
   subjectName: string | null | undefined;
   subjectCode: string | number | null | undefined;
   courseName: string | null | undefined;
-  noOfStudentsAssigned: number;
-  noOfEvaluationsCompleted: number;
-  evaluationsPending: number;
+  noOfStudentsAssigned: number | null;
+  noOfEvaluationsCompleted: number | null;
+  evaluationsPending: number | null;
+  rejectedCount?: number | null;
   validityStartDate: string | null | undefined;
   validityEndDate: string | null | undefined;
+  /** Angular evaluatorRoleId — 64 = Evaluator; anything else = Moderator. */
+  evaluatorRoleId?: number | null;
+  isReEvaluation?: boolean;
+  examId?: string | number | null;
+  maxNoOfEvaluationsAssign?: number | null;
+  maxNoOfReevaluationsAssign?: number | null;
+};
+
+/** Angular evaluation-subjects-list: role-split subject lists. */
+export type EvaluatorSubjectsSplit = {
+  /** evaluatorRoleId === 64 && !isReEvaluation */
+  evaluation: EvaluatorSubjectRow[];
+  /** evaluatorRoleId === 64 && isReEvaluation */
+  reEvaluation: EvaluatorSubjectRow[];
+  /** evaluatorRoleId !== 64 */
+  moderator: EvaluatorSubjectRow[];
 };
 
 /* ------------------------------------------------------------------ *
@@ -100,19 +118,27 @@ export type AnswerPaperRow = {
   studentAnswerPath: string | null | undefined;
   omrSerialNo: string | number | null | undefined;
   evaluatedTotalMarks: string | number | null | undefined;
+  /** Angular moderation: prev_evaluator_totalmarks */
+  prevEvaluatorTotalMarks?: string | number | null | undefined;
   answerSheetCheckDate: string | null | undefined;
   evaluatedAnswerPaperPath: string | null | undefined;
+  /**
+   * Angular moderation `prev_evaluator_answerpath` — used with sheetDataWithPath
+   * when isValidator=true (not the raw sheetData by studentAnswerPaperId).
+   */
+  prevEvaluatorAnswerPath?: string | null | undefined;
   // 'Path' sentinel when studentAnswerPath is null (Angular parity), else the numeric id.
   evaluationStatusCatDetId: string | number | null | undefined;
   evaluationStatusCatDetCode: string | null | undefined;
 };
 
 /* ------------------------------------------------------------------ *
- * GeneralSetting (EVALPDFSTARTEND)
+ * GeneralSetting (EVALPDFSTARTEND / MODLPDFSTARTEND / savePdfWithMasking)
  * ------------------------------------------------------------------ */
 
 export const GeneralSettingSchema = z
   .object({
+    settingCode: z.string().nullish(),
     settingValue: z.string().nullish(),
   })
   .passthrough();
@@ -124,6 +150,22 @@ export const GeneralSettingDataSchema = z
   .passthrough();
 
 export type GeneralSettingData = z.infer<typeof GeneralSettingDataSchema>;
+
+export const GeneralDetailSchema = z
+  .object({
+    generalDetailId: z.union([z.string(), z.number()]).nullish(),
+    generalDetailCode: z.string().nullish(),
+  })
+  .passthrough();
+
+export const GeneralDetailDataSchema = z
+  .object({
+    resultList: z.array(GeneralDetailSchema).nullish(),
+  })
+  .passthrough();
+
+export type GeneralDetailData = z.infer<typeof GeneralDetailDataSchema>;
+export type GeneralDetail = z.infer<typeof GeneralDetailSchema>;
 
 /* ------------------------------------------------------------------ *
  * s_get_examquestionpaper_details_new (list_exam_questionpaper_draftmarks_new)
@@ -188,8 +230,18 @@ export type EvalQuestion = {
   questionMarks: string | number | null | undefined;
   level1No: string | number | null | undefined;
   groupNo: string | number | null | undefined;
+  /** Numeric mark when hasMark; 0 is a valid mark. */
   answeredMarks: number;
+  /** True when mbtn annotation exists (Angular color / studentEvaluationPageId set). */
+  hasMark: boolean;
+  /**
+   * Angular is_consider — false only when explicitly 0 (not counted in total).
+   * null/undefined from API is treated as considering.
+   */
+  isConsider: boolean;
   calculated_total_marks: number;
   isNotAnswered: boolean;
+  /** Angular no_action_yet — 1 = not viewed / eligible for NA modal. */
+  noActionYet: number;
   rgb_color: string | null | undefined;
 };

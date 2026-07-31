@@ -1,5 +1,7 @@
-'use client'
+"use client";
 
+import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { FileText, CheckCircle2, PenLine, Timer } from "lucide-react";
 import {
   Bar,
@@ -16,12 +18,7 @@ import {
 import { StatCard } from "./stat-card";
 import { ChartCard } from "./chart-card";
 import { SubjectCards, type SubjectCard } from "./subject-cards";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -37,23 +34,30 @@ import { useSessionContext } from "@/context/SessionContext";
 import { useEvaluatorSubjects } from "../_lib/queries";
 import type { EvaluatorSubjectRow } from "../_lib/api-types";
 
-
-// Map a live aggregated API row onto the existing card visual shape.
-function toSubjectCard(row: EvaluatorSubjectRow): SubjectCard {
+// Map a live API row onto the card visual shape (Angular evaluation-subjects-list).
+function toSubjectCard(
+  row: EvaluatorSubjectRow,
+  isValidator = false,
+): SubjectCard {
   const code = row.subjectCode != null ? String(row.subjectCode) : "";
+  const assigned = row.noOfStudentsAssigned ?? 0;
   return {
     code,
     name: row.subjectName ?? code ?? "Subject",
     course: row.courseName ?? "—",
     lastDate: formatDeadline(row.validityEndDate),
-    // The API does not distinguish fresh vs re-evaluation; treat all as fresh for now.
-    reEvaluation: false,
-    assigned: row.noOfStudentsAssigned ?? 0,
-    evaluated: row.noOfEvaluationsCompleted ?? null,
-    due: row.evaluationsPending ?? null,
+    reEvaluation: !!row.isReEvaluation,
+    assigned,
+    evaluated: row.noOfEvaluationsCompleted,
+    due: row.evaluationsPending,
+    rejected: row.rejectedCount ?? null,
     examEvaluatorProfileId: row.examEvaluatorProfileId,
     examEvaluatorProfileDetId: row.examEvaluatorProfileDetId,
     subjectName: row.subjectName ?? undefined,
+    isValidator,
+    examId: row.examId ?? null,
+    maxNoOfEvaluationsAssign: row.maxNoOfEvaluationsAssign ?? null,
+    maxNoOfReevaluationsAssign: row.maxNoOfReevaluationsAssign ?? null,
   };
 }
 
@@ -61,9 +65,12 @@ function formatDeadline(value: string | null | undefined): string {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
-
 
 const marks = [
   { range: "0-20", n: 0 },
@@ -86,11 +93,44 @@ const rows = [
   { s: "ESE25CS301-0001", sub: "CS301", marks: "62/80", status: "submitted" },
 ];
 
-export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: SubjectCard) => void }) {
+export function EvaluatorDashboard({
+  onOpenSubject,
+  roleTab,
+  onRoleTabChange,
+}: {
+  onOpenSubject?: (s: SubjectCard) => void;
+  /** Controlled Evaluator/Moderator tab — restored when returning from answer papers. */
+  roleTab?: "evaluator" | "moderator";
+  onRoleTabChange?: (tab: "evaluator" | "moderator") => void;
+}) {
   const { user } = useSessionContext();
+  const searchParams = useSearchParams();
   const userId = user?.userId != null ? String(user.userId) : undefined;
-  const { data, isLoading, isError, error, refetch } = useEvaluatorSubjects(userId);
-  const subjects = (data ?? []).map(toSubjectCard);
+  const { data, isLoading, isError, error, refetch } =
+    useEvaluatorSubjects(userId);
+
+  const evaluatorSubjects = useMemo(() => {
+    const evaluation = (data?.evaluation ?? []).map((r) =>
+      toSubjectCard(r, false),
+    );
+    const reEvaluation = (data?.reEvaluation ?? []).map((r) =>
+      toSubjectCard(r, false),
+    );
+    return [...evaluation, ...reEvaluation];
+  }, [data]);
+
+  const moderatorSubjects = useMemo(
+    () => (data?.moderator ?? []).map((r) => toSubjectCard(r, true)),
+    [data],
+  );
+
+  // Angular: when opened as validator and moderator list exists, default to Moderator tab.
+  const isValidatorFlag =
+    searchParams.get("isValidator") === "true" ||
+    searchParams.get("isValidator") === "1";
+  const urlDefaultTab =
+    isValidatorFlag && moderatorSubjects.length > 0 ? "moderator" : "evaluator";
+  const activeRoleTab = roleTab ?? urlDefaultTab;
 
   return (
     <Tabs defaultValue="subjects" className="space-y-8">
@@ -121,8 +161,20 @@ export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: Subj
       </div>
       <TabsContent value="subjects" className="space-y-3">
         <SubjectCards
-          subjects={subjects}
-          onCheck={(s) => onOpenSubject?.(s)}
+          subjects={evaluatorSubjects}
+          moderatorSubjects={moderatorSubjects}
+          roleTab={activeRoleTab}
+          onRoleTabChange={onRoleTabChange}
+          onCheck={(s) => {
+            if (s.subjectName) {
+              try {
+                localStorage.setItem("subjectName", s.subjectName);
+              } catch {
+                /* ignore */
+              }
+            }
+            onOpenSubject?.(s);
+          }}
           isLoading={!!userId && isLoading}
           isError={isError}
           errorMessage={error instanceof Error ? error.message : undefined}
@@ -132,7 +184,12 @@ export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: Subj
       <TabsContent value="analysis" className="space-y-3">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Assigned" value={10} icon={FileText} />
-          <StatCard label="Evaluated" value={8} hint="44%" icon={CheckCircle2} />
+          <StatCard
+            label="Evaluated"
+            value={8}
+            hint="44%"
+            icon={CheckCircle2}
+          />
           <StatCard label="Drafts" value={1} icon={PenLine} tone="warning" />
           <StatCard label="Pending" value={10} icon={Timer} tone="info" />
         </div>
@@ -140,7 +197,10 @@ export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: Subj
           <ChartCard title="Marks Distribution">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={marks}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.92 0.008 255)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="oklch(0.92 0.008 255)"
+                />
                 <XAxis dataKey="range" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
@@ -148,18 +208,18 @@ export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: Subj
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
-          <ChartCard title="Evaluation Status">
+          <ChartCard title="Status Breakdown">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={status}
                   dataKey="value"
-                  innerRadius={55}
-                  outerRadius={95}
-                  paddingAngle={2}
+                  nameKey="name"
+                  innerRadius={50}
+                  outerRadius={80}
                 >
-                  {status.map((s) => (
-                    <Cell key={s.name} fill={s.color} />
+                  {status.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -167,9 +227,9 @@ export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: Subj
             </ResponsiveContainer>
           </ChartCard>
         </div>
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Recent Evaluations</CardTitle>
+            <CardTitle className="text-base">Recent Scripts</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -189,12 +249,7 @@ export function EvaluatorDashboard({ onOpenSubject }: { onOpenSubject?: (s: Subj
                     <TableCell>{r.marks}</TableCell>
                     <TableCell>
                       <Badge
-                        variant="secondary"
-                        className={
-                          r.status === "draft"
-                            ? "bg-[oklch(0.95_0.09_75)] text-[oklch(0.4_0.14_75)]"
-                            : "bg-accent text-accent-foreground"
-                        }
+                        variant={r.status === "draft" ? "secondary" : "default"}
                       >
                         {r.status}
                       </Badge>

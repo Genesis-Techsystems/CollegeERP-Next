@@ -63,6 +63,17 @@ export function isEvaluatorRole(
   );
 }
 
+/** Evaluator portal access — Evaluator and/or Moderator (Angular evaluation-subjects-list). */
+export function isEvaluatorPortalRole(
+  userRole?: string | null,
+  roleName?: string | null,
+): boolean {
+  if (isEvaluatorRole(userRole, roleName)) return true;
+  const role = (userRole ?? "").toUpperCase();
+  const name = (roleName ?? "").toUpperCase();
+  return role.includes("MODERATOR") || name.includes("MODERATOR");
+}
+
 /**
  * True when the active login is Offline Internal Evaluator (`OFFLINEEVALUATION`).
  * Checks roleName, userRole, and userDetails.userRoles (Angular loginUser.userRoles).
