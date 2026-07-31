@@ -16,6 +16,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { OptionTooltip, SELECT_TOOLTIP_MIN_LENGTH } from "./OptionTooltip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,7 +26,10 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
-  /** Native browser tooltip on the option (e.g. full store name when label is code). */
+  /**
+   * Tooltip text. Defaults to `label` so truncated long options show the full
+   * value on hover (applied app-wide in Select / MultiSelect).
+   */
   title?: string;
 }
 
@@ -75,6 +79,16 @@ export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
     out.push(o);
   }
   return out;
+}
+
+/** Full text for hover tooltip — prefer explicit `title`, else label. Only when long. */
+export function selectOptionTooltip(
+  opt: Pick<SelectOption, "label" | "title"> | null | undefined,
+): string | undefined {
+  if (!opt) return undefined;
+  const text = String(opt.title ?? opt.label ?? "").trim();
+  if (!text || text.length <= SELECT_TOOLTIP_MIN_LENGTH) return undefined;
+  return text;
 }
 
 /** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
@@ -239,9 +253,8 @@ export function Select({
             aria-invalid={error ? true : undefined}
             aria-haspopup="listbox"
             disabled={disabled}
-            title={selectedOption?.title || undefined}
             className={cn(
-              "app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
+              "app-control flex min-w-0 w-full items-left justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
               "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
               "disabled:cursor-not-allowed disabled:opacity-50",
               open && "border-[hsl(var(--ring))]",
@@ -252,14 +265,19 @@ export function Select({
             )}
           >
             {/* Label / placeholder */}
-            <span
-              className={cn(
-                "min-w-0 truncate",
-                !selectedOption && "text-slate-400",
-              )}
+            <OptionTooltip
+              content={selectOptionTooltip(selectedOption)}
+              className="min-w-0 flex-1"
             >
-              {selectedOption ? selectedOption.label : placeholder}
-            </span>
+              <span
+                className={cn(
+                  "block min-w-0 truncate text-left",
+                  !selectedOption && "text-slate-400",
+                )}
+              >
+                {selectedOption ? selectedOption.label : placeholder}
+              </span>
+            </OptionTooltip>
 
             {/* Right-side icons */}
             <span className="ml-2 flex shrink-0 items-center gap-1">
@@ -344,6 +362,7 @@ export function Select({
             ) : (
               filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value;
+                const tip = selectOptionTooltip(opt);
                 return (
                   <button
                     key={`${String(opt.value)}::${idx}`}
@@ -351,7 +370,6 @@ export function Select({
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
-                    title={opt.title || undefined}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
                       "flex w-full gap-2 px-3 py-2 text-sm transition-colors",
@@ -368,16 +386,18 @@ export function Select({
                         <Check className="h-3.5 w-3.5 text-primary" />
                       )}
                     </span>
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 text-left",
-                        wrapOptionLabels
-                          ? "whitespace-normal leading-snug"
-                          : "truncate",
-                      )}
-                    >
-                      {opt.label}
-                    </span>
+                    <OptionTooltip content={tip} className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          "block min-w-0 text-left",
+                          wrapOptionLabels
+                            ? "whitespace-normal leading-snug"
+                            : "truncate",
+                        )}
+                      >
+                        {opt.label}
+                      </span>
+                    </OptionTooltip>
                   </button>
                 );
               })

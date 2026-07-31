@@ -1358,6 +1358,22 @@ export async function importAffiliatedDostFile(
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * Angular `college-student-bulk-upload` DOST tab — `uploadFileDost()` appends only `file`
+ * (no college/AY metadata), then POSTs `importStdDostDetails`.
+ */
+export async function importAffiliatedDostFileOnly(
+  file: File,
+): Promise<AnyRow[]> {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  const data = await postAffiliatedMultipart<AnyRow[]>(
+    STUDENT_API.IMPORT_STD_DOST_DETAILS,
+    formData,
+  );
+  return Array.isArray(data) ? data : [];
+}
+
 /** Angular `verifyStaging` — `in_flag=verify` on dost proc. */
 export async function verifyAffiliatedDostUpload(params: {
   collegeId: number;

@@ -163,6 +163,12 @@ export async function POST(request: NextRequest) {
         r.isActive !== false &&
         String(r.roleName ?? "").toUpperCase() === "ADMIN",
     );
+    // Angular login: localStorage.isDeprtAdmin = true when userRoles has DEPTADMIN
+    const isDeptAdmin = (userDto.userRoles ?? []).some(
+      (r) =>
+        r.isActive !== false &&
+        String(r.roleName ?? "").toUpperCase() === "DEPTADMIN",
+    );
 
     const sessionUser: SessionUser = {
       userId: userDto.userId,
@@ -196,6 +202,7 @@ export async function POST(request: NextRequest) {
       isManagement:
         userTypeCode.toUpperCase().includes("MGNT") ||
         roleName.toUpperCase().includes("MANAGEMENT"),
+      isDeptAdmin,
       // Angular parity: evaluators → /evaluator, students → /student-dashboard,
       // Admin/Staff/others → /dashboard.
       defaultDashboardPath: resolveDefaultDashboardPath(userRole, roleName),

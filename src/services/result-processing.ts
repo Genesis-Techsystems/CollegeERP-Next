@@ -825,6 +825,42 @@ export async function getLabRemunerationReport(params: {
 }
 
 /**
+ * Angular ou-result-sheet getDetails():
+ * `s_get_exam_result_memos` (CONSTANTS.ouresultsheetUrl) with flag `ou_result_sheet`.
+ */
+export async function getOuResultSheet(params: {
+  examId: number;
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  studentId?: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>(
+    EXAM_API.GET_EXAM_RESULT_MEMOS,
+    {
+      in_flag: "ou_result_sheet",
+      in_orgid: 1,
+      in_fdate: "1990-01-01",
+      in_tdate: "1990-01-01",
+      in_exam_id: params.examId,
+      in_clg_id: params.collegeId,
+      in_course_id: params.courseId,
+      in_course_year_id: params.courseYearId || 0,
+      in_course_group_id: params.courseGroupId || 0,
+      in_subject_id: 0,
+      in_evalutor_profileid: 0,
+      in_exam_date: "1990-01-01",
+      in_regulation_id: 0,
+      in_emp_id: 0,
+      in_questionpaper_id: 0,
+      in_student_id: params.studentId || 0,
+    },
+  );
+  return unwrapProcResultRows(data);
+}
+
+/**
  * Angular consolidated-exam-report download():
  * POST `examResultPDF` with flag `exam_final_std_result_detail` — returns PDF blob.
  */

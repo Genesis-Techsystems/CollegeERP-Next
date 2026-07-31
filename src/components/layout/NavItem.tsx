@@ -1345,6 +1345,13 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return `${examReportsBase}/invigilators-remuneration-report`;
       }
+      if (
+        slug === "ou-result-sheet" ||
+        slug === "ou-result-report" ||
+        slug === "ou-result-sheet-report"
+      ) {
+        return `${examReportsBase}/ou-result-sheet`;
+      }
       if (slug && hrefLower.includes("admin-exam-reports/")) {
         return `${examReportsBase}/${slug}`;
       }
@@ -1527,6 +1534,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("report"))
     ) {
       return `${examReportsBase}/invigilators-remuneration-report`;
+    }
+    if (
+      hrefLower.includes("ou-result-sheet") ||
+      hrefLower.includes("ou-result-report") ||
+      hrefLower.includes("ou_result") ||
+      (labelLower.includes("ou result") && labelLower.includes("report")) ||
+      labelLower === "ou result report" ||
+      labelLower === "ou result sheet"
+    ) {
+      return `${examReportsBase}/ou-result-sheet`;
     }
     if (
       hrefLower.includes("group-wise-passed-result-sheets") ||

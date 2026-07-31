@@ -1016,6 +1016,107 @@ export async function searchStudentsByKeyword(term: string): Promise<AnyRow[]> {
   }
 }
 
+export type StudentDetailsEmpSecurity = {
+  collegeId?: number | string | null;
+  courseId?: number | string | null;
+  courseGroupId?: number | string | null;
+};
+
+/**
+ * Angular `StudentsListComponent.enteredStudent` — role-scoped search (length > 4).
+ * - Dept admin: `studentsearch?collegeId&courseId&courseGroupId&q`
+ * - Non-admin: `studentSearchInMultipleColleges?collegeIds&q`
+ * - Admin: `studentsearch?q=` (no isActive filter)
+ */
+export async function searchStudentsForStudentDetailsList(params: {
+  q: string;
+  isAdmin: boolean;
+  isDeptAdmin: boolean;
+  empSecurity?: StudentDetailsEmpSecurity[];
+  /** Comma-separated college IDs for multi-college search (Angular `collegeIds`). */
+  collegeIds?: string | number;
+  /** Typing uses localStorage course/group; restore uses empSecurity[0]. */
+  mode?: "type" | "restore";
+}): Promise<AnyRow[]> {
+  const q = String(params.q ?? "").trim();
+  if (q.length <= 4) return [];
+
+  const security = Array.isArray(params.empSecurity) ? params.empSecurity : [];
+  const first = security[0];
+  const mode = params.mode ?? "type";
+
+  try {
+    if (params.isDeptAdmin && first) {
+      const collegeId = Number(first.collegeId ?? 0);
+      const courseId =
+        mode === "type"
+          ? Number(
+              typeof window !== "undefined"
+                ? (window.localStorage.getItem("courseId") ??
+                    first.courseId ??
+                    0)
+                : (first.courseId ?? 0),
+            )
+          : Number(first.courseId ?? 0);
+      const courseGroupId =
+        mode === "type"
+          ? Number(
+              typeof window !== "undefined"
+                ? (window.localStorage.getItem("courseGroupId") ??
+                    first.courseGroupId ??
+                    0)
+                : (first.courseGroupId ?? 0),
+            )
+          : Number(first.courseGroupId ?? 0);
+      if (collegeId > 0) {
+        const data = await fetchDetails<any>("studentsearch", {
+          collegeId,
+          courseId: courseId || 0,
+          courseGroupId: courseGroupId || 0,
+          q,
+        });
+        return asArray<AnyRow>(data).map((row) => ({
+          ...normalizeStudentRow(row),
+          ...row,
+        }));
+      }
+    }
+
+    if (!params.isAdmin) {
+      const collegeIds =
+        params.collegeIds != null && String(params.collegeIds).trim() !== ""
+          ? String(params.collegeIds)
+          : security
+              .map((r) => Number(r.collegeId ?? 0))
+              .filter((id) => id > 0)
+              .join(",");
+      if (collegeIds) {
+        // Angular CONSTANTS.studentSearchInMultipleCollegesUrl
+        const data = await fetchDetails<any>(
+          "studentSearchInMultipleColleges",
+          {
+            collegeIds,
+            q,
+          },
+        );
+        return asArray<AnyRow>(data).map((row) => ({
+          ...normalizeStudentRow(row),
+          ...row,
+        }));
+      }
+    }
+
+    // Admin (and fallback): Angular `listByIds(studentSearchUrl, q, 'q')`
+    const data = await fetchDetails<any>("studentsearch", { q });
+    return asArray<AnyRow>(data).map((row) => ({
+      ...normalizeStudentRow(row),
+      ...row,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function listStudentsBySection(
   sectionId: number,
 ): Promise<AnyRow[]> {

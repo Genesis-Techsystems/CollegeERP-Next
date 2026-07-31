@@ -189,6 +189,7 @@ function TimetableTab({ student }: { student: AnyRow }) {
       setTimetable(null);
       setFallbackRows([]);
       try {
+        // Angular: timetablescurr → schedules only (no alternate path fan-out).
         const angular = await loadAngularStudentTimetable(student).catch(
           () => null,
         );
@@ -197,8 +198,8 @@ function TimetableTab({ student }: { student: AnyRow }) {
           setTimetable(angular);
           return;
         }
-        const fallback = await loadStudentProfileTabData("timetable", student);
-        if (!cancelled) setFallbackRows(fallback);
+        // Empty timetable is valid Angular behaviour when no section schedule exists.
+        if (!cancelled) setFallbackRows([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
