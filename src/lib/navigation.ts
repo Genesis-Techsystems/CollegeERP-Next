@@ -1228,28 +1228,37 @@ export interface NavBreadcrumbSegment {
 }
 
 export interface NavSearchPage {
+  id?: string;
   displayName: string;
   url: string;
+  /** Parent labels joined with " › " for search subtitle / matching. */
+  breadcrumbPath?: string;
 }
 
 /** Flattens the sidebar nav tree into searchable leaf pages with normalized hrefs. */
 export function flattenNavItemsForSearch(items: NavItem[]): NavSearchPage[] {
   const collected: NavSearchPage[] = [];
 
-  function walk(nodes: NavItem[]) {
+  function walk(nodes: NavItem[], ancestors: string[]) {
     for (const item of nodes) {
+      const breadcrumbPath =
+        ancestors.length > 0 ? ancestors.join(" › ") : undefined;
       if (item.href) {
         collected.push({
+          id: item.id,
           displayName: item.label,
           // Same rewrite path Search and sidebar hrefs use (incl. exam-reports remaps).
           url: normalizePageHref(item.href, item.label),
+          breadcrumbPath,
         });
       }
-      if (item.children?.length) walk(item.children);
+      if (item.children?.length) {
+        walk(item.children, [...ancestors, item.label]);
+      }
     }
   }
 
-  walk(items);
+  walk(items, []);
 
   // Prefer longer / more specific URLs when the same page appears under multiple
   // modules (e.g. Reports vs Admin Examination Management) with conflicting hrefs.

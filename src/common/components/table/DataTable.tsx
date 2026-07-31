@@ -163,6 +163,11 @@ export interface DataTableProps<T> {
    * (title / filters / toolbar stay visible). Default false.
    */
   hideEmptyGrid?: boolean;
+  /**
+   * When false, hide search toolbar + grid + pagination (filters/title stay).
+   * Use after a "Get List" action — Angular `*ngIf="flag"` pattern. Default true.
+   */
+  resultsVisible?: boolean;
   height?: string;
   getRowId?: GetRowIdFunc<T>;
   onCellClicked?: (event: CellClickedEvent<T>) => void;
@@ -505,6 +510,7 @@ export function DataTable<T>({
   columnDefs,
   loading = false,
   hideEmptyGrid = false,
+  resultsVisible = true,
   height = "auto",
   getRowId,
   onCellClicked,
@@ -785,9 +791,11 @@ export function DataTable<T>({
 
   const isGridEmpty = !loading && pagedRowData.length === 0;
   const suppressGrid =
-    hideEmptyGrid && !loading && (!rowData || rowData.length === 0);
+    !resultsVisible ||
+    (hideEmptyGrid && !loading && (!rowData || rowData.length === 0));
 
   const showMainToolbar =
+    resultsVisible &&
     tb.show &&
     (tb.search ||
       tb.columnPicker ||
@@ -933,45 +941,48 @@ export function DataTable<T>({
             <div className="px-5 pb-3 pt-2">{filtersFooter}</div>
           ) : null}
 
-          {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
-            <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
-              {showMainToolbar ? (
-                <DataTableToolbar
-                  leading={toolbarLeading}
-                  searchEnabled={tb.search}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  searchPlaceholder={tb.searchPlaceholder}
-                  rowCount={filteredRowData.length}
-                  showInactiveToggle={Boolean(showInactiveToggle)}
-                  showInactive={showInactive}
-                  onShowInactiveChange={setShowInactive}
-                  columnPickerEnabled={tb.columnPicker}
-                  exportExcelEnabled={exportExcelEnabled}
-                  onExportExcel={onExportExcelProp ?? handleExportExcelCallback}
-                  exportPdfEnabled={tb.exportPdf}
-                  onExportPdf={onExportPdfProp ?? handleExportPdf}
-                  lockColumnIds={tb.lockColumnIds}
-                  getColumns={getColumns}
-                  applyColumnVisible={applyColumnVisible}
-                  endActions={toolbarTrailing}
-                />
-              ) : (
-                <div className="flex items-center justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-                    onClick={handleExportExcelCallback}
-                    aria-label="Export to Excel"
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Excel
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+          {resultsVisible &&
+            (showMainToolbar || (!showMainToolbar && exportCsv)) && (
+              <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
+                {showMainToolbar ? (
+                  <DataTableToolbar
+                    leading={toolbarLeading}
+                    searchEnabled={tb.search}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    searchPlaceholder={tb.searchPlaceholder}
+                    rowCount={filteredRowData.length}
+                    showInactiveToggle={Boolean(showInactiveToggle)}
+                    showInactive={showInactive}
+                    onShowInactiveChange={setShowInactive}
+                    columnPickerEnabled={tb.columnPicker}
+                    exportExcelEnabled={exportExcelEnabled}
+                    onExportExcel={
+                      onExportExcelProp ?? handleExportExcelCallback
+                    }
+                    exportPdfEnabled={tb.exportPdf}
+                    onExportPdf={onExportPdfProp ?? handleExportPdf}
+                    lockColumnIds={tb.lockColumnIds}
+                    getColumns={getColumns}
+                    applyColumnVisible={applyColumnVisible}
+                    endActions={toolbarTrailing}
+                  />
+                ) : (
+                  <div className="flex items-center justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+                      onClick={handleExportExcelCallback}
+                      aria-label="Export to Excel"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Excel
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
           <div
             className={cn(

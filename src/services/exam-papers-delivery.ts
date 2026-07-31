@@ -17,6 +17,7 @@ import {
   domainSoftDelete,
   domainUpdate,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   putDetails,
 } from "@/services/crud";
@@ -1766,50 +1767,58 @@ export async function getUnivEcStudentsByCodeGroups(args: {
 
 // ─── Exam Center Courses/Groups/Years/Subjects (`UnivEcCollegeDetails`) ──────
 
-export async function getExamCenterByCodeGroups(args: {
-  flag:
-    | "college_center_filters"
-    | "exam_center_clg_filters"
-    | "ec_grp_yr_subjects"
-    | "eg_filters"
-    | "eg_scan_filter";
+/**
+ * Build Angular `exam-center-courses` request for `s_get_exam_center_bycode`.
+ * Matches Angular `selectedExamGroup` / `selectedRegulation` query shape:
+ * - `in_college_id` before `in_exam_group_id`
+ * - when college form value is empty, Angular serializes `undefined` as the
+ *   literal string `"undefined"` (same as DevTools on Angular)
+ */
+function examCenterCoursesByCodeParams(args: {
+  flag: string;
   flagType?: string;
   univExamcenterId?: number;
+  collegeId?: number | null;
   examGroupId?: number;
-  collegeId?: number;
-  courseId?: number;
-  courseGroupId?: number;
-  courseYearId?: number;
-  subjectId?: number;
-  examId?: number;
+  /** When null/undefined for Get List, Angular sends empty string. */
+  regulationId?: number | null | "";
   academicYearId?: number;
-  regulationId?: number;
   universityId?: number;
-}): Promise<AnyRow[][]> {
-  const data = await getAllRecords<{ result?: unknown }>(
-    UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
-    {
-      in_flag: args.flag,
-      in_flag_type: args.flagType ?? "REGSUP",
-      in_univ_examcenter_id: args.univExamcenterId ?? 0,
-      in_exam_group_id: args.examGroupId ?? 0,
-      in_college_id: args.collegeId ?? 0,
-      in_course_id: args.courseId ?? 0,
-      in_course_group_id: args.courseGroupId ?? 0,
-      in_course_year_id: args.courseYearId ?? 0,
-      in_exam_id: args.examId ?? 0,
-      in_academic_year_id: args.academicYearId ?? 0,
-      in_regulation_id: args.regulationId ?? 0,
-      in_subject_id: args.subjectId ?? 0,
-      in_university_id: args.universityId ?? 0,
-      in_exam_date: "1900-01-01",
-      in_questionpaper_code: "",
-    },
-  ).catch((error: unknown) => {
-    if (isNoRecordsProcError(error)) return { result: [] };
-    throw error;
-  });
-  const raw = data?.result;
+}): Record<string, string | number> {
+  // Angular form empty → literal "undefined"; initial load uses numeric 0.
+  // Callers pass `null` for empty form, omit / `0` for initial-load zeros.
+  let collegeId: string | number = 0;
+  if (args.collegeId === null) {
+    collegeId = "undefined";
+  } else if (args.collegeId != null && Number(args.collegeId) > 0) {
+    collegeId = Number(args.collegeId);
+  }
+  const regulationId =
+    args.regulationId === ""
+      ? ""
+      : args.regulationId == null
+        ? 0
+        : Number(args.regulationId);
+  return {
+    in_flag: args.flag,
+    in_flag_type: args.flagType ?? "REGSUP",
+    in_univ_examcenter_id: args.univExamcenterId ?? 0,
+    in_college_id: collegeId,
+    in_exam_group_id: args.examGroupId ?? 0,
+    in_course_id: 0,
+    in_course_group_id: 0,
+    in_course_year_id: 0,
+    in_academic_year_id: args.academicYearId ?? 0,
+    in_exam_id: 0,
+    in_regulation_id: regulationId,
+    in_subject_id: 0,
+    in_university_id: args.universityId ?? 0,
+    in_exam_date: "1900-01-01",
+    in_questionpaper_code: "",
+  };
+}
+
+function mapProcResultGroups(raw: unknown): AnyRow[][] {
   if (!Array.isArray(raw)) return [];
   return raw.map((g) =>
     Array.isArray(g)
@@ -1818,6 +1827,98 @@ export async function getExamCenterByCodeGroups(args: {
         ? [g as AnyRow]
         : [],
   );
+}
+
+export async function getExamCenterByCodeGroups(args: {
+  flag:
+    | "college_center_filters"
+    /** Angular exam-center-courses initial load */
+    | "college_center_exam_group_filters"
+    | "exam_center_clg_filters"
+    | "ec_grp_yr_subjects"
+    | "eg_filters"
+    | "eg_scan_filter";
+  flagType?: string;
+  univExamcenterId?: number;
+  examGroupId?: number;
+  collegeId?: number | null;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  subjectId?: number;
+  examId?: number;
+  academicYearId?: number;
+  regulationId?: number | null | "";
+  universityId?: number;
+  /**
+   * When true (exam-center-courses cascade), use Angular param order and
+   * serialize a missing college as `"undefined"` like the Angular form.
+   */
+  angularCoursesPayload?: boolean;
+}): Promise<AnyRow[][]> {
+  const params = args.angularCoursesPayload
+    ? examCenterCoursesByCodeParams({
+        flag: args.flag,
+        flagType: args.flagType,
+        univExamcenterId: args.univExamcenterId,
+        collegeId: args.collegeId,
+        examGroupId: args.examGroupId,
+        regulationId: args.regulationId,
+        academicYearId: args.academicYearId,
+        universityId: args.universityId,
+      })
+    : {
+        in_flag: args.flag,
+        in_flag_type: args.flagType ?? "REGSUP",
+        in_univ_examcenter_id: args.univExamcenterId ?? 0,
+        in_exam_group_id: args.examGroupId ?? 0,
+        in_college_id: args.collegeId ?? 0,
+        in_course_id: args.courseId ?? 0,
+        in_course_group_id: args.courseGroupId ?? 0,
+        in_course_year_id: args.courseYearId ?? 0,
+        in_exam_id: args.examId ?? 0,
+        in_academic_year_id: args.academicYearId ?? 0,
+        in_regulation_id: args.regulationId ?? 0,
+        in_subject_id: args.subjectId ?? 0,
+        in_university_id: args.universityId ?? 0,
+        in_exam_date: "1900-01-01",
+        in_questionpaper_code: "",
+      };
+
+  const data = await getAllRecords<{ result?: unknown }>(
+    UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
+    params,
+  ).catch((error: unknown) => {
+    if (isNoRecordsProcError(error)) return { result: [] };
+    throw error;
+  });
+  return mapProcResultGroups(data?.result);
+}
+
+/**
+ * Angular `selectedExamGroup` on exam-center-courses — same query shape as Angular
+ * (incl. `in_college_id` before `in_exam_group_id`). Returns envelope message for toasts.
+ */
+export async function getExamCenterClgFiltersForCourses(args: {
+  univExamcenterId: number;
+  collegeId?: number | null;
+  examGroupId: number;
+}): Promise<{ groups: AnyRow[][]; message: string; success: boolean }> {
+  const envelope = await getAllRecordsEnvelope<{ result?: unknown }>(
+    UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
+    examCenterCoursesByCodeParams({
+      flag: "exam_center_clg_filters",
+      flagType: "REGSUP",
+      univExamcenterId: args.univExamcenterId,
+      collegeId: args.collegeId,
+      examGroupId: args.examGroupId,
+    }),
+  );
+  return {
+    groups: mapProcResultGroups(envelope.data?.result),
+    message: String(envelope.message ?? "").trim(),
+    success: envelope.success === true,
+  };
 }
 
 /**
@@ -1848,6 +1949,7 @@ export async function getExamBagsFilterRows(args: {
 export async function getExamCenterByCodeRows(args: {
   flag:
     | "college_center_filters"
+    | "college_center_exam_group_filters"
     | "exam_center_clg_filters"
     | "ec_grp_yr_subjects"
     | "eg_filters"

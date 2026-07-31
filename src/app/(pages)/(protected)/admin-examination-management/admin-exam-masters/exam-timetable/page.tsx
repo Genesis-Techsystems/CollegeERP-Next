@@ -18,6 +18,7 @@ import {
 import { distinct } from "@/lib/utils";
 import {
   getUnivExamFiltersAll,
+  getUnivExamFiltersGroupForLogin,
   resolveExamLoginEmpId,
   getExamFiltersNoTimetable,
   getExamTimetableDetails,
@@ -25,6 +26,7 @@ import {
   listExamSessions,
 } from "@/services/examination";
 import { useSessionContext } from "@/context/SessionContext";
+import type { SessionUser } from "@/types/user";
 import { toDateOnlyISO } from "@/common/generic-functions";
 import {
   Dialog,
@@ -47,6 +49,27 @@ import {
 } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
 import CheckConflictsModal from "./CheckConflictsModal";
+
+/**
+ * Exam Admin (and similar exam-scoped logins) — not ADMIN/SUPERADMIN.
+ * Those users must only see login-scoped `univ_exam_*` filter rows.
+ */
+function isExamAdminLogin(user: SessionUser | null | undefined): boolean {
+  if (!user) return false;
+  if (user.isAdmin) return false;
+  const blob = [user.userRole, user.roleName]
+    .map((s) =>
+      String(s ?? "")
+        .toUpperCase()
+        .replace(/[\s_-]+/g, ""),
+    )
+    .join(" ");
+  return (
+    blob.includes("EXAMADMIN") ||
+    blob.includes("EXAMINATIONADMIN") ||
+    blob.includes("EXAMCONTROLLER")
+  );
+}
 
 function pickAyId(row: any): number {
   return Number(
@@ -265,14 +288,19 @@ export default function ExamTimetablePage() {
     reason: "",
   });
 
+  const examAdminLogin = isExamAdminLogin(user);
+
   const fetchFilters = useCallback(async () => {
     setLoadingFilters(true);
     try {
       const empId = resolveExamLoginEmpId(user?.employeeId);
-      const flat = await getUnivExamFiltersAll(empId);
-      const f = flat.filter(
-        (r: any) => !r.flag || r.flag === "univ_exam_filters",
-      );
+      // Exam Admin: only the univ_exam_filters group for this login emp.
+      // Admin / others: keep existing flatten + soft flag filter.
+      const f = examAdminLogin
+        ? await getUnivExamFiltersGroupForLogin(empId)
+        : (await getUnivExamFiltersAll(empId)).filter(
+            (r: any) => !r.flag || r.flag === "univ_exam_filters",
+          );
       setFiltersData(f);
       const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id);
       setCourses(distinctCourses);
@@ -284,11 +312,17 @@ export default function ExamTimetablePage() {
             ? urlCourseId
             : distinctCourses[0].fk_course_id;
         handleCourseChange(target, f);
+      } else {
+        setCourses([]);
+        setAcademicYears([]);
+        setExamMasters([]);
+        setCourseYears([]);
+        setExamScopedCourseYears([]);
       }
     } finally {
       setLoadingFilters(false);
     }
-  }, [user?.employeeId, searchParams]);
+  }, [user?.employeeId, searchParams, examAdminLogin]);
 
   useEffect(() => {
     fetchFilters();
@@ -380,9 +414,14 @@ export default function ExamTimetablePage() {
     );
     setAcademicYears(distinctYears);
 
-    // Load course years for the grid label (I/II/III Year ...)
-    const yrs = await listCourseYears(courseId).catch(() => []);
-    setCourseYears(Array.isArray(yrs) ? yrs : []);
+    // Admin keeps domain CourseYear fallback. Exam Admin uses only
+    // login-scoped years from univ_exam_rest_filters (loaded with exam).
+    if (examAdminLogin) {
+      setCourseYears([]);
+    } else {
+      const yrs = await listCourseYears(courseId).catch(() => []);
+      setCourseYears(Array.isArray(yrs) ? yrs : []);
+    }
   }
 
   useEffect(() => {
@@ -464,6 +503,7 @@ export default function ExamTimetablePage() {
         academicYearId: selectedAcademicYearId ?? 0,
         courseYearId: 0,
         employeeId: resolveExamLoginEmpId(user?.employeeId),
+        strictRestFiltersGroup: examAdminLogin,
       });
       if (cancelled) return;
       const rows = Array.isArray(filterRows) ? filterRows : [];
@@ -497,7 +537,8 @@ export default function ExamTimetablePage() {
             ).trim() || `Year ${Number(y.courseYearId ?? y.id ?? 0)}`,
         }))
         .filter((o) => o.courseYearId > 0);
-      const next = scoped.length > 0 ? scoped : fallback;
+      // Exam Admin: never fall back to unscoped domain CourseYear list.
+      const next = scoped.length > 0 ? scoped : examAdminLogin ? [] : fallback;
       setSelectedCourseYearId((prev) => {
         if (prev != null && next.some((o) => o.courseYearId === prev))
           return prev;
@@ -514,6 +555,7 @@ export default function ExamTimetablePage() {
     selectedExamId,
     user?.employeeId,
     courseYears,
+    examAdminLogin,
   ]);
 
   // When exam changes, build date headers
@@ -555,10 +597,14 @@ export default function ExamTimetablePage() {
           academicYearId: selectedAcademicYearId ?? 0,
           courseYearId: 0,
           employeeId: resolveExamLoginEmpId(user?.employeeId),
+          strictRestFiltersGroup: examAdminLogin,
         });
         if (Array.isArray(filterRows) && filterRows.length > 0) {
           baseBranches = buildCourseGroupsFromFilters(filterRows);
           setBranches(baseBranches);
+        } else if (examAdminLogin) {
+          baseBranches = [];
+          setBranches([]);
         }
 
         const data = await getExamTimetableDetails(
@@ -857,6 +903,7 @@ export default function ExamTimetablePage() {
     selectedCourseYearId,
     selectedAcademicYearId,
     user?.employeeId,
+    examAdminLogin,
   ]);
 
   const titleLine = useMemo(() => {
@@ -1243,7 +1290,7 @@ export default function ExamTimetablePage() {
 
   return (
     <FilteredPage
-      title="Exam University Timetable"
+      title="Create Exam Timetable"
       filters={
         <GlobalFilterBarRow className="flex-nowrap">
           <GlobalFilterField
@@ -1321,7 +1368,7 @@ export default function ExamTimetablePage() {
                 label: String(y.courseYearName),
               }))}
               placeholder="Select Course Year"
-              disabled={effectiveCourseYears.length === 0}
+              emptyMessage="No records found"
               searchable
             />
           </GlobalFilterField>

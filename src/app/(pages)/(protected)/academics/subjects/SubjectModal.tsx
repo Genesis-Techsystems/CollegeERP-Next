@@ -97,9 +97,20 @@ export function SubjectModal({
   const [isLanguage, setIsLanguage] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [reason, setReason] = useState("active");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function clearError(key: string) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
+    setErrors({});
     setLoadingLookups(true);
     Promise.all([listSubjectTypes(), listSubjectCategories()])
       .then(([typeList, categoryList]) => {
@@ -194,27 +205,27 @@ export function SubjectModal({
     };
   }
 
-  function validate(): string | null {
-    if (!courseId) return "Course is required";
-    if (!subjectName.trim()) return "Subject name is required";
-    if (!subjectCode.trim()) return "Subject code is required";
-    if (!subjectTypeId) return "Subject type is required";
-    if (!subjectCategoryId) return "Subject category is required";
-    if (!subCredits.trim()) return "Credits is required";
-    if (!subCreditHrs.trim()) return "Credit hours is required";
-    if (!shortName.trim()) return "Short name is required";
-    if (!orderNo.trim()) return "Order no is required";
-    if (!isActive && !reason.trim()) return "Reason is required when inactive";
-    return null;
+  function validate(): boolean {
+    const next: Record<string, string> = {};
+    if (!courseId) next.courseId = "Course is required";
+    if (!subjectName.trim()) next.subjectName = "Subject Name is required";
+    if (!subjectCode.trim()) next.subjectCode = "Subject Code is required";
+    if (!subjectTypeId) next.subjectTypeId = "Subject Type is required";
+    if (!subjectCategoryId)
+      next.subjectCategoryId = "Subject Category is required";
+    if (!subCredits.trim()) next.subCredits = "Credits is required";
+    if (!subCreditHrs.trim()) next.subCreditHrs = "Credit Hours is required";
+    if (!shortName.trim()) next.shortName = "Short Name is required";
+    if (!orderNo.trim()) next.orderNo = "Order No is required";
+    if (!isActive && !reason.trim())
+      next.reason = "Reason is required when inactive";
+    setErrors(next);
+    return Object.keys(next).length === 0;
   }
 
   async function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
-    const err = validate();
-    if (err) {
-      toastInfo(err);
-      return;
-    }
+    if (!validate()) return;
 
     const payload = buildPayload();
     const file = fileRef.current?.files?.[0] ?? null;
@@ -297,9 +308,18 @@ export function SubjectModal({
           </Label>
           <Input
             value={subjectName}
-            onChange={(e) => setSubjectName(e.target.value)}
+            onChange={(e) => {
+              setSubjectName(e.target.value);
+              clearError("subjectName");
+            }}
+            placeholder="Subject Name"
             disabled={saving}
           />
+          {errors.subjectName ? (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.subjectName}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label>
@@ -307,18 +327,31 @@ export function SubjectModal({
           </Label>
           <Input
             value={subjectCode}
-            onChange={(e) => setSubjectCode(e.target.value)}
+            onChange={(e) => {
+              setSubjectCode(e.target.value);
+              clearError("subjectCode");
+            }}
+            placeholder="Subject Code"
             disabled={saving}
           />
+          {errors.subjectCode ? (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.subjectCode}
+            </p>
+          ) : null}
         </div>
 
         <Select
           label="Subject Type"
           required
           value={subjectTypeId}
-          onChange={setSubjectTypeId}
+          onChange={(v) => {
+            setSubjectTypeId(v);
+            clearError("subjectTypeId");
+          }}
           options={typeOptions}
           placeholder="Subject Type"
+          error={errors.subjectTypeId}
           isLoading={loadingLookups}
           disabled={saving}
         />
@@ -326,9 +359,13 @@ export function SubjectModal({
           label="Subject Category"
           required
           value={subjectCategoryId}
-          onChange={setSubjectCategoryId}
+          onChange={(v) => {
+            setSubjectCategoryId(v);
+            clearError("subjectCategoryId");
+          }}
           options={categoryOptions}
           placeholder="Subject Category"
+          error={errors.subjectCategoryId}
           isLoading={loadingLookups}
           disabled={saving}
         />
@@ -337,6 +374,7 @@ export function SubjectModal({
           <Input
             value={questionpaperCode}
             onChange={(e) => setQuestionpaperCode(e.target.value)}
+            placeholder="Question Paper Code"
             disabled={saving}
           />
         </div>
@@ -349,9 +387,18 @@ export function SubjectModal({
             type="number"
             step="any"
             value={subCredits}
-            onChange={(e) => setSubCredits(e.target.value)}
+            onChange={(e) => {
+              setSubCredits(e.target.value);
+              clearError("subCredits");
+            }}
+            placeholder="Credits"
             disabled={saving}
           />
+          {errors.subCredits ? (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.subCredits}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label>
@@ -361,9 +408,18 @@ export function SubjectModal({
             type="number"
             step="any"
             value={subCreditHrs}
-            onChange={(e) => setSubCreditHrs(e.target.value)}
+            onChange={(e) => {
+              setSubCreditHrs(e.target.value);
+              clearError("subCreditHrs");
+            }}
+            placeholder="Credit Hours"
             disabled={saving}
           />
+          {errors.subCreditHrs ? (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.subCreditHrs}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label>
@@ -371,9 +427,18 @@ export function SubjectModal({
           </Label>
           <Input
             value={shortName}
-            onChange={(e) => setShortName(e.target.value)}
+            onChange={(e) => {
+              setShortName(e.target.value);
+              clearError("shortName");
+            }}
+            placeholder="Short Name"
             disabled={saving}
           />
+          {errors.shortName ? (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.shortName}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <Label>
@@ -382,9 +447,18 @@ export function SubjectModal({
           <Input
             type="number"
             value={orderNo}
-            onChange={(e) => setOrderNo(e.target.value)}
+            onChange={(e) => {
+              setOrderNo(e.target.value);
+              clearError("orderNo");
+            }}
+            placeholder="Order No"
             disabled={saving}
           />
+          {errors.orderNo ? (
+            <p className="text-xs text-destructive" role="alert">
+              {errors.orderNo}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
@@ -417,9 +491,17 @@ export function SubjectModal({
             onActiveChange={(v) => {
               const next = v === true;
               setIsActive(next);
-              if (next) setReason("active");
+              if (next) {
+                setReason("active");
+                clearError("reason");
+              }
             }}
-            onReasonChange={setReason}
+            onReasonChange={(v) => {
+              setReason(v);
+              clearError("reason");
+            }}
+            reasonRequired={!isActive}
+            reasonError={errors.reason}
           />
         </div>
       </div>

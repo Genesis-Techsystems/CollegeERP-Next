@@ -21,9 +21,9 @@ import {
   getGroupwiseAllotmentSummary,
   getRoomwiseAllotmentSummary,
   getRoomwiseSubjectSummary,
-  listExamInvigilationAllotments,
   listExamInvigilationAllotmentsByTimetable,
   listExamRoomAllotments as listExamRoomAllotmentsDomain,
+  listExamStdAttDetails,
   listRoomwiseOmrStudents,
   listUnivExamFiltersByCode,
   popExamInvigilator,
@@ -98,24 +98,46 @@ function formatExamTimetableLabel(row: any): string {
   return `${date} (${session})`;
 }
 
-/** Angular: exam_name (from - to) +(Internal/Regular/Supple). */
+/** Angular date pipe `MMM d, y` → e.g. May 5, 2026 */
+function formatExamMasterDate(value?: string): string {
+  const raw = String(value ?? "").trim();
+  const dateOnly = toDateStr(raw.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? raw);
+  if (!dateOnly) return "";
+  const d = new Date(`${dateOnly}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateOnly;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Treat API booleans / 0|1 flags as on (Angular shows Internal/Regular/Supple tags). */
+function examFlagOn(value: unknown): boolean {
+  if (value === true || value === 1 || value === "1" || value === "true")
+    return true;
+  return false;
+}
+
+/** Angular: exam_name (MMM d, y - MMM d, y)(Internal)(Regular)(Supple) */
 function formatExamMasterOption(exam: any): string {
   const name = String(exam?.examName ?? exam?.exam_name ?? "—").trim() || "—";
-  const from = formatTableDate(
+  const from = formatExamMasterDate(
     String(exam?.fromDate ?? exam?.from_date ?? "").trim(),
   );
-  const to = formatTableDate(
+  const to = formatExamMasterDate(
     String(exam?.toDate ?? exam?.to_date ?? "").trim(),
   );
-  const range = from && to && from !== "-" && to !== "-" ? ` (${from} - ${to})` : "";
+  const range = from && to ? ` (${from} - ${to})` : "";
+  // Adjacent spans in Angular → no spaces between tags.
   const tags = [
-    exam?.isInternalExam || exam?.is_internal_exam ? "(Internal)" : "",
-    exam?.isRegularExam || exam?.is_regular_exam ? "(Regular)" : "",
-    exam?.isSupplyExam || exam?.is_supply_exam ? "(Supple)" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-  return `${name}${range}${tags ? ` ${tags}` : ""}`;
+    examFlagOn(exam?.isInternalExam ?? exam?.is_internal_exam)
+      ? "(Internal)"
+      : "",
+    examFlagOn(exam?.isRegularExam ?? exam?.is_regular_exam) ? "(Regular)" : "",
+    examFlagOn(exam?.isSupplyExam ?? exam?.is_supply_exam) ? "(Supple)" : "",
+  ].join("");
+  return `${name}${range}${tags}`;
 }
 
 function getExamTimetableParts(row: any): {
@@ -434,7 +456,7 @@ export default function SeatingPlanSetupPage() {
   const [selectedCourseYearId, setSelectedCourseYearId] = useState<
     number | null
   >(null);
-  const [selectedExamType, setSelectedExamType] = useState<"0" | "1" | "">("");
+  const [selectedExamType, setSelectedExamType] = useState<"0" | "1" | "">("0");
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
   const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(
     null,
@@ -450,6 +472,8 @@ export default function SeatingPlanSetupPage() {
 
   // Table data from selected exam session/timetable
   const [previewRows, setPreviewRows] = useState<AllocationRow[]>([]);
+  /** Angular `flag` — search/actions/table only after timetable load completes. */
+  const [showResults, setShowResults] = useState(false);
   const [searchText, setSearchText] = useState("");
 
   const fetchFilters = useCallback(async () => {
@@ -540,6 +564,9 @@ export default function SeatingPlanSetupPage() {
     setRestRows([]);
     setCourseYears([]);
     setSelectedCourseYearId(null);
+    setShowResults(false);
+    setPreviewRows([]);
+    setSelectedExamTimetableId(null);
 
     // Keep exam years aligned to the selected course like legacy flow.
     const rowSource = regSupRows ?? baseRows ?? [];
@@ -577,16 +604,26 @@ export default function SeatingPlanSetupPage() {
   }
 
   useEffect(() => {
-    const list = distinct(
-      (baseRows ?? []).filter(
-        (r: any) =>
-          Number(r.fk_course_id) === Number(selectedCourseId) &&
-          Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
-      ),
-      (r: any) => r.fk_exam_id,
-    ).map((r: any) => ({
+    // Angular selectedExamType: Internal → is_internal_exam, else !is_internal_exam
+    const byCourseAy = (baseRows ?? []).filter(
+      (r: any) =>
+        Number(r.fk_course_id) === Number(selectedCourseId) &&
+        Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
+    );
+    const byType = byCourseAy.filter((r: any) => {
+      const isInternal = Boolean(r.is_internal_exam ?? r.isInternalExam);
+      if (selectedExamType === "1") return isInternal;
+      if (selectedExamType === "0") return !isInternal;
+      return true;
+    });
+    const list = distinct(byType, (r: any) => r.fk_exam_id).map((r: any) => ({
       examId: Number(r.fk_exam_id),
-      examName: r.exam_name,
+      examName: r.exam_name ?? r.examName,
+      fromDate: r.from_date ?? r.fromDate,
+      toDate: r.to_date ?? r.toDate,
+      isInternalExam: r.is_internal_exam ?? r.isInternalExam,
+      isRegularExam: r.is_regular_exam ?? r.isRegularExam,
+      isSupplyExam: r.is_supply_exam ?? r.isSupplyExam,
     }));
     setExamMasters(list);
     setSelectedExamId((prev) => {
@@ -595,7 +632,7 @@ export default function SeatingPlanSetupPage() {
         ? prevId
         : (list[0]?.examId ?? null);
     });
-  }, [baseRows, selectedCourseId, selectedAcademicYearId]);
+  }, [baseRows, selectedCourseId, selectedAcademicYearId, selectedExamType]);
 
   const colleges = useMemo(
     () =>
@@ -648,21 +685,26 @@ export default function SeatingPlanSetupPage() {
     [sessionOptions, selectedExamTimetableId],
   );
 
-  /** Stable key so room-allotment fetch does not re-run when `sessionOptions` gets a new array ref with the same session. */
+  /**
+   * Angular selectedExamTimetable → selectedCollege / getProcs even when college
+   * is 0 (Exam Admin). Do not gate the load key on collegeId.
+   */
   const roomAllotmentLoadKey = useMemo(() => {
-    if (
-      !selectedCollegeId ||
-      !selectedCourseId ||
-      !selectedExamId ||
-      !selectedExamTimetableId
-    )
+    if (!selectedCourseId || !selectedExamId || !selectedExamTimetableId)
       return "";
     const o = sessionOptions.find(
       (s) => Number(s.id) === Number(selectedExamTimetableId),
     );
     const date = String(o?.examDate ?? "");
-    const sid = Number(o?.sessionId ?? 0) || 0;
-    return `${selectedCollegeId}|${selectedCourseId}|${selectedExamId}|${selectedExamTimetableId}|${date}|${sid}`;
+    const sid =
+      Number(
+        o?.sessionId ??
+          o?.examSessionId ??
+          o?.fk_exam_session_id ??
+          o?.exam_session_id ??
+          0,
+      ) || 0;
+    return `${selectedCollegeId ?? 0}|${selectedCourseId}|${selectedExamId}|${selectedExamTimetableId}|${date}|${sid}`;
   }, [
     selectedCollegeId,
     selectedCourseId,
@@ -678,6 +720,7 @@ export default function SeatingPlanSetupPage() {
       setExamTimetables([]);
       setPreviewRows([]);
       setSessionOptions([]);
+      setShowResults(false);
       if (!selectedCourseId || !selectedExamId) {
         setSelectedExamTimetableId(null);
         return;
@@ -763,12 +806,11 @@ export default function SeatingPlanSetupPage() {
           mergedOpts = Array.from(uniq.values());
         }
         setSessionOptions(mergedOpts);
+        // Angular: user selects Exam Timetable — do not auto-pick the first option.
         if (mergedOpts.length > 0) {
           setSelectedExamTimetableId((prev) => {
             const prevId = Number(prev ?? 0);
-            return mergedOpts.some((o) => o.id === prevId)
-              ? prevId
-              : mergedOpts[0].id;
+            return mergedOpts.some((o) => o.id === prevId) ? prevId : null;
           });
         } else {
           // Extra legacy fallback: derive date/session options directly from allotment SP.
@@ -783,9 +825,7 @@ export default function SeatingPlanSetupPage() {
             setSessionOptions(allotmentOpts);
             setSelectedExamTimetableId((prev) => {
               const prevId = Number(prev ?? 0);
-              return allotmentOpts.some((o) => o.id === prevId)
-                ? prevId
-                : allotmentOpts[0].id;
+              return allotmentOpts.some((o) => o.id === prevId) ? prevId : null;
             });
             return;
           }
@@ -815,9 +855,7 @@ export default function SeatingPlanSetupPage() {
         setSessionOptions(fallbackOpts);
         setSelectedExamTimetableId((prev) => {
           const prevId = Number(prev ?? 0);
-          return fallbackOpts.some((o) => o.id === prevId)
-            ? prevId
-            : (fallbackOpts[0]?.id ?? null);
+          return fallbackOpts.some((o) => o.id === prevId) ? prevId : null;
         });
       }
     }
@@ -830,6 +868,7 @@ export default function SeatingPlanSetupPage() {
     function mapSelectedSessionRows() {
       if (!selectedExamTimetableId) {
         setPreviewRows([]);
+        setShowResults(false);
         return;
       }
       const rows = examTimetables.filter(
@@ -872,28 +911,92 @@ export default function SeatingPlanSetupPage() {
   }, [selectedExamTimetableId, examTimetables]);
 
   useEffect(() => {
-    if (!roomAllotmentLoadKey) return;
+    if (!roomAllotmentLoadKey) {
+      setShowResults(false);
+      return;
+    }
     const ac = new AbortController();
     const { signal } = ac;
     async function loadRoomAllotmentsBySelection() {
-      if (
-        !selectedExamId ||
-        !selectedExamTimetableId ||
-        !selectedCourseId ||
-        !selectedCollegeId
-      ) {
+      // Angular selectedExamTimetable → getProcs + barcode + cover + invigilators
+      // always; ExamRoomAllotment list when exam+timetable are set.
+      if (!selectedExamId || !selectedExamTimetableId || !selectedCourseId) {
         setPreviewRows([]);
+        setShowResults(false);
         return;
       }
       const sessionRow = sessionOptions.find(
         (s) => Number(s.id) === Number(selectedExamTimetableId),
       );
-      // Angular parity: prefer ExamRoomAllotment rows first (already aggregated per room).
-      let rows = await listExamRoomAllotmentsPre(
-        selectedCollegeId,
-        selectedExamId,
-        selectedExamTimetableId,
-      ).catch(() => []);
+      const selectedExamDate = toDateStr(sessionRow?.examDate);
+      const selectedSessionId =
+        Number(
+          sessionRow?.sessionId ??
+            sessionRow?.examSessionId ??
+            sessionRow?.fk_exam_session_id ??
+            sessionRow?.exam_session_id ??
+            0,
+        ) || 0;
+      const procParams = {
+        courseId: selectedCourseId,
+        examId: selectedExamId,
+        examDate: selectedExamDate,
+        sessionId: selectedSessionId,
+      };
+
+      // Fire Angular-parity side loads in parallel (getProcs / barcode / cover / invigilators).
+      void Promise.all([
+        getRoomwiseAllotmentSummary(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setRoomWiseAllocations(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setRoomWiseAllocations([]);
+          }),
+        getGroupwiseAllotmentSummary(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setGroupwiseAllocations(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setGroupwiseAllocations([]);
+          }),
+        getRoomwiseSubjectSummary(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setRoomSubjectAllocations(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setRoomSubjectAllocations([]);
+          }),
+        listRoomwiseOmrStudents(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setStudentAllotmentDetails(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setStudentAllotmentDetails([]);
+          }),
+        listExamStdAttDetails({
+          examId: selectedExamId,
+          courseId: selectedCourseId,
+          examTimetableId: selectedExamTimetableId,
+        }).catch(() => []),
+        listExamInvigilationAllotmentsByTimetable(selectedExamTimetableId)
+          .then((rows) => {
+            if (!signal.aborted) setInvigilatorRows(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setInvigilatorRows([]);
+          }),
+      ]);
+
+      // Angular ExamRoomAllotment: examMaster.examId + ExamTimetable.examTimetableId
+      let rows: any[] = [];
+      if (selectedCollegeId) {
+        rows = await listExamRoomAllotmentsPre(
+          selectedCollegeId,
+          selectedExamId,
+          selectedExamTimetableId,
+        ).catch(() => []);
+      }
       if (signal.aborted) return;
       if (!Array.isArray(rows) || rows.length === 0) {
         rows = await listExamRoomAllotmentsDomain(
@@ -902,23 +1005,15 @@ export default function SeatingPlanSetupPage() {
         ).catch(() => []);
       }
       if (signal.aborted) return;
-      // Last fallback only when allotments are absent: student-level SP rows.
       if (!Array.isArray(rows) || rows.length === 0) {
-        const selectedExamDate = toDateStr(sessionRow?.examDate);
-        const selectedSessionId = Number(sessionRow?.sessionId ?? 0) || 0;
-        rows = await fetchRoomwiseOmrStudents({
-          examId: selectedExamId,
-          courseId: selectedCourseId,
-          examDate: selectedExamDate,
-          sessionId: selectedSessionId,
-        }).catch(() => []);
+        rows = await fetchRoomwiseOmrStudents(procParams).catch(() => []);
       }
       if (signal.aborted) return;
-      if (!Array.isArray(rows) || rows.length === 0) {
-        setPreviewRows([]);
-        return;
-      }
-      setPreviewRows(mapAllocationRows(rows));
+      // Angular sets flag=true after the list API returns (even when empty).
+      setPreviewRows(
+        Array.isArray(rows) && rows.length > 0 ? mapAllocationRows(rows) : [],
+      );
+      setShowResults(true);
     }
     void loadRoomAllotmentsBySelection();
     return () => ac.abort();
@@ -2349,7 +2444,7 @@ export default function SeatingPlanSetupPage() {
 
   return (
     <FilteredListPage
-      title="Exam Room Seating Plan"
+      title="Seating Plan Setup"
       notice={
         loadingPrintData ? (
           <div
@@ -2403,7 +2498,14 @@ export default function SeatingPlanSetupPage() {
                     ? String(selectedAcademicYearId)
                     : null
                 }
-                onChange={(v) => setSelectedAcademicYearId(Number(v))}
+                onChange={(v) => {
+                  setSelectedAcademicYearId(Number(v));
+                  // Angular selectedAcademicYear → examTypeId = External (0)
+                  setSelectedExamType("0");
+                  setShowResults(false);
+                  setPreviewRows([]);
+                  setSelectedExamTimetableId(null);
+                }}
                 options={academicYearOptions.map((a) => ({
                   value: String(a.id),
                   label: a.label,
@@ -2420,7 +2522,13 @@ export default function SeatingPlanSetupPage() {
             >
               <Select
                 value={selectedExamType || null}
-                onChange={(v) => setSelectedExamType(v as "0" | "1")}
+                onChange={(v) => {
+                  setSelectedExamType(v as "0" | "1");
+                  setShowResults(false);
+                  setPreviewRows([]);
+                  setSelectedExamId(null);
+                  setSelectedExamTimetableId(null);
+                }}
                 options={[
                   { value: "0", label: "External" },
                   { value: "1", label: "Internal" },
@@ -2436,7 +2544,12 @@ export default function SeatingPlanSetupPage() {
             >
               <Select
                 value={selectedExamId != null ? String(selectedExamId) : null}
-                onChange={(v) => setSelectedExamId(Number(v))}
+                onChange={(v) => {
+                  setSelectedExamId(Number(v));
+                  setShowResults(false);
+                  setPreviewRows([]);
+                  setSelectedExamTimetableId(null);
+                }}
                 options={examMasters.map((e) => ({
                   value: String(e.examId ?? e.id),
                   label: formatExamMasterOption(e),
@@ -2447,9 +2560,7 @@ export default function SeatingPlanSetupPage() {
                     : "Select Exam Master"
                 }
                 disabled={
-                  !selectedCourseId ||
-                  !selectedAcademicYearId ||
-                  loadingFilters
+                  !selectedCourseId || !selectedAcademicYearId || loadingFilters
                 }
                 searchable
               />
@@ -2467,7 +2578,11 @@ export default function SeatingPlanSetupPage() {
                     ? String(selectedExamTimetableId)
                     : null
                 }
-                onChange={(v) => setSelectedExamTimetableId(Number(v))}
+                onChange={(v) => {
+                  setSelectedExamTimetableId(Number(v));
+                  setShowResults(false);
+                  setPreviewRows([]);
+                }}
                 options={sessionOptions.map((s) => ({
                   value: String(s.id),
                   label: `${s.examDate} (${s.session})`,
@@ -2488,8 +2603,9 @@ export default function SeatingPlanSetupPage() {
       }
       filtersCollapsible
       filtersDefaultOpen
-      rowData={selectedExamTimetableId != null ? filteredRows : []}
+      rowData={showResults ? filteredRows : []}
       columnDefs={columnDefs}
+      resultsVisible={showResults}
       pagination
       toolbar={{
         search: false,
@@ -2499,7 +2615,7 @@ export default function SeatingPlanSetupPage() {
         columnPicker: false,
       }}
       toolbarLeading={
-        selectedExamTimetableId != null ? (
+        showResults ? (
           <div className="flex w-full flex-col gap-3 print-hide">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <SearchInput
@@ -2539,9 +2655,7 @@ export default function SeatingPlanSetupPage() {
               </div>
             </div>
             <div className="flex justify-end">
-              <div
-                className="rounded-[5px] border-2 border-[#ffcf46] px-2.5 pb-1.5 pt-0.5"
-              >
+              <div className="rounded-[5px] border-2 border-[#ffcf46] px-2.5 pb-1.5 pt-0.5">
                 <div className="flex flex-wrap gap-1.5">
                   {(
                     [
@@ -2644,7 +2758,7 @@ export default function SeatingPlanSetupPage() {
       }
       toolbarTrailing={undefined}
     >
-      {selectedExamTimetableId != null ? (
+      {showResults ? (
         <div className="flex justify-end print-hide">
           <Button
             type="button"

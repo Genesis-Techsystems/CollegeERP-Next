@@ -103,6 +103,7 @@ export * from "./pre-examination";
 export {
   resolveExamLoginEmpId,
   getUnivExamFiltersAll,
+  getUnivExamFiltersGroupForLogin,
   getUnivExamFiltersForExamFeeSetup,
   getUnivExamRestCollegesForRevaluationFee,
   getMarksSetupFilters,

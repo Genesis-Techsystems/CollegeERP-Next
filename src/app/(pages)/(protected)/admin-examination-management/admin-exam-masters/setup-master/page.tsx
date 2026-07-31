@@ -1,18 +1,25 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, MultiSelect } from '@/common/components/select'
-import { StatusBadge } from '@/common/components/data-display'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Pencil, Plus } from 'lucide-react'
-import { getErrorMessage } from '@/lib/errors'
-import { GM_CODES } from '@/config/constants/ui'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Select, MultiSelect } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Pencil, Plus } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
+import { GM_CODES } from "@/config/constants/ui";
+import { toast } from "sonner";
 import {
   createExamFcarSetupMaster,
   getGeneralDetails,
@@ -21,269 +28,329 @@ import {
   listExamFcarSetupMasters,
   listRegulationsByCollegeAndCourseForFcar,
   updateExamFcarSetupMaster,
-} from '@/services'
+} from "@/services";
 
 function regulationsCell(p: ICellRendererParams<Record<string, unknown>>) {
-  const dto = p.data?.regulationDTO
+  const dto = p.data?.regulationDTO;
   if (Array.isArray(dto) && dto.length > 0) {
     return (
       <div className="text-[12px] leading-snug space-y-0.5">
         {dto.map((r: Record<string, unknown>, i: number) => (
-          <p key={i} className="m-0">{String(r.regulationCode ?? r.regulation_code ?? '')}</p>
+          <p key={i} className="m-0">
+            {String(r.regulationCode ?? r.regulation_code ?? "")}
+          </p>
         ))}
       </div>
-    )
+    );
   }
-  const raw = p.data?.regulationIds
-  if (raw != null && String(raw).trim() !== '') return <span className="text-[12px]">{String(raw)}</span>
-  return <span className="text-muted-foreground">—</span>
+  const raw = p.data?.regulationIds;
+  if (raw != null && String(raw).trim() !== "")
+    return <span className="text-[12px]">{String(raw)}</span>;
+  return <span className="text-muted-foreground">—</span>;
 }
 
 function boolOptionsCell(p: ICellRendererParams<Record<string, unknown>>) {
-  const v = p.data?.isHavingoptions ?? p.data?.is_having_options
-  return <span className="text-[12px]">{v ? 'Yes' : 'No'}</span>
+  const v = p.data?.isHavingoptions ?? p.data?.is_having_options;
+  return <span className="text-[12px]">{v ? "Yes" : "No"}</span>;
 }
 
 function statusCell(p: ICellRendererParams<Record<string, unknown>>) {
-  return <StatusBadge status={p.data?.isActive !== false} />
+  return <StatusBadge status={p.data?.isActive !== false} />;
 }
 
 export default function SetupMasterPage() {
-  const [loadingColleges, setLoadingColleges] = useState(true)
-  const [loadingCourses, setLoadingCourses] = useState(false)
-  const [loadingGrid, setLoadingGrid] = useState(false)
-  const [colleges, setColleges] = useState<any[]>([])
-  const [courses, setCourses] = useState<any[]>([])
-  const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(null)
-  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null)
-  const [rows, setRows] = useState<any[]>([])
+  const [loadingColleges, setLoadingColleges] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingGrid, setLoadingGrid] = useState(false);
+  const [colleges, setColleges] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(
+    null,
+  );
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+  const [rows, setRows] = useState<any[]>([]);
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [modalError, setModalError] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  const [regulations, setRegulations] = useState<any[]>([])
-  const [resultValidations, setResultValidations] = useState<any[]>([])
+  const [regulations, setRegulations] = useState<any[]>([]);
+  const [resultValidations, setResultValidations] = useState<any[]>([]);
 
-  const [formMarkSetupName, setFormMarkSetupName] = useState('')
-  const [formRegulationIds, setFormRegulationIds] = useState<string[]>([])
-  const [formResultValidationId, setFormResultValidationId] = useState<string | null>(null)
-  const [formHavingOptions, setFormHavingOptions] = useState(false)
-  const [formIsActive, setFormIsActive] = useState(true)
-  const [formReason, setFormReason] = useState('')
+  const [formMarkSetupName, setFormMarkSetupName] = useState("");
+  const [formRegulationIds, setFormRegulationIds] = useState<string[]>([]);
+  const [formResultValidationId, setFormResultValidationId] = useState<
+    string | null
+  >(null);
+  const [formHavingOptions, setFormHavingOptions] = useState(false);
+  const [formIsActive, setFormIsActive] = useState(true);
+  const [formReason, setFormReason] = useState("");
 
   const loadColleges = useCallback(async () => {
-    setLoadingColleges(true)
+    setLoadingColleges(true);
     try {
-      const list = await listActiveColleges()
-      const arr = Array.isArray(list) ? list : []
-      setColleges(arr)
+      const list = await listActiveColleges();
+      const arr = Array.isArray(list) ? list : [];
+      setColleges(arr);
       if (arr.length > 0) {
-        const firstId = Number(arr[0].collegeId ?? arr[0].college_id ?? 0)
-        setSelectedCollegeId(firstId > 0 ? firstId : null)
+        const firstId = Number(arr[0].collegeId ?? arr[0].college_id ?? 0);
+        setSelectedCollegeId(firstId > 0 ? firstId : null);
       } else {
-        setSelectedCollegeId(null)
+        setSelectedCollegeId(null);
       }
+    } catch (err: unknown) {
+      setColleges([]);
+      setSelectedCollegeId(null);
+      toast.error(getErrorMessage(err));
     } finally {
-      setLoadingColleges(false)
+      setLoadingColleges(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    void loadColleges()
-  }, [loadColleges])
+    void loadColleges();
+  }, [loadColleges]);
 
   const loadCourses = useCallback(async (collegeId: number) => {
-    setLoadingCourses(true)
+    setLoadingCourses(true);
     try {
-      const list = await listCoursesByCollegeForFcarSetup(collegeId)
-      const arr = Array.isArray(list) ? list : []
-      setCourses(arr)
+      const list = await listCoursesByCollegeForFcarSetup(collegeId);
+      const arr = Array.isArray(list) ? list : [];
+      setCourses(arr);
       if (arr.length > 0) {
-        const cid = Number(arr[0].courseId ?? arr[0].course_id ?? 0)
-        setSelectedCourseId(cid > 0 ? cid : null)
+        const cid = Number(arr[0].courseId ?? arr[0].course_id ?? 0);
+        setSelectedCourseId(cid > 0 ? cid : null);
       } else {
-        setSelectedCourseId(null)
+        setSelectedCourseId(null);
       }
+    } catch (err: unknown) {
+      setCourses([]);
+      setSelectedCourseId(null);
+      toast.error(getErrorMessage(err));
     } finally {
-      setLoadingCourses(false)
+      setLoadingCourses(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (!selectedCollegeId) {
-      setCourses([])
-      setSelectedCourseId(null)
-      return
+      setCourses([]);
+      setSelectedCourseId(null);
+      return;
     }
-    void loadCourses(selectedCollegeId)
-  }, [selectedCollegeId, loadCourses])
+    void loadCourses(selectedCollegeId);
+  }, [selectedCollegeId, loadCourses]);
 
   const loadGrid = useCallback(async () => {
     if (!selectedCollegeId || !selectedCourseId) {
-      setRows([])
-      return
+      setRows([]);
+      return;
     }
-    setLoadingGrid(true)
+    setLoadingGrid(true);
     try {
-      const list = await listExamFcarSetupMasters(selectedCollegeId, selectedCourseId)
-      setRows(Array.isArray(list) ? list : [])
+      const list = await listExamFcarSetupMasters(
+        selectedCollegeId,
+        selectedCourseId,
+      );
+      setRows(Array.isArray(list) ? list : []);
+    } catch (err: unknown) {
+      setRows([]);
+      toast.error(getErrorMessage(err));
     } finally {
-      setLoadingGrid(false)
+      setLoadingGrid(false);
     }
-  }, [selectedCollegeId, selectedCourseId])
+  }, [selectedCollegeId, selectedCourseId]);
 
   useEffect(() => {
-    void loadGrid()
-  }, [loadGrid])
+    void loadGrid();
+  }, [loadGrid]);
 
   const regulationOptions = useMemo(
     () =>
-      regulations.map((r) => ({
-        value: String(r.regulationId ?? r.regulation_id ?? ''),
-        label: String(r.regulationCode ?? r.regulation_code ?? ''),
-      })).filter((o) => o.value !== '0' && o.value !== ''),
+      regulations
+        .map((r) => ({
+          value: String(r.regulationId ?? r.regulation_id ?? ""),
+          label: String(r.regulationCode ?? r.regulation_code ?? ""),
+        }))
+        .filter((o) => o.value !== "0" && o.value !== ""),
     [regulations],
-  )
+  );
 
   const resultValidationOptions = useMemo(
     () =>
       resultValidations.map((r) => ({
-        value: String(r.generalDetailId ?? r.general_detail_id ?? ''),
+        value: String(r.generalDetailId ?? r.general_detail_id ?? ""),
         label: String(
           r.generalDetailDisplayName ??
             r.general_detail_display_name ??
             r.generalDetailName ??
             r.general_detail_name ??
             r.generalDetailCode ??
-            '',
+            "",
         ),
       })),
     [resultValidations],
-  )
+  );
 
   const loadModalReferenceData = useCallback(async () => {
-    if (!selectedCollegeId || !selectedCourseId) return
+    if (!selectedCollegeId || !selectedCourseId) return;
     const [regs, rv] = await Promise.all([
-      listRegulationsByCollegeAndCourseForFcar(selectedCollegeId, selectedCourseId),
+      listRegulationsByCollegeAndCourseForFcar(
+        selectedCollegeId,
+        selectedCourseId,
+      ),
       getGeneralDetails(GM_CODES.RESULT_VALIDATION),
-    ])
-    setRegulations(Array.isArray(regs) ? regs : [])
-    setResultValidations(Array.isArray(rv) ? rv : [])
-  }, [selectedCollegeId, selectedCourseId])
+    ]);
+    setRegulations(Array.isArray(regs) ? regs : []);
+    setResultValidations(Array.isArray(rv) ? rv : []);
+  }, [selectedCollegeId, selectedCourseId]);
 
   async function openModalForAdd() {
-    if (!selectedCollegeId || !selectedCourseId) return
-    setEditing(null)
-    setModalError(null)
-    setFormMarkSetupName('')
-    setFormRegulationIds([])
-    setFormResultValidationId(null)
-    setFormHavingOptions(false)
-    setFormIsActive(true)
-    setFormReason('active')
+    if (!selectedCollegeId || !selectedCourseId) return;
+    setEditing(null);
+    setModalError(null);
+    setFormMarkSetupName("");
+    setFormRegulationIds([]);
+    setFormResultValidationId(null);
+    setFormHavingOptions(false);
+    setFormIsActive(true);
+    setFormReason("active");
     try {
-      await loadModalReferenceData()
+      await loadModalReferenceData();
     } catch (e: unknown) {
-      setModalError(getErrorMessage(e))
+      setModalError(getErrorMessage(e));
     }
-    setModalOpen(true)
+    setModalOpen(true);
   }
 
-  const openModalForEdit = useCallback(async (row: Record<string, unknown>) => {
-    if (!selectedCollegeId || !selectedCourseId) return
-    setEditing(row)
-    setModalError(null)
-    setFormMarkSetupName(String(row.markSetupName ?? row.mark_setup_name ?? ''))
-    const rawRegs = row.regulationIds ?? row.regulation_ids
-    const ids =
-      typeof rawRegs === 'string' && rawRegs.trim() !== ''
-        ? rawRegs.split(',').map((s) => s.trim()).filter(Boolean)
-        : []
-    setFormRegulationIds(ids)
-    const rvId = row.resultvalidationCatId ?? row.resultvalidation_cat_id
-    setFormResultValidationId(rvId != null && Number(rvId) > 0 ? String(rvId) : null)
-    setFormHavingOptions(Boolean(row.isHavingoptions ?? row.is_having_options))
-    setFormIsActive(row.isActive !== false && row.is_active !== false)
-    setFormReason(String(row.reason ?? (row.isActive !== false ? 'active' : '')))
-    try {
-      await loadModalReferenceData()
-    } catch (e: unknown) {
-      setModalError(getErrorMessage(e))
-    }
-    setModalOpen(true)
-  }, [selectedCollegeId, selectedCourseId, loadModalReferenceData])
+  const openModalForEdit = useCallback(
+    async (row: Record<string, unknown>) => {
+      if (!selectedCollegeId || !selectedCourseId) return;
+      setEditing(row);
+      setModalError(null);
+      setFormMarkSetupName(
+        String(row.markSetupName ?? row.mark_setup_name ?? ""),
+      );
+      const rawRegs = row.regulationIds ?? row.regulation_ids;
+      const ids =
+        typeof rawRegs === "string" && rawRegs.trim() !== ""
+          ? rawRegs
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [];
+      setFormRegulationIds(ids);
+      const rvId = row.resultvalidationCatId ?? row.resultvalidation_cat_id;
+      setFormResultValidationId(
+        rvId != null && Number(rvId) > 0 ? String(rvId) : null,
+      );
+      setFormHavingOptions(
+        Boolean(row.isHavingoptions ?? row.is_having_options),
+      );
+      setFormIsActive(row.isActive !== false && row.is_active !== false);
+      setFormReason(
+        String(row.reason ?? (row.isActive !== false ? "active" : "")),
+      );
+      try {
+        await loadModalReferenceData();
+      } catch (e: unknown) {
+        setModalError(getErrorMessage(e));
+      }
+      setModalOpen(true);
+    },
+    [selectedCollegeId, selectedCourseId, loadModalReferenceData],
+  );
 
   function closeModal() {
-    setModalOpen(false)
-    setEditing(null)
-    setSaving(false)
-    setModalError(null)
+    setModalOpen(false);
+    setEditing(null);
+    setSaving(false);
+    setModalError(null);
   }
 
   async function saveModal(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedCollegeId || !selectedCourseId) return
+    e.preventDefault();
+    if (!selectedCollegeId || !selectedCourseId) return;
     if (!formMarkSetupName.trim()) {
-      setModalError('Marks setup name is required.')
-      return
+      setModalError("Marks setup name is required.");
+      return;
     }
     if (!formIsActive && !formReason.trim()) {
-      setModalError('Reason is required when inactive.')
-      return
+      setModalError("Reason is required when inactive.");
+      return;
     }
 
-    const regulationIdsCsv = formRegulationIds.join(',')
+    const regulationIdsCsv = formRegulationIds.join(",");
     const payload: Record<string, unknown> = {
       markSetupName: formMarkSetupName.trim(),
       regulationIds: regulationIdsCsv,
-      resultvalidationCatId: formResultValidationId ? Number(formResultValidationId) : 0,
+      resultvalidationCatId: formResultValidationId
+        ? Number(formResultValidationId)
+        : 0,
       isHavingoptions: formHavingOptions,
       isActive: formIsActive,
-      reason: formIsActive ? 'active' : formReason.trim(),
+      reason: formIsActive ? "active" : formReason.trim(),
       collegeId: selectedCollegeId,
       courseId: selectedCourseId,
-    }
+    };
 
-    setSaving(true)
-    setModalError(null)
+    setSaving(true);
+    setModalError(null);
     try {
-      const editId = editing?.examFCARSetMasterId ?? editing?.exam_fcar_set_master_id
+      const editId =
+        editing?.examFCARSetMasterId ?? editing?.exam_fcar_set_master_id;
       if (editId != null) {
         await updateExamFcarSetupMaster(Number(editId), {
           ...payload,
           examFCARSetMasterId: Number(editId),
           createdDt: editing?.createdDt ?? editing?.created_dt,
           createdUser: editing?.createdUser ?? editing?.created_user,
-        })
+        });
       } else {
-        await createExamFcarSetupMaster(payload)
+        await createExamFcarSetupMaster(payload);
       }
-      closeModal()
-      await loadGrid()
+      closeModal();
+      await loadGrid();
     } catch (err: unknown) {
-      setModalError(getErrorMessage(err))
+      setModalError(getErrorMessage(err));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   const columnDefs = useMemo<ColDef<Record<string, unknown>>[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 72, flex: 0 },
-      { field: 'markSetupName', headerName: 'Marks Setup Name', minWidth: 180 },
-      { headerName: 'Regulations', minWidth: 160, cellRenderer: regulationsCell },
       {
-        headerName: 'Result Validation',
+        headerName: "SI.No",
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 72,
+        flex: 0,
+      },
+      { field: "markSetupName", headerName: "Marks Setup Name", minWidth: 180 },
+      {
+        headerName: "Regulations",
+        minWidth: 160,
+        cellRenderer: regulationsCell,
+      },
+      {
+        headerName: "Result Validation",
         minWidth: 160,
         valueGetter: (p) =>
-          String(p.data?.resultvalidationCatCode ?? p.data?.resultvalidation_cat_code ?? '—'),
+          String(
+            p.data?.resultvalidationCatCode ??
+              p.data?.resultvalidation_cat_code ??
+              "—",
+          ),
       },
-      { headerName: 'Is Having Options', minWidth: 130, cellRenderer: boolOptionsCell },
-      { headerName: 'Status', minWidth: 100, cellRenderer: statusCell },
       {
-        headerName: 'Actions',
+        headerName: "Is Having Options",
+        minWidth: 130,
+        cellRenderer: boolOptionsCell,
+      },
+      { headerName: "Status", minWidth: 100, cellRenderer: statusCell },
+      {
+        headerName: "Actions",
         width: 88,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<Record<string, unknown>>) => (
@@ -293,7 +360,7 @@ export default function SetupMasterPage() {
             variant="ghost"
             className="h-8 w-8 p-0"
             onClick={() => {
-              void openModalForEdit(p.data ?? {})
+              void openModalForEdit(p.data ?? {});
             }}
           >
             <Pencil className="h-4 w-4" />
@@ -302,70 +369,82 @@ export default function SetupMasterPage() {
       },
     ],
     [openModalForEdit],
-  )
+  );
 
   const collegeOptions = useMemo(
     () =>
       colleges.map((c) => ({
-        value: String(c.collegeId ?? c.college_id ?? ''),
-        label: String(c.collegeCode ?? c.college_code ?? c.collegeName ?? c.college_name ?? '—'),
+        value: String(c.collegeId ?? c.college_id ?? ""),
+        label: String(
+          c.collegeCode ??
+            c.college_code ??
+            c.collegeName ??
+            c.college_name ??
+            "—",
+        ),
       })),
     [colleges],
-  )
+  );
 
   const courseOptions = useMemo(
     () =>
       courses.map((c) => ({
-        value: String(c.courseId ?? c.course_id ?? ''),
-        label: String(c.courseCode ?? c.course_code ?? c.courseName ?? c.course_name ?? '—'),
+        value: String(c.courseId ?? c.course_id ?? ""),
+        label: String(
+          c.courseCode ?? c.course_code ?? c.courseName ?? c.course_name ?? "—",
+        ),
       })),
     [courses],
-  )
+  );
 
-  const selectedCollege = colleges.find((c) => Number(c.collegeId ?? c.college_id) === selectedCollegeId)
-  const selectedCourse = courses.find((c) => Number(c.courseId ?? c.course_id) === selectedCourseId)
+  const selectedCollege = colleges.find(
+    (c) => Number(c.collegeId ?? c.college_id) === selectedCollegeId,
+  );
+  const selectedCourse = courses.find(
+    (c) => Number(c.courseId ?? c.course_id) === selectedCourseId,
+  );
 
   return (
     <FilteredListPage
-      title="Exam Setup Master"
-      filters={(
+      title="OBE Exam Setup Master"
+      filters={
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
           <Select
-            label="College *"
-            required
+            label="College"
             className="[&_button]:h-8 [&_button]:text-[12px]"
             value={selectedCollegeId != null ? String(selectedCollegeId) : null}
             onChange={(v) => {
-              setSelectedCollegeId(v != null ? Number(v) : null)
-              setSelectedCourseId(null)
-              setRows([])
+              setSelectedCollegeId(v != null ? Number(v) : null);
+              setSelectedCourseId(null);
+              setRows([]);
             }}
             options={collegeOptions}
             disabled={loadingColleges}
-            placeholder={loadingColleges ? 'Loading…' : 'Select College'}
+            placeholder={loadingColleges ? "Loading…" : "Select College"}
           />
           <Select
-            label="Course *"
-            required
+            label="Course"
             className="[&_button]:h-8 [&_button]:text-[12px]"
             value={selectedCourseId != null ? String(selectedCourseId) : null}
             onChange={(v) => setSelectedCourseId(v != null ? Number(v) : null)}
             options={courseOptions}
-            disabled={!selectedCollegeId || loadingCourses || courses.length === 0}
+            disabled={!selectedCollegeId || loadingCourses}
             placeholder="Select Course"
+            emptyMessage="No records found"
+            isLoading={loadingCourses}
           />
         </div>
-      )}
+      }
       rowData={selectedCourseId != null ? rows : []}
       columnDefs={columnDefs}
       loading={loadingGrid}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Exam Setup Master',
+        searchPlaceholder: "Search…",
+        pdfDocumentTitle: "Exam Setup Master",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <Button
           type="button"
           size="sm"
@@ -376,29 +455,52 @@ export default function SetupMasterPage() {
           <Plus className="mr-1.5 h-4 w-4" />
           Add Setup
         </Button>
-      )}
+      }
     >
-      <Dialog open={modalOpen} onOpenChange={(o) => { if (!o) closeModal() }}>
+      <Dialog
+        open={modalOpen}
+        onOpenChange={(o) => {
+          if (!o) closeModal();
+        }}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Exam Setup Master' : 'Add Exam Setup Master'}</DialogTitle>
+            <DialogTitle>
+              {editing ? "Edit Exam Setup Master" : "Add Exam Setup Master"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={saveModal} className="space-y-4">
             {!editing && selectedCollege && selectedCourse && (
               <p className="text-[12px] text-slate-600">
-                <span className="font-medium text-slate-700">Course :</span>{' '}
+                <span className="font-medium text-slate-700">Course :</span>{" "}
                 <span className="text-[hsl(var(--primary))] font-medium">
-                  {String(selectedCollege.collegeCode ?? selectedCollege.college_code)} /{' '}
-                  {String(selectedCourse.courseCode ?? selectedCourse.course_code)}
+                  {String(
+                    selectedCollege.collegeCode ?? selectedCollege.college_code,
+                  )}{" "}
+                  /{" "}
+                  {String(
+                    selectedCourse.courseCode ?? selectedCourse.course_code,
+                  )}
                 </span>
               </p>
             )}
             {editing && (
               <p className="text-[12px] text-slate-600">
-                <span className="font-medium text-slate-700">Course :</span>{' '}
+                <span className="font-medium text-slate-700">Course :</span>{" "}
                 <span className="text-[hsl(var(--primary))] font-medium">
-                  {String(editing.collegeCode ?? selectedCollege?.collegeCode ?? selectedCollege?.college_code ?? '')} /{' '}
-                  {String(editing.courseCode ?? selectedCourse?.courseCode ?? selectedCourse?.course_code ?? '')}
+                  {String(
+                    editing.collegeCode ??
+                      selectedCollege?.collegeCode ??
+                      selectedCollege?.college_code ??
+                      "",
+                  )}{" "}
+                  /{" "}
+                  {String(
+                    editing.courseCode ??
+                      selectedCourse?.courseCode ??
+                      selectedCourse?.course_code ??
+                      "",
+                  )}
                 </span>
               </p>
             )}
@@ -434,24 +536,39 @@ export default function SetupMasterPage() {
             />
 
             <label className="flex items-center gap-2 text-[13px]">
-              <Checkbox checked={formHavingOptions} onCheckedChange={(c) => setFormHavingOptions(c === true)} />
+              <Checkbox
+                checked={formHavingOptions}
+                onCheckedChange={(c) => setFormHavingOptions(c === true)}
+              />
               Having Options
             </label>
 
             <label className="flex items-center gap-2 text-[13px]">
-              <Checkbox checked={formIsActive} onCheckedChange={(c) => setFormIsActive(c === true)} />
+              <Checkbox
+                checked={formIsActive}
+                onCheckedChange={(c) => setFormIsActive(c === true)}
+              />
               Active
             </label>
 
             {!formIsActive && (
               <div className="space-y-1.5">
                 <Label className="text-[12px]">Reason</Label>
-                <Input className="h-9 text-[13px]" value={formReason} onChange={(e) => setFormReason(e.target.value)} />
+                <Input
+                  className="h-9 text-[13px]"
+                  value={formReason}
+                  onChange={(e) => setFormReason(e.target.value)}
+                />
               </div>
             )}
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeModal}
+                disabled={saving}
+              >
                 Close
               </Button>
               <Button type="submit" disabled={saving}>
@@ -462,5 +579,5 @@ export default function SetupMasterPage() {
         </DialogContent>
       </Dialog>
     </FilteredListPage>
-  )
+  );
 }

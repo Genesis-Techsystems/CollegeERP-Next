@@ -16,6 +16,7 @@ import {
   getInternalAttendanceStudents,
   getInternalAttendanceSubjects,
   listActiveRooms,
+  listCourseGroups,
   listExamAllotmentInvigilators,
   listStaffExamAllotInvigilators,
   saveInternalAttendance,
@@ -138,6 +139,8 @@ export default function InternalExamAttendanceMarkingPage() {
 
   const [examListDetails, setExamListDetails] = useState<AnyRow[]>([]);
   const [collegesListDetails, setCollegesListDetails] = useState<AnyRow[]>([]);
+  /** CourseGroup master — supplies groupName for Name(Code) labels. */
+  const [courseGroupMaster, setCourseGroupMaster] = useState<AnyRow[]>([]);
   const [subjectTypeList, setSubjectTypeList] = useState<AnyRow[]>([]);
   const [roomRows, setRoomRows] = useState<AnyRow[]>([]);
   const [invigilatorRows, setInvigilatorRows] = useState<AnyRow[]>([]);
@@ -195,17 +198,16 @@ export default function InternalExamAttendanceMarkingPage() {
       ),
     [collegesListDetails],
   );
-  const courseGroups = useMemo(() => {
+  const courseGroupRows = useMemo(() => {
     const filtered = collegesListDetails.filter(
       (x) => Number(x.fk_college_id) === Number(collegeId),
     );
-    return [
-      0,
-      ...dedupeBy(filtered, "fk_course_group_id").map((x) =>
-        Number(x.fk_course_group_id),
-      ),
-    ];
+    return dedupeBy(filtered, "fk_course_group_id");
   }, [collegesListDetails, collegeId]);
+  const courseGroups = useMemo(
+    () => [0, ...courseGroupRows.map((x) => Number(x.fk_course_group_id))],
+    [courseGroupRows],
+  );
   const courseYears = useMemo(() => {
     const filtered = collegesListDetails.filter(
       (x) =>
@@ -341,6 +343,18 @@ export default function InternalExamAttendanceMarkingPage() {
     }
     void loadRest();
   }, [courseId, examId, academicYearId, employeeId]);
+
+  useEffect(() => {
+    async function loadCourseGroupMaster() {
+      if (!courseId) {
+        setCourseGroupMaster([]);
+        return;
+      }
+      const data = await listCourseGroups(courseId).catch(() => []);
+      setCourseGroupMaster(Array.isArray(data) ? data : []);
+    }
+    void loadCourseGroupMaster();
+  }, [courseId]);
 
   useEffect(() => {
     async function loadSubjects() {
@@ -660,21 +674,40 @@ export default function InternalExamAttendanceMarkingPage() {
       })),
     [colleges],
   );
-  const courseGroupOptions = useMemo(
-    () =>
-      courseGroups.map((id) => ({
-        value: String(id),
-        label:
-          id === 0
-            ? "All"
-            : String(
-                collegesListDetails.find(
-                  (r) => Number(r.fk_course_group_id) === id,
-                )?.group_code ?? `Group ${id}`,
-              ),
-      })),
-    [courseGroups, collegesListDetails],
-  );
+  const courseGroupOptions = useMemo(() => {
+    const masterById = new Map<number, AnyRow>();
+    for (const g of courseGroupMaster) {
+      const id = Number(
+        g.courseGroupId ?? g.course_group_id ?? g.fk_course_group_id,
+      );
+      if (Number.isFinite(id) && id > 0) masterById.set(id, g);
+    }
+    return [
+      { value: "0", label: "All" },
+      ...courseGroupRows.map((row) => {
+        const id = Number(row.fk_course_group_id);
+        const master = masterById.get(id);
+        const name = String(
+          row.group_name ??
+            row.groupName ??
+            master?.groupName ??
+            master?.group_name ??
+            "",
+        ).trim();
+        const code = String(
+          row.group_code ??
+            row.groupCode ??
+            master?.groupCode ??
+            master?.group_code ??
+            "",
+        ).trim();
+        // Angular-style: Bachelor of Commerce(NEPGUGCMUGBCO)
+        const label =
+          name && code ? `${name}(${code})` : name || code || `Group ${id}`;
+        return { value: String(id), label };
+      }),
+    ];
+  }, [courseGroupRows, courseGroupMaster]);
   const courseYearOptions = useMemo(
     () =>
       courseYears.map((id) => ({
@@ -852,6 +885,7 @@ export default function InternalExamAttendanceMarkingPage() {
               onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
               options={courseGroupOptions}
               placeholder="Course Group"
+              wrapOptionLabels
             />
           </div>
           <div className="space-y-1 md:col-span-2">

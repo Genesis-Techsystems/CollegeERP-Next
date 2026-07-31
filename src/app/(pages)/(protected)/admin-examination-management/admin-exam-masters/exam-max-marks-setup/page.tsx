@@ -67,6 +67,7 @@ export default function ExamMaxMarksSetupPage() {
   const [isForDisabled, setIsForDisabled] = useState(false);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [hasFetched, setHasFetched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
   const [notice, setNotice] = useState<Notice>(null);
@@ -121,12 +122,14 @@ export default function ExamMaxMarksSetupPage() {
     setRegulationId(null);
     setRegulations([]);
     setRows([]);
+    setHasFetched(false);
   }, [courses]);
 
   useEffect(() => {
     setRegulations([]);
     setRegulationId(null);
     setRows([]);
+    setHasFetched(false);
     if (!courseId || !universityId) return;
 
     const raw = regFilterData.filter(
@@ -154,6 +157,7 @@ export default function ExamMaxMarksSetupPage() {
   async function getDetails() {
     setRows([]);
     if (!courseId || !regulationId) return;
+    setHasFetched(true);
     setLoading(true);
     const data = await listExamMarksSetup(
       courseId,
@@ -314,7 +318,7 @@ export default function ExamMaxMarksSetupPage() {
 
   return (
     <FilteredPage
-      title="Exam Marks Setup"
+      title="Exam Max Marks Setup"
       notice={
         notice ? (
           <NoticeAlert
@@ -380,7 +384,11 @@ export default function ExamMaxMarksSetupPage() {
             <Select
               className="[&_button[role='combobox']]:h-9 [&_button[role='combobox']]:text-[13px] min-w-[10rem]"
               value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : null)}
+              onChange={(v) => {
+                setRegulationId(v ? Number(v) : null);
+                setRows([]);
+                setHasFetched(false);
+              }}
               options={regulations.map((r, i) => ({
                 value: String(r.regulationId ?? i),
                 label: String(r.regulationCode ?? r.regulation_code ?? ""),
@@ -399,7 +407,11 @@ export default function ExamMaxMarksSetupPage() {
                 id="disabled"
                 className={CHECKBOX_STYLE}
                 checked={isForDisabled}
-                onCheckedChange={(v) => setIsForDisabled(Boolean(v))}
+                onCheckedChange={(v) => {
+                  setIsForDisabled(Boolean(v));
+                  setRows([]);
+                  setHasFetched(false);
+                }}
               />
               <Label
                 htmlFor="disabled"
@@ -415,7 +427,7 @@ export default function ExamMaxMarksSetupPage() {
               size="sm"
               className="h-9 shrink-0"
               onClick={getDetails}
-              disabled={!courseId || !regulationId || loading}
+              disabled={loading}
             >
               {loading ? "Loading…" : "Get List"}
             </Button>
@@ -423,7 +435,7 @@ export default function ExamMaxMarksSetupPage() {
         </GlobalFilterBarRow>
       }
       body={
-        rows.length > 0 ? (
+        hasFetched ? (
           <div className="space-y-3">
             <h3 className="text-[13px] font-semibold tracking-tight text-foreground">
               Marks Setup
