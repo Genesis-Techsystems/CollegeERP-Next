@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 // Evaluator portal shell — ported from the standalone ExamDigit dashboard route.
 // The demo role picker + nested sidebar are dropped: CollegeERP's protected
@@ -6,43 +6,90 @@
 // accounts server-side (see ../page.tsx). This just switches between the three
 // evaluator views: subjects dashboard → answer scripts → marking workbench.
 
-import { useState } from 'react'
-import { EvaluatorDashboard } from './evaluator-dashboard'
-import { AnswerScriptsList, type ScriptRow } from './answer-scripts-list'
-import { EvaluationWorkbench } from './evaluation-workbench'
-import type { SubjectCard } from './subject-cards'
+import { useEffect, useState, Suspense } from "react";
+import { createPortal } from "react-dom";
+import { PageContainer, PageHeader } from "@/components/layout";
+import { EvaluatorDashboard } from "./evaluator-dashboard";
+import { AnswerScriptsList, type ScriptRow } from "./answer-scripts-list";
+import { EvaluationWorkbench } from "./evaluation-workbench";
+import type { SubjectCard } from "./subject-cards";
 
-export function EvaluatorPortal() {
-  const [openScript, setOpenScript] = useState<ScriptRow | null>(null)
-  const [openSubject, setOpenSubject] = useState<SubjectCard | null>(null)
+export type RoleTab = "evaluator" | "moderator";
+
+export function EvaluatorPortal({
+  pageTitle,
+  pageSubtitle,
+}: {
+  /** When set, shown above the subjects dashboard (e.g. "My Subjects"). */
+  pageTitle?: string;
+  pageSubtitle?: string;
+} = {}) {
+  const [openScript, setOpenScript] = useState<ScriptRow | null>(null);
+  const [openSubject, setOpenSubject] = useState<SubjectCard | null>(null);
+  /** Remember Evaluator/Moderator tab so Back from answer papers restores it. */
+  const [roleTab, setRoleTab] = useState<RoleTab>("evaluator");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  function openSubjectFromDashboard(s: SubjectCard) {
+    setRoleTab(s.isValidator ? "moderator" : "evaluator");
+    setOpenSubject(s);
+  }
 
   // Full-screen marking workbench when a script is opened.
   if (openScript) {
-    return (
+    const workbench = (
       <EvaluationWorkbench
+        key={`${openScript.examEvaluationAssignmentId}-${openScript.studentAnswerPaperId}`}
         scriptId={openScript.id}
         studentAnswerPaperId={openScript.studentAnswerPaperId}
         examEvaluationAssignmentId={openScript.examEvaluationAssignmentId}
         subjectName={openSubject?.subjectName ?? openSubject?.name}
+        profileId={openSubject?.examEvaluatorProfileId}
+        profileDetId={openSubject?.examEvaluatorProfileDetId}
+        isValidator={!!openSubject?.isValidator}
+        prevEvaluatorAnswerPath={openScript.prevEvaluatorAnswerPath}
+        // Back to answer-scripts list (same origin page — My Subjects or /evaluator).
         onBack={() => setOpenScript(null)}
+        onFinishNext={(next) => setOpenScript(next)}
       />
-    )
+    );
+    return mounted ? createPortal(workbench, document.body) : null;
   }
 
-  // Answer-scripts list for a chosen subject.
+  // Answer-scripts list for a chosen subject — Back returns to this page's dashboard.
   if (openSubject) {
     return (
-      <AnswerScriptsList
-        subject={openSubject}
-        subjectName={openSubject.subjectName ?? openSubject.name}
-        profileId={openSubject.examEvaluatorProfileId ?? undefined}
-        profileDetId={openSubject.examEvaluatorProfileDetId ?? undefined}
-        onOpen={(s) => setOpenScript(s)}
-        onBack={() => setOpenSubject(null)}
-      />
-    )
+      <PageContainer>
+        <AnswerScriptsList
+          subject={openSubject}
+          subjectName={openSubject.subjectName ?? openSubject.name}
+          profileId={openSubject.examEvaluatorProfileId ?? undefined}
+          profileDetId={openSubject.examEvaluatorProfileDetId ?? undefined}
+          isValidator={!!openSubject.isValidator}
+          onOpen={(s) => setOpenScript(s)}
+          onBack={() => setOpenSubject(null)}
+        />
+      </PageContainer>
+    );
   }
 
-  // Default: evaluator subjects dashboard.
-  return <EvaluatorDashboard onOpenSubject={setOpenSubject} />
+  // Default: evaluator subjects dashboard (same design for /evaluator and My Subjects).
+  return (
+    <PageContainer className="space-y-6">
+      {pageTitle ? (
+        <PageHeader title={pageTitle} subtitle={pageSubtitle} />
+      ) : null}
+      <Suspense fallback={null}>
+        <EvaluatorDashboard
+          onOpenSubject={openSubjectFromDashboard}
+          roleTab={roleTab}
+          onRoleTabChange={setRoleTab}
+        />
+      </Suspense>
+    </PageContainer>
+  );
 }

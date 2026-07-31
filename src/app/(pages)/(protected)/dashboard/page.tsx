@@ -353,20 +353,28 @@ export default function DashboardPage() {
             <div className="rounded-md border border-border bg-card p-4 space-y-2">
               <p className="text-sm">
                 Examiner dashboard is available at{" "}
-                <Link
-                  className="text-primary underline"
-                  href="/dashboards/evaluation-dashboard"
-                >
-                  Evaluation Dashboard
-                </Link>
-                .
+                <Link className="text-primary underline" href="/evaluator">
+                  Evaluator Subjects
+                </Link>{" "}
+                (Evaluator and Moderator tabs when both roles are assigned).
               </p>
             </div>
           </TabsContent>
         ) : null}
         {tabs.showModerator ? (
           <TabsContent value="moderator" className="mt-4">
-            <RoleDashboardPlaceholder title="Moderator Dashboard" />
+            <div className="rounded-md border border-border bg-card p-4 space-y-2">
+              <p className="text-sm">
+                Moderator subjects are available at{" "}
+                <Link
+                  className="text-primary underline"
+                  href="/evaluator?isValidator=true"
+                >
+                  Evaluator Subjects (Moderator)
+                </Link>
+                .
+              </p>
+            </div>
           </TabsContent>
         ) : null}
         {tabs.showManagement ? (

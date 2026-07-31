@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { BreadcrumbItem } from "./Breadcrumb";
 import { useBreadcrumbStore } from "@/store/breadcrumb-store";
 import { useNavigationStore } from "@/store/navigation-store";
+import { useSessionContext } from "@/context/SessionContext";
 import { findNavBreadcrumbItems, findNavPageLabel } from "@/lib/navigation";
 
 /**
@@ -249,13 +250,17 @@ export function useBreadcrumb(
   const pathname = usePathname();
   const lastSegmentLabel = useBreadcrumbStore((s) => s.lastSegmentLabel);
   const navItems = useNavigationStore((s) => s.navItems);
+  const { user } = useSessionContext();
+  const homeHref = user?.defaultDashboardPath || "/dashboard";
 
   if (customItems !== undefined) {
     return customItems;
   }
 
   const navBreadcrumb =
-    navItems.length > 0 ? findNavBreadcrumbItems(navItems, pathname) : null;
+    navItems.length > 0
+      ? findNavBreadcrumbItems(navItems, pathname, homeHref)
+      : null;
 
   let items: BreadcrumbItem[];
 
@@ -267,7 +272,7 @@ export function useBreadcrumb(
       .split("/")
       .filter((s): s is string => s.length > 0 && !s.startsWith("("));
 
-    items = [{ label: "Home", href: "/dashboard" }];
+    items = [{ label: "Home", href: homeHref }];
 
     let currentPath = "";
     segments.forEach((segment, index) => {
@@ -292,6 +297,11 @@ export function useBreadcrumb(
   items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
   items = assignRegulationToStudentsBreadcrumb(pathname, items);
+
+  // Role home path (evaluator → /evaluator, student → /student-dashboard).
+  if (items[0]?.label === "Home") {
+    items = [{ ...items[0], href: homeHref }, ...items.slice(1)];
+  }
 
   if (lastSegmentLabel && items.length > 0) {
     const last = items[items.length - 1];

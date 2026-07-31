@@ -46,6 +46,8 @@ type DialogContentProps = React.ComponentPropsWithoutRef<
    * dialogs.
    */
   hasDescription?: boolean;
+  /** Extra classes for the fixed overlay (e.g. raise above a z-[70] workbench). */
+  overlayClassName?: string;
 };
 
 const DialogContent = React.forwardRef<
@@ -63,6 +65,7 @@ const DialogContent = React.forwardRef<
       onEscapeKeyDown,
       description,
       hasDescription = false,
+      overlayClassName,
       "aria-describedby": ariaDescribedBy,
       ...props
     },
@@ -86,7 +89,7 @@ const DialogContent = React.forwardRef<
 
     return (
       <DialogPortal>
-        <DialogOverlay />
+        <DialogOverlay className={overlayClassName} />
         <DialogPrimitive.Content
           ref={ref}
           {...ariaDescribedByProps}

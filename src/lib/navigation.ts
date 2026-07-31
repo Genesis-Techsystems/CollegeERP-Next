@@ -1330,6 +1330,7 @@ function breadcrumbChainPreference(chain: NavItem[]): number {
 export function findNavBreadcrumbItems(
   navItems: NavItem[],
   pathname: string,
+  homeHref = "/dashboard",
 ): NavBreadcrumbSegment[] | null {
   const target = normalizeHref(pathname).replace(/\/$/, "") || "/";
   const match: { chain: NavItem[]; score: number } = {
@@ -1373,7 +1374,7 @@ export function findNavBreadcrumbItems(
     };
   });
 
-  return [{ label: "Home", href: "/dashboard" }, ...segments];
+  return [{ label: "Home", href: homeHref }, ...segments];
 }
 
 /** Leaf sidebar label for the current pathname (null when nav metadata is unavailable). */

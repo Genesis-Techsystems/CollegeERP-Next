@@ -15,18 +15,21 @@ import { getCollegeById } from "@/services";
 import { MINIO_URL } from "@/config/constants/api";
 import { IS_DEBUG_MODE, DebugTrigger, useDebugStore } from "@/debug";
 
-/** Static "Home" entry — always first, routes to the dashboard. */
-const HOME_NAV_ITEM: NavItemType = {
-  id: "static_home",
-  label: "Home",
-  icon: "home",
-  href: "/dashboard",
-  sortOrder: -1,
-};
+/** Static "Home" entry — always first; href is filled from the role home path. */
+function buildHomeNavItem(href: string): NavItemType {
+  return {
+    id: "static_home",
+    label: "Home",
+    icon: "home",
+    href,
+    sortOrder: -1,
+  };
+}
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useSessionContext();
+  const homeHref = user?.defaultDashboardPath || "/dashboard";
   const {
     navItems,
     isSidebarOpen,
@@ -132,17 +135,22 @@ export function Sidebar() {
   }
 
   const displayedItems = useMemo(() => {
-    // Home already routes to /dashboard — drop the redundant API "Dashboard" module.
+    // Home already routes to the role dashboard — drop the redundant API "Dashboard" module.
     const withoutDashboard = navItems.filter((item) => {
       const label = item.label.trim().toLowerCase();
       const href = (item.href ?? "").toLowerCase();
       if (label === "dashboard") return false;
-      if (href === "/dashboard" || href.includes("main-dashboard"))
+      if (
+        href === "/dashboard" ||
+        href === "/evaluator" ||
+        href === "/student-dashboard" ||
+        href.includes("main-dashboard")
+      )
         return false;
       return true;
     });
     let items = [
-      HOME_NAV_ITEM,
+      buildHomeNavItem(homeHref),
       ...withoutDashboard.slice().sort((a, b) => a.sortOrder - b.sortOrder),
     ];
     if (searchTerm.trim()) items = filterBySearch(items, searchTerm);
@@ -150,7 +158,7 @@ export function Sidebar() {
       items = filterByDebug(items, new Set(debugSettings.nav.hiddenIds));
     }
     return items;
-  }, [navItems, searchTerm, debugSettings.nav.hiddenIds]);
+  }, [navItems, searchTerm, debugSettings.nav.hiddenIds, homeHref]);
 
   // Scroll nav to top whenever search results change
   useEffect(() => {

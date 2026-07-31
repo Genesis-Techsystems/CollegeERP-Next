@@ -47,6 +47,8 @@ export type EvaluationPageItem = {
   isViewed: boolean;
   isNotAnswered: boolean;
   comments: null;
+  /** Angular is_consider — 0 = not counted in calculated total. */
+  is_consider?: number | boolean | null;
 };
 
 /** POST /cms/addExamStudentEvaluationPagesList — persist a batch of annotation items. */
@@ -98,11 +100,17 @@ export async function deleteQuestionMarks(
   examEvaluationAssignmentId: Id,
   questionPaperMarksId: Id,
 ): Promise<ApiEnvelope> {
-  return apiProc(S_POP_PROC_URL, S_POP_EXAM_QUESTIONPAPER_DETAILS, [
+  const res = await apiProc(S_POP_PROC_URL, S_POP_EXAM_QUESTIONPAPER_DETAILS, [
     { procKey: "in_flag", procValue: "delete_question" },
     { procKey: "in_exam_evaluationassignment_id", procValue: examEvaluationAssignmentId },
     { procKey: "in_questionpaper_marks_id", procValue: questionPaperMarksId },
   ]);
+  // Angular accepts statusCode === 200 + success; some envs only set one of them.
+  const ok = res?.success === true || Number(res?.statusCode) === 200;
+  if (!ok) {
+    throw new Error(res?.message || "Delete question marks failed");
+  }
+  return res;
 }
 
 // ---- Reject / UFM ----------------------------------------------------------
@@ -115,6 +123,8 @@ export type RejectArgs = {
   evaluationTime?: number;
   evaluatedTotalMarks?: number | null;
   evaluationStartDate?: string | null;
+  /** Angular UFM uses assignment evaluationEndDate; reject uses today. */
+  evaluationEndDate?: string | null;
   reason?: string;
   ufmReasonCatDetId?: number | null;
 };
@@ -123,7 +133,7 @@ function todayISODate(): string {
   return new Date().toISOString().slice(0, 10); // yyyy-MM-dd
 }
 
-/** PUT domain/update/ExamEvaluationAssignments — reject (isUfm:false). */
+/** PUT domain/update/ExamEvaluationAssignments — reject (isUfm:false). Angular rejectSubmit. */
 export async function rejectEvaluation(args: RejectArgs): Promise<ApiEnvelope> {
   const dataObj = {
     evaluationStatusCatDetId: REJECTED_STATUS,
@@ -148,7 +158,7 @@ export async function rejectEvaluation(args: RejectArgs): Promise<ApiEnvelope> {
   );
 }
 
-/** PUT domain/update/ExamEvaluationAssignments — UFM (isUfm:true). */
+/** PUT domain/update/ExamEvaluationAssignments — UFM (isUfm:true). Angular ufmSubmit. */
 export async function ufmEvaluation(args: RejectArgs): Promise<ApiEnvelope> {
   const dataObj = {
     evaluationStatusCatDetId: REJECTED_STATUS,
@@ -157,7 +167,8 @@ export async function ufmEvaluation(args: RejectArgs): Promise<ApiEnvelope> {
     evaluatedTotalMarks: args.evaluatedTotalMarks ?? null,
     answerSheetCheckDate: todayISODate(),
     evaluationStartDate: args.evaluationStartDate ?? null,
-    evaluationEndDate: todayISODate(),
+    // Angular: evaluationAssign.evaluationEndDate (not today)
+    evaluationEndDate: args.evaluationEndDate ?? todayISODate(),
     isUfm: true,
     ufmReason: args.reason ?? "",
     ufmreasonCatdetId: args.ufmReasonCatDetId || null,
@@ -223,18 +234,21 @@ export async function updateEvaluationsCompletedCount(payload: {
  * the finalize proc. Page geometry matches Angular finishPaper ([300,400] page,
  * image at 10/25/280×365). IRREVERSIBLE — the finalize proc closes the paper.
  *
- * @param pageJpegs data-URL JPEGs of each page (already annotation-baked)
+ * @param pageImages JPEG Blobs (preferred) or data-URL strings of each page
  */
 export async function finalizeAndUpload(
   examEvaluationAssignmentId: Id,
   fileName: string,
-  pageJpegs: string[],
+  pageImages: Array<Blob | string>,
 ): Promise<ApiEnvelope> {
   // pdf-lib is client-only; import lazily so it never hits the SSR bundle.
   const { PDFDocument } = await import("pdf-lib");
   const pdfDoc = await PDFDocument.create();
-  for (const dataUrl of pageJpegs) {
-    const bytes = await fetch(dataUrl).then((r) => r.arrayBuffer());
+  for (const img of pageImages) {
+    const bytes =
+      img instanceof Blob
+        ? await img.arrayBuffer()
+        : await fetch(img).then((r) => r.arrayBuffer());
     const jpg = await pdfDoc.embedJpg(bytes);
     const page = pdfDoc.addPage([300, 400]);
     page.drawImage(jpg, { x: 10, y: 25, width: 280, height: 365 });
@@ -250,4 +264,38 @@ export async function finalizeAndUpload(
   }
   // Finalize only after a successful upload (Angular order).
   return finalizeMarks(examEvaluationAssignmentId);
+}
+
+const S_POP_EVALUATOR_ASSIGNMENT_URL = "getAllRecords/s_pop_exam_evaluatorassignment";
+
+/** Verbatim PROCCONSTANTS.s_pop_exam_evaluatorassignment — Angular assignNext(). */
+const S_POP_EXAM_EVALUATOR_ASSIGNMENT: ProcTemplateItem[] = [
+  { paramName: "in_flag=", paramValue: "assign_next_eval", id: "in_flag" },
+  { paramName: "&in_profileids=", paramValue: 0, id: "in_profileids" },
+  { paramName: "&in_exam_evaluationassignment_ids=", paramValue: "" },
+  { paramName: "&in_omr_serial_nos=", paramValue: "" },
+  { paramName: "&in_timetable_det_ids=", paramValue: "" },
+  { paramName: "&in_exam_id=", paramValue: 0 },
+  { paramName: "&in_subject_id=", paramValue: 0 },
+  { paramName: "&in_course_year_id=", paramValue: 0 },
+];
+
+/**
+ * Angular assignNext — try to pull another paper onto this evaluator profile.
+ * Returns true when Flag === 'Success' (then caller should re-fetch answer papers).
+ */
+export async function assignNextEvalForProfile(
+  examEvaluatorProfileDetId: Id,
+): Promise<boolean> {
+  const res = await apiProc<any>(
+    S_POP_EVALUATOR_ASSIGNMENT_URL,
+    S_POP_EXAM_EVALUATOR_ASSIGNMENT,
+    [
+      { procKey: "in_flag", procValue: "assign_next_eval" },
+      { procKey: "in_profileids", procValue: examEvaluatorProfileDetId },
+    ],
+  );
+  if (!res?.success) return false;
+  const flag = res?.data?.result?.[0]?.[0]?.Flag;
+  return flag === "Success";
 }
