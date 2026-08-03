@@ -44,7 +44,7 @@ const schema = z.object({
   collegeId: requiredId("College"),
   roomId: requiredId("Room"),
   libraryName: z.string().min(1, "Library name is required"),
-  libraryCode: z.string().optional(),
+  libraryCode: z.string().trim().min(1, "Library code is required"),
   isActive: z.boolean(),
   reason: z.string().optional(),
 });
@@ -55,6 +55,7 @@ interface LibraryDetailsModalProps {
   open: boolean;
   onClose: () => void;
   row: LibraryDetail | null;
+  existingRows?: LibraryDetail[];
   onSaved: () => void;
 }
 
@@ -62,6 +63,7 @@ export function LibraryDetailsModal({
   open,
   onClose,
   row,
+  existingRows = [],
   onSaved,
 }: Readonly<LibraryDetailsModalProps>) {
   const isEditing = row != null;
@@ -181,8 +183,21 @@ export function LibraryDetailsModal({
   }, [campusId]);
 
   async function onSubmit(data: FormValues) {
+    const code = data.libraryCode.trim().toLowerCase();
+    const duplicate = existingRows.some(
+      (item) =>
+        item.campusId === data.campusId &&
+        (item.libraryCode ?? "").trim().toLowerCase() === code &&
+        item.libraryId !== (row?.libraryId ?? -1),
+    );
+    if (duplicate) {
+      toastError("Library code already exists for the selected campus");
+      return;
+    }
+
     const payload = {
       ...data,
+      libraryCode: data.libraryCode.trim(),
       reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
       ...(isEditing && row?.libraryId ? { libraryId: row.libraryId } : {}),
     };
@@ -296,7 +311,7 @@ export function LibraryDetailsModal({
           </div>
           <div className="space-y-1">
             <Label htmlFor="libraryCode" className={LIBRARY_FIELD_LABEL_CLASS}>
-              Library Code
+              Library Code *
             </Label>
             <Input
               id="libraryCode"
@@ -304,6 +319,11 @@ export function LibraryDetailsModal({
               placeholder="Enter library code"
               {...register("libraryCode")}
             />
+            {errors.libraryCode ? (
+              <p className="text-xs text-destructive">
+                {errors.libraryCode.message}
+              </p>
+            ) : null}
           </div>
           <Controller
             name="roomId"

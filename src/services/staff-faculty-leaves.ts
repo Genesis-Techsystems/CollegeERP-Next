@@ -6,6 +6,7 @@ import {
   EVENTS_API,
   LEAVE_API,
   SETUP_API,
+  TIMETABLE_REPORT_API,
 } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
 import { GM_CODES } from "@/config/constants/ui";
@@ -13,6 +14,7 @@ import {
   buildQuery,
   domainList,
   fetchDetails,
+  getAllRecords,
   postDetailsEnvelope,
 } from "./crud";
 import { listGeneralDetailsByCode } from "./student-information";
@@ -128,6 +130,167 @@ export async function listStaffLeaveApplications(
     } catch {
       // try next query shape
     }
+  }
+  return [];
+}
+
+/**
+ * Angular principal leave-approvals:
+ * `listDetailsByTwoIdsWithSort(LeaveApplication, collegeId, leaveYear, 'DESC',
+ *  getDetailsByCollegeIdUrl, 'leaveYear', 'createdDt')`.
+ * Client still re-sorts DESC by applicationDate (Angular `sortDataDes`).
+ */
+export async function listCollegeLeaveApplications(
+  collegeId: number,
+  leaveYear: number | string,
+): Promise<AnyRow[]> {
+  if (!collegeId || leaveYear == null || leaveYear === "") return [];
+  const year = String(leaveYear);
+  const queries = [
+    buildQuery(
+      { "College.collegeId": collegeId, leaveYear: year },
+      { field: "createdDt", direction: "DESC" },
+    ),
+    buildQuery(
+      { "College.collegeId": collegeId, leaveYear: Number(year) },
+      { field: "createdDt", direction: "DESC" },
+    ),
+  ];
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>(ENTITIES.LEAVE_APPLICATION.name, q);
+      if (rows.length > 0) return rows;
+    } catch {
+      // try next query shape
+    }
+  }
+  return [];
+}
+
+/**
+ * Angular principal leave-application (Leave Requests):
+ * `listDetailsByTwoIdsWithSort(LeaveApplication, employeeId, leaveYear, 'DESC',
+ *  'assignedEmployeeDetail.employeeId', 'leaveYear', 'createdDt')`.
+ */
+export async function listAssignedLeaveApplications(
+  assignedEmployeeId: number,
+  leaveYear: number | string,
+): Promise<AnyRow[]> {
+  if (!assignedEmployeeId || leaveYear == null || leaveYear === "") return [];
+  const year = String(leaveYear);
+  const queries = [
+    buildQuery(
+      {
+        "assignedEmployeeDetail.employeeId": assignedEmployeeId,
+        leaveYear: year,
+      },
+      { field: "createdDt", direction: "DESC" },
+    ),
+    buildQuery(
+      {
+        "assignedEmployeeDetail.employeeId": assignedEmployeeId,
+        leaveYear: Number(year),
+      },
+      { field: "createdDt", direction: "DESC" },
+    ),
+  ];
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>(ENTITIES.LEAVE_APPLICATION.name, q);
+      if (rows.length > 0) return rows;
+    } catch {
+      // try next query shape
+    }
+  }
+  return [];
+}
+
+/**
+ * Angular `listByTwoIds(getEmpLeaveCount, leaveFromDate, employeeId, 'date', 'empId')`.
+ */
+export async function getEmpLeaveCount(
+  date: string | number,
+  empId: number,
+): Promise<AnyRow[]> {
+  if (!date || !empId) return [];
+  try {
+    const data = await fetchDetails<unknown>(LEAVE_API.GET_EMP_LEAVE_COUNT, {
+      date: String(date),
+      empId,
+    });
+    return normalizeListPayload(data);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular leave-approvals `viewProxies`:
+ * `listByTwelveIds(getAllRecords/s_rep_tt_get_timetable_details, Faculty_Work_Load, …)`.
+ */
+export async function listFacultyWorkloadProxies(params: {
+  leaveFromDate: string;
+  leaveToDate: string;
+  employeeId: number;
+}): Promise<AnyRow[]> {
+  const { leaveFromDate, leaveToDate, employeeId } = params;
+  if (!leaveFromDate || !leaveToDate || !employeeId) return [];
+
+  const procName = TIMETABLE_REPORT_API.REP_TT_GET_TIMETABLE_DETAILS.startsWith(
+    "getAllRecords/",
+  )
+    ? TIMETABLE_REPORT_API.REP_TT_GET_TIMETABLE_DETAILS.slice(
+        "getAllRecords/".length,
+      )
+    : TIMETABLE_REPORT_API.REP_TT_GET_TIMETABLE_DETAILS;
+
+  try {
+    const raw = await getAllRecords<unknown>(procName, {
+      in_flag: "Faculty_Work_Load",
+      in_fdate: leaveFromDate,
+      in_tdate: leaveToDate,
+      in_collegeId: 0,
+      in_courseId: "0",
+      in_CourseGroupId: 0,
+      in_CourseYearId: 0,
+      in_academicYearId: "0",
+      in_sectionId: "0",
+      in_empId: employeeId,
+      in_academicYearName: 0,
+      in_deptId: 0,
+    });
+    return unwrapFacultyWorkloadRows(raw);
+  } catch {
+    return [];
+  }
+}
+
+/** Angular `result.data.result[0]` for Faculty_Work_Load. */
+function unwrapFacultyWorkloadRows(data: unknown): AnyRow[] {
+  if (Array.isArray(data)) {
+    if (data.length > 0 && Array.isArray(data[0])) {
+      return (data[0] as unknown[]).filter(
+        (r): r is AnyRow => !!r && typeof r === "object" && !Array.isArray(r),
+      );
+    }
+    return data.filter(
+      (r): r is AnyRow => !!r && typeof r === "object" && !Array.isArray(r),
+    );
+  }
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.result)) {
+      const first = obj.result[0];
+      if (Array.isArray(first)) {
+        return first.filter(
+          (r): r is AnyRow => !!r && typeof r === "object" && !Array.isArray(r),
+        );
+      }
+      return obj.result.filter(
+        (r): r is AnyRow => !!r && typeof r === "object" && !Array.isArray(r),
+      );
+    }
+    if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
   }
   return [];
 }

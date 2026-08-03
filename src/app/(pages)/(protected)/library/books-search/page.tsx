@@ -232,6 +232,7 @@ export default function BooksSearchPage() {
       rowData={showTable ? tableRows : []}
       columnDefs={columnDefs}
       loading={showTable ? loadingDetails : false}
+      resultsVisible={showTable}
       pagination
       paginationPageSize={10}
       toolbar={{

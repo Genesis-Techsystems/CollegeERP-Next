@@ -80,12 +80,18 @@ function SessionProviderInner({
       user.isDeptAdmin ? "true" : "false",
     );
     globalThis.localStorage.setItem("roleName", user.roleName ?? "");
+    // Never overwrite EmpDeptHeads-derived isHOD=true with false (Angular parity).
     if (user.isHod) {
       globalThis.localStorage.setItem("isHOD", "true");
       globalThis.localStorage.setItem("isHODDashboard", "true");
-    } else {
+    } else if (globalThis.localStorage.getItem("isHOD") !== "true") {
       globalThis.localStorage.setItem("isHOD", "false");
       globalThis.localStorage.setItem("isHODDashboard", "false");
+    }
+    if (user.isPrincipal) {
+      globalThis.localStorage.setItem("isPRINCIPAL", "true");
+    } else if (globalThis.localStorage.getItem("isPRINCIPAL") !== "true") {
+      globalThis.localStorage.setItem("isPRINCIPAL", "false");
     }
   }
 

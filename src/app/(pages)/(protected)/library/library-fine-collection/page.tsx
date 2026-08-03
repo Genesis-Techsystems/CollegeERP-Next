@@ -267,6 +267,7 @@ export default function LibraryFineCollectionPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={rows.length > 0}
       pagination
       paginationPageSize={25}
       toolbar={{

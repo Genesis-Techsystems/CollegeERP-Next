@@ -16,7 +16,7 @@ import type { FinTransaction } from '@/types/finance'
 import TransactionModal from './TransactionModal'
 
 const COL_DEFS = {
-  siNo: { headerName: 'No.', valueGetter: rowIndexGetter, width: 60, flex: 0 } as ColDef<FinTransaction>,
+  siNo: { headerName: 'SI.NO', valueGetter: rowIndexGetter, width: 60, flex: 0 } as ColDef<FinTransaction>,
   accountentityName: { field: 'accountentityName', headerName: 'Entity Name', minWidth: 110, flex: 1 } as ColDef<FinTransaction>,
   vouchertypeCatdetCode: { field: 'vouchertypeCatdetCode', headerName: 'Transaction Type', minWidth: 120, flex: 0.9 } as ColDef<FinTransaction>,
   transactionNumber: { field: 'transactionNumber', headerName: 'Transaction Number', minWidth: 120, flex: 0.9 } as ColDef<FinTransaction>,

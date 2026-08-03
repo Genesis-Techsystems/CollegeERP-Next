@@ -152,6 +152,31 @@ export function normalizeHref(path: string): string {
       /\/apps\/reports\/admin-exam-reports(?=\/|$)/gi,
       "/admin-examination-management/admin-exam-reports",
     )
+    // Angular Leave Requests — principal leave-applications (+ legacy leave-approvals mounts).
+    .replace(
+      /\/principal-my-approvals\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-applications",
+    )
+    .replace(
+      /\/faculty-details\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-applications",
+    )
+    .replace(
+      /\/my-leaves\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-applications",
+    )
+    .replace(
+      /\/apps\/principal-my-approvals\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-applications",
+    )
+    .replace(
+      /\/apps\/principal-my-approvals\/leave-applications(?=\/|$)/gi,
+      "/principal-my-approvals/leave-applications",
+    )
+    .replace(
+      /\/apps\/faculty-details\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-applications",
+    )
     // Some exam-report pages live under `/exam-reports/` (not `/admin-exam-reports/`).
     // After the prefix rewrite above, remap those known slugs so Search + nav hrefs
     // do not land on a missing route (which falls through to the dashboard).
@@ -507,25 +532,45 @@ export function normalizeHref(path: string): string {
       "/notifications-and-announcements/employee-inbox",
     )
     // Angular Communications → Notifications (emp-notifications module).
+    // Keep Angular URLs; pages render EmpNotifications / AddNotification in place.
     .replace(
       /\/principal-communications\/announcements\/add-notification\/?/gi,
-      "/notifications-and-announcements/add-notification",
+      "/principal-communications/announcements/add-notification",
     )
     .replace(
       /\/principal-communications\/announcements\/?/gi,
-      "/notifications-and-announcements/employee-inbox",
+      "/principal-communications/announcements",
     )
     .replace(
       /\/principal-communications\/notifications\/send-notifications\/add-notification\/?/gi,
-      "/notifications-and-announcements/add-notification",
+      "/principal-communications/notifications/send-notifications/add-notification",
     )
     .replace(
       /\/principal-communications\/notifications\/send-notifications\/?/gi,
-      "/notifications-and-announcements/employee-inbox",
+      "/principal-communications/notifications/send-notifications",
     )
     .replace(
       /\/principal-communications\/notifications\/?/gi,
-      "/notifications-and-announcements/employee-inbox",
+      "/principal-communications/notifications/send-notifications",
+    )
+    // Angular Communications → SMS (`principal-communications/sms/send-sms`).
+    .replace(
+      /\/principal-communications\/sms\/send-sms(?=\/|$)/gi,
+      "/email-sms/send-sms-to-students",
+    )
+    .replace(
+      /\/principal-communications\/sms(?=\/|$)/gi,
+      "/email-sms/send-sms-to-students",
+    )
+    // Angular Communications → Email (`principal-communications/email/send-emails`
+    // → `principal-to-dpt-email.component`).
+    .replace(
+      /\/principal-communications\/email\/send-emails(?=\/|$)/gi,
+      "/email-sms/principal-to-dept-email",
+    )
+    .replace(
+      /\/principal-communications\/email(?=\/|$)/gi,
+      "/email-sms/principal-to-dept-email",
     )
     // Student my notifications → App Router path.
     .replace(
@@ -1302,6 +1347,16 @@ function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
   if (!item.href) return null;
 
   const hrefLower = item.href.toLowerCase();
+  // Excel bulk-upload leaves live under `/admin/bulk-uploads/*` (not raw Angular paths).
+  if (
+    hrefLower.includes("subject-unit-topic-upload") ||
+    hrefLower.includes("subject-unit-topics-bulk-upload")
+  ) {
+    return "/admin/bulk-uploads/subject-unit-topic-upload";
+  }
+  if (hrefLower.includes("unit-topic-bulk-upload")) {
+    return "/admin/bulk-uploads/unit-topic-bulk-upload";
+  }
   const masterSettingsMarker = "master-settings/";
   const masterSettingsIndex = hrefLower.indexOf(masterSettingsMarker);
   if (masterSettingsIndex !== -1) {
@@ -1342,6 +1397,22 @@ function breadcrumbChainPreference(chain: NavItem[]): number {
         l.includes("exam report"),
     );
   if (underReports) return 50_000;
+
+  // Prefer Academics → Attendance Update over Attendance Management → Mark Attendance
+  // when both sidebar entries resolve to the same App Router path.
+  const underAcademics = labels.some(
+    (l) => l === "academics" || l === "academic",
+  );
+  const staffAcademicsLeaf = labels.some(
+    (l) =>
+      l.includes("my classes") ||
+      l.includes("my timetable") ||
+      l === "assignments" ||
+      l.includes("class diary") ||
+      l.includes("class dairy") ||
+      l.includes("attendance update"),
+  );
+  if (underAcademics && staffAcademicsLeaf) return 40_000;
 
   const underAdminExam =
     labels.some((l) => l.includes("admin examination")) &&

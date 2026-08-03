@@ -467,6 +467,7 @@ export default function PrintBooksBarcodesPage() {
           }
           rowData={printQueue}
           columnDefs={columnDefs}
+          resultsVisible={printQueue.length > 0}
           pagination
           paginationPageSize={10}
           height="auto"

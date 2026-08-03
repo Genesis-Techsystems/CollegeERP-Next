@@ -6,9 +6,10 @@ import { format } from "date-fns";
 import { Plus } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { ListPage } from "@/components/layout";
-import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { MINIO_URL } from "@/config/constants/api";
 import { useSessionContext } from "@/context/SessionContext";
+import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -17,6 +18,13 @@ import {
   getNotificationsByAudience,
   type DashboardNotification,
 } from "@/services";
+
+/** Same as StaffDashboard — Angular `CONSTANTS.MINIO` + relative path. */
+function docHref(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!path) return "#";
+  return `${MINIO_URL}${path}`;
+}
 
 function readStorage(key: string): string {
   if (typeof globalThis.window === "undefined") return "";
@@ -58,7 +66,7 @@ function documentRenderer(p: ICellRendererParams<DashboardNotification>) {
   if (path) {
     return (
       <a
-        href={String(path)}
+        href={docHref(String(path))}
         target="_blank"
         rel="noopener noreferrer"
         className="text-blue-600 underline"
@@ -92,18 +100,33 @@ function statusRenderer(p: ICellRendererParams<DashboardNotification>) {
  *  - `#/principal-communications/notifications/send-notifications`
  */
 export function EmpNotificationsPage() {
-  const { user } = useSessionContext();
+  const { user, isLoading: sessionLoading } = useSessionContext();
   const router = useRouter();
-  const navLabel = usePageNavLabel();
-  const pageTitle = navLabel ?? "Notifications & Announcements";
+  const { isHod: staffIsHod, deptId: staffDeptId } = useStaffLoginContext(
+    user,
+    sessionLoading,
+  );
+  // Angular page heading is fixed: "Notifications & Announcements"
+  // (breadcrumb is Communication → Notifications; title stays full name)
+  const pageTitle = "Notifications & Announcements";
 
   const [rows, setRows] = useState<DashboardNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const empStatusCode = readStorage("empStatusCode") || "ACTV";
   const isActiveEmployee = empStatusCode === "ACTV";
-  const isHod =
-    readStorage("isHOD") === "true" || readStorage("isPRINCIPAL") === "true";
+  // Angular: *ngIf="isHod == true" where isHod = isHOD || isPRINCIPAL
+  const canAddNotification =
+    staffIsHod ||
+    Boolean(user?.isPrincipal) ||
+    readStorage("isPRINCIPAL") === "true" ||
+    readStorage("isPrincipal") === "true" ||
+    String(user?.userRole ?? "")
+      .toUpperCase()
+      .includes("PRINCIPAL") ||
+    String(user?.roleName ?? "")
+      .toUpperCase()
+      .includes("PRINCIPAL");
 
   const collegeId = positiveId(readStorage("collegeId"), user?.collegeId);
   const academicYearId = positiveId(
@@ -111,7 +134,7 @@ export function EmpNotificationsPage() {
     user?.academicYearId,
   );
   const employeeId = positiveId(readStorage("employeeId"), user?.employeeId);
-  const empDeptId = positiveId(readStorage("empDeptId"));
+  const empDeptId = positiveId(staffDeptId, readStorage("empDeptId"));
   const empCategoryName = readStorage("empCategoryName");
   const userRole = readStorage("userRole") || user?.userRole || "";
 
@@ -243,13 +266,13 @@ export function EmpNotificationsPage() {
 
   function openAddNotification() {
     // Angular openDialog():
-    // navigate to add-notification with collegeId & academicYearId query params
+    // `/principal-communications/notifications/send-notifications/add-notification`
     const qs = new URLSearchParams({
       collegeId: String(collegeId),
       academicYearId: String(academicYearId),
     });
     router.push(
-      `/notifications-and-announcements/add-notification?${qs.toString()}`,
+      `/principal-communications/notifications/send-notifications/add-notification?${qs.toString()}`,
     );
   }
 
@@ -259,7 +282,6 @@ export function EmpNotificationsPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
-      hideEmptyGrid
       pagination
       paginationPageSize={10}
       toolbar={{
@@ -269,7 +291,7 @@ export function EmpNotificationsPage() {
         exportPdf: false,
       }}
       toolbarTrailing={
-        isHod ? (
+        canAddNotification ? (
           <Button
             type="button"
             size="sm"
