@@ -13,6 +13,7 @@ import {
   domainList,
   domainUpdate,
   fetchDetails,
+  fetchDetailsEnvelope,
   getAllRecords,
   postDetails,
   postDetailsEnvelope,
@@ -940,13 +941,23 @@ export async function deactivateEmployeePayslip(
   );
 }
 
+/**
+ * Angular `listByIds(employeepayslipgenerationsbydate, date, 'payslipgenerationDate')`.
+ * Date must be `YYYY/MM/DD` (`momentFormatYMD`). Angular still shows the employee
+ * grid when this call returns `success: false` (empty / no slips) — do not throw.
+ */
 export async function listEmployeePayslipGenerationsByDate(
   payslipGenerationDate: string,
 ): Promise<AnyRow[]> {
-  const data = await fetchDetails<unknown>(HR_PAYROLL_API.EMP_PAYSLIP_BY_DATE, {
-    payslipgenerationDate: payslipGenerationDate,
-  });
-  return normalizeListPayload(data);
+  const envelope = await fetchDetailsEnvelope<unknown>(
+    HR_PAYROLL_API.EMP_PAYSLIP_BY_DATE,
+    { payslipgenerationDate: payslipGenerationDate },
+  );
+  if (envelope.statusCode != null && envelope.statusCode !== 200) {
+    throw new Error(envelope.message || "Failed to load payslips by date");
+  }
+  if (!envelope.success) return [];
+  return normalizeListPayload(envelope.data);
 }
 
 /** Merge payslip month onto payroll-group employee rows (Angular payslip screens). */
@@ -984,7 +995,13 @@ export function enrichEmployeesWithLop(employees: AnyRow[]): AnyRow[] {
   });
 }
 
-/** Monthly payslip grid — gross/net only when payslip month matches selected month. */
+/**
+ * Monthly payslip grid enrichment — Angular `getPayrollGroupEmployees` loop.
+ * Last matching payslip wins. Generation id is always applied; gross/net and
+ * `generatedDate` only when payslip month/year match the selected date. When the
+ * month does not match, Angular clears `generatedDate` but leaves existing
+ * gross/net from the payroll-group row intact.
+ */
 export function enrichMonthlyPayslipEmployees(
   employees: AnyRow[],
   payslips: AnyRow[],
@@ -992,36 +1009,31 @@ export function enrichMonthlyPayslipEmployees(
 ): AnyRow[] {
   const genM = generationDate.getMonth();
   const genY = generationDate.getFullYear();
-  return employees.map((emp) => {
-    const slip = payslips.find(
-      (p) => Number(p.employeeId) === Number(emp.employeeId),
+  const rows = employees.map((emp) => ({ ...emp }));
+
+  for (const slip of payslips) {
+    const match = rows.find(
+      (row) => Number(row.employeeId) === Number(slip.employeeId),
     );
-    let generatedDate: unknown = null;
-    let grossPay: unknown = null;
-    let netAmount: unknown = null;
-    let empPayslipGenerationId: unknown;
-    if (slip?.payslipMonth) {
-      // Angular assigns the generation id before checking whether the month matches.
-      empPayslipGenerationId = slip.empPayslipGenerationId;
-      const d = new Date(String(slip.payslipMonth));
-      if (
-        !Number.isNaN(d.getTime()) &&
-        d.getMonth() === genM &&
-        d.getFullYear() === genY
-      ) {
-        generatedDate = slip.payslipMonth;
-        grossPay = slip.grossPay;
-        netAmount = slip.netPay;
-      }
+    if (!match) continue;
+    match.empPayslipGenerationId = slip.empPayslipGenerationId;
+    if (slip.payslipMonth == null || slip.payslipMonth === "") {
+      continue;
     }
-    return {
-      ...emp,
-      generatedDate,
-      grossPay,
-      netAmount,
-      empPayslipGenerationId,
-    };
-  });
+    const d = new Date(String(slip.payslipMonth));
+    if (
+      !Number.isNaN(d.getTime()) &&
+      d.getMonth() === genM &&
+      d.getFullYear() === genY
+    ) {
+      match.generatedDate = slip.payslipMonth;
+      match.grossPay = slip.grossPay;
+      match.netAmount = slip.netPay;
+    } else {
+      match.generatedDate = null;
+    }
+  }
+  return rows;
 }
 
 export async function updateEmployeeLossOfPay(

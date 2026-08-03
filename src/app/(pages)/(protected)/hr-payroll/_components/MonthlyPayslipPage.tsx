@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { EyeIcon } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import {
   GlobalFilterBarRow,
@@ -28,11 +29,44 @@ import { rowIndexGetter } from "@/lib/utils";
 
 type EmpRow = Record<string, unknown>;
 
+/** Angular `momentFormatYMD` → `YYYY/MM/DD` for `employeepayslipgenerationsbydate`. */
+function toPayslipByDateParam(date: Date): string {
+  return format(date, "yyyy/MM/dd");
+}
+
+function employeeDisplayLabel(row: EmpRow | undefined | null): string {
+  if (!row) return "";
+  const firstName = row.firstName != null ? String(row.firstName).trim() : "";
+  const empNumber = row.empNumber != null ? String(row.empNumber).trim() : "";
+  if (firstName && empNumber) return `${firstName} (${empNumber})`;
+  if (firstName) return firstName;
+  if (empNumber) return `(${empNumber})`;
+  return "";
+}
+
+function employeeNameRenderer(p: ICellRendererParams<EmpRow>) {
+  const label = employeeDisplayLabel(p.data);
+  if (!label) return null;
+  const firstName = p.data?.firstName != null ? String(p.data.firstName) : "";
+  const empNumber = p.data?.empNumber != null ? String(p.data.empNumber) : "";
+  return (
+    <span className="block truncate">
+      {firstName ? <span>{firstName} </span> : null}(
+      {empNumber ? (
+        <span className="font-medium text-blue-600">{empNumber}</span>
+      ) : null}
+      )
+    </span>
+  );
+}
+
 function makeMonthlyViewRenderer(collegeId: number, payslipDate: Date) {
   return (p: ICellRendererParams<EmpRow>) => {
     if (!p.data?.employeeId || !p.data?.empPayrollGroupId) return null;
     const q = new URLSearchParams({
-      payslipMonth: String(p.data.generatedDate ?? payslipDate.toISOString()),
+      // Angular passes `item.generatedDate` as-is (may be empty when unmatched).
+      payslipMonth:
+        p.data.generatedDate != null ? String(p.data.generatedDate) : "",
       status: String(p.data.status ?? ""),
       empPayrollGroupId: String(p.data.empPayrollGroupId ?? ""),
       payrollGroupId: String(p.data.payrollGroupId ?? ""),
@@ -40,14 +74,22 @@ function makeMonthlyViewRenderer(collegeId: number, payslipDate: Date) {
       empId: String(p.data.employeeId ?? ""),
       collegeId: String(collegeId),
       departmentId: String(p.data.departmentId ?? 0),
-      date: format(payslipDate, "yyyy-MM-dd"),
+      // Angular restores with the filter date value from the form.
+      date: payslipDate.toISOString(),
     });
     return (
-      <Button asChild size="sm" variant="ghost">
+      <Button
+        asChild
+        size="sm"
+        variant="ghost"
+        className="h-8 w-8 p-0 text-blue-600"
+        title="View"
+      >
         <Link
           href={`/hr-payroll/payroll/monthly-playslip/view-monthly-payslip?${q}`}
         >
-          View
+          <EyeIcon className="h-4 w-4" />
+          <span className="sr-only">View</span>
         </Link>
       </Button>
     );
@@ -66,7 +108,9 @@ export function MonthlyPayslipPage() {
   });
   const [payslipDate, setPayslipDate] = useState<Date>(() => {
     const d = searchParams.get("date");
-    return d ? new Date(d) : new Date();
+    if (!d) return new Date();
+    const parsed = new Date(d);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   });
 
   const [colleges, setColleges] = useState<SelectOption[]>([]);
@@ -115,22 +159,25 @@ export function MonthlyPayslipPage() {
     if (!collegeId || departmentId == null) return;
     setLoading(true);
     try {
-      const dateYmd = format(payslipDate, "yyyy-MM-dd");
+      // Angular `momentFormatYMD` → YYYY/MM/DD for by-date lookup.
+      const dateYmdSlash = toPayslipByDateParam(payslipDate);
       let employees = await listEmployeePayrollGroupByCollege(collegeId);
       if (departmentId !== 0) {
-        employees = employees.filter(
-          (e) => Number(e.departmentId) === departmentId,
-        );
+        // Angular sets `generatedDate = null` when filtering by department.
+        employees = employees
+          .filter((e) => Number(e.departmentId) === departmentId)
+          .map((e) => ({ ...e, generatedDate: null }));
       }
-      const payslips = await listEmployeePayslipGenerationsByDate(dateYmd);
+      const payslips = await listEmployeePayslipGenerationsByDate(dateYmdSlash);
       const merged = enrichMonthlyPayslipEmployees(
         employees,
         payslips,
         payslipDate,
       );
       setRows(merged);
-      if (merged.length === 0)
-        toast.message("No payslips found for the selected criteria");
+      if (merged.length === 0) {
+        toast.message("No Payslips Found For Given Criteria");
+      }
     } catch (e) {
       toastError(e, "Failed to load monthly payslips");
     } finally {
@@ -159,33 +206,44 @@ export function MonthlyPayslipPage() {
   const columnDefs = useMemo<ColDef<EmpRow>[]>(
     () => [
       { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
-      { field: "firstName", headerName: "Employee", minWidth: 150 },
+      {
+        field: "firstName",
+        headerName: "Employee",
+        minWidth: 180,
+        flex: 1,
+        tooltipValueGetter: (p) => employeeDisplayLabel(p.data),
+        cellRenderer: employeeNameRenderer,
+      },
       { field: "departmentCode", headerName: "Department", minWidth: 100 },
-      { field: "empCatName", headerName: "Category", minWidth: 110 },
+      {
+        field: "empCatName",
+        headerName: "Employee Category",
+        minWidth: 140,
+      },
       {
         field: "generatedDate",
         headerName: "Recent Payslip",
-        minWidth: 110,
+        minWidth: 120,
         valueFormatter: (p) =>
-          p.value ? format(new Date(String(p.value)), "dd MMM, yyyy") : "—",
+          p.value ? format(new Date(String(p.value)), "dd MMM, yyyy") : "-",
       },
       {
         field: "grossPay",
-        headerName: "Gross",
-        minWidth: 90,
+        headerName: "Gross Pay",
+        minWidth: 100,
         valueFormatter: (p) =>
-          p.value != null ? Number(p.value).toFixed(2) : "—",
+          p.value != null && p.value !== "" ? Number(p.value).toFixed(2) : "",
       },
       {
         field: "netAmount",
-        headerName: "Net",
-        minWidth: 90,
+        headerName: "Net Pay",
+        minWidth: 100,
         valueFormatter: (p) =>
-          p.value != null ? Number(p.value).toFixed(2) : "—",
+          p.value != null && p.value !== "" ? Number(p.value).toFixed(2) : "",
       },
       {
         headerName: "Actions",
-        minWidth: 80,
+        minWidth: 90,
         flex: 0,
         cellRenderer:
           collegeId != null
@@ -193,18 +251,26 @@ export function MonthlyPayslipPage() {
             : undefined,
       },
     ],
-    [collegeId, departmentId, payslipDate],
+    [collegeId, payslipDate],
   );
 
+  /** Angular generate/email payload — omit departmentId when "All" (0). */
   const buildPayload = () => {
     if (!collegeId || departmentId == null) return null;
-    const base = {
+    const payslipGenerationDate = payslipDate.toISOString();
+    if (departmentId !== 0) {
+      return {
+        collegeId,
+        departmentId,
+        payslipGenerationDate,
+        payslipMonth: payslipGenerationDate,
+      };
+    }
+    return {
       collegeId,
-      payslipGenerationDate: payslipDate,
-      payslipMonth: payslipDate,
+      payslipGenerationDate,
+      payslipMonth: payslipGenerationDate,
     };
-    if (departmentId !== 0) return { ...base, departmentId };
-    return base;
   };
 
   const handleGenerate = async () => {
@@ -247,7 +313,7 @@ export function MonthlyPayslipPage() {
 
   return (
     <FilteredListPage<EmpRow>
-      title="Generate Monthly Payslip"
+      title="Generate Employee Payslip"
       filtersCollapsible
       filtersDefaultOpen
       filters={

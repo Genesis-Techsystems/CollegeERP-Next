@@ -1443,7 +1443,10 @@ function mapScheduleTiming(
 export function buildAngularStudentTimetable(
   scheduleTimings: AnyRow[],
   timetableMeta?: AnyRow | null,
+  options?: { paintEmptyWithWeekdayColor?: boolean },
 ): AngularStudentTimetable {
+  const paintEmptyWithWeekdayColor =
+    options?.paintEmptyWithWeekdayColor !== false;
   type WeekdayAcc = {
     weekdayId: number;
     weekdayName: string;
@@ -1454,12 +1457,15 @@ export function buildAngularStudentTimetable(
   for (const raw of scheduleTimings) {
     const timing = { ...raw };
     const resources = subjectResourcesFromTiming(timing);
-    if (resources.length > 0 && resources[0].colorCode != null) {
-      timing.colorCode = resources[0].colorCode;
-    }
     const weekdayId = num(timing, ["weekdayId", "fk_weekday_id"]);
     const weekdayName = text(timing, ["weekdayName", "weekday_name"]);
-    timing.colorCode = dayColorFromWeekdayName(weekdayName);
+
+    // Angular create-timetable: use first resource colorCode when assigned
+    if (resources.length > 0 && resources[0].colorCode != null) {
+      timing.colorCode = resources[0].colorCode;
+    } else if (paintEmptyWithWeekdayColor) {
+      timing.colorCode = dayColorFromWeekdayName(weekdayName);
+    }
 
     const existing = weekdayMap.get(weekdayId);
     if (existing) {

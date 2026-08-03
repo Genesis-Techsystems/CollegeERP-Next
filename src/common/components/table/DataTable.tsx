@@ -13,6 +13,7 @@ import {
   ModuleRegistry,
   AllCommunityModule,
   type ColDef,
+  type ColGroupDef,
   type GridApi,
   type CellClickedEvent,
   type GetRowIdFunc,
@@ -156,7 +157,7 @@ export interface DataTableProps<T> {
   /** Uncontrolled default open state for a collapsible card body. */
   contentDefaultOpen?: boolean;
   rowData: T[];
-  columnDefs: ColDef<T>[];
+  columnDefs: (ColDef<T> | ColGroupDef<T>)[];
   loading?: boolean;
   /**
    * When true, hide the grid and pagination while there is no row data
@@ -245,9 +246,18 @@ const DEFAULT_COL_DEF: ColDef = {
 };
 
 /** Wide tables: fixed widths (no flex) so horizontal scroll spans every column. */
-function resolveWideColumnDef(def: ColDef): ColDef {
-  if (def.flex == null) return def;
-  const { flex: _flex, ...rest } = def;
+function resolveWideColumnDef(def: ColDef | ColGroupDef): ColDef | ColGroupDef {
+  if ("children" in def && Array.isArray(def.children)) {
+    return {
+      ...def,
+      children: def.children.map((child) =>
+        resolveWideColumnDef(child as ColDef | ColGroupDef),
+      ),
+    } as ColGroupDef;
+  }
+  const leaf = def as ColDef;
+  if (leaf.flex == null) return leaf;
+  const { flex: _flex, ...rest } = leaf;
   const width = rest.width ?? rest.minWidth ?? 120;
   return {
     ...rest,
@@ -355,27 +365,40 @@ function filterInactiveRows<T>(rows: T[], showInactive: boolean): T[] {
   );
 }
 
-function isActionsColumn(def: ColDef): boolean {
-  const header = String(def.headerName ?? "")
+function isActionsColumn(def: ColDef | ColGroupDef): boolean {
+  if ("children" in def && Array.isArray(def.children)) return false;
+  const header = String((def as ColDef).headerName ?? "")
     .trim()
     .toLowerCase();
   return header === "actions" || header === "action";
 }
 
-function withCellClass(def: ColDef, className: string): ColDef {
-  const existing = def.cellClass;
-  if (!existing) return { ...def, cellClass: className };
+function withCellClass(
+  def: ColDef | ColGroupDef,
+  className: string,
+): ColDef | ColGroupDef {
+  if ("children" in def && Array.isArray(def.children)) {
+    return {
+      ...def,
+      children: def.children.map((child) =>
+        withCellClass(child as ColDef | ColGroupDef, className),
+      ),
+    } as ColGroupDef;
+  }
+  const leaf = def as ColDef;
+  const existing = leaf.cellClass;
+  if (!existing) return { ...leaf, cellClass: className };
   if (typeof existing === "string") {
     return existing.split(/\s+/).includes(className)
-      ? def
-      : { ...def, cellClass: `${existing} ${className}` };
+      ? leaf
+      : { ...leaf, cellClass: `${existing} ${className}` };
   }
   if (Array.isArray(existing)) {
     return existing.includes(className)
-      ? def
-      : { ...def, cellClass: [...existing, className] };
+      ? leaf
+      : { ...leaf, cellClass: [...existing, className] };
   }
-  return def;
+  return leaf;
 }
 
 function escapeHtml(s: string): string {
@@ -761,8 +784,10 @@ export function DataTable<T>({
       .filter((d) => Boolean(d.field) || typeof d.valueGetter === "function");
     const defs = exportDefs.length
       ? exportDefs
-      : columnDefs.filter(
-          (d) => Boolean(d.field) || typeof d.valueGetter === "function",
+      : (columnDefs as ColDef<T>[]).filter(
+          (d) =>
+            !("children" in d) &&
+            (Boolean(d.field) || typeof d.valueGetter === "function"),
         );
     printTableAsPdf(docTitle, defs, filteredRowData);
   }, [gridApi, tb.pdfDocumentTitle, columnDefs, filteredRowData]);

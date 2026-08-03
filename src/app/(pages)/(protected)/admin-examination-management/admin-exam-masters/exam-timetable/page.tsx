@@ -3,31 +3,26 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select as ShadcnSelect,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Select } from "@/common/components/select";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
+  ActiveStatusField,
 } from "@/common/components/forms";
 import { distinct } from "@/lib/utils";
 import {
   getUnivExamFiltersAll,
   getUnivExamFiltersGroupForLogin,
   resolveExamLoginEmpId,
-  getExamFiltersNoTimetable,
+  getExamFiltersNoTimetableBundle,
   getExamTimetableDetails,
   listCourseYears,
   listExamSessions,
+  listExamFeeTypeGeneralDetails,
+  saveExamTimetableDetailsByExamDate,
 } from "@/services/examination";
 import { useSessionContext } from "@/context/SessionContext";
 import type { SessionUser } from "@/types/user";
-import { toDateOnlyISO } from "@/common/generic-functions";
 import {
   Dialog,
   DialogContent,
@@ -37,8 +32,6 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ActiveStatusField } from "@/common/components/forms";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   LayoutGrid,
@@ -48,6 +41,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import CheckConflictsModal from "./CheckConflictsModal";
 
 /**
@@ -253,24 +247,12 @@ export default function ExamTimetablePage() {
   const [branches, setBranches] = useState<any[]>([]);
   const [dates, setDates] = useState<Date[]>([]);
 
-  // Schedules kept client-side for now (mirroring UI structure)
   const [scheduleMap, setScheduleMap] = useState<Record<string, any>>({});
-
-  // Modal state for creating schedule
-  const [open, setOpen] = useState(false);
-  const [modal, setModal] = useState({
-    branchId: "" as string | number,
-    date: "",
-    session: "M" as "M" | "A",
-    subjectCode: "",
-    room: "",
-    remarks: "",
-    isRegular: true,
-    isActive: true,
-  });
+  const [gridReloadToken, setGridReloadToken] = useState(0);
 
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [loadingGrid, setLoadingGrid] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editContext, setEditContext] = useState<{
     branchId: string | number;
@@ -283,10 +265,14 @@ export default function ExamTimetablePage() {
   const [editForm, setEditForm] = useState({
     examDate: "",
     examSessionId: null as number | null,
-    examType: "regular" as "regular" | "supplementary",
+    examTypeCatId: null as number | null,
     isActive: true,
     reason: "",
   });
+  /** EXMFEETYP masters — Angular getData / edit getData1 */
+  const [examFeeTypes, setExamFeeTypes] = useState<
+    { id: number; code: string; name: string }[]
+  >([]);
 
   const examAdminLogin = isExamAdminLogin(user);
 
@@ -330,31 +316,69 @@ export default function ExamTimetablePage() {
 
   useEffect(() => {
     let cancelled = false;
+    async function loadFeeTypes() {
+      const rows = await listExamFeeTypeGeneralDetails().catch(() => []);
+      if (cancelled) return;
+      setExamFeeTypes(
+        (Array.isArray(rows) ? rows : [])
+          .map((r: any) => ({
+            id: Number(r.generalDetailId ?? r.id ?? 0),
+            code: String(r.generalDetailCode ?? "").trim(),
+            name: String(
+              r.generalDetailDisplayName ??
+                r.generalDetailName ??
+                r.generalDetailCode ??
+                "",
+            ).trim(),
+          }))
+          .filter((t) => t.id > 0 && t.code),
+      );
+    }
+    void loadFeeTypes();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function mapSessionRows(rows: any[]): ExamSessionOption[] {
+    const seen = new Set<number>();
+    const out: ExamSessionOption[] = [];
+    for (const r of Array.isArray(rows) ? rows : []) {
+      const id = Number(r.fk_exam_session_id ?? r.examSessionId ?? r.id ?? 0);
+      if (id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      const name = String(
+        r.exam_display_session_name ?? r.examSessionName ?? r.name ?? "",
+      ).trim();
+      if (!name) continue;
+      out.push({
+        id,
+        name,
+        code: String(
+          r.examsessioninCatCode ?? r.sessionCode ?? r.session ?? "",
+        ).trim(),
+        sessionStartTime: r.sessionStartTime
+          ? String(r.sessionStartTime)
+          : r.session_start_time
+            ? String(r.session_start_time)
+            : undefined,
+        sessionEndTime: r.sessionEndTime
+          ? String(r.sessionEndTime)
+          : r.session_end_time
+            ? String(r.session_end_time)
+            : undefined,
+      });
+    }
+    return out;
+  }
+
+  // Fallback domain sessions until exam-scoped `exam_sessions` load.
+  useEffect(() => {
+    let cancelled = false;
     async function loadSessions() {
       const rows = await listExamSessions().catch(() => [] as any[]);
       if (cancelled) return;
-      const mapped: ExamSessionOption[] = (Array.isArray(rows) ? rows : [])
-        .map((r: any) => ({
-          id: Number(r.examSessionId ?? r.id ?? 0),
-          name: String(
-            r.examSessionName ?? r.exam_display_session_name ?? r.name ?? "",
-          ).trim(),
-          code: String(
-            r.examsessioninCatCode ?? r.sessionCode ?? r.session ?? "",
-          ).trim(),
-          sessionStartTime: r.sessionStartTime
-            ? String(r.sessionStartTime)
-            : r.session_start_time
-              ? String(r.session_start_time)
-              : undefined,
-          sessionEndTime: r.sessionEndTime
-            ? String(r.sessionEndTime)
-            : r.session_end_time
-              ? String(r.session_end_time)
-              : undefined,
-        }))
-        .filter((s) => s.id > 0 && s.name);
-      setExamSessions(mapped);
+      setExamSessions(mapSessionRows(rows));
     }
     void loadSessions();
     return () => {
@@ -497,16 +521,20 @@ export default function ExamTimetablePage() {
         setSelectedCourseYearId(null);
         return;
       }
-      const filterRows = await getExamFiltersNoTimetable({
+      const bundle = await getExamFiltersNoTimetableBundle({
         courseId: selectedCourseId,
         examId: selectedExamId,
         academicYearId: selectedAcademicYearId ?? 0,
         courseYearId: 0,
         employeeId: resolveExamLoginEmpId(user?.employeeId),
         strictRestFiltersGroup: examAdminLogin,
-      });
+      }).catch(() => ({ restFilters: [] as any[], sessions: [] as any[] }));
       if (cancelled) return;
-      const rows = Array.isArray(filterRows) ? filterRows : [];
+      // Angular edit modal sessions come from this proc's `exam_sessions` group.
+      const fromFilter = mapSessionRows(bundle.sessions);
+      if (fromFilter.length > 0) setExamSessions(fromFilter);
+
+      const rows = Array.isArray(bundle.restFilters) ? bundle.restFilters : [];
       const seen = new Set<number>();
       const scoped: { courseYearId: number; courseYearName: string }[] = [];
       for (const r of rows) {
@@ -539,10 +567,14 @@ export default function ExamTimetablePage() {
         .filter((o) => o.courseYearId > 0);
       // Exam Admin: never fall back to unscoped domain CourseYear list.
       const next = scoped.length > 0 ? scoped : examAdminLogin ? [] : fallback;
+      // Angular does NOT auto-select first course year — only restore URL / keep prior.
       setSelectedCourseYearId((prev) => {
         if (prev != null && next.some((o) => o.courseYearId === prev))
           return prev;
-        return next[0]?.courseYearId ?? null;
+        const urlCy = Number(searchParams.get("courseYearId") ?? 0);
+        if (urlCy > 0 && next.some((o) => o.courseYearId === urlCy))
+          return urlCy;
+        return null;
       });
     }
     void loadScopedCourseYears();
@@ -556,12 +588,17 @@ export default function ExamTimetablePage() {
     user?.employeeId,
     courseYears,
     examAdminLogin,
+    searchParams,
   ]);
 
   // When exam changes, build date headers
   useEffect(() => {
     async function hydrateFromApi() {
-      if (!selectedExamId || !selectedCourseId || !selectedCourseYearId) return;
+      if (!selectedExamId || !selectedCourseId || !selectedCourseYearId) {
+        setScheduleMap({});
+        setBranches([]);
+        return;
+      }
       setLoadingGrid(true);
       try {
         // We'll accumulate branches from filters/entities first,
@@ -591,14 +628,17 @@ export default function ExamTimetablePage() {
         }
 
         // Angular: courseGroups from univ_exam_rest_filters (CollegesListDetails)
-        const filterRows = await getExamFiltersNoTimetable({
+        const filterBundle = await getExamFiltersNoTimetableBundle({
           courseId: selectedCourseId,
           examId: selectedExamId,
           academicYearId: selectedAcademicYearId ?? 0,
           courseYearId: 0,
           employeeId: resolveExamLoginEmpId(user?.employeeId),
           strictRestFiltersGroup: examAdminLogin,
-        });
+        }).catch(() => ({ restFilters: [] as any[], sessions: [] as any[] }));
+        const filterRows = filterBundle.restFilters;
+        const filterSessions = mapSessionRows(filterBundle.sessions);
+        if (filterSessions.length > 0) setExamSessions(filterSessions);
         if (Array.isArray(filterRows) && filterRows.length > 0) {
           baseBranches = buildCourseGroupsFromFilters(filterRows);
           setBranches(baseBranches);
@@ -797,6 +837,35 @@ export default function ExamTimetablePage() {
                 row.examTimetableDetailId ??
                 row.fk_exam_timetable_det_id ??
                 row.exam_time_table_det_id,
+              // Needed for Angular edit POST `examtimetabledetailsbyexamdate`
+              subjectId:
+                Number(
+                  row.subjectId ?? row.fk_subject_id ?? row.subject_id ?? 0,
+                ) || undefined,
+              regulationId:
+                Number(
+                  row.regulationId ??
+                    row.fk_regulation_id ??
+                    row.regulation_id ??
+                    0,
+                ) || undefined,
+              examLabBatchesId:
+                row.examLabBatchesId ??
+                row.fk_eaxm_labbatch_id ??
+                row.exam_lab_batches_id ??
+                null,
+              examId:
+                Number(row.examId ?? row.fk_exam_id ?? selectedExamId) ||
+                undefined,
+              courseId:
+                Number(row.courseId ?? row.fk_course_id ?? selectedCourseId) ||
+                undefined,
+              courseYearId:
+                Number(
+                  row.courseYearId ??
+                    row.fk_course_year_id ??
+                    selectedCourseYearId,
+                ) || undefined,
             };
             const branchPrefixes = Array.from(
               new Set(
@@ -904,6 +973,7 @@ export default function ExamTimetablePage() {
     selectedAcademicYearId,
     user?.employeeId,
     examAdminLogin,
+    gridReloadToken,
   ]);
 
   const titleLine = useMemo(() => {
@@ -984,25 +1054,6 @@ export default function ExamTimetablePage() {
     return range ? `${ex.examName} ${range}` : ex.examName;
   }, [examMasters, selectedExamId]);
 
-  function matchesTimetableEntry(
-    a: Record<string, unknown>,
-    b: Record<string, unknown>,
-  ) {
-    const sidA = Number(
-      a.examTimetableDetId ?? a.fk_exam_timetable_det_id ?? 0,
-    );
-    const sidB = Number(
-      b.examTimetableDetId ?? b.fk_exam_timetable_det_id ?? 0,
-    );
-    if (sidA > 0 && sidB > 0 && sidA === sidB) return true;
-    if (sidA > 0 || sidB > 0) return false;
-    return (
-      String(a.subjectCode ?? "") === String(b.subjectCode ?? "") &&
-      Boolean(a.isRegular) === Boolean(b.isRegular) &&
-      String(a.session ?? "") === String(b.session ?? "")
-    );
-  }
-
   function resolveEditSessionId(
     slot: Record<string, unknown>,
     sess: "M" | "A",
@@ -1013,6 +1064,18 @@ export default function ExamTimetablePage() {
     const byCode = examSessions.find((s) => sessionCodeToMA(s.code) === sess);
     return byCode?.id ?? examSessions[0]?.id ?? null;
   }
+
+  /** Exam Type options filtered by exam master flags — Angular edit getData1(). */
+  const editExamTypeOptions = useMemo(() => {
+    const exam = examMasters.find((e) => e.examId === selectedExamId);
+    if (!exam) return examFeeTypes;
+    return examFeeTypes.filter((t) => {
+      if (t.code === "Regular") return !!exam.isRegularExam;
+      if (t.code === "Supple") return !!exam.isSupplyExam;
+      if (t.code === "Internal") return !!exam.isInternalExam;
+      return false;
+    });
+  }, [examFeeTypes, examMasters, selectedExamId]);
 
   function openEditTimetable(
     branch: any,
@@ -1037,100 +1100,90 @@ export default function ExamTimetablePage() {
       session: sess,
       original: { ...slot, session: sess },
     });
+    const typeId = Number(slot.examTypeCatId ?? 0) || null;
+    const typeFromCode = (() => {
+      const code = String(slot.examTypeCatCode ?? "").trim();
+      if (!code) return null;
+      return (
+        examFeeTypes.find((t) => t.code.toLowerCase() === code.toLowerCase())
+          ?.id ?? null
+      );
+    })();
     setEditForm({
       examDate: dateStr,
       examSessionId: resolveEditSessionId(slot, sess),
-      examType: slot.isRegular === false ? "supplementary" : "regular",
+      examTypeCatId: typeId || typeFromCode,
       isActive: slot.isActive !== false,
       reason: String(slot.reason ?? ""),
     });
     setEditOpen(true);
   }
 
-  function saveEditTimetable(e: React.FormEvent) {
+  async function saveEditTimetable(e: React.FormEvent) {
     e.preventDefault();
     if (!editContext) return;
-    const { branchId, branchCode, dateStr, session, original } = editContext;
-    const prefixes = Array.from(
-      new Set(
-        [branchId, branchCode]
-          .filter((x) => x != null && String(x).trim() !== "")
-          .map(String),
+    if (editForm.examSessionId == null) {
+      toastError("Select Exam Session");
+      return;
+    }
+    if (editForm.examTypeCatId == null) {
+      toastError("Select Exam Type");
+      return;
+    }
+    if (!editForm.isActive && !String(editForm.reason ?? "").trim()) {
+      toastError("Reason is required when inactive");
+      return;
+    }
+
+    const { original } = editContext;
+    const selectedType = examFeeTypes.find(
+      (t) => t.id === editForm.examTypeCatId,
+    );
+    // Angular editDialog afterClosed → mutate row → POST array to examtimetabledetailsbyexamdate
+    const row: Record<string, unknown> = {
+      ...original,
+      examLabBatchesId: original.examLabBatchesId ?? null,
+      examTypeCatId: editForm.examTypeCatId,
+      examTypeCatCode: selectedType?.code ?? original.examTypeCatCode,
+      courseGroupId: Number(
+        original.courseGroupId ??
+          original.branchId ??
+          editContext.branchId ??
+          0,
       ),
-    );
-    const newDate = editForm.examDate;
-    const selectedSession = examSessions.find(
-      (s) => s.id === editForm.examSessionId,
-    );
-    const newSess = selectedSession
-      ? sessionCodeToMA(selectedSession.code)
-      : editContext.session;
-    const isRegular = editForm.examType === "regular";
+      examSessionId: editForm.examSessionId,
+      examDate: editForm.examDate,
+      regulationId: Number(original.regulationId ?? 0) || undefined,
+      subjectId: Number(original.subjectId ?? 0) || undefined,
+      isActive: editForm.isActive,
+      reason: editForm.isActive ? "" : editForm.reason,
+      courseId: Number(original.courseId ?? selectedCourseId ?? 0) || undefined,
+      examId: Number(original.examId ?? selectedExamId ?? 0) || undefined,
+      courseYearId:
+        Number(original.courseYearId ?? selectedCourseYearId ?? 0) || undefined,
+    };
+    delete row.active;
 
-    setScheduleMap((prev) => {
-      const next: Record<string, unknown> = { ...prev };
-      const normalizeList = (v: unknown) =>
-        Array.isArray(v) ? [...v] : v != null ? [v] : [];
-      const inPlace = newDate === dateStr && newSess === session;
-
-      const patch = {
-        date: newDate,
-        session: newSess,
-        isRegular,
-        isActive: editForm.isActive,
-        reason: editForm.isActive ? "" : editForm.reason,
-        examSessionId: editForm.examSessionId ?? undefined,
-        sessionStartTime: selectedSession?.sessionStartTime,
-        sessionEndTime: selectedSession?.sessionEndTime,
-      };
-
-      if (inPlace) {
-        for (const p of prefixes) {
-          const cellKey = `${p}-${dateStr}-${session}`;
-          let list = normalizeList(next[cellKey]);
-          const idx = list.findIndex((entry) =>
-            matchesTimetableEntry(entry as Record<string, unknown>, original),
-          );
-          if (idx >= 0) {
-            list[idx] = { ...(list[idx] as Record<string, unknown>), ...patch };
-            next[cellKey] = list;
-          }
-        }
-        return next;
+    setSavingEdit(true);
+    try {
+      const body = await saveExamTimetableDetailsByExamDate([row]);
+      if (!body.ok || body.statusCode !== 200) {
+        toastError(body.message ?? "Save failed");
+        return;
       }
-
-      for (const p of prefixes) {
-        const oldKey = `${p}-${dateStr}-${session}`;
-        const newKey = `${p}-${newDate}-${newSess}`;
-        let listOld = normalizeList(next[oldKey]);
-        const idx = listOld.findIndex((entry) =>
-          matchesTimetableEntry(entry as Record<string, unknown>, original),
-        );
-        const base =
-          idx >= 0
-            ? { ...(listOld[idx] as Record<string, unknown>) }
-            : ({ ...original } as Record<string, unknown>);
-        const updated: Record<string, unknown> = {
-          ...base,
-          ...patch,
-        };
-
-        if (idx >= 0) listOld = listOld.filter((_, i) => i !== idx);
-        next[oldKey] = listOld.length ? listOld : [];
-
-        let listNew = normalizeList(next[newKey]);
-        listNew = listNew.filter(
-          (entry) =>
-            !matchesTimetableEntry(entry as Record<string, unknown>, original),
-        );
-        listNew.push(updated);
-        next[newKey] = listNew;
+      if (!body.success) {
+        toastInfo(body.message ?? "Nothing was saved.");
+        return;
       }
-
-      return next;
-    });
-    setEditOpen(false);
-    setEditContext(null);
+      toastSuccess(body.message ?? "Exam timetable updated");
+      setEditOpen(false);
+      setEditContext(null);
+      setGridReloadToken((n) => n + 1);
+    } catch {
+      toastError("Save failed");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   function openCreateSchedule() {
@@ -1176,24 +1229,6 @@ export default function ExamTimetablePage() {
     router.push(
       `/admin-examination-management/admin-exam-masters/exam-timetable/create?${params.toString()}`,
     );
-  }
-
-  function saveSchedule(e: any) {
-    e.preventDefault();
-    const key = `${modal.branchId}-${modal.date}-${modal.session}`;
-    setScheduleMap((prev) => {
-      const next = { ...prev } as Record<string, any[]>;
-      const entry = {
-        ...modal,
-        examTimetableDetId: undefined as unknown,
-      };
-      const cur = next[key];
-      const list = Array.isArray(cur) ? [...cur] : cur ? [cur] : [];
-      list.push(entry);
-      next[key] = list;
-      return next;
-    });
-    setOpen(false);
   }
 
   function fmtYMD(date: Date) {
@@ -1290,7 +1325,7 @@ export default function ExamTimetablePage() {
 
   return (
     <FilteredPage
-      title="Create Exam Timetable"
+      title="Exam University Timetable"
       filters={
         <GlobalFilterBarRow className="flex-nowrap">
           <GlobalFilterField
@@ -1587,6 +1622,16 @@ export default function ExamTimetablePage() {
                     type="date"
                     className="h-9 text-[12px]"
                     value={editForm.examDate}
+                    min={
+                      String(editContext.original.fromDate ?? "").slice(
+                        0,
+                        10,
+                      ) || undefined
+                    }
+                    max={
+                      String(editContext.original.toDate ?? "").slice(0, 10) ||
+                      undefined
+                    }
                     onChange={(e) =>
                       setEditForm((s) => ({ ...s, examDate: e.target.value }))
                     }
@@ -1596,19 +1641,30 @@ export default function ExamTimetablePage() {
                 <div className="space-y-1">
                   <Label>Exam Type *</Label>
                   <Select
-                    value={editForm.examType}
+                    value={
+                      editForm.examTypeCatId != null
+                        ? String(editForm.examTypeCatId)
+                        : null
+                    }
                     onChange={(v) =>
                       setEditForm((s) => ({
                         ...s,
-                        examType:
-                          (v as "regular" | "supplementary") || "regular",
+                        examTypeCatId: v ? Number(v) : null,
                       }))
                     }
-                    options={[
-                      { value: "regular", label: "Regular" },
-                      { value: "supplementary", label: "Supplementary" },
-                    ]}
-                    placeholder="Select type"
+                    options={editExamTypeOptions.map((t) => ({
+                      value: String(t.id),
+                      label:
+                        t.code === "Supple"
+                          ? "Supplementary"
+                          : t.name || t.code,
+                    }))}
+                    placeholder={
+                      editExamTypeOptions.length === 0
+                        ? "No exam types for this master"
+                        : "Select type"
+                    }
+                    disabled={editExamTypeOptions.length === 0}
                     searchable={false}
                   />
                 </div>
@@ -1665,168 +1721,17 @@ export default function ExamTimetablePage() {
                 <Button
                   type="submit"
                   className="bg-[#1565C0] hover:bg-[#0D47A1]"
-                  disabled={editForm.examSessionId == null}
+                  disabled={
+                    savingEdit ||
+                    editForm.examSessionId == null ||
+                    editForm.examTypeCatId == null
+                  }
                 >
-                  Save
+                  {savingEdit ? "Saving…" : "Save"}
                 </Button>
               </DialogFooter>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[560px]">
-          <DialogHeader>
-            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
-              Create Schedule
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={saveSchedule} className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Branch</Label>
-                <ShadcnSelect
-                  value={
-                    modal.branchId === "" || modal.branchId === undefined
-                      ? undefined
-                      : String(modal.branchId)
-                  }
-                  onValueChange={(v) =>
-                    setModal((s) => ({ ...s, branchId: v }))
-                  }
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Select Branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b, i) => {
-                      const id =
-                        b.fk_dept_id ??
-                        b.fk_branch_id ??
-                        b.dept_id ??
-                        b.branch_id;
-                      const name =
-                        b.dept_code ??
-                        b.dept_name ??
-                        b.branch_code ??
-                        b.branch_name ??
-                        `Branch ${i + 1}`;
-                      return (
-                        <SelectItem key={id} value={String(id)}>
-                          {name}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </ShadcnSelect>
-              </div>
-              <div className="space-y-1">
-                <Label>Date</Label>
-                <ShadcnSelect
-                  value={modal.date ? modal.date : undefined}
-                  onValueChange={(v) => setModal((s) => ({ ...s, date: v }))}
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Select Date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dates.map((d) => {
-                      const val = toDateOnlyISO(d);
-                      const label = d.toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        weekday: "short",
-                      });
-                      return (
-                        <SelectItem key={val} value={val}>
-                          {label}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </ShadcnSelect>
-              </div>
-              <div className="space-y-1">
-                <Label>Session</Label>
-                <ShadcnSelect
-                  value={modal.session}
-                  onValueChange={(v) =>
-                    setModal((s) => ({ ...s, session: v as "M" | "A" }))
-                  }
-                >
-                  <SelectTrigger className="h-8 text-[12px]">
-                    <SelectValue placeholder="Select Session" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Morning</SelectItem>
-                    <SelectItem value="A">Afternoon</SelectItem>
-                  </SelectContent>
-                </ShadcnSelect>
-              </div>
-              <div className="space-y-1">
-                <Label>Subject/Paper Code</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={modal.subjectCode}
-                  onChange={(e) =>
-                    setModal((s) => ({ ...s, subjectCode: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Room/Block</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={modal.room}
-                  onChange={(e) =>
-                    setModal((s) => ({ ...s, room: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <Label>Remarks</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={modal.remarks}
-                  onChange={(e) =>
-                    setModal((s) => ({ ...s, remarks: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-3 sm:col-span-2">
-                <label className="flex items-center gap-2 text-[12px]">
-                  <Checkbox
-                    checked={modal.isRegular}
-                    onCheckedChange={(v) =>
-                      setModal((s) => ({ ...s, isRegular: !!v }))
-                    }
-                  />
-                  <span>Regular</span>
-                </label>
-                <label className="flex items-center gap-2 text-[12px]">
-                  <Checkbox
-                    checked={modal.isActive}
-                    onCheckedChange={(v) =>
-                      setModal((s) => ({ ...s, isActive: !!v }))
-                    }
-                  />
-                  <span>Active</span>
-                </label>
-              </div>
-            </div>
-            <DialogFooter className="pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                Close
-              </Button>
-              <Button type="submit">Save</Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
     </FilteredPage>

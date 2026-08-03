@@ -3,6 +3,7 @@ import {
   SUBJECT_API,
   TIMETABLE_MGMT_API,
 } from "@/config/constants/api";
+import { ENTITIES } from "@/config/constants/entities";
 import {
   buildQuery,
   domainCreate,
@@ -17,7 +18,6 @@ import {
   putDetailsEnvelope,
 } from "./crud";
 import { listActiveCollegesForGeneralSettings } from "./admin/college";
-import { listStaffSubjectRows } from "./admin/staff-subject-mapping";
 import { listAcademicYearsByUniversity } from "./pre-examination";
 import {
   buildAngularStudentTimetable,
@@ -552,20 +552,10 @@ export async function fetchAssignResourceSchedules(params: {
       timetableId,
       isActive: "true",
     });
-    const rows = normalizeListPayload(data);
-    if (rows.length > 0) return rows;
+    return normalizeListPayload(data);
   } catch {
-    // ignore and fallback
+    return [];
   }
-  return fetchScheduleRowsForSection({
-    collegeId,
-    academicYearId,
-    courseId: 0,
-    courseGroupId: 0,
-    courseYearId: 0,
-    groupSectionId,
-    timetableId,
-  });
 }
 
 export type AssignResourceTimetableView = {
@@ -585,7 +575,10 @@ export async function fetchAssignResourceTimetableView(params: {
   let meta = params.timetableMeta ?? null;
   if (!meta) meta = await getTimetableById(params.timetableId);
   return {
-    grid: buildAngularStudentTimetable(scheduleTimings, meta),
+    // Angular create-timetable: cell color from subjectResource.colorCode (not weekday fill)
+    grid: buildAngularStudentTimetable(scheduleTimings, meta, {
+      paintEmptyWithWeekdayColor: false,
+    }),
     scheduleTimings,
   };
 }
@@ -608,7 +601,9 @@ export async function listStaffProxiesForSection(
   }
 }
 
-/** Angular add-resource `subjectcourseyrs` three-id fetch. */
+/** Angular add-resource `subjectcourseyrs` three-id fetch.
+ * Keys: collegeId, academicYearId, groupSectionId (CONSTANTS.collegeByIdUrl etc.).
+ */
 export async function listSubjectCourseYearsForAssign(params: {
   collegeId: number;
   academicYearId: number;
@@ -618,16 +613,26 @@ export async function listSubjectCourseYearsForAssign(params: {
   if (!collegeId || !academicYearId || !groupSectionId) return [];
   try {
     const data = await fetchDetails<unknown>(SUBJECT_API.SUBJECT_COURSE_YEARS, {
-      collegeid: collegeId,
+      collegeId,
       academicYearId,
-      groupSectionid: groupSectionId,
+      groupSectionId,
     });
-    const rows = normalizeListPayload(data);
-    if (rows.length > 0) return rows;
+    return normalizeListPayload(data);
   } catch {
-    // fallback to mapped helper
+    return [];
   }
-  return listStaffSubjectRows({ collegeId, academicYearId, groupSectionId });
+}
+
+/** Angular add-resource `listDetailsById(Room, true, isActive)`. */
+export async function listActiveRoomsForAssign(): Promise<AnyRow[]> {
+  try {
+    return await domainList<AnyRow>(
+      ENTITIES.ROOM.name,
+      buildQuery({ isActive: true }),
+    );
+  } catch {
+    return [];
+  }
 }
 
 /** Angular add-resource `SubjectResource` by `schedule.timetableScheduleId`. */
@@ -635,25 +640,17 @@ export async function listSubjectResourcesBySchedule(
   timetableScheduleId: number,
 ): Promise<AnyRow[]> {
   if (!timetableScheduleId) return [];
-  const queries = [
-    buildQuery({
-      "schedule.timetableScheduleId": timetableScheduleId,
-      isActive: true,
-    }),
-    buildQuery({ timetableScheduleId, isActive: true }),
-  ];
-  for (const query of queries) {
-    try {
-      const rows = await domainList<AnyRow>(
-        SUBJECT_API.SUBJECT_RESOURCE_ENTITY,
-        query,
-      );
-      if (rows.length > 0) return rows;
-    } catch {
-      // next
-    }
+  try {
+    return await domainList<AnyRow>(
+      SUBJECT_API.SUBJECT_RESOURCE_ENTITY,
+      buildQuery({
+        "schedule.timetableScheduleId": timetableScheduleId,
+        isActive: true,
+      }),
+    );
+  } catch {
+    return [];
   }
-  return [];
 }
 
 /** Angular add-resource `Studentbatch` by college + subjectType + course. */
@@ -663,24 +660,18 @@ export async function listStudentBatchesForLabAssign(
   courseId: number,
 ): Promise<AnyRow[]> {
   if (!collegeId || !subjectTypeId || !courseId) return [];
-  const queries = [
-    buildQuery({
-      "college.collegeId": collegeId,
-      "subjecttype.generalDetailId": subjectTypeId,
-      "course.courseId": courseId,
-      isActive: true,
-    }),
-    buildQuery({ collegeId, subjectTypeId, courseId, isActive: true }),
-  ];
-  for (const query of queries) {
-    try {
-      const rows = await domainList<AnyRow>("Studentbatch", query);
-      if (rows.length > 0) return rows;
-    } catch {
-      // next
-    }
+  try {
+    return await domainList<AnyRow>(
+      "Studentbatch",
+      buildQuery({
+        "college.collegeId": collegeId,
+        "subjecttype.generalDetailId": subjectTypeId,
+        "course.courseId": courseId,
+      }),
+    );
+  } catch {
+    return [];
   }
-  return [];
 }
 
 /** Angular POST `subjectresources`. */

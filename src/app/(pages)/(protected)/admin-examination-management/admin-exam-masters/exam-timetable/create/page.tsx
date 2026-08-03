@@ -684,12 +684,36 @@ export default function CreateExamTimetablePage() {
       );
       return;
     }
+    // Angular: only one staged header row at a time ("Save with only one row at a time.")
+    if (
+      stagedRows.length > 0 &&
+      stagedRows.some(
+        (r) =>
+          r.examSessionId !== selectedExamSessionId ||
+          r.examDate !== slotDraft.date,
+      )
+    ) {
+      toastInfo("Save with only one row at a time.");
+      return;
+    }
     // Morning/Afternoon bucket derives from the session start time when present;
     // default to 'M' when the session carries no start time.
     const session: "M" | "A" =
       slotDraft.startTime && slotDraft.startTime >= "12:00" ? "A" : "M";
     const rows: StagedRow[] = [];
     for (const code of Array.from(selectedGroups)) {
+      // Angular: "Subject is already exists in same group."
+      if (
+        stagedRows.some(
+          (r) =>
+            r.examSessionId === selectedExamSessionId &&
+            r.groupCode === code &&
+            r.subjectCode === selectedSubjectCode,
+        )
+      ) {
+        toastInfo("Subject is already exists in same group.");
+        continue;
+      }
       rows.push({
         examDate: slotDraft.date,
         session,
@@ -698,6 +722,7 @@ export default function CreateExamTimetablePage() {
         subjectCode: selectedSubjectCode,
       });
     }
+    if (rows.length === 0) return;
     setStagedRows((s) => [...s, ...rows]);
   }
 

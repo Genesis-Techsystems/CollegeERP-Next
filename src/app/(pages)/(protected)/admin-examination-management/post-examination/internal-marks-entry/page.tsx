@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Printer, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Select, type SelectOption } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
@@ -1797,37 +1797,43 @@ export default function InternalMarksEntryPage() {
           ? {
               search: true,
               searchPlaceholder: "Search…",
+              exportPdf: false,
               pdfDocumentTitle: "Internal Marks Entry",
             }
           : false
       }
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
-          <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-            Max Marks :{" "}
-            <span className="font-semibold">{displayMaxMarks || "-"}</span>
-          </div>
+          <>
+            <div className="order-first shrink-0 whitespace-nowrap text-[12px] text-slate-600">
+              Max Marks :{" "}
+              <span className="font-semibold">{displayMaxMarks || "-"}</span>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+              onClick={() => setPrintMode("marks-sheet")}
+              disabled={rows.length === 0}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+              onClick={onSaveMarks}
+              disabled={saving || rows.length === 0}
+            >
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {saving ? "Saving..." : "Save Marks"}
+            </Button>
+          </>
         ) : undefined
       }
-    >
-      {hasFetched && (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            className="h-8 text-[12px]"
-            onClick={onSaveMarks}
-            disabled={saving || rows.length === 0}
-          >
-            {saving ? "Saving..." : "Save Marks"}
-          </Button>
-          <Button
-            className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
-            onClick={() => setPrintMode("marks-sheet")}
-            disabled={rows.length === 0}
-          >
-            Print
-          </Button>
-        </div>
-      )}
-    </FilteredListPage>
+    />
   );
 }

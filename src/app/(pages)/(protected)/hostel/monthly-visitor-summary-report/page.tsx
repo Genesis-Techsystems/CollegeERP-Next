@@ -16,8 +16,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MINIO_URL } from "@/config/constants/api";
 import { getErrorMessage } from "@/lib/errors";
-import { cn, rowIndexGetter } from "@/lib/utils";
+import { printHtmlInIframe } from "@/lib/print";
 import { toastError } from "@/lib/toast";
+import { cn, rowIndexGetter } from "@/lib/utils";
 import {
   getVisitorsSummaryReport,
   listActiveHostelsForVisitorReport,
@@ -119,7 +120,60 @@ function reportLogoUrl(value: unknown): string {
   return `${MINIO_URL}${path.replace(/^\/+/, "")}`;
 }
 
-function ExportPrintTable({
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Angular #print-Section / #excelTable HTML table body. */
+function buildReportTableHtml(rows: ReportRow[], mode: ReportMode): string {
+  const head =
+    mode === "summary"
+      ? `<tr>
+          <th>S.No</th>
+          <th>Hostel</th>
+          <th>Parent Visitors</th>
+          <th>Other Visitors</th>
+        </tr>`
+      : `<tr>
+          <th>S.No</th>
+          <th>Hostel</th>
+          <th>Student Name</th>
+          <th>Visitor Name</th>
+          <th>Visitor Relation</th>
+          <th>Visited Date</th>
+        </tr>`;
+
+  const body = rows
+    .map((row, index) =>
+      mode === "summary"
+        ? `<tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(row.hostel_name)}</td>
+            <td>${escapeHtml(row.ParentVisits)}</td>
+            <td>${escapeHtml(row.OthersVisits)}</td>
+          </tr>`
+        : `<tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(row.hostel_name)}</td>
+            <td>${escapeHtml(row.student_name)}</td>
+            <td>${escapeHtml(row.visitor_name)}</td>
+            <td>${escapeHtml(row.relation)}</td>
+            <td>${escapeHtml(displayVisitedDate(row.Visited_Date))}</td>
+          </tr>`,
+    )
+    .join("");
+
+  return `<table class="mar">
+    <thead>${head}</thead>
+    <tbody>${body}</tbody>
+  </table>`;
+}
+
+function ExcelExportTable({
   rows,
   mode,
   tableRef,
@@ -129,7 +183,7 @@ function ExportPrintTable({
   tableRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div ref={tableRef} className="overflow-x-auto">
+    <div ref={tableRef} className="sr-only" aria-hidden>
       <div style={{ display: "none" }}>
         <h3 style={{ fontWeight: "bold" }}>Monthly Visitor Summary Report</h3>
       </div>
@@ -310,177 +364,188 @@ export default function MonthlyVisitorSummaryReportPage() {
     link.click();
   };
 
-  const firstRow = rows[0];
+  /** Angular PrintData() — iframe print avoids AppShell blank PDF. */
+  const printReport = () => {
+    if (rows.length === 0) return;
+    const first = rows[0];
+    const logo = reportLogoUrl(first?.logo_path);
+    const collegeName = String(first?.college_name ?? "");
+    const orgCode =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("orgCode")
+        : null;
+
+    const logoBlock =
+      orgCode === "SUK"
+        ? `<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+            ${logo ? `<img src="${escapeHtml(logo)}" alt="" style="height:80px;object-fit:contain" />` : ""}
+            <div>
+              <p class="collegeName">${escapeHtml(collegeName)}</p>
+              <p class="title-2">Monthly Visitor Summary Report</p>
+            </div>
+          </div>`
+        : `<div style="text-align:center;margin-bottom:12px">
+            ${logo ? `<img src="${escapeHtml(logo)}" alt="" style="max-width:100%;max-height:120px;object-fit:contain" />` : ""}
+            <p class="collegeName">${escapeHtml(collegeName)}</p>
+            <p class="title-2">Monthly Visitor Summary Report</p>
+          </div>`;
+
+    printHtmlInIframe(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Monthly Visitor Summary Report</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#111;padding:16px;margin:0;background:#fff}
+  .collegeName{text-align:center;font-size:22px;font-weight:600;text-transform:uppercase;margin:8px 0}
+  .title-2{text-align:center;font-size:18px;font-weight:500;margin:6px 0 14px}
+  table.mar{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+  table.mar th,table.mar td{border:1px solid #777;padding:8px;text-align:left}
+  table.mar th{background:#C3D9FF;font-weight:600}
+  @page{margin:10mm}
+  @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+</style>
+</head>
+<body>
+  ${logoBlock}
+  ${buildReportTableHtml(rows, mode)}
+</body>
+</html>`);
+  };
+
   const hasRows = rows.length > 0;
 
   return (
-    <>
-      <style>{`
-        @media print {
-          .monthly-visitor-summary-report .app-data-table-heading,
-          .monthly-visitor-summary-report .global-filter-bar__inner,
-          .monthly-visitor-summary-report .app-data-table-toolbar-wrap,
-          .monthly-visitor-summary-report .app-data-table-footer,
-          .monthly-visitor-summary-report .ag-theme-quartz {
-            display: none !important;
-          }
-          .monthly-visitor-summary-report .monthly-visitor-print-section {
-            display: block !important;
-          }
-        }
-      `}</style>
-      <FilteredListPage
-        className="monthly-visitor-summary-report"
-        title="Monthly Visitor Summary Report"
-        notice={
-          error ? (
-            <p className="px-1 text-sm text-destructive print:hidden">
-              {error}
-            </p>
-          ) : null
-        }
-        filters={
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="Hostel *">
-              <Select
-                value={hostelId}
-                onChange={(value) => {
-                  setHostelId(value);
-                  setRows([]);
-                }}
-                options={hostels}
-                isLoading={loadingHostels}
-                searchable={false}
-                clearable={false}
-                placeholder="Select hostel"
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="From Date">
-              <DatePicker
-                value={fromDate}
-                onChange={(date) => {
-                  setFromDate(date);
-                  if (date && toDate && date.getTime() > toDate.getTime()) {
-                    setToDate(date);
-                  }
-                }}
-                maxDate={today}
-                clearable={false}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label="To Date">
-              <DatePicker
-                value={toDate}
-                onChange={(date) => {
+    <FilteredListPage
+      className="monthly-visitor-summary-report"
+      title="Monthly Visitor Summary Report"
+      notice={
+        error ? <p className="px-1 text-sm text-destructive">{error}</p> : null
+      }
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField label="Hostel *">
+            <Select
+              value={hostelId}
+              onChange={(value) => {
+                setHostelId(value);
+                setRows([]);
+              }}
+              options={hostels}
+              isLoading={loadingHostels}
+              searchable={false}
+              clearable={false}
+              placeholder="Select hostel"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="From Date">
+            <DatePicker
+              value={fromDate}
+              onChange={(date) => {
+                setFromDate(date);
+                if (date && toDate && date.getTime() > toDate.getTime()) {
                   setToDate(date);
-                  setRows([]);
-                }}
-                minDate={fromDate ?? undefined}
-                maxDate={today}
-                clearable={false}
-              />
-            </GlobalFilterField>
-            <GlobalFilterField label={"\u00a0"}>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-9"
-                  onClick={() => void getList()}
-                >
-                  {loading ? "Loading…" : "Get List"}
-                </Button>
-              </div>
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
-        }
-        rowData={hasRows ? rows : []}
-        columnDefs={hasRows ? columnDefs : []}
-        loading={loading}
-        pagination
-        height="auto"
-        toolbar={hasRows ? TOOLBAR : false}
-        toolbarTrailing={
-          hasRows ? (
-            <div className="flex flex-wrap items-center gap-4">
-              <RadioGroup
-                value={mode}
-                onValueChange={(value) => setMode(value as ReportMode)}
-                className="flex flex-wrap items-center gap-6"
+                }
+              }}
+              maxDate={today}
+              clearable={false}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label="To Date">
+            <DatePicker
+              value={toDate}
+              onChange={(date) => {
+                setToDate(date);
+                setRows([]);
+              }}
+              minDate={fromDate ?? undefined}
+              maxDate={today}
+              clearable={false}
+            />
+          </GlobalFilterField>
+          <GlobalFilterField label={"\u00a0"}>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9"
+                onClick={() => void getList()}
               >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem
-                    value="summary"
-                    id="visitor-summary-report"
-                    className="h-4 w-4 shrink-0 border-muted-foreground/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                  />
-                  <Label
-                    htmlFor="visitor-summary-report"
-                    className={cn(
-                      "cursor-pointer text-[12px]",
-                      mode === "summary"
-                        ? "font-semibold text-foreground"
-                        : "font-normal text-muted-foreground",
-                    )}
-                  >
-                    Summary Report
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem
-                    value="detailed"
-                    id="visitor-detailed-report"
-                    className="h-4 w-4 shrink-0 border-muted-foreground/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                  />
-                  <Label
-                    htmlFor="visitor-detailed-report"
-                    className={cn(
-                      "cursor-pointer text-[12px]",
-                      mode === "detailed"
-                        ? "font-semibold text-foreground"
-                        : "font-normal text-muted-foreground",
-                    )}
-                  >
-                    Detailed Report
-                  </Label>
-                </div>
-              </RadioGroup>
-              <Button type="button" size="sm" onClick={exportExcel}>
-                <FileSpreadsheet className="mr-1.5 h-4 w-4" />
-                Export Excel
-              </Button>
-              <Button type="button" size="sm" onClick={() => window.print()}>
-                <Printer className="mr-1.5 h-4 w-4" />
-                Print Report
+                {loading ? "Loading…" : "Get List"}
               </Button>
             </div>
-          ) : null
-        }
-        getRowId={(params) =>
-          `${String(params.data?.hostel_name ?? "")}-${String(params.data?.visitor_name ?? params.data?.student_name ?? "")}-${String(params.data?.Visited_Date ?? "")}`
-        }
-      >
-        {hasRows ? (
-          <div className="monthly-visitor-print-section hidden">
-            <div>
-              {firstRow?.logo_path ? (
-                <img
-                  src={reportLogoUrl(firstRow.logo_path)}
-                  alt=""
-                  className="mx-auto mb-2 max-h-24 object-contain"
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      rowData={hasRows ? rows : []}
+      columnDefs={hasRows ? columnDefs : []}
+      loading={loading}
+      pagination
+      height="auto"
+      toolbar={hasRows ? TOOLBAR : false}
+      toolbarTrailing={
+        hasRows ? (
+          <div className="flex flex-wrap items-center gap-4">
+            <RadioGroup
+              value={mode}
+              onValueChange={(value) => setMode(value as ReportMode)}
+              className="flex flex-wrap items-center gap-6"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem
+                  value="summary"
+                  id="visitor-summary-report"
+                  className="h-4 w-4 shrink-0 border-muted-foreground/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                 />
-              ) : null}
-              <h2 className="text-center text-lg font-semibold">
-                {String(firstRow?.college_name ?? "")}
-              </h2>
-              <h3 className="text-center font-semibold">
-                Monthly Visitor Summary Report
-              </h3>
-            </div>
-            <ExportPrintTable rows={rows} mode={mode} tableRef={tableRef} />
+                <Label
+                  htmlFor="visitor-summary-report"
+                  className={cn(
+                    "cursor-pointer text-[12px]",
+                    mode === "summary"
+                      ? "font-semibold text-foreground"
+                      : "font-normal text-muted-foreground",
+                  )}
+                >
+                  Summary Report
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem
+                  value="detailed"
+                  id="visitor-detailed-report"
+                  className="h-4 w-4 shrink-0 border-muted-foreground/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                />
+                <Label
+                  htmlFor="visitor-detailed-report"
+                  className={cn(
+                    "cursor-pointer text-[12px]",
+                    mode === "detailed"
+                      ? "font-semibold text-foreground"
+                      : "font-normal text-muted-foreground",
+                  )}
+                >
+                  Detailed Report
+                </Label>
+              </div>
+            </RadioGroup>
+            <Button type="button" size="sm" onClick={exportExcel}>
+              <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+              Export Excel
+            </Button>
+            <Button type="button" size="sm" onClick={printReport}>
+              <Printer className="mr-1.5 h-4 w-4" />
+              Print Report
+            </Button>
           </div>
-        ) : null}
-      </FilteredListPage>
-    </>
+        ) : null
+      }
+      getRowId={(params) =>
+        `${String(params.data?.hostel_name ?? "")}-${String(params.data?.visitor_name ?? params.data?.student_name ?? "")}-${String(params.data?.Visited_Date ?? "")}`
+      }
+    >
+      {hasRows ? (
+        <ExcelExportTable rows={rows} mode={mode} tableRef={tableRef} />
+      ) : null}
+    </FilteredListPage>
   );
 }

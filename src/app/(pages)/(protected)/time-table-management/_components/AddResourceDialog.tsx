@@ -19,7 +19,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
   deleteSubjectResourceStaff,
-  listRooms,
+  listActiveRoomsForAssign,
   listStudentBatchesForLabAssign,
   listSubjectCourseYearsForAssign,
   listSubjectResourcesBySchedule,
@@ -98,9 +98,16 @@ function mapExistingResources(resources: AnyRow[]): AssignResourceRow[] {
     subjectTypeId: n(res.subjectTypeId),
     timetableScheduleId: n(res.timetableScheduleId),
     academicYearID: n(res.academicYearID ?? res.academicYearId),
-    subjectTypeCode: text(res, ["subjectTypeCode", "subjectTypeName"]),
+    subjectTypeCode: text(res, [
+      "subjectTypeCode",
+      "subjectTypeName",
+      "subjectType",
+    ]),
     subjectName: text(res, ["subjectName"]),
     subjectCode: text(res, ["subjectCode", "shortName"]),
+    createdDt: (res.createdDt as string) ?? null,
+    createdUser: (res.createdUser as string) ?? null,
+    cellGroupId: (res.cellGroupId as string | number) ?? null,
     staff: [],
   }));
 }
@@ -232,7 +239,7 @@ export function AddResourceDialog({
             academicYearId: context.academicYearId,
             groupSectionId: context.groupSectionId,
           }),
-          listRooms(),
+          listActiveRoomsForAssign(),
           typeCode === "LAB"
             ? listStudentBatchesForLabAssign(
                 context.collegeId,
@@ -248,11 +255,7 @@ export function AddResourceDialog({
             typeCode,
         );
         setSubjects(filteredSubjects);
-        setRooms(
-          roomRows
-            .map((r) => r as unknown as AnyRow)
-            .filter((r: AnyRow) => r.isActive !== false),
-        );
+        setRooms(roomRows);
 
         let nextRows = [...initialRows];
         if (nextRows.length === 0) {
@@ -484,30 +487,87 @@ export function AddResourceDialog({
     if (!deleteTarget) return;
     setSaving(true);
     try {
-      const items =
-        subjectTypeName === "LAB"
-          ? periods.flatMap((periodId) => {
-              const schedule = context.scheduleTimings.find(
-                (s) => n(s.timetableScheduleId) === periodId,
-              );
-              const resources = Array.isArray(schedule?.subjectResource)
-                ? (schedule!.subjectResource as AnyRow[])
-                : [];
-              return resources.filter(
-                (y) =>
-                  n(y.studentBatchId) === n(deleteTarget.studentBatchId) &&
-                  n(y.courseYearStaffId) === n(deleteTarget.courseYearStaffId),
-              );
-            })
-          : [deleteTarget as unknown as AnyRow];
+      const typeCode = String(
+        deleteTarget.subjectTypeCode || subjectTypeName || "",
+      ).toUpperCase();
+      const targetId = n(deleteTarget.subjectResourceId);
 
-      const result = await deleteSubjectResourceStaff(
-        items.map((item) => ({
-          ...item,
-          isActive: false,
-          toDate: deleteTarget.toDate,
-        })),
-      );
+      // Angular deleteResource: push full schedule subjectResource row(s) with isActive=false
+      let deleteItems: AnyRow[] = [];
+
+      if (typeCode === "LAB") {
+        for (const periodId of periods) {
+          const schedule = context.scheduleTimings.find(
+            (s) => n(s.timetableScheduleId) === periodId,
+          );
+          const resources = Array.isArray(schedule?.subjectResource)
+            ? (schedule!.subjectResource as AnyRow[])
+            : [];
+          const match = resources.find(
+            (y) =>
+              n(y.timetableScheduleId) === periodId &&
+              n(y.studentBatchId) === n(deleteTarget.studentBatchId) &&
+              n(y.courseYearStaffId) === n(deleteTarget.courseYearStaffId),
+          );
+          if (match) {
+            deleteItems.push({
+              ...match,
+              toDate: deleteTarget.toDate ?? match.toDate,
+              isActive: false,
+            });
+          }
+        }
+      } else {
+        // Prefer original API resource from the clicked cell / schedules (Angular pushes `item`)
+        const fromTiming = (timing.subjectResource ?? []).find(
+          (r) => n(r.subjectResourceId) === targetId,
+        );
+        const fromSchedules = context.scheduleTimings
+          .flatMap((s) =>
+            Array.isArray(s.subjectResource)
+              ? (s.subjectResource as AnyRow[])
+              : [],
+          )
+          .find((r) => n(r.subjectResourceId) === targetId);
+        const full = fromTiming ?? fromSchedules;
+        if (full) {
+          deleteItems = [{ ...full, isActive: false }];
+        } else {
+          // Fallback: Angular-shaped keys from the form row
+          deleteItems = [
+            {
+              academicYearID: deleteTarget.academicYearID,
+              collegeId: deleteTarget.collegeId,
+              colorCode: deleteTarget.colorCode,
+              courseGroupId: deleteTarget.courseGroupId,
+              courseYearId: deleteTarget.courseYearId,
+              courseYearStaffId: deleteTarget.courseYearStaffId,
+              fromDate: deleteTarget.fromDate,
+              groupSectionId: deleteTarget.groupSectionId,
+              isActive: false,
+              isStaffUpdate: deleteTarget.isStaffUpdate ?? false,
+              roomId: deleteTarget.roomId,
+              studentBatchId: deleteTarget.studentBatchId,
+              subjectCourseYearId: deleteTarget.subjectCourseYearId,
+              subjectTypeCode: deleteTarget.subjectTypeCode,
+              subjectTypeId: deleteTarget.subjectTypeId,
+              timetableScheduleId: deleteTarget.timetableScheduleId,
+              subjectResourceId: deleteTarget.subjectResourceId,
+              createdDt: deleteTarget.createdDt ?? null,
+              createdUser: deleteTarget.createdUser ?? null,
+              toDate: deleteTarget.toDate,
+              cellGroupId: deleteTarget.cellGroupId ?? null,
+            },
+          ];
+        }
+      }
+
+      if (deleteItems.length === 0) {
+        toastInfo("Nothing to delete");
+        return;
+      }
+
+      const result = await deleteSubjectResourceStaff(deleteItems);
       if (result.statusCode === 200) {
         const data = Array.isArray(result.data)
           ? (result.data as AnyRow[])
@@ -515,13 +575,16 @@ export function AddResourceDialog({
         if (data.length > 0 && data[0]?.actualClsScheduleId) {
           setAttendanceRows(data);
           setAttendanceOpen(true);
+        } else {
+          toastSuccess(result.message || "Resource deleted");
         }
-        toastSuccess(result.message || "Resource deleted");
         onSaved();
         onClose();
       } else {
         toastError(result.message || "Delete failed");
       }
+    } catch (e) {
+      toastError(e, "Delete failed");
     } finally {
       setSaving(false);
       setDeleteTarget(null);

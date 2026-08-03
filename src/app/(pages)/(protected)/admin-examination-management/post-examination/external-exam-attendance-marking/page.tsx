@@ -874,7 +874,23 @@ export default function ExternalExamAttendanceMarkingPage() {
                 )}
               </div>
             </div>
-            <div className="flex justify-center">
+            {/* Same placement as Internal Exam Attendance Marking right rail */}
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                className="h-8 px-5 text-[12px]"
+                variant="outline"
+                onClick={onUploadAttendanceClick}
+                disabled={uploadingAttendance || rows.length === 0}
+              >
+                {uploadingAttendance ? "Uploading..." : "Upload Attendance"}
+              </Button>
+              <input
+                ref={attendanceFileInputRef}
+                type="file"
+                className="hidden"
+                accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx"
+                onChange={onAttendanceFileChange}
+              />
               <Button
                 className="h-8 px-5 text-[12px]"
                 onClick={onSave}
@@ -882,13 +898,12 @@ export default function ExternalExamAttendanceMarkingPage() {
               >
                 {saving ? "Saving..." : "Save Attendance"}
               </Button>
+              {selectedAttendanceFileName ? (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Selected file: {selectedAttendanceFileName}
+                </p>
+              ) : null}
             </div>
-
-            {selectedAttendanceFileName ? (
-              <p className="text-center text-[11px] text-muted-foreground">
-                Selected file: {selectedAttendanceFileName}
-              </p>
-            ) : null}
           </div>
         ) : null
       }

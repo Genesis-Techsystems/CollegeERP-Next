@@ -401,6 +401,10 @@ export default function StudentExamFeeRegistrationPage() {
   const [, setAllCourseYears, allCourseYearsRef] = useStateRef<AnyRow[]>([]);
   const [, setCourseYearsList, courseYearsListRef] = useStateRef<AnyRow[]>([]);
   const [, setExamDetailsList, examDetailsListRef] = useStateRef<AnyRow[]>([]);
+  /** Full ExamMasterDetails (both Regular + Supple). Never replace with a type-filtered subset. */
+  const allExamDetailsListRef = useRef<AnyRow[]>([]);
+  /** Ignore stale getExamDetails responses when user toggles Regular/Supple quickly. */
+  const examDetailsReqSeqRef = useRef(0);
   const [courseYears, setCourseYears] = useState<AnyRow[]>([]);
   const [courseYearId, setCourseYearId, courseYearIdRef] = useStateRef<
     number | null
@@ -473,6 +477,9 @@ export default function StudentExamFeeRegistrationPage() {
     setExamDetailsList(
       Array.isArray(snap.examDetailsList) ? snap.examDetailsList : [],
     );
+    allExamDetailsListRef.current = Array.isArray(snap.examDetailsList)
+      ? snap.examDetailsList
+      : [];
     setCourseYears(Array.isArray(snap.courseYears) ? snap.courseYears : []);
     setCourseYearId(snap.courseYearId ?? null);
     setCheckExam(snap.checkExam === 2 ? 2 : 1);
@@ -619,8 +626,11 @@ export default function StudentExamFeeRegistrationPage() {
     setExamId(null);
     setCourseYears([]);
     setStudentSubjects([]);
+    allExamDetailsListRef.current = [];
+    examDetailsReqSeqRef.current += 1; // invalidate in-flight exam-details requests
     setExamDetailsList([]);
     setCourseYearId(null);
+    setCheckExam(1);
     setFlag(false);
     setExamFeeStructure([]);
     setStudentId(sid);
@@ -667,9 +677,13 @@ export default function StudentExamFeeRegistrationPage() {
     setFeeReceipts([]);
     setCoursesYearList([]);
     setSearchText("");
+    allExamDetailsListRef.current = [];
     setExamDetailsList([]);
     setCourseYears([]);
     setStudentSubjects([]);
+    // Angular selectedExternalExam always loads Regular (getExamDetails(1))
+    checkExamRef.current = 1;
+    setCheckExam(1);
     const stu = studentRef.current;
     await Promise.all([
       loadFeeStructure(Number(stu.courseYearId)),
@@ -678,17 +692,28 @@ export default function StudentExamFeeRegistrationPage() {
     ]);
   }
 
+  /** Match ExamMasterDetails.courseYearId to academic-batch year ids (Angular + fromCourseYearId). */
+  function examDetailMatchesBatch(ed: AnyRow, cy: AnyRow): boolean {
+    const edCy = Number(ed.courseYearId);
+    return (
+      edCy === Number(cy.courseYearId) || edCy === Number(cy.fromCourseYearId)
+    );
+  }
+
   // ============== EXAM DETAILS → COURSE YEARS ==============
   async function getExamDetails(type: 1 | 2, eid: number) {
     const stu = studentRef.current;
+    const seq = ++examDetailsReqSeqRef.current;
     const list = await getExamMasterDetailsByGroup({
       examId: eid,
       courseGroupId: Number(stu.courseGroupId),
       regulationId: Number(stu.regulationId),
     }).catch(() => []);
+    // Drop stale responses (user toggled Regular ↔ Supple while request was in flight)
+    if (seq !== examDetailsReqSeqRef.current) return;
+    if (checkExamRef.current !== type) return;
     const details = Array.isArray(list) ? list : [];
-    examDetailsListRef.current = details;
-    setExamDetailsList(details);
+    allExamDetailsListRef.current = details;
     supplyCourseYears(type, details, stu, eid);
   }
 
@@ -699,14 +724,15 @@ export default function StudentExamFeeRegistrationPage() {
     eid: number,
   ) {
     setStudentSubjects([]);
+    setCourseYearFee([]);
     const cyList = courseYearsListRef.current;
     if (!examDetails || examDetails.length === 0) {
       setCourseYears([]);
+      setCourseYearId(null);
       return;
     }
     if (type === 1) {
-      // Angular: filter Regular, push batch where fromCourseYearId === student.courseYearId,
-      // then keep only rows whose courseYearId appears in exam details.
+      // Regular: only the student's current course year, if present as Regular in exam details.
       const reg = examDetails.filter((x) => x.examTypeCatCode === "Regular");
       examDetailsListRef.current = reg;
       setExamDetailsList(reg);
@@ -715,7 +741,7 @@ export default function StudentExamFeeRegistrationPage() {
       );
       let cys = match ? [match] : [];
       cys = cys.filter((cy) =>
-        reg.some((ed) => Number(ed.courseYearId) === Number(cy.courseYearId)),
+        reg.some((ed) => examDetailMatchesBatch(ed, cy)),
       );
       setCourseYears(cys);
       if (cys.length > 0) {
@@ -723,9 +749,12 @@ export default function StudentExamFeeRegistrationPage() {
         setCourseYearId(cyId);
         void getStudentSubjects(Number(stu.courseYearId), 1, eid);
       } else {
+        setCourseYearId(null);
         toast.info("No Course Years in Exam Details");
       }
     } else {
+      // Supple: prior semesters only (fromCourseYearId !== current), that exist as Supple in exam details.
+      // Current semester (Regular) is intentionally excluded — Angular supplyCourseYears(type===2).
       const sup = examDetails.filter((x) => x.examTypeCatCode === "Supple");
       examDetailsListRef.current = sup;
       setExamDetailsList(sup);
@@ -733,7 +762,7 @@ export default function StudentExamFeeRegistrationPage() {
         (x) => Number(x.fromCourseYearId) !== Number(stu.courseYearId),
       );
       cys = cys.filter((cy) =>
-        sup.some((ed) => Number(ed.courseYearId) === Number(cy.courseYearId)),
+        sup.some((ed) => examDetailMatchesBatch(ed, cy)),
       );
       setCourseYears(cys);
       setCourseYearId(null);
@@ -749,6 +778,8 @@ export default function StudentExamFeeRegistrationPage() {
   }
 
   function clearOnExamTypeChange() {
+    // Clear semester list immediately so Regular SEM doesn't linger under Supplementary UI
+    setCourseYears([]);
     setCourseYearFee([]);
     setStudentSubjects([]);
     setExamFeeStructure([]);

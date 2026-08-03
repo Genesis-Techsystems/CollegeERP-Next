@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/errors";
+import { printHtmlInIframe } from "@/lib/print";
 import { toastError } from "@/lib/toast";
 import {
   getActiveEmployeeDetailById,
@@ -24,70 +25,88 @@ function amount(value: unknown): string {
   return Number(value ?? 0).toFixed(2);
 }
 
-function numberToWords(value: number): string {
-  const ones = [
+/**
+ * Angular `numToWords` — pads to 9 digits and maps crore/lakh/thousand/hundred.
+ * Negative / non-matching values return "" (Angular early-returns without updating amtWords).
+ */
+function numberToWords(num: number): string {
+  const a = [
     "",
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten",
-    "eleven",
-    "twelve",
-    "thirteen",
-    "fourteen",
-    "fifteen",
-    "sixteen",
-    "seventeen",
-    "eighteen",
-    "nineteen",
+    "one ",
+    "two ",
+    "three ",
+    "four ",
+    "five ",
+    "six ",
+    "seven ",
+    "eight ",
+    "nine ",
+    "ten ",
+    "eleven ",
+    "twelve ",
+    "thirteen ",
+    "fourteen ",
+    "fifteen ",
+    "sixteen ",
+    "seventeen ",
+    "eighteen ",
+    "nineteen ",
   ];
-  const tens = [
+  const b = [
     "",
     "",
-    "twenty",
-    "thirty",
-    "forty",
-    "fifty",
-    "sixty",
-    "seventy",
-    "eighty",
-    "ninety",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
   ];
-  const underHundred = (n: number) =>
-    n < 20
-      ? ones[n]
-      : `${tens[Math.floor(n / 10)]}${n % 10 ? ` ${ones[n % 10]}` : ""}`;
-  const underThousand = (n: number) =>
-    n < 100
-      ? underHundred(n)
-      : `${ones[Math.floor(n / 100)]} hundred${n % 100 ? ` and ${underHundred(n % 100)}` : ""}`;
 
-  let n = Math.max(0, Math.floor(value));
-  if (n === 0) return "zero";
-  const parts: string[] = [];
-  const crore = Math.floor(n / 10_000_000);
-  if (crore) {
-    parts.push(`${underHundred(crore)} crore`);
-    n %= 10_000_000;
-  }
-  const lakh = Math.floor(n / 100_000);
-  if (lakh) {
-    parts.push(`${underHundred(lakh)} lakh`);
-    n %= 100_000;
-  }
-  const thousand = Math.floor(n / 1_000);
-  if (thousand) {
-    parts.push(`${underHundred(thousand)} thousand`);
-    n %= 1_000;
-  }
-  if (n) parts.push(underThousand(n));
-  return parts.join(" ");
+  const raw = String(num);
+  if (raw.length > 9) return "overflow";
+  const n = ("000000000" + raw)
+    .slice(-9)
+    .match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+  if (!n) return "";
+
+  let str = "";
+  str +=
+    Number(n[1]) !== 0
+      ? (a[Number(n[1])] || `${b[Number(n[1][0])]} ${a[Number(n[1][1])]}`) +
+        "crore "
+      : "";
+  str +=
+    Number(n[2]) !== 0
+      ? (a[Number(n[2])] || `${b[Number(n[2][0])]} ${a[Number(n[2][1])]}`) +
+        "lakh "
+      : "";
+  str +=
+    Number(n[3]) !== 0
+      ? (a[Number(n[3])] || `${b[Number(n[3][0])]} ${a[Number(n[3][1])]}`) +
+        "thousand "
+      : "";
+  str +=
+    Number(n[4]) !== 0
+      ? (a[Number(n[4])] || `${b[Number(n[4][0])]} ${a[Number(n[4][1])]}`) +
+        "hundred "
+      : "";
+  str +=
+    Number(n[5]) !== 0
+      ? (str !== "" ? "and " : "") +
+        (a[Number(n[5])] || `${b[Number(n[5][0])]} ${a[Number(n[5][1])]}`)
+      : "";
+  return str.trim();
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function PayslipTable({
@@ -140,6 +159,122 @@ function PayslipTable({
       </tbody>
     </table>
   );
+}
+
+/** Angular `.marPnt` print document — printed via iframe to avoid AppShell blank PDFs. */
+function buildPayslipPrintHtml(opts: {
+  logo: string;
+  collegeName: string;
+  firstName: string;
+  empNumber: string;
+  designationName: string;
+  monthYear: string;
+  earnings: AnyRow[];
+  deductions: AnyRow[];
+  management: AnyRow[];
+  totalEarnings: number;
+  totalDeductions: number;
+  netPay: number;
+  amtWords: string;
+}): string {
+  const earnRows = opts.earnings
+    .map(
+      (row) =>
+        `<tr><td class="td">${escapeHtml(row.payrollCategoryName)}</td><td class="td right">${amount(row.amount)}</td></tr>`,
+    )
+    .join("");
+  const dedRows = opts.deductions
+    .map(
+      (row) =>
+        `<tr><td class="td">${escapeHtml(row.payrollCategoryName)}</td><td class="td right">${amount(row.amount)}</td></tr>`,
+    )
+    .join("");
+  const mgmtRows = opts.management
+    .map(
+      (row) =>
+        `<tr><td class="td">${escapeHtml(row.payrollCategoryName)}</td><td class="td right">${amount(row.amount)}</td></tr>`,
+    )
+    .join("");
+  const logoBlock = opts.logo
+    ? `<img src="${escapeHtml(opts.logo)}" alt="" style="max-height:80px;max-width:160px;object-fit:contain" />`
+    : "";
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Employee Payslip</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: Arial, sans-serif; }
+  .wrap { width: 90%; margin: 0 auto; padding: 12px 0; }
+  .header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+  .header-text { flex: 1; text-align: center; }
+  .collegeName { font-size: 20px; font-weight: 550; margin: 0 0 2px; }
+  .title { font-size: 18px; font-weight: 550; margin: 0 0 2px; }
+  .details { font-size: 16px; font-weight: 550; margin: 0; }
+  .meta { display: flex; justify-content: space-between; margin: 8px 0 12px; font-weight: 550; }
+  .tables { display: flex; gap: 0; width: 100%; }
+  table { border-collapse: collapse; width: 50%; }
+  th.th { background: #C3D9FF; padding: 8px 5px; text-align: left; font-weight: 600; border: 1px solid #9bb6e0; }
+  td.td { padding: 8px; text-align: left; font-weight: 500; border: 1px solid #c5c5c5; }
+  td.right, th.right { text-align: right; }
+  .net table { width: 100%; margin-top: 8px; }
+  .net th { background: #C3D9FF; padding: 8px 5px; text-align: left; border: 1px solid #9bb6e0; font-weight: 600; }
+  @page { margin: 1cm; }
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>${logoBlock}</div>
+      <div class="header-text">
+        <p class="collegeName">${escapeHtml(opts.collegeName)}</p>
+        <p class="title">Employee Payslip</p>
+        <p class="details">${escapeHtml(opts.firstName)}(${escapeHtml(opts.empNumber)})</p>
+      </div>
+    </div>
+    <div class="meta">
+      <span>${escapeHtml(opts.designationName)}</span>
+      <span>${escapeHtml(opts.monthYear)}</span>
+    </div>
+    <div class="tables">
+      <table>
+        <thead><tr><th class="th">Earnings</th><th class="th right" style="width:35%">Credited (₹)</th></tr></thead>
+        <tbody>
+          ${earnRows}
+          <tr><td class="td" style="font-weight:500">Total Earnings</td><td class="td right" style="font-weight:500">${opts.totalEarnings.toFixed(2)}/-</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th class="th">Deductions</th><th class="th right">Deducted (₹)</th></tr></thead>
+        <tbody>
+          ${dedRows}
+          <tr><td class="td" style="font-weight:500">Total Deductions</td><td class="td right" style="font-weight:500">${opts.totalDeductions.toFixed(2)}/-</td></tr>
+        </tbody>
+      </table>
+    </div>
+    ${
+      opts.management.length > 0
+        ? `<table style="width:100%;margin-top:8px">
+        <thead><tr><th class="th">Management Deductions</th><th class="th right">Deducted (₹)</th></tr></thead>
+        <tbody>${mgmtRows}</tbody>
+      </table>`
+        : ""
+    }
+    <div class="net">
+      <table>
+        <tbody>
+          <tr><th>Net Pay &nbsp;:&nbsp; ${opts.netPay.toFixed(2)}₹</th></tr>
+          <tr><th>IN WORDS &nbsp;: &nbsp;${escapeHtml(opts.amtWords)}</th></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 export function ViewMonthlyPayslipPage({
@@ -251,33 +386,63 @@ export function ViewMonthlyPayslipPage({
     0,
   );
   const netPay = totalEarnings - totalDeductions;
+  const amtWords = numberToWords(netPay);
 
   const backHref = `/hr-payroll/payroll/monthly-playslip?collegeId=${collegeId}&departmentId=${departmentId}&date=${encodeURIComponent(selectedDate)}`;
-  const monthLabel = (() => {
-    const date = new Date(payslipMonth);
-    return Number.isNaN(date.getTime())
-      ? payslipMonth
-      : format(date, "MMMM-yyyy");
+
+  /** Angular: `moment(payslipMonth).format('MMMM') + '-' + new Date().getFullYear()` */
+  const monthYearLabel = (() => {
+    const date = new Date(payslipMonth || selectedDate || Date.now());
+    const month = Number.isNaN(date.getTime()) ? "" : format(date, "MMMM");
+    return `${month}-${new Date().getFullYear()}`;
   })();
+
+  const printDocument = () => {
+    if (details.length === 0 || !employee) return;
+    printHtmlInIframe(
+      buildPayslipPrintHtml({
+        logo,
+        collegeName: String(employee.collegeName ?? ""),
+        firstName: String(employee.firstName ?? ""),
+        empNumber: String(employee.empNumber ?? ""),
+        designationName: String(employee.designationName ?? ""),
+        monthYear: monthYearLabel,
+        earnings,
+        deductions,
+        management,
+        totalEarnings,
+        totalDeductions,
+        netPay,
+        amtWords,
+      }),
+    );
+  };
 
   useEffect(() => {
     if (
       !printAction ||
       loading ||
       details.length === 0 ||
-      hasAutoPrinted.current
+      hasAutoPrinted.current ||
+      !employee
     ) {
       return;
     }
     hasAutoPrinted.current = true;
-    window.print();
-    router.back();
-  }, [details.length, loading, printAction, router]);
+    printDocument();
+    // Angular view-employee payslip navigates back after Isprint=1.
+    if (backMode === "history") {
+      const t = window.setTimeout(() => router.back(), 800);
+      return () => window.clearTimeout(t);
+    }
+    // Print once when auto-print query and payslip data are ready.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [details.length, loading, printAction, employee, backMode, router]);
 
   return (
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
-        <div className="border-b border-[#e8c547] px-4 py-3 print:hidden">
+        <div className="border-b border-[#e8c547] px-4 py-3">
           <h1 className="inline-flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--card-title))]">
             <Monitor className="h-4 w-4" aria-hidden />
             Employee Payslip
@@ -289,25 +454,8 @@ export function ViewMonthlyPayslipPage({
         ) : error ? (
           <p className="p-6 text-sm text-destructive">{error}</p>
         ) : (
-          <div className="space-y-5 p-4 sm:p-5 print:p-0">
-            <div className="hidden items-center gap-4 border-b pb-4 print:flex">
-              {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" className="h-16 w-24 object-contain" />
-              ) : null}
-              <div className="flex-1 text-center">
-                <h1 className="text-xl font-bold">
-                  {String(employee?.collegeName ?? "")}
-                </h1>
-                <p className="font-semibold">Employee Payslip</p>
-                <p className="text-sm">
-                  {String(employee?.firstName ?? "")} (
-                  {String(employee?.empNumber ?? "")})
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-sm border border-[#9fb8d9] bg-[#f4f8fc] p-4 text-sm print:border-0 print:bg-white print:p-0">
+          <div className="space-y-5 p-4 sm:p-5">
+            <div className="rounded-sm border border-[#9fb8d9] bg-[#f4f8fc] p-4 text-sm">
               <div className="grid gap-2 sm:grid-cols-[150px_1fr]">
                 <span>Employee :</span>
                 <span className="font-medium text-blue-700">
@@ -327,7 +475,9 @@ export function ViewMonthlyPayslipPage({
                 </span>
                 <span>Grade :</span>
                 <span className="text-blue-700">
-                  {String(employee?.empGradeCode ?? employee?.empgrade ?? "—")}
+                  {employee?.empgrade != null
+                    ? String(employee?.empGradeCode ?? employee?.empgrade)
+                    : "—"}
                 </span>
                 <span>Payroll Group :</span>
                 <span className="text-blue-700">
@@ -344,7 +494,6 @@ export function ViewMonthlyPayslipPage({
                   <h2 className="text-[16px] font-semibold text-[#2b6cb0]">
                     Payslip Details
                   </h2>
-                  <span className="text-sm font-medium">{monthLabel}</span>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-2">
                   <PayslipTable
@@ -369,9 +518,7 @@ export function ViewMonthlyPayslipPage({
                 ) : null}
                 <div className="space-y-1 rounded-sm border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-semibold">
                   <p>Net Pay : {netPay.toFixed(2)} ₹</p>
-                  <p className="uppercase">
-                    In words : {numberToWords(netPay)}
-                  </p>
+                  <p className="uppercase">IN WORDS : {amtWords || ""}</p>
                 </div>
               </>
             ) : (
@@ -380,7 +527,7 @@ export function ViewMonthlyPayslipPage({
               </p>
             )}
 
-            <div className="flex justify-end gap-2 print:hidden">
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 size="sm"
@@ -392,7 +539,7 @@ export function ViewMonthlyPayslipPage({
                 Back
               </Button>
               {details.length > 0 ? (
-                <Button type="button" size="sm" onClick={() => window.print()}>
+                <Button type="button" size="sm" onClick={printDocument}>
                   <Printer className="mr-1.5 h-4 w-4" />
                   Print
                 </Button>

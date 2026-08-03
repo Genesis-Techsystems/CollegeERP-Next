@@ -770,16 +770,6 @@ export default function ExamEvaluationReportPage() {
             >
               Print Report
             </Button>
-            {showBack && (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={onBack}
-                className="h-[30px] px-3 text-[12px] bg-amber-400 hover:bg-amber-500 text-black"
-              >
-                Back
-              </Button>
-            )}
           </div>
         ) : null
       }

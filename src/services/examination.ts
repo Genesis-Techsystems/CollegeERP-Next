@@ -595,10 +595,17 @@ export async function getExamTimetableDetails(
   return body;
 }
 
+export type ExamFiltersNoTimetableBundle = {
+  /** `univ_exam_rest_filters` — course years + branch/groups */
+  restFilters: any[];
+  /** `exam_sessions` — sessions for edit modal (Angular selectedExam) */
+  sessions: any[];
+};
+
 /**
- * Branches/groups before timetable rows — `univ_exam_rest_no_tt` → `univ_exam_rest_filters` group.
+ * Angular selectedExam(): `univ_exam_rest_no_tt` → pick `univ_exam_rest_filters` + `exam_sessions`.
  */
-export async function getExamFiltersNoTimetable(params: {
+export async function getExamFiltersNoTimetableBundle(params: {
   courseId: number;
   examId: number;
   academicYearId: number;
@@ -609,7 +616,7 @@ export async function getExamFiltersNoTimetable(params: {
    * never flatten other groups. Admin keeps the legacy flatten fallback.
    */
   strictRestFiltersGroup?: boolean;
-}): Promise<any[]> {
+}): Promise<ExamFiltersNoTimetableBundle> {
   const data = await getAllRecords<{ result?: any[][] }>(
     "s_get_exam_filters_bycode",
     {
@@ -634,11 +641,40 @@ export async function getExamFiltersNoTimetable(params: {
   const groups = data?.result ?? [];
   const rest =
     groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_rest_filters") ?? [];
-  if (Array.isArray(rest) && rest.length > 0) return rest;
-  if (params.strictRestFiltersGroup) return [];
-  const out: any[] = [];
-  for (const arr of groups) if (Array.isArray(arr)) out.push(...arr);
-  return out;
+  const sessions =
+    groups.find((g) => (g?.[0]?.flag ?? "") === "exam_sessions") ?? [];
+  let restFilters: any[] = Array.isArray(rest) ? rest : [];
+  if (restFilters.length === 0 && !params.strictRestFiltersGroup) {
+    const out: any[] = [];
+    for (const arr of groups) if (Array.isArray(arr)) out.push(...arr);
+    restFilters = out;
+  }
+  return {
+    restFilters,
+    sessions: Array.isArray(sessions) ? sessions : [],
+  };
+}
+
+/** Alias used by barrel — same as {@link getExamFiltersNoTimetableBundle}. */
+export async function getUnivExamRestNoTtGroups(
+  params: Parameters<typeof getExamFiltersNoTimetableBundle>[0],
+): Promise<ExamFiltersNoTimetableBundle> {
+  return getExamFiltersNoTimetableBundle(params);
+}
+
+/**
+ * Branches/groups before timetable rows — `univ_exam_rest_no_tt` → `univ_exam_rest_filters` group.
+ */
+export async function getExamFiltersNoTimetable(params: {
+  courseId: number;
+  examId: number;
+  academicYearId: number;
+  courseYearId?: number;
+  employeeId?: number;
+  strictRestFiltersGroup?: boolean;
+}): Promise<any[]> {
+  const { restFilters } = await getExamFiltersNoTimetableBundle(params);
+  return restFilters;
 }
 
 /**
@@ -780,12 +816,36 @@ export async function saveExamTimetable(rows: any[]): Promise<{
   message: string;
   data?: any[];
 }> {
-  const { NEXT_API, EXAM_API } = await import("@/config/constants/api");
   const res = await fetch(NEXT_API.PROXY(EXAM_API.SAVE_EXAM_TIMETABLE), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(rows),
   });
+  const body = await res.json().catch(() => null);
+  return {
+    ok: res.ok,
+    ...(body ?? { statusCode: 0, success: false, message: "Save failed" }),
+  };
+}
+
+/**
+ * Angular editDialog → POST `examtimetabledetailsbyexamdate` (array of detail rows).
+ */
+export async function saveExamTimetableDetailsByExamDate(rows: any[]): Promise<{
+  ok: boolean;
+  statusCode: number;
+  success: boolean;
+  message: string;
+  data?: unknown;
+}> {
+  const res = await fetch(
+    NEXT_API.PROXY(EXAM_API.EXAM_TIMETABLE_DETAILS_BY_DATE),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rows),
+    },
+  );
   const body = await res.json().catch(() => null);
   return {
     ok: res.ok,

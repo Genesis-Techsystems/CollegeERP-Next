@@ -132,12 +132,15 @@ export {
   listExamMasterDetails,
   getExamTimetableDetails,
   getExamFiltersNoTimetable,
+  getExamFiltersNoTimetableBundle,
+  getUnivExamRestNoTtGroups,
   getExamSubjectsForSchedule,
   getUnivExamSubjectFilters,
   listExamMarksSetup,
   listSubjectCategories,
   saveExamMarksSetup,
   saveExamTimetable,
+  saveExamTimetableDetailsByExamDate,
 } from "./examination";
 // exam-master: CollegeFiltersResult and getCollegeFilters conflict with evaluation.ts and examination.ts;
 // use named re-exports to avoid ambiguity.
