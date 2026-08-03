@@ -6,8 +6,9 @@ import { useForm, type Resolver } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { BookOpen, Receipt } from "lucide-react";
+import { BookOpen, Receipt, Upload, X } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
+import { FileDropzone } from "@/common/components/forms";
 import {
   MultiSelect,
   Select,
@@ -100,7 +101,6 @@ function generalDetailOptions(rows: GeneralDetail[]): SelectOption[] {
 export default function AddBooksPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
-  const [bookTypeSettingId, setBookTypeSettingId] = useState<number>();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   const {
@@ -227,7 +227,6 @@ export default function AddBooksPage() {
   useEffect(() => {
     if (!bookregTypeId || !libraryId) {
       setValue("valueLstAccNo", "");
-      setBookTypeSettingId(undefined);
       return;
     }
     const selected = registrationTypes.find(
@@ -236,19 +235,14 @@ export default function AddBooksPage() {
     const code = selected?.generalDetailCode;
     if (!code) {
       setValue("valueLstAccNo", "");
-      setBookTypeSettingId(undefined);
       return;
     }
     void getLibraryBookSetting(String(code), libraryId)
       .then((setting) => {
         setValue("valueLstAccNo", String(setting?.value ?? ""));
-        setBookTypeSettingId(
-          Number(setting?.libSettingCatdetId ?? 0) || undefined,
-        );
       })
       .catch((error) => {
         setValue("valueLstAccNo", "");
-        setBookTypeSettingId(undefined);
         toastError(error, "Could not load accession setting");
       });
   }, [bookregTypeId, libraryId, registrationTypes, setValue]);
@@ -300,7 +294,6 @@ export default function AddBooksPage() {
       bookDetail: [
         {
           noofcopies: copies,
-          bookregTypeId: bookTypeSettingId,
           bookbarCode: "",
           libraryRefNumber: "",
           bookAmount: eachBookCost,
@@ -509,6 +502,7 @@ export default function AddBooksPage() {
                   </Label>
                   <Input
                     className={LIBRARY_INPUT_CLASS}
+                    placeholder="Last accession number"
                     {...register("valueLstAccNo")}
                     disabled
                   />
@@ -545,18 +539,48 @@ export default function AddBooksPage() {
                     onChange={(date) => setValue("dateOfPurchase", date)}
                     placeholder="Select purchase date"
                   />
-                  <div className="space-y-1">
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-2">
                     <Label className={LIBRARY_FIELD_LABEL_CLASS}>
                       Receipt File
                     </Label>
-                    <Input
-                      type="file"
+                    <FileDropzone
                       accept=".png,.jpg,.jpeg"
-                      className={LIBRARY_INPUT_CLASS}
-                      onChange={(event) =>
-                        setReceiptFile(event.target.files?.[0] ?? null)
+                      className="max-w-full"
+                      onFilesChange={(files) =>
+                        setReceiptFile(files[0] ?? null)
                       }
-                    />
+                    >
+                      <div className="flex items-center gap-2 text-[12px] text-foreground">
+                        <Upload
+                          className="h-4 w-4 shrink-0 text-muted-foreground"
+                          aria-hidden
+                        />
+                        <span>
+                          Choose receipt file, or drag &amp; drop here
+                          <span className="text-muted-foreground">
+                            {" "}
+                            (PNG, JPG)
+                          </span>
+                        </span>
+                      </div>
+                    </FileDropzone>
+                    {receiptFile ? (
+                      <div className="mt-2 inline-flex max-w-full items-center rounded-md border border-dashed border-input bg-muted/40 px-2.5 py-1.5">
+                        <div className="inline-flex min-w-0 items-center gap-1.5">
+                          <p className="truncate text-xs text-foreground">
+                            {receiptFile.name}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setReceiptFile(null)}
+                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                            aria-label="Remove selected file"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

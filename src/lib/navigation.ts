@@ -1302,6 +1302,16 @@ function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
   if (!item.href) return null;
 
   const hrefLower = item.href.toLowerCase();
+  // Excel bulk-upload leaves live under `/admin/bulk-uploads/*` (not raw Angular paths).
+  if (
+    hrefLower.includes("subject-unit-topic-upload") ||
+    hrefLower.includes("subject-unit-topics-bulk-upload")
+  ) {
+    return "/admin/bulk-uploads/subject-unit-topic-upload";
+  }
+  if (hrefLower.includes("unit-topic-bulk-upload")) {
+    return "/admin/bulk-uploads/unit-topic-bulk-upload";
+  }
   const masterSettingsMarker = "master-settings/";
   const masterSettingsIndex = hrefLower.indexOf(masterSettingsMarker);
   if (masterSettingsIndex !== -1) {

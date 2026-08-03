@@ -165,6 +165,7 @@ export default function LibraryDetailsPage() {
           setEditing(null);
         }}
         row={editing}
+        existingRows={rows}
         onSaved={invalidate}
       />
     </ListPage>

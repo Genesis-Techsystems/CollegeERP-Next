@@ -413,6 +413,7 @@ export function NewMembershipPanel({
       <DefaultMembershipListModal
         open={defaultListOpen}
         kind={kind}
+        libraryId={libraryId ? Number(libraryId) : null}
         onClose={() => setDefaultListOpen(false)}
       />
       <FormModal

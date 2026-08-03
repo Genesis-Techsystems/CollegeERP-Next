@@ -273,6 +273,32 @@ function examScanProfileDetailsBreadcrumb(
 }
 
 /**
+ * Angular unit-topic bulk uploads:
+ * Home → Admin → Bulk Uploads → Unit Topic Bulk Upload
+ * (both `subject-unit-topic-upload` and `unit-topic-bulk-upload`)
+ */
+function unitTopicBulkUploadBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin\/bulk-uploads\/(subject-unit-topic-upload|unit-topic-bulk-upload)$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Admin", href: "/admin" },
+    { label: "Bulk Uploads" },
+    { label: "Unit Topic Bulk Upload" },
+  ];
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -356,6 +382,7 @@ export function useBreadcrumb(
   items = assignRegulationToStudentsBreadcrumb(pathname, items);
   items = hostelRoomsBreadcrumb(pathname, items);
   items = examScanProfileDetailsBreadcrumb(pathname, items);
+  items = unitTopicBulkUploadBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).
   if (items[0]?.label === "Home") {

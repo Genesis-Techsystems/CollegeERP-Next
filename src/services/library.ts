@@ -19,6 +19,7 @@ import {
   domainUpdate,
   fetchDetails,
   fetchDetailsById,
+  fetchDetailsEnvelope,
   getAllRecords,
   postDetails,
   postDetailsEnvelope,
@@ -651,11 +652,12 @@ export async function listEmployeeLibraryMemberships(
 
 export async function listStudentsWithoutLibraryMembership(
   collegeId: number,
+  libraryId?: number,
 ): Promise<LibraryMembership[]> {
   if (!collegeId) return [];
-  const data = await fetchDetails<unknown>(LIBRARY_API.NO_MEMBERSHIP, {
-    collegeId,
-  });
+  const params: Record<string, string | number> = { collegeId };
+  if (libraryId && libraryId > 0) params.libraryId = libraryId;
+  const data = await fetchDetails<unknown>(LIBRARY_API.NO_MEMBERSHIP, params);
   return unwrapMemberSearchRows(data).map(normalizeMembershipRow);
 }
 
@@ -1477,15 +1479,35 @@ function normalizeBooksDueRow(row: AnyRow): LibraryRow {
   };
 }
 
-export async function listBooksDue(page = 0, size = 50): Promise<LibraryRow[]> {
+/** Angular `listAllMasterDetailsWithPageNation(bookduelistUrl, page, size, 'page', 'size')`. */
+export async function listBooksDue(
+  page = 0,
+  size = 50,
+): Promise<{ rows: LibraryRow[]; totalCount: number; page: number }> {
   try {
-    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_DUE_LIST, {
-      page,
-      size,
-    });
-    return unwrapMemberSearchRows(data).map(normalizeBooksDueRow);
+    const envelope = await fetchDetailsEnvelope<unknown>(
+      LIBRARY_API.BOOK_DUE_LIST,
+      { page, size },
+    );
+    if (!envelope.success) {
+      const message = envelope.message ?? "Failed to load books due list";
+      if (isNoRecordsError(new AppError("API_ERROR", message))) {
+        return { rows: [], totalCount: 0, page };
+      }
+      throw new AppError("API_ERROR", message);
+    }
+
+    const data = envelope.data;
+    const rows = unwrapMemberSearchRows(data).map(normalizeBooksDueRow);
+    const meta = (isObjectRow(data) ? data : {}) as AnyRow;
+    const envelopeMeta = envelope as unknown as AnyRow;
+    // Angular reads totalCount/page from the Config envelope (siblings of data).
+    const totalCount =
+      Number(envelopeMeta.totalCount ?? meta.totalCount ?? rows.length) || 0;
+    const pageNum = Number(envelopeMeta.page ?? meta.page ?? page) || 0;
+    return { rows, totalCount, page: pageNum };
   } catch (error) {
-    if (isNoRecordsError(error)) return [];
+    if (isNoRecordsError(error)) return { rows: [], totalCount: 0, page };
     throw error;
   }
 }

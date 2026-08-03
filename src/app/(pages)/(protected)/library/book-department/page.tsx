@@ -139,6 +139,7 @@ export default function BookDepartmentPage() {
           setEditing(null);
         }}
         row={editing}
+        existingRows={rows}
         onSaved={invalidate}
       />
     </ListPage>

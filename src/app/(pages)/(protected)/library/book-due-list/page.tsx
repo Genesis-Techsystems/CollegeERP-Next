@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { LibraryGridPage } from "../_components/LibraryGridPage";
 import { LIB_COL } from "../_lib/library-columns";
 import { QK } from "@/lib/query-keys";
 import { listBooksDue, type LibraryRow } from "@/services";
+
+const PAGE_SIZE = 50;
 
 function formatReturnDate(value: unknown): string {
   const raw = String(value ?? "").trim();
@@ -19,13 +21,14 @@ function formatReturnDate(value: unknown): string {
   });
 }
 
+/** Angular template: libMember + bookDetail.rollNumber / courseCode / courseYearCode / section */
 function memberNameValue(row: LibraryRow): string {
   const detail = (row.bookDetail ?? {}) as LibraryRow;
   let name = String(row.libMember ?? "").trim();
-  const roll = String(detail.rollNumber ?? "").trim();
-  const course = String(detail.courseCode ?? "").trim();
-  const year = String(detail.courseYearCode ?? "").trim();
-  const section = String(detail.section ?? "").trim();
+  const roll = String(detail.rollNumber ?? row.rollNumber ?? "").trim();
+  const course = String(detail.courseCode ?? row.courseCode ?? "").trim();
+  const year = String(detail.courseYearCode ?? row.courseYearCode ?? "").trim();
+  const section = String(detail.section ?? row.section ?? "").trim();
 
   if (roll) name += ` - ${roll}`;
   if (course) {
@@ -35,6 +38,8 @@ function memberNameValue(row: LibraryRow): string {
 }
 
 export default function BookDueListPage() {
+  const [page, setPage] = useState(0);
+
   const columns = useMemo<ColDef<LibraryRow>[]>(
     () => [
       LIB_COL.libraryCode,
@@ -64,13 +69,17 @@ export default function BookDueListPage() {
       showHeaderCard={false}
       tableTitle="Books Due List"
       subtitle=""
-      queryKey={QK.library.bookDueList(0)}
-      queryFn={() => listBooksDue(0, 50)}
+      queryKey={QK.library.bookDueList(page)}
+      queryFn={() => listBooksDue(page, PAGE_SIZE)}
       columns={columns}
       searchPlaceholder="Search"
       pdfDocumentTitle="Books Due List"
       emptyMessage="No overdue books found."
-      paginationPageSize={50}
+      alwaysShowTable
+      paginationPageSize={PAGE_SIZE}
+      serverSide
+      currentPage={page}
+      onPageChange={(nextPage) => setPage(nextPage)}
     />
   );
 }

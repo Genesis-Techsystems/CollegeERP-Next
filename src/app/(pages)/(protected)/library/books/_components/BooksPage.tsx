@@ -455,6 +455,8 @@ export function BooksPage() {
   );
 
   const tableLoading = searchMode === "all" ? loadingCategoryBooks : false;
+  const resultsVisible =
+    searchMode === "book" ? selectedBookId != null : filtersReady;
 
   return (
     <FilteredListPage
@@ -546,6 +548,14 @@ export function BooksPage() {
               />
             ) : null}
           </div>
+          <div className="flex justify-end">
+            <Button asChild size="sm" className="h-[30px] px-3 text-[12px]">
+              <Link href="/library/add-books">
+                <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+                Add Books
+              </Link>
+            </Button>
+          </div>
         </div>
       }
       filtersCollapsible
@@ -553,6 +563,7 @@ export function BooksPage() {
       rowData={tableRows}
       columnDefs={columnDefs}
       loading={tableLoading}
+      resultsVisible={resultsVisible}
       pagination
       height="auto"
       toolbar={{
@@ -561,24 +572,16 @@ export function BooksPage() {
         pdfDocumentTitle: "Books",
       }}
       toolbarTrailing={
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-[30px] px-3 text-[12px]"
-            disabled={generatingBarcode || tableRows.length === 0}
-            onClick={() => void handleGenerateBarcode()}
-          >
-            Generate Book BarCode
-          </Button>
-          <Button asChild size="sm" className="h-[30px] px-3 text-[12px]">
-            <Link href="/library/add-books">
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              Add Books
-            </Link>
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={generatingBarcode || tableRows.length === 0}
+          onClick={() => void handleGenerateBarcode()}
+        >
+          Generate Book BarCode
+        </Button>
       }
     >
       <EditBookModal

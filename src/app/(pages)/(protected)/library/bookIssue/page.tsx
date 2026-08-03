@@ -618,10 +618,10 @@ export default function BookIssuePage() {
     () => [
       PENDING_COL_DEFS.siNo,
       PENDING_COL_DEFS.accessionNo,
-      PENDING_COL_DEFS.fromDate,
-      PENDING_COL_DEFS.toDate,
       PENDING_COL_DEFS.bookTitle,
       PENDING_COL_DEFS.volume,
+      PENDING_COL_DEFS.fromDate,
+      PENDING_COL_DEFS.toDate,
       {
         ...PENDING_COL_DEFS.actions,
         cellRenderer: makePendingRemoveRenderer(handleRemovePending),

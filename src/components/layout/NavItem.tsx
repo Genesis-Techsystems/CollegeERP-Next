@@ -761,8 +761,18 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   if (!item.children) return false;
   const normPath = normalizeHref(pathname);
 
-  const mapLabelToRoute = (label?: string): string | null => {
+  const mapLabelToRoute = (label?: string, href?: string): string | null => {
     const lower = (label ?? "").toLowerCase();
+    const hrefLower = (href ?? "").toLowerCase();
+    if (
+      hrefLower.includes("subject-unit-topic-upload") ||
+      hrefLower.includes("subject-unit-topics-bulk-upload")
+    ) {
+      return "/admin/bulk-uploads/subject-unit-topic-upload";
+    }
+    if (hrefLower.includes("unit-topic-bulk-upload")) {
+      return "/admin/bulk-uploads/unit-topic-bulk-upload";
+    }
     if (lower.includes("unit topic bulk upload"))
       return "/admin/bulk-uploads/unit-topic-bulk-upload";
     if (
@@ -1059,7 +1069,7 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
       mapAdminInstitutionalRoomRoute(ch, child.label) ??
       mapHostelNavRoute(ch, child.label) ??
       mapErpModuleNavRoute(ch, child.label) ??
-      mapLabelToRoute(child.label) ??
+      mapLabelToRoute(child.label, ch) ??
       (ch ? mapLegacyMasterSettingsHref(ch) : null) ??
       ch;
     if (mapped) {
@@ -2426,6 +2436,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/admin/bulk-uploads/books-bulk-upload";
     }
+    if (
+      hrefLower.includes("/excel-bulk-uploads/subject-unit-topic-upload") ||
+      hrefLower.includes("subject-unit-topics-bulk-upload")
+    ) {
+      return "/admin/bulk-uploads/subject-unit-topic-upload";
+    }
     if (hrefLower.includes("/excel-bulk-uploads/unit-topic-bulk-upload")) {
       return "/admin/bulk-uploads/unit-topic-bulk-upload";
     }
@@ -3412,6 +3428,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/document-repository";
     }
     if (labelLower.includes("unit topic bulk upload")) {
+      if (
+        hrefLower.includes("subject-unit-topic-upload") ||
+        hrefLower.includes("subject-unit-topics-bulk-upload")
+      ) {
+        return "/admin/bulk-uploads/subject-unit-topic-upload";
+      }
       return "/admin/bulk-uploads/unit-topic-bulk-upload";
     }
     if (

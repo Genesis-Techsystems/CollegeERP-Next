@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { FormField } from '@/common/components/forms'
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { FormField } from "@/common/components/forms";
 
 // ─── ActiveStatusField ────────────────────────────────────────────────────────
 // Compound field for the isActive checkbox + conditional reason input.
@@ -21,12 +21,13 @@ import { FormField } from '@/common/components/forms'
 //   )} />
 
 interface ActiveStatusFieldProps {
-  isActive: boolean
-  reason: string
-  onActiveChange: (v: boolean | 'indeterminate') => void
-  onReasonChange: (v: string) => void
-  reasonError?: string
-  reasonRequired?: boolean
+  isActive: boolean;
+  reason: string;
+  onActiveChange: (v: boolean | "indeterminate") => void;
+  onReasonChange: (v: string) => void;
+  reasonError?: string;
+  reasonRequired?: boolean;
+  reasonPlaceholder?: string;
 }
 
 export function ActiveStatusField({
@@ -36,11 +37,16 @@ export function ActiveStatusField({
   onReasonChange,
   reasonError,
   reasonRequired,
+  reasonPlaceholder = "Reason for deactivation",
 }: ActiveStatusFieldProps) {
   return (
     <div className="grid grid-cols-2 gap-4 items-start">
       <div className="flex items-center gap-2 pt-1">
-        <Checkbox id="isActive" checked={isActive} onCheckedChange={onActiveChange} />
+        <Checkbox
+          id="isActive"
+          checked={isActive}
+          onCheckedChange={onActiveChange}
+        />
         <Label htmlFor="isActive" className="cursor-pointer">
           Is Active
         </Label>
@@ -50,10 +56,10 @@ export function ActiveStatusField({
           <Input
             value={reason}
             onChange={(e) => onReasonChange(e.target.value)}
-            placeholder="Reason for deactivation"
+            placeholder={reasonPlaceholder}
           />
         </FormField>
       )}
     </div>
-  )
+  );
 }

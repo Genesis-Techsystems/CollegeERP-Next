@@ -1373,6 +1373,12 @@ export function resolveForcedNavRoute(
   ) {
     return "/admin/bulk-uploads/books-bulk-upload";
   }
+  if (
+    hrefLower.includes("/excel-bulk-uploads/subject-unit-topic-upload") ||
+    hrefLower.includes("subject-unit-topics-bulk-upload")
+  ) {
+    return "/admin/bulk-uploads/subject-unit-topic-upload";
+  }
   if (hrefLower.includes("/excel-bulk-uploads/unit-topic-bulk-upload")) {
     return "/admin/bulk-uploads/unit-topic-bulk-upload";
   }
@@ -2376,6 +2382,12 @@ export function resolveForcedNavRoute(
     return "/admin/document-repository";
   }
   if (labelLower.includes("unit topic bulk upload")) {
+    if (
+      hrefLower.includes("subject-unit-topic-upload") ||
+      hrefLower.includes("subject-unit-topics-bulk-upload")
+    ) {
+      return "/admin/bulk-uploads/subject-unit-topic-upload";
+    }
     return "/admin/bulk-uploads/unit-topic-bulk-upload";
   }
   if (

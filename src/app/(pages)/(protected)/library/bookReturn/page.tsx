@@ -442,6 +442,7 @@ export default function BookReturnPage() {
         rowData={selectedMember ? issuedBooks : []}
         columnDefs={columnDefs}
         loading={selectedMember ? loadingIssued : false}
+        resultsVisible={selectedMember != null}
         pagination
         paginationPageSize={10}
         height="auto"

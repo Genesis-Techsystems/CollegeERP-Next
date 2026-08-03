@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select, type SelectOption } from '@/common/components/select'
+import { toastError, toastSuccess } from '@/lib/toast'
 import { QK } from '@/lib/query-keys'
 import {
   createFinTransaction,
@@ -35,15 +36,28 @@ import { useFinanceSessionIds } from '../_lib/use-finance-session-ids'
 
 const MAX_FILE_BYTES = 24 * 1024 * 1024
 
+const requiredId = (message: string) =>
+  z
+    .any()
+    .transform((v) => {
+      if (v === '' || v == null) return 0
+      const n = Number(v)
+      return Number.isFinite(n) ? n : 0
+    })
+    .refine((n) => n > 0, { message })
+
 const schema = z.object({
-  vouchertypeCatdetId: z.coerce.number().min(1, 'Transaction type is required'),
-  collegeId: z.coerce.number().min(1, 'College is required'),
-  accountEntityId: z.coerce.number().min(1, 'Entity is required'),
-  financialYearId: z.coerce.number().min(1, 'Financial year is required'),
-  accountTypeId: z.coerce.number().min(1, 'Account type is required'),
+  vouchertypeCatdetId: requiredId('Transaction type is required'),
+  collegeId: requiredId('College is required'),
+  accountEntityId: requiredId('Entity is required'),
+  financialYearId: requiredId('Financial year is required'),
+  accountTypeId: requiredId('Account type is required'),
   transactionNumber: z.string().optional(),
-  title: z.string().min(1, 'Transaction title is required'),
-  amount: z.coerce.number().optional(),
+  title: z.string().trim().min(1, 'Transaction title is required'),
+  amount: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : Number(v)),
+    z.number().optional(),
+  ),
   transactionDate: z.date({ message: 'Date is required' }),
   description: z.string().optional(),
   isActive: z.boolean(),
@@ -57,16 +71,21 @@ function parseTxnDate(raw?: string): Date {
   return Number.isNaN(d.getTime()) ? new Date() : d
 }
 
+function num(v: unknown): number {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 function getDefaults(edit?: FinTransaction | null, defaultTypeId?: number): FormValues {
   return {
-    vouchertypeCatdetId: edit?.vouchertypeCatdetId ?? defaultTypeId ?? 0,
-    collegeId: edit?.collegeId ?? 0,
-    accountEntityId: edit?.accountEntityId ?? 0,
-    financialYearId: edit?.financialYearId ?? 0,
-    accountTypeId: edit?.accountTypeId ?? 0,
+    vouchertypeCatdetId: num(edit?.vouchertypeCatdetId) || defaultTypeId || 0,
+    collegeId: num(edit?.collegeId),
+    accountEntityId: num(edit?.accountEntityId),
+    financialYearId: num(edit?.financialYearId),
+    accountTypeId: num(edit?.accountTypeId),
     transactionNumber: edit?.transactionNumber ?? '',
     title: edit?.title ?? '',
-    amount: edit?.amount != null ? Number(edit.amount) : undefined,
+    amount: edit?.amount != null && edit.amount !== ('' as unknown) ? Number(edit.amount) : undefined,
     transactionDate: parseTxnDate(edit?.transactionDate),
     description: edit?.description ?? '',
     isActive: edit?.isActive ?? true,
@@ -83,6 +102,7 @@ interface Props {
 
 export default function TransactionModal({ open, onClose, editData, onSaved }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const { organizationId, employeeId, contextReady } = useFinanceSessionIds()
 
@@ -111,6 +131,8 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
   } = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: getDefaults(null, defaultTypeId),
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
   })
 
   const collegeId = watch('collegeId')
@@ -168,15 +190,15 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
     if (!open) return
     reset(getDefaults(editData, defaultTypeId))
     setFileError(null)
+    setSelectedFile(null)
     if (fileRef.current) fileRef.current.value = ''
   }, [open, editData, defaultTypeId, reset])
 
+  // Add mode defaults — Angular selects first college / entity / year / account type
   useEffect(() => {
     if (!open || editData || colleges.length === 0) return
     const first = colleges[0]
-    if (first.fk_college_id) {
-      setValue('collegeId', Number(first.fk_college_id))
-    }
+    if (first.fk_college_id) setValue('collegeId', Number(first.fk_college_id))
   }, [open, editData, colleges, setValue])
 
   useEffect(() => {
@@ -199,11 +221,31 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
     setValue('vouchertypeCatdetId', defaultTypeId)
   }, [open, editData, defaultTypeId, vouchertypeCatdetId, setValue])
 
+  // Edit mode — Angular re-applies saved IDs after cascade lists are built
+  useEffect(() => {
+    if (!open || !editData || finRows.length === 0) return
+    const cId = num(editData.collegeId)
+    const eId = num(editData.accountEntityId)
+    const yId = num(editData.financialYearId)
+    const aId = num(editData.accountTypeId)
+    const tId = num(editData.vouchertypeCatdetId)
+    if (cId) setValue('collegeId', cId)
+    if (eId) setValue('accountEntityId', eId)
+    if (yId) setValue('financialYearId', yId)
+    if (aId) setValue('accountTypeId', aId)
+    if (tId) setValue('vouchertypeCatdetId', tId)
+    if (editData.title != null) setValue('title', editData.title)
+    if (editData.transactionNumber != null) setValue('transactionNumber', editData.transactionNumber)
+    if (editData.amount != null) setValue('amount', Number(editData.amount))
+    if (editData.description != null) setValue('description', editData.description)
+    if (editData.transactionDate) setValue('transactionDate', parseTxnDate(editData.transactionDate))
+  }, [open, editData, finRows, setValue])
+
   async function onSubmit(values: FormValues) {
     setFileError(null)
-    const file = fileRef.current?.files?.[0]
+    const file = selectedFile
     if (file && file.size > MAX_FILE_BYTES) {
-      setFileError('File size must not exceed 24 MB')
+      setFileError('File size is greater than 24MB')
       return
     }
 
@@ -222,20 +264,30 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
       reason: values.isActive ? 'active' : (values.reason?.trim() || 'inactive'),
     }
 
-    let saved: FinTransaction
-    if (editData) {
-      saved = await updateFinTransaction(editData.finTransactionId, payload)
-    } else {
-      saved = await createFinTransaction(payload)
-    }
+    try {
+      let saved: FinTransaction
+      if (editData) {
+        // Angular editDialog: details.finTransactionId = data.finTransactionId
+        saved = await updateFinTransaction(editData.finTransactionId, {
+          ...payload,
+          finTransactionId: editData.finTransactionId,
+        })
+        toastSuccess('Transaction updated successfully')
+      } else {
+        saved = await createFinTransaction(payload)
+        toastSuccess('Transaction created successfully')
+      }
 
-    const txnId = saved.finTransactionId ?? editData?.finTransactionId
-    if (file && txnId) {
-      await uploadFinTransactionVoucher(txnId, file)
-    }
+      const txnId = saved.finTransactionId ?? editData?.finTransactionId
+      if (file && txnId) {
+        await uploadFinTransactionVoucher(txnId, file)
+      }
 
-    onSaved()
-    onClose()
+      onSaved()
+      onClose()
+    } catch (err) {
+      toastError(err, editData ? 'Update transaction failed' : 'Create transaction failed')
+    }
   }
 
   return (
@@ -269,6 +321,9 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
               </RadioGroup>
             )}
           />
+          {errors.vouchertypeCatdetId && (
+            <p className="mb-1 text-xs text-red-500">{errors.vouchertypeCatdetId.message}</p>
+          )}
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
             <Controller
@@ -277,60 +332,69 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
               render={({ field }) => (
                 <Select
                   className="gap-0.5 [&_label]:text-xs"
-                  label="College *"
-                  value={field.value ? String(field.value) : ''}
+                  label="College"
+                  required
+                  value={field.value > 0 ? String(field.value) : ''}
                   onChange={(v) => {
-                    field.onChange(Number(v))
+                    field.onChange(v ? Number(v) : 0)
                     setValue('accountEntityId', 0)
                     setValue('financialYearId', 0)
                     setValue('accountTypeId', 0)
                   }}
                   options={collegeOptions}
-                  placeholder="Select college"
+                  placeholder="Enter College"
                   isLoading={filtersLoading}
                   searchable
+                  error={errors.collegeId?.message}
                 />
               )}
             />
+
             <Controller
               name="accountEntityId"
               control={control}
               render={({ field }) => (
                 <Select
                   className="gap-0.5 [&_label]:text-xs"
-                  label="Entity Type *"
-                  value={field.value ? String(field.value) : ''}
+                  label="Entity Type"
+                  required
+                  value={field.value > 0 ? String(field.value) : ''}
                   onChange={(v) => {
-                    field.onChange(Number(v))
+                    field.onChange(v ? Number(v) : 0)
                     setValue('financialYearId', 0)
                     setValue('accountTypeId', 0)
                   }}
                   options={entityOptions}
-                  placeholder="Select entity"
+                  placeholder="Enter Entity Type"
                   disabled={!collegeId}
                   searchable
+                  error={errors.accountEntityId?.message}
                 />
               )}
             />
+
             <Controller
               name="financialYearId"
               control={control}
               render={({ field }) => (
                 <Select
                   className="gap-0.5 [&_label]:text-xs"
-                  label="Financial Year *"
-                  value={field.value ? String(field.value) : ''}
+                  label="Financial Year"
+                  required
+                  value={field.value > 0 ? String(field.value) : ''}
                   onChange={(v) => {
-                    field.onChange(Number(v))
+                    field.onChange(v ? Number(v) : 0)
                     setValue('accountTypeId', 0)
                   }}
                   options={yearOptions}
-                  placeholder="Select year"
+                  placeholder="Enter Financial Year"
                   disabled={!accountEntityId}
                   searchable
+                  error={errors.financialYearId?.message}
                 />
               )}
             />
+
             <div className="col-span-2">
               <Controller
                 name="accountTypeId"
@@ -338,78 +402,129 @@ export default function TransactionModal({ open, onClose, editData, onSaved }: P
                 render={({ field }) => (
                   <Select
                     className="gap-0.5 [&_label]:text-xs"
-                    label="Account Type *"
-                    value={field.value ? String(field.value) : ''}
-                    onChange={(v) => field.onChange(Number(v))}
+                    label="Account Type"
+                    required
+                    value={field.value > 0 ? String(field.value) : ''}
+                    onChange={(v) => field.onChange(v ? Number(v) : 0)}
                     options={accountTypeOptions}
-                    placeholder="Select account type"
+                    placeholder="Enter Account Type"
                     disabled={!financialYearId}
                     searchable
+                    error={errors.accountTypeId?.message}
                   />
                 )}
               />
             </div>
+
             <div className="space-y-0.5">
               <Label className="text-xs">Voucher Number</Label>
-              <Input className="h-8 text-xs" {...register('transactionNumber')} />
+              <Input
+                className="h-8 text-xs"
+                placeholder="Enter Voucher Number"
+                {...register('transactionNumber')}
+              />
             </div>
+
             <div className="space-y-0.5">
               <Label className="text-xs">Transaction Title *</Label>
-              <Input className="h-8 text-xs" {...register('title')} />
+              <Input
+                className="h-8 text-xs"
+                placeholder="Enter Transaction Title"
+                {...register('title')}
+              />
               {errors.title && <p className="text-xs text-red-500">{errors.title.message}</p>}
             </div>
+
             <div className="space-y-0.5">
               <Label className="text-xs">Amount</Label>
-              <Input type="number" step="any" className="h-8 text-xs" {...register('amount')} />
+              <Input
+                type="number"
+                step="any"
+                className="h-8 text-xs"
+                placeholder="Enter Amount"
+                {...register('amount')}
+              />
             </div>
-            <Controller
-              name="transactionDate"
-              control={control}
-              render={({ field }) => (
-                <DatePicker
-                  label="Date *"
-                  value={field.value}
-                  onChange={field.onChange}
-                  maxDate={new Date()}
-                  clearable={false}
-                  className="[&_button]:h-8 [&_button]:text-xs"
-                />
+
+            <div className="space-y-0.5">
+              <Controller
+                name="transactionDate"
+                control={control}
+                render={({ field }) => (
+                  <DatePicker
+                    label="Date *"
+                    value={field.value}
+                    onChange={field.onChange}
+                    maxDate={new Date()}
+                    clearable={false}
+                    className="[&_button]:h-8 [&_button]:text-xs"
+                  />
+                )}
+              />
+              {errors.transactionDate && (
+                <p className="text-xs text-red-500">{errors.transactionDate.message}</p>
               )}
-            />
+            </div>
+
             <div className="space-y-0.5">
               <Label className="text-xs">Description</Label>
               <Textarea
                 rows={2}
                 className="min-h-0 h-14 resize-none text-xs py-1.5"
+                placeholder="Enter Description"
                 {...register('description')}
               />
             </div>
-            <div className="space-y-0.5">
-              <Label className="text-xs">Voucher document</Label>
-              <Input
-                ref={fileRef}
-                type="file"
-                accept=".png,.jpg,.jpeg,.pdf,.doc"
-                className="h-8 py-1 text-xs file:mr-2 file:text-xs"
-              />
-              <p className="text-[10px] leading-tight text-muted-foreground">Max file size 24 MB</p>
-              {fileError && <p className="text-xs text-red-500">{fileError}</p>}
-              {editData?.voucherUrl ? (
-                <a
-                  href={editData.voucherUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary underline"
+
+            <div className="col-span-2 space-y-1">
+              {/* Angular: “Voucher Doc” label + Choose File + filename + green size hint */}
+              <div className="flex flex-wrap items-center text-sm">
+                {/* <span className="mr-4 shrink-0 font-medium text-foreground">Voucher Doc</span> */}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".png,.jpg,.jpeg,.pdf,.doc"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const next = e.target.files?.[0] ?? null
+                    setSelectedFile(next)
+                    setFileError(null)
+                    if (next && next.size > MAX_FILE_BYTES) {
+                      setFileError('File size is greater than 24MB')
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 cursor-pointer bg-[hsl(var(--primary))] px-3 text-xs text-primary-foreground hover:bg-[hsl(var(--primary))]/90"
+                  onClick={() => fileRef.current?.click()}
                 >
-                  View existing voucher
-                </a>
-              ) : null}
+                  Choose File
+                </Button>
+                <span className="ml-2 truncate text-xs text-muted-foreground">
+                  {selectedFile?.name ?? 'No file chosen'}
+                </span>
+                {editData?.voucherUrl ? (
+                  <a
+                    href={editData.voucherUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-3 cursor-pointer text-xs font-medium text-blue-600 underline"
+                  >
+                    View
+                  </a>
+                ) : null}
+              </div>
+              <p className={`text-xs font-semibold ${fileError ? 'text-red-500' : 'text-green-600'}`}>
+                {fileError ?? 'File size should not greater than 24MB'}
+              </p>
             </div>
           </div>
         </form>
         <DialogFooter className="mt-0 shrink-0 sm:justify-end">
           <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Close
+            Cancel
           </Button>
           <Button type="submit" form="fin-transaction-form" disabled={isSubmitting}>
             {isSubmitting ? 'Saving…' : 'Save'}
