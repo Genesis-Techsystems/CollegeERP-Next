@@ -124,5 +124,6 @@
   "/trainings/placement-trainings": "/trainings/training",
   "/transport/map-vehicle-driver": "/transport/vehicle-drivers",
   "/transport/map-vehicle-route": "/transport/vehicle-map",
-  "/user-management/parent-accounts/parent-account": "/user-management/parent-accounts/manage"
+  "/user-management/parent-accounts/parent-account": "/user-management/parent-accounts/manage",
+  "/principal-my-approvals/leave-approvals": "/principal-my-approvals/leave-applications"
 }

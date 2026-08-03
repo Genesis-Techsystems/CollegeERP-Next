@@ -82,6 +82,9 @@ export type ApplyCertificateRequestPayload = {
 export interface FeeCertificateWorkflowRow {
   feeCertificateWorkflowId?: number;
   feeCertificateIssueId?: number;
+  /** Angular domain field alias used by principal no-due status edit. */
+  feeCertificateWfId?: number;
+  approvalStatusId?: number | null;
   approvalStatusCode?: string | null;
   approvalStatusName?: string;
   approvalStatusDisplayName?: string | null;
@@ -97,6 +100,25 @@ export interface FeeCertificateWorkflowRow {
   employeeMobile?: string | null;
   updatedDt?: string | null;
   collegeName?: string;
+}
+
+/** Angular `s_get_fee_emp_certificate_approval` row (principal TC No Due Approvals). */
+export interface EmpCertificateApprovalRow {
+  pk_fee_certificate_wf_id?: number;
+  pk_fee_certificate_issue_id?: number;
+  fk_approval_status_catdet_id?: number | null;
+  student_photo_path?: string | null;
+  student_name?: string | null;
+  roll_number?: string | null;
+  student_mobile?: string | null;
+  academic_details?: string | null;
+  batch_name?: string | null;
+  dept_name?: string | null;
+  certificate_name?: string | null;
+  Detail_Name?: string | null;
+  comments?: string | null;
+  reason?: string | null;
+  [key: string]: unknown;
 }
 
 export interface TcClearanceRow {

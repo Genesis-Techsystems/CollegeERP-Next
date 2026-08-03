@@ -1,6 +1,11 @@
-import { redirect } from 'next/navigation'
+"use client";
 
-/** Angular `#/principal-communications/announcements` → React employee inbox. */
-export default function PrincipalCommunicationsAnnouncementsRedirect() {
-  redirect('/notifications-and-announcements/employee-inbox')
+import { EmpNotificationsPage } from "@/app/(pages)/(protected)/notifications-and-announcements/_components/EmpNotificationsPage";
+
+/**
+ * Angular `#/principal-communications/announcements`
+ * → EmployeeNotificationsAndAnnouncementsModule (EmpNotificationsComponent)
+ */
+export default function PrincipalCommunicationsAnnouncementsPage() {
+  return <EmpNotificationsPage />;
 }
