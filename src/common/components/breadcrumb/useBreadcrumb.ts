@@ -273,6 +273,225 @@ function examScanProfileDetailsBreadcrumb(
 }
 
 /**
+ * Angular staff-classes breadcrumb parity (exact trails from Angular UI):
+ *   My Classes        → Home → My Classes
+ *   My Timetable      → Home → My Timetable
+ *   Assignments       → Home → Classes → Assignments
+ *   Class Diary       → Home → Class Diary
+ *   Attendance Update → Home → Academics → Attendance Management
+ *
+ * App Router paths use `/staff-classes/...` (and attendance-update remaps to
+ * `/attendance-management/mark-attendance`), so URL/nav fallbacks must not
+ * invent "Staff Classes" / "Mark Attendance" crumbs.
+ */
+const STAFF_ACADEMICS_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
+  "/staff-classes/my-classes": [{ label: "My Classes" }],
+  "/staff-classes/my-timetable": [{ label: "My Timetable" }],
+  "/staff-classes/assignments": [
+    { label: "Classes" },
+    { label: "Assignments" },
+  ],
+  "/staff-classes/class-dairy": [{ label: "Class Diary" }],
+  "/staff-classes/attendance-update": [
+    { label: "Academics" },
+    { label: "Attendance Management" },
+  ],
+  // Angular staff-classes/attendance-update → App Router remap
+  "/attendance-management/mark-attendance": [
+    { label: "Academics" },
+    { label: "Attendance Management" },
+  ],
+};
+
+const STAFF_ACADEMICS_NESTED: {
+  prefix: string;
+  parentCrumbs: BreadcrumbItem[];
+  leaves: Record<string, string>;
+}[] = [
+  {
+    prefix: "/staff-classes/my-classes/",
+    parentCrumbs: [{ label: "My Classes", href: "/staff-classes/my-classes" }],
+    leaves: {
+      "students-list": "Students List",
+      "course-year-subjects": "Course Year Subjects",
+      "course-year-timetable": "Course Year Timetable",
+      "mark-attendance": "Mark Attendance",
+      "View-attendance": "View Attendance",
+      "view-attendance": "View Attendance",
+    },
+  },
+  {
+    prefix: "/staff-classes/class-dairy/",
+    parentCrumbs: [
+      { label: "Class Diary", href: "/staff-classes/class-dairy" },
+    ],
+    leaves: {
+      "add-notes": "Add Class Notes",
+      "edit-notes": "Edit Class Notes",
+    },
+  },
+  {
+    prefix: "/staff-classes/assignments/",
+    parentCrumbs: [
+      { label: "Classes" },
+      { label: "Assignments", href: "/staff-classes/assignments" },
+    ],
+    leaves: {
+      "view-submissions": "View Submissions",
+    },
+  },
+  {
+    prefix: "/attendance-management/mark-attendance/",
+    parentCrumbs: [
+      { label: "Academics" },
+      {
+        label: "Attendance Management",
+        href: "/attendance-management/mark-attendance",
+      },
+    ],
+    leaves: {
+      "mark-attendance": "Update Attendance",
+      "view-attendance": "View Attendance",
+    },
+  },
+];
+
+function staffAcademicsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  const leafTrail = STAFF_ACADEMICS_BREADCRUMBS[path];
+  if (leafTrail) {
+    return [home, ...leafTrail];
+  }
+
+  for (const nest of STAFF_ACADEMICS_NESTED) {
+    if (!path.startsWith(nest.prefix)) continue;
+    const rest = path.slice(nest.prefix.length);
+    const leafKey = Object.keys(nest.leaves).find(
+      (key) => rest === key || rest.startsWith(`${key}/`),
+    );
+    const nestedLabel =
+      (leafKey ? nest.leaves[leafKey] : undefined) ??
+      segmentToLabel(rest.split("/")[0] ?? rest);
+    return [home, ...nest.parentCrumbs, { label: nestedLabel }];
+  }
+
+  // Other /staff-classes/* paths: drop raw "Staff Classes" folder crumb and
+  // fix Angular URL typo "Class Dairy" → "Class Diary".
+  if (!path.startsWith("/staff-classes/")) return items;
+
+  return items
+    .filter((item, index) => {
+      if (index === 0) return true;
+      return !/^staff\s*classes$/i.test(item.label);
+    })
+    .map((item) =>
+      /^class\s*dairy$/i.test(item.label)
+        ? { ...item, label: "Class Diary" }
+        : item,
+    );
+}
+
+/**
+ * Angular `principal-my-approvals/leave-application` breadcrumb:
+ *   Home → Leave Management → Leave Requests
+ */
+function leaveRequestsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (path !== "/principal-my-approvals/leave-applications") return items;
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  return [home, { label: "Leave Management" }, { label: "Leave Requests" }];
+}
+
+/**
+ * Angular emp-notifications breadcrumb:
+ *   Home → Communication → Notifications
+ * Routes: `#/principal-communications/announcements` and
+ * `#/principal-communications/notifications/send-notifications`
+ */
+function principalCommunicationsNotificationsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const isList =
+    path === "/principal-communications/announcements" ||
+    path === "/principal-communications/notifications/send-notifications" ||
+    path === "/principal-communications/notifications";
+  const isAdd =
+    path === "/principal-communications/announcements/add-notification" ||
+    path.endsWith(
+      "/principal-communications/notifications/send-notifications/add-notification",
+    ) ||
+    (path.startsWith("/principal-communications/notifications/") &&
+      path.endsWith("/add-notification"));
+
+  if (!isList && !isAdd) return items;
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  if (isAdd) {
+    return [
+      home,
+      { label: "Communication" },
+      {
+        label: "Notifications",
+        href: path.includes("announcements")
+          ? "/principal-communications/announcements"
+          : "/principal-communications/notifications/send-notifications",
+      },
+      { label: "Send Notification" },
+    ];
+  }
+
+  return [home, { label: "Communication" }, { label: "Notifications" }];
+}
+
+/**
+ * Angular principal-communications email breadcrumb:
+ *   Home → Communications → Send Email
+ * Routes: `#/principal-communications/email/send-emails` and
+ * `/email-sms/principal-to-dept-email`
+ */
+function principalCommunicationsSendEmailBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const isSendEmail =
+    path === "/principal-communications/email/send-emails" ||
+    path === "/principal-communications/email" ||
+    path === "/email-sms/principal-to-dept-email";
+
+  if (!isSendEmail) return items;
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  return [home, { label: "Communications" }, { label: "Send Email" }];
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -356,6 +575,10 @@ export function useBreadcrumb(
   items = assignRegulationToStudentsBreadcrumb(pathname, items);
   items = hostelRoomsBreadcrumb(pathname, items);
   items = examScanProfileDetailsBreadcrumb(pathname, items);
+  items = staffAcademicsBreadcrumb(pathname, items);
+  items = leaveRequestsBreadcrumb(pathname, items);
+  items = principalCommunicationsNotificationsBreadcrumb(pathname, items);
+  items = principalCommunicationsSendEmailBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).
   if (items[0]?.label === "Home") {

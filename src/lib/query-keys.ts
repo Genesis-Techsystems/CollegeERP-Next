@@ -1268,4 +1268,46 @@ export const QK = {
     employees: (surveyFormId: number, studentId: number) =>
       ["StudentSurveyFeedback", "employees", surveyFormId, studentId] as const,
   },
+  /** Angular `feedback-details/employee-feedback` (`my-feedback/suvey-form`). */
+  employeeSurveyFeedback: {
+    all: ["EmployeeSurveyFeedback"] as const,
+    forms: (collegeId: number) =>
+      ["EmployeeSurveyFeedback", "forms", collegeId] as const,
+    form: (surveyFormId: number) =>
+      ["EmployeeSurveyFeedback", "form", surveyFormId] as const,
+    hods: (collegeId: number, empDeptId: number) =>
+      ["EmployeeSurveyFeedback", "hods", collegeId, empDeptId] as const,
+    reportingManagers: (employeeId: number) =>
+      ["EmployeeSurveyFeedback", "reportingManagers", employeeId] as const,
+  },
+
+  /** Angular `principal-my-approvals/leave-applications` + `tc-no-due-approvals`. */
+  principalMyApprovals: {
+    all: ["PrincipalMyApprovals"] as const,
+    leaveApplications: (employeeId: number, leaveYear: number) =>
+      [
+        "PrincipalMyApprovals",
+        "leaveApplications",
+        employeeId,
+        leaveYear,
+      ] as const,
+    leaveYears: () => ["PrincipalMyApprovals", "leaveYears"] as const,
+    leaveStatuses: () => ["PrincipalMyApprovals", "leaveStatuses"] as const,
+    noDueWorkflowStatuses: () =>
+      ["PrincipalMyApprovals", "noDueWorkflowStatuses"] as const,
+    noDueCertificates: (collegeId: number) =>
+      ["PrincipalMyApprovals", "noDueCertificates", collegeId] as const,
+    noDueApprovals: (
+      employeeId: number,
+      collegeCertificateId: number,
+      tabIndex: number,
+    ) =>
+      [
+        "PrincipalMyApprovals",
+        "noDueApprovals",
+        employeeId,
+        collegeCertificateId,
+        tabIndex,
+      ] as const,
+  },
 } as const;

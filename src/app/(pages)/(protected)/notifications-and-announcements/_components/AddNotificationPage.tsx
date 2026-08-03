@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MINIO_URL } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import { useSessionContext } from "@/context/SessionContext";
 import { getErrorMessage } from "@/lib/errors";
@@ -34,10 +35,12 @@ import {
   listCourseYears,
   listCoursesByUniversity,
   listDepartmentsByCollege,
+  listEmployeeDataSecurityByEmployeeId,
   listGeneralDetailsByMaster,
-  listGroupSectionsByFilters,
+  listGroupSectionsForTakeProxy,
   saveNotifications,
   uploadNotificationDoc,
+  type EmployeeDataSecurity,
   type NotificationAudienceRow,
   type NotificationSaveRow,
 } from "@/services";
@@ -99,6 +102,107 @@ function audienceCodeOf(
   );
 }
 
+/** Same as StaffDashboard — Angular `CONSTANTS.MINIO` + relative path. */
+function docHref(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!path) return "#";
+  return `${MINIO_URL}${path}`;
+}
+
+/**
+ * Angular `genericFunctions.dataSecurity()` —
+ * true for admin/principal (skip empSecurity dept filter).
+ */
+function isDataSecurityUnlocked(): boolean {
+  return (
+    readStorage("isAdmin") === "true" || readStorage("isPRINCIPAL") === "true"
+  );
+}
+
+/**
+ * Angular `genericFunctions.dataSecurityLevel()` —
+ * true for staff (non-admin, non-principal) → auto-select course group.
+ */
+function isDataSecStaff(): boolean {
+  if (readStorage("isAdmin") === "true") return false;
+  if (readStorage("isPRINCIPAL") === "true") return false;
+  return true;
+}
+
+function coursesFromEmpSecurity(
+  security: EmployeeDataSecurity[],
+  collegeId: number,
+): CourseOpt[] {
+  const out: CourseOpt[] = [];
+  for (const row of security) {
+    if (Number(row.collegeId) !== collegeId) continue;
+    const id = Number(row.courseId ?? 0);
+    if (!id || out.some((c) => Number(c.value) === id)) continue;
+    const code = String(row.courseCode ?? id);
+    out.push({
+      value: String(id),
+      label: code,
+      courseCode: code,
+      courseName: code,
+    });
+  }
+  return out;
+}
+
+function departmentsFromEmpSecurity(
+  security: EmployeeDataSecurity[],
+  collegeId: number,
+): DeptOpt[] {
+  const out: DeptOpt[] = [];
+  for (const row of security) {
+    if (Number(row.collegeId) !== collegeId) continue;
+    const id = Number(row.employeeDepartmentId ?? 0);
+    if (!id || out.some((d) => Number(d.value) === id)) continue;
+    const code = String(row.employeeDepartmentCode ?? id);
+    out.push({ value: String(id), label: code, deptCode: code });
+  }
+  return out;
+}
+
+function groupsFromEmpSecurity(
+  security: EmployeeDataSecurity[],
+  collegeId: number,
+  courseId: number,
+): GroupOpt[] {
+  const out: GroupOpt[] = [];
+  for (const row of security) {
+    if (Number(row.collegeId) !== collegeId) continue;
+    if (Number(row.courseId) !== courseId) continue;
+    const id = Number(row.courseGroupId ?? 0);
+    if (!id || out.some((g) => Number(g.value) === id)) continue;
+    const code = String(row.courseGroupCode ?? id);
+    out.push({ value: String(id), label: code, groupCode: code });
+  }
+  return out;
+}
+
+function yearsFromEmpSecurity(
+  security: EmployeeDataSecurity[],
+  collegeId: number,
+  courseId: number,
+): YearOpt[] {
+  const out: YearOpt[] = [];
+  for (const row of security) {
+    if (Number(row.collegeId) !== collegeId) continue;
+    if (Number(row.courseId) !== courseId) continue;
+    const id = Number(row.courseYearId ?? 0);
+    if (!id || out.some((y) => Number(y.value) === id)) continue;
+    const name = String(row.courseYearCode ?? id);
+    out.push({
+      value: String(id),
+      label: name,
+      courseCode: String(row.courseCode ?? ""),
+      courseYearName: name,
+    });
+  }
+  return out;
+}
+
 export function AddNotificationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -119,6 +223,9 @@ export function AddNotificationPage() {
     readStorage("universityId"),
     user?.universityId,
   );
+  const employeeId = positiveId(readStorage("employeeId"), user?.employeeId);
+  const dataSecurity = isDataSecurityUnlocked();
+  const dataSecStaff = isDataSecStaff();
 
   const [dialogTitle, setDialogTitle] = useState("Add Notification");
   const [existing, setExisting] = useState<NotificationSaveRow | null>(null);
@@ -149,6 +256,7 @@ export function AddNotificationPage() {
   const [courseYears, setCourseYears] = useState<YearOpt[]>([]);
   const [sections, setSections] = useState<SectionOpt[]>([]);
   const [departments, setDepartments] = useState<DeptOpt[]>([]);
+  const [empSecurity, setEmpSecurity] = useState<EmployeeDataSecurity[]>([]);
 
   const [audienceTypeId, setAudienceTypeId] = useState<number | null>(null);
   const [courseId, setCourseId] = useState<number | null>(null);
@@ -189,27 +297,64 @@ export function AddNotificationPage() {
     const qs = new URLSearchParams();
     if (collegeId) qs.set("collegeId", String(collegeId));
     if (academicYearId) qs.set("academicYearId", String(academicYearId));
-    // Angular: HOD → announcements; PRINCIPAL → send-notifications
-    // Both map to employee-inbox in React.
-    router.push(
-      `/notifications-and-announcements/employee-inbox?${qs.toString()}`,
-    );
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    // Angular goBack / post-save:
+    // HOD → principal-communications/announcements
+    // PRINCIPAL → principal-communications/notifications/send-notifications
+    const isHod =
+      readStorage("isHOD") === "true" || readStorage("userRole") === "HOD";
+    const isPrincipal =
+      readStorage("isPRINCIPAL") === "true" ||
+      readStorage("userRole") === "PRINCIPAL";
+    if (isHod && !isPrincipal) {
+      router.push(`/principal-communications/announcements${suffix}`);
+      return;
+    }
+    if (isPrincipal) {
+      router.push(
+        `/principal-communications/notifications/send-notifications${suffix}`,
+      );
+      return;
+    }
+    router.push(`/principal-communications/announcements${suffix}`);
   }, [router, collegeId, academicYearId]);
 
   // Bootstrap masters + optional edit load
+  // Angular selectedCollege: prefer empSecurity courses/depts, else domain lists
   useEffect(() => {
     let cancelled = false;
     async function boot() {
       setLoading(true);
       try {
+        const securityRows = employeeId
+          ? await listEmployeeDataSecurityByEmployeeId(employeeId).catch(
+              () => [] as EmployeeDataSecurity[],
+            )
+          : [];
+        if (cancelled) return;
+        const security = (
+          Array.isArray(securityRows) ? securityRows : []
+        ).filter((r) => Number(r.collegeId ?? 0) > 0);
+        setEmpSecurity(security);
+
+        const securedCourses = coursesFromEmpSecurity(security, collegeId);
+        const securedDepts =
+          security.length > 0 && !dataSecurity
+            ? departmentsFromEmpSecurity(security, collegeId)
+            : [];
+
         const [audiences, courseRows, deptRows] = await Promise.all([
           listGeneralDetailsByMaster(GM_CODES.AUDIENCE).catch(() => []),
-          universityId
-            ? listCoursesByUniversity(universityId).catch(() => [])
-            : Promise.resolve([]),
-          collegeId
-            ? listDepartmentsByCollege(collegeId).catch(() => [])
-            : Promise.resolve([]),
+          securedCourses.length > 0
+            ? Promise.resolve([])
+            : universityId
+              ? listCoursesByUniversity(universityId).catch(() => [])
+              : Promise.resolve([]),
+          securedDepts.length > 0
+            ? Promise.resolve([])
+            : collegeId
+              ? listDepartmentsByCollege(collegeId).catch(() => [])
+              : Promise.resolve([]),
         ]);
 
         if (cancelled) return;
@@ -228,38 +373,48 @@ export function AddNotificationPage() {
               label: generalDetailLabel(r),
             })),
         );
-        setCourses(
-          courseRows
-            .map((c) => {
-              const id = Number((c as { courseId?: number }).courseId ?? 0);
+
+        if (securedCourses.length > 0) {
+          setCourses(securedCourses);
+        } else {
+          setCourses(
+            courseRows
+              .map((c) => {
+                const id = Number((c as { courseId?: number }).courseId ?? 0);
+                const code = String(
+                  (c as { courseCode?: string }).courseCode ?? "",
+                );
+                const name = String(
+                  (c as { courseName?: string }).courseName ?? "",
+                );
+                return {
+                  value: String(id),
+                  label: code || name || String(id),
+                  courseCode: code,
+                  courseName: name,
+                } satisfies CourseOpt;
+              })
+              .filter((o) => o.value && o.value !== "0"),
+          );
+        }
+
+        if (securedDepts.length > 0) {
+          setDepartments(securedDepts);
+        } else {
+          setDepartments(
+            deptRows.map((d) => {
+              const id = Number(d.departmentId ?? 0);
               const code = String(
-                (c as { courseCode?: string }).courseCode ?? "",
-              );
-              const name = String(
-                (c as { courseName?: string }).courseName ?? "",
+                (d as { deptCode?: string }).deptCode ?? d.deptName ?? id,
               );
               return {
                 value: String(id),
-                label: code || name || String(id),
-                courseCode: code,
-                courseName: name,
-              } satisfies CourseOpt;
-            })
-            .filter((o) => o.value && o.value !== "0"),
-        );
-        setDepartments(
-          deptRows.map((d) => {
-            const id = Number(d.departmentId ?? 0);
-            const code = String(
-              (d as { deptCode?: string }).deptCode ?? d.deptName ?? id,
-            );
-            return {
-              value: String(id),
-              label: code,
-              deptCode: code,
-            } satisfies DeptOpt;
-          }),
-        );
+                label: code,
+                deptCode: code,
+              } satisfies DeptOpt;
+            }),
+          );
+        }
 
         if (notificationIdParam > 0) {
           const row = await getNotificationById(notificationIdParam);
@@ -291,8 +446,9 @@ export function AddNotificationPage() {
     return () => {
       cancelled = true;
     };
-  }, [collegeId, universityId, notificationIdParam]);
+  }, [collegeId, universityId, notificationIdParam, employeeId, dataSecurity]);
 
+  // Angular selectedCourse / selectedGroup: prefer empSecurity groups & years
   useEffect(() => {
     if (!courseId) {
       setCourseGroups([]);
@@ -300,43 +456,99 @@ export function AddNotificationPage() {
       setSections([]);
       return;
     }
-    void listCourseGroups(courseId)
-      .then((rows) =>
-        setCourseGroups(
-          rows.map((g) => ({
+
+    let cancelled = false;
+
+    async function loadGroupsAndYears() {
+      const securedGroups = groupsFromEmpSecurity(
+        empSecurity,
+        collegeId,
+        courseId!,
+      );
+      const securedYears = yearsFromEmpSecurity(
+        empSecurity,
+        collegeId,
+        courseId!,
+      );
+
+      if (securedGroups.length > 0) {
+        if (!cancelled) setCourseGroups(securedGroups);
+        // Angular dataSecStaff auto-selects courseGroupId from localStorage
+        if (dataSecStaff) {
+          const storedGroup = positiveId(readStorage("courseGroupId"));
+          if (
+            storedGroup > 0 &&
+            securedGroups.some((g) => Number(g.value) === storedGroup)
+          ) {
+            if (!cancelled) setCourseGroupId(storedGroup);
+          }
+        }
+      } else {
+        try {
+          const rows = await listCourseGroups(courseId!);
+          if (cancelled) return;
+          const mapped = rows.map((g) => ({
             value: String(g.courseGroupId),
             label: String(g.groupCode ?? g.courseGroupName ?? g.courseGroupId),
             groupCode: String(g.groupCode ?? ""),
-          })),
-        ),
-      )
-      .catch(() => setCourseGroups([]));
-    void listCourseYears(courseId)
-      .then((rows) =>
-        setCourseYears(
-          rows.map((y) => ({
-            value: String(y.courseYearId),
-            label: String(y.courseYearName ?? y.yearName ?? y.courseYearId),
-            courseCode: String((y as { courseCode?: string }).courseCode ?? ""),
-            courseYearName: String(y.courseYearName ?? y.yearName ?? ""),
-          })),
-        ),
-      )
-      .catch(() => setCourseYears([]));
-  }, [courseId]);
+          }));
+          setCourseGroups(mapped);
+          if (dataSecStaff && mapped.length > 0) {
+            const storedGroup = positiveId(readStorage("courseGroupId"));
+            if (
+              storedGroup > 0 &&
+              mapped.some((g) => Number(g.value) === storedGroup)
+            ) {
+              setCourseGroupId(storedGroup);
+            }
+          }
+        } catch {
+          if (!cancelled) setCourseGroups([]);
+        }
+      }
 
+      if (securedYears.length > 0) {
+        if (!cancelled) setCourseYears(securedYears);
+      } else {
+        try {
+          const rows = await listCourseYears(courseId!);
+          if (cancelled) return;
+          setCourseYears(
+            rows.map((y) => ({
+              value: String(y.courseYearId),
+              label: String(y.courseYearName ?? y.yearName ?? y.courseYearId),
+              courseCode: String(
+                (y as { courseCode?: string }).courseCode ?? "",
+              ),
+              courseYearName: String(y.courseYearName ?? y.yearName ?? ""),
+            })),
+          );
+        } catch {
+          if (!cancelled) setCourseYears([]);
+        }
+      }
+    }
+
+    void loadGroupsAndYears();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, collegeId, empSecurity, dataSecStaff]);
+
+  // Angular selectedYear: GroupSection by academicYear + courseGroup + courseYear
   useEffect(() => {
-    if (!courseGroupId || !courseYearId || !collegeId || !academicYearId) {
+    if (!courseGroupId || !courseYearId || !academicYearId) {
       setSections([]);
       return;
     }
-    void listGroupSectionsByFilters({
-      collegeId,
+    let cancelled = false;
+    void listGroupSectionsForTakeProxy({
       academicYearId,
       courseGroupId,
       courseYearId,
     })
-      .then((rows) =>
+      .then((rows) => {
+        if (cancelled) return;
         setSections(
           rows.map((s) => {
             const id = Number(s.groupSectionId ?? 0);
@@ -349,10 +561,15 @@ export function AddNotificationPage() {
               courseYearName: String(s.courseYearName ?? ""),
             } satisfies SectionOpt;
           }),
-        ),
-      )
-      .catch(() => setSections([]));
-  }, [collegeId, academicYearId, courseGroupId, courseYearId]);
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setSections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [academicYearId, courseGroupId, courseYearId]);
 
   function onAudienceTypeChange(nextId: number | null) {
     setAudienceTypeId(nextId);
@@ -746,8 +963,8 @@ export function AddNotificationPage() {
     [],
   );
 
-  const docHref = existing?.notificationDoc
-    ? String(existing.notificationDoc)
+  const docHrefResolved = existing?.notificationDoc
+    ? docHref(String(existing.notificationDoc))
     : null;
 
   return (
@@ -913,9 +1130,9 @@ export function AddNotificationPage() {
                     </div>
                   </div>
                 ) : null}
-                {docHref ? (
+                {docHrefResolved ? (
                   <a
-                    href={docHref}
+                    href={docHrefResolved}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-1 block text-[12px] font-medium text-blue-600 underline"

@@ -6,6 +6,7 @@ import {
   ATTENDANCE_API,
   CLASS_NOTES_API,
   EMPLOYEE_API,
+  STUDENT_API,
   SUBJECT_API,
 } from "@/config/constants/api";
 import {
@@ -189,7 +190,8 @@ export async function loadMyTimetableSchedules(employeeId: number): Promise<{
   message?: string;
   success: boolean;
 }> {
-  if (!employeeId) return { rows: [], success: false, message: "Employee id missing" };
+  if (!employeeId)
+    return { rows: [], success: false, message: "Employee id missing" };
   const envelope = await fetchDetailsEnvelope<unknown>(
     SUBJECT_API.SUBJECT_RESOURCES_SCHEDULES,
     { staffId: employeeId },
@@ -239,9 +241,8 @@ export function filterMyTimetableDayProxies(
 ): AnyRow[] {
   return acceptedWorkloads.filter(
     (x) =>
-      MY_TIMETABLE_WEEKDAYS_BY_INDEX[
-        new Date(String(x.proxyDate)).getDay()
-      ] === dayName,
+      MY_TIMETABLE_WEEKDAYS_BY_INDEX[new Date(String(x.proxyDate)).getDay()] ===
+      dayName,
   );
 }
 
@@ -318,7 +319,8 @@ export function mergeMyClassesWithLiveSchedules(params: {
     if (env === "CODIIS") {
       myClasses[i].meetingId = match.codiisMeetingId ?? null;
       myClasses[i].token = match.token;
-      myClasses[i].joinUrl = `${match.codiisHostUrl}?token=${match.token}&&userName=${userName}&&role=1`;
+      myClasses[i].joinUrl =
+        `${match.codiisHostUrl}?token=${match.token}&&userName=${userName}&&role=1`;
     } else if (env === "ZOOM") {
       myClasses[i].meetingId = match.zoomMeetingId ?? null;
     } else {
@@ -355,7 +357,9 @@ export async function listProxySubjectsForMyClasses(params: {
       firstName: p.proxyFirstName ?? p.firstName,
       employeeId: Number(p.proxyEmpId ?? p.employeeId ?? 0) || undefined,
       section: String(p.groupSectionName ?? p.section ?? ""),
-      subjectType: String(p.proxySubjecttypeDisplayName ?? p.subjectType ?? "LAB"),
+      subjectType: String(
+        p.proxySubjecttypeDisplayName ?? p.subjectType ?? "LAB",
+      ),
     };
     const exists = myLabProxies.some(
       (x) =>
@@ -464,7 +468,10 @@ export async function buildZoomJoinLiveHref(
   return `/staff-classes/join-live?${qs.toString()}`;
 }
 
-export function classTitle(row: MyClassRow, opts?: { includeRegulation?: boolean }): string {
+export function classTitle(
+  row: MyClassRow,
+  opts?: { includeRegulation?: boolean },
+): string {
   const regulation =
     opts?.includeRegulation !== false && row.regulationCode
       ? ` - ${String(row.regulationCode)}`
@@ -501,6 +508,39 @@ export async function listStudentsForMarkAttendance(params: {
     groupSectionId: params.groupSectionId,
     academicYearId: params.academicYearId,
   });
+  return asRows(data);
+}
+
+/**
+ * Angular `studentsubjectsattendancelist` for LAB (8 params) / ELECTIVE (7 params).
+ * LAB: + studentbatchId; ELECTIVE: without studentbatchId.
+ */
+export async function listStudentsForSubjectAttendance(params: {
+  collegeId: number;
+  academicYearId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  groupSectionId: number;
+  regulationId: number;
+  subjectId: number;
+  studentbatchId?: number | null;
+}): Promise<Record<string, unknown>[]> {
+  const query: Record<string, string | number> = {
+    collegeId: params.collegeId,
+    academicYearId: params.academicYearId,
+    courseGroupId: params.courseGroupId,
+    courseYearId: params.courseYearId,
+    groupSectionId: params.groupSectionId,
+    regulationId: params.regulationId,
+    subjectId: params.subjectId,
+  };
+  if (params.studentbatchId) {
+    query.studentbatchId = params.studentbatchId;
+  }
+  const data = await fetchDetails<unknown>(
+    STUDENT_API.STUDENTSUBJECTSATTENDANCELIST,
+    query,
+  );
   return asRows(data);
 }
 
@@ -792,7 +832,8 @@ export function buildMarkAttendanceSavePayload(params: {
   comments?: string;
 }): MarkAttendanceSaveItem[] {
   const classDate = formatScheduleDateYmd(params.day);
-  const batchId = params.studentbatchId != null ? Number(params.studentbatchId) : null;
+  const batchId =
+    params.studentbatchId != null ? Number(params.studentbatchId) : null;
 
   const absentStudents: Record<string, unknown>[] = [];
   for (const s of params.students) {
@@ -901,8 +942,9 @@ export function buildMarkAttendanceSavePayload(params: {
 
   for (const scheduleId of params.selectedPeriodIds) {
     const lPeriod =
-      params.periods.find((p) => Number(p.timetableScheduleId) === Number(scheduleId)) ??
-      null;
+      params.periods.find(
+        (p) => Number(p.timetableScheduleId) === Number(scheduleId),
+      ) ?? null;
     if (!lPeriod) continue;
     const resources = Array.isArray(lPeriod.subjectResource)
       ? lPeriod.subjectResource
@@ -916,8 +958,7 @@ export function buildMarkAttendanceSavePayload(params: {
         }
       }
 
-      const staffId =
-        Number(resource.staffId ?? 0) || params.employeeId;
+      const staffId = Number(resource.staffId ?? 0) || params.employeeId;
 
       const actualClassesScheduleDTO: Record<string, unknown> = {
         classDate,
@@ -1042,7 +1083,10 @@ export async function uploadClassNotesForAttendance(params: {
   file: File;
 }): Promise<void> {
   const formData = new FormData();
-  formData.append("actualClassScheduleId", String(params.actualClassScheduleId));
+  formData.append(
+    "actualClassScheduleId",
+    String(params.actualClassScheduleId),
+  );
   formData.append("notesDoc", params.file, params.file.name);
   await uploadFile(CLASS_NOTES_API.UPLOAD, formData);
 }
@@ -1098,17 +1142,18 @@ export async function refreshAfterMarkAttendanceSave(params: {
     absentQuery.timetableScheduleId = params.timetableScheduleId;
   }
 
-  const lessonParams = isLab && params.studentbatchId
-    ? {
-        timetableScheduleId: params.timetableScheduleId,
-        attendanceDate: attendanceDateSlash,
-        studentbatchId: params.studentbatchId,
-      }
-    : {
-        timetableScheduleId: params.timetableScheduleId,
-        attendanceDate: attendanceDateSlash,
-        clsempId: params.employeeId,
-      };
+  const lessonParams =
+    isLab && params.studentbatchId
+      ? {
+          timetableScheduleId: params.timetableScheduleId,
+          attendanceDate: attendanceDateSlash,
+          studentbatchId: params.studentbatchId,
+        }
+      : {
+          timetableScheduleId: params.timetableScheduleId,
+          attendanceDate: attendanceDateSlash,
+          clsempId: params.employeeId,
+        };
 
   const [absentEnvelope, lessonDetails, units] = await Promise.all([
     fetchDetailsEnvelope<AttendanceBundle[]>(

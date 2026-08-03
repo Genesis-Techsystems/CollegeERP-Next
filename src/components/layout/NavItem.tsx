@@ -852,6 +852,8 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
     if (
       lower.includes("principal-to-dept") ||
       lower.includes("principal-to-dpt") ||
+      lower.includes("principal-communications/email") ||
+      lower.includes("/email/send-emails") ||
       (lower.includes("send email") &&
         lower.includes("department") &&
         lower.includes("email") &&
@@ -883,9 +885,17 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
         !lower.includes("staff") &&
         !lower.includes("absent")) ||
       lower.includes("send-student-sms") ||
+      lower.includes("principal-communications/sms") ||
+      lower.includes("/sms/send-sms") ||
       lower.includes("send sms to student")
     ) {
       return "/email-sms/send-sms-to-students";
+    }
+    if (
+      lower.includes("principal-communications/email") ||
+      lower.includes("/email/send-emails")
+    ) {
+      return "/email-sms/principal-to-dept-email";
     }
     if (
       lower.includes("question bank") &&
@@ -1659,6 +1669,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/student-student-feedback";
     }
 
+    // Employee Feedback — Angular `my-feedback/suvey-form` (`EmployeeFeedbackComponent`)
+    if (
+      hrefLower.includes("my-feedback/suvey-form") ||
+      hrefLower.includes("suvey-form") ||
+      hrefLower.includes("employee-feedback") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "employee feedback"
+    ) {
+      return "/my-feedback/suvey-form";
+    }
+
     // Student Requests — No Due Certificate (must beat TC staff "nodue" catch-all)
     if (
       hrefLower.includes("no-due-certificate") ||
@@ -2152,6 +2172,46 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       }
 
       // TC & No Due — disambiguate certificate routes (shared Angular certificates module).
+      // Principal My Approvals — TC No Due Approvals (must beat staff "nodue" catch-all)
+      if (
+        hrefLower.includes("tc-no-due-approvals") ||
+        hrefLower.includes("no-due-status") ||
+        hrefLower.includes("principal-my-approvals/tc-no-due") ||
+        labelKey === "tc no due approvals" ||
+        (labelLower.includes("tc") &&
+          labelLower.includes("no") &&
+          labelLower.includes("due") &&
+          labelLower.includes("approv"))
+      ) {
+        return "/principal-my-approvals/tc-no-due-approvals";
+      }
+
+      // Principal Leave Requests (Angular `leave-applications`; also leave-approvals / faculty-details)
+      if (
+        hrefLower.includes("leave-applications") ||
+        hrefLower.includes("leave_applications") ||
+        hrefLower.includes("leaveapplications") ||
+        hrefLower.includes("leave-approvals") ||
+        hrefLower.includes("leave_approvals") ||
+        hrefLower.includes("leaveapprovals") ||
+        labelKey === "leave approvals" ||
+        labelKey === "leave approval" ||
+        labelKey === "leave requests" ||
+        labelKey === "leave request" ||
+        labelKey === "leave applications" ||
+        labelKey === "leave application" ||
+        (labelLower.includes("leave") &&
+          (labelLower.includes("approv") ||
+            labelLower.includes("request") ||
+            labelLower.includes("application")) &&
+          !labelLower.includes("type") &&
+          !labelLower.includes("entitlement") &&
+          !labelLower.includes("allotment") &&
+          !labelLower.includes("apply"))
+      ) {
+        return "/principal-my-approvals/leave-applications";
+      }
+
       // Skip student-requests TC (handled above as `/student-requests/request-for-tc`).
       if (
         labelLower.includes("transfer") &&
@@ -2171,8 +2231,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           hrefLower.includes("nodue")) &&
         !hrefLower.includes("student-request") &&
         !hrefLower.includes("no-due-certificate") &&
+        !hrefLower.includes("tc-no-due-approvals") &&
+        !hrefLower.includes("no-due-status") &&
+        !hrefLower.includes("principal-my-approvals") &&
         labelKey !== "no due certificate" &&
-        labelKey !== "request for no due certificate"
+        labelKey !== "request for no due certificate" &&
+        labelKey !== "tc no due approvals"
       ) {
         return "/tc-no-due-approval/send-no-due-approval-request";
       }
@@ -2443,6 +2507,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/bulk-uploads/temporary-staging-tables-bulk-upload";
     }
     if (
+      hrefLower.includes("principal-communications/sms") ||
+      hrefLower.includes("/sms/send-sms") ||
       hrefLower.includes("send-student-sms") ||
       hrefLower.includes("send-sms-to-student") ||
       (labelLower.includes("send sms") &&
@@ -2451,6 +2517,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("absent"))
     ) {
       return "/email-sms/send-sms-to-students";
+    }
+    if (
+      hrefLower.includes("principal-communications/email") ||
+      hrefLower.includes("/email/send-emails")
+    ) {
+      return "/email-sms/principal-to-dept-email";
     }
     if (
       hrefLower.includes("send-absent-sms") ||
@@ -2525,7 +2597,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (
       hrefLower.includes("principal-to-dept-email") ||
-      hrefLower.includes("principal-to-dpt-email")
+      hrefLower.includes("principal-to-dpt-email") ||
+      hrefLower.includes("principal-communications/email") ||
+      hrefLower.includes("/email/send-emails")
     ) {
       return "/email-sms/principal-to-dept-email";
     }
@@ -3701,7 +3775,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       label.includes("announcement") &&
       !label.includes("my ")
     ) {
-      return normPathname.startsWith("/notifications-and-announcements/");
+      return (
+        normPathname.startsWith("/notifications-and-announcements/") ||
+        normPathname.startsWith("/principal-communications/announcements") ||
+        normPathname.startsWith("/principal-communications/notifications")
+      );
+    }
+    if (
+      label.trim() === "communication" ||
+      (label.includes("communication") && !label.includes("email"))
+    ) {
+      return (
+        normPathname.startsWith("/principal-communications/") ||
+        normPathname.startsWith("/notifications-and-announcements/")
+      );
     }
     if (label.includes("my") && label.includes("notification")) {
       return normPathname.startsWith("/my-notifications");

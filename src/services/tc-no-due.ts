@@ -9,6 +9,7 @@ import type { CollegeCertificate } from "@/types/college-certificate";
 import type {
   ApplyCertificateRequestPayload,
   CertificateSummaryReportRow,
+  EmpCertificateApprovalRow,
   FeeCertificateIssueRow,
   FeeCertificateWorkflowRow,
   TcApplyCertificatePayload,
@@ -16,6 +17,7 @@ import type {
 } from "@/types/tc-no-due";
 import type { StudentFeeSearchRow } from "@/types/fees-collection";
 import type { GeneralDetail } from "@/types/exam-master";
+import type { ApiResponse } from "@/types/api";
 import { format } from "date-fns";
 import {
   buildQuery,
@@ -24,6 +26,7 @@ import {
   fetchDetailsEnvelope,
   getAllRecords,
   postDetails,
+  postDetailsEnvelope,
 } from "./crud";
 import { getGeneralDetails } from "./exam-master";
 import {
@@ -43,6 +46,79 @@ export async function listCertificateIssueStatuses(): Promise<GeneralDetail[]> {
 
 export async function listStudentStatuses(): Promise<GeneralDetail[]> {
   return getGeneralDetails(GM_CODES.STUDENT_STATUS);
+}
+
+/** Angular `certificateIssueWorkflowStatus` / CERTWFSTAGE. */
+export async function listCertificateWorkflowStatuses(): Promise<
+  GeneralDetail[]
+> {
+  return getGeneralDetails(GM_CODES.CERTIFICATE_WORKFLOW_STATUS);
+}
+
+/**
+ * Angular `listByThreeIds(empCertificateApprovalUrl, empId, statusId, certificateId,
+ * 'in_empId', 'in_status_id', 'in_certificate_id')`.
+ */
+export async function listEmpCertificateApprovals(params: {
+  employeeId: number;
+  collegeCertificateId: number;
+  statusId?: number;
+}): Promise<EmpCertificateApprovalRow[]> {
+  const { employeeId, collegeCertificateId, statusId = 0 } = params;
+  if (!employeeId || !collegeCertificateId) return [];
+  try {
+    const data = await getAllRecords<{ result?: unknown[][] }>(
+      FEE_API.EMP_CERTIFICATE_APPROVAL,
+      {
+        in_empId: employeeId,
+        in_status_id: statusId,
+        in_certificate_id: collegeCertificateId,
+      },
+    );
+    const rows = data?.result?.[0];
+    return Array.isArray(rows) ? (rows as EmpCertificateApprovalRow[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular `listDetailsById(FeeCertificateWorkflow, pk_fee_certificate_wf_id, 'feeCertificateWfId')`.
+ */
+export async function getFeeCertificateWorkflowByWfId(
+  feeCertificateWfId: number,
+): Promise<FeeCertificateWorkflowRow | null> {
+  if (!feeCertificateWfId) return null;
+  const queries = [
+    buildQuery({ feeCertificateWfId }),
+    buildQuery({ feeCertificateWorkflowId: feeCertificateWfId }),
+  ];
+  for (const query of queries) {
+    try {
+      const rows = await domainList<FeeCertificateWorkflowRow>(
+        ENTITIES.FEE_CERTIFICATE_WORKFLOW.name,
+        query,
+      );
+      if (rows.length > 0) return rows[0] ?? null;
+    } catch {
+      // try next query shape
+    }
+  }
+  return null;
+}
+
+/**
+ * Angular `add(feecertificateworkflowupdate | feecertificateworkflowupdateFinalIssuer, details)`.
+ * Principal / Vice Principal use the final-issuer endpoint.
+ */
+export async function updateFeeCertificateWorkflowApproval(
+  details: Record<string, unknown>,
+  options: { finalIssuer: boolean },
+): Promise<ApiResponse<unknown>> {
+  const path = options.finalIssuer
+    ? FEE_API.CERTIFICATE_WORKFLOW_UPDATE_FINAL
+    : FEE_API.CERTIFICATE_WORKFLOW_UPDATE;
+  return postDetailsEnvelope(path, details);
 }
 
 function certificateCodeOf(row: Record<string, unknown>): string {

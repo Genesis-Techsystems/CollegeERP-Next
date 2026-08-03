@@ -22,11 +22,14 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
   Layers,
+  Printer,
   RotateCcw,
   School,
 } from "lucide-react";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   printInternalMarksReport,
   type SubjectCol,
@@ -38,8 +41,8 @@ const TOOLBAR = {
   search: true,
   searchPlaceholder: "Search roll no",
   columnPicker: true,
-  exportPdf: true,
-  exportExcel: true,
+  exportPdf: false,
+  exportExcel: false,
 } as const;
 
 function numFrom(row: AnyRow, keys: string[]): number {
@@ -158,6 +161,8 @@ export default function InternalMarksReportPage() {
 
   const [flatRows, setFlatRows] = useState<AnyRow[]>([]);
   const [filterSummary, setFilterSummary] = useState("");
+
+  const collegeLogo = useCollegeLogo(collegeId);
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -489,7 +494,8 @@ export default function InternalMarksReportPage() {
         courseYearId,
       });
       if (rows.length === 0) {
-        toastInfo("No records found");
+        // Angular: snotifyService.success(result.message) when no data
+        toastInfo("No Record(s) found");
         return;
       }
       setFlatRows(rows);
@@ -538,8 +544,9 @@ export default function InternalMarksReportPage() {
           .filter(Boolean)
           .join(" / "),
       );
-    } catch {
-      toastError("Failed to load internal marks report");
+    } catch (e) {
+      // Angular success toast for "No Record(s) found"; toastError maps that to info
+      toastError(e, "Failed to load internal marks report");
     } finally {
       setLoading(false);
     }
@@ -600,10 +607,15 @@ export default function InternalMarksReportPage() {
     const college = colleges.find(
       (r) => numFrom(r, ["fk_college_id", "collegeId"]) === collegeId,
     );
+    const orgCode = String(
+      globalThis?.localStorage?.getItem("orgCode") ?? "",
+    ).trim();
     printInternalMarksReport(mainList, {
       title: "Internal Marks Report",
       filterSummary,
       collegeName: strFrom(college ?? {}, ["college_name", "collegeName"]),
+      logoUrl: collegeLogo,
+      orgCode,
       subjectCols,
       maxMarksBySubject,
     });
@@ -612,6 +624,7 @@ export default function InternalMarksReportPage() {
     colleges,
     collegeId,
     filterSummary,
+    collegeLogo,
     subjectCols,
     maxMarksBySubject,
   ]);
@@ -802,14 +815,29 @@ export default function InternalMarksReportPage() {
       paginationPageSize={25}
       getRowId={getRowId}
       fitColumnsToWidth={false}
-      onExportExcel={handleExportExcel}
-      onExportPdf={handlePrint}
-      toolbar={{
-        ...TOOLBAR,
-        excelDocumentTitle: "Internal Marks Report",
-        excelFileName: "Internal Marks Report.xls",
-        pdfDocumentTitle: "Internal Marks Report",
-      }}
+      toolbar={TOOLBAR}
+      toolbarTrailing={
+        mainList.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+              onClick={handleExportExcel}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel Report
+            </Button>
+            <Button
+              type="button"
+              className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+              onClick={handlePrint}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
+        ) : null
+      }
       filtersFooter={
         filterSummary ? (
           <p className="text-sm font-medium text-primary">{filterSummary}</p>

@@ -72,6 +72,10 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (key.includes("staff") && key.includes("notmarked")) {
     return `${ATTENDANCE_MGMT_BASE}/staff-attendance-not-markedlist`;
   }
+  // Angular Academics menu label (staff-classes/attendance-update).
+  if (key.includes("attendanceupdate")) {
+    return `${ATTENDANCE_MGMT_BASE}/mark-attendance`;
+  }
   if (
     key.includes("markattendance") ||
     (key.includes("mark") && key.includes("attendance"))
@@ -168,6 +172,9 @@ export function mapStaffClassesLabelToRoute(label?: string): string | null {
     (key.includes("my") && key.includes("timetable"))
   ) {
     return `${STAFF_CLASSES_BASE}/my-timetable`;
+  }
+  if (key === "assignments" || key === "assignment") {
+    return `${STAFF_CLASSES_BASE}/assignments`;
   }
   // Bare "Class Diary" only — do not steal "Staff Class Diary" / "Student Class Diary".
   if (
@@ -622,15 +629,21 @@ export function mapNotificationsAnnouncementsNavRoute(
   // Angular Communications → Notifications
   // `#/principal-communications/announcements` and
   // `#/principal-communications/notifications/send-notifications`
-  // both load EmployeeNotificationsAndAnnouncementsModule.
+  // both load EmployeeNotificationsAndAnnouncementsModule — keep Angular URLs.
   if (
     hrefLower.includes("principal-communications/announcements") ||
     hrefLower.includes("principal-communications/notifications")
   ) {
     if (hrefLower.includes("add-notification")) {
-      return `${NOTIFICATIONS_ANNOUNCEMENTS_BASE}/add-notification`;
+      if (hrefLower.includes("announcements")) {
+        return "/principal-communications/announcements/add-notification";
+      }
+      return "/principal-communications/notifications/send-notifications/add-notification";
     }
-    return `${NOTIFICATIONS_ANNOUNCEMENTS_BASE}/employee-inbox`;
+    if (hrefLower.includes("announcements")) {
+      return "/principal-communications/announcements";
+    }
+    return "/principal-communications/notifications/send-notifications";
   }
 
   return null;
