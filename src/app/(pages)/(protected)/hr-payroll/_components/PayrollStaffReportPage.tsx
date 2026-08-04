@@ -2,20 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileSpreadsheet, Printer } from "lucide-react";
-import type { ColDef, ColGroupDef } from "ag-grid-community";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
 import { MonthYearPicker } from "@/common/components/date-picker";
+import { SearchInput } from "@/common/components/search";
 import { Select, type SelectOption } from "@/common/components/select";
-import { DataTable } from "@/common/components/table";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { MINIO_URL } from "@/config/constants/api";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { getErrorMessage } from "@/lib/errors";
 import { printHtmlInIframe } from "@/lib/print";
 import { toastError } from "@/lib/toast";
-import { rowIndexGetter } from "@/lib/utils";
 import {
   getStaffPayrollReportRows,
   listActiveCollegesForGeneralSettings,
@@ -57,6 +57,9 @@ type PayrollStaffReportPageProps = {
   exportFileName: string;
 };
 
+/** Angular print header hardcodes this label (pre-payroll-audit print block). */
+const ANGULAR_PRINT_REPORT_TITLE = "Student Admission Report";
+
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -65,463 +68,223 @@ function escapeHtml(value: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-function amountCol(
-  field: string,
-  headerName: string,
-  minWidth = 100,
-): ColDef<AnyRow> {
-  return {
-    field,
-    headerName,
-    minWidth,
-    flex: 0,
-    cellClass: "text-center",
-    headerClass: "text-center",
-    tooltipField: field,
-  };
-}
-
-/** Placeholder leaf so empty Earnings / Deductions groups still render. */
-function spacerCol(colId: string): ColDef<AnyRow> {
-  return {
-    colId,
-    headerName: "",
-    field: colId,
-    width: 90,
-    flex: 0,
-    valueGetter: () => "",
-    sortable: false,
-    filter: false,
-    suppressHeaderMenuButton: true,
-    cellClass: "text-center",
-    headerClass: "text-center",
-  };
-}
-
-function bankCol(): ColDef<AnyRow> {
-  return {
-    field: "bank_acc_no",
-    headerName: "Bank A/c No.",
-    minWidth: 130,
-    flex: 0,
-    tooltipField: "bank_acc_no",
-    cellClass: "text-center text-blue-700",
-    headerClass: "text-center",
-  };
+function resolvePrintLogoUrl(logo: string | undefined | null): string {
+  const path = String(logo ?? "").trim();
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const fallback = `${origin}${DEFAULT_COLLEGE_LOGO}`;
+  if (!path) return fallback;
+  if (/^https?:\/\//i.test(path) || path.startsWith("data:")) return path;
+  if (path.startsWith("/")) return `${origin}${path}`;
+  const base = String(MINIO_URL ?? "").replace(/\/$/, "");
+  return base ? `${base}/${path.replace(/^\/+/, "")}` : fallback;
 }
 
 /**
- * Angular monthly-payroll-report header (matches Angular screenshot):
- * Rowspan-2: SI.No | Employee No | Name | Designation | Deptartment | Basic |
- *            Gross Salary | Total Ded. | Net Salary | Management Deductions*
- * Groups:    Earnings → [E cats] | Deductions → [D cats] or Bank when no D cats
- *
- * When Earnings is empty and Deductions has cats, Angular's colspan=0 on Earnings
- * visually places D cats under the "Earnings" label and Bank under "Deductions".
- * We mirror that visual so React matches the Angular screenshot.
+ * Angular `#excelTable` / `#table-print` — exact header colspans + body cells.
+ * Matches Teaching Staff screen alignment (incl. colspan=0 / missing Basic td quirk).
  */
-function buildMonthlyColumnDefs(
-  earnings: PayrollPivotCategory[],
-  deductions: PayrollPivotCategory[],
-  management: PayrollPivotCategory[],
-): (ColDef<AnyRow> | ColGroupDef<AnyRow>)[] {
-  // Angular colspan=0 quirk: empty Earnings + non-empty D → D cats appear under Earnings
-  const deductUnderEarnings = earnings.length === 0 && deductions.length > 0;
-
-  const earningsChildren: ColDef<AnyRow>[] = deductUnderEarnings
-    ? deductions.map((c) =>
-        amountCol(
-          payrollCategoryField(
-            "D",
-            c.payroll_category_code,
-            c.payroll_category_name,
-          ),
-          c.payroll_category_name,
-        ),
-      )
-    : earnings.length > 0
-      ? earnings.map((c) =>
-          amountCol(
-            payrollCategoryField(
-              "E",
-              c.payroll_category_code,
-              c.payroll_category_name,
-            ),
-            c.payroll_category_name,
-          ),
-        )
-      : [spacerCol("_earn_spacer")];
-
-  const deductionChildren: ColDef<AnyRow>[] = deductUnderEarnings
-    ? [bankCol()]
-    : deductions.length > 0
-      ? deductions.map((c) =>
-          amountCol(
-            payrollCategoryField(
-              "D",
-              c.payroll_category_code,
-              c.payroll_category_name,
-            ),
-            c.payroll_category_name,
-          ),
-        )
-      : [bankCol()];
-
-  const managementCol: ColDef<AnyRow> | ColGroupDef<AnyRow> =
-    management.length > 0
-      ? {
-          headerName: "Management Deductions",
-          headerClass: "text-center",
-          marryChildren: true,
-          children: management.map((c) =>
-            amountCol(
-              payrollCategoryField(
-                "M",
-                c.payroll_category_code,
-                c.payroll_category_name,
-              ),
-              c.payroll_category_name,
-            ),
-          ),
-        }
-      : {
-          colId: "_mgmt",
-          headerName: "Management Deductions",
-          field: "_mgmt",
-          minWidth: 160,
-          flex: 0,
-          valueGetter: () => "",
-          sortable: false,
-          filter: false,
-          cellClass: "text-center",
-          headerClass: "text-center",
-        };
-
-  const cols: (ColDef<AnyRow> | ColGroupDef<AnyRow>)[] = [
-    {
-      headerName: "SI.No",
-      colId: "sno",
-      valueGetter: (p) => String(p.data?.SNo ?? rowIndexGetter(p)),
-      width: 70,
-      flex: 0,
-      cellClass: "text-center text-blue-700",
-      headerClass: "text-center",
-    },
-    {
-      field: "emp_number",
-      headerName: "Employee No",
-      minWidth: 140,
-      tooltipField: "emp_number",
-      cellClass: "text-center",
-      headerClass: "text-center",
-    },
-    {
-      field: "Faculty",
-      headerName: "Name",
-      minWidth: 150,
-      tooltipField: "Faculty",
-      cellClass: "text-center text-blue-700",
-      headerClass: "text-center",
-    },
-    {
-      field: "Emp_Designation",
-      headerName: "Designation",
-      minWidth: 120,
-      tooltipField: "Emp_Designation",
-      cellClass: "text-center text-blue-700",
-      headerClass: "text-center",
-    },
-    {
-      field: "Emp_Department",
-      // Angular header typo preserved for parity
-      headerName: "Deptartment",
-      minWidth: 110,
-      tooltipField: "Emp_Department",
-      cellClass: "text-center text-blue-700",
-      headerClass: "text-center",
-    },
-    amountCol("basic", "Basic", 90),
-    {
-      headerName: "Earnings",
-      headerClass: "text-center",
-      marryChildren: true,
-      children: earningsChildren,
-    },
-    amountCol("gross_pay", "Gross Salary", 110),
-    {
-      headerName: "Deductions",
-      headerClass: "text-center",
-      marryChildren: true,
-      children: deductionChildren,
-    },
-    amountCol("total_ded", "Total Ded.", 100),
-    amountCol("net_pay", "Net Salary", 100),
-    managementCol,
-  ];
-
-  // Trailing Bank only when D cats are shown under Deductions (not already under Deduct as Bank)
-  if (deductions.length > 0 && !deductUnderEarnings) {
-    cols.push({
-      headerName: "\u00a0",
-      headerClass: "text-center",
-      marryChildren: true,
-      children: [bankCol()],
-    });
-  }
-
-  return cols;
-}
-
-function buildAuditColumnDefs(
-  earnings: PayrollPivotCategory[],
-  deductions: PayrollPivotCategory[],
-  management: PayrollPivotCategory[],
-): (ColDef<AnyRow> | ColGroupDef<AnyRow>)[] {
-  const cols: (ColDef<AnyRow> | ColGroupDef<AnyRow>)[] = [
-    {
-      headerName: "SI.No",
-      valueGetter: rowIndexGetter,
-      width: 70,
-      flex: 0,
-    },
-    {
-      field: "Faculty",
-      headerName: "Name",
-      minWidth: 150,
-      tooltipField: "Faculty",
-    },
-    {
-      field: "Emp_Designation",
-      headerName: "Designation",
-      minWidth: 120,
-      tooltipField: "Emp_Designation",
-    },
-    {
-      field: "Emp_Department",
-      headerName: "Dept.",
-      minWidth: 100,
-      tooltipField: "Emp_Department",
-    },
-    amountCol("gross_pay", "Gross Amt", 100),
-  ];
-
-  for (const c of earnings) {
-    cols.push(
-      amountCol(
-        payrollCategoryField(
-          "E",
-          c.payroll_category_code,
-          c.payroll_category_name,
-        ),
-        c.payroll_category_name,
-      ),
-    );
-  }
-  for (const c of deductions) {
-    cols.push(
-      amountCol(
-        payrollCategoryField(
-          "D",
-          c.payroll_category_code,
-          c.payroll_category_name,
-        ),
-        c.payroll_category_name,
-      ),
-    );
-  }
-  for (const c of management) {
-    cols.push(
-      amountCol(
-        payrollCategoryField(
-          "M",
-          c.payroll_category_code,
-          c.payroll_category_name,
-        ),
-        c.payroll_category_name,
-      ),
-    );
-  }
-
-  cols.push(amountCol("net_pay", "Net Amt", 100));
-  return cols;
-}
-
-function buildExportTableHtml(
+function buildAngularPayrollTableHtml(
   groups: { label: string; rows: AnyRow[] }[],
   earnings: PayrollPivotCategory[],
   deductions: PayrollPivotCategory[],
   management: PayrollPivotCategory[],
-  monthly: boolean,
+  hasBasicCategory: boolean,
+  options?: {
+    reportTitle?: string;
+    dataDetails?: string;
+    categoryBanner?: string;
+    /** `mar` = on-screen / Excel (blue headers); `second-table` = print */
+    tableClass?: "mar" | "second-table";
+  },
 ): string {
-  if (!monthly) {
-    const head = [
-      "SI.No",
-      "Name",
-      "Designation",
-      "Dept.",
-      "Gross Amt",
-      ...earnings.map((c) => c.payroll_category_name),
-      ...deductions.map((c) => c.payroll_category_name),
-      ...management.map((c) => c.payroll_category_name),
-      "Net Amt",
-    ];
-    const body =
-      groups[0]?.rows
-        .map(
-          (row, idx) =>
-            `<tr>
-            <td>${idx + 1}</td>
-            <td>${escapeHtml(row.Faculty)}</td>
-            <td>${escapeHtml(row.Emp_Designation)}</td>
-            <td>${escapeHtml(row.Emp_Department)}</td>
-            <td>${escapeHtml(row.gross_pay)}</td>
-            ${earnings
-              .map(
-                (c) =>
-                  `<td>${escapeHtml(row[payrollCategoryField("E", c.payroll_category_code, c.payroll_category_name)])}</td>`,
-              )
-              .join("")}
-            ${deductions
-              .map(
-                (c) =>
-                  `<td>${escapeHtml(row[payrollCategoryField("D", c.payroll_category_code, c.payroll_category_name)])}</td>`,
-              )
-              .join("")}
-            ${management
-              .map(
-                (c) =>
-                  `<td>${escapeHtml(row[payrollCategoryField("M", c.payroll_category_code, c.payroll_category_name)])}</td>`,
-              )
-              .join("")}
-            <td>${escapeHtml(row.net_pay)}</td>
-          </tr>`,
-        )
-        .join("") ?? "";
-    return `<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table>`;
-  }
-
-  return groups
-    .map((group) => {
-      const deductUnderEarnings =
-        earnings.length === 0 && deductions.length > 0;
-      const earnCats = deductUnderEarnings ? deductions : earnings;
-      const earnType = deductUnderEarnings ? "D" : "E";
-      const earnHeads =
-        earnCats.length > 0
-          ? earnCats
-              .map((c) => `<th>${escapeHtml(c.payroll_category_name)}</th>`)
-              .join("")
-          : "<th></th>";
-      const dedHeads = deductUnderEarnings
-        ? `<th>Bank A/c No.</th>`
-        : deductions.length > 0
-          ? deductions
-              .map((c) => `<th>${escapeHtml(c.payroll_category_name)}</th>`)
-              .join("")
-          : `<th>Bank A/c No.</th>`;
-      const mgmtHeads =
-        management.length > 0
-          ? management
-              .map((c) => `<th>${escapeHtml(c.payroll_category_name)}</th>`)
-              .join("")
-          : "";
-      const bankLeaf =
-        deductions.length > 0 && !deductUnderEarnings
-          ? `<th>Bank A/c No.</th>`
-          : "";
-      const earnSpan = Math.max(earnCats.length, 1);
-      const dedSpan = deductUnderEarnings
-        ? 1
-        : deductions.length > 0
-          ? deductions.length
-          : 1;
-      const rowsHtml = group.rows
-        .map(
-          (row) => `<tr>
-            <td style="text-align:center;color:blue">${escapeHtml(row.SNo)}</td>
-            <td style="text-align:center">${escapeHtml(row.emp_number)}</td>
-            <td style="text-align:center;color:blue">${escapeHtml(row.Faculty)}</td>
-            <td style="text-align:center;color:blue">${escapeHtml(row.Emp_Designation)}</td>
-            <td style="text-align:center;color:blue">${escapeHtml(row.Emp_Department)}</td>
-            <td style="text-align:center">${escapeHtml(row.basic)}</td>
+  const tableClass = options?.tableClass ?? "mar";
+  const titleBlock =
+    options?.reportTitle != null
+      ? `<div style="display:none;text-align:center">
+          <table><tr><td colspan="19" style="text-align:center">
+            <h3>${escapeHtml(options.reportTitle)}${
+              options.dataDetails ? ` - ${escapeHtml(options.dataDetails)}` : ""
+            }</h3>
             ${
-              earnCats.length > 0
-                ? earnCats
-                    .map(
-                      (c) =>
-                        `<td style="text-align:center">${escapeHtml(row[payrollCategoryField(earnType, c.payroll_category_code, c.payroll_category_name)])}</td>`,
-                    )
-                    .join("")
-                : `<td></td>`
-            }
-            <td style="text-align:center;color:blue">${escapeHtml(row.gross_pay)}</td>
-            ${
-              deductUnderEarnings || deductions.length === 0
-                ? `<td style="text-align:center;color:blue">${escapeHtml(row.bank_acc_no)}</td>`
-                : deductions
-                    .map(
-                      (c) =>
-                        `<td style="text-align:center">${escapeHtml(row[payrollCategoryField("D", c.payroll_category_code, c.payroll_category_name)])}</td>`,
-                    )
-                    .join("")
-            }
-            <td style="text-align:center;color:blue">${escapeHtml(row.total_ded)}</td>
-            <td style="text-align:center;color:blue">${escapeHtml(row.net_pay)}</td>
-            ${
-              management.length > 0
-                ? management
-                    .map(
-                      (c) =>
-                        `<td style="text-align:center">${escapeHtml(row[payrollCategoryField("M", c.payroll_category_code, c.payroll_category_name)])}</td>`,
-                    )
-                    .join("")
-                : `<td></td>`
-            }
-            ${
-              deductions.length > 0 && !deductUnderEarnings
-                ? `<td style="text-align:center;color:blue">${escapeHtml(row.bank_acc_no)}</td>`
+              options.categoryBanner
+                ? `<h3>${escapeHtml(options.categoryBanner)} staff</h3>`
                 : ""
             }
-          </tr>`,
-        )
+          </td></tr></table>
+        </div>`
+      : "";
+
+  // Angular: colspan = count (may be 0). Row-2 heads: E ≠ BASIC, D, M, then Bank.
+  const earnHeads = earnings
+    .map(
+      (c) => `<th class="table-th">${escapeHtml(c.payroll_category_name)}</th>`,
+    )
+    .join("");
+  const dedHeads = deductions
+    .map(
+      (c) => `<th class="table-th">${escapeHtml(c.payroll_category_name)}</th>`,
+    )
+    .join("");
+  const mgmtHeads = management
+    .map(
+      (c) => `<th class="table-th">${escapeHtml(c.payroll_category_name)}</th>`,
+    )
+    .join("");
+
+  const tables = groups
+    .map((group) => {
+      const rowsHtml = group.rows
+        .map((row) => {
+          // Angular only emits Basic <td> when a BASIC earning exists on the pivot.
+          const basicCell = hasBasicCategory
+            ? `<td class="table-td">${escapeHtml(row.basic)}</td>`
+            : "";
+          const earnCells = earnings
+            .map(
+              (c) =>
+                `<td class="table-td">${escapeHtml(
+                  row[
+                    payrollCategoryField(
+                      "E",
+                      c.payroll_category_code,
+                      c.payroll_category_name,
+                    )
+                  ],
+                )}</td>`,
+            )
+            .join("");
+          const dedCells = deductions
+            .map(
+              (c) =>
+                `<td class="table-td">${escapeHtml(
+                  row[
+                    payrollCategoryField(
+                      "D",
+                      c.payroll_category_code,
+                      c.payroll_category_name,
+                    )
+                  ],
+                )}</td>`,
+            )
+            .join("");
+          const mgmtCells = management
+            .map(
+              (c) =>
+                `<td class="table-td">${escapeHtml(
+                  row[
+                    payrollCategoryField(
+                      "M",
+                      c.payroll_category_code,
+                      c.payroll_category_name,
+                    )
+                  ],
+                )}</td>`,
+            )
+            .join("");
+
+          return `<tr>
+            <th class="table-td" style="color:blue">${escapeHtml(row.SNo)}</th>
+            <th class="table-td">${escapeHtml(row.emp_number)}</th>
+            <td class="table-td name-cell" style="color:blue">${escapeHtml(row.Faculty)}</td>
+            <td class="table-td" style="color:blue">${escapeHtml(row.Emp_Designation)}</td>
+            <td class="table-td" style="color:blue">${escapeHtml(row.Emp_Department)}</td>
+            ${basicCell}
+            ${earnCells}
+            <td class="table-td" style="color:blue">${escapeHtml(row.gross_pay)}</td>
+            ${dedCells}
+            <td class="table-td" style="color:blue">${escapeHtml(row.total_ded)}</td>
+            <td class="table-td" style="color:blue">${escapeHtml(row.net_pay)}</td>
+            ${mgmtCells}
+            <td class="table-td" style="color:blue">${escapeHtml(row.bank_acc_no)}</td>
+          </tr>`;
+        })
         .join("");
 
-      const managementHeader =
-        management.length > 0
-          ? `<th colspan="${management.length}">Management Deductions</th>`
-          : `<th rowspan="2">Management Deductions</th>`;
-
-      const trailingBankParent =
-        deductions.length > 0 && !deductUnderEarnings
-          ? `<th colspan="1"></th>`
-          : "";
-
       return `
-        ${group.label ? `<h3 style="text-align:center;text-transform:uppercase">${escapeHtml(group.label)} STAFF</h3>` : ""}
-        <table>
+        ${group.label ? `<h3>${escapeHtml(group.label)} STAFF</h3>` : ""}
+        <div class="payroll-report-scroll">
+        <table class="${tableClass}">
           <thead>
             <tr>
-              <th rowspan="2">SI.No</th>
-              <th rowspan="2">Employee No</th>
-              <th rowspan="2">Name</th>
-              <th rowspan="2">Designation</th>
-              <th rowspan="2">Deptartment</th>
-              <th rowspan="2">Basic</th>
-              <th colspan="${earnSpan}">Earnings</th>
-              <th rowspan="2">Gross Salary</th>
-              <th colspan="${dedSpan}">Deductions</th>
-              <th rowspan="2">Total Ded.</th>
-              <th rowspan="2">Net Salary</th>
-              ${managementHeader}
-              ${trailingBankParent}
+              <th class="table-th1" rowspan="2">SI.No</th>
+              <th class="table-th" rowspan="2">Employee No</th>
+              <th class="table-th" rowspan="2">Name</th>
+              <th class="table-th" rowspan="2">Designation</th>
+              <th class="table-th" rowspan="2">Deptartment</th>
+              <th class="table-th" rowspan="2">Basic</th>
+              <th class="table-th" colspan="${earnings.length}">Earnings</th>
+              <th class="table-th" rowspan="2">Gross Salary</th>
+              <th class="table-th" colspan="${deductions.length}">Deductions</th>
+              <th class="table-th" rowspan="2">Total Ded.</th>
+              <th class="table-th" rowspan="2">Net Salary</th>
+              <th class="table-th" colspan="${management.length}">Management Deductions</th>
+              <th class="table-th" colspan="1"></th>
             </tr>
-            <tr>${earnHeads}${dedHeads}${mgmtHeads}${bankLeaf}</tr>
+            <tr>
+              ${earnHeads}
+              ${dedHeads}
+              ${mgmtHeads}
+              <th class="table-th">Bank A/c No.</th>
+            </tr>
           </thead>
-          <tbody>${rowsHtml || `<tr><td colspan="20">No employees in this category</td></tr>`}</tbody>
-        </table>`;
+          <tbody>${
+            rowsHtml ||
+            `<tr><td class="table-td" colspan="20" style="text-align:center">No employees in this category</td></tr>`
+          }</tbody>
+        </table>
+        </div>`;
     })
     .join("");
+
+  return `${titleBlock}${tables}`;
 }
+
+/** On-screen / Excel — Angular `.mar` light-blue headers. */
+const REPORT_SCREEN_STYLES = `
+.payroll-report-scroll{overflow-x:auto;width:100%;-webkit-overflow-scrolling:touch}
+table.mar{width:max-content;min-width:100%;border-collapse:separate;border-spacing:1px;font-size:12px;margin:0 0 8px}
+table.mar .table-th,table.mar .table-th1{
+  padding:8px 10px;background:#C3D9FF;font-weight:600;text-align:center;
+  white-space:nowrap;border:1px solid #c5d4e8;color:#111;
+  font-size:12px;vertical-align:middle
+}
+table.mar .table-td{
+  padding:8px 10px;text-align:center;font-weight:500;border:1px solid #ddd;
+  background:#fff;vertical-align:middle
+}
+table.mar .table-td.name-cell{max-width:120px;word-break:break-word}
+.payroll-staff-report-table h3{
+  margin:12px 0 8px;text-align:center;text-transform:uppercase;
+  font-size:14px;font-weight:700
+}
+`;
+
+/** Angular `@media print` styles for pre-payroll-audit-report. */
+const REPORT_PRINT_STYLES = `
+body{font-family:Arial,Helvetica,sans-serif;color:#000;padding:12px;margin:0;background:#fff}
+.portraitLogo{height:90px;width:auto;max-width:140px;object-fit:contain}
+.print-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:8px}
+.print-header-text{flex:1;min-width:0}
+.collegeName{text-align:center!important;font-size:28px!important;margin:-5px 0!important;font-weight:550!important;color:#000!important}
+.title-2{text-align:center!important;font-size:18px!important;font-weight:550!important;margin:4px 0!important;color:#000!important}
+.title{text-align:center!important;font-size:24px!important;font-weight:550!important;margin:4px 0 12px!important;color:#000!important}
+#first-table{width:100%;border:1px solid #000;border-collapse:collapse;margin:0 0 14px}
+#first-table td{border:none!important;font-size:15px!important;font-weight:700!important;text-align:center!important;padding:8px}
+#first-table td .paybill-red{color:red!important}
+.payroll-report-scroll{overflow:visible}
+.second-table{width:100%;border:1px solid #000!important;border-collapse:collapse;margin-bottom:16px;font-size:10px}
+.second-table th,.second-table .table-th,.second-table .table-th1{
+  border:1px solid #000!important;text-align:center!important;padding:8px!important;
+  font-weight:500!important;font-size:10px!important;background:#fff;white-space:nowrap
+}
+.second-table td,.second-table .table-td{
+  border:1px solid #000!important;text-align:center!important;padding:8px!important;
+  font-weight:500!important;font-size:10px!important;white-space:nowrap
+}
+h3{font-weight:bold!important;text-align:center!important;text-transform:uppercase!important;margin:10px 0 6px}
+@page{size:portrait;margin:10mm}
+@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
+`;
 
 export function PayrollStaffReportPage({
   title,
@@ -552,19 +315,22 @@ export function PayrollStaffReportPage({
     [],
   );
   const [mgmtCols, setMgmtCols] = useState<PayrollPivotCategory[]>([]);
+  const [hasBasicCategory, setHasBasicCategory] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasRun, setHasRun] = useState(false);
   const [dataDetails, setDataDetails] = useState("");
+  const [searchText, setSearchText] = useState("");
 
   const facultyLabel = usePeriod ? "College" : "Faculty";
-  const isMonthly = reportFlag === "monthly_payroll";
 
   const clearReport = () => {
     setFlatRows([]);
     setHasRun(false);
     setDataDetails("");
     setError(null);
+    setSearchText("");
+    setHasBasicCategory(false);
   };
 
   useEffect(() => {
@@ -665,6 +431,13 @@ export function PayrollStaffReportPage({
       setEarningsCols(split.earnings);
       setDeductionCols(split.deductions);
       setMgmtCols(split.management);
+      setHasBasicCategory(
+        keys.some(
+          (k) =>
+            String(k.payroll_category_type).toUpperCase() === "E" &&
+            String(k.payroll_category_code).toUpperCase() === "BASIC",
+        ),
+      );
       setFlatRows(flattenPayrollPivotRows(pivoted));
 
       const collegeCode =
@@ -702,46 +475,85 @@ export function PayrollStaffReportPage({
     departments,
   ]);
 
+  // Report search — match visible identity fields (name + employee no., etc.).
+  // Angular facultyFilter only checks Faculty; searching emp prefix like "unigug"
+  // then incorrectly emptied the grid.
+  const filteredRows = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return flatRows;
+    return flatRows.filter((row) => {
+      const haystack = [
+        row.Faculty,
+        row.emp_number,
+        row.Emp_Designation,
+        row.Emp_Department,
+        row.SNo,
+      ]
+        .map((v) => String(v ?? "").toLowerCase())
+        .join(" ");
+      return haystack.includes(q);
+    });
+  }, [flatRows, searchText]);
+
   const reportGroups = useMemo(() => {
-    if (!isMonthly) {
-      return [{ label: "", rows: flatRows }];
-    }
     if (empCategoryId !== 0) {
       return [
         {
           label:
             categoryDetails.find((category) => category.id === empCategoryId)
               ?.label ?? "Employee",
-          rows: flatRows,
+          rows: filteredRows,
         },
       ];
     }
+    if (categoryDetails.length === 0) {
+      return [{ label: "", rows: filteredRows }];
+    }
     return categoryDetails.map((category) => ({
       label: category.label,
-      rows: flatRows.filter(
+      rows: filteredRows.filter(
         (row) => String(row.gd_code ?? "") === category.code,
       ),
     }));
-  }, [categoryDetails, empCategoryId, flatRows, isMonthly]);
+  }, [categoryDetails, empCategoryId, filteredRows]);
 
-  const monthlyColumnDefs = useMemo(
-    () => buildMonthlyColumnDefs(earningsCols, deductionCols, mgmtCols),
-    [earningsCols, deductionCols, mgmtCols],
-  );
+  const categoryBanner = useMemo(() => {
+    if (empCategoryId !== 0) {
+      return (
+        categoryDetails.find((category) => category.id === empCategoryId)
+          ?.label ?? "Employee"
+      );
+    }
+    return "TEACHING AND NON-TEACHING";
+  }, [categoryDetails, empCategoryId]);
 
-  const auditColumnDefs = useMemo(
-    () => buildAuditColumnDefs(earningsCols, deductionCols, mgmtCols),
-    [earningsCols, deductionCols, mgmtCols],
+  const tablesHtml = useMemo(
+    () =>
+      buildAngularPayrollTableHtml(
+        reportGroups,
+        earningsCols,
+        deductionCols,
+        mgmtCols,
+        hasBasicCategory,
+        { tableClass: "mar" },
+      ),
+    [reportGroups, earningsCols, deductionCols, mgmtCols, hasBasicCategory],
   );
 
   const handleExportExcel = () => {
     if (flatRows.length === 0) return;
-    const html = buildExportTableHtml(
+    const html = buildAngularPayrollTableHtml(
       reportGroups,
       earningsCols,
       deductionCols,
       mgmtCols,
-      isMonthly,
+      hasBasicCategory,
+      {
+        reportTitle: title,
+        dataDetails,
+        categoryBanner,
+        tableClass: "mar",
+      },
     );
     const wrapper = document.createElement("div");
     wrapper.innerHTML = html;
@@ -758,62 +570,53 @@ export function PayrollStaffReportPage({
             ?.label ?? "All");
     const monthName = MONTHS[period.getMonth()] ?? "";
     const year = period.getFullYear();
-    const logo = college?.logo ?? "";
+    const logoSrc = resolvePrintLogoUrl(college?.logo);
     const orgCode =
       typeof window !== "undefined"
         ? window.localStorage.getItem("orgCode")
         : null;
+    const collegeName = college?.name ?? "";
+    const fallbackLogo = resolvePrintLogoUrl("");
 
     const logoBlock =
       orgCode === "SUK"
-        ? logo
-          ? `<img src="${escapeHtml(logo)}" alt="" style="width:100%;max-height:130px;object-fit:contain" />`
-          : `<h2>${escapeHtml(college?.name ?? "")}</h2>`
-        : `<div style="display:flex;align-items:center;gap:18px;margin-bottom:12px">
-            ${logo ? `<img src="${escapeHtml(logo)}" alt="" style="width:80px;height:80px;object-fit:contain" />` : ""}
-            <div>
-              <h2 style="margin:3px 0">${escapeHtml(college?.name ?? "")}</h2>
-              <p style="margin:3px 0">${escapeHtml(title)}</p>
+        ? `<div style="text-align:center;margin-bottom:8px">
+            <img src="${escapeHtml(logoSrc)}" alt="" style="width:100%;max-height:130px;object-fit:contain"
+              onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+          </div>`
+        : `<div class="print-header">
+            <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo"
+              onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+            <div class="print-header-text">
+              <p class="collegeName">${escapeHtml(collegeName)}</p>
+              ${dataDetails ? `<p class="title-2">${escapeHtml(dataDetails)}</p>` : ""}
+              <p class="title">${ANGULAR_PRINT_REPORT_TITLE}</p>
             </div>
           </div>`;
 
-    const tables = buildExportTableHtml(
+    const tables = buildAngularPayrollTableHtml(
       reportGroups,
       earningsCols,
       deductionCols,
       mgmtCols,
-      isMonthly,
+      hasBasicCategory,
+      { tableClass: "second-table" },
     );
 
     printHtmlInIframe(`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8" />
-<title>${escapeHtml(title)}</title>
-<style>
-  body{font-family:Arial,sans-serif;color:#111;padding:16px;margin:0;background:#fff}
-  .paybill{width:100%;border-collapse:collapse;margin:10px 0 16px}
-  .paybill td{border:1px solid #555;padding:7px}
-  .paybill td:last-child{color:#c00;font-weight:700;text-align:center}
-  table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:18px}
-  th,td{border:1px solid #777;padding:4px;text-align:center}
-  thead th{background:#e8eef7}
-  h3{margin:10px 0 6px;text-transform:uppercase}
-  @page{size:landscape;margin:8mm}
-  @media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}
-</style>
+<title>${escapeHtml(ANGULAR_PRINT_REPORT_TITLE)}</title>
+<style>${REPORT_PRINT_STYLES}</style>
 </head>
 <body>
   ${logoBlock}
-  ${
-    usePeriod
-      ? `<table class="paybill"><tr>
-          <td>Programme : ${escapeHtml(college?.name ?? "")}</td>
-          <td>Department : ${escapeHtml(departmentLabel)}</td>
-          <td>PAY BILL - ${escapeHtml(monthName)} ${year}</td>
-        </tr></table>`
-      : ""
-  }
+  <table id="first-table"><tr>
+    <td>Programme : ${escapeHtml(collegeName)}</td>
+    <td>Department : ${escapeHtml(departmentLabel)}</td>
+    <td><span class="paybill-red">PAY BILL - ${escapeHtml(monthName)} ${year}</span></td>
+  </tr></table>
   ${tables}
 </body>
 </html>`);
@@ -900,83 +703,49 @@ export function PayrollStaffReportPage({
         ) : error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : (
-          <div className="space-y-4">
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                size="sm"
-                disabled={flatRows.length === 0 || loading}
-                onClick={handleExportExcel}
-              >
-                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-                Export Excel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={flatRows.length === 0 || loading}
-                onClick={handlePrint}
-              >
-                <Printer className="mr-1.5 h-3.5 w-3.5" />
-                Print Report
-              </Button>
+          <div className="payroll-staff-report-table space-y-4">
+            <style dangerouslySetInnerHTML={{ __html: REPORT_SCREEN_STYLES }} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="w-full max-w-xs min-w-[200px]">
+                <SearchInput
+                  value={searchText}
+                  onChange={setSearchText}
+                  placeholder="Search"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={flatRows.length === 0 || loading}
+                  onClick={handleExportExcel}
+                >
+                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                  Export Excel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={flatRows.length === 0 || loading}
+                  onClick={handlePrint}
+                >
+                  <Printer className="mr-1.5 h-3.5 w-3.5" />
+                  Print Report
+                </Button>
+              </div>
             </div>
 
-            {isMonthly ? (
-              reportGroups.map((group) => (
-                <div key={group.label || "all"} className="space-y-2">
-                  {group.label ? (
-                    <h3 className="text-center text-sm font-bold uppercase tracking-wide text-foreground">
-                      {group.label} STAFF
-                    </h3>
-                  ) : null}
-                  <DataTable
-                    bordered={false}
-                    rowData={group.rows}
-                    columnDefs={monthlyColumnDefs as ColDef<AnyRow>[]}
-                    loading={loading}
-                    pagination
-                    paginationPageSize={10}
-                    fitColumnsToWidth={false}
-                    getRowId={(p) => String(p.data?.fk_emp_id ?? "")}
-                    toolbar={{
-                      search: true,
-                      searchPlaceholder: "Search",
-                      columnPicker: true,
-                      exportExcel: false,
-                      exportPdf: false,
-                    }}
-                    columnFilters={false}
-                  />
-                </div>
-              ))
-            ) : (
-              <DataTable
-                bordered={false}
-                rowData={flatRows}
-                columnDefs={auditColumnDefs as ColDef<AnyRow>[]}
-                loading={loading}
-                pagination
-                paginationPageSize={25}
-                fitColumnsToWidth={false}
-                height="520px"
-                getRowId={(p) => String(p.data?.fk_emp_id ?? "")}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: "Search",
-                  columnPicker: true,
-                  exportExcel: false,
-                  exportPdf: false,
-                }}
-                columnFilters={false}
-              />
-            )}
-
-            {!loading && flatRows.length === 0 ? (
+            {loading ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                Loading…
+              </p>
+            ) : flatRows.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
                 No records found for the selected filters.
               </p>
-            ) : null}
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: tablesHtml }} />
+            )}
           </div>
         )
       }

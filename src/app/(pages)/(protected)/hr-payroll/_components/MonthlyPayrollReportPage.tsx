@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { PayrollStaffReportPage } from './PayrollStaffReportPage'
+import { PayrollStaffReportPage } from "./PayrollStaffReportPage";
 
 export function MonthlyPayrollReportPage() {
   return (
@@ -8,7 +8,7 @@ export function MonthlyPayrollReportPage() {
       title="Monthly Payroll Report"
       reportFlag="monthly_payroll"
       usePeriod
-      exportFileName="Monthly_Payroll_Report"
+      exportFileName="Monthly Payroll Report"
     />
-  )
+  );
 }

@@ -1527,12 +1527,24 @@ function flattenExamStudentDetailRows(rows: AnyRow[]): AnyRow[] {
       row.examStudentDetailList ??
       [];
     if (!Array.isArray(details)) continue;
+    // Angular addInternalSubjects reads parent examStdId (as exexamStdId) + examFeeAmount
+    // from the flattened registered row when appending subjects for an existing year.
+    const examStdId =
+      row.examStdId ??
+      row.exexamStdId ??
+      row.pk_exam_std_id ??
+      row.examStudentId ??
+      null;
+    const examFeeAmount = Number(row.examFeeAmount ?? 0);
     for (const d of details) {
       out.push({
         ...d,
         courseYearId: row.courseYearId ?? d.courseYearId,
         courseYearName: row.courseYearName ?? d.courseYearName,
         examtypeCatCode: row.examtypeCatCode ?? d.examtypeCatCode,
+        examStdId: d.examStdId ?? examStdId,
+        exexamStdId: row.exexamStdId ?? examStdId,
+        examFeeAmount: d.examFeeAmount ?? examFeeAmount,
       });
     }
   }

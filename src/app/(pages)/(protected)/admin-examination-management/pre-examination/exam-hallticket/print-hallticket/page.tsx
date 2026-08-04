@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,7 @@ export default function ExamHallticketPrintPage() {
   const [payload, setPayload] = useState<ExamHallticketPrintPayload | null>(
     null,
   );
+  const autoPrinted = useRef(false);
 
   useEffect(() => {
     const data = loadExamHallticketPrintPayload();
@@ -30,6 +31,19 @@ export default function ExamHallticketPrintPage() {
     setPayload(data);
   }, [router]);
 
+  // Angular Print All → preview route; open browser print so layout matches
+  // print-exam-hallticket (affix photo, R20, HOD / Controller, instructions).
+  useEffect(() => {
+    if (!payload?.rows?.length || autoPrinted.current) return;
+    autoPrinted.current = true;
+    const t = window.setTimeout(() => {
+      printHtmlInIframe(
+        buildHallticketPrintHtml(payload.rows, payload.universityCode, "bulk"),
+      );
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [payload]);
+
   function goBack() {
     clearExamHallticketPrintPayload();
     router.push(EXAM_HALLTICKET_RETURN_HREF);
@@ -37,9 +51,8 @@ export default function ExamHallticketPrintPage() {
 
   function onPrint() {
     if (!payload?.rows?.length) return;
-    // iframe print — same as student Print; avoids AppShell blank PDF
     printHtmlInIframe(
-      buildHallticketPrintHtml(payload.rows, payload.universityCode),
+      buildHallticketPrintHtml(payload.rows, payload.universityCode, "bulk"),
     );
   }
 
@@ -70,6 +83,7 @@ export default function ExamHallticketPrintPage() {
         <HallticketPrintDocuments
           rows={payload.rows}
           universityCode={payload.universityCode}
+          variant="bulk"
         />
       </div>
     </div>

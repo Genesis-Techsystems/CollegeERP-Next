@@ -54,6 +54,52 @@ function pickField(row: AnyRow, ...names: string[]): unknown {
   return undefined;
 }
 
+function isBlankPay(value: unknown): boolean {
+  return value === undefined || value === null || value === "";
+}
+
+function isNumericZero(value: unknown): boolean {
+  return value === 0 || value === "0";
+}
+
+/**
+ * Pay fields sometimes appear as `gross_pay: 0` on one alias and a real
+ * value on another (`grossPay`). Prefer the first non-zero candidate.
+ */
+function pickPayField(row: AnyRow, ...names: string[]): unknown {
+  let fallback: unknown = undefined;
+  const take = (v: unknown): unknown | undefined => {
+    if (v === undefined || v === null || v === "") return undefined;
+    if (!isNumericZero(v) && !Number.isNaN(Number(v))) return v;
+    if (fallback === undefined) fallback = v;
+    return undefined;
+  };
+
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(row, name)) {
+      const hit = take(row[name]);
+      if (hit !== undefined) return hit;
+    }
+  }
+  const byNorm = new Map<string, unknown>();
+  for (const [k, v] of Object.entries(row)) {
+    byNorm.set(normKey(k), v);
+  }
+  for (const name of names) {
+    const hit = take(byNorm.get(normKey(name)));
+    if (hit !== undefined) return hit;
+  }
+  return fallback;
+}
+
+/** Prefer a later category-line pay value when the first line was blank/zero. */
+function preferPayValue(current: unknown, incoming: unknown): unknown {
+  if (isBlankPay(incoming)) return current;
+  if (isBlankPay(current)) return incoming;
+  if (isNumericZero(current) && !isNumericZero(incoming)) return incoming;
+  return current;
+}
+
 /** Angular compares == 'E' | 'D' | 'M'; also accept full words from some payloads. */
 export function normalizePayrollType(raw: unknown): string {
   const t = String(raw ?? "")
@@ -129,9 +175,9 @@ export function buildPayrollPivotRows(rawRows: AnyRow[]): {
           pickField(row, "Emp_Department", "emp_department", "EmpDepartment") ??
             "",
         ),
-        gross_pay: pickField(row, "gross_pay", "grossPay"),
-        net_pay: pickField(row, "net_pay", "netPay"),
-        bank_acc_no: pickField(row, "bank_acc_no", "bankAccNo"),
+        gross_pay: pickPayField(row, "gross_pay", "grossPay", "Gross_Pay"),
+        net_pay: pickPayField(row, "net_pay", "netPay", "Net_Pay"),
+        bank_acc_no: pickField(row, "bank_acc_no", "bankAccNo", "bank_ac_no"),
         gd_code: pickField(row, "gd_code", "gdCode"),
         SNo: pickField(row, "SNo", "sno", "sNo"),
         emp_number: pickField(row, "emp_number", "empNumber"),
@@ -144,22 +190,32 @@ export function buildPayrollPivotRows(rawRows: AnyRow[]): {
       };
       pivotRows.push(pivot);
     } else {
-      // Category lines repeat employee totals — keep last non-empty values
-      const g = pickField(row, "gross_pay", "grossPay");
-      const n = pickField(row, "net_pay", "netPay");
-      const b = pickField(row, "bank_acc_no", "bankAccNo");
-      if (g !== undefined && g !== null && g !== "") pivot.gross_pay = g;
-      if (n !== undefined && n !== null && n !== "") pivot.net_pay = n;
-      if (b !== undefined && b !== null && b !== "") pivot.bank_acc_no = b;
+      // Category lines often repeat pay totals; keep first non-zero (Angular
+      // only reads the first emp line, but some payloads put 0 on that line).
+      pivot.gross_pay = preferPayValue(
+        pivot.gross_pay,
+        pickPayField(row, "gross_pay", "grossPay", "Gross_Pay"),
+      );
+      pivot.net_pay = preferPayValue(
+        pivot.net_pay,
+        pickPayField(row, "net_pay", "netPay", "Net_Pay"),
+      );
+      if (isBlankPay(pivot.bank_acc_no)) {
+        const bank = pickField(row, "bank_acc_no", "bankAccNo", "bank_ac_no");
+        if (!isBlankPay(bank)) pivot.bank_acc_no = bank;
+      }
     }
 
+    // Angular always assigns `amount` (including 0).
     const amount = pickField(row, "amount", "Amount", "amt");
     const cell = pivot.subjectTimetable.find(
       (c) =>
         c.payroll_category_name === catName &&
         c.payroll_category_type === catType,
     );
-    if (cell && amount !== undefined) cell.amt = amount as string | number;
+    if (cell && amount !== undefined) {
+      cell.amt = amount as string | number;
+    }
   }
 
   return { keys, pivotRows };
@@ -201,11 +257,11 @@ function formatAmt(value: unknown): string {
   return String(value);
 }
 
-/** Angular `{{ gross_pay - net_pay }}` — blank when either side is blank. */
+/** Angular `{{ gross_pay - net_pay }}` — JS coerces null/undefined to 0. */
 function angularTotalDed(gross: unknown, net: unknown): string {
-  if (gross == null || gross === "" || net == null || net === "") return "";
-  const g = Number(gross);
-  const n = Number(net);
+  if (isBlankPay(gross) && isBlankPay(net)) return "";
+  const g = Number(gross ?? 0);
+  const n = Number(net ?? 0);
   if (Number.isNaN(g) || Number.isNaN(n)) return "";
   return String(g - n);
 }

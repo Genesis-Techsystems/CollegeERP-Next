@@ -1926,16 +1926,40 @@ export async function getExamCenterClgFiltersForCourses(args: {
  * Angular univ-exam-bags filter cascade on `s_get_exam_center_bycode`:
  * - college_center_filters → group `college_center_filters` (exam centers)
  * - exam_center_clg_filters → group `exam_center_filters` (course / AY / exam)
+ *
+ * Param shape matches Angular getExamCenters / selectedExamCenter, plus
+ * `in_subject_id` (required by current proc; Angular bags omitted it).
  */
 export async function getExamBagsFilterRows(args: {
   flag: "college_center_filters" | "exam_center_clg_filters";
   univExamcenterId?: number;
+  subjectId?: number;
+  universityId?: number;
 }): Promise<AnyRow[]> {
-  const groups = await getExamCenterByCodeGroups({
-    flag: args.flag,
-    flagType: "REGSUP",
-    univExamcenterId: args.univExamcenterId ?? 0,
+  const data = await getAllRecords<{ result?: unknown }>(
+    UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
+    {
+      in_flag: args.flag,
+      in_flag_type: "REGSUP",
+      in_univ_examcenter_id: args.univExamcenterId ?? 0,
+      in_exam_group_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: args.subjectId ?? 0,
+      in_university_id: args.universityId ?? 0,
+      in_exam_date: "1900-01-01",
+      in_questionpaper_code: "",
+    },
+  ).catch((error: unknown) => {
+    if (isNoRecordsProcError(error)) return { result: [] };
+    throw error;
   });
+  const groups = mapProcResultGroups(data?.result);
   const want =
     args.flag === "college_center_filters"
       ? "college_center_filters"

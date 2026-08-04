@@ -623,6 +623,12 @@ export default function SubjectAllocationSemRegulationPage() {
                   ),
                 },
               ]}
+              toolbar={{
+                search: true,
+                searchPlaceholder: "Search subjects...",
+                exportExcel: false,
+                exportPdf: false,
+              }}
               pagination
               paginationPageSize={10}
             />

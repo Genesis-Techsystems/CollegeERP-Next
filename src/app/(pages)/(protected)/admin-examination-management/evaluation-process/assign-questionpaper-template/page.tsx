@@ -367,8 +367,8 @@ export default function AssignQuestionPaperTemplatePage() {
 
   return (
     <FilteredListPage
-      title="Assign Template"
-      filters={(
+      title="Assign Question Paper Template"
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-1.5 space-y-1">
             <Label className="text-[12px] text-muted-foreground">Course</Label>
@@ -380,7 +380,9 @@ export default function AssignQuestionPaperTemplatePage() {
             />
           </div>
           <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">Exam Year</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Exam Year
+            </Label>
             <SearchableSelect
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v) => setAcademicYearId(num(v) || null)}
@@ -389,7 +391,9 @@ export default function AssignQuestionPaperTemplatePage() {
             />
           </div>
           <div className="md:col-span-4 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">Exam Master</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Exam Master
+            </Label>
             <SearchableSelect
               value={examId ? String(examId) : null}
               onChange={(v) => setExamId(num(v) || null)}
@@ -399,7 +403,9 @@ export default function AssignQuestionPaperTemplatePage() {
             />
           </div>
           <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">Regulation</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Regulation
+            </Label>
             <SearchableSelect
               value={regulationId != null ? String(regulationId) : ALL_VALUE}
               onChange={(v) => setRegulationId(num(v))}
@@ -408,7 +414,9 @@ export default function AssignQuestionPaperTemplatePage() {
             />
           </div>
           <div className="md:col-span-2 space-y-1">
-            <Label className="text-[12px] text-muted-foreground">Course Years</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Course Years
+            </Label>
             <SearchableSelect
               value={courseYearId != null ? String(courseYearId) : ALL_VALUE}
               onChange={(v) => setCourseYearId(num(v))}
@@ -427,7 +435,7 @@ export default function AssignQuestionPaperTemplatePage() {
             </Button>
           </div>
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
       columnDefs={cols}
       pagination

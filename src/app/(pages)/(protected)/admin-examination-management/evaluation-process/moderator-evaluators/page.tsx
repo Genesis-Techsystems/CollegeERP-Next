@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+/**
+ * Angular parity: evaluation-process/moderator-evaluators
+ * (goldcollegeerp moderator-evaluators.component.ts / .html)
+ */
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  ColDef,
+  ICellRendererParams,
+  IHeaderParams,
+} from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
@@ -18,20 +27,77 @@ import {
   getRegSupRestFilters,
   getRegSupSubjectFilters,
   listModeratorEvaluationMapping,
-} from "@/services/evaluation";
+} from "@/services";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
 
 type AnyRow = Record<string, unknown>;
 
 const SEARCH_ONLY_TOOLBAR = {
   search: true,
-  searchPlaceholder: "Search evaluators...",
+  searchPlaceholder: "Search",
   columnPicker: false,
   exportPdf: false,
   exportExcel: false,
   columnFilters: false,
 } as const;
+
+function fmtExamDate(v: unknown): string {
+  if (v == null || v === "") return "";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Angular exam dropdown: name (from - to) (Regular)/(Supple)/(Internal) */
+function examOptionLabel(row: AnyRow): string {
+  const name = txt(row.exam_name) || `Exam ${num(row.fk_exam_id)}`;
+  const from = fmtExamDate(row.from_date ?? row.fromDate);
+  const to = fmtExamDate(row.to_date ?? row.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = [
+    row.is_regular_exam || row.isRegularExam ? "(Regular)" : "",
+    row.is_supply_exam || row.isSupplyExam ? "(Supple)" : "",
+    row.is_internal_exam || row.isInternalExam ? "(Internal)" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${name}${range}${tags ? ` ${tags}` : ""}`;
+}
+
+function moderatorProfileId(m: AnyRow): number {
+  return num(
+    m.examEvaluatorProfileId ??
+      m.exam_evaluator_profile_id ??
+      m.pk_exam_evaluator_profile_id,
+  );
+}
+
+type SelectAllHeaderParams = IHeaderParams & {
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+};
+
+function SelectAllHeader(props: SelectAllHeaderParams) {
+  return (
+    <label className="flex h-full w-full cursor-pointer items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--primary))]">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-[hsl(var(--primary))]"
+        checked={props.checked}
+        onChange={(e) => props.onToggle(e.target.checked)}
+        aria-label="Select all evaluators"
+      />
+      All
+    </label>
+  );
+}
 
 function makeCheckRenderer(
   selectedIds: number[],
@@ -45,7 +111,7 @@ function makeCheckRenderer(
     return (
       <input
         type="checkbox"
-        className="h-4 w-4"
+        className="h-4 w-4 accent-[hsl(var(--primary))]"
         checked={selectedIds.includes(id)}
         onChange={(e) => onToggle(id, e.target.checked)}
         aria-label={`Select ${txt(row.evaluator_name)}`}
@@ -57,7 +123,11 @@ function makeCheckRenderer(
 function mappedStatusRenderer(p: ICellRendererParams<AnyRow>) {
   const row = p.data;
   if (!row) return null;
-  const active = num(row.is_active) === 1 || row.is_active === true;
+  const active =
+    row.is_active === true ||
+    row.is_active === 1 ||
+    num(row.is_active) === 1 ||
+    String(row.is_active).toLowerCase() === "true";
   return (
     <StatusBadge
       status={active ? "active" : "inactive"}
@@ -68,6 +138,7 @@ function mappedStatusRenderer(p: ICellRendererParams<AnyRow>) {
 
 export default function ModeratorEvaluatorsPage() {
   const [loading, setLoading] = useState(false);
+  /** Angular `flag` — show Available / Mapped panels after Get List. */
   const [showPanel, setShowPanel] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -78,10 +149,10 @@ export default function ModeratorEvaluatorsPage() {
   const [availableRows, setAvailableRows] = useState<AnyRow[]>([]);
   const [mappedRows, setMappedRows] = useState<AnyRow[]>([]);
 
+  /** Angular `examevaluatorListdata` — checked available evaluators. */
   const [selectedEvaluatorIds, setSelectedEvaluatorIds] = useState<number[]>(
     [],
   );
-  const [checkAll, setCheckAll] = useState(false);
 
   const [courseId, setCourseId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -89,6 +160,7 @@ export default function ModeratorEvaluatorsPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
   const [regulationId, setRegulationId] = useState<number | null>(null);
   const [subjectId, setSubjectId] = useState<number | null>(null);
+  /** Angular form examModeratorId — 0 = All. */
   const [examModeratorId, setExamModeratorId] = useState<number>(0);
 
   const employeeId = Number(
@@ -102,14 +174,19 @@ export default function ModeratorEvaluatorsPage() {
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
-        (r) => num(r.fk_academic_year_id),
-      ),
-    [baseRows, courseId],
-  );
+
+  // Angular: academic years sorted DESC by academic_year
+  const academicYears = useMemo(() => {
+    const years = dedupeBy(
+      baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
+      (r) => num(r.fk_academic_year_id),
+    );
+    return [...years].sort(
+      (a, b) =>
+        parseInt(txt(b.academic_year), 10) - parseInt(txt(a.academic_year), 10),
+    );
+  }, [baseRows, courseId]);
+
   const exams = useMemo(
     () =>
       dedupeBy(
@@ -122,10 +199,12 @@ export default function ModeratorEvaluatorsPage() {
       ),
     [baseRows, courseId, academicYearId],
   );
+
   const courseYears = useMemo(
     () => dedupeBy(restRows, (r) => num(r.fk_course_year_id)),
     [restRows],
   );
+
   const regulations = useMemo(
     () =>
       dedupeBy(
@@ -134,10 +213,12 @@ export default function ModeratorEvaluatorsPage() {
       ),
     [restRows, courseYearId],
   );
+
   const subjects = useMemo(
     () => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)),
     [subjectRows],
   );
+
   const courseOptions = useMemo<SelectOption[]>(
     () =>
       courses.map((r) => ({
@@ -146,6 +227,7 @@ export default function ModeratorEvaluatorsPage() {
       })),
     [courses],
   );
+
   const academicYearOptions = useMemo<SelectOption[]>(
     () =>
       academicYears.map((r) => ({
@@ -154,6 +236,16 @@ export default function ModeratorEvaluatorsPage() {
       })),
     [academicYears],
   );
+
+  const examOptions = useMemo<SelectOption[]>(
+    () =>
+      exams.map((r) => ({
+        value: String(num(r.fk_exam_id)),
+        label: examOptionLabel(r),
+      })),
+    [exams],
+  );
+
   const courseYearOptions = useMemo<SelectOption[]>(
     () =>
       courseYears.map((r) => ({
@@ -162,6 +254,7 @@ export default function ModeratorEvaluatorsPage() {
       })),
     [courseYears],
   );
+
   const regulationOptions = useMemo<SelectOption[]>(
     () =>
       regulations.map((r) => ({
@@ -170,15 +263,7 @@ export default function ModeratorEvaluatorsPage() {
       })),
     [regulations],
   );
-  const moderators = useMemo(() => moderatorRows, [moderatorRows]);
-  const examOptions = useMemo<SelectOption[]>(
-    () =>
-      exams.map((r) => ({
-        value: String(num(r.fk_exam_id)),
-        label: txt(r.exam_name),
-      })),
-    [exams],
-  );
+
   const subjectOptions = useMemo<SelectOption[]>(
     () =>
       subjects.map((r) => ({
@@ -187,33 +272,55 @@ export default function ModeratorEvaluatorsPage() {
       })),
     [subjects],
   );
+
+  // Angular: All (0) + moderator names
   const moderatorOptions = useMemo<SelectOption[]>(
     () => [
       { value: "0", label: "All" },
-      ...moderators.map((m) => ({
-        value: String(num(m.examEvaluatorProfileId)),
-        label: txt(m.evaluatorName),
+      ...moderatorRows.map((m) => ({
+        value: String(moderatorProfileId(m)),
+        label: txt(m.evaluatorName ?? m.evaluator_name) || "—",
       })),
     ],
-    [moderators],
+    [moderatorRows],
   );
 
+  function resetLists() {
+    setShowPanel(false);
+    setAvailableRows([]);
+    setMappedRows([]);
+    setSelectedEvaluatorIds([]);
+    setErrorMsg("");
+  }
+
+  /** Angular getModeratorList() after subject select. */
+  async function loadModerators() {
+    try {
+      const list = await getModeratorEvaluatorProfiles();
+      setModeratorRows(list as AnyRow[]);
+      const firstId = moderatorProfileId((list[0] as AnyRow) ?? {});
+      // Angular sets first moderator (not All) after load.
+      setExamModeratorId(firstId > 0 ? firstId : 0);
+    } catch (e) {
+      // Keep static "All" (0) so Get List still works; toast is about dropdown load, not All.
+      setModeratorRows([]);
+      setExamModeratorId(0);
+      toastError(e, "Failed to load moderators");
+    }
+  }
+
+  // Angular getFiltersData → first course → cascade
   useEffect(() => {
     async function init() {
       setLoading(true);
       try {
-        const [filters, moderatorsList] = await Promise.all([
-          getRegSupBaseFilters(employeeId),
-          getModeratorEvaluatorProfiles().catch(() => []),
-        ]);
+        const filters = await getRegSupBaseFilters(employeeId);
         setBaseRows(filters);
-        setModeratorRows(moderatorsList as AnyRow[]);
-        setCourseId(num(filters[0]?.fk_course_id) || null);
-        if (moderatorsList.length > 0) {
-          setExamModeratorId(
-            num((moderatorsList[0] as AnyRow).examEvaluatorProfileId),
-          );
+        if (filters.length > 0) {
+          setCourseId(num(filters[0]?.fk_course_id) || null);
         }
+      } catch (e) {
+        toastError(e, "Failed to load filters");
       } finally {
         setLoading(false);
       }
@@ -221,33 +328,79 @@ export default function ModeratorEvaluatorsPage() {
     void init();
   }, [employeeId]);
 
-  useEffect(
-    () => setAcademicYearId(num(academicYears[0]?.fk_academic_year_id) || null),
-    [academicYears],
-  );
-  useEffect(() => setExamId(num(exams[0]?.fk_exam_id) || null), [exams]);
-  useEffect(
-    () => setRegulationId(num(regulations[0]?.fk_regulation_id) || null),
-    [regulations],
-  );
+  // Angular selectedCourse → academic years (DESC) → first
+  useEffect(() => {
+    resetLists();
+    setAcademicYearId(
+      academicYears.length > 0
+        ? num(academicYears[0]?.fk_academic_year_id) || null
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, academicYears]);
 
+  // Angular selectedAcademicYear → first exam
+  useEffect(() => {
+    resetLists();
+    setExamId(exams.length > 0 ? num(exams[0]?.fk_exam_id) || null : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academicYearId, exams]);
+
+  // Angular selectedExam → univ_exam_rest_in_regexamstd → course years
   useEffect(() => {
     async function loadRest() {
+      resetLists();
+      setRestRows([]);
+      setCourseYearId(null);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubjectRows([]);
+      setModeratorRows([]);
+      setExamModeratorId(0);
       if (!courseId || !academicYearId || !examId) return;
-      const rest = await getRegSupRestFilters({
-        courseId,
-        academicYearId,
-        examId,
-        employeeId,
-      });
-      setRestRows(rest);
-      setCourseYearId(num(rest[0]?.fk_course_year_id) || null);
+      setLoading(true);
+      try {
+        const rest = await getRegSupRestFilters({
+          courseId,
+          academicYearId,
+          examId,
+          employeeId,
+        });
+        setRestRows(rest);
+        setCourseYearId(num(rest[0]?.fk_course_year_id) || null);
+      } catch (e) {
+        toastError(e, "Failed to load course years");
+      } finally {
+        setLoading(false);
+      }
     }
     void loadRest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, academicYearId, examId, employeeId]);
 
+  // Angular selectedCourseYr → regulations from rest rows
+  useEffect(() => {
+    resetLists();
+    setSubjectId(null);
+    setSubjectRows([]);
+    setModeratorRows([]);
+    setExamModeratorId(0);
+    setRegulationId(
+      regulations.length > 0
+        ? num(regulations[0]?.fk_regulation_id) || null
+        : null,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseYearId, regulations]);
+
+  // Angular selectedRegulation → subjects (does NOT auto-select subject)
   useEffect(() => {
     async function loadSubjects() {
+      resetLists();
+      setSubjectId(null);
+      setSubjectRows([]);
+      setModeratorRows([]);
+      setExamModeratorId(0);
       if (
         !courseId ||
         !academicYearId ||
@@ -256,18 +409,26 @@ export default function ModeratorEvaluatorsPage() {
         !regulationId
       )
         return;
-      const sub = await getRegSupSubjectFilters({
-        courseId,
-        academicYearId,
-        examId,
-        courseYearId,
-        regulationId,
-        employeeId,
-      });
-      setSubjectRows(sub);
-      setSubjectId(num(sub[0]?.fk_subject_id) || null);
+      setLoading(true);
+      try {
+        const sub = await getRegSupSubjectFilters({
+          courseId,
+          academicYearId,
+          examId,
+          courseYearId,
+          regulationId,
+          employeeId,
+        });
+        setSubjectRows(sub);
+        // Angular does not auto-set subjectId — user must pick.
+      } catch (e) {
+        toastError(e, "Failed to load subjects");
+      } finally {
+        setLoading(false);
+      }
     }
     void loadSubjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     courseId,
     academicYearId,
@@ -277,14 +438,28 @@ export default function ModeratorEvaluatorsPage() {
     employeeId,
   ]);
 
-  function resetLists() {
-    setShowPanel(false);
-    setAvailableRows([]);
-    setMappedRows([]);
-    setSelectedEvaluatorIds([]);
-    setCheckAll(false);
+  /** Angular selectedsubject() → clear moderator + getModeratorList() */
+  async function onSubjectChange(nextSubjectId: number | null) {
+    resetLists();
+    setSubjectId(nextSubjectId);
+    setExamModeratorId(0);
+    setModeratorRows([]);
+    if (!nextSubjectId) return;
+    setLoading(true);
+    try {
+      await loadModerators();
+    } finally {
+      setLoading(false);
+    }
   }
 
+  /** Angular selectedName() — clear lists when moderator changes. */
+  function onModeratorChange(nextId: number) {
+    resetLists();
+    setExamModeratorId(nextId);
+  }
+
+  /** Angular getEvaluationList() — flag=true as soon as form is valid. */
   async function getList() {
     if (
       !courseId ||
@@ -293,11 +468,16 @@ export default function ModeratorEvaluatorsPage() {
       !courseYearId ||
       !regulationId ||
       !subjectId
-    )
+    ) {
+      toastError("Please fill all required filters before Get List.");
       return;
+    }
     setLoading(true);
+    setShowPanel(true);
     setErrorMsg("");
-    resetLists();
+    setSelectedEvaluatorIds([]);
+    setAvailableRows([]);
+    setMappedRows([]);
     try {
       const rows = await listModeratorEvaluationMapping({
         organizationId: organizationId || 1,
@@ -312,7 +492,12 @@ export default function ModeratorEvaluatorsPage() {
       });
       setAvailableRows(rows.filter((r) => num(r.is_mapped) === 0));
       setMappedRows(rows.filter((r) => num(r.is_mapped) === 1));
-      setShowPanel(true);
+      if (rows.length === 0) {
+        toastSuccess("No Record(s) found.");
+      }
+    } catch (e) {
+      setShowPanel(false);
+      toastError(e, "Failed to load evaluators");
     } finally {
       setLoading(false);
     }
@@ -325,7 +510,6 @@ export default function ModeratorEvaluatorsPage() {
   }
 
   function toggleAll(checked: boolean) {
-    setCheckAll(checked);
     setSelectedEvaluatorIds(
       checked
         ? availableRows
@@ -335,12 +519,21 @@ export default function ModeratorEvaluatorsPage() {
     );
   }
 
+  const allSelected =
+    availableRows.length > 0 &&
+    selectedEvaluatorIds.length === availableRows.length;
+
+  const toggleAllRef = useRef(toggleAll);
+  toggleAllRef.current = toggleAll;
+
+  /**
+   * Angular Assign() — posts checked rows only.
+   * Sends form examModeratorId as-is (including All = 0).
+   */
   async function assign() {
-    if (!examId || !subjectId || selectedEvaluatorIds.length === 0) return;
-    if (!examModeratorId) {
-      setErrorMsg(
-        "Please select a specific Moderator Name instead of All before assigning.",
-      );
+    if (!examId || !subjectId) return;
+    if (selectedEvaluatorIds.length === 0) {
+      toastError("Please select at least one evaluator to assign.");
       return;
     }
     setErrorMsg("");
@@ -355,28 +548,44 @@ export default function ModeratorEvaluatorsPage() {
     setLoading(true);
     try {
       await addMultipleEvaluators(payload);
+      toastSuccess("Evaluators assigned successfully.");
+      // Angular: flag=false then getEvaluationList()
       await getList();
     } catch (error) {
-      setErrorMsg(
-        error instanceof Error ? error.message : "Failed to assign evaluators.",
-      );
+      const msg = getErrorMessage(error) || "Failed to assign evaluators.";
+      setErrorMsg(msg);
+      toastError(error, "Failed to assign evaluators");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    if (selectedEvaluatorIds.length !== availableRows.length)
-      setCheckAll(false);
-  }, [selectedEvaluatorIds, availableRows.length]);
+  const formValid = Boolean(
+    courseId &&
+    academicYearId &&
+    examId &&
+    courseYearId &&
+    regulationId &&
+    subjectId,
+  );
 
   const availableColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
-        headerName: "",
-        width: 56,
+        colId: "selectAll",
+        headerName: "All",
+        width: 75,
         flex: 0,
         sortable: false,
+        filter: false,
+        floatingFilter: false,
+        suppressHeaderMenuButton: true,
+        suppressHeaderFilterButton: true,
+        headerComponent: SelectAllHeader,
+        headerComponentParams: {
+          checked: allSelected,
+          onToggle: (checked: boolean) => toggleAllRef.current(checked),
+        },
         cellRenderer: makeCheckRenderer(selectedEvaluatorIds, toggleOne),
       },
       { headerName: "SI.No", valueGetter: rowIndexGetter, width: 80, flex: 0 },
@@ -393,7 +602,7 @@ export default function ModeratorEvaluatorsPage() {
         valueGetter: (p) => txt(p.data?.email) || "—",
       },
     ],
-    [selectedEvaluatorIds],
+    [selectedEvaluatorIds, allSelected],
   );
 
   const mappedColumnDefs = useMemo<ColDef<AnyRow>[]>(
@@ -424,82 +633,68 @@ export default function ModeratorEvaluatorsPage() {
     <GlobalFilterBarRow>
       <GlobalFilterField label="Course">
         <Select
-          value={courseId ? String(courseId) : null}
-          onChange={(v) => {
-            setCourseId(num(v) || null);
-            resetLists();
-          }}
+          value={courseId != null ? String(courseId) : null}
+          onChange={(v) => setCourseId(v ? num(v) : null)}
           options={courseOptions}
           placeholder="Course"
+          clearable={false}
         />
       </GlobalFilterField>
       <GlobalFilterField label="Academic Year">
         <Select
-          value={academicYearId ? String(academicYearId) : null}
-          onChange={(v) => {
-            setAcademicYearId(num(v) || null);
-            resetLists();
-          }}
+          value={academicYearId != null ? String(academicYearId) : null}
+          onChange={(v) => setAcademicYearId(v ? num(v) : null)}
           options={academicYearOptions}
           placeholder="Academic Year"
+          clearable={false}
         />
       </GlobalFilterField>
       <GlobalFilterField label="Exam">
         <Select
-          value={examId ? String(examId) : null}
-          onChange={(v) => {
-            setExamId(num(v) || null);
-            resetLists();
-          }}
+          value={examId != null ? String(examId) : null}
+          onChange={(v) => setExamId(v ? num(v) : null)}
           options={examOptions}
           placeholder="Exam"
           searchable
+          clearable={false}
         />
       </GlobalFilterField>
       <GlobalFilterField label="Course Year">
         <Select
-          value={courseYearId ? String(courseYearId) : null}
-          onChange={(v) => {
-            setCourseYearId(num(v) || null);
-            resetLists();
-          }}
+          value={courseYearId != null ? String(courseYearId) : null}
+          onChange={(v) => setCourseYearId(v ? num(v) : null)}
           options={courseYearOptions}
           placeholder="Course Year"
+          clearable={false}
         />
       </GlobalFilterField>
       <GlobalFilterField label="Regulation">
         <Select
-          value={regulationId ? String(regulationId) : null}
-          onChange={(v) => {
-            setRegulationId(num(v) || null);
-            resetLists();
-          }}
+          value={regulationId != null ? String(regulationId) : null}
+          onChange={(v) => setRegulationId(v ? num(v) : null)}
           options={regulationOptions}
           placeholder="Regulation"
+          clearable={false}
         />
       </GlobalFilterField>
       <GlobalFilterField label="Subject">
         <Select
-          value={subjectId ? String(subjectId) : null}
-          onChange={(v) => {
-            setSubjectId(num(v) || null);
-            resetLists();
-          }}
+          value={subjectId != null ? String(subjectId) : null}
+          onChange={(v) => void setSubjectId(v ? num(v) : null)}
           options={subjectOptions}
           placeholder="Subject"
           searchable
+          clearable={false}
         />
       </GlobalFilterField>
-      <GlobalFilterField label="Moderator">
+      <GlobalFilterField label="Moderator Name">
         <Select
           value={String(examModeratorId)}
-          onChange={(v) => {
-            setExamModeratorId(num(v));
-            resetLists();
-          }}
+          onChange={(v) => onModeratorChange(num(v ?? 0))}
           options={moderatorOptions}
-          placeholder="Moderator"
+          placeholder="Moderator Name"
           searchable
+          clearable={false}
         />
       </GlobalFilterField>
       <GlobalFilterField
@@ -509,7 +704,7 @@ export default function ModeratorEvaluatorsPage() {
         <Button
           type="button"
           onClick={() => void getList()}
-          disabled={loading}
+          disabled={loading || !formValid}
           className="h-[30px] px-3 text-[12px]"
         >
           Get List
@@ -518,63 +713,50 @@ export default function ModeratorEvaluatorsPage() {
     </GlobalFilterBarRow>
   );
 
+  // Angular: filters-only until Get List (`flag`); then Available Evaluator + optional Mapped list
+  if (!showPanel) {
+    return (
+      <FilteredListPage
+        title="Moderator Evaluator"
+        filters={filters}
+        body={null}
+        loading={loading}
+      />
+    );
+  }
+
   return (
     <FilteredListPage
-      title="Moderator Evaluator"
+      title="Moderator Evaluators"
       filters={filters}
-      rowData={showPanel ? availableRows : []}
+      rowData={availableRows}
       columnDefs={availableColumnDefs}
       loading={loading}
       pagination
+      paginationPageSize={25}
+      columnFilters={false}
       toolbar={SEARCH_ONLY_TOOLBAR}
-      toolbarLeading={
-        showPanel ? (
-          <label className="inline-flex items-center gap-2 text-xs font-medium">
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={checkAll}
-              onChange={(e) => toggleAll(e.target.checked)}
-              disabled={availableRows.length === 0}
-            />
-            All
-          </label>
-        ) : null
-      }
       toolbarTrailing={
-        showPanel && availableRows.length > 0 ? (
+        availableRows.length > 0 ? (
           <Button
             type="button"
             onClick={() => void assign()}
-            disabled={
-              loading ||
-              selectedEvaluatorIds.length === 0 ||
-              examModeratorId === 0
-            }
-            title={
-              examModeratorId === 0
-                ? "Select a specific Moderator Name to assign"
-                : undefined
-            }
+            disabled={loading}
           >
             Assign
           </Button>
         ) : null
       }
     >
-      {errorMsg ? (
-        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
-          {errorMsg}
-        </div>
-      ) : null}
-
-      {showPanel && mappedRows.length > 0 ? (
+      {mappedRows.length > 0 ? (
         <DataTable
           title="Mapped Evaluator List"
           subtitle=""
           rowData={mappedRows}
           columnDefs={mappedColumnDefs}
           pagination
+          paginationPageSize={25}
+          columnFilters={false}
           toolbar={SEARCH_ONLY_TOOLBAR}
         />
       ) : null}

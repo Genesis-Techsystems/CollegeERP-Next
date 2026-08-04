@@ -518,7 +518,6 @@ export function ViewMonthlyPayslipPage({
                 ) : null}
                 <div className="space-y-1 rounded-sm border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-semibold">
                   <p>Net Pay : {netPay.toFixed(2)} ₹</p>
-                  <p className="uppercase">IN WORDS : {amtWords || ""}</p>
                 </div>
               </>
             ) : (
