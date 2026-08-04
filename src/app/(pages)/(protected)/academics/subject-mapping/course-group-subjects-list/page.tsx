@@ -42,6 +42,25 @@ const uniq = (rows: AnyRow[], key: string) => {
   });
 };
 
+/** Angular `genericFunctions.moment()` — presentDate (DD-MM-YYYY) → ISO UTC midnight. */
+function presentDateIso(): string {
+  const raw = String(localStorage.getItem("presentDate") ?? "").trim();
+  const m = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    return new Date(Date.UTC(+yyyy, +mm - 1, +dd)).toISOString();
+  }
+  const d = new Date();
+  return new Date(
+    Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()),
+  ).toISOString();
+}
+
+/** Angular `genericFunctions.momentWithDateFormatYMD(moment())` → YYYY-MM-DD. */
+function presentDateYmd(): string {
+  return presentDateIso().slice(0, 10);
+}
+
 function makeActionsRenderer(
   onAssign: (row: AnyRow) => void,
   onView: (row: AnyRow) => void,
@@ -108,6 +127,10 @@ export default function StaffSubjectMappingPage() {
   const [selectedRow, setSelectedRow] = useState<AnyRow | null>(null);
   const [employees, setEmployees] = useState<AnyRow[]>([]);
   const [checked, setChecked] = useState<Set<number>>(new Set());
+  /** Angular modal `checkedEmployees` — assigned staff at dialog open (not live-updated). */
+  const [assignedStaffSummary, setAssignedStaffSummary] = useState<AnyRow[]>(
+    [],
+  );
   const [employeeSearch, setEmployeeSearch] = useState("");
 
   useEffect(() => {
@@ -236,13 +259,6 @@ export default function StaffSubjectMappingPage() {
     setSections([]);
   }, [academicYearId]);
   useEffect(() => {
-    if (!groupSectionId && sections.length)
-      setGroupSectionId(
-        n(sections[0].pk_group_section_id ?? sections[0].groupSectionId),
-      );
-  }, [sections, groupSectionId]);
-
-  useEffect(() => {
     async function loadSections() {
       if (
         !collegeId ||
@@ -339,52 +355,79 @@ export default function StaffSubjectMappingPage() {
   }
 
   async function openAssign(row: AnyRow) {
-    if (!collegeId) return;
+    if (!collegeId || !academicYearId) return;
     setSelectedRow(row);
     setAssignOpen(true);
-    const list = await listActiveEmployeesByCollege(collegeId).catch(() => []);
-    const mapped = new Set<number>(
-      (row.staffCourseyrSubjects ?? [])
-        .map((x: AnyRow) => n(x.employeeId))
-        .filter(Boolean),
-    );
-    setEmployees(list);
-    setChecked(mapped);
     setEmployeeSearch("");
+    const list = await listActiveEmployeesByCollege(collegeId).catch(() => []);
+    const existing = Array.isArray(row.staffCourseyrSubjects)
+      ? (row.staffCourseyrSubjects as AnyRow[])
+      : [];
+    const existingByEmp = new Map<number, AnyRow>(
+      existing.map((x) => [n(x.employeeId), x]),
+    );
+    const mapped = new Set<number>();
+    const summary: AnyRow[] = [];
+    // Angular assign-staff-subject-modal ngOnInit: merge staffCourseyrSubjects onto employees
+    const enriched = list.map((emp) => {
+      const employeeId = n(emp.employeeId);
+      const found = existingByEmp.get(employeeId);
+      if (!found) {
+        return { ...emp, checked: false, isActive: true };
+      }
+      mapped.add(employeeId);
+      const merged = {
+        ...emp,
+        checked: true,
+        isActive: true,
+        staffCourseyrSubjectId: found.staffCourseyrSubjectId,
+        fromDate: found.fromDate,
+        toDate: found.toDate,
+        subjectCourseyearId: n(
+          row.subjectCourseyearId ?? found.subjectCourseyearId,
+        ),
+        collegeId,
+        academicYearId,
+      };
+      summary.push(merged);
+      return merged;
+    });
+    setEmployees(enriched);
+    setChecked(mapped);
+    setAssignedStaffSummary(summary);
   }
 
   async function saveAssign() {
     if (!selectedRow || !collegeId || !academicYearId) return;
-    const existing = Array.isArray(selectedRow.staffCourseyrSubjects)
-      ? selectedRow.staffCourseyrSubjects
-      : [];
-    const existingByEmp = new Map<number, AnyRow>(
-      existing.map((x: AnyRow) => [n(x.employeeId), x]),
-    );
+    // Angular AssignStaffSubjectModalComponent.submit()
     const payload: AnyRow[] = [];
+    const subjectCourseyearId = n(selectedRow.subjectCourseyearId);
+    const fromDateIso = presentDateIso();
+    const toDateYmd = presentDateYmd();
 
     for (const emp of employees) {
       const employeeId = n(emp.employeeId);
       if (!employeeId) continue;
-      const found = existingByEmp.get(employeeId);
       const isChecked = checked.has(employeeId);
-      if (found && !isChecked) {
+      const mappingId = emp.staffCourseyrSubjectId;
+      if (mappingId) {
+        if (!isChecked) {
+          payload.push({
+            ...emp,
+            isActive: false,
+            toDate: toDateYmd,
+          });
+        } else {
+          payload.push(emp);
+        }
+      } else if (isChecked) {
         payload.push({
-          ...found,
-          isActive: false,
-          toDate: new Date().toISOString().slice(0, 10),
-        });
-      } else if (found && isChecked) {
-        payload.push(found);
-      } else if (!found && isChecked) {
-        payload.push({
-          employeeId,
-          subjectCourseyearId: n(selectedRow.subjectCourseyearId),
+          ...emp,
+          subjectCourseyearId,
           collegeId,
-          academicYearId,
-          fromDate: new Date().toISOString().slice(0, 10),
+          fromDate: fromDateIso,
           toDate: "9999-12-31",
-          isActive: true,
+          academicYearId,
         });
       }
     }
@@ -392,6 +435,7 @@ export default function StaffSubjectMappingPage() {
       await saveStaffSubjectMappings(payload);
       toastSuccess("Staff mapping saved");
       setAssignOpen(false);
+      setAssignedStaffSummary([]);
       const refreshed = await listStaffSubjectRows({
         collegeId,
         academicYearId,
@@ -412,13 +456,13 @@ export default function StaffSubjectMappingPage() {
         maxWidth: 80,
         flex: 0,
       },
-      { field: "subjectName", headerName: "Subject", minWidth: 180, flex: 1.2 },
       {
         field: "subjectCode",
         headerName: "Subject Code",
         minWidth: 120,
         flex: 1,
       },
+      { field: "subjectName", headerName: "Subject", minWidth: 180, flex: 1.2 },
       {
         field: "subjectType",
         headerName: "Subject Type",
@@ -618,12 +662,29 @@ export default function StaffSubjectMappingPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="px-4 py-3 space-y-3 flex-1 overflow-y-auto">
-            <Input
-              value={employeeSearch}
-              onChange={(e) => setEmployeeSearch(e.target.value)}
-              placeholder="Employee Number / Name / Department"
-              className="h-9 max-w-md"
-            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <Input
+                value={employeeSearch}
+                onChange={(e) => setEmployeeSearch(e.target.value)}
+                placeholder="Employee Number / Name / Department"
+                className="h-9 max-w-md"
+              />
+              {assignedStaffSummary.length > 0 ? (
+                <div className="flex gap-2 text-[13px] min-w-0 sm:max-w-[45%]">
+                  <strong className="shrink-0">Assigned Staff :</strong>
+                  <div className="min-w-0 space-y-0.5">
+                    {assignedStaffSummary.map((item) => (
+                      <p key={n(item.employeeId)} className="truncate">
+                        {s(item.firstName)} -{" "}
+                        <span className="text-blue-700">
+                          {s(item.empNumber)}
+                        </span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
 
             <DataTable
               rowData={filteredEmployees}

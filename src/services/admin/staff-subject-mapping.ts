@@ -3,6 +3,7 @@ import { GM_CODES } from "@/config/constants/ui";
 import {
   buildQuery,
   domainList,
+  domainListRawQuery,
   fetchDetails,
   getAllRecords,
   postDetails,
@@ -51,8 +52,8 @@ export function normalizeEmployeeRow(row: AnyRow): AnyRow {
 
 /**
  * Angular getSubjectCourseYears / Staff Subject Mapping list:
- * GET subjectcourseyrs/?collegeid=&academicYearId=&groupSectionid=
- * Browser: /api/proxy/subjectcourseyrs?... → upstream …/cms/subjectcourseyrs?...
+ * GET subjectcourseyrs/?collegeId=&academicYearId=&groupSectionId=
+ * (crud.service getSubjectCourseYears — camelCase keys)
  */
 export async function listStaffSubjectRows(params: {
   collegeId: number;
@@ -66,22 +67,21 @@ export async function listStaffSubjectRows(params: {
     const rows = await fetchDetails<AnyRow[]>(
       SUBJECT_API.SUBJECT_COURSE_YEARS,
       {
-        collegeid: collegeId,
+        collegeId,
         academicYearId,
-        groupSectionid: groupSectionId,
+        groupSectionId,
       },
     );
     return Array.isArray(rows) ? rows : [];
   } catch {
     return [];
   }
-
-  return [];
 }
 
 /**
- * Angular active staff by college (staff-subject-unmapping / mapping):
- * `domain/list/EmployeeDetail?query=College.collegeId==…and.employeeStatus.generalDetailCode==ACTV.and.isActive==true`
+ * Angular assign-staff-subject-modal:
+ * listDetailsByTwoIds(EmployeeDetail, collegeId, 'ACTV', 'college.collegeId', 'employeeStatus.generalDetailCode')
+ * → query=college.collegeId=={id}.and.employeeStatus.generalDetailCode==ACTV
  */
 export async function listActiveEmployeesByCollege(
   collegeId: number,
@@ -89,13 +89,9 @@ export async function listActiveEmployeesByCollege(
   if (!collegeId) return [];
 
   try {
-    const rows = await domainList<AnyRow>(
+    const rows = await domainListRawQuery<AnyRow>(
       EMPLOYEE_API.EMPLOYEE_DETAIL,
-      buildQuery({
-        "College.collegeId": collegeId,
-        "employeeStatus.generalDetailCode": GM_CODES.EMP_ACTIVE_STATUS,
-        isActive: true,
-      }),
+      `college.collegeId==${collegeId}.and.employeeStatus.generalDetailCode==${GM_CODES.EMP_ACTIVE_STATUS}`,
     );
     return rows
       .map(normalizeEmployeeRow)
@@ -163,22 +159,10 @@ export async function searchActiveEmployeesByCollege(
   return orgWide;
 }
 
+/** Angular: POST staffcourseyrsubjectscheck with full EmployeeDetail + mapping fields. */
 export async function saveStaffSubjectMappings(rows: AnyRow[]): Promise<void> {
   if (!Array.isArray(rows) || rows.length === 0) return;
-  const paths = [
-    SUBJECT_API.STAFF_COURSEYR_SUBJECTS_CHECK,
-    "staffCourseyrSubjectsCheck",
-  ];
-  let lastError: unknown = null;
-  for (const path of paths) {
-    try {
-      await postDetails(path, rows);
-      return;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError ?? new Error("Failed to save staff subject mapping");
+  await postDetails(SUBJECT_API.STAFF_COURSEYR_SUBJECTS_CHECK, rows);
 }
 
 export async function listStaffMappingSections(params: {
