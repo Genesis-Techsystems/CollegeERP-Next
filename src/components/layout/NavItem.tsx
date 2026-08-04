@@ -2196,6 +2196,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/principal-my-approvals/tc-no-due-approvals";
       }
 
+      // HOD Faculty Details — Angular `staff-faculty-details/faculty-details`
+      // (must pin before leave-approvals / faculty-details/leave-approvals remap)
+      if (
+        labelKey === "faculty details" ||
+        labelKey === "faculty detail" ||
+        hrefLower.includes("staff-faculty-details/faculty-details") ||
+        (hrefLower.includes("faculty-details") &&
+          !hrefLower.includes("leave-approvals") &&
+          !hrefLower.includes("leave_approvals") &&
+          !hrefLower.includes("performance") &&
+          !hrefLower.includes("appraisal") &&
+          !hrefLower.includes("salary") &&
+          !hrefLower.includes("proxy"))
+      ) {
+        return "/staff-faculty-details/faculty-details";
+      }
+
       // Principal Leave Requests (Angular `leave-applications`; also leave-approvals / faculty-details)
       if (
         hrefLower.includes("leave-applications") ||
@@ -3718,6 +3735,35 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       labelLower.includes("test list")
     ) {
       return "/assessments/test";
+    }
+    // Angular scholarship-management/scholarship-type (404 → dashboard otherwise).
+    if (
+      hrefLower.includes("scholarship-type") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("assign"))
+    ) {
+      return "/scholarship-management/scholarship-type";
+    }
+    // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
+    // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("acounts-preceedings") ||
+      hrefLower.includes("accounts-preceedings") ||
+      hrefLower.includes("acounts-preceeding") ||
+      hrefLower.includes("accounts-preceeding") ||
+      (labelLower.includes("account") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        !labelLower.includes("process") &&
+        !hrefLower.includes("process-acount") &&
+        !hrefLower.includes("process-account") &&
+        !labelLower.includes("report") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/acounts-preceedings";
     }
     // Scholarship Preceedings (management) — Angular preceeding-details
     if (

@@ -14,8 +14,6 @@ import { GM_CODES } from "@/config/constants/ui";
 import {
   getUnivExamFiltersByType,
   getUnivExamRestNoTtBundle,
-  getUnivExamSubjectInss,
-  getUnivExamSubjectUc,
 } from "@/services/pre-examination";
 
 type AnyRow = Record<string, any>;
@@ -1763,6 +1761,7 @@ export async function getInternalAttendanceRestFilters(params: {
   employeeId: number;
 }): Promise<AnyRow[]> {
   try {
+    // Angular selectedExam → univ_exam_rest_in_regexamstd / ALL → univ_exam_rest_filters
     const data = await getAllRecords<{ result: AnyRow[][] }>(
       "s_get_exam_filters_bycode",
       {
@@ -1788,8 +1787,6 @@ export async function getInternalAttendanceRestFilters(params: {
     const groups = data?.result ?? [];
     const picked = firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
     if (picked.length > 0) return picked;
-    const flat = groups.flatMap((g) => g || []);
-    if (flat.length > 0) return flat;
   } catch {
     // fallback below
   }
@@ -1809,49 +1806,30 @@ export async function getInternalAttendanceSubjects(params: {
   regulationId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
-  try {
-    const data = await getAllRecords<{ result: AnyRow[][] }>(
-      "s_get_exam_filters_bycode",
-      {
-        in_flag: "univ_exam_subject_regexamstd",
-        in_flag_type: "ALL",
-        in_university_id: 0,
-        in_univ_examcenter_id: 0,
-        in_college_id: params.collegeId,
-        in_course_id: params.courseId,
-        in_course_group_id: params.courseGroupId,
-        in_course_year_id: params.courseYearId,
-        in_exam_id: params.examId,
-        in_academic_year_id: params.academicYearId,
-        in_regulation_id: params.regulationId,
-        in_sub_flag_type: "ALL",
-        in_subject_id: 0,
-        in_param1: 0,
-        in_param2: 0,
-        in_loginuser_roleid: 0,
-        in_loginuser_empid: params.employeeId || 0,
-      },
-    );
-    const groups = data?.result ?? [];
-    const picked = firstGroupByFlag(groups, ["univ_exam_sub_regexamstd"]);
-    if (picked.length > 0) return picked;
-    const flat = groups.flatMap((g) => g || []);
-    if (flat.length > 0) return flat;
-  } catch {
-    // fallback below
-  }
-
-  const fromUc = await getUnivExamSubjectUc(params).catch(() => []);
-  if (Array.isArray(fromUc) && fromUc.length > 0) return fromUc;
-
-  const fromInss = await getUnivExamSubjectInss({
-    collegeId: params.collegeId,
-    courseId: params.courseId,
-    courseGroupId: params.courseGroupId,
-    courseYearId: params.courseYearId,
-    examId: params.examId,
-    academicYearId: params.academicYearId,
-    employeeId: params.employeeId,
-  }).catch(() => []);
-  return Array.isArray(fromInss) ? fromInss : [];
+  // Angular selectedRegulation → univ_exam_subject_regexamstd / ALL → univ_exam_sub_regexamstd
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_subject_regexamstd",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: params.collegeId,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: params.regulationId,
+      in_sub_flag_type: "ALL",
+      in_subject_id: 0,
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  const picked = firstGroupByFlag(groups, ["univ_exam_sub_regexamstd"]);
+  return picked.length > 0 ? picked : [];
 }

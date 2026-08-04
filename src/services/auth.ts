@@ -9,6 +9,7 @@
  */
 
 import { EMPLOYEE_API, NEXT_API, AUTH_API } from "@/config/constants/api";
+import { clearStickyRoleFlagsFromLocalStorage } from "@/lib/employee-login-context";
 import type { SessionUser } from "@/types/user";
 import { fetchDetails } from "./crud";
 
@@ -66,10 +67,16 @@ export async function login(
  * Log the current user out.
  *
  * POSTs to the Next.js logout route which clears the iron-session cookie.
+ * Also clears sticky role flags (isHOD / isHODDashboard / …) so the next login
+ * does not inherit HOD Dashboard from a previous browser session.
  * Returns void — errors are silently swallowed so the redirect always fires.
  */
 export async function logout(): Promise<void> {
-  await fetch(NEXT_API.AUTH.LOGOUT, { method: "POST" });
+  try {
+    await fetch(NEXT_API.AUTH.LOGOUT, { method: "POST" });
+  } finally {
+    clearStickyRoleFlagsFromLocalStorage();
+  }
 }
 
 // ─── getUserAccess ────────────────────────────────────────────────────────────

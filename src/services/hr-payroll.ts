@@ -32,6 +32,15 @@ function normalizeListPayload(data: unknown): AnyRow[] {
     if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
     if (Array.isArray(obj.content)) return obj.content as AnyRow[];
     if (Array.isArray(obj.result)) return obj.result as AnyRow[];
+    if (Array.isArray(obj.data)) return obj.data as AnyRow[];
+    // Some Spring endpoints nest the array one level deeper.
+    if (obj.data && typeof obj.data === "object") {
+      const nested = obj.data as Record<string, unknown>;
+      if (Array.isArray(nested.resultList))
+        return nested.resultList as AnyRow[];
+      if (Array.isArray(nested.content)) return nested.content as AnyRow[];
+      if (Array.isArray(nested.result)) return nested.result as AnyRow[];
+    }
   }
   return [];
 }
@@ -1088,6 +1097,49 @@ export async function listEmployeeDetails(): Promise<AnyRow[]> {
   return data.filter(
     (row) => !HR_EXCLUDED_ROLES.has(String(row.roleName ?? "")),
   );
+}
+
+/**
+ * Angular HOD Faculty Details — `listByThreeIds(employeeDetail, deptId, collegeId, statusId,
+ *   'employeeDepartmentId', 'collegeId', 'employeeStatusId')`.
+ * `departmentId` / `collegeId` may be comma-joined scopes from empSecurity.
+ */
+export async function listHodFacultyByDeptCollegeStatus(params: {
+  departmentId: string | number;
+  collegeId: string | number;
+  employeeStatusId: number;
+}): Promise<AnyRow[]> {
+  const { departmentId, collegeId, employeeStatusId } = params;
+  if (!departmentId || !collegeId || !employeeStatusId) return [];
+  const data = await fetchDetails<unknown>(
+    EMPLOYEE_API.EMPLOYEE_DETAIL_FILTER,
+    {
+      employeeDepartmentId: departmentId,
+      collegeId,
+      employeeStatusId,
+    },
+  );
+  return normalizeListPayload(data);
+}
+
+/**
+ * Angular Principal Faculty Details — `listByTwoIds(employeeDetail, collegeId, statusId,
+ *   'collegeId', 'employeeStatusId')`.
+ */
+export async function listHodFacultyByCollegeStatus(params: {
+  collegeId: string | number;
+  employeeStatusId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, employeeStatusId } = params;
+  if (!collegeId || !employeeStatusId) return [];
+  const data = await fetchDetails<unknown>(
+    EMPLOYEE_API.EMPLOYEE_DETAIL_FILTER,
+    {
+      collegeId,
+      employeeStatusId,
+    },
+  );
+  return normalizeListPayload(data);
 }
 
 /** Angular POST `sendEmployeeMails` — payload `[{ employeeId, collegeId }, ...]`. */

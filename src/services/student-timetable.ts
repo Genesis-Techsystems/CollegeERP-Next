@@ -1394,6 +1394,7 @@ export function timetableBreakCellBg(
 function mapScheduleTiming(
   timing: AnyRow,
   subBatches: TimetableSubBatch[],
+  options?: { paintEmptyWithWeekdayColor?: boolean },
 ): TimetableDayTiming {
   const weekdayName = text(timing, [
     "weekdayName",
@@ -1412,6 +1413,19 @@ function mapScheduleTiming(
   const isBreak =
     Boolean(timing.isBreak ?? timing.is_break) ||
     /break/i.test(classTimingName);
+  const paintEmptyWithWeekdayColor =
+    options?.paintEmptyWithWeekdayColor !== false;
+  // Prefer color already applied on the schedule row (subjectResource.colorCode
+  // for create-timetable; weekday fill for view-timetable).
+  const existingColor = text(timing, ["colorCode", "color_code"]);
+  let colorCode = "";
+  if (isBreak) {
+    colorCode = timetableBreakCellBg(classTimingName, true);
+  } else if (existingColor) {
+    colorCode = existingColor;
+  } else if (paintEmptyWithWeekdayColor) {
+    colorCode = dayColorFromWeekdayName(weekdayName);
+  }
 
   return {
     weekdayId: num(timing, ["weekdayId", "fk_weekday_id", "weekday_id"]),
@@ -1426,9 +1440,7 @@ function mapScheduleTiming(
     isBreak,
     classTimingName,
     colspan: Math.max(1, Number(timing.colspan ?? timing.colSpan ?? 1) || 1),
-    colorCode: isBreak
-      ? timetableBreakCellBg(classTimingName, true)
-      : dayColorFromWeekdayName(weekdayName),
+    colorCode,
     cellGroupId,
     subBatches,
     timetableScheduleId: num(timing, [
@@ -1501,7 +1513,11 @@ export function buildAngularStudentTimetable(
         }
       }
 
-      timings.push(mapScheduleTiming(classTiming, subBatches));
+      timings.push(
+        mapScheduleTiming(classTiming, subBatches, {
+          paintEmptyWithWeekdayColor,
+        }),
+      );
     }
 
     if (timings.length > 0) {

@@ -251,6 +251,10 @@ export {
   leaveApplicationDateYmd,
   toLeaveYmd,
   toLeaveSlashYmd,
+  getLeaveSummaryFilters,
+  searchEmployeesForLeaveSummary,
+  getEmpLeaveSummaryReport,
+  downloadEmpLeaveSummaryReport,
 } from "./staff-faculty-leaves";
 // tConvert omitted — conflicts with staff-dashboard (same helper).
 export {

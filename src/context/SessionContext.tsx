@@ -17,6 +17,9 @@ const SessionContext = createContext<SessionContextValue>({
   refetch: () => {},
 });
 
+/** Last userId we synced role flags for — resets sticky HOD flags on account switch. */
+let lastSyncedRoleUserId: number | null = null;
+
 // Mirror the logged-in user's key fields into localStorage so the many pages
 // that read localStorage.getItem('employeeId'/'organizationId'/…) (Angular
 // convention) get real values from the /api/authorization session — not 0.
@@ -57,6 +60,35 @@ function syncUserToLocalStorage(user: SessionUser): void {
   }
 }
 
+function syncSessionRoleFlags(user: SessionUser): void {
+  if (typeof globalThis.window === "undefined") return;
+  const storage = globalThis.localStorage;
+  storage.setItem("isAdmin", user.isAdmin ? "true" : "false");
+  storage.setItem("isDeprtAdmin", user.isDeptAdmin ? "true" : "false");
+  storage.setItem("roleName", user.roleName ?? "");
+
+  const userId = Number(user.userId) || 0;
+  const userChanged = lastSyncedRoleUserId !== userId;
+  if (userChanged) {
+    lastSyncedRoleUserId = userId;
+    // Fresh login / account switch: drop prior session's HOD/Principal sticky flags.
+    // EmpDeptHeads may re-set isHOD=true later in this session via useStaffLoginContext.
+    storage.setItem("isHOD", user.isHod ? "true" : "false");
+    storage.setItem("isHODDashboard", user.isHod ? "true" : "false");
+    storage.setItem("isPRINCIPAL", user.isPrincipal ? "true" : "false");
+    return;
+  }
+
+  // Same user: only upgrade to true (EmpDeptHeads can set HOD after JWT session).
+  if (user.isHod) {
+    storage.setItem("isHOD", "true");
+    storage.setItem("isHODDashboard", "true");
+  }
+  if (user.isPrincipal) {
+    storage.setItem("isPRINCIPAL", "true");
+  }
+}
+
 // Inner component that uses useSession (must be inside QueryClientProvider)
 function SessionProviderInner({
   children,
@@ -71,28 +103,11 @@ function SessionProviderInner({
   const user = session.user ?? initialUser ?? null;
   const isLoading = session.isLoading && !initialUser;
 
-  if (user) syncUserToLocalStorage(user);
-  if (user && typeof globalThis.window !== "undefined") {
-    // Angular login flags used by students-list / other pages
-    globalThis.localStorage.setItem("isAdmin", user.isAdmin ? "true" : "false");
-    globalThis.localStorage.setItem(
-      "isDeprtAdmin",
-      user.isDeptAdmin ? "true" : "false",
-    );
-    globalThis.localStorage.setItem("roleName", user.roleName ?? "");
-    // Never overwrite EmpDeptHeads-derived isHOD=true with false (Angular parity).
-    if (user.isHod) {
-      globalThis.localStorage.setItem("isHOD", "true");
-      globalThis.localStorage.setItem("isHODDashboard", "true");
-    } else if (globalThis.localStorage.getItem("isHOD") !== "true") {
-      globalThis.localStorage.setItem("isHOD", "false");
-      globalThis.localStorage.setItem("isHODDashboard", "false");
-    }
-    if (user.isPrincipal) {
-      globalThis.localStorage.setItem("isPRINCIPAL", "true");
-    } else if (globalThis.localStorage.getItem("isPRINCIPAL") !== "true") {
-      globalThis.localStorage.setItem("isPRINCIPAL", "false");
-    }
+  if (user) {
+    syncUserToLocalStorage(user);
+    syncSessionRoleFlags(user);
+  } else {
+    lastSyncedRoleUserId = null;
   }
 
   return (
