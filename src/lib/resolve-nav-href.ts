@@ -119,6 +119,19 @@ export function resolveForcedNavRoute(
   const sidebarPin = resolveSidebarLabelPin(href, label);
   if (sidebarPin) return sidebarPin;
 
+  // Faculty Leaves → Leave Summary (Angular `staff-faculty-leaves/leave-summary`)
+  // Missing route 404s to root not-found → dashboard; pin before generic leave remaps.
+  if (
+    hrefLower.includes("staff-faculty-leaves/leave-summary") ||
+    hrefLower.includes("leave-summary") ||
+    labelLower === "leave summary" ||
+    (labelLower.includes("leave") &&
+      labelLower.includes("summary") &&
+      !labelLower.includes("result"))
+  ) {
+    return "/staff-faculty-leaves/leave-summary";
+  }
+
   // Label + href pins for all Examination Reports pages — must run before any
   // generic `/exam-reports/{slug}` passthrough (wrong DB slugs like
   // `subject-wise-percentage-report` would otherwise 404).
@@ -1005,6 +1018,23 @@ export function resolveForcedNavRoute(
       return "/principal-my-approvals/tc-no-due-approvals";
     }
 
+    // HOD Faculty Details — Angular `staff-faculty-details/faculty-details`
+    // (must pin before leave-approvals / faculty-details/leave-approvals remap)
+    if (
+      labelKey === "faculty details" ||
+      labelKey === "faculty detail" ||
+      hrefLower.includes("staff-faculty-details/faculty-details") ||
+      (hrefLower.includes("faculty-details") &&
+        !hrefLower.includes("leave-approvals") &&
+        !hrefLower.includes("leave_approvals") &&
+        !hrefLower.includes("performance") &&
+        !hrefLower.includes("appraisal") &&
+        !hrefLower.includes("salary") &&
+        !hrefLower.includes("proxy"))
+    ) {
+      return "/staff-faculty-details/faculty-details";
+    }
+
     // Principal Leave Requests (Angular `leave-applications`; also leave-approvals / faculty-details)
     if (
       hrefLower.includes("leave-applications") ||
@@ -1181,6 +1211,17 @@ export function resolveForcedNavRoute(
     ) {
       return "/accounts-and-fees/fees-collection/allocate-structure-to-student";
     }
+    // Angular scholarship-management/scholarship-type (404 → dashboard otherwise).
+    if (
+      hrefLower.includes("scholarship-type") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("assign"))
+    ) {
+      return "/scholarship-management/scholarship-type";
+    }
     if (
       hrefLower.includes("scholarship-application") ||
       (labelLower.includes("scholarship") &&
@@ -1190,6 +1231,24 @@ export function resolveForcedNavRoute(
         !labelLower.includes("form"))
     ) {
       return "/scholarship-management/scholarship-application";
+    }
+    // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
+    // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("acounts-preceedings") ||
+      hrefLower.includes("accounts-preceedings") ||
+      hrefLower.includes("acounts-preceeding") ||
+      hrefLower.includes("accounts-preceeding") ||
+      (labelLower.includes("account") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        !labelLower.includes("process") &&
+        !hrefLower.includes("process-acount") &&
+        !hrefLower.includes("process-account") &&
+        !labelLower.includes("report") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/acounts-preceedings";
     }
     // Angular scholarship-management/preceeding-details (+ students-upload)
     // Must pin before fee-reports scholarship-preceedings (404 → dashboard otherwise).

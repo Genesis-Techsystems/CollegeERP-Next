@@ -222,13 +222,24 @@ export default function InternalExamAttendanceMarkingPage() {
       ),
     ];
   }, [collegesListDetails, collegeId, courseGroupId]);
+  // Angular selectedYear: regulations from CollegesListDetails (rest filters)
   const regulations = useMemo(() => {
-    const filtered = collegesListDetails.filter(
-      (x) =>
-        Number(x.fk_college_id) === Number(collegeId) &&
-        Number(x.fk_course_group_id) === Number(courseGroupId) &&
-        Number(x.fk_course_year_id) === Number(courseYearId),
-    );
+    if (!collegeId || !courseGroupId || !courseYearId) return [];
+    const filtered = collegesListDetails
+      .filter(
+        (x) =>
+          Number(x.fk_college_id) === Number(collegeId) &&
+          Number(x.fk_course_group_id) === Number(courseGroupId) &&
+          Number(x.fk_course_year_id) === Number(courseYearId),
+      )
+      .map((x) => ({
+        ...x,
+        fk_regulation_id:
+          x.fk_regulation_id ?? x.regulation_id ?? x.regulationId,
+        regulation_code:
+          x.regulation_code ?? x.regulationCode ?? x.regulation_name,
+      }))
+      .filter((x) => Number(x.fk_regulation_id) > 0);
     return dedupeBy(filtered, "fk_regulation_id");
   }, [collegesListDetails, collegeId, courseGroupId, courseYearId]);
   const subjects = useMemo(
@@ -328,37 +339,51 @@ export default function InternalExamAttendanceMarkingPage() {
   }, [employeeId]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadRest() {
-      setCollegesListDetails([]);
       setRows([]);
       setHasFetched(false);
-      if (!courseId || !examId || !academicYearId) return;
+      if (!courseId || !examId || !academicYearId) {
+        setCollegesListDetails([]);
+        return;
+      }
       const data = await getInternalAttendanceRestFilters({
         courseId,
         examId,
         academicYearId,
         employeeId,
       }).catch(() => []);
+      // Ignore stale responses when exam/AY changes quickly (prevents empty Regulation).
+      if (cancelled) return;
       setCollegesListDetails(Array.isArray(data) ? data : []);
     }
     void loadRest();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId, examId, academicYearId, employeeId]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadCourseGroupMaster() {
       if (!courseId) {
         setCourseGroupMaster([]);
         return;
       }
       const data = await listCourseGroups(courseId).catch(() => []);
+      if (cancelled) return;
       setCourseGroupMaster(Array.isArray(data) ? data : []);
     }
     void loadCourseGroupMaster();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadSubjects() {
-      setSubjectTypeList([]);
+      // Angular selectedRegulation → univ_exam_subject_regexamstd / ALL
       if (
         !collegeId ||
         !courseId ||
@@ -367,8 +392,10 @@ export default function InternalExamAttendanceMarkingPage() {
         !examId ||
         !academicYearId ||
         !regulationId
-      )
+      ) {
+        setSubjectTypeList([]);
         return;
+      }
       const data = await getInternalAttendanceSubjects({
         collegeId,
         courseId,
@@ -379,9 +406,13 @@ export default function InternalExamAttendanceMarkingPage() {
         regulationId,
         employeeId,
       }).catch(() => []);
+      if (cancelled) return;
       setSubjectTypeList(Array.isArray(data) ? data : []);
     }
     void loadSubjects();
+    return () => {
+      cancelled = true;
+    };
   }, [
     collegeId,
     courseId,
@@ -394,17 +425,24 @@ export default function InternalExamAttendanceMarkingPage() {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadInvigilators() {
-      setInvigilatorRows([]);
-      if (!collegeId || !examId || !subjectId) return;
+      if (!collegeId || !examId || !subjectId) {
+        setInvigilatorRows([]);
+        return;
+      }
       const data = isStaff
         ? await listStaffExamAllotInvigilators(employeeId).catch(() => [])
         : await listExamAllotmentInvigilators({ collegeId, examId }).catch(
             () => [],
           );
+      if (cancelled) return;
       setInvigilatorRows(Array.isArray(data) ? data : []);
     }
     void loadInvigilators();
+    return () => {
+      cancelled = true;
+    };
   }, [collegeId, examId, subjectId, isStaff, employeeId]);
 
   useEffect(() => {
@@ -428,24 +466,59 @@ export default function InternalExamAttendanceMarkingPage() {
       setCollegeId(Number(colleges[0].fk_college_id));
   }, [colleges]);
 
+  // Angular selectedCollege → first real course group (keep selection if still valid)
   useEffect(() => {
-    if (courseGroups.length > 1) setCourseGroupId(courseGroups[1] ?? 0);
-    else setCourseGroupId(0);
+    if (courseGroups.length <= 1) {
+      setCourseGroupId(0);
+      return;
+    }
+    setCourseGroupId((prev) =>
+      prev != null && prev !== 0 && courseGroups.includes(Number(prev))
+        ? Number(prev)
+        : (courseGroups[1] ?? 0),
+    );
   }, [courseGroups]);
 
+  // Angular selectedCourseGroup → first real course year (keep selection if still valid)
   useEffect(() => {
-    if (courseYears.length > 1) setCourseYearId(courseYears[1] ?? 0);
-    else setCourseYearId(0);
+    if (courseYears.length <= 1) {
+      setCourseYearId(0);
+      return;
+    }
+    setCourseYearId((prev) =>
+      prev != null && prev !== 0 && courseYears.includes(Number(prev))
+        ? Number(prev)
+        : (courseYears[1] ?? 0),
+    );
   }, [courseYears]);
 
+  // Angular selectedYear → regulations from rest filters; clear when none
   useEffect(() => {
-    if (regulations[0]?.fk_regulation_id)
-      setRegulationId(Number(regulations[0].fk_regulation_id));
+    if (regulations.length === 0) {
+      setRegulationId(null);
+      return;
+    }
+    const first = Number(regulations[0].fk_regulation_id);
+    setRegulationId((prev) =>
+      prev != null &&
+      regulations.some((r) => Number(r.fk_regulation_id) === Number(prev))
+        ? Number(prev)
+        : first,
+    );
   }, [regulations]);
 
   useEffect(() => {
-    if (subjects[0]?.fk_subject_id)
-      setSubjectId(Number(subjects[0].fk_subject_id));
+    if (subjects.length === 0) {
+      setSubjectId(null);
+      return;
+    }
+    const first = Number(subjects[0].fk_subject_id);
+    setSubjectId((prev) =>
+      prev != null &&
+      subjects.some((s) => Number(s.fk_subject_id) === Number(prev))
+        ? Number(prev)
+        : first,
+    );
   }, [subjects]);
 
   useEffect(() => {

@@ -1,24 +1,12 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import {
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  Filter,
-  Loader2,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { GlobalFilterField } from "@/common/components/forms";
 import { DataTable } from "@/common/components/table";
 import { Select, type SelectOption } from "@/common/components/select";
-import { PageContainer } from "@/components/layout";
-import { Label } from "@/components/ui/label";
+import { FilteredListPage } from "@/components/layout";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastInfo } from "@/lib/toast";
 import {
@@ -45,7 +33,7 @@ import {
   AddResourceDialog,
   type AssignResourceDialogContext,
 } from "./AddResourceDialog";
-import { TimetableWeeklyGrid } from "./TimetableWeeklyGrid";
+import { AssignResourceTimetableMatrix } from "./AssignResourceTimetableMatrix";
 
 type AnyRow = Record<string, unknown>;
 
@@ -117,7 +105,6 @@ function statusRenderer(p: ICellRendererParams<AnyRow>) {
 export function AssignResourceTimetablePage() {
   const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
   const [filtersLoading, setFiltersLoading] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -387,6 +374,7 @@ export function AssignResourceTimetablePage() {
       setGroupSectionId(num(sections[0].fk_group_section_id));
   }, [courseYearId, sections, groupSectionId, filtersLoading]);
 
+  // Angular selectedData(): college / ay / course / group / year / section (+ date range beside)
   const allocationHeader = useMemo(() => {
     if (!timetableId) return "";
     const parts = [
@@ -414,8 +402,11 @@ export function AssignResourceTimetablePage() {
           {},
         ["course_year_name", "courseYearName"],
       ),
-      timetableOptions.find((o) => o.value === String(timetableId))?.label ??
-        "",
+      text(
+        sections.find((s) => num(s.fk_group_section_id) === groupSectionId) ??
+          {},
+        ["section", "groupSectionName"],
+      ),
     ].filter(Boolean);
     return parts.join(" / ");
   }, [
@@ -430,8 +421,22 @@ export function AssignResourceTimetablePage() {
     courseGroupId,
     courseYears,
     courseYearId,
-    timetableOptions,
+    sections,
+    groupSectionId,
   ]);
+
+  const allocationDateRange = useMemo(() => {
+    if (!selectedTimetableRow) return "";
+    const start = formatDateHeader(
+      selectedTimetableRow.timetable_startdate ??
+        selectedTimetableRow.startDate,
+    );
+    const end = formatDateHeader(
+      selectedTimetableRow.timetable_enddate ?? selectedTimetableRow.endDate,
+    );
+    if (start && end) return `${start} - ${end}`;
+    return timetable?.dateRangeLabel ?? "";
+  }, [selectedTimetableRow, timetable?.dateRangeLabel]);
 
   const resourceDialogContext =
     useMemo<AssignResourceDialogContext | null>(() => {
@@ -529,35 +534,18 @@ export function AssignResourceTimetablePage() {
   };
 
   return (
-    <PageContainer className="assign-resource-timetable space-y-4">
-      <div className="app-card overflow-hidden" data-no-page-name>
-        <button
-          type="button"
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
-          onClick={() => setFiltersOpen((o) => !o)}
-        >
-          <span className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#5da394]">
-            <BookOpen className="h-4 w-4" aria-hidden />
-            Assign Resource To Timetable
-          </span>
-          <span className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
-            Filter
-            <Filter className="h-4 w-4" />
-            {filtersOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </span>
-        </button>
-
-        {filtersOpen ? (
-          <div className="grid gap-3 border-t border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <FilterField label="College *">
+    <FilteredListPage
+      title="Assign Resource To Timetable"
+      className="assign-resource-timetable [&_.global-filter-bar__inner]:gap-2 [&_.global-filter-bar__inner]:px-0 [&_.global-filter-bar__inner]:pb-2 [&_.global-filter-field]:min-w-0 [&_.global-filter-field]:max-w-none [&_.global-filter-field]:flex-none"
+      filters={
+        <div className="space-y-2">
+          {/* Angular: fxFlex.gt-md="25" × 4 */}
+          <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+            <GlobalFilterField label="College *">
               <Select
-                value={collegeId ? String(collegeId) : ""}
+                value={collegeId ? String(collegeId) : null}
                 onChange={(v) => {
-                  setCollegeId(num(v));
+                  setCollegeId(v ? num(v) : null);
                   setAcademicYearId(null);
                   setCourseId(null);
                   setCourseGroupId(null);
@@ -570,12 +558,12 @@ export function AssignResourceTimetablePage() {
                 searchable
                 isLoading={filtersLoading}
               />
-            </FilterField>
-            <FilterField label="Academic Year *">
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year *">
               <Select
-                value={academicYearId ? String(academicYearId) : ""}
+                value={academicYearId ? String(academicYearId) : null}
                 onChange={(v) => {
-                  setAcademicYearId(num(v));
+                  setAcademicYearId(v ? num(v) : null);
                   setCourseId(null);
                   setCourseGroupId(null);
                   setCourseYearId(null);
@@ -587,12 +575,12 @@ export function AssignResourceTimetablePage() {
                 searchable
                 disabled={!collegeId}
               />
-            </FilterField>
-            <FilterField label="Course *">
+            </GlobalFilterField>
+            <GlobalFilterField label="Course *">
               <Select
-                value={courseId ? String(courseId) : ""}
+                value={courseId ? String(courseId) : null}
                 onChange={(v) => {
-                  setCourseId(num(v));
+                  setCourseId(v ? num(v) : null);
                   setCourseGroupId(null);
                   setCourseYearId(null);
                   setGroupSectionId(null);
@@ -603,12 +591,12 @@ export function AssignResourceTimetablePage() {
                 searchable
                 disabled={!academicYearId}
               />
-            </FilterField>
-            <FilterField label="Course Group *">
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Group *">
               <Select
-                value={courseGroupId ? String(courseGroupId) : ""}
+                value={courseGroupId ? String(courseGroupId) : null}
                 onChange={(v) => {
-                  setCourseGroupId(num(v));
+                  setCourseGroupId(v ? num(v) : null);
                   setCourseYearId(null);
                   setGroupSectionId(null);
                   setTimetableId(null);
@@ -618,12 +606,15 @@ export function AssignResourceTimetablePage() {
                 searchable
                 disabled={!courseId}
               />
-            </FilterField>
-            <FilterField label="Course Year *">
+            </GlobalFilterField>
+          </div>
+          {/* Angular: year 25%, section 25%, timetable 50% */}
+          <div className="grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+            <GlobalFilterField label="Course Year *">
               <Select
-                value={courseYearId ? String(courseYearId) : ""}
+                value={courseYearId ? String(courseYearId) : null}
                 onChange={(v) => {
-                  setCourseYearId(num(v));
+                  setCourseYearId(v ? num(v) : null);
                   setGroupSectionId(null);
                   setTimetableId(null);
                 }}
@@ -632,12 +623,12 @@ export function AssignResourceTimetablePage() {
                 searchable
                 disabled={!courseGroupId}
               />
-            </FilterField>
-            <FilterField label="Section *">
+            </GlobalFilterField>
+            <GlobalFilterField label="Section *">
               <Select
-                value={groupSectionId ? String(groupSectionId) : ""}
+                value={groupSectionId ? String(groupSectionId) : null}
                 onChange={(v) => {
-                  setGroupSectionId(num(v));
+                  setGroupSectionId(v ? num(v) : null);
                   setTimetableId(null);
                 }}
                 options={sectionOptions}
@@ -645,8 +636,11 @@ export function AssignResourceTimetablePage() {
                 searchable
                 disabled={!courseYearId}
               />
-            </FilterField>
-            <FilterField label="Timetable *" className="sm:col-span-2">
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Timetable *"
+              className="sm:col-span-2 lg:col-span-2"
+            >
               <Select
                 value={timetableId != null ? String(timetableId) : null}
                 onChange={(v) => setTimetableId(v ? num(v) : null)}
@@ -656,59 +650,50 @@ export function AssignResourceTimetablePage() {
                 clearable
                 disabled={!groupSectionId}
               />
-            </FilterField>
+            </GlobalFilterField>
           </div>
-        ) : null}
-      </div>
-
-      {showGridCard ? (
-        <div className="app-card space-y-3 p-4">
-          <h2 className="whitespace-nowrap text-[13px] font-semibold text-[#002b5c]">
-            Timetable allocations - {allocationHeader}
-          </h2>
-
-          {gridLoading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Loading timetable…
-            </div>
-          ) : timetable && timetable.weekdays.length > 0 ? (
-            <TimetableWeeklyGrid
-              timetable={timetable}
-              variant="screen"
-              onTimingClick={handleTimingClick}
-            />
-          ) : (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              No timetable slots found for this selection.
-            </p>
-          )}
         </div>
-      ) : null}
-
+      }
+      body={
+        showGridCard ? (
+          <div className="space-y-3">
+            <h3 className="text-[13px] font-semibold text-[#002b5c]">
+              Timetable Allocations - {allocationHeader}
+              {allocationDateRange ? ` (${allocationDateRange})` : ""}
+            </h3>
+            {gridLoading ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Loading timetable…
+              </div>
+            ) : timetable && timetable.weekdays.length > 0 ? (
+              <AssignResourceTimetableMatrix
+                timetable={timetable}
+                onTimingClick={handleTimingClick}
+              />
+            ) : (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No timetable slots found for this selection.
+              </p>
+            )}
+          </div>
+        ) : null
+      }
+    >
       {workloads.length > 0 || workloadsLoading ? (
-        <div className="app-card space-y-3 p-4">
-          <h2 className="text-[13px] font-semibold text-[#002b5c]">
-            Workloads
-          </h2>
-          {workloadsLoading ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              Loading workloads…
-            </div>
-          ) : (
-            <DataTable
-              columnDefs={workloadColumnDefs}
-              rowData={workloads}
-              toolbar={{
-                search: true,
-                exportExcel: true,
-                exportPdf: false,
-                columnPicker: false,
-              }}
-            />
-          )}
-        </div>
+        <DataTable
+          title="Workloads"
+          bordered
+          columnDefs={workloadColumnDefs}
+          rowData={workloads}
+          loading={workloadsLoading}
+          toolbar={{
+            search: true,
+            exportExcel: true,
+            exportPdf: false,
+            columnPicker: false,
+          }}
+        />
       ) : null}
 
       {resourceDialogOpen &&
@@ -724,23 +709,6 @@ export function AssignResourceTimetablePage() {
           context={resourceDialogContext}
         />
       ) : null}
-    </PageContainer>
-  );
-}
-
-function FilterField({
-  label,
-  children,
-  className = "",
-}: {
-  label: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`space-y-1 ${className}`}>
-      <Label className="text-[12px]">{label}</Label>
-      {children}
-    </div>
+    </FilteredListPage>
   );
 }

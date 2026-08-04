@@ -778,6 +778,12 @@ export const EMPLOYEE_API = {
   GET_NEW_EMPLOYEE_LIST: "getAllRecords/s_get_new_employee_list",
   /** CRUD: EmployeeDetail — staff list (HR employee list) */
   EMPLOYEE_DETAIL: "EmployeeDetail",
+  /**
+   * Angular `EmployeeDetailUrl` — HOD Faculty Details list filter endpoint.
+   * GET `employeeDetail?employeeDepartmentId=&collegeId=&employeeStatusId=`
+   * (or college + status only for Principal).
+   */
+  EMPLOYEE_DETAIL_FILTER: "employeeDetail",
   /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV`, optional `collegeId`). */
   EMPLOYEE_SEARCH: "cms/employeesearch",
   /** GET: employee details by user id — `employeedetailsbyid?userId=` */

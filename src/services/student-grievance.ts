@@ -211,6 +211,24 @@ export async function listCollegeSuggestionsByUser(
   );
 }
 
+/**
+ * Angular college suggestions list:
+ * `listDetailsByTwoIdsWithSort(CollegeSuggestion, orgId, 'true', 'desc',
+ *   Organization.organizationId, isActive, createdDt)`.
+ */
+export async function listCollegeSuggestionsByOrganization(
+  organizationId: number,
+): Promise<AnyRow[]> {
+  if (!organizationId) return [];
+  return domainList<AnyRow>(
+    SETUP_API.COLLEGE_SUGGESTION,
+    buildQuery(
+      { "Organization.organizationId": organizationId, isActive: true },
+      { field: "createdDt", direction: "DESC" },
+    ),
+  );
+}
+
 /** Angular `addDetails(CollegeSuggestion, details)`. */
 export async function createCollegeSuggestion(data: AnyRow): Promise<void> {
   await domainCreate(SETUP_API.COLLEGE_SUGGESTION, data);
