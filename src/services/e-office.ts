@@ -247,19 +247,22 @@ function buildInvPurchaseOrderFormData(
   payload: Record<string, unknown>,
   files?: PoRefFiles,
 ): FormData {
+  const { poRefFileDoc1: file1, poRefFileDoc2: file2 } =
+    resolvePoRefFiles(files);
+  const dto = payload;
   const formData = new FormData();
-  // Spring `@RequestPart("data")` needs part Content-Type: application/json
+
   formData.append(
     "data",
-    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+    new Blob([JSON.stringify(dto)], {
+      type: "application/json",
+    }),
   );
-  const { poRefFileDoc1, poRefFileDoc2 } = resolvePoRefFiles(files);
-  if (poRefFileDoc1) {
-    formData.append("poRefFileDoc1", poRefFileDoc1, poRefFileDoc1.name);
-  }
-  if (poRefFileDoc2) {
-    formData.append("poRefFileDoc2", poRefFileDoc2, poRefFileDoc2.name);
-  }
+
+  // required=false — append only when selected
+  if (file1) formData.append("poRefFileDoc1", file1);
+  if (file2) formData.append("poRefFileDoc2", file2);
+
   return formData;
 }
 

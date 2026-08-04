@@ -119,6 +119,8 @@ export type FinanceEntityFilterRow = {
 export type FinBudgetReportRow = Record<string, unknown> & {
   pk_finbudgetallocation_id?: number;
   accounttype_name?: string;
+  /** Angular budget-approval Name Of The Account column. */
+  accounttype_code?: string;
   fin_category_name?: string;
   sub_category_name?: string;
   transaction_type?: string;
@@ -134,6 +136,11 @@ export type FinBudgetReportRow = Record<string, unknown> & {
   pk_account_type_id?: number;
   nxtfy_fk_financial_year_id?: number;
   actual_tilldate?: number | null;
+  pk_finbudgetmidyrestimation_id?: number;
+  estimation_fromdate?: string;
+  estimation_todate?: string;
+  cr_fin_startdate?: string;
+  cr_fin_enddate?: string;
   /** Angular report header meta (from first row). */
   Pr_Yr?: string;
   financial_year?: string;

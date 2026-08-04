@@ -21,7 +21,6 @@ import type {
 import type { ApiResponse } from "@/types/api";
 import {
   domainList,
-  domainListRawQuery,
   buildQuery,
   postDetails,
   putDetails,
@@ -34,12 +33,16 @@ import { AppError } from "@/lib/errors";
 // ─── Question Bank CRUD ───────────────────────────────────────────────────────
 
 /**
- * Angular `listDetailsByTwoIdWithSort` query — literal `&` between clauses:
- * `preparedbyUser.userId==1739&isActive==true.order(createdDt=DESC)`
- * (do not use buildQuery `.and.` — domainList encodes `&` as %26).
+ * Angular `listDetailsByTwoIdWithSort` → filter + sort on Assessment.
+ * Use `.and.` (not a literal `&`) so the full query stays in one `query=`
+ * param; a raw `&` splits the URL and drops `order(createdDt=DESC)`.
+ * → `preparedbyUser.userId==1739.and.isActive==true.order(createdDt=DESC)`
  */
 function buildQuestionBankListQuery(userId: number): string {
-  return `preparedbyUser.userId==${userId}&isActive==true.order(createdDt=DESC)`;
+  return buildQuery(
+    { "preparedbyUser.userId": userId, isActive: true },
+    { field: "createdDt", direction: "DESC" },
+  );
 }
 
 function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
@@ -50,20 +53,27 @@ function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
   });
 }
 
+/** Newest first — createdDt DESC, then assessmentId DESC (tie-break for same day). */
+function sortQuestionBanksNewestFirst(rows: Assessment[]): Assessment[] {
+  return [...rows].sort((a, b) => {
+    const ta = a.createdDt ? new Date(a.createdDt).getTime() : 0;
+    const tb = b.createdDt ? new Date(b.createdDt).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return (b.assessmentId ?? 0) - (a.assessmentId ?? 0);
+  });
+}
+
 /**
  * List question banks for the logged-in preparer.
  * Angular (admin + QuestionPaperSetter): same payload shape —
- * `preparedbyUser.userId=={userId}&isActive==true.order(createdDt=DESC)`.
+ * `preparedbyUser.userId=={userId}.and.isActive==true.order(createdDt=DESC)`.
  * Client filter: `isForQuestionbank` (same as Angular).
  */
 export async function listQuestionBanks(userId: number): Promise<Assessment[]> {
   if (!userId) return [];
   const query = buildQuestionBankListQuery(userId);
-  const rows = await domainListRawQuery<Assessment>(
-    ENTITIES.ASSESSMENT.name,
-    query,
-  );
-  return filterQuestionBankRows(rows);
+  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query);
+  return sortQuestionBanksNewestFirst(filterQuestionBankRows(rows));
 }
 
 /**

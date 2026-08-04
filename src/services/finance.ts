@@ -324,7 +324,8 @@ export async function fetchFinanceBudgetReport(
 export async function fetchFinanceBudgetDetails(
   params: Record<string, string | number>,
 ): Promise<FinBudgetReportRow[]> {
-  const data = await getAllRecords<StoredProcRows>(
+  // Angular treats HTTP 200 + empty / "No Record(s) found." as a success toast, not an error.
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
     FINANCE_API.FIN_BUDGET_DETAILS,
     {
       in_flag: "financial_budget_details",
@@ -337,7 +338,12 @@ export async function fetchFinanceBudgetDetails(
       ...params,
     },
   );
-  return firstResultSet<FinBudgetReportRow>(data);
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError("API_ERROR", message || "Failed to load budget details");
+  }
+  return firstResultSet<FinBudgetReportRow>(envelope.data);
 }
 
 // ─── Budget mid-year estimations ──────────────────────────────────────────────
@@ -401,9 +407,26 @@ export async function addFinBudgetAllocationList(
   await postDetails(FINANCE_API.ADD_FIN_BUDGET_ALLOC_LIST, rows);
 }
 
+/** Angular `addDetails(FinBudgetAllocationUrl, …)` — Budget Proposal Save. */
+export async function createFinBudgetAllocation(
+  data: Record<string, unknown>,
+): Promise<void> {
+  await domainCreate(FBA_ALLOC.name, data);
+}
+
 export async function updateFinBudgetAllocation(
   id: number,
   data: Partial<Record<string, unknown>>,
 ): Promise<void> {
   await domainUpdate(FBA_ALLOC.name, FBA_ALLOC.pk, id, data);
+}
+
+/**
+ * Angular `update(updateFinBudgetAllocationUrl, list)` — Budget Proposal
+ * row Update / bulk Save (allocation + midyear pairs).
+ */
+export async function putUpdateFinBudgetAllocation(
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  await putDetails(FINANCE_API.UPDATE_FIN_BUDGET_ALLOCATION, rows);
 }

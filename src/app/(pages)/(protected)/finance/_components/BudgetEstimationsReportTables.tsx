@@ -50,17 +50,18 @@ function ReportTableHead({ meta }: { meta: Meta }) {
         <th className="border border-slate-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold">
           No.
         </th>
+        {/* Angular header labels (incl. legacy spelling) for Excel parity */}
         <th className="border border-slate-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold">
-          Name Of The Account
+          Name Of The Acoount
         </th>
         <th className="border border-slate-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold">
-          Actuals For The Previous Year ({meta.Pr_Yr ?? ""})
+          Actuals For The Prevoius Year ({meta.Pr_Yr ?? ""})
         </th>
         <th className="border border-slate-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold">
           Approved Budget For The Current Year ({meta.financial_year ?? ""})
         </th>
         <th className="border border-slate-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold">
-          Actuals For The End Of First 8 Months ({meta.f_8month_date ?? ""} To{" "}
+          Actuals For The End Of First 8 Months({meta.f_8month_date ?? ""} To{" "}
           {meta.t_8month_date ?? ""})
         </th>
         <th className="border border-slate-300 bg-sky-50 px-2 py-1.5 text-xs font-semibold">
@@ -175,6 +176,8 @@ type Props = {
   /** Angular: when All, group by transaction_type sections (e.g. ASSETS). */
   transactionTypeLabel: string;
   sectionTypes: string[];
+  /** Print layout: no horizontal scroll; table fits page width (Angular parity). */
+  forPrint?: boolean;
 };
 
 /** Angular budget-estimations HTML report table(s). */
@@ -183,6 +186,7 @@ export function BudgetEstimationsReportTables({
   search,
   transactionTypeLabel,
   sectionTypes,
+  forPrint = false,
 }: Props) {
   const meta: Meta = {
     Pr_Yr: rows[0]?.Pr_Yr != null ? String(rows[0].Pr_Yr) : undefined,
@@ -209,15 +213,24 @@ export function BudgetEstimationsReportTables({
     nxt_yr: rows[0]?.nxt_yr != null ? String(rows[0].nxt_yr) : undefined,
   };
 
-  if (transactionTypeLabel !== "All") {
+  const wrapClass = forPrint ? "overflow-visible" : "overflow-x-auto";
+  const tableClass = forPrint
+    ? "w-full border-collapse table-fixed"
+    : "w-full min-w-[1100px] border-collapse";
+
+  function renderTable(sectionRows: FinBudgetReportRow[]) {
     return (
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] border-collapse">
+      <div className={wrapClass}>
+        <table className={tableClass}>
           <ReportTableHead meta={meta} />
-          <ReportRows rows={rows} search={search} />
+          <ReportRows rows={sectionRows} search={search} />
         </table>
       </div>
     );
+  }
+
+  if (transactionTypeLabel !== "All") {
+    return renderTable(rows);
   }
 
   const types = sectionTypes.length
@@ -231,14 +244,7 @@ export function BudgetEstimationsReportTables({
       );
 
   if (!types.length) {
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] border-collapse">
-          <ReportTableHead meta={meta} />
-          <ReportRows rows={rows} search={search} />
-        </table>
-      </div>
-    );
+    return renderTable(rows);
   }
 
   return (
@@ -252,12 +258,7 @@ export function BudgetEstimationsReportTables({
             <h3 className="text-center text-sm font-semibold text-foreground">
               {type}
             </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1100px] border-collapse">
-                <ReportTableHead meta={meta} />
-                <ReportRows rows={sectionRows} search={search} />
-              </table>
-            </div>
+            {renderTable(sectionRows)}
           </div>
         );
       })}

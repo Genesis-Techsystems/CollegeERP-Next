@@ -4,28 +4,25 @@
  * `success: false` ("Unable to process your request…") when React sends raw
  * form values — empty reason, NaN numbers, or wrong FK key shapes.
  */
-import {
-  angularLowerActiveReason,
-  asString,
-} from '../angular-payload'
+import { angularLowerActiveReason, asString } from "../angular-payload";
 
-type WriteInput = Record<string, unknown>
+type WriteInput = Record<string, unknown>;
 
 function activeReason(
   data: WriteInput,
   existing?: object,
 ): { isActive: boolean; reason: string } {
-  const prior = existing as WriteInput | undefined
-  const isActive = data.isActive !== false
+  const prior = existing as WriteInput | undefined;
+  const isActive = data.isActive !== false;
   return {
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason, prior?.reason),
-  }
+  };
 }
 
 function asFiniteNumber(value: unknown, fallback?: unknown): number {
-  const num = Number(value ?? fallback)
-  return Number.isFinite(num) ? num : 0
+  const num = Number(value ?? fallback);
+  return Number.isFinite(num) ? num : 0;
 }
 
 /** Angular Course modal update body — flat camelCase fields + courseId in body. */
@@ -34,8 +31,8 @@ export function buildAngularCourseUpdatePayload(
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
 
   return {
     universityId: asFiniteNumber(data.universityId, prior?.universityId),
@@ -50,7 +47,7 @@ export function buildAngularCourseUpdatePayload(
     isActive,
     reason,
     courseId,
-  }
+  };
 }
 
 /** Angular CourseGroup modal body — flat camelCase fields; update includes courseGroupId. */
@@ -59,9 +56,9 @@ function buildAngularCourseGroupPayload(
   existing?: object,
   courseGroupId?: number,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
-  const groupCode = asString(data.groupCode ?? prior?.groupCode)
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
+  const groupCode = asString(data.groupCode ?? prior?.groupCode);
 
   const payload: Record<string, unknown> = {
     universityId: asFiniteNumber(data.universityId, prior?.universityId),
@@ -73,13 +70,13 @@ function buildAngularCourseGroupPayload(
     startingNo: asString(data.startingNo ?? prior?.startingNo),
     isActive,
     reason,
-  }
+  };
 
   if (courseGroupId != null) {
-    payload.courseGroupId = courseGroupId
+    payload.courseGroupId = courseGroupId;
   }
 
-  return payload
+  return payload;
 }
 
 export function buildAngularCourseGroupUpdatePayload(
@@ -87,35 +84,58 @@ export function buildAngularCourseGroupUpdatePayload(
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  return buildAngularCourseGroupPayload(data, existing, courseGroupId)
+  return buildAngularCourseGroupPayload(data, existing, courseGroupId);
 }
 
 export function buildAngularCourseGroupCreatePayload(
   data: WriteInput,
 ): Record<string, unknown> {
-  return buildAngularCourseGroupPayload(data)
+  return buildAngularCourseGroupPayload(data);
 }
 
-/** Angular CourseYear (Semester) modal update body — flat camelCase fields + courseYearId in body. */
+/** Angular CourseYear (Semester) modal body — flat camelCase fields; update includes courseYearId. */
+function buildAngularCourseYearPayload(
+  data: WriteInput,
+  existing?: object,
+  courseYearId?: number,
+): Record<string, unknown> {
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
+
+  const payload: Record<string, unknown> = {
+    universityId: asFiniteNumber(data.universityId, prior?.universityId),
+    courseId: asFiniteNumber(data.courseId, prior?.courseId),
+    yearNo: asFiniteNumber(data.yearNo, prior?.yearNo ?? 1),
+    semNo: asFiniteNumber(data.semNo, prior?.semNo),
+    sortOrder: asFiniteNumber(data.sortOrder, prior?.sortOrder),
+    courseYearCode: asString(data.courseYearCode ?? prior?.courseYearCode),
+    courseYearName: asString(data.courseYearName ?? prior?.courseYearName),
+    feeLabel: asString(data.feeLabel ?? prior?.feeLabel),
+    minFeePercent: asFiniteNumber(data.minFeePercent, prior?.minFeePercent),
+    isFeeYear: Boolean(data.isFeeYear ?? prior?.isFeeYear),
+    isActive,
+    reason,
+  };
+
+  if (courseYearId != null) {
+    payload.courseYearId = courseYearId;
+  }
+
+  return payload;
+}
+
 export function buildAngularCourseYearUpdatePayload(
   courseYearId: number,
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
+  return buildAngularCourseYearPayload(data, existing, courseYearId);
+}
 
-  return {
-    universityId: asFiniteNumber(data.universityId, prior?.universityId),
-    courseId: asFiniteNumber(data.courseId, prior?.courseId),
-    yearNo: asFiniteNumber(data.yearNo, prior?.yearNo ?? 1),
-    sortOrder: asFiniteNumber(data.sortOrder, prior?.sortOrder),
-    courseYearCode: asString(data.courseYearCode ?? prior?.courseYearCode),
-    courseYearName: asString(data.courseYearName ?? prior?.courseYearName),
-    isActive,
-    reason,
-    courseYearId,
-  }
+export function buildAngularCourseYearCreatePayload(
+  data: WriteInput,
+): Record<string, unknown> {
+  return buildAngularCourseYearPayload(data);
 }
 
 /** Angular GroupSection modal update body — flat camelCase fields + groupSectionId in body. */
@@ -124,8 +144,8 @@ export function buildAngularGroupSectionUpdatePayload(
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
 
   return {
     collegeId: asFiniteNumber(data.collegeId, prior?.collegeId),
@@ -134,12 +154,18 @@ export function buildAngularGroupSectionUpdatePayload(
     courseGroupId: asFiniteNumber(data.courseGroupId, prior?.courseGroupId),
     courseYearId: asFiniteNumber(data.courseYearId, prior?.courseYearId),
     // Backend (Angular) uses `section` field for create/update.
-    section: asString(data.section ?? data.groupSectionName ?? data.groupSectionCode ?? prior?.section ?? prior?.groupSectionName),
+    section: asString(
+      data.section ??
+        data.groupSectionName ??
+        data.groupSectionCode ??
+        prior?.section ??
+        prior?.groupSectionName,
+    ),
     sortOrder: asFiniteNumber(data.sortOrder, prior?.sortOrder),
     isActive,
     reason,
     groupSectionId,
-  }
+  };
 }
 
 /** Angular GroupSection modal create body — flat camelCase fields + `section`. */
@@ -147,8 +173,8 @@ export function buildAngularGroupSectionCreatePayload(
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
 
   return {
     collegeId: asFiniteNumber(data.collegeId, prior?.collegeId),
@@ -156,11 +182,17 @@ export function buildAngularGroupSectionCreatePayload(
     courseId: asFiniteNumber(data.courseId, prior?.courseId),
     courseGroupId: asFiniteNumber(data.courseGroupId, prior?.courseGroupId),
     courseYearId: asFiniteNumber(data.courseYearId, prior?.courseYearId),
-    section: asString(data.section ?? data.groupSectionName ?? data.groupSectionCode ?? prior?.section ?? prior?.groupSectionName),
+    section: asString(
+      data.section ??
+        data.groupSectionName ??
+        data.groupSectionCode ??
+        prior?.section ??
+        prior?.groupSectionName,
+    ),
     sortOrder: asFiniteNumber(data.sortOrder, prior?.sortOrder),
     isActive,
     reason,
-  }
+  };
 }
 
 /** Angular Batch modal update body — flat camelCase fields + batchId in body. */
@@ -169,8 +201,8 @@ export function buildAngularBatchUpdatePayload(
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
 
   return {
     collegeId: asFiniteNumber(data.collegeId, prior?.collegeId),
@@ -178,36 +210,52 @@ export function buildAngularBatchUpdatePayload(
     courseId: asFiniteNumber(data.courseId, prior?.courseId),
     regulationId: asFiniteNumber(data.regulationId, prior?.regulationId),
     // Angular APIs vary: some expect fromDate/toDate, others batchFrom/batchTo.
-    fromDate: asString(data.fromDate ?? data.batchFrom ?? prior?.fromDate ?? prior?.batchFrom),
-    toDate: asString(data.toDate ?? data.batchTo ?? prior?.toDate ?? prior?.batchTo),
-    batchFrom: asString(data.batchFrom ?? data.fromDate ?? prior?.batchFrom ?? prior?.fromDate),
-    batchTo: asString(data.batchTo ?? data.toDate ?? prior?.batchTo ?? prior?.toDate),
+    fromDate: asString(
+      data.fromDate ?? data.batchFrom ?? prior?.fromDate ?? prior?.batchFrom,
+    ),
+    toDate: asString(
+      data.toDate ?? data.batchTo ?? prior?.toDate ?? prior?.batchTo,
+    ),
+    batchFrom: asString(
+      data.batchFrom ?? data.fromDate ?? prior?.batchFrom ?? prior?.fromDate,
+    ),
+    batchTo: asString(
+      data.batchTo ?? data.toDate ?? prior?.batchTo ?? prior?.toDate,
+    ),
     batchName: asString(data.batchName ?? prior?.batchName),
     batchCode: asString(data.batchCode ?? prior?.batchCode),
     isActive,
     reason,
     batchId,
-  }
+  };
 }
 
 export function buildAngularBatchCreatePayload(
   data: WriteInput,
   existing?: object,
 ): Record<string, unknown> {
-  const prior = existing as WriteInput | undefined
-  const { isActive, reason } = activeReason(data, existing)
+  const prior = existing as WriteInput | undefined;
+  const { isActive, reason } = activeReason(data, existing);
   return {
     collegeId: asFiniteNumber(data.collegeId, prior?.collegeId),
     universityId: asFiniteNumber(data.universityId, prior?.universityId),
     courseId: asFiniteNumber(data.courseId, prior?.courseId),
     regulationId: asFiniteNumber(data.regulationId, prior?.regulationId),
-    fromDate: asString(data.fromDate ?? data.batchFrom ?? prior?.fromDate ?? prior?.batchFrom),
-    toDate: asString(data.toDate ?? data.batchTo ?? prior?.toDate ?? prior?.batchTo),
-    batchFrom: asString(data.batchFrom ?? data.fromDate ?? prior?.batchFrom ?? prior?.fromDate),
-    batchTo: asString(data.batchTo ?? data.toDate ?? prior?.batchTo ?? prior?.toDate),
+    fromDate: asString(
+      data.fromDate ?? data.batchFrom ?? prior?.fromDate ?? prior?.batchFrom,
+    ),
+    toDate: asString(
+      data.toDate ?? data.batchTo ?? prior?.toDate ?? prior?.batchTo,
+    ),
+    batchFrom: asString(
+      data.batchFrom ?? data.fromDate ?? prior?.batchFrom ?? prior?.fromDate,
+    ),
+    batchTo: asString(
+      data.batchTo ?? data.toDate ?? prior?.batchTo ?? prior?.toDate,
+    ),
     batchName: asString(data.batchName ?? prior?.batchName),
     batchCode: asString(data.batchCode ?? prior?.batchCode),
     isActive,
     reason,
-  }
+  };
 }

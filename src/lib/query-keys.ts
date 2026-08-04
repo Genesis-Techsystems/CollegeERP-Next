@@ -632,6 +632,21 @@ export const QK = {
         : (["HrPayroll", "employeeReporting"] as const),
     employeeDetail: (employeeId: number) =>
       ["HrPayroll", "employeeDetail", employeeId] as const,
+    /** Angular `staff-faculty-details/faculty-details` list */
+    hodFacultyDetails: (
+      mode: "active" | "resigned",
+      collegeId: string,
+      departmentId: string,
+      isPrincipal: boolean,
+    ) =>
+      [
+        "HrPayroll",
+        "hodFacultyDetails",
+        mode,
+        collegeId,
+        departmentId,
+        isPrincipal,
+      ] as const,
     performanceAssessment: (employeeId?: number) =>
       employeeId != null
         ? (["HrPayroll", "performanceAssessment", employeeId] as const)
@@ -1259,6 +1274,8 @@ export const QK = {
   staffSuggestions: {
     all: ["StaffSuggestions"] as const,
     byUser: (userId: number) => ["StaffSuggestions", "byUser", userId] as const,
+    byOrganization: (organizationId: number) =>
+      ["StaffSuggestions", "byOrganization", organizationId] as const,
     lookup: () => ["StaffSuggestions", "lookup"] as const,
   },
   studentSurveyFeedback: {
@@ -1279,6 +1296,18 @@ export const QK = {
       ["EmployeeSurveyFeedback", "hods", collegeId, empDeptId] as const,
     reportingManagers: (employeeId: number) =>
       ["EmployeeSurveyFeedback", "reportingManagers", employeeId] as const,
+  },
+
+  /** Angular `feedback/masters/option-group` — FbOptionGroup. */
+  fbOptionGroups: {
+    all: ["FbOptionGroup"] as const,
+    list: () => ["FbOptionGroup", "list"] as const,
+  },
+
+  /** Angular `feedback/masters/option-choices` — FbOptionchoice. */
+  fbOptionChoices: {
+    all: ["FbOptionchoice"] as const,
+    list: () => ["FbOptionchoice", "list"] as const,
   },
 
   /** Angular `principal-my-approvals/leave-applications` + `tc-no-due-approvals`. */

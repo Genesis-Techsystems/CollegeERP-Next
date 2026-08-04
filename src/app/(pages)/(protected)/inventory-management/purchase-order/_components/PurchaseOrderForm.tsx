@@ -631,6 +631,7 @@ export function PurchaseOrderForm({ poId }: Props) {
       if (showIndent && indentId)
         payload.invInternalIndentIds = String(indentId);
 
+      // Multipart: `data` = JSON body; optional file parts (required=false)
       // Angular: poRefFileDoc1 = Comparative Statement, poRefFileDoc2 = P.O. Ref File 1
       await createPurchaseOrderMultipart(payload, {
         poRefFileDoc1: comparativeFile,

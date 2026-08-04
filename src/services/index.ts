@@ -174,6 +174,8 @@ export * from "./mentorship";
 export * from "./events";
 export * from "./student-fee";
 export * from "./student-grievance";
+export * from "./feedback-option-group";
+export * from "./feedback-option-choice";
 export * from "./fee-masters";
 export * from "./fees-collection";
 export * from "./email-sms";
@@ -249,6 +251,10 @@ export {
   leaveApplicationDateYmd,
   toLeaveYmd,
   toLeaveSlashYmd,
+  getLeaveSummaryFilters,
+  searchEmployeesForLeaveSummary,
+  getEmpLeaveSummaryReport,
+  downloadEmpLeaveSummaryReport,
 } from "./staff-faculty-leaves";
 // tConvert omitted — conflicts with staff-dashboard (same helper).
 export {

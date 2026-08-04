@@ -74,9 +74,10 @@ type CourseGroupRow = FeeStructureCourseGroupSelection & {
 type ParticularDraft = {
   feeCategoryId: number | null;
   feeParticularsId: number | null;
-  feeAmount: number;
-  priority: number;
-  lateralFeeAmount: number;
+  /** `""` while clearing — `Number("")` is 0 and would trap the input. */
+  feeAmount: number | "";
+  priority: number | "";
+  lateralFeeAmount: number | "";
 };
 
 type InitialQuery = {
@@ -328,12 +329,13 @@ function YearParticularsPanel({
               <Input
                 type="number"
                 value={particularDraft.feeAmount}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const raw = e.target.value;
                   setParticularDraft((prev) => ({
                     ...prev,
-                    feeAmount: Number(e.target.value) || 0,
-                  }))
-                }
+                    feeAmount: raw === "" ? "" : Number(raw),
+                  }));
+                }}
               />
             </div>
             <div className="w-28 space-y-1.5">
@@ -341,12 +343,13 @@ function YearParticularsPanel({
               <Input
                 type="number"
                 value={particularDraft.priority}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const raw = e.target.value;
                   setParticularDraft((prev) => ({
                     ...prev,
-                    priority: Number(e.target.value) || 0,
-                  }))
-                }
+                    priority: raw === "" ? "" : Number(raw),
+                  }));
+                }}
               />
             </div>
             {showLateralAmount ? (
@@ -355,12 +358,13 @@ function YearParticularsPanel({
                 <Input
                   type="number"
                   value={particularDraft.lateralFeeAmount}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const raw = e.target.value;
                     setParticularDraft((prev) => ({
                       ...prev,
-                      lateralFeeAmount: Number(e.target.value) || 0,
-                    }))
-                  }
+                      lateralFeeAmount: raw === "" ? "" : Number(raw),
+                    }));
+                  }}
                 />
               </div>
             ) : null}

@@ -50,39 +50,35 @@ function dedupeBy<T>(rows: T[], keyFn: (row: T) => number): T[] {
   return out;
 }
 
-/** Like Angular map/filter dedupe — keeps first row per key (including 0 / empty). */
-function dedupeByKey<T>(rows: T[], keyFn: (row: T) => string): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const r of rows) {
-    const k = keyFn(r);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(r);
-  }
-  return out;
-}
-
-/** Angular always uses `result[0]` (not the first non-empty group). */
+/**
+ * Angular: `examCenterDetails = result.data.result[0]` when that element is a row[].
+ * If the proc returns a flat row[], `mapProcResultGroups` wraps each as `[row]` —
+ * taking only `groups[0]` keeps one row and drops other centers/colleges.
+ */
 function resultGroup0(groups: AnyRow[][]): AnyRow[] {
-  return Array.isArray(groups[0]) ? groups[0] : [];
+  if (!groups.length) return [];
+  if (groups.length === 1) return groups[0] ?? [];
+  const allSingletons = groups.every((g) => g.length <= 1);
+  if (allSingletons) return groups.flat();
+  return groups[0] ?? [];
 }
 
-function collegeKey(r: Row): string {
-  const id = num(r.fk_college_id ?? r.college_id);
-  if (id > 0) return `id:${id}`;
-  const code = txt(r.college_code);
-  if (code) return `code:${code}`;
-  return `row:${txt(r.fk_univ_ec_college_id) || txt(r.examcenter_code)}`;
-}
-
-/** Angular college dropdown options — rows with a real college id/code only. */
-function collegesFromCenterRows(rows: Row[]): Row[] {
-  const withCollege = rows.filter(
-    (r) =>
-      num(r.fk_college_id ?? r.college_id) > 0 || Boolean(txt(r.college_code)),
+function collegeIdOf(r: Row): number {
+  return num(
+    r.fk_college_id ??
+      r.college_id ??
+      r.collegeId ??
+      r.fkCollegeId ??
+      r.FK_COLLEGE_ID,
   );
-  return dedupeByKey(withCollege, collegeKey);
+}
+
+/** Colleges with a real `fk_college_id` — deduped (Angular dropdown values). */
+function collegesFromCenterRows(rows: Row[]): Row[] {
+  return dedupeBy(
+    rows.filter((r) => collegeIdOf(r) > 0),
+    (r) => collegeIdOf(r),
+  );
 }
 
 function makeEditRenderer(onEdit: (row: Row) => void) {
@@ -162,10 +158,10 @@ export default function ExamCenterCoursesPage() {
     () =>
       examCentersCollegesList
         .map((c) => {
-          const id = num(c.fk_college_id ?? c.college_id);
+          const id = collegeIdOf(c);
           return {
             value: String(id),
-            label: txt(c.college_code) || String(id),
+            label: txt(c.college_code ?? c.collegeCode) || String(id),
           };
         })
         .filter((o) => o.value !== "0" && o.value !== ""),
@@ -193,10 +189,11 @@ export default function ExamCenterCoursesPage() {
       univExamCenters.find((x) => num(x.fk_univ_ec_id) === univExamcenterId)
         ?.examcenter_code,
     );
+    const collegeRow = examCentersCollegesList.find(
+      (x) => collegeIdOf(x) === univEcCollegeId,
+    );
     const examCenterCollege = txt(
-      examCentersCollegesList.find(
-        (x) => num(x.fk_college_id) === univEcCollegeId,
-      )?.college_code,
+      collegeRow?.college_code ?? collegeRow?.collegeCode,
     );
     const examGroup = txt(
       examGroups.find((x) => num(x.fk_univ_exam_group_id) === examGroupId)
@@ -307,7 +304,15 @@ export default function ExamCenterCoursesPage() {
         flagType: "REGSUP",
         angularCoursesPayload: true,
       });
-      const details = resultGroup0(groups);
+      // Prefer result[0]; if it has no college ids, use all groups (some envs split them)
+      const group0 = resultGroup0(groups);
+      const flat = groups.flat();
+      const details =
+        collegesFromCenterRows(group0).length > 0
+          ? group0
+          : flat.length > 0
+            ? flat
+            : group0;
       setExamCenterDetails(details);
       const centers = dedupeBy(details, (r) => num(r.fk_univ_ec_id));
       setUnivExamCenters(centers);
@@ -337,8 +342,9 @@ export default function ExamCenterCoursesPage() {
   }, [loadExamCenters]);
 
   /**
-   * Angular `selectedExamCenter` — reset college, derive colleges + exam groups
-   * from `examCenterDetails`, then cascade into `selectedExamCentersColleges`.
+   * Angular `selectedExamCenter` — pick colleges for center, auto-select first
+   * real `fk_college_id`, then first exam group. Regulations API waits until
+   * college id is set (never call with `in_college_id=undefined`).
    */
   useEffect(() => {
     if (!univExamcenterId) {
@@ -355,41 +361,32 @@ export default function ExamCenterCoursesPage() {
     );
     const colleges = collegesFromCenterRows(forCenter);
     setExamCentersCollegesList(colleges);
-    const firstCollegeId = colleges[0]
-      ? num(colleges[0].fk_college_id ?? colleges[0].college_id)
-      : null;
-    setUnivEcCollegeId(
-      firstCollegeId && firstCollegeId > 0 ? firstCollegeId : null,
-    );
+    const firstCollegeId = colleges[0] ? collegeIdOf(colleges[0]) : 0;
+    setUnivEcCollegeId(firstCollegeId > 0 ? firstCollegeId : null);
 
-    // Angular only continues cascade when ExamCentersCollegesList.length > 0
-    if (!firstCollegeId || firstCollegeId <= 0) {
-      const groups = dedupeBy(forCenter, (r) => num(r.fk_univ_exam_group_id));
-      setExamGroups(groups);
-      setExamGroupId(groups[0] ? num(groups[0].fk_univ_exam_group_id) : null);
-      return;
-    }
-
-    const groupRows = forCenter.filter(
-      (x) => num(x.fk_college_id ?? x.college_id) === firstCollegeId,
-    );
-    const groups = dedupeBy(groupRows, (r) => num(r.fk_univ_exam_group_id));
+    const groupSource =
+      firstCollegeId > 0
+        ? forCenter.filter((x) => collegeIdOf(x) === firstCollegeId)
+        : forCenter;
+    const groups = dedupeBy(groupSource, (r) => num(r.fk_univ_exam_group_id));
     setExamGroups(groups);
     setExamGroupId(groups[0] ? num(groups[0].fk_univ_exam_group_id) : null);
   }, [univExamcenterId, examCenterDetails]);
 
   /** Angular `selectedExamCentersColleges` — refresh exam groups when college changes */
   useEffect(() => {
-    if (!univExamcenterId || univEcCollegeId == null || univEcCollegeId <= 0) {
+    if (!univExamcenterId || !univEcCollegeId || univEcCollegeId <= 0) {
       return;
     }
     const forCenter = examCenterDetails.filter(
       (x) => num(x.fk_univ_ec_id) === univExamcenterId,
     );
     const groupRows = forCenter.filter(
-      (x) => num(x.fk_college_id ?? x.college_id) === univEcCollegeId,
+      (x) => collegeIdOf(x) === univEcCollegeId,
     );
-    const groups = dedupeBy(groupRows, (r) => num(r.fk_univ_exam_group_id));
+    const groups = dedupeBy(groupRows.length > 0 ? groupRows : forCenter, (r) =>
+      num(r.fk_univ_exam_group_id),
+    );
     setExamGroups(groups);
     setExamGroupId((prev) => {
       if (prev && groups.some((g) => num(g.fk_univ_exam_group_id) === prev)) {
@@ -400,8 +397,9 @@ export default function ExamCenterCoursesPage() {
   }, [univExamcenterId, univEcCollegeId, examCenterDetails]);
 
   /**
-   * Angular `selectedExamGroup` — GET `exam_center_clg_filters` whenever center /
-   * college / exam group cascade settles (same proc + param order as Angular).
+   * Call `exam_center_clg_filters` with the **selected** college id only.
+   * If none selected yet: discover colleges (`in_college_id=0`), auto-select
+   * the first, then this effect re-runs and sends that id in the payload.
    */
   useEffect(() => {
     if (!univExamcenterId || !examGroupId) {
@@ -413,27 +411,47 @@ export default function ExamCenterCoursesPage() {
     async function loadRegulations() {
       setLoadingRegulations(true);
       try {
-        // Angular selectedExamGroup — in_college_id from form (undefined when empty)
+        const selectedCollegeId =
+          univEcCollegeId != null && univEcCollegeId > 0 ? univEcCollegeId : 0;
+
+        // Step 1 — no college selected in state: discover, then select first
+        if (selectedCollegeId <= 0) {
+          const discovered = await getExamCenterClgFiltersForCourses({
+            univExamcenterId: univExamcenterId!,
+            collegeId: 0,
+            examGroupId: examGroupId!,
+          });
+          if (cancelled) return;
+          const collegeRows = collegesFromCenterRows(discovered.groups.flat());
+          if (collegeRows.length > 0) {
+            const firstId = collegeIdOf(collegeRows[0]);
+            setExamCentersCollegesList(collegeRows);
+            setUnivEcCollegeId(firstId);
+            // Effect re-runs with selectedCollegeId → Step 2 sends that id
+            return;
+          }
+          setExamCentersCollegesList([]);
+          setRegulations([]);
+          setRegulationId(null);
+          if (discovered.message) {
+            if (discovered.success) toastInfo(discovered.message);
+            else toastError(discovered.message);
+          }
+          return;
+        }
+
+        // Step 2 — send the UI-selected college id in the payload
         const { groups, message, success } =
           await getExamCenterClgFiltersForCourses({
             univExamcenterId: univExamcenterId!,
-            collegeId:
-              univEcCollegeId && univEcCollegeId > 0 ? univEcCollegeId : null,
+            collegeId: selectedCollegeId,
             examGroupId: examGroupId!,
           });
         if (cancelled) return;
         const rows = resultGroup0(groups);
-        const collegesFromApi = collegesFromCenterRows(rows);
-        if (collegesFromApi.length > 0) {
-          setExamCentersCollegesList(collegesFromApi);
-          if (!univEcCollegeId || univEcCollegeId <= 0) {
-            setUnivEcCollegeId(
-              num(
-                collegesFromApi[0].fk_college_id ??
-                  collegesFromApi[0].college_id,
-              ),
-            );
-          }
+        const collegeRows = collegesFromCenterRows(groups.flat());
+        if (collegeRows.length > 0) {
+          setExamCentersCollegesList(collegeRows);
         }
         const regs = dedupeBy(rows, (r) => num(r.fk_regulation_id));
         setRegulations(regs);
@@ -441,7 +459,6 @@ export default function ExamCenterCoursesPage() {
           setRegulationId(num(regs[0].fk_regulation_id));
         } else {
           setRegulationId(null);
-          // Angular: statusCode 200 → snotify success(message); else error(message)
           if (success) {
             if (message) toastInfo(message);
           } else if (message) {
@@ -513,9 +530,8 @@ export default function ExamCenterCoursesPage() {
     );
     if (checked) {
       const univEcCollegePk = num(
-        examCentersCollegesList.find(
-          (x) => num(x.fk_college_id) === univEcCollegeId,
-        )?.fk_univ_ec_college_id,
+        examCentersCollegesList.find((x) => collegeIdOf(x) === univEcCollegeId)
+          ?.fk_univ_ec_college_id,
       );
       setSelectedSubjects((arr) => [
         ...arr.filter((s) => num(s.subjectId) !== subjectId),
@@ -558,13 +574,12 @@ export default function ExamCenterCoursesPage() {
     setSearchText1("");
     setSearchText2("");
     try {
-      // Angular selectedRegulation — in_college_id=undefined when college empty
+      // Get List — send selected college id (required for this cascade)
       const groups = await getExamCenterByCodeGroups({
         flag: "ec_grp_yr_subjects",
         flagType: "REGSUP",
         univExamcenterId,
-        collegeId:
-          univEcCollegeId && univEcCollegeId > 0 ? univEcCollegeId : null,
+        collegeId: univEcCollegeId,
         examGroupId,
         regulationId: regulationId && regulationId > 0 ? regulationId : "",
         angularCoursesPayload: true,

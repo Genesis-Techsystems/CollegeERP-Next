@@ -281,7 +281,7 @@ export default function QuestionBankPage() {
           >
             <a href="/assets/docs/QuestionSheet_bulk_upload.xlsx" download>
               <DownloadIcon className="h-4 w-4 mr-1" />
-              Template
+              sample template
             </a>
           </Button>
           <Button

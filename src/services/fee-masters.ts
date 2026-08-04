@@ -524,13 +524,14 @@ export async function listCourseYearsForFeeStructure(
   const filtered = isLateral
     ? rows.filter((r) => Number(r.yearNo ?? 0) !== 1)
     : rows;
-  const tabs: FeeStructureCourseYearTab[] = [];
-  for (const row of filtered) {
+  // Angular shows every CourseYear row (do not dedupe by yearNo — multiple
+  // fee years can share yearNo, e.g. "1st Sem…" and "I YEAR I SEM" both yearNo=1).
+  const tabs: FeeStructureCourseYearTab[] = filtered.map((row) => {
     const yearNo = Number(row.yearNo ?? 0);
-    if (tabs.some((t) => t.yearNo === yearNo)) continue;
-    tabs.push({
+    const courseYearId = pickCourseYearId(row);
+    return {
       yearNo,
-      courseYearId: pickCourseYearId(row),
+      courseYearId,
       courseYearName: String(row.courseYearName ?? row.course_year_name ?? ""),
       feeLabel: String(
         row.feeLabel ??
@@ -540,9 +541,11 @@ export async function listCourseYearsForFeeStructure(
       ),
       sortOrder: Number(row.sortOrder ?? yearNo),
       particulars: [],
-    });
-  }
-  return tabs.sort((a, b) => a.sortOrder - b.sortOrder);
+    };
+  });
+  return tabs.sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.courseYearId - b.courseYearId,
+  );
 }
 
 export async function listQuotaOptions() {

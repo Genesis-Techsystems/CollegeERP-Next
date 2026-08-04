@@ -63,8 +63,12 @@ export function useStaffLoginContext(
     staleTime: Number.POSITIVE_INFINITY,
   });
 
+  const headsResolved = employeeId <= 0 || !headsLoading;
+  const loginResolved = !ctxLoading;
+
   const mergedCtx: EmployeeLoginContext | null = (() => {
-    if (!loginCtx && !deptHeadMatch?.isHod) return loginCtx ?? null;
+    if (!loginResolved || !headsResolved) return loginCtx ?? null;
+
     const base: EmployeeLoginContext = loginCtx ?? {
       employeeId,
       empDeptId: 0,
@@ -75,7 +79,8 @@ export function useStaffLoginContext(
     const isHod = base.isHod || Boolean(deptHeadMatch?.isHod);
     const empDeptId = positiveId(base.empDeptId, deptHeadMatch?.empDeptId);
     const next = { ...base, employeeId, isHod, empDeptId };
-    if (isHod) syncEmployeeLoginContextToStorage(next);
+    // Always sync after settle — clears stale isHODDashboard from a prior login.
+    if (employeeId > 0) syncEmployeeLoginContextToStorage(next);
     return next;
   })();
 

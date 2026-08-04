@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { ColDef } from "ag-grid-community";
+import type {
+  ColDef,
+  ICellRendererParams,
+  ValueGetterParams,
+} from "ag-grid-community";
 import { Loader2, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import {
@@ -25,49 +29,68 @@ import {
 } from "@/services";
 import type { LibraryFineCollectionRow } from "@/types/library";
 
+type FineRow = LibraryFineCollectionRow & { __isTotal?: boolean };
+
+const TOTAL_CELL_STYLE = { fontWeight: 700 } as const;
+
+function isTotalRow(data: FineRow | undefined | null): boolean {
+  return data?.__isTotal === true;
+}
+
+function totalBoldRenderer(p: ICellRendererParams<FineRow>) {
+  const text = p.value == null || p.value === "" ? "" : String(p.value);
+  if (isTotalRow(p.data)) {
+    return <span className="font-bold">{text}</span>;
+  }
+  return text;
+}
+
 const COL_DEFS = {
   siNo: {
     headerName: "No.",
-    valueGetter: rowIndexGetter,
+    valueGetter: (p: ValueGetterParams<FineRow>) =>
+      isTotalRow(p.data) ? "" : rowIndexGetter(p),
     width: 70,
     flex: 0,
-  } as ColDef<LibraryFineCollectionRow>,
+  } as ColDef<FineRow>,
   rollNumber: {
     field: "Roll_Number",
     headerName: "Roll Number",
     minWidth: 120,
-  } as ColDef<LibraryFineCollectionRow>,
+  } as ColDef<FineRow>,
   studentName: {
     field: "Student_Name",
     headerName: "Student Name",
     minWidth: 160,
-  } as ColDef<LibraryFineCollectionRow>,
+  } as ColDef<FineRow>,
   accessionNo: {
     field: "Accession_No",
     headerName: "Accession No",
     minWidth: 120,
-  } as ColDef<LibraryFineCollectionRow>,
+  } as ColDef<FineRow>,
   employeeName: {
     field: "Employee_Name",
     headerName: "Employee Name",
     minWidth: 140,
-  } as ColDef<LibraryFineCollectionRow>,
+  } as ColDef<FineRow>,
   fineDate: {
     field: "Fine_Collected_Date",
     headerName: "Fine Collected Date",
     minWidth: 140,
-  } as ColDef<LibraryFineCollectionRow>,
+    cellStyle: (p) => (isTotalRow(p.data) ? TOTAL_CELL_STYLE : undefined),
+  } as ColDef<FineRow>,
   fineAmount: {
     field: "Fine_Collected_Amount",
     headerName: "Fine Collected Amount",
     minWidth: 150,
     flex: 0,
-  } as ColDef<LibraryFineCollectionRow>,
+    cellStyle: (p) => (isTotalRow(p.data) ? TOTAL_CELL_STYLE : undefined),
+  } as ColDef<FineRow>,
   fineRemarks: {
     field: "Fine_Remarks",
     headerName: "Fine Remarks",
     minWidth: 140,
-  } as ColDef<LibraryFineCollectionRow>,
+  } as ColDef<FineRow>,
 };
 
 export default function LibraryFineCollectionPage() {
@@ -124,20 +147,6 @@ export default function LibraryFineCollectionPage() {
     [libraries],
   );
 
-  const columnDefs = useMemo<ColDef<LibraryFineCollectionRow>[]>(
-    () => [
-      COL_DEFS.siNo,
-      COL_DEFS.rollNumber,
-      COL_DEFS.studentName,
-      COL_DEFS.accessionNo,
-      COL_DEFS.employeeName,
-      COL_DEFS.fineDate,
-      COL_DEFS.fineAmount,
-      COL_DEFS.fineRemarks,
-    ],
-    [],
-  );
-
   const totalAmount = useMemo(
     () =>
       rows.reduce(
@@ -145,6 +154,33 @@ export default function LibraryFineCollectionPage() {
         0,
       ),
     [rows],
+  );
+
+  /** Angular mat-table footer row — last grid row: label under date, sum under amount. */
+  const tableRows = useMemo<FineRow[]>(() => {
+    if (rows.length === 0) return [];
+    return [
+      ...rows,
+      {
+        __isTotal: true,
+        Fine_Collected_Date: "Total Amount",
+        Fine_Collected_Amount: totalAmount,
+      },
+    ];
+  }, [rows, totalAmount]);
+
+  const columnDefs = useMemo<ColDef<FineRow>[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.rollNumber,
+      COL_DEFS.studentName,
+      COL_DEFS.accessionNo,
+      COL_DEFS.employeeName,
+      { ...COL_DEFS.fineDate, cellRenderer: totalBoldRenderer },
+      { ...COL_DEFS.fineAmount, cellRenderer: totalBoldRenderer },
+      COL_DEFS.fineRemarks,
+    ],
+    [],
   );
 
   function clearResults() {
@@ -264,7 +300,7 @@ export default function LibraryFineCollectionPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      rowData={rows}
+      rowData={tableRows}
       columnDefs={columnDefs}
       loading={loading}
       resultsVisible={rows.length > 0}
@@ -291,13 +327,6 @@ export default function LibraryFineCollectionPage() {
             <Printer className="h-3.5 w-3.5" />
           )}
         </Button>
-      }
-      body={
-        rows.length > 0 ? (
-          <div className="flex justify-end rounded-lg border bg-card px-5 py-3 text-sm shadow-sm">
-            <span className="font-semibold">Total Amount: {totalAmount}</span>
-          </div>
-        ) : undefined
       }
     />
   );

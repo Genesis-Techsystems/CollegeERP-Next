@@ -338,6 +338,16 @@
     "route": "/principal-my-approvals/leave-applications"
   },
   {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "staff-faculty-details"
+  },
+  {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "faculty-details"
+  },
+  {
     "label": "leave approvals",
     "route": "/principal-my-approvals/leave-applications"
   },

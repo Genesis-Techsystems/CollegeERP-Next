@@ -1,96 +1,89 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { FileSpreadsheet, UploadIcon, X } from 'lucide-react'
-import { FileDropzone } from '@/common/components/forms'
-import { FilteredPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { uploadUnitTopicsFile } from '@/services'
+import { useRef, useState } from "react";
+import { FilteredPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { uploadUnitTopicsFile } from "@/services";
 
 export default function UnitTopicBulkUploadPage() {
-  const [uploading, setUploading] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-
-  const selectedFileName = selectedFile?.name ?? ''
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   function clearSelectedFile() {
-    setSelectedFile(null)
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setSelectedFile(e.target.files?.[0] ?? null);
   }
 
   async function onUpload() {
-    const file = selectedFile
+    const file = selectedFile;
     if (!file) {
-      toastError(new Error('Please choose a file.'), 'Unit Topic Bulk Upload')
-      return
+      toastError(new Error("Please choose a file."), "Unit Topic Bulk Upload");
+      return;
     }
 
-    setUploading(true)
+    setUploading(true);
     try {
-      const summary = await uploadUnitTopicsFile(file)
-      const totalUnits = Number(summary.totalUnitsUploaded ?? 0)
-      const totalUnitTopics = Number(summary.totalUnitTopicsUploaded ?? 0)
-      toastSuccess(`Total Units - ${totalUnits} and Total UnitTopics - ${totalUnitTopics}`)
-      clearSelectedFile()
+      const summary = await uploadUnitTopicsFile(file);
+      const totalUnits = Number(summary.totalUnitsUploaded ?? 0);
+      const totalUnitTopics = Number(summary.totalUnitTopicsUploaded ?? 0);
+      toastSuccess(
+        `Total Units - ${totalUnits} and Total UnitTopics - ${totalUnitTopics}`,
+      );
+      clearSelectedFile();
     } catch (err) {
-      toastError(err, 'Unit Topic Bulk Upload failed')
+      toastError(err, "Unit Topic Bulk Upload failed");
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
   }
 
   return (
-    <FilteredPage title="Unit Topic Bulk Upload" filtersCollapsible={false} filters={<span className="sr-only">Upload</span>}>
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-2 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">Unit Topic Bulk Upload</h2>
+    <FilteredPage
+      title="Unit Topic Bulk Upload"
+      filters={
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor="unit-topic-bulk-file"
+            className="text-sm font-medium text-slate-700 shrink-0"
+          >
+            Upload Unit Topics :
+          </label>
+          <input
+            id="unit-topic-bulk-file"
+            ref={fileInputRef}
+            type="file"
+            accept=".xls,.xlsx"
+            onChange={handleFileChange}
+            className="w-fit max-w-full text-sm bg-transparent border-0 p-0 shadow-none outline-none
+              file:mr-2 file:cursor-pointer
+              file:rounded-sm file:border file:border-slate-400
+              file:bg-gradient-to-b file:from-[#f0f0f0] file:to-[#e3e3e3]
+              file:px-3 file:py-1 file:text-sm file:font-normal file:text-slate-800
+              file:shadow-none"
+          />
+          <Button
+            type="button"
+            onClick={() => void onUpload()}
+            disabled={uploading}
+          >
+            {uploading ? "Uploading..." : "Upload"}
+          </Button>
+          <Button
+            asChild
+            className="bg-[#ffcf46] text-slate-900 hover:bg-[#f5c434]"
+          >
+            <a href="/assets/docs/Subject_UnitTopic_bulk_upload.xlsx" download>
+              Download Sample XLSX
+            </a>
+          </Button>
         </div>
-
-        <div className="px-4 py-3">
-          <div className="border border-border rounded-lg p-3 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-slate-700">Upload Unit Topics :</p>
-              <a
-                href="/assets/docs/Subject_UnitTopic_bulk_upload.xlsx"
-                download
-                className="text-xs text-[hsl(var(--primary))] hover:underline whitespace-nowrap"
-              >
-                Download Sample XLSX
-              </a>
-            </div>
-            <div className="space-y-3">
-              <FileDropzone
-                accept=".xls,.xlsx"
-                onFilesChange={(files) => setSelectedFile(files[0] ?? null)}
-              >
-                <p className="text-xs text-slate-700">Drag and drop XLS/XLSX file here, or click to select</p>
-              </FileDropzone>
-              {selectedFileName ? (
-                <div className="mt-2 inline-flex max-w-full items-center rounded-md border border-dashed border-input bg-muted/40 px-2.5 py-1.5">
-                  <div className="min-w-0 inline-flex items-center gap-1.5">
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs text-slate-700 truncate">{selectedFileName}</p>
-                    <button
-                      type="button"
-                      onClick={clearSelectedFile}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-slate-200 hover:text-slate-700 shrink-0"
-                      aria-label="Delete selected file"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <div className="pt-3 flex justify-end">
-                <Button type="button" className="w-full md:w-40" onClick={() => void onUpload()} disabled={uploading}>
-                  <UploadIcon className="h-4 w-4 mr-1.5" />
-                  {uploading ? 'Uploading...' : 'Upload'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </FilteredPage>
-  )
+      }
+    />
+  );
 }
