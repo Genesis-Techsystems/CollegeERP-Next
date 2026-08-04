@@ -459,38 +459,29 @@ export function InternalIssueForm({
                       {fieldErrors.items}
                     </p>
                   ) : null}
-
-                  <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 min-w-[6rem]"
-                      onClick={() => router.push(listPath)}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      type="button"
-                      className="h-9 min-w-[6rem]"
-                      onClick={() => saveMutation.mutate()}
-                      disabled={saveMutation.isPending || loadingExisting}
-                    >
-                      {saveMutation.isPending ? "Saving…" : "Save"}
-                    </Button>
-                  </div>
                 </div>
-              ) : (
-                <div className="flex justify-end border-t border-border pt-4">
+              ) : null}
+
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 min-w-[6rem]"
+                  onClick={() => router.push(listPath)}
+                >
+                  Back
+                </Button>
+                {itemList.length > 0 ? (
                   <Button
                     type="button"
-                    variant="outline"
                     className="h-9 min-w-[6rem]"
-                    onClick={() => router.push(listPath)}
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending || loadingExisting}
                   >
-                    Back
+                    {saveMutation.isPending ? "Saving…" : "Save"}
                   </Button>
-                </div>
-              )}
+                ) : null}
+              </div>
             </>
           )}
         </div>

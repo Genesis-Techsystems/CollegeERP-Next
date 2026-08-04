@@ -393,9 +393,12 @@ export function BooksPage() {
   async function handleGenerateBarcode() {
     setGeneratingBarcode(true);
     try {
-      const generated = await generateBooksBarcode();
-      if (!generated) return;
-      toastSuccess("Book barcode generated successfully");
+      const result = await generateBooksBarcode();
+      if (!result.success) {
+        toastError(result.message);
+        return;
+      }
+      toastSuccess(result.message);
     } catch (e) {
       toastError(e, "Could not generate book barcodes");
     } finally {

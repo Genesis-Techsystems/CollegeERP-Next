@@ -1785,14 +1785,12 @@ function examCenterCoursesByCodeParams(args: {
   academicYearId?: number;
   universityId?: number;
 }): Record<string, string | number> {
-  // Angular form empty → literal "undefined"; initial load uses numeric 0.
-  // Callers pass `null` for empty form, omit / `0` for initial-load zeros.
-  let collegeId: string | number = 0;
-  if (args.collegeId === null) {
-    collegeId = "undefined";
-  } else if (args.collegeId != null && Number(args.collegeId) > 0) {
-    collegeId = Number(args.collegeId);
-  }
+  // Always send a numeric college id. The literal string "undefined" (Angular
+  // empty-form quirk) causes Spring 500 / Internal Server error on this proc.
+  const collegeId =
+    args.collegeId != null && Number(args.collegeId) > 0
+      ? Number(args.collegeId)
+      : 0;
   const regulationId =
     args.regulationId === ""
       ? ""
@@ -1905,13 +1903,17 @@ export async function getExamCenterClgFiltersForCourses(args: {
   collegeId?: number | null;
   examGroupId: number;
 }): Promise<{ groups: AnyRow[][]; message: string; success: boolean }> {
+  const collegeId =
+    args.collegeId != null && Number(args.collegeId) > 0
+      ? Number(args.collegeId)
+      : 0;
   const envelope = await getAllRecordsEnvelope<{ result?: unknown }>(
     UNIV_EXAM_CENTER_API.GET_COLLEGE_EXAM_CENTERS,
     examCenterCoursesByCodeParams({
       flag: "exam_center_clg_filters",
       flagType: "REGSUP",
       univExamcenterId: args.univExamcenterId,
-      collegeId: args.collegeId,
+      collegeId,
       examGroupId: args.examGroupId,
     }),
   );

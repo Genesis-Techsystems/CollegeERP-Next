@@ -1281,6 +1281,18 @@ export const QK = {
       ["EmployeeSurveyFeedback", "reportingManagers", employeeId] as const,
   },
 
+  /** Angular `feedback/masters/option-group` — FbOptionGroup. */
+  fbOptionGroups: {
+    all: ["FbOptionGroup"] as const,
+    list: () => ["FbOptionGroup", "list"] as const,
+  },
+
+  /** Angular `feedback/masters/option-choices` — FbOptionchoice. */
+  fbOptionChoices: {
+    all: ["FbOptionchoice"] as const,
+    list: () => ["FbOptionchoice", "list"] as const,
+  },
+
   /** Angular `principal-my-approvals/leave-applications` + `tc-no-due-approvals`. */
   principalMyApprovals: {
     all: ["PrincipalMyApprovals"] as const,

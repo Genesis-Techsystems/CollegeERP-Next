@@ -318,6 +318,10 @@ export const ENTITIES = {
     name: "FinBudgetMidyearEstimations",
     pk: "finBudgetMidyrEstimationId",
   },
+  // ─── Feedback ────────────────────────────────────────────────────────────────
+  FB_OPTION_GROUP: { name: "FbOptionGroup", pk: "fbOptionGroupId" },
+  /** Angular `FbOptionchoice` / `fbOptionchoiceId` */
+  FB_OPTIONCHOICE: { name: "FbOptionchoice", pk: "fbOptionchoiceId" },
   // ─── University Wallet ─────────────────────────────────────────────────────────
   UNIV_PAYMENT_WALLET: { name: "UnivPaymentWallet", pk: "univPaymentWalletId" },
   UNIV_PAYMENT_WALLET_TXN: {

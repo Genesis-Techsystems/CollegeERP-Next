@@ -124,12 +124,64 @@ export default function BudgetEstimationReportPage() {
 
   function handlePrint() {
     if (!printRef.current) return;
-    printElementInIframe(printRef.current, "Budget Estimations Report");
+    // Angular parity: fit full wide table on the page — no clip / scrollbar.
+    printElementInIframe(printRef.current, "Budget Estimations Report", {
+      extraCss: `
+        html, body, * {
+          overflow: visible !important;
+          max-height: none !important;
+        }
+        @page { margin: 0.5cm; }
+        .budget-estimations-print {
+          width: 100% !important;
+          max-width: 100% !important;
+          padding: 6px !important;
+          box-sizing: border-box;
+        }
+        .budget-estimations-print .overflow-x-auto,
+        .budget-estimations-print .overflow-visible {
+          overflow: visible !important;
+        }
+        .budget-estimations-print table {
+          width: 100% !important;
+          min-width: 0 !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+        }
+        .budget-estimations-print th,
+        .budget-estimations-print td {
+          font-size: 7pt !important;
+          line-height: 1.2 !important;
+          padding: 2px 3px !important;
+          white-space: normal !important;
+          word-wrap: break-word !important;
+          overflow-wrap: anywhere !important;
+          vertical-align: top !important;
+        }
+        .budget-estimations-print img {
+          max-width: 64px !important;
+          max-height: 64px !important;
+        }
+        .budget-estimations-print p {
+          font-size: 14pt !important;
+          margin: 0 !important;
+          line-height: 1.2 !important;
+        }
+        .budget-estimations-print p:first-child {
+          font-size: 16pt !important;
+        }
+        .budget-estimations-print h3 {
+          font-size: 11pt !important;
+          margin: 8px 0 4px !important;
+        }
+      `,
+    });
   }
 
   function handleExportExcel() {
     if (!excelRef.current) return;
-    exportHtmlTableAsExcel(excelRef.current, "Budget Estimations Report");
+    // Angular: link.download = `${this.trafoItem}.xls` (trafoItem = "Budget Estimation Report")
+    exportHtmlTableAsExcel(excelRef.current, "Budget Estimation Report");
   }
 
   return (
@@ -151,13 +203,10 @@ export default function BudgetEstimationReportPage() {
       </div>
 
       {loadKey ? (
-        <div className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
-          Budget Estimations - {selectedData}
-        </div>
-      ) : null}
-
-      {loadKey ? (
         <div className="space-y-3 rounded-lg border bg-card p-4">
+          <p className="text-sm font-semibold text-blue-600">
+            Budget Estimations - {selectedData}
+          </p>
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-[200px] flex-1">
               <SearchInput
@@ -192,6 +241,26 @@ export default function BudgetEstimationReportPage() {
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <div ref={excelRef}>
+              {/* Angular #excelTable hidden title block — included in Export Excel */}
+              <div className="hidden" aria-hidden>
+                <table>
+                  <tbody>
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: "center" }}>
+                        <h3 style={{ fontWeight: 700, margin: 0 }}>
+                          {collegeName}
+                        </h3>
+                        <h5 style={{ fontWeight: 700, margin: "4px 0" }}>
+                          Budget Estimations Report
+                        </h5>
+                        <h6 style={{ fontWeight: 700, margin: 0 }}>
+                          {`BUDGET ESTIMATES FOR THE YEAR ${financialYearLabel} (${entityLabel},${transactionTypeLabel})`}
+                        </h6>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
               <BudgetEstimationsReportTables
                 rows={rows}
                 search={search}
@@ -206,7 +275,10 @@ export default function BudgetEstimationReportPage() {
       {/* Angular print block (outside #printNone): logo + titles + tables */}
       {loadKey && !isFetching ? (
         <div className="pointer-events-none absolute -left-[9999px] top-0 w-[1100px] bg-white text-black">
-          <div ref={printRef} className="bg-white p-4 text-black">
+          <div
+            ref={printRef}
+            className="budget-estimations-print bg-white p-4 text-black"
+          >
             <div className="mb-4 flex items-start gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -237,6 +309,7 @@ export default function BudgetEstimationReportPage() {
               search={search}
               transactionTypeLabel={transactionTypeLabel}
               sectionTypes={sectionTypes}
+              forPrint
             />
           </div>
         </div>
