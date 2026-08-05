@@ -1,5 +1,6 @@
 import {
   buildQuery,
+  clearProcGetCache,
   domainList,
   fetchDetails,
   getAllRecords,
@@ -419,10 +420,48 @@ export async function getGradeMemoIssueResult(params: {
   return { resultRows, gradesRows };
 }
 
+/** Angular complete-exam-process `getFiltersList()` — REGSUP + empty in_sub_flag_type. */
 export async function getCompleteExamProcessFilters(
   employeeId: number,
 ): Promise<AnyRow[]> {
-  return getGradeMemoIssueFilters(employeeId);
+  try {
+    const data = await getAllRecords<{ result: AnyRow[][] }>(
+      "s_get_exam_filters_bycode",
+      {
+        in_flag: "univ_exam_filters",
+        in_flag_type: "REGSUP",
+        in_university_id: 0,
+        in_college_id: 0,
+        in_course_id: 0,
+        in_course_group_id: 0,
+        in_course_year_id: 0,
+        in_exam_id: 0,
+        in_academic_year_id: 0,
+        in_regulation_id: 0,
+        in_subject_id: 0,
+        in_loginuser_empid: employeeId || 0,
+        in_loginuser_roleid: 0,
+        in_sub_flag_type: "",
+        in_param1: 0,
+        in_param2: 0,
+      },
+    );
+    const groups = data?.result ?? [];
+    const picked = firstGroupByFlag(groups, ["univ_exam_filters"]);
+    if (picked.length > 0) return picked;
+    return firstNonEmptyGroup(groups);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * After Angular-parity write pops, drop cached evaluation reads so Multi
+ * Evaluator / Verify Exam Marks Get List hits the network (not a stale
+ * getAllRecords snapshot from before Setup Assignments).
+ */
+function clearCompleteExamProcessCaches(...procNames: string[]): void {
+  for (const name of procNames) clearProcGetCache(name);
 }
 
 /**
@@ -435,6 +474,12 @@ export async function getCompleteExamProcessFilters(
 export async function runCompleteExamSetupAssignments(
   examId: number,
 ): Promise<string> {
+  // Angular AssignmentRun → getevaluatorassignmentUrl /
+  // s_pop_exam_evaluatorassignment?in_flag=popstudentassignment&…
+  clearCompleteExamProcessCaches(
+    "s_pop_exam_evaluatorassignment",
+    "s_get_examevaluation_bycodes",
+  );
   const body = await getAllRecordsEnvelope("s_pop_exam_evaluatorassignment", {
     in_flag: "popstudentassignment",
     in_profileids: "",
@@ -445,12 +490,21 @@ export async function runCompleteExamSetupAssignments(
     in_subject_id: 0,
     in_course_year_id: 0,
   });
+  clearCompleteExamProcessCaches(
+    "s_pop_exam_evaluatorassignment",
+    "s_get_examevaluation_bycodes",
+  );
   return body.message ?? "";
 }
 
 export async function runCompleteExamReEvaluationAssignments(
   examId: number,
 ): Promise<string> {
+  // Angular ReEvaluationAssignmentRun — same pop proc, re_evaluation_assignment_pop.
+  clearCompleteExamProcessCaches(
+    "s_pop_exam_evaluatorassignment",
+    "s_get_examevaluation_bycodes",
+  );
   const body = await getAllRecordsEnvelope("s_pop_exam_evaluatorassignment", {
     in_flag: "re_evaluation_assignment_pop",
     in_profileids: "",
@@ -461,6 +515,10 @@ export async function runCompleteExamReEvaluationAssignments(
     in_subject_id: 0,
     in_course_year_id: 0,
   });
+  clearCompleteExamProcessCaches(
+    "s_pop_exam_evaluatorassignment",
+    "s_get_examevaluation_bycodes",
+  );
   return body.message ?? "";
 }
 
@@ -468,6 +526,9 @@ export async function runCompleteExamFinalizeAction(
   flag: string,
   examId: number,
 ): Promise<string> {
+  // Angular FinaliseEvaluationStatus / FinalisedEvaluationMarks /
+  // finalizeReevaluationStatus / FinalisedReEvaluationMarks.
+  clearCompleteExamProcessCaches("s_pop_exam_evaluationmarksfinalise");
   const body = await getAllRecordsEnvelope(
     "s_pop_exam_evaluationmarksfinalise",
     {
@@ -475,18 +536,25 @@ export async function runCompleteExamFinalizeAction(
       in_examid: examId,
     },
   );
+  clearCompleteExamProcessCaches(
+    "s_pop_exam_evaluationmarksfinalise",
+    "s_get_examevaluation_bycodes",
+  );
   return body.message ?? "";
 }
 
 export async function runCompleteExamFinalizeProfiles(): Promise<string> {
+  // Angular setupCommittes().
+  clearCompleteExamProcessCaches("s_pop_exam_committees");
   const body = await getAllRecordsEnvelope("s_pop_exam_committees", {
     in_flag: "exam_committees",
   });
+  clearCompleteExamProcessCaches("s_pop_exam_committees");
   return body.message ?? "";
 }
 
 /**
- * Angular complete-exam-fee-registration `resultPro()`: any HTTP-200 body is
+ * Angular complete-exam-process `resultPro()`: any HTTP-200 body is
  * treated as completed and `result.message` is surfaced to the user — these
  * pop procs report their outcome via `message`, not the `success` flag.
  * Returns the backend message for the page to toast.
@@ -494,9 +562,11 @@ export async function runCompleteExamFinalizeProfiles(): Promise<string> {
 export async function runCompleteExamResultProcessing(
   examId: number,
 ): Promise<string> {
+  clearCompleteExamProcessCaches("s_pop_exam_resultprocessing_v4");
   const body = await getAllRecordsEnvelope("s_pop_exam_resultprocessing_v4", {
     in_exam_id: examId,
   });
+  clearCompleteExamProcessCaches("s_pop_exam_resultprocessing_v4");
   return body.message ?? "";
 }
 
@@ -504,10 +574,12 @@ export async function runCompleteExamResultProcessing(
 export async function runCompleteExamResultProcessingPublish(
   examId: number,
 ): Promise<string> {
+  clearCompleteExamProcessCaches("s_pop_exam_resultprocessing_publish_v4");
   const body = await getAllRecordsEnvelope(
     "s_pop_exam_resultprocessing_publish_v4",
     { in_exam_id: examId },
   );
+  clearCompleteExamProcessCaches("s_pop_exam_resultprocessing_publish_v4");
   return body.message ?? "";
 }
 
@@ -517,48 +589,42 @@ export type VerifyExamMarksMode =
   | "evaluation"
   | "all";
 
-/** Angular check===1 uses INT; other modes use REGSUP for rest/subject filters. */
-function verifyMarksFlagType(mode: VerifyExamMarksMode): string {
-  return mode === "internal" ? "INT" : "REGSUP";
-}
-
 /**
- * Angular getFiltersList → s_get_exam_filters_bycode
- * flag univ_exam_filters + ALL
+ * Result-processing Angular `getFiltersList` →
+ * `s_get_collegewisedetails_bycode` / `clg_exam_timetable_filters`
+ * (College → Exam → Course Group → Subject).
  */
 export async function getVerifyExamMarksFilters(params: {
   organizationId?: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
   const data = await getAllRecords<{ result: AnyRow[][] }>(
-    "s_get_exam_filters_bycode",
+    "s_get_collegewisedetails_bycode",
     {
-      in_flag: "univ_exam_filters",
-      in_flag_type: "ALL",
-      in_university_id: 0,
-      in_univ_examcenter_id: 0,
+      in_flag: "clg_exam_timetable_filters",
+      in_org_id: params.organizationId || 0,
       in_college_id: 0,
       in_course_id: 0,
       in_course_group_id: 0,
       in_course_year_id: 0,
-      in_exam_id: 0,
+      in_group_section_id: 0,
       in_academic_year_id: 0,
-      in_regulation_id: 0,
-      in_subject_id: 0,
-      in_sub_flag_type: "",
-      in_param1: 0,
-      in_param2: 0,
-      in_loginuser_roleid: 0,
+      in_dept_id: 0,
+      in_isadmin: 0,
       in_loginuser_empid: params.employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_employee: "",
+      in_subject: "",
+      in_gm_codes: "",
     },
-  ).catch(() => ({ result: [] as AnyRow[][] }));
+  );
   const groups = data?.result ?? [];
-  const picked = firstGroupByFlag(groups, ["univ_exam_filters"]);
+  const picked = firstGroupByFlag(groups, ["clg_exam_timetable_filters"]);
   if (picked.length > 0) return picked;
   return firstNonEmptyGroup(groups);
 }
 
-/** @deprecated Angular UI does not use a College domain list on this page. */
+/** @deprecated Prefer cascading from getVerifyExamMarksFilters. */
 export async function getVerifyExamMarksColleges(): Promise<AnyRow[]> {
   return domainList<AnyRow>("College", buildQuery({ isActive: true }));
 }
@@ -570,51 +636,20 @@ export async function getVerifyExamMarksExams(
   return getCompleteExamProcessFilters(employeeId);
 }
 
-/**
- * Angular selectedExam → univ_exam_rest_in_regexamstd
- * (INT for Internal Marks Status, REGSUP otherwise)
- * → flag univ_exam_rest_filters (groups / years / regulations)
- */
-export async function getVerifyExamMarksRestFilters(params: {
+/** @deprecated Result-processing UI derives groups/subjects from filter bundle. */
+export async function getVerifyExamMarksRestFilters(_params: {
   mode: VerifyExamMarksMode;
   courseId: number;
   academicYearId: number;
   examId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
-  const data = await getAllRecords<{ result: AnyRow[][] }>(
-    "s_get_exam_filters_bycode",
-    {
-      in_flag: "univ_exam_rest_in_regexamstd",
-      in_flag_type: verifyMarksFlagType(params.mode),
-      in_university_id: 0,
-      in_univ_examcenter_id: 0,
-      in_college_id: 0,
-      in_course_id: params.courseId,
-      in_course_group_id: 0,
-      in_course_year_id: 0,
-      in_exam_id: params.examId,
-      in_academic_year_id: params.academicYearId,
-      in_regulation_id: 0,
-      in_subject_id: 0,
-      in_sub_flag_type: "",
-      in_param1: 0,
-      in_param2: 0,
-      in_loginuser_roleid: 0,
-      in_loginuser_empid: params.employeeId || 0,
-    },
-  ).catch(() => ({ result: [] as AnyRow[][] }));
-  const groups = data?.result ?? [];
-  const picked = firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
-  if (picked.length > 0) return picked;
-  return firstNonEmptyGroup(groups);
+  void _params;
+  return [];
 }
 
-/**
- * Angular selectedRegulation → univ_exam_subject_regexamstd
- * → flag univ_exam_sub_regexamstd
- */
-export async function getVerifyExamMarksSubjects(params: {
+/** @deprecated Result-processing UI derives subjects from filter bundle. */
+export async function getVerifyExamMarksSubjects(_params: {
   mode: VerifyExamMarksMode;
   courseId: number;
   courseGroupId: number;
@@ -624,60 +659,41 @@ export async function getVerifyExamMarksSubjects(params: {
   regulationId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
-  const data = await getAllRecords<{ result: AnyRow[][] }>(
-    "s_get_exam_filters_bycode",
-    {
-      in_flag: "univ_exam_subject_regexamstd",
-      in_flag_type: verifyMarksFlagType(params.mode),
-      in_university_id: 0,
-      in_univ_examcenter_id: 0,
-      in_college_id: 0,
-      in_course_id: params.courseId,
-      in_course_group_id: params.courseGroupId,
-      in_course_year_id: params.courseYearId,
-      in_exam_id: params.examId,
-      in_academic_year_id: params.academicYearId,
-      in_regulation_id: params.regulationId,
-      in_sub_flag_type: "ALL",
-      in_subject_id: 0,
-      in_param1: 0,
-      in_param2: 0,
-      in_loginuser_roleid: 0,
-      in_loginuser_empid: params.employeeId || 0,
-    },
-  ).catch(() => ({ result: [] as AnyRow[][] }));
-  const groups = data?.result ?? [];
-  const picked = firstGroupByFlag(groups, ["univ_exam_sub_regexamstd"]);
-  if (picked.length > 0) return picked;
-  return firstNonEmptyGroup(groups);
+  void _params;
+  return [];
 }
 
 /**
- * Angular Get List on all 4 tabs calls getGradeList() with
- * in_flag: ext_int_exam_marks_entered_count (getGradeInternalList is unused in UI).
- * Sends in_college_id: 0 and selected course / group / year / AY / regulation / subject.
+ * Result-processing Angular Get List:
+ * - Internal → `getGradeInternalList` / `int_exam_marks_entered_count`
+ * - External / Evaluation / All → `getGradeList` / `ext_int_exam_marks_entered_count`
+ * Params: selected college + exam; course/AY/year/regulation always 0;
+ * courseGroup / subject may be 0 (= All).
  */
 export async function getVerifyExamMarksReport(params: {
   mode: VerifyExamMarksMode;
   examId: number;
-  courseId: number;
+  collegeId: number;
   courseGroupId: number;
-  courseYearId: number;
-  academicYearId: number;
-  regulationId: number;
   subjectId: number;
-  collegeId?: number;
+  /** @deprecated unused — kept for older call sites */
+  courseId?: number;
+  courseYearId?: number;
+  academicYearId?: number;
+  regulationId?: number;
 }): Promise<AnyRow[]> {
-  void params.mode;
   const payload = {
-    in_flag: "ext_int_exam_marks_entered_count",
+    in_flag:
+      params.mode === "internal"
+        ? "int_exam_marks_entered_count"
+        : "ext_int_exam_marks_entered_count",
     in_exam_id: params.examId,
-    in_college_id: 0,
-    in_course_id: params.courseId,
+    in_college_id: params.collegeId || 0,
+    in_course_id: 0,
     in_course_group_id: params.courseGroupId || 0,
-    in_course_year_id: params.courseYearId || 0,
-    in_academic_year_id: params.academicYearId || 0,
-    in_regulation_id: params.regulationId || 0,
+    in_course_year_id: 0,
+    in_academic_year_id: 0,
+    in_regulation_id: 0,
     in_subject_id: params.subjectId || 0,
   };
 
@@ -1526,7 +1542,7 @@ export async function getExamMarksEntrySubjects(params: {
   );
   const groups = data?.result ?? [];
   const picked = firstGroupByFlag(groups, ["univ_exam_sub_inep"]);
-  return picked.length > 0 ? picked : firstNonEmptyGroup(groups);
+  return picked.length > 0 ? picked : groups.flatMap((g) => g ?? []);
 }
 
 /**

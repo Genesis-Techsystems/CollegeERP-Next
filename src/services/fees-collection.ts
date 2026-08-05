@@ -421,7 +421,11 @@ export async function printStudentFeeReceiptDownload(
 export async function searchStudentsInCollege(
   collegeId: number,
   term: string,
-  options?: { courseId?: number; courseGroupId?: number; includeActive?: boolean },
+  options?: {
+    courseId?: number;
+    courseGroupId?: number;
+    includeActive?: boolean;
+  },
 ): Promise<StudentFeeSearchRow[]> {
   const q = term.trim();
   if (!collegeId || q.length < 5) return [];
@@ -502,6 +506,25 @@ export async function listFeeReceiptsForStudent(params: {
     studentId,
     collegeId,
     academicYearId,
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * Angular view-receipt under scholarship accounts-preceedings:
+ * `GET feereceipts?referenceNo=&collegeId=&studentId=`
+ */
+export async function listFeeReceiptsByReference(params: {
+  referenceNo: string;
+  collegeId: number;
+  studentId: number;
+}): Promise<FeeReceiptRow[]> {
+  const referenceNo = params.referenceNo.trim();
+  if (!referenceNo || !params.collegeId || !params.studentId) return [];
+  const data = await fetchDetails<FeeReceiptRow[]>(FEE_API.FEE_RECEIPTS, {
+    referenceNo,
+    collegeId: params.collegeId,
+    studentId: params.studentId,
   });
   return Array.isArray(data) ? data : [];
 }

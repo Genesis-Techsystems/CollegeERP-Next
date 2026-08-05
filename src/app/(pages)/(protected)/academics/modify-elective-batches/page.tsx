@@ -16,6 +16,7 @@ import {
   listStaffMappingSections,
   listSectionElectiveGroups,
   listElectiveBatchStudents,
+  modifyStudentSectionDateTime,
   submitElectiveBatchChange,
 } from "@/services";
 
@@ -37,19 +38,14 @@ const uniq = (rows: AnyRow[], key: string) => {
   });
 };
 
-/** 'YYYY-MM-DD HH:mm:ss' — mirrors Angular genericFunctions.momentWithTime(). */
-const toDateTime = (d: Date | null): string => {
-  if (!d) return "";
-  const p = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-};
-
 const electiveId = (row: AnyRow) =>
   n(
     row.electiveGroupyrMappingId ??
       row.electivegroupyrMappingId ??
       row.elective_group_yr_mapping_id,
   );
+const electiveSubjectId = (row: AnyRow) =>
+  n(row.subjectId ?? row.fk_subject_id ?? row.subject_id);
 const electiveLabel = (row: AnyRow) =>
   s(row.subjectName) || s(row.subject_name) || s(row.subjectCode) || "Elective";
 
@@ -404,18 +400,31 @@ export default function ModifyElectiveBatchesPage() {
       toastError("Please select at least one student");
       return;
     }
+    if (!toDate) {
+      toastError("Please select a date");
+      return;
+    }
+
+    // Angular assignStudents: subjectId = target elective subject (not source).
+    const targetElective = electiveGroups.find(
+      (x) => electiveId(x) === targetElectiveId,
+    );
+    const targetSubjectId = electiveSubjectId(targetElective ?? {});
+    if (!targetSubjectId) {
+      toastError("Target elective subject not found");
+      return;
+    }
+
     const selectedRows = rows.filter((r) => selectedIds.has(s(r.__rowKey)));
+    // Angular PUT batchWiseStudentsElective:
+    // [{ electiveGroupyrMappingId, toDate: 'YYYY-MM-DDT00:00:00+05:30',
+    //    batchwiseStudentId, subjectId, studentSubjectDTOList: [{ subjectId }] }]
     const payload = selectedRows.map((student) => ({
       electiveGroupyrMappingId: targetElectiveId,
-      toDate: toDateTime(toDate),
+      toDate: modifyStudentSectionDateTime(toDate),
       batchwiseStudentId: n(student.batchwiseStudentId),
-      subjectId: n(student.subjectId),
-      studentSubjectDTOList: [
-        {
-          studentSubjectId: n(student.studentSubjectId),
-          subjectId: n(student.subjectId),
-        },
-      ],
+      subjectId: targetSubjectId,
+      studentSubjectDTOList: [{ subjectId: targetSubjectId }],
     }));
     setSaving(true);
     try {
@@ -434,8 +443,12 @@ export default function ModifyElectiveBatchesPage() {
           __rowKey: `${n(row.batchwiseStudentId) || n(row.studentId)}-${i}`,
         })),
       );
-    } catch {
-      toastError("Failed to update elective batches");
+    } catch (e) {
+      toastError(
+        e instanceof Error && e.message
+          ? e.message
+          : "Failed to update elective batches",
+      );
     } finally {
       setSaving(false);
     }

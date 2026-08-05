@@ -717,8 +717,8 @@ export const STUDENT_API = {
   SEND_STUDENT_MAILS: "sendStudentMails",
   /** Angular `batchWiseStudentsUrl` */
   BATCH_WISE_STUDENTS: "batchwisestudents",
-  /** Angular `batchwiseStudentsElectiveUrl` */
-  BATCHWISE_STUDENTS_ELECTIVE: "batchwisestudentselective",
+  /** Angular `batchWiseStudentsElective` (PUT modify elective batches) */
+  BATCHWISE_STUDENTS_ELECTIVE: "batchWiseStudentsElective",
   /** Angular `batchWiseStudentUrl` */
   BATCH_WISE_STUDENT: "BatchwiseStudent",
   /** Angular `batchwiseStudentSecUrl` */

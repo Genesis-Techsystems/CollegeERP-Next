@@ -1,31 +1,34 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { CategoryFeePayForm } from "../../_components/CategoryFeePayForm";
+import { resolveFeePayConfig } from "../../_lib/pay-fees-mode";
 
 /**
- * Angular route `library-payment/library-fee` → LibraryFeePaymentComponent.
- * React collects payment under the shared pay-fees screen.
+ * Angular `library-payment/library-fee` → LibraryFeePaymentComponent.
+ * Pay Details from library-fee-payment navigates here with student/structure query params.
  */
-function LibraryFeeRedirect() {
-  const router = useRouter();
+function LibraryFeePaymentContent() {
   const searchParams = useSearchParams();
+  const config = resolveFeePayConfig("library-fee");
 
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (!params.get("page")) params.set("page", "library-fee");
-    router.replace(
-      `/accounts-and-fees/fees-collection/payment/pay-fees?${params.toString()}`,
-    );
-  }, [router, searchParams]);
-
-  return null;
+  return (
+    <CategoryFeePayForm
+      config={config}
+      collegeId={Number(searchParams.get("collegeId") ?? 0)}
+      academicYearId={Number(searchParams.get("academicYearId") ?? 0)}
+      studentId={Number(searchParams.get("studentId") ?? 0)}
+      feeStructureId={Number(searchParams.get("feeStructureId") ?? 0)}
+      queryParams={new URLSearchParams(searchParams.toString())}
+    />
+  );
 }
 
-export default function LibraryFeeRedirectPage() {
+export default function LibraryFeePage() {
   return (
     <Suspense fallback={null}>
-      <LibraryFeeRedirect />
+      <LibraryFeePaymentContent />
     </Suspense>
   );
 }

@@ -3736,6 +3736,21 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/assessments/test";
     }
+    // Angular scholarship/assign-scholarship (404 → dashboard otherwise).
+    // Pin before scholarship-type / scholarship-value / application.
+    if (
+      hrefLower.includes("assign-scholarship") ||
+      (labelLower.includes("assign") &&
+        labelLower.includes("scholarship") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding"))
+    ) {
+      return "/scholarship-management/assign-scholarship";
+    }
     // Angular scholarship-management/scholarship-type (404 → dashboard otherwise).
     if (
       hrefLower.includes("scholarship-type") ||
@@ -3743,12 +3758,35 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("type") &&
         !labelLower.includes("application") &&
         !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
         !labelLower.includes("assign"))
     ) {
       return "/scholarship-management/scholarship-type";
     }
+    // Angular scholarship-management/scholarship-value (Scholarship Structure).
+    // Missing route 404s to dashboard; pin before application / preceedings.
+    if (
+      hrefLower.includes("scholarship-value") ||
+      hrefLower.includes("scholarship-structure") ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("value") || labelLower.includes("structure")) &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("assign") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/scholarship-value";
+    }
     // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
     // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("view-std-preceedings") ||
+      hrefLower.includes("view-std-proceedings")
+    ) {
+      return "/scholarship-management/view-std-preceedings";
+    }
     if (
       hrefLower.includes("acounts-preceedings") ||
       hrefLower.includes("accounts-preceedings") ||

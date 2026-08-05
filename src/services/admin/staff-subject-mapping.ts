@@ -319,25 +319,6 @@ export async function listSubjectSyllabusPlanReport(params: {
   return [];
 }
 
-export async function listElectiveGroupMappings(params: {
-  collegeId: number;
-  academicYearId: number;
-}): Promise<AnyRow[]> {
-  const { collegeId, academicYearId } = params;
-  if (!collegeId || !academicYearId) return [];
-
-  const query = buildQuery(
-    {
-      "College.collegeId": collegeId,
-      "AcademicYear.academicYearId": academicYearId,
-      isActive: true,
-    },
-    { field: "electiveGroupyrMappingId", direction: "DESC" },
-  );
-
-  return domainList<AnyRow>("ElectiveGroupyrMapping", query).catch(() => []);
-}
-
 export async function listStudentEnrollmentElectives(params: {
   collegeId: number;
   academicYearId: number;

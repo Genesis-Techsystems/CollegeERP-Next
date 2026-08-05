@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -48,7 +54,9 @@ function formatDt(value: unknown): string {
 }
 
 function isEmptyObject(obj: unknown): boolean {
-  return !obj || (typeof obj === "object" && Object.keys(obj as object).length === 0);
+  return (
+    !obj || (typeof obj === "object" && Object.keys(obj as object).length === 0)
+  );
 }
 
 function studentNameRenderer(p: ICellRendererParams<StagingRow>) {
@@ -58,9 +66,7 @@ function studentNameRenderer(p: ICellRendererParams<StagingRow>) {
   return (
     <span>
       {String(row.studentName ?? "—")}
-      {roll ? (
-        <span className="text-blue-700"> ({roll})</span>
-      ) : null}
+      {roll ? <span className="text-blue-700"> ({roll})</span> : null}
     </span>
   );
 }
@@ -69,7 +75,9 @@ function dateFieldRenderer(field: "releasedFromDt" | "releasedToDt") {
   return (p: ICellRendererParams<StagingRow>) => formatDt(p.data?.[field]);
 }
 
-function makeTutionRenderer(onChange: (row: StagingRow, value: number) => void) {
+function makeTutionRenderer(
+  onChange: (row: StagingRow, value: number) => void,
+) {
   return (p: ICellRendererParams<StagingRow>) => {
     const row = p.data;
     if (!row) return null;
@@ -143,22 +151,28 @@ export default function ScholarshipStudentsUploadPage() {
     return mapped;
   }, [staging, collegeCode, localRows]);
 
-  const handleTutionChange = useCallback((row: StagingRow, value: number) => {
-    setLocalRows((prev) => {
-      const base = prev ?? preStaggings;
-      return base.map((r) => {
-        if (r !== row && r.schStgStdPreceedingId !== row.schStgStdPreceedingId) {
-          return r;
-        }
-        const next = { ...r, tutionFee: value, rtfAmount: value };
-        const balance = Number(next.balanceAmount ?? 0);
-        if (balance <= value) {
-          next.color = "transparent";
-        }
-        return next;
+  const handleTutionChange = useCallback(
+    (row: StagingRow, value: number) => {
+      setLocalRows((prev) => {
+        const base = prev ?? preStaggings;
+        return base.map((r) => {
+          if (
+            r !== row &&
+            r.schStgStdPreceedingId !== row.schStgStdPreceedingId
+          ) {
+            return r;
+          }
+          const next = { ...r, tutionFee: value, rtfAmount: value };
+          const balance = Number(next.balanceAmount ?? 0);
+          if (balance <= value) {
+            next.color = "transparent";
+          }
+          return next;
+        });
       });
-    });
-  }, [preStaggings]);
+    },
+    [preStaggings],
+  );
 
   const onFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -179,7 +193,9 @@ export default function ScholarshipStudentsUploadPage() {
             type: bstr instanceof ArrayBuffer ? "array" : "binary",
           });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
+          const data = XLSX.utils.sheet_to_json(ws, {
+            header: 1,
+          }) as unknown[][];
           let size = 0;
           for (const row of data) {
             if (Array.isArray(row) && row.length > 0) size += 1;
@@ -376,9 +392,15 @@ export default function ScholarshipStudentsUploadPage() {
             >
               {uploading ? "Uploading…" : "Upload"}
             </Button>
+            <Button type="button" variant="outline" asChild>
+              <a href="/assets/docs/sampleScholarshipStg.xlsx" download>
+                Download Sample XL
+              </a>
+            </Button>
             {excelRowCount > 0 ? (
               <p className="text-sm text-destructive">
-                Total number of students listed in xsl sheet are {excelRowCount}.
+                Total number of students listed in xsl sheet are {excelRowCount}
+                .
               </p>
             ) : null}
           </div>
@@ -398,11 +420,7 @@ export default function ScholarshipStudentsUploadPage() {
       toolbar={{ search: true, searchPlaceholder: "Search" }}
       toolbarTrailing={
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/scholarship-management/preceeding-details")}
-          >
+          <Button type="button" variant="outline" onClick={() => router.back()}>
             Back
           </Button>
           <Button

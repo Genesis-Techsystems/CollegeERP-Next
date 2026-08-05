@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 import { Pencil } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Select } from "@/common/components/select";
+import { getSecuredValue, setSecuredValue } from "@/common/generic-functions";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { DATE_FORMATS } from "@/config/constants/app";
@@ -22,16 +23,32 @@ import {
   createSchAccountsPreceeding,
   getScholarshipCollegeFilters,
   listSchAccountsPreceedings,
+  updateSchAccountsPreceeding,
 } from "@/services";
 import type { SchAccountsPreceeding } from "@/types/scholarship";
 import {
   AccountPreceedingModal,
   type AccountPreceedingModalResult,
 } from "./AccountPreceedingModal";
+import { ViewPreceedingsModal } from "./ViewPreceedingsModal";
 
-type AccountRow = SchAccountsPreceeding & {
-  schAccountsPreceedingsId?: number;
-} & Record<string, unknown>;
+type AccountRow = SchAccountsPreceeding & Record<string, unknown>;
+
+const FILTER_STORAGE_KEY = "scholarship.acountsPreceedings.filters";
+
+type StoredFilters = {
+  collegeId: string | null;
+};
+
+function readStoredFilters(): StoredFilters {
+  const stored = getSecuredValue<StoredFilters>(FILTER_STORAGE_KEY);
+  if (!stored || typeof stored !== "object") {
+    return { collegeId: null };
+  }
+  return {
+    collegeId: stored.collegeId ? String(stored.collegeId) : null,
+  };
+}
 
 const COL_DEFS = {
   siNo: {
@@ -95,6 +112,12 @@ function dateRenderer(p: ICellRendererParams<AccountRow>) {
   return formatDt(p.data?.chequeDate);
 }
 
+function accountPreceedingId(row: AccountRow): number {
+  return Number(
+    row.schAccountsPreceedingsId ?? row.schAccountsPreceedingId ?? 0,
+  );
+}
+
 function makeViewRenderer(onView: (row: AccountRow) => void) {
   return (p: ICellRendererParams<AccountRow>) => (
     <Button
@@ -133,8 +156,14 @@ export default function AccountsPreceedingsPage() {
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
 
-  const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [collegeId, setCollegeId] = useState<string | null>(
+    () => readStoredFilters().collegeId,
+  );
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+  const [editing, setEditing] = useState<AccountRow | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewAccountId, setViewAccountId] = useState(0);
 
   const { data: filterBundle, isLoading: loadingFilters } = useQuery({
     queryKey: ["SchAccountsPreceeding", "filters", orgId, employeeId],
@@ -165,12 +194,29 @@ export default function AccountsPreceedingsPage() {
   );
 
   useEffect(() => {
-    if (!collegeId && colleges.length > 0) {
-      setCollegeId(
-        String(pickNum(colleges[0], ["fk_college_id", "collegeId"])),
-      );
+    if (colleges.length === 0) return;
+
+    const ids = new Set(
+      colleges.map((c) => String(pickNum(c, ["fk_college_id", "collegeId"]))),
+    );
+    const storedId = readStoredFilters().collegeId;
+    const currentValid = collegeId != null && ids.has(collegeId);
+    if (currentValid) return;
+
+    if (storedId && ids.has(storedId)) {
+      setCollegeId(storedId);
+      return;
     }
+
+    setCollegeId(String(pickNum(colleges[0], ["fk_college_id", "collegeId"])));
   }, [colleges, collegeId]);
+
+  useEffect(() => {
+    if (!collegeId) return;
+    setSecuredValue(FILTER_STORAGE_KEY, {
+      collegeId,
+    } satisfies StoredFilters);
+  }, [collegeId]);
 
   const {
     data: rows = [],
@@ -193,44 +239,82 @@ export default function AccountsPreceedingsPage() {
       toastInfo("Select a college first.");
       return;
     }
+    setEditing(null);
+    setModalMode("create");
     setModalOpen(true);
   }, [collegeNum]);
 
-  const openEdit = useCallback((_row: AccountRow) => {
-    toastInfo("Edit Accounts Preceedings will be available in a follow-up.");
-  }, []);
+  const openEdit = useCallback(
+    (row: AccountRow) => {
+      setEditing({
+        ...row,
+        collegeId: Number(row.collegeId ?? collegeNum),
+      });
+      setModalMode("edit");
+      setModalOpen(true);
+    },
+    [collegeNum],
+  );
 
-  const openView = useCallback((_row: AccountRow) => {
-    toastInfo("View Preceedings will be available in a follow-up.");
+  const openView = useCallback((row: AccountRow) => {
+    const id = accountPreceedingId(row);
+    if (!id) {
+      toastInfo("Accounts preceeding id missing.");
+      return;
+    }
+    setViewAccountId(id);
+    setViewOpen(true);
   }, []);
 
   const handleModalSubmit = useCallback(
     async (payload: AccountPreceedingModalResult) => {
       try {
-        await createSchAccountsPreceeding({
-          collegeId: payload.collegeId,
-          bankId: payload.bankId,
-          title: payload.title,
-          chequeNo: payload.chequeNo,
-          chequeDate: payload.chequeDate,
-          comments: payload.comments,
-          isHandOvertoAcc: payload.isHandOvertoAcc,
-          isActive: payload.isActive,
-          reason: payload.reason,
-          schPreceedingList: payload.schPreceedingList,
-          schPreceedingIds: payload.schPreceedingIds,
-        });
-        toastSuccess("Accounts preceeding saved.");
+        if (modalMode === "edit" && payload.schAccountsPreceedingsId) {
+          await updateSchAccountsPreceeding(payload.schAccountsPreceedingsId, {
+            collegeId: payload.collegeId,
+            bankId: payload.bankId,
+            title: payload.title,
+            chequeNo: payload.chequeNo,
+            chequeDate: payload.chequeDate,
+            comments: payload.comments,
+            isHandOvertoAcc: payload.isHandOvertoAcc,
+            isActive: payload.isActive,
+            reason: payload.reason,
+            schPreceedingIds: payload.schPreceedingIds,
+          });
+          toastSuccess("Accounts preceeding updated.");
+        } else {
+          await createSchAccountsPreceeding({
+            collegeId: payload.collegeId,
+            bankId: payload.bankId,
+            title: payload.title,
+            chequeNo: payload.chequeNo,
+            chequeDate: payload.chequeDate,
+            comments: payload.comments,
+            isHandOvertoAcc: payload.isHandOvertoAcc,
+            isActive: payload.isActive,
+            reason: payload.reason,
+            schPreceedingList: payload.schPreceedingList,
+            schPreceedingIds: payload.schPreceedingIds,
+          });
+          toastSuccess("Accounts preceeding saved.");
+        }
         setModalOpen(false);
+        setEditing(null);
         await queryClient.invalidateQueries({
           queryKey: QK.schAccountsPreceedings.all,
         });
         await refetch();
       } catch (err) {
-        toastError(err, "Failed to save accounts preceeding");
+        toastError(
+          err,
+          modalMode === "edit"
+            ? "Failed to update accounts preceeding"
+            : "Failed to save accounts preceeding",
+        );
       }
     },
-    [queryClient, refetch],
+    [modalMode, queryClient, refetch],
   );
 
   const columnDefs = useMemo<ColDef<AccountRow>[]>(
@@ -275,13 +359,31 @@ export default function AccountsPreceedingsPage() {
           </Button>
         ) : null
       }
+      getRowId={(p) => String(accountPreceedingId(p.data as AccountRow))}
     >
       <AccountPreceedingModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
+        mode={modalMode}
         collegeId={collegeNum}
-        collegeCode={collegeCode}
+        collegeCode={
+          modalMode === "edit"
+            ? String(editing?.collegeCode ?? collegeCode)
+            : collegeCode
+        }
+        row={editing}
         onSubmit={handleModalSubmit}
+      />
+      <ViewPreceedingsModal
+        open={viewOpen}
+        onClose={() => {
+          setViewOpen(false);
+          setViewAccountId(0);
+        }}
+        schAccountsPreceedingsId={viewAccountId}
       />
     </FilteredListPage>
   );

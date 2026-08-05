@@ -23,6 +23,7 @@ import type {
   StudentFeeSearchRow,
   StudentFeeStructureRow,
 } from "@/types/fees-collection";
+import { resolveCategoryPayHref } from "../_lib/pay-fees-mode";
 import { buildPayFeesSearchParams } from "../_lib/pay-fees-params";
 import { FeeDetailsModal, type FeeDetailsModalTarget } from "./FeeDetailsModal";
 import { FeeStudentProfileCard } from "./FeeStudentProfileCard";
@@ -240,9 +241,7 @@ export function StudentCategoryFeeList({
     (row: StudentFeeStructureRow) => {
       if (!selectedStudent) return;
       const params = buildPayFeesSearchParams(selectedStudent, row, payPage);
-      router.push(
-        `/accounts-and-fees/fees-collection/payment/pay-fees?${params}`,
-      );
+      router.push(resolveCategoryPayHref(payPage, params));
     },
     [selectedStudent, payPage, router],
   );
