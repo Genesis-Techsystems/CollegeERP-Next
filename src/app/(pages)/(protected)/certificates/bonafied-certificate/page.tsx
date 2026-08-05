@@ -10,7 +10,7 @@ import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   BONAFIDE_APPLICATION_STATUS_ID,
-  BONAFIDE_COLLEGE_CERTIFICATE_ID,
+  BONAFIDE_CERTIFICATE_CODE,
   generateBonafideCertificate,
   getBonafideCertificateIssue,
   listFeeReceiptsByStudent,
@@ -133,7 +133,7 @@ export default function BonafiedCertificatePage() {
         collegeId,
         courseYearId,
         studentId: studentNum,
-        collegeCertificateId: BONAFIDE_COLLEGE_CERTIFICATE_ID,
+        certifcateCode: BONAFIDE_CERTIFICATE_CODE,
         applicationStatusId: BONAFIDE_APPLICATION_STATUS_ID,
       });
       toastSuccess(result?.message ?? "Certificate generated successfully");

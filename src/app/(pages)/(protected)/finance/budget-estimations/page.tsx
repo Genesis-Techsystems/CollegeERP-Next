@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { FileSpreadsheetIcon, PrinterIcon } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 import { SearchInput } from "@/common/components/search";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
@@ -78,7 +78,6 @@ export default function BudgetEstimationReportPage() {
 
     if (!emptySuccess && !emptyError) return;
     emptyToastKey.current = loadKey;
-    // Angular snotify success for empty — reusable white info toast (top-right).
     toastInfo(emptyError ? getErrorMessage(error) : "No Record(s) found.");
   }, [loadKey, isSuccess, isFetching, rows.length, error]);
 
@@ -86,6 +85,8 @@ export default function BudgetEstimationReportPage() {
     () => cascade.transactionTypes.map((t) => t.label),
     [cascade.transactionTypes],
   );
+
+  const resultsVisible = loadKey != null;
 
   function handleGetList() {
     if (!cascade.filtersValid) return;
@@ -112,19 +113,18 @@ export default function BudgetEstimationReportPage() {
     setSearch("");
     emptyToastKey.current = null;
     setLoadKey(
-      JSON.stringify(
-        cascade.toBudgetParams({
-          in_budgetdate: format(new Date(), "yyyy-MM-dd"),
-          in_account_type_id: 0,
-          in_major_accounttype: cascade.majorAccountTypeCatId,
-        }),
-      ),
+      JSON.stringify({
+        in_financial_year_id: cascade.financialYearId,
+        in_budgetdate: format(new Date(), "yyyy-MM-dd"),
+        in_acc_entity_id: cascade.accountEntityId,
+        in_account_type_id: 0,
+        in_major_accounttype: cascade.majorAccountTypeCatId,
+      }),
     );
   }
 
   function handlePrint() {
     if (!printRef.current) return;
-    // Angular parity: fit full wide table on the page — no clip / scrollbar.
     printElementInIframe(printRef.current, "Budget Estimations Report", {
       extraCss: `
         html, body, * {
@@ -180,18 +180,20 @@ export default function BudgetEstimationReportPage() {
 
   function handleExportExcel() {
     if (!excelRef.current) return;
-    // Angular: link.download = `${this.trafoItem}.xls` (trafoItem = "Budget Estimation Report")
     exportHtmlTableAsExcel(excelRef.current, "Budget Estimation Report");
   }
 
   return (
-    <PageContainer className="relative space-y-4">
-      {error && !/no\s+record(?:\(s\)|s)?/i.test(getErrorMessage(error)) ? (
-        <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
-      ) : null}
-
-      <div className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-base font-semibold">Budget Estimations</h2>
+    <FilteredPage
+      title="Budget Estimations"
+      className="relative"
+      filtersCollapsible={false}
+      notice={
+        error && !/no\s+record(?:\(s\)|s)?/i.test(getErrorMessage(error)) ? (
+          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        ) : null
+      }
+      filters={
         <FinanceBudgetFilters
           cascade={cascade}
           showTransactionType
@@ -200,80 +202,81 @@ export default function BudgetEstimationReportPage() {
           bare
           onLoad={handleGetList}
         />
-      </div>
+      }
+      body={
+        resultsVisible ? (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-blue-600">
+              Budget Estimations - {selectedData}
+            </p>
 
-      {loadKey ? (
-        <div className="space-y-3 rounded-lg border bg-card p-4">
-          <p className="text-sm font-semibold text-blue-600">
-            Budget Estimations - {selectedData}
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-[200px] flex-1">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search"
-              />
-            </div>
-            <div className="ml-auto flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleExportExcel}
-                disabled={isFetching}
-              >
-                <FileSpreadsheetIcon className="mr-1 h-4 w-4" />
-                Export Excel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handlePrint}
-                disabled={isFetching}
-              >
-                <PrinterIcon className="mr-1 h-4 w-4" />
-                Print Report
-              </Button>
-            </div>
-          </div>
-
-          {isFetching ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : (
-            <div ref={excelRef}>
-              {/* Angular #excelTable hidden title block — included in Export Excel */}
-              <div className="hidden" aria-hidden>
-                <table>
-                  <tbody>
-                    <tr>
-                      <td colSpan={10} style={{ textAlign: "center" }}>
-                        <h3 style={{ fontWeight: 700, margin: 0 }}>
-                          {collegeName}
-                        </h3>
-                        <h5 style={{ fontWeight: 700, margin: "4px 0" }}>
-                          Budget Estimations Report
-                        </h5>
-                        <h6 style={{ fontWeight: 700, margin: 0 }}>
-                          {`BUDGET ESTIMATES FOR THE YEAR ${financialYearLabel} (${entityLabel},${transactionTypeLabel})`}
-                        </h6>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-[200px] max-w-sm flex-1">
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search"
+                />
               </div>
-              <BudgetEstimationsReportTables
-                rows={rows}
-                search={search}
-                transactionTypeLabel={transactionTypeLabel}
-                sectionTypes={sectionTypes}
-              />
+              <div className="ml-auto flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleExportExcel}
+                  disabled={isFetching}
+                >
+                  <FileSpreadsheetIcon className="mr-1 h-4 w-4" />
+                  Export Excel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handlePrint}
+                  disabled={isFetching}
+                >
+                  <PrinterIcon className="mr-1 h-4 w-4" />
+                  Print Report
+                </Button>
+              </div>
             </div>
-          )}
-        </div>
-      ) : null}
 
-      {/* Angular print block (outside #printNone): logo + titles + tables */}
-      {loadKey && !isFetching ? (
+            {isFetching ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : (
+              <div ref={excelRef}>
+                <div className="hidden" aria-hidden>
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td colSpan={10} style={{ textAlign: "center" }}>
+                          <h3 style={{ fontWeight: 700, margin: 0 }}>
+                            {collegeName}
+                          </h3>
+                          <h5 style={{ fontWeight: 700, margin: "4px 0" }}>
+                            Budget Estimations Report
+                          </h5>
+                          <h6 style={{ fontWeight: 700, margin: 0 }}>
+                            {`BUDGET ESTIMATES FOR THE YEAR ${financialYearLabel} (${entityLabel},${transactionTypeLabel})`}
+                          </h6>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <BudgetEstimationsReportTables
+                  rows={rows}
+                  search={search}
+                  transactionTypeLabel={transactionTypeLabel}
+                  sectionTypes={sectionTypes}
+                />
+              </div>
+            )}
+          </div>
+        ) : null
+      }
+      bodyClassName={resultsVisible ? undefined : "!border-t-0 !p-0 !py-0"}
+    >
+      {resultsVisible && !isFetching ? (
         <div className="pointer-events-none absolute -left-[9999px] top-0 w-[1100px] bg-white text-black">
           <div
             ref={printRef}
@@ -314,6 +317,6 @@ export default function BudgetEstimationReportPage() {
           </div>
         </div>
       ) : null}
-    </PageContainer>
+    </FilteredPage>
   );
 }

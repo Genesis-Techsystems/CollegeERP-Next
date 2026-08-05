@@ -33,18 +33,22 @@ export function filterFinanceYears(
   accountEntityId: number,
 ) {
   const seen = new Set<number>();
-  return rows
-    .filter(
-      (r) =>
-        Number(r.fk_college_id) === collegeId &&
-        Number(r.pk_acc_entity_id) === accountEntityId,
-    )
-    .filter((r) => {
-      const id = Number(r.pk_financial_year_id);
-      if (!id || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    });
+  return (
+    rows
+      .filter(
+        (r) =>
+          Number(r.fk_college_id) === collegeId &&
+          Number(r.pk_acc_entity_id) === accountEntityId,
+      )
+      .filter((r) => {
+        const id = Number(r.pk_financial_year_id);
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      // Angular selectedEntity: sort by fin_order
+      .sort((a, b) => (a.fin_order ?? 0) - (b.fin_order ?? 0))
+  );
 }
 
 export function filterFinanceAccountTypes(

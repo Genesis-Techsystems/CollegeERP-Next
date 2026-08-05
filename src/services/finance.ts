@@ -9,8 +9,9 @@ import type {
   FinSubCategory,
   FinTransaction,
   GeneralDetailOption,
+  IncomeExpenseSummaryRow,
 } from "@/types/finance";
-import { FINANCE_API } from "@/config/constants/api";
+import { DASHBOARD_API, FINANCE_API } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
 import { GM_CODES } from "@/config/constants/ui";
 import { AppError } from "@/lib/errors";
@@ -299,10 +300,13 @@ export async function fetchFinanceBookReport(
 export async function fetchFinanceBudgetReport(
   params: Record<string, string | number>,
 ): Promise<FinBudgetReportRow[]> {
-  // Angular treats HTTP 200 + empty / "No Record(s) found." as a success toast, not an error.
+  // Angular budget-estimations / budget-approval getDetailsList:
+  // in_flag=financial_budget_report with org/college/emp always 0 (filters use entity + FY + major type).
+  // Defaults must win over cascade.toBudgetParams so those ids are not overridden.
   const envelope = await getAllRecordsEnvelope<StoredProcRows>(
     FINANCE_API.FIN_BUDGET_DETAILS,
     {
+      ...params,
       in_flag: "financial_budget_report",
       in_org_id: 0,
       in_college_id: 0,
@@ -310,7 +314,6 @@ export async function fetchFinanceBudgetReport(
       in_loginuser_roleid: 0,
       in_fin_category_id: 0,
       in_fin_subcategory_id: 0,
-      ...params,
     },
   );
   const message = envelope.message ?? "";
@@ -429,4 +432,37 @@ export async function putUpdateFinBudgetAllocation(
   rows: Record<string, unknown>[],
 ): Promise<void> {
   await putDetails(FINANCE_API.UPDATE_FIN_BUDGET_ALLOCATION, rows);
+}
+
+/**
+ * Angular management-reports/income-expense-report getReport:
+ * GET `getAllRecords/s_get_income_expense_summary`
+ * `in_district_id=0&in_clg_id=&in_year=&in_month=0`
+ *
+ * Note: Angular mat-option binds `academic_year` string into the form as `academicYearId`
+ * and sends that string as `in_year`.
+ */
+export async function fetchIncomeExpenseSummary(params: {
+  collegeId: number;
+  /** Academic year label (e.g. "2026-2027") — Angular form `academicYearId` option value. */
+  year: string | number;
+}): Promise<IncomeExpenseSummaryRow[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.INCOME_EXPENSE_SUMMARY,
+    {
+      in_district_id: 0,
+      in_clg_id: params.collegeId,
+      in_year: params.year,
+      in_month: 0,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load income & expense summary",
+    );
+  }
+  return firstResultSet<IncomeExpenseSummaryRow>(envelope.data);
 }

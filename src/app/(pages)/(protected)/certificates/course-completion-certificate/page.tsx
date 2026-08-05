@@ -141,13 +141,14 @@ export default function CourseCompletionCertificatePage() {
         }
       />
 
-      {selectedStudent && orgCode && purpose && passoutMonth && passoutYear ? (
+      {selectedStudent && purpose && passoutMonth && passoutYear ? (
         <CourseCompletionCertificatePrint
           orgCode={orgCode}
           student={selectedStudent}
           awaitingResults={awaitingResults}
           passoutMonth={passoutMonth}
           passoutYear={passoutYear}
+          purpose={purpose}
           printDate={printDate}
         />
       ) : null}

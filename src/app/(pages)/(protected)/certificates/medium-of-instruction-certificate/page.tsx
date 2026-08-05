@@ -7,6 +7,7 @@ import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { toastError } from "@/lib/toast";
 import { CertificatePrintStyles } from "../_components/CertificatePrintStyles";
 import { CertificateStudentProfile } from "../_components/CertificateStudentProfile";
 import {
@@ -32,6 +33,10 @@ export default function MediumOfInstructionCertificatePage() {
   const awaitingResults = resultState === "1";
 
   function handlePrint() {
+    if (!selectedStudent || isEmptyStudent(selectedStudent)) {
+      toastError(new Error("Please select a student"), "Validation");
+      return;
+    }
     setPrintDate(new Date());
     window.print();
   }
@@ -92,7 +97,7 @@ export default function MediumOfInstructionCertificatePage() {
         }
       />
 
-      {selectedStudent && orgCode ? (
+      {selectedStudent && !isEmptyStudent(selectedStudent) ? (
         <MediumOfInstructionCertificatePrint
           orgCode={orgCode}
           student={selectedStudent}

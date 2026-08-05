@@ -1301,6 +1301,19 @@ export function resolveForcedNavRoute(
     ) {
       return "/accounts-and-fees/fee-reports/concession-list";
     }
+    // Angular: /reports/management-reports/income-expense-report
+    if (
+      hrefLower.includes("income-expense-report") ||
+      hrefLower.includes("income-and-expense-report") ||
+      (labelLower.includes("income") &&
+        labelLower.includes("expense") &&
+        labelLower.includes("report") &&
+        (hrefLower.includes("management-reports") ||
+          hrefLower.includes("finance-reports") ||
+          hrefLower.includes("/reports/")))
+    ) {
+      return "/reports/management-reports/income-expense-report";
+    }
     if (
       hrefLower.includes("fee-masters/fee-categor") ||
       (labelLower.includes("fee categor") &&

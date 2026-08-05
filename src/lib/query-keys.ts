@@ -1171,6 +1171,8 @@ export const QK = {
     ["FinBudgetReport", flag, params] as const,
   finBudgetMidyear: (accountEntityId: number, financialYearId: number) =>
     ["FinBudgetMidyear", accountEntityId, financialYearId] as const,
+  incomeExpenseSummary: (collegeId: number, year: string | number) =>
+    ["IncomeExpenseSummary", collegeId, year] as const,
 
   // ── Fee Masters ───────────────────────────────────────────────────────────
   feeMasters: {

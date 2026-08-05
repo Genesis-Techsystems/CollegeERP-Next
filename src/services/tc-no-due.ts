@@ -508,12 +508,24 @@ export async function getStudentDetailForTc(
   return null;
 }
 
+/** Same code as TC generate payload (`certifcateCode: "Transfer Certificate"`). */
+export const TRANSFER_CERTIFICATE_CODE = "Transfer Certificate";
+
+/**
+ * Angular TC `getStudentTcDetails` — was hardcoded `in_certificate_id: 108`.
+ * Now sends `certifcateCode` like generate.
+ */
 export async function getTcCertificateIssueProc(params: {
   collegeId: number;
   studentId: number;
-  certificateId?: number;
+  /** Defaults to Transfer Certificate code (was numeric 108). */
+  certifcateCode?: string;
 }): Promise<Record<string, unknown> | null> {
-  const { collegeId, studentId, certificateId = 108 } = params;
+  const {
+    collegeId,
+    studentId,
+    certifcateCode = TRANSFER_CERTIFICATE_CODE,
+  } = params;
   if (!collegeId || !studentId) return null;
   try {
     const data = await getAllRecords<{ result?: unknown[][] }>(
@@ -522,7 +534,7 @@ export async function getTcCertificateIssueProc(params: {
         in_flag: "tc_certificate",
         in_clg_id: collegeId,
         in_std_id: studentId,
-        in_certificate_id: certificateId,
+        certifcateCode,
       },
     );
     const row = data?.result?.[0]?.[0];

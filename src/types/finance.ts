@@ -151,6 +151,18 @@ export type FinBudgetReportRow = Record<string, unknown> & {
   nxt_yr?: string;
 };
 
+/** Row from `s_get_income_expense_summary` (management Income & Expense Report). */
+export type IncomeExpenseSummaryRow = Record<string, unknown> & {
+  district_name?: string;
+  college_shortname?: string;
+  Year?: string | number;
+  Month?: string;
+  TotalIncome?: number | null;
+  TotalExpense?: number | null;
+  /** Client-only stable AG Grid row id. */
+  __rowKey?: string;
+};
+
 export interface FinBudgetMidyearEstimation {
   finBudgetMidyrEstimationId: number;
   accountEntityId?: number;

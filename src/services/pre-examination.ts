@@ -452,14 +452,16 @@ export async function autoAssignInvigilators(params: {
   examTimetableId: number;
   examId: number;
   userId?: number;
-}): Promise<any> {
+}): Promise<{ success?: boolean; message?: string; data?: unknown }> {
   // Angular autoAssign() → getDetailsByRequest(popExamInvigilatorUrl, request, '&')
   // GET /cms/getAllRecords/s_pop_exam_invigilator
   //   ?in_flag=popexaminvigilator
   //   &in_timetable_id=<examTimetableId>
   //   &in_exam_id=<examId>
   //   &in_user_id=<userId>
-  return getAllRecords<any>("s_pop_exam_invigilator", {
+  // Return full envelope — Angular shows result.message even when success:false
+  // (e.g. "No Records(s) found.") via snotify success, not a thrown error/alert.
+  return getAllRecordsEnvelope("s_pop_exam_invigilator", {
     in_flag: "popexaminvigilator",
     in_timetable_id: params.examTimetableId,
     in_exam_id: params.examId,

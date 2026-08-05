@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { PageContainer } from "./PageContainer";
 import { FilteredPage } from "./FilteredPage";
 import { DataTable, type DataTableProps } from "@/common/components/table";
@@ -31,7 +31,7 @@ export interface FilteredListPageProps<T> extends Omit<
   children?: ReactNode;
   className?: string;
   rowData?: T[];
-  columnDefs?: ColDef<T>[];
+  columnDefs?: (ColDef<T> | ColGroupDef<T>)[];
 }
 
 /**

@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select } from "@/common/components/select";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { searchEmployeesForHr } from "@/services";
 import { saveExamInvigilationAllotmentsList } from "@/services";
 
@@ -149,11 +150,11 @@ export function InvigilatorAllotmentModal({
 
   function onUpdateRow() {
     if (!employeeId || !designationId || !context || !room) {
-      alert("Please select Employee and Invigilator Designation");
+      toastInfo("Please select Employee and Invigilator Designation");
       return;
     }
     if (!room.roomId) {
-      alert("Room id is missing");
+      toastError("Room id is missing");
       return;
     }
 
@@ -169,7 +170,7 @@ export function InvigilatorAllotmentModal({
       (d) => Number(d.generalDetailId ?? 0) === Number(designationId),
     );
     if (!desg) {
-      alert("Please select a valid Invigilator Designation");
+      toastInfo("Please select a valid Invigilator Designation");
       return;
     }
 
@@ -181,7 +182,7 @@ export function InvigilatorAllotmentModal({
       (selectedOpt?.label.split(" ")[0] ?? "");
 
     if (!emp && !selectedOpt) {
-      alert("Please search and select an Employee");
+      toastInfo("Please search and select an Employee");
       return;
     }
 
@@ -196,7 +197,7 @@ export function InvigilatorAllotmentModal({
       );
     });
     if (duplicate && !editingAllotmentId) {
-      alert("Same employee already allocated to the same day");
+      toastInfo("Same employee already allocated to the same day");
       return;
     }
 
@@ -262,7 +263,7 @@ export function InvigilatorAllotmentModal({
   async function onSave() {
     if (!context || !room) return;
     if (rows.length === 0) {
-      alert("No staff allocated to room");
+      toastInfo("No staff allocated to room");
       return;
     }
     setSaving(true);
@@ -276,6 +277,7 @@ export function InvigilatorAllotmentModal({
       }));
       const result = await saveExamInvigilationAllotmentsList(payload);
       if (result.success) {
+        toastSuccess(result.message ?? "Invigilator allotment saved.");
         await onSaved();
         onClose();
         return;
@@ -284,7 +286,7 @@ export function InvigilatorAllotmentModal({
       const conflict = result.data;
       const conflictCount = Array.isArray(conflict) ? conflict.length : 0;
       if (conflictCount > 0) {
-        alert(
+        toastInfo(
           result.message ??
             `Some invigilators are already allotted (${conflictCount}). Refreshing list.`,
         );
@@ -292,11 +294,9 @@ export function InvigilatorAllotmentModal({
         onClose();
         return;
       }
-      alert(result.message ?? "Failed to save invigilator allotment");
+      toastError(result.message ?? "Failed to save invigilator allotment");
     } catch (e: unknown) {
-      const msg =
-        e instanceof Error ? e.message : "Failed to save invigilator allotment";
-      alert(msg);
+      toastError(e, "Failed to save invigilator allotment");
     } finally {
       setSaving(false);
     }

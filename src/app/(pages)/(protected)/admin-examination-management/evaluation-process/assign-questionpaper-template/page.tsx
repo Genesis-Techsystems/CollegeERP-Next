@@ -19,6 +19,7 @@ import {
   getAssignQuestionPaperTemplateList,
   getEvaluationExamRestBundle,
   getQuestionPaperTemplateViewRows,
+  listQuestionPaperTemplates,
 } from "@/services/evaluation-process";
 import { getRegSupBaseFilters } from "@/services/evaluation";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
@@ -28,24 +29,18 @@ type AnyRow = Record<string, unknown>;
 
 const ALL_VALUE = "0";
 
+/**
+ * Angular HTML: `fk_exam_questionpaper_template_id == null` → Assign button;
+ * otherwise eye (+ pencil when question_paper_exists == 0).
+ * Classic SP stores the assigned template/assign id in that one field.
+ */
 function hasAssignedTemplate(row: AnyRow): boolean {
-  const qpId = row.fk_exam_qp_template_id;
-  if (qpId == null) return num(row.fk_exam_questionpaper_template_id) > 0;
-  return num(qpId) > 0;
+  return row.fk_exam_questionpaper_template_id != null;
 }
 
-function templateAssignId(row: AnyRow): number {
-  return num(
-    row.fk_exam_qp_template_id ||
-      row.exam_qp_template_assign_id ||
-      row.pk_exam_qp_template_assign_id,
-  );
-}
-
-function templateMasterId(row: AnyRow): number {
-  return num(
-    row.fk_exam_questionpaper_template_id || row.examQuestionPaperTemplateId,
-  );
+/** Angular uses the same field for preselect + ExamQPtempAssign update PK. */
+function classicTemplateAssignField(row: AnyRow): number {
+  return num(row.fk_exam_questionpaper_template_id);
 }
 
 function makeActionsRenderer(
@@ -264,63 +259,83 @@ export default function AssignQuestionPaperTemplatePage() {
     if (!examId) return;
     setLoading(true);
     try {
-      // Angular getTemplateDetails always sends in_course_year_id: 0
+      // Angular getTemplateDetails: form courseYearId / regulationId (0 = All)
       const list = await getAssignQuestionPaperTemplateList({
         examId,
-        courseYearId: 0,
-        regulationId: regulationId || 0,
+        courseYearId: courseYearId ?? 0,
+        regulationId: regulationId ?? 0,
         subjectId: 0,
       });
-      let nextRows = Array.isArray(list) ? list : [];
-      if (courseYearId && courseYearId > 0) {
-        nextRows = nextRows.filter(
-          (r) => num(r.fk_course_year_id) === courseYearId,
-        );
-      }
-      setRows(nextRows);
+      setRows(Array.isArray(list) ? list : []);
       setHasFetched(true);
     } finally {
       setLoading(false);
     }
   }
 
+  /**
+   * Angular assignTemplate / editDialog are the same navigation payload;
+   * detail page sets Assign vs Update from row.fk_exam_questionpaper_template_id.
+   */
   const navigateToAssign = useCallback(
-    (row: AnyRow, isEdit: boolean) => {
-      const existingTemplateAssignId = templateAssignId(row);
-      const existingTemplateId = templateMasterId(row);
+    (row: AnyRow) => {
+      // Angular assignTemplate / editDialog → ParametersService payload
+      const classicId = classicTemplateAssignField(row);
+      const isEdit = row.fk_exam_questionpaper_template_id != null;
       const params = new URLSearchParams({
         from: "assign-questionpaper-template",
         examId: String(num(examId)),
         courseId: String(num(courseId)),
         academicYearId: String(num(academicYearId)),
-        courseYearId: String(num(row.fk_course_year_id || courseYearId)),
-        regulationId: String(num(row.fk_regulation_id || regulationId)),
+        // Angular: courseYearId / regulationId / subjectId from ROW
+        courseYearId: String(num(row.fk_course_year_id)),
+        regulationId: String(num(row.fk_regulation_id)),
         subjectId: String(num(row.fk_subject_id)),
         examName: txt(row.exam_name),
         subjectCode: txt(row.subject_code),
         subjectName: txt(row.subject_name),
-        existingTemplateAssignId: isEdit
-          ? String(existingTemplateAssignId)
-          : "0",
-        existingTemplateId: isEdit ? String(existingTemplateId) : "0",
+        template_title: txt(row.template_title || row.templateTitle),
+        // SP fk_exam_questionpaper_template_id = assigned template id (preselect).
+        // Real examQptempAssignId is resolved on the detail page via domain list.
+        existingTemplateId: isEdit ? String(classicId) : "0",
+        existingTemplateAssignId: isEdit ? String(classicId) : "0",
       });
       router.push(
         `/admin-examination-management/evaluation-process/exam-question-paper-marks/assign-question-template?${params.toString()}`,
       );
     },
-    [router, examId, courseId, academicYearId, courseYearId, regulationId],
+    [router, examId, courseId, academicYearId],
   );
 
   const openViewTemplate = useCallback(async (row: AnyRow) => {
-    const templateId = templateMasterId(row) || templateAssignId(row);
-    setTemplateTitle(
-      `Template View - ${txt(row.subject_code) || txt(row.subject_name) || ""}`.trim(),
-    );
+    // Angular viewTemplate: only when fk_exam_questionpaper_template_id != 0
+    const templateId = classicTemplateAssignField(row);
+    if (!templateId) return;
+
+    // Angular view-template-modal: `Template View - {{details.template_title}}`
+    let templateLabel = txt(row.template_title) || txt(row.templateTitle) || "";
+    if (!templateLabel) {
+      const masters = await listQuestionPaperTemplates().catch(() => []);
+      const match = masters.find(
+        (t) =>
+          num(
+            t.examQuestionPaperTemplateId ||
+              t.examQuestionpaperTemplateId ||
+              t.pk_exam_questionpaper_template_id,
+          ) === templateId,
+      );
+      templateLabel =
+        txt(match?.templateTitle) ||
+        txt(match?.template_title) ||
+        String(templateId);
+    }
+
+    setTemplateTitle(`Template View - ${templateLabel}`);
+    setTemplateOpen(true);
     const details = await getQuestionPaperTemplateViewRows(templateId).catch(
       () => [],
     );
     setTemplateRows(details);
-    setTemplateOpen(true);
   }, []);
 
   const cols = useMemo<ColDef<AnyRow>[]>(
@@ -356,9 +371,9 @@ export default function AssignQuestionPaperTemplatePage() {
         sortable: false,
         filter: false,
         cellRenderer: makeActionsRenderer(
-          (row) => navigateToAssign(row, false),
+          (row) => navigateToAssign(row),
           (row) => void openViewTemplate(row),
-          (row) => navigateToAssign(row, true),
+          (row) => navigateToAssign(row),
         ),
       },
     ],
@@ -453,7 +468,8 @@ export default function AssignQuestionPaperTemplatePage() {
               {templateTitle}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-1 text-[14px]">
+          <div className="space-y-0.5 text-[14px]">
+            {/* Angular view-template-modal.component.html hierarchy */}
             {templateRows.map((row, i) => {
               const level = num(row.level1no);
               const group = num(row.groupno);
@@ -467,39 +483,41 @@ export default function AssignQuestionPaperTemplatePage() {
               const downText = txt(
                 row.displaydowntext || row.display_down_text,
               );
+              const showCenteredTitle =
+                level > 0 && group === 0 && subgroup === 0 && Boolean(title);
+              const showGroupHeader = level > 0 && group > 0 && subgroup === 0;
 
               return (
                 <div
-                  key={`template-${i}-${qCode}-${title}`}
-                  className="grid grid-cols-12 gap-2 items-start"
+                  key={`template-${i}-${group}-${qCode}-${title}`}
+                  className="space-y-0.5"
                 >
-                  {level > 0 && group === 0 && subgroup === 0 && (
-                    <div className="col-span-12 text-center font-medium py-1">
-                      {title}
-                    </div>
+                  {showCenteredTitle && (
+                    <div className="text-center font-medium py-1">{title}</div>
                   )}
-                  {level > 0 && group > 0 && subgroup === 0 && (
-                    <>
-                      <div className="col-span-1 font-semibold">{group}.</div>
-                      <div className="col-span-9">{title}</div>
+                  {showGroupHeader && (
+                    <div className="grid grid-cols-12 gap-2 items-start">
+                      <div className="col-span-10 font-semibold">
+                        {group}.{title ? ` ${title}` : ""}
+                      </div>
                       <div className="col-span-2 text-right font-semibold">
                         {groupMarks}
                       </div>
-                    </>
+                    </div>
                   )}
-                  {qCode && (
-                    <>
+                  {qCode ? (
+                    <div className="grid grid-cols-12 gap-2 items-start">
                       <div className="col-span-1" />
                       <div className="col-span-2">{qCode}</div>
                       <div className="col-span-7" />
                       <div className="col-span-2 text-right">{qMarks}</div>
-                    </>
-                  )}
-                  {downText && (
-                    <div className="col-span-12 text-center font-semibold py-1">
+                    </div>
+                  ) : null}
+                  {downText ? (
+                    <div className="text-center font-semibold py-1">
                       {downText}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               );
             })}

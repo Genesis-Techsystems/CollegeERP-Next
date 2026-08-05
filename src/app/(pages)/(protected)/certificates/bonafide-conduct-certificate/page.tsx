@@ -469,7 +469,7 @@ export default function BonafideConductCertificatePage() {
         }
       />
 
-      {selectedStudent && orgCode ? (
+      {selectedStudent && !isEmptyStudent(selectedStudent) ? (
         <BonafideConductCertificatePrint
           orgCode={orgCode}
           student={selectedStudent}

@@ -23,6 +23,7 @@ import {
   listGroupSections,
   listSubjectsByCourse,
   saveSubjectRegulations,
+  updateSubjectRegulations,
 } from "@/services";
 
 type AnyRow = Record<string, any>;
@@ -183,7 +184,6 @@ export default function SubjectAllocationSemRegulationPage() {
   const [subjects, setSubjects] = useState<AnyRow[]>([]);
   const [sections, setSections] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
-  const [deletedRows, setDeletedRows] = useState<AnyRow[]>([]);
   const [regulationId, setRegulationId] = useState<number | null>(
     params.regulationId || null,
   );
@@ -209,7 +209,6 @@ export default function SubjectAllocationSemRegulationPage() {
       noExams: x.subjectCourseyears?.[0]?.noExams ?? x.noExams ?? false,
     }));
     setRows(normalized);
-    setDeletedRows([]);
   }
 
   useEffect(() => {
@@ -284,7 +283,13 @@ export default function SubjectAllocationSemRegulationPage() {
     [regulations],
   );
 
-  function deleteRow(row: AnyRow) {
+  /**
+   * Angular deleteSubject(item, index):
+   * sets isActive=false, removes from table, then immediately
+   * PUT subjectregulations with [item] (crudService.update).
+   * On success → selectedRegulation() reload.
+   */
+  async function deleteRow(row: AnyRow) {
     setRows((prev) =>
       prev.filter(
         (x) =>
@@ -294,8 +299,13 @@ export default function SubjectAllocationSemRegulationPage() {
           ),
       ),
     );
-    if (row.subjectRegulationId) {
-      setDeletedRows((prev) => [...prev, { ...row, isActive: false }]);
+    try {
+      await updateSubjectRegulations([{ ...row, isActive: false }]);
+      toastSuccess("Subject removed successfully.");
+      if (regulationId) await loadSubjectRegulations(regulationId);
+    } catch (e) {
+      toastError(e instanceof Error ? e.message : "Failed to remove subject.");
+      if (regulationId) await loadSubjectRegulations(regulationId);
     }
   }
   function toggleNoExam(row: AnyRow, checked: boolean) {
@@ -351,21 +361,8 @@ export default function SubjectAllocationSemRegulationPage() {
         };
       });
 
-      for (const del of deletedRows) {
-        if (!del.subjectRegulationId) continue;
-        const courseYears = Array.isArray(del.subjectCourseyears)
-          ? del.subjectCourseyears.map((cy: AnyRow) => ({
-              ...cy,
-              isActive: false,
-            }))
-          : [];
-        payload.push({
-          ...del,
-          isActive: false,
-          subjectCourseyears: courseYears,
-        });
-      }
-
+      // Soft-deletes are handled immediately on X (Angular deleteSubject → PUT),
+      // not deferred to Save.
       await saveSubjectRegulations(payload);
       await loadSubjectRegulations(regulationId);
       setConfirmOpen(false);

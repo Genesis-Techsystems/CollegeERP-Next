@@ -22,6 +22,7 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   InvigilatorAllotmentModal,
   type InvigilatorModalContext,
@@ -526,7 +527,7 @@ export default function InvigilatorAllotmentPage() {
     const flat = flattenExamRoomAllotmentRow(room);
     const roomId = resolveRoomId(flat);
     if (!roomId) {
-      alert(
+      toastError(
         "Room id is missing for this allotment. Cannot open invigilator form.",
       );
       return;
@@ -559,15 +560,18 @@ export default function InvigilatorAllotmentPage() {
     if (!examTimetableId || !examId) return;
     setAutoAssigning(true);
     try {
-      await autoAssignInvigilators({
+      // Angular autoAssign(): snotify success with result.message for both
+      // success:true and success:false (e.g. "No Records(s) found.").
+      const result = await autoAssignInvigilators({
         examTimetableId,
         examId,
         userId: employeeId,
       });
       await refreshAllotments();
-      alert("Invigilators auto-assigned successfully");
-    } catch (e: any) {
-      alert(e?.message ?? "Auto assign failed");
+      const msg = String(result?.message ?? "").trim();
+      toastSuccess(msg || "Invigilators auto-assigned successfully");
+    } catch (e: unknown) {
+      toastError(e, "Auto assign failed");
     } finally {
       setAutoAssigning(false);
     }

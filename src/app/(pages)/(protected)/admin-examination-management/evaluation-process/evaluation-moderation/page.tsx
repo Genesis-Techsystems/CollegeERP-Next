@@ -192,11 +192,15 @@ export default function EvaluationModerationPage() {
     setOmrSearch("");
   }
 
+  const restReqSeq = useRef(0);
+  const subjectReqSeq = useRef(0);
+
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
     [baseRows],
   );
   const academicYears = useMemo(() => {
+    if (!courseId) return [];
     const rows = dedupeBy(
       baseRows.filter(
         (r) => pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId),
@@ -205,23 +209,22 @@ export default function EvaluationModerationPage() {
     );
     return [...rows].sort(
       (a, b) =>
-        parseInt(pickText(b, ["academic_year", "academicYear"]), 10) -
-        parseInt(pickText(a, ["academic_year", "academicYear"]), 10),
+        parseInt(pickText(b, ["academic_year", "academicYear"]) || "0", 10) -
+        parseInt(pickText(a, ["academic_year", "academicYear"]) || "0", 10),
     );
   }, [baseRows, courseId]);
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId) &&
-            pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
-              Number(academicYearId),
-        ),
-        (r) => pickNum(r, ["fk_exam_id", "examId"]),
+  const exams = useMemo(() => {
+    if (!courseId || !academicYearId) return [];
+    return dedupeBy(
+      baseRows.filter(
+        (r) =>
+          pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId) &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
+            Number(academicYearId),
       ),
-    [baseRows, courseId, academicYearId],
-  );
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+  }, [baseRows, courseId, academicYearId]);
   const courseYears = useMemo(
     () =>
       dedupeBy(restRows, (r) =>
@@ -229,23 +232,202 @@ export default function EvaluationModerationPage() {
       ),
     [restRows],
   );
-  const regulations = useMemo(
-    () =>
-      dedupeBy(
-        restRows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
-            Number(courseYearId),
-        ),
-        (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+  // Angular selectedCourseYr: regulations only for selected course year.
+  // Guard !courseYearId so Number(null)===0 never matches stray rows.
+  const regulations = useMemo(() => {
+    if (!courseYearId) return [];
+    return dedupeBy(
+      restRows.filter(
+        (r) =>
+          pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
+          Number(courseYearId),
       ),
-    [restRows, courseYearId],
-  );
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+    );
+  }, [restRows, courseYearId]);
   const subjects = useMemo(
     () =>
       dedupeBy(subjectRows, (r) => pickNum(r, ["fk_subject_id", "subjectId"])),
     [subjectRows],
   );
+
+  function clearBelowCourse() {
+    setAcademicYearId(null);
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowAcademicYear() {
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowExam() {
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowCourseYear() {
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+  }
+
+  function clearBelowRegulation() {
+    setSubjectId(null);
+    setSubjectRows([]);
+  }
+
+  type CascadeCtx = {
+    courseId: number;
+    academicYearId: number;
+    examId: number;
+    courseYearId: number;
+  };
+
+  function applyCourse(nextCourseId: number | null) {
+    resetFetchedState();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setCourseId(nextCourseId);
+    clearBelowCourse();
+    if (!nextCourseId) return;
+    const ayRows = dedupeBy(
+      baseRows.filter(
+        (r) => pickNum(r, ["fk_course_id", "courseId"]) === nextCourseId,
+      ),
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+    );
+    const sorted = [...ayRows].sort(
+      (a, b) =>
+        parseInt(pickText(b, ["academic_year", "academicYear"]) || "0", 10) -
+        parseInt(pickText(a, ["academic_year", "academicYear"]) || "0", 10),
+    );
+    const firstAy =
+      pickNum(sorted[0], ["fk_academic_year_id", "academicYearId"]) || null;
+    if (firstAy) applyAcademicYear(firstAy, nextCourseId);
+  }
+
+  function applyAcademicYear(nextAyId: number | null, forCourseId = courseId) {
+    resetFetchedState();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setAcademicYearId(nextAyId);
+    clearBelowAcademicYear();
+    if (!nextAyId || !forCourseId) return;
+    const examRows = dedupeBy(
+      baseRows.filter(
+        (r) =>
+          pickNum(r, ["fk_course_id", "courseId"]) === Number(forCourseId) &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) === nextAyId,
+      ),
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+    const firstExam = pickNum(examRows[0], ["fk_exam_id", "examId"]) || null;
+    if (firstExam) applyExam(firstExam, forCourseId, nextAyId);
+  }
+
+  function applyExam(
+    nextExamId: number | null,
+    forCourseId = courseId,
+    forAyId = academicYearId,
+  ) {
+    resetFetchedState();
+    subjectReqSeq.current += 1;
+    setExamId(nextExamId);
+    clearBelowExam();
+    if (!nextExamId || !forCourseId || !forAyId) return;
+    const seq = ++restReqSeq.current;
+    void (async () => {
+      const list = await getEvaluationModerationRest({
+        employeeId,
+        courseId: forCourseId,
+        academicYearId: forAyId,
+        examId: nextExamId,
+      }).catch(() => []);
+      if (seq !== restReqSeq.current) return;
+      const rows = Array.isArray(list) ? list : [];
+      setRestRows(rows);
+      const years = dedupeBy(rows, (r) =>
+        pickNum(r, ["fk_course_year_id", "courseYearId"]),
+      );
+      const firstYear =
+        pickNum(years[0], ["fk_course_year_id", "courseYearId"]) || null;
+      if (firstYear) {
+        applyCourseYear(firstYear, rows, {
+          courseId: forCourseId,
+          academicYearId: forAyId,
+          examId: nextExamId,
+          courseYearId: firstYear,
+        });
+      }
+    })();
+  }
+
+  function applyCourseYear(
+    nextYearId: number | null,
+    fromRest: AnyRow[] = restRows,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    resetFetchedState();
+    subjectReqSeq.current += 1;
+    setCourseYearId(nextYearId);
+    clearBelowCourseYear();
+    if (!nextYearId) return;
+    const regs = dedupeBy(
+      fromRest.filter(
+        (r) => pickNum(r, ["fk_course_year_id", "courseYearId"]) === nextYearId,
+      ),
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+    );
+    const firstReg =
+      pickNum(regs[0], ["fk_regulation_id", "regulationId"]) || null;
+    if (!firstReg) return;
+    applyRegulation(firstReg, {
+      courseId: Number(ctx?.courseId ?? courseId),
+      academicYearId: Number(ctx?.academicYearId ?? academicYearId),
+      examId: Number(ctx?.examId ?? examId),
+      courseYearId: nextYearId,
+    });
+  }
+
+  function applyRegulation(
+    nextRegId: number | null,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    resetFetchedState();
+    setRegulationId(nextRegId);
+    clearBelowRegulation();
+    const cId = Number(ctx?.courseId ?? courseId);
+    const ayId = Number(ctx?.academicYearId ?? academicYearId);
+    const eId = Number(ctx?.examId ?? examId);
+    const yId = Number(ctx?.courseYearId ?? courseYearId);
+    if (!nextRegId || !cId || !ayId || !eId || !yId) return;
+    const seq = ++subjectReqSeq.current;
+    void (async () => {
+      const list = await getEvaluationModerationSubjects({
+        employeeId,
+        courseId: cId,
+        academicYearId: ayId,
+        examId: eId,
+        courseYearId: yId,
+        regulationId: nextRegId,
+      }).catch(() => []);
+      if (seq !== subjectReqSeq.current) return;
+      setSubjectRows(Array.isArray(list) ? list : []);
+    })();
+  }
 
   useEffect(() => {
     async function init() {
@@ -256,83 +438,97 @@ export default function EvaluationModerationPage() {
         );
         const rows = Array.isArray(list) ? list : [];
         setBaseRows(rows);
-        if (rows[0])
-          setCourseId(pickNum(rows[0], ["fk_course_id", "courseId"]));
+        const firstCourse =
+          pickNum(rows[0], ["fk_course_id", "courseId"]) || null;
+        if (!firstCourse) return;
+
+        setCourseId(firstCourse);
+        clearBelowCourse();
+        const ayRows = dedupeBy(
+          rows.filter(
+            (r) => pickNum(r, ["fk_course_id", "courseId"]) === firstCourse,
+          ),
+          (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+        );
+        const sorted = [...ayRows].sort(
+          (a, b) =>
+            parseInt(
+              pickText(b, ["academic_year", "academicYear"]) || "0",
+              10,
+            ) -
+            parseInt(pickText(a, ["academic_year", "academicYear"]) || "0", 10),
+        );
+        const firstAy =
+          pickNum(sorted[0], ["fk_academic_year_id", "academicYearId"]) || null;
+        if (!firstAy) return;
+
+        setAcademicYearId(firstAy);
+        clearBelowAcademicYear();
+        const examRows = dedupeBy(
+          rows.filter(
+            (r) =>
+              pickNum(r, ["fk_course_id", "courseId"]) === firstCourse &&
+              pickNum(r, ["fk_academic_year_id", "academicYearId"]) === firstAy,
+          ),
+          (r) => pickNum(r, ["fk_exam_id", "examId"]),
+        );
+        const firstExam =
+          pickNum(examRows[0], ["fk_exam_id", "examId"]) || null;
+        if (!firstExam) return;
+
+        setExamId(firstExam);
+        clearBelowExam();
+        const seq = ++restReqSeq.current;
+        const restList = await getEvaluationModerationRest({
+          employeeId,
+          courseId: firstCourse,
+          academicYearId: firstAy,
+          examId: firstExam,
+        }).catch(() => []);
+        if (seq !== restReqSeq.current) return;
+
+        const rest = Array.isArray(restList) ? restList : [];
+        setRestRows(rest);
+        const years = dedupeBy(rest, (r) =>
+          pickNum(r, ["fk_course_year_id", "courseYearId"]),
+        );
+        const firstYear =
+          pickNum(years[0], ["fk_course_year_id", "courseYearId"]) || null;
+        if (!firstYear) return;
+
+        setCourseYearId(firstYear);
+        clearBelowCourseYear();
+        const regs = dedupeBy(
+          rest.filter(
+            (r) =>
+              pickNum(r, ["fk_course_year_id", "courseYearId"]) === firstYear,
+          ),
+          (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+        );
+        const firstReg =
+          pickNum(regs[0], ["fk_regulation_id", "regulationId"]) || null;
+        if (!firstReg) return;
+
+        setRegulationId(firstReg);
+        clearBelowRegulation();
+        const subSeq = ++subjectReqSeq.current;
+        const subs = await getEvaluationModerationSubjects({
+          employeeId,
+          courseId: firstCourse,
+          academicYearId: firstAy,
+          examId: firstExam,
+          courseYearId: firstYear,
+          regulationId: firstReg,
+        }).catch(() => []);
+        if (subSeq !== subjectReqSeq.current) return;
+        setSubjectRows(Array.isArray(subs) ? subs : []);
       } finally {
         setLoading(false);
       }
     }
     void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/employeeId only; cascade is explicit
   }, [employeeId]);
-
-  useEffect(() => {
-    if (academicYears[0])
-      setAcademicYearId(
-        pickNum(academicYears[0], ["fk_academic_year_id", "academicYearId"]),
-      );
-  }, [academicYears]);
-  useEffect(() => {
-    if (exams[0]) setExamId(pickNum(exams[0], ["fk_exam_id", "examId"]));
-  }, [exams]);
-
-  useEffect(() => {
-    async function loadRest() {
-      if (!courseId || !academicYearId || !examId) return;
-      const list = await getEvaluationModerationRest({
-        employeeId,
-        courseId,
-        academicYearId,
-        examId,
-      }).catch(() => []);
-      const rows = Array.isArray(list) ? list : [];
-      setRestRows(rows);
-      if (rows[0])
-        setCourseYearId(
-          pickNum(rows[0], ["fk_course_year_id", "courseYearId"]),
-        );
-    }
-    void loadRest();
-  }, [employeeId, courseId, academicYearId, examId]);
-
-  useEffect(() => {
-    if (regulations[0])
-      setRegulationId(
-        pickNum(regulations[0], ["fk_regulation_id", "regulationId"]),
-      );
-  }, [regulations]);
-
-  useEffect(() => {
-    async function loadSubjects() {
-      if (
-        !courseId ||
-        !academicYearId ||
-        !examId ||
-        !courseYearId ||
-        !regulationId
-      )
-        return;
-      const list = await getEvaluationModerationSubjects({
-        employeeId,
-        courseId,
-        academicYearId,
-        examId,
-        courseYearId,
-        regulationId,
-      }).catch(() => []);
-      const rows = Array.isArray(list) ? list : [];
-      setSubjectRows(rows);
-      if (rows[0])
-        setSubjectId(pickNum(rows[0], ["fk_subject_id", "subjectId"]));
-    }
-    void loadSubjects();
-  }, [
-    employeeId,
-    courseId,
-    academicYearId,
-    examId,
-    courseYearId,
-    regulationId,
-  ]);
 
   async function onGetList() {
     if (
@@ -590,10 +786,7 @@ export default function EvaluationModerationPage() {
         <GlobalFilterField label="Course" className="global-filter-field--fx15">
           <Select
             value={courseId ? String(courseId) : null}
-            onChange={(v) => {
-              resetFetchedState();
-              setCourseId(v ? Number(v) : null);
-            }}
+            onChange={(v) => applyCourse(v ? Number(v) : null)}
             options={courses.map(
               (c) =>
                 ({
@@ -610,10 +803,7 @@ export default function EvaluationModerationPage() {
         >
           <Select
             value={academicYearId ? String(academicYearId) : null}
-            onChange={(v) => {
-              resetFetchedState();
-              setAcademicYearId(v ? Number(v) : null);
-            }}
+            onChange={(v) => applyAcademicYear(v ? Number(v) : null)}
             options={academicYears.map(
               (a) =>
                 ({
@@ -624,15 +814,13 @@ export default function EvaluationModerationPage() {
                 }) as SelectOption,
             )}
             placeholder="Academic Year"
+            disabled={!courseId}
           />
         </GlobalFilterField>
         <GlobalFilterField label="Exam" className="global-filter-field--fx69">
           <Select
             value={examId ? String(examId) : null}
-            onChange={(v) => {
-              resetFetchedState();
-              setExamId(v ? Number(v) : null);
-            }}
+            onChange={(v) => applyExam(v ? Number(v) : null)}
             options={exams.map(
               (e) =>
                 ({
@@ -642,6 +830,7 @@ export default function EvaluationModerationPage() {
             )}
             placeholder="Exam"
             searchable
+            disabled={!academicYearId}
           />
         </GlobalFilterField>
       </GlobalFilterBarRow>
@@ -652,10 +841,13 @@ export default function EvaluationModerationPage() {
         >
           <Select
             value={courseYearId ? String(courseYearId) : null}
-            onChange={(v) => {
-              resetFetchedState();
-              setCourseYearId(v ? Number(v) : null);
-            }}
+            onChange={(v) =>
+              applyCourseYear(v ? Number(v) : null, restRows, {
+                courseId: Number(courseId),
+                academicYearId: Number(academicYearId),
+                examId: Number(examId),
+              })
+            }
             options={courseYears.map(
               (y) =>
                 ({
@@ -666,6 +858,7 @@ export default function EvaluationModerationPage() {
                 }) as SelectOption,
             )}
             placeholder="Course Year"
+            disabled={!examId}
           />
         </GlobalFilterField>
         <GlobalFilterField
@@ -674,10 +867,14 @@ export default function EvaluationModerationPage() {
         >
           <Select
             value={regulationId ? String(regulationId) : null}
-            onChange={(v) => {
-              resetFetchedState();
-              setRegulationId(v ? Number(v) : null);
-            }}
+            onChange={(v) =>
+              applyRegulation(v ? Number(v) : null, {
+                courseId: Number(courseId),
+                academicYearId: Number(academicYearId),
+                examId: Number(examId),
+                courseYearId: Number(courseYearId),
+              })
+            }
             options={regulations.map(
               (r) =>
                 ({
@@ -688,9 +885,13 @@ export default function EvaluationModerationPage() {
                 }) as SelectOption,
             )}
             placeholder="Regulation"
+            disabled={!courseYearId}
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Subject" className="global-filter-field--fx49">
+        <GlobalFilterField
+          label="Subject"
+          className="global-filter-field--fx49"
+        >
           <Select
             value={subjectId ? String(subjectId) : null}
             onChange={(v) => {
@@ -706,6 +907,7 @@ export default function EvaluationModerationPage() {
             )}
             placeholder="Subject"
             searchable
+            disabled={!regulationId}
           />
         </GlobalFilterField>
         <GlobalFilterField
