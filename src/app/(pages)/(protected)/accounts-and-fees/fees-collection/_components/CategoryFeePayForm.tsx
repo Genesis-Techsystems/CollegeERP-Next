@@ -8,7 +8,7 @@ import { DatePicker } from "@/common/components/date-picker";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
 import { TableCard } from "@/common/components/table";
-import { PageContainer } from "@/components/layout";
+import { FilteredPage, PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -149,7 +149,14 @@ export function CategoryFeePayForm({
 }: CategoryFeePayFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { categoryCode, requireTransport, filterOnlineLookups, title } = config;
+  const {
+    categoryCode,
+    requireTransport,
+    filterOnlineLookups,
+    title,
+    useFilteredShell = false,
+    showReceiptsOnlyWhenPresent = false,
+  } = config;
 
   const [form, setForm] = useState<PayFormState>({
     paymentModeId: DEFAULT_PAYMENT_MODE_ID,
@@ -717,6 +724,82 @@ export function CategoryFeePayForm({
 
   const hidePrintCodes = new Set(["MQA", "CONVREMIT", "SCHOLARSHIP"]);
 
+  const confirmDialog = (
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Confirm Payment"
+      confirmLabel="Pay"
+      cancelLabel="Close"
+      confirmVariant="default"
+      confirmFirst
+      isLoading={paying}
+      contentClassName="sm:max-w-xl"
+      onCancel={() => {
+        if (!paying) {
+          setConfirmOpen(false);
+          setPayPreview(null);
+        }
+      }}
+      onConfirm={() => void confirmPay()}
+    >
+      {payPreview ? (
+        <div className="space-y-3 text-sm">
+          <p>
+            <span className="text-muted-foreground">Student:</span>{" "}
+            {payPreview.firstName ?? profileStudent.firstName}
+          </p>
+          <p>
+            <span className="text-muted-foreground">College / AY:</span>{" "}
+            {payPreview.collegeCode} / {payPreview.academicYear}
+          </p>
+          <p>
+            <span className="text-muted-foreground">Course:</span>{" "}
+            {[
+              payPreview.courseCode,
+              payPreview.groupCode,
+              payPreview.courseYearName,
+              payPreview.section,
+            ]
+              .filter(Boolean)
+              .join(" / ")}
+          </p>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="py-1">Particular</th>
+                <th className="py-1 text-right">Fee Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-2">
+                  {payPreview.feeParticularwisePayments[0]?.categoryName} -{" "}
+                  {payPreview.feeParticularwisePayments[0]?.particularsName}
+                </td>
+                <td className="py-2 text-right">{payPreview.receiptAmount}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="text-right font-semibold">
+            Total: ₹ {payPreview.receiptAmount}
+          </p>
+        </div>
+      ) : null}
+    </ConfirmDialog>
+  );
+
+  const backButton = (
+    <div className="flex justify-end">
+      <Button
+        type="button"
+        className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+        onClick={() => router.push(config.backHref(queryParams))}
+      >
+        Back
+      </Button>
+    </div>
+  );
+
   if (!collegeId || !academicYearId || !studentId || !feeStructureId) {
     const missing = [
       !collegeId ? "collegeId" : null,
@@ -743,293 +826,291 @@ export function CategoryFeePayForm({
     );
   }
 
-  return (
-    <PageContainer className="space-y-5">
-      <div className="flex items-center gap-2">
-        <span className="text-base font-semibold">{title}</span>
-      </div>
+  const profileNotices = (
+    <>
+      <FeeStudentProfileCard student={profileStudent} />
 
-      {loadingStudent ? (
-        <p className="text-sm text-muted-foreground">
-          Loading student fee data…
+      {requireTransport && !transport ? (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          To pay transport fee please allocate route to student.
         </p>
-      ) : feeStudentData ? (
-        <>
-          <FeeStudentProfileCard student={profileStudent} />
+      ) : null}
 
-          {requireTransport && !transport ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-              To pay transport fee please allocate route to student.
-            </p>
+      {categoryCode && (categories.length === 0 || particulars.length === 0) ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          No active fee category / particular with code{" "}
+          <strong>{categoryCode}</strong> for this college. Configure it under
+          Fee Masters before collecting this fee.
+        </p>
+      ) : null}
+
+      {contextLine ? (
+        <div className="rounded-md bg-[#c3d9ff] px-3 py-2 text-sm font-medium text-slate-900">
+          Payment for {contextLine}
+          {transport ? (
+            <span className="ml-1 font-medium text-blue-700">
+              ({transport.pickupRouteStopName}{" "}
+              {formatTransportTimeLabel(transport.pickTime)} -{" "}
+              {transport.dropRoutestopName}{" "}
+              {formatTransportTimeLabel(transport.dropTime)} /{" "}
+              {transport.routeCode})
+            </span>
           ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 
-          {categoryCode &&
-          (categories.length === 0 || particulars.length === 0) ? (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              No active fee category / particular with code{" "}
-              <strong>{categoryCode}</strong> for this college. Configure it
-              under Fee Masters before collecting this fee.
-            </p>
-          ) : null}
+  const payAndTables =
+    !loadingStudent && feeStudentData ? (
+      <div className="space-y-5">
+        {!isPaid ? (
+          <div
+            className={
+              useFilteredShell
+                ? "space-y-4"
+                : "space-y-4 rounded-lg border bg-white p-4"
+            }
+          >
+            <h2 className="text-sm font-semibold">Payment</h2>
+            {!hasFinancialYear && !loadingFy ? (
+              <p className="text-sm font-medium text-red-600">
+                Not found related financial year, please contact system admin.
+              </p>
+            ) : null}
 
-          {contextLine ? (
-            <div className="rounded-md bg-[#c3d9ff] px-3 py-2 text-sm font-medium text-slate-900">
-              Payment for {contextLine}
-              {transport ? (
-                <span className="ml-1 font-medium text-blue-700">
-                  ({transport.pickupRouteStopName}{" "}
-                  {formatTransportTimeLabel(transport.pickTime)} -{" "}
-                  {transport.dropRoutestopName}{" "}
-                  {formatTransportTimeLabel(transport.dropTime)} /{" "}
-                  {transport.routeCode})
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          {!isPaid ? (
-            <div className="space-y-4 rounded-lg border bg-white p-4">
-              <h2 className="text-sm font-semibold">Payment</h2>
-              {!hasFinancialYear && !loadingFy ? (
-                <p className="text-sm font-medium text-red-600">
-                  Not found related financial year, please contact system admin.
-                </p>
-              ) : null}
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <Select
-                  label="Pay Mode"
-                  required
-                  value={
-                    form.paymentModeId != null
-                      ? String(form.paymentModeId)
-                      : null
-                  }
-                  onChange={(v) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      paymentModeId: v ? Number(v) : null,
-                      referenceNumber: "",
-                      transactionNo: "",
-                      chequeNo: "",
-                      ddno: "",
-                      otherPaymentNumber: "",
-                    }))
-                  }
-                  options={modeOptions}
-                  placeholder="Select pay mode"
-                />
-                <Select
-                  label="Payment Type"
-                  required
-                  value={
-                    form.paymentTypeId != null
-                      ? String(form.paymentTypeId)
-                      : null
-                  }
-                  onChange={onPaymentTypeChange}
-                  options={typeOptions}
-                  placeholder="Select payment type"
-                />
-                {refField ? (
-                  <div className="space-y-1.5">
-                    <Label>{refField.label}</Label>
-                    <Input
-                      value={form[refField.key]}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          [refField.key]: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <DatePicker
-                  label="Payment Date"
-                  required
-                  value={form.receiptDt}
-                  onChange={(d) =>
-                    setForm((prev) => ({ ...prev, receiptDt: d }))
-                  }
-                  clearable={false}
-                  displayFormat="dd/MM/yyyy"
-                />
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label>Payment Notes</Label>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <Select
+                label="Pay Mode"
+                required
+                value={
+                  form.paymentModeId != null ? String(form.paymentModeId) : null
+                }
+                onChange={(v) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    paymentModeId: v ? Number(v) : null,
+                    referenceNumber: "",
+                    transactionNo: "",
+                    chequeNo: "",
+                    ddno: "",
+                    otherPaymentNumber: "",
+                  }))
+                }
+                options={modeOptions}
+                placeholder="Select pay mode"
+              />
+              <Select
+                label="Payment Type"
+                required
+                value={
+                  form.paymentTypeId != null ? String(form.paymentTypeId) : null
+                }
+                onChange={onPaymentTypeChange}
+                options={typeOptions}
+                placeholder="Select payment type"
+              />
+              {refField ? (
+                <div className="space-y-1.5">
+                  <Label>{refField.label}</Label>
                   <Input
-                    value={form.paymentFor}
+                    value={form[refField.key]}
                     onChange={(e) =>
                       setForm((prev) => ({
                         ...prev,
-                        paymentFor: e.target.value,
+                        [refField.key]: e.target.value,
                       }))
                     }
                   />
                 </div>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    className="h-9 w-full bg-[#f0c040] text-slate-900 hover:bg-[#e5b535]"
-                    disabled={!canSubmit || paying}
-                    onClick={() => void preparePay()}
-                  >
-                    Pay fees
-                  </Button>
-                </div>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <DatePicker
+                label="Payment Date"
+                required
+                value={form.receiptDt}
+                onChange={(d) => setForm((prev) => ({ ...prev, receiptDt: d }))}
+                clearable={false}
+                displayFormat="dd/MM/yyyy"
+              />
+              <div className="space-y-1.5 md:col-span-2">
+                <Label>Payment Notes</Label>
+                <Input
+                  value={form.paymentFor}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      paymentFor: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  className="h-9 w-full bg-[#f0c040] text-slate-900 hover:bg-[#e5b535]"
+                  disabled={!canSubmit || paying}
+                  onClick={() => void preparePay()}
+                >
+                  Pay fees
+                </Button>
               </div>
             </div>
-          ) : null}
+          </div>
+        ) : null}
 
+        <TableCard
+          headerLeft={
+            <span className="text-sm font-medium">Fee Particular</span>
+          }
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b bg-slate-50 text-left">
+                  <th className="px-2 py-2">SI No</th>
+                  <th className="px-2 py-2">Category</th>
+                  <th className="px-2 py-2">Particular</th>
+                  <th className="px-2 py-2 text-right">Gross Amt (₹)</th>
+                  <th className="px-2 py-2 text-right">Dis Amt (₹)</th>
+                  <th className="px-2 py-2 text-right">Paid Amt (₹)</th>
+                  <th className="px-2 py-2 text-right">Bal Amt (₹)</th>
+                  <th className="px-2 py-2 text-right">Pay Amt (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {particular ? (
+                  <tr className="border-b">
+                    <td className="px-2 py-2">1.</td>
+                    <td className="px-2 py-2">
+                      {particular.feeStdDataParticularsId ? (
+                        particular.categoryName
+                      ) : (
+                        <Select
+                          value={
+                            particular.feeCategoryId != null
+                              ? String(particular.feeCategoryId)
+                              : null
+                          }
+                          onChange={(v) =>
+                            updateParticular({
+                              feeCategoryId: v ? Number(v) : undefined,
+                            })
+                          }
+                          options={categoryOptions}
+                          placeholder="Fee Category"
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-2">
+                      {particular.feeStdDataParticularsId ? (
+                        particular.particularsName
+                      ) : (
+                        <Select
+                          value={
+                            particular.feeParticularsId != null
+                              ? String(particular.feeParticularsId)
+                              : null
+                          }
+                          onChange={(v) =>
+                            updateParticular({
+                              feeParticularsId: v ? Number(v) : undefined,
+                            })
+                          }
+                          options={particularOptions}
+                          placeholder="Fee Particular"
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {particular.isPaid ? (
+                        Number(particular.grossAmount ?? 0)
+                      ) : (
+                        <Input
+                          className="ml-auto h-8 w-24 text-right"
+                          type="number"
+                          value={Number(particular.grossAmount ?? 0)}
+                          onChange={(e) =>
+                            updateParticular({
+                              grossAmount: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {particular.isDiscounted ? (
+                        <span className="inline-flex items-center gap-1">
+                          {Number(particular.discountAmount ?? 0)}
+                          {Number(particular.balanceAmount ?? 0) > 0 ? (
+                            <button
+                              type="button"
+                              className="text-xs text-red-600 underline"
+                              onClick={() => void onDeleteDiscount()}
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <Input
+                          className="ml-auto h-8 w-24 text-right"
+                          type="number"
+                          min={0}
+                          value={Number(particular.discountAmount ?? 0)}
+                          onChange={(e) =>
+                            updateParticular({
+                              discountAmount: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {Number(particular.paidAmount ?? 0)}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {Number(particular.balanceAmount ?? 0)}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {particular.isPaid ? (
+                        <span className="font-medium text-emerald-700">
+                          Paid
+                        </span>
+                      ) : (
+                        <Input
+                          className="ml-auto h-8 w-24 text-right text-blue-700"
+                          type="number"
+                          min={0}
+                          value={Number(particular.amt ?? 0)}
+                          onChange={(e) => onPayAmountChange(e.target.value)}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-2 py-4 text-center text-muted-foreground"
+                    >
+                      No particular data
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </TableCard>
+
+        {/* Angular: Fee Receipts only when feeReceipts.length > 0 */}
+        {!showReceiptsOnlyWhenPresent || receipts.length > 0 ? (
           <TableCard
             headerLeft={
-              <span className="text-sm font-medium">Fee Particular</span>
+              <span className="text-sm font-medium">Fee Receipts</span>
             }
-          >
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr className="border-b bg-slate-50 text-left">
-                    <th className="px-2 py-2">SI No</th>
-                    <th className="px-2 py-2">Category</th>
-                    <th className="px-2 py-2">Particular</th>
-                    <th className="px-2 py-2 text-right">Gross Amt (₹)</th>
-                    <th className="px-2 py-2 text-right">Dis Amt (₹)</th>
-                    <th className="px-2 py-2 text-right">Paid Amt (₹)</th>
-                    <th className="px-2 py-2 text-right">Bal Amt (₹)</th>
-                    <th className="px-2 py-2 text-right">Pay Amt (₹)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {particular ? (
-                    <tr className="border-b">
-                      <td className="px-2 py-2">1.</td>
-                      <td className="px-2 py-2">
-                        {particular.feeStdDataParticularsId ? (
-                          particular.categoryName
-                        ) : (
-                          <Select
-                            value={
-                              particular.feeCategoryId != null
-                                ? String(particular.feeCategoryId)
-                                : null
-                            }
-                            onChange={(v) =>
-                              updateParticular({
-                                feeCategoryId: v ? Number(v) : undefined,
-                              })
-                            }
-                            options={categoryOptions}
-                            placeholder="Fee Category"
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2">
-                        {particular.feeStdDataParticularsId ? (
-                          particular.particularsName
-                        ) : (
-                          <Select
-                            value={
-                              particular.feeParticularsId != null
-                                ? String(particular.feeParticularsId)
-                                : null
-                            }
-                            onChange={(v) =>
-                              updateParticular({
-                                feeParticularsId: v ? Number(v) : undefined,
-                              })
-                            }
-                            options={particularOptions}
-                            placeholder="Fee Particular"
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {particular.isPaid ? (
-                          Number(particular.grossAmount ?? 0)
-                        ) : (
-                          <Input
-                            className="ml-auto h-8 w-24 text-right"
-                            type="number"
-                            value={Number(particular.grossAmount ?? 0)}
-                            onChange={(e) =>
-                              updateParticular({
-                                grossAmount: Number(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {particular.isDiscounted ? (
-                          <span className="inline-flex items-center gap-1">
-                            {Number(particular.discountAmount ?? 0)}
-                            {Number(particular.balanceAmount ?? 0) > 0 ? (
-                              <button
-                                type="button"
-                                className="text-xs text-red-600 underline"
-                                onClick={() => void onDeleteDiscount()}
-                              >
-                                Delete
-                              </button>
-                            ) : null}
-                          </span>
-                        ) : (
-                          <Input
-                            className="ml-auto h-8 w-24 text-right"
-                            type="number"
-                            min={0}
-                            value={Number(particular.discountAmount ?? 0)}
-                            onChange={(e) =>
-                              updateParticular({
-                                discountAmount: Number(e.target.value) || 0,
-                              })
-                            }
-                          />
-                        )}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {Number(particular.paidAmount ?? 0)}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {Number(particular.balanceAmount ?? 0)}
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {particular.isPaid ? (
-                          <span className="font-medium text-emerald-700">
-                            Paid
-                          </span>
-                        ) : (
-                          <Input
-                            className="ml-auto h-8 w-24 text-right text-blue-700"
-                            type="number"
-                            min={0}
-                            value={Number(particular.amt ?? 0)}
-                            onChange={(e) => onPayAmountChange(e.target.value)}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={8}
-                        className="px-2 py-4 text-center text-muted-foreground"
-                      >
-                        No particular data
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </TableCard>
-
-          <TableCard
-            headerLeft={<span className="text-sm font-medium">Receipts</span>}
           >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] text-sm">
@@ -1047,7 +1128,7 @@ export function CategoryFeePayForm({
                   </tr>
                 </thead>
                 <tbody>
-                  {loadingReceipts ? (
+                  {loadingReceipts && !showReceiptsOnlyWhenPresent ? (
                     <tr>
                       <td
                         colSpan={9}
@@ -1104,7 +1185,9 @@ export function CategoryFeePayForm({
                               >
                                 Print
                               </Button>
-                            ) : null}
+                            ) : (
+                              "—"
+                            )}
                           </td>
                         </tr>
                       );
@@ -1114,86 +1197,59 @@ export function CategoryFeePayForm({
               </table>
             </div>
           </TableCard>
-        </>
+        ) : null}
+        {backButton}
+      </div>
+    ) : null;
+
+  if (useFilteredShell) {
+    return (
+      <FilteredPage
+        title={title}
+        filtersCollapsible={false}
+        filters={
+          loadingStudent ? (
+            <p className="text-sm text-muted-foreground">
+              Loading student fee data…
+            </p>
+          ) : feeStudentData ? (
+            <div className="space-y-3">{profileNotices}</div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No fee student data found for this structure.
+            </p>
+          )
+        }
+        body={payAndTables ?? backButton}
+      >
+        {confirmDialog}
+      </FilteredPage>
+    );
+  }
+
+  return (
+    <PageContainer className="space-y-5">
+      <div className="flex items-center gap-2">
+        <span className="text-base font-semibold">{title}</span>
+      </div>
+
+      {loadingStudent ? (
+        <p className="text-sm text-muted-foreground">
+          Loading student fee data…
+        </p>
+      ) : feeStudentData ? (
+        <div className="space-y-5">
+          {profileNotices}
+          {payAndTables}
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">
           No fee student data found for this structure.
         </p>
       )}
 
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
-          onClick={() => router.push(config.backHref(queryParams))}
-        >
-          Back
-        </Button>
-      </div>
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Confirm Payment"
-        confirmLabel="Pay"
-        cancelLabel="Close"
-        confirmVariant="default"
-        confirmFirst
-        isLoading={paying}
-        contentClassName="sm:max-w-xl"
-        onCancel={() => {
-          if (!paying) {
-            setConfirmOpen(false);
-            setPayPreview(null);
-          }
-        }}
-        onConfirm={() => void confirmPay()}
-      >
-        {payPreview ? (
-          <div className="space-y-3 text-sm">
-            <p>
-              <span className="text-muted-foreground">Student:</span>{" "}
-              {payPreview.firstName ?? profileStudent.firstName}
-            </p>
-            <p>
-              <span className="text-muted-foreground">College / AY:</span>{" "}
-              {payPreview.collegeCode} / {payPreview.academicYear}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Course:</span>{" "}
-              {[
-                payPreview.courseCode,
-                payPreview.groupCode,
-                payPreview.courseYearName,
-                payPreview.section,
-              ]
-                .filter(Boolean)
-                .join(" / ")}
-            </p>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="py-1">Particular</th>
-                  <th className="py-1 text-right">Fee Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="py-2">
-                    {payPreview.feeParticularwisePayments[0]?.categoryName} -{" "}
-                    {payPreview.feeParticularwisePayments[0]?.particularsName}
-                  </td>
-                  <td className="py-2 text-right">
-                    {payPreview.receiptAmount}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p className="text-right font-semibold">
-              Total: ₹ {payPreview.receiptAmount}
-            </p>
-          </div>
-        ) : null}
-      </ConfirmDialog>
+      {!feeStudentData || loadingStudent ? backButton : null}
+      {confirmDialog}
     </PageContainer>
   );
 }

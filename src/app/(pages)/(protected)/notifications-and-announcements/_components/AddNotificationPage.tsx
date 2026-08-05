@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Bell, FileIcon, Trash2Icon, Upload, X } from "lucide-react";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { DatePicker } from "@/common/components/date-picker";
@@ -205,6 +205,7 @@ function yearsFromEmpSecurity(
 
 export function AddNotificationPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useSessionContext();
 
@@ -298,7 +299,16 @@ export function AddNotificationPage() {
     if (collegeId) qs.set("collegeId", String(collegeId));
     if (academicYearId) qs.set("academicYearId", String(academicYearId));
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
-    // Angular goBack / post-save:
+
+    // Angular admin add-notification → notifications-&-announcements/notifications-list
+    if (pathname?.includes("/notifications-and-announcements")) {
+      router.push(
+        `/notifications-and-announcements/notifications-list${suffix}`,
+      );
+      return;
+    }
+
+    // Angular principal goBack / post-save:
     // HOD → principal-communications/announcements
     // PRINCIPAL → principal-communications/notifications/send-notifications
     const isHod =
@@ -317,7 +327,7 @@ export function AddNotificationPage() {
       return;
     }
     router.push(`/principal-communications/announcements${suffix}`);
-  }, [router, collegeId, academicYearId]);
+  }, [router, pathname, collegeId, academicYearId]);
 
   // Bootstrap masters + optional edit load
   // Angular selectedCollege: prefer empSecurity courses/depts, else domain lists

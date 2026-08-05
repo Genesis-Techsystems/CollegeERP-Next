@@ -82,7 +82,10 @@ export type SchPreceedingPayload = Record<string, unknown>;
 
 /** Account-level proceeding (cheque batch). */
 export type SchAccountsPreceeding = {
-  schAccountsPreceedingId: number;
+  /** Domain / entity PK (Next types). */
+  schAccountsPreceedingId?: number;
+  /** Angular list/API field name (often returned instead of singular). */
+  schAccountsPreceedingsId?: number;
   title?: string;
   chequeNo?: string;
   chequeDate?: string;
@@ -111,7 +114,22 @@ export type SchStdPreceeding = {
   isPaid?: boolean;
 };
 
-/** Fee scholarship structure list row. */
+/** Particular line nested under FeeSchStructure (Angular `feeSchStructureParticularsDTOS`). */
+export type FeeSchStructureParticularLine = {
+  feeSchStructureParticularsId?: number;
+  feeCategoryId: number;
+  feeParticularsId: number;
+  scholarshipAmount: number;
+  isActive?: boolean;
+  categoryName?: string;
+  particularName?: string;
+  collegeId?: number;
+  courseYearId?: number;
+  courseYearName?: string;
+  feeLabel?: string;
+};
+
+/** Fee scholarship structure list / detail row. */
 export type FeeSchStructureRow = {
   feeSchStructureId: number;
   collegeId?: number;
@@ -128,7 +146,26 @@ export type FeeSchStructureRow = {
   scholarshipTypeDesc?: string;
   scholarshipAmount?: number;
   isForLateral?: boolean;
+  isLateral?: boolean;
+  isAcademicScholarship?: boolean;
   isActive?: boolean;
+  feeSchStructureParticularsDTOS?: FeeSchStructureParticularLine[];
+};
+
+/** Angular `addFeeSchStructures` / `updateFeeSchStructures` body. */
+export type FeeSchStructureBulkPayload = {
+  feeSchStructureId?: number;
+  collegeId: number;
+  courseId: number;
+  batchId?: number | null;
+  academicYearId?: number | null;
+  scholarshipTypeId: number;
+  scholarshipAmount: number;
+  scholarshipType?: string;
+  isLateral?: boolean;
+  isActive: boolean;
+  isAcademicScholarship: boolean;
+  feeSchStructureParticularsDTOS: FeeSchStructureParticularLine[];
 };
 
 /** Scholarship value line (fee category / particular per course year). */

@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { getSecuredValue, setSecuredValue } from "@/common/generic-functions";
 import { DATE_FORMATS } from "@/config/constants/app";
 import { QK } from "@/lib/query-keys";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
@@ -34,10 +35,7 @@ import {
   listSchPreceedings,
 } from "@/services";
 import type { SchPreceeding } from "@/types/scholarship";
-import {
-  PreceedingModal,
-  type PreceedingModalResult,
-} from "./PreceedingModal";
+import { PreceedingModal, type PreceedingModalResult } from "./PreceedingModal";
 
 type PreceedingRow = SchPreceeding & {
   stdPreceedings?: Record<string, unknown>[];
@@ -50,6 +48,29 @@ type PreceedingRow = SchPreceeding & {
 } & Record<string, unknown>;
 
 const PAGE_SIZE = 50;
+const FILTER_STORAGE_KEY = "scholarship.preceedingDetails.filters";
+
+type StoredFilters = {
+  collegeId: string | null;
+  academicYearId: string | null;
+  financialYearId: string | null;
+};
+
+function readStoredFilters(): StoredFilters {
+  const stored = getSecuredValue<StoredFilters>(FILTER_STORAGE_KEY);
+  if (!stored || typeof stored !== "object") {
+    return { collegeId: null, academicYearId: null, financialYearId: null };
+  }
+  return {
+    collegeId: stored.collegeId ? String(stored.collegeId) : null,
+    academicYearId: stored.academicYearId
+      ? String(stored.academicYearId)
+      : null,
+    financialYearId: stored.financialYearId
+      ? String(stored.financialYearId)
+      : null,
+  };
+}
 
 const COL_DEFS = {
   siNo: {
@@ -276,10 +297,20 @@ export default function ScholarshipPreceedingDetailsPage() {
   );
 
   useEffect(() => {
-    if (!collegeId && colleges.length > 0) {
-      setCollegeId(
-        String(pickNum(colleges[0], ["fk_college_id", "collegeId"])),
-      );
+    if (collegeId || colleges.length === 0) return;
+    const stored = readStoredFilters();
+    const storedCollegeId = Number(stored.collegeId ?? 0);
+    const match = colleges.find(
+      (c) => pickNum(c, ["fk_college_id", "collegeId"]) === storedCollegeId,
+    );
+    setCollegeId(
+      String(pickNum(match ?? colleges[0], ["fk_college_id", "collegeId"])),
+    );
+    if (match && stored.academicYearId) {
+      setAcademicYearId(stored.academicYearId);
+    }
+    if (match && stored.financialYearId) {
+      setFinancialYearId(stored.financialYearId);
     }
   }, [colleges, collegeId]);
 
@@ -303,11 +334,24 @@ export default function ScholarshipPreceedingDetailsPage() {
     ) {
       return;
     }
+    const stored = readStoredFilters();
+    const storedAy = Number(stored.academicYearId ?? 0);
+    const storedMatch = academicYears.find(
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]) === storedAy,
+    );
     setAcademicYearId(
       String(
-        pickNum(academicYears[0], ["fk_academic_year_id", "academicYearId"]),
+        pickNum(storedMatch ?? academicYears[0], [
+          "fk_academic_year_id",
+          "academicYearId",
+        ]),
       ),
     );
+    if (storedMatch && stored.financialYearId) {
+      setFinancialYearId(stored.financialYearId);
+    } else if (!storedMatch) {
+      setFinancialYearId(null);
+    }
   }, [collegeNum, academicYears, academicYearId]);
 
   useEffect(() => {
@@ -315,8 +359,37 @@ export default function ScholarshipPreceedingDetailsPage() {
       setFinancialYearId(null);
       return;
     }
-    setFinancialYearId(null);
-  }, [academicYearNum, collegeNum]);
+    if (
+      financialYearId &&
+      financialYears.some(
+        (fy) =>
+          pickNum(fy, ["financialYearId", "financial_year_id"]) ===
+          Number(financialYearId),
+      )
+    ) {
+      return;
+    }
+    const stored = readStoredFilters();
+    const storedFy = Number(stored.financialYearId ?? 0);
+    const storedMatch = financialYears.find(
+      (fy) =>
+        pickNum(fy, ["financialYearId", "financial_year_id"]) === storedFy,
+    );
+    if (storedMatch) {
+      setFinancialYearId(
+        String(pickNum(storedMatch, ["financialYearId", "financial_year_id"])),
+      );
+    }
+  }, [academicYearNum, financialYears, financialYearId]);
+
+  useEffect(() => {
+    if (!collegeId && !academicYearId && !financialYearId) return;
+    setSecuredValue(FILTER_STORAGE_KEY, {
+      collegeId,
+      academicYearId,
+      financialYearId,
+    } satisfies StoredFilters);
+  }, [collegeId, academicYearId, financialYearId]);
 
   const {
     data: listResult,
@@ -405,8 +478,7 @@ export default function ScholarshipPreceedingDetailsPage() {
     () => [
       {
         ...COL_DEFS.siNo,
-        valueGetter: (p) =>
-          (page * PAGE_SIZE) + (p.node?.rowIndex ?? 0) + 1,
+        valueGetter: (p) => page * PAGE_SIZE + (p.node?.rowIndex ?? 0) + 1,
       },
       COL_DEFS.preceedingNo,
       COL_DEFS.preceedingTitle,
@@ -438,7 +510,9 @@ export default function ScholarshipPreceedingDetailsPage() {
             : "Scholarship preceeding saved.",
         );
         setModalOpen(false);
-        await queryClient.invalidateQueries({ queryKey: QK.schPreceedings.all });
+        await queryClient.invalidateQueries({
+          queryKey: QK.schPreceedings.all,
+        });
         await refetch();
       } catch (err) {
         toastError(
@@ -458,9 +532,7 @@ export default function ScholarshipPreceedingDetailsPage() {
       : [];
     const q = viewSearch.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((r) =>
-      JSON.stringify(r).toLowerCase().includes(q),
-    );
+    return list.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
   }, [viewRow, viewSearch]);
 
   return (

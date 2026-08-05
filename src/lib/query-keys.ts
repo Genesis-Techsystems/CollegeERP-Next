@@ -485,6 +485,12 @@ export const QK = {
     all: ["SchAccountsPreceeding"] as const,
     list: (collegeId?: number) =>
       ["SchAccountsPreceeding", "list", collegeId] as const,
+    viewPreceedings: (schAccountsPreceedingsId: number) =>
+      [
+        "SchAccountsPreceeding",
+        "viewPreceedings",
+        schAccountsPreceedingsId,
+      ] as const,
   },
   schStdPreceedings: {
     all: ["SchStdPreceeding"] as const,
@@ -495,14 +501,17 @@ export const QK = {
     all: ["FeeSchStructure"] as const,
     list: (filters: {
       collegeId: number;
-      academicYearId?: number;
       courseId?: number;
+      academicYearId?: number;
       batchId?: number;
+      isAcademicScholarship?: boolean;
     }) => ["FeeSchStructure", "list", filters] as const,
     detail: (feeSchStructureId: number) =>
       ["FeeSchStructure", "detail", feeSchStructureId] as const,
     values: (feeSchStructureId: number) =>
       ["ScholarshipValue", "byStructure", feeSchStructureId] as const,
+    typesByUniversity: (universityId: number) =>
+      ["ScholarshipType", "byUniversity", universityId] as const,
   },
   assignScholarship: {
     all: ["AssignScholarship"] as const,

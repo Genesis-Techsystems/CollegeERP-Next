@@ -198,6 +198,34 @@ function accountsFeesPaymentBreadcrumb(
     ];
   }
 
+  // Angular: Home → Accounts and Fees → Fee Collection → Bus Fee Payment
+  if (
+    /\/accounts-and-fees\/fees-collection\/bus-payment\/(bus-fee-payment|bus-fee)$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection" },
+      { label: "Bus Fee Payment" },
+    ];
+  }
+
+  // Angular: Home → Accounts and Fees → Fee Collection → Library Fee Payment
+  if (
+    /\/accounts-and-fees\/fees-collection\/library-payment\/(library-fee-payment|library-fee)$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection" },
+      { label: "Library Fee Payment" },
+    ];
+  }
+
   return items;
 }
 

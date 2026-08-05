@@ -4,6 +4,8 @@ import { NEXT_API, SCHOLARSHIP_API } from "@/config/constants/api";
 import type { ApiResponse } from "@/types/api";
 import type {
   AssignScholarshipStudent,
+  FeeSchStructureBulkPayload,
+  FeeSchStructureParticularLine,
   FeeSchStructurePayload,
   FeeSchStructureRow,
   ScholarshipTypeAndValue,
@@ -24,11 +26,14 @@ import {
   buildQuery,
   domainCreate,
   domainList,
+  domainListRawQuery,
   domainSoftDelete,
   domainUpdate,
   fetchDetails,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
+  putDetailsEnvelope,
 } from "./crud";
 import { listAcademicYearsByUniversity } from "./pre-examination";
 import { listActiveCollegesForGeneralSettings } from "./admin/college";
@@ -52,6 +57,43 @@ function str(...values: unknown[]): string {
     if (value != null && String(value).trim() !== "") return String(value);
   }
   return "";
+}
+
+function normalizeParticularLine(
+  row: FeeSchStructureParticularLine | AnyRow,
+): FeeSchStructureParticularLine {
+  const r = row as AnyRow;
+  const category = r.FeeCategory as AnyRow | undefined;
+  const particular = (r.FeeParticular ?? r.FeeParticulars) as
+    | AnyRow
+    | undefined;
+  return {
+    feeSchStructureParticularsId:
+      num(r.feeSchStructureParticularsId, r.feeSchStructureParticularId) ||
+      undefined,
+    feeCategoryId: num(
+      r.feeCategoryId,
+      category?.feeCategoryId,
+      r["FeeCategory.feeCategoryId"],
+    ),
+    feeParticularsId: num(
+      r.feeParticularsId,
+      particular?.feeParticularsId,
+      r["FeeParticular.feeParticularsId"],
+    ),
+    scholarshipAmount: Number(r.scholarshipAmount ?? 0),
+    isActive: r.isActive !== false,
+    categoryName: str(r.categoryName, category?.categoryName),
+    particularName: str(
+      r.particularName,
+      r.particularsName,
+      particular?.particularsName,
+    ),
+    collegeId: num(r.collegeId) || undefined,
+    courseYearId: num(r.courseYearId) || undefined,
+    courseYearName: str(r.courseYearName),
+    feeLabel: str(r.feeLabel),
+  };
 }
 
 function normalizeFeeSchStructure(row: FeeSchStructureRow): FeeSchStructureRow {
@@ -93,6 +135,16 @@ function normalizeFeeSchStructure(row: FeeSchStructureRow): FeeSchStructureRow {
     r["ScholarshipType.scholarshipTypeId"],
   );
 
+  const particularsRaw =
+    r.feeSchStructureParticularsDTOS ?? r.feeSchStructureParticulars ?? [];
+  const particulars = Array.isArray(particularsRaw)
+    ? particularsRaw.map((p) =>
+        normalizeParticularLine(p as FeeSchStructureParticularLine),
+      )
+    : [];
+
+  const isAcademicRaw = row.isAcademicScholarship ?? r.isAcademicScholarship;
+
   return {
     ...row,
     feeSchStructureId: num(row.feeSchStructureId, r.feeSchStructureId),
@@ -103,6 +155,20 @@ function normalizeFeeSchStructure(row: FeeSchStructureRow): FeeSchStructureRow {
     universityId:
       num(row.universityId, r.universityId, college?.universityId) || undefined,
     scholarshipTypeId: scholarshipTypeId || undefined,
+    collegeCode: str(
+      row.collegeCode,
+      college?.collegeCode,
+      r.college_code,
+      r.collage_code,
+    ),
+    courseCode: str(row.courseCode, course?.courseCode, r.course_code),
+    batchName: str(row.batchName, batch?.batchName, r.batch_name),
+    academicYear: str(
+      row.academicYear,
+      academicYear?.academicYear,
+      academicYear?.ayName,
+      r.academic_year,
+    ),
     scholarshipType: str(
       row.scholarshipType,
       scholarshipType?.scholarshipTypeCode,
@@ -116,7 +182,15 @@ function normalizeFeeSchStructure(row: FeeSchStructureRow): FeeSchStructureRow {
     scholarshipAmount: Number(
       row.scholarshipAmount ?? r.scholarshipAmount ?? 0,
     ),
-    isForLateral: Boolean(row.isForLateral ?? r.isForLateral),
+    isForLateral: Boolean(row.isForLateral ?? r.isForLateral ?? r.isLateral),
+    isLateral: Boolean(row.isLateral ?? r.isLateral ?? row.isForLateral),
+    isAcademicScholarship:
+      isAcademicRaw === true ||
+      isAcademicRaw === "true" ||
+      isAcademicRaw === 1 ||
+      isAcademicRaw === "1",
+    isActive: row.isActive !== false && r.isActive !== false,
+    feeSchStructureParticularsDTOS: particulars,
   };
 }
 
@@ -377,34 +451,51 @@ export async function createSchStdPreceedings(data: unknown): Promise<unknown> {
 
 // ── Account Proceedings ─────────────────────────────────────────────────────────
 
+/**
+ * Angular accounts-preceedings list:
+ * `domain/list/SchAccountsPreceeding?size=99999&query=College.collegeId=={id}.and.isActive==true.order(schAccountsPreceedingsId=desc)`
+ */
 export async function listSchAccountsPreceedings(
   collegeId?: number,
 ): Promise<SchAccountsPreceeding[]> {
   const query = collegeId
-    ? buildQuery({ "College.collegeId": collegeId, isActive: true })
-    : buildQuery({ isActive: true });
-  return domainList<SchAccountsPreceeding>(
+    ? `College.collegeId==${collegeId}.and.isActive==true.order(schAccountsPreceedingsId=desc)`
+    : "isActive==true.order(schAccountsPreceedingsId=desc)";
+  const rows = await domainListRawQuery<SchAccountsPreceeding>(
     ENTITIES.SCH_ACCOUNTS_PRECEEDING.name,
     query,
   );
+  return rows.map((row) => {
+    const id = Number(
+      row.schAccountsPreceedingsId ?? row.schAccountsPreceedingId ?? 0,
+    );
+    return {
+      ...row,
+      schAccountsPreceedingsId: id || row.schAccountsPreceedingsId,
+      schAccountsPreceedingId: id || row.schAccountsPreceedingId,
+    };
+  });
 }
 
+/** Angular create + edit both POST `schaccountspreceedings`. */
 export async function createSchAccountsPreceeding(
   data: Record<string, unknown>,
 ): Promise<unknown> {
   return postDetails(SCHOLARSHIP_API.SCH_ACCOUNTS_PRECEEDINGS, data);
 }
 
+/**
+ * Angular edit: POSTs same `schaccountspreceedings` body with
+ * `schAccountsPreceedingsId` set (not domain update).
+ */
 export async function updateSchAccountsPreceeding(
-  schAccountsPreceedingId: number,
+  schAccountsPreceedingsId: number,
   data: Record<string, unknown>,
 ): Promise<unknown> {
-  return domainUpdate(
-    ENTITIES.SCH_ACCOUNTS_PRECEEDING.name,
-    ENTITIES.SCH_ACCOUNTS_PRECEEDING.pk,
-    schAccountsPreceedingId,
-    data,
-  );
+  return postDetails(SCHOLARSHIP_API.SCH_ACCOUNTS_PRECEEDINGS, {
+    ...data,
+    schAccountsPreceedingsId,
+  });
 }
 
 /** Angular fee-reports: `schPreceedingsByAccPrecedingId?accPrecedingId=`. */
@@ -421,10 +512,29 @@ export async function listPreceedingsByAccountId(
   return Array.isArray(data) ? data : [];
 }
 
+/**
+ * Angular accounts-preceedings View:
+ * `GET schpreceedings?schAccountsPreceedingsId=&isActive=true&page=0&size=99`
+ */
+export async function listSchPreceedingsByAccountsPreceedingId(
+  schAccountsPreceedingsId: number,
+): Promise<SchPreceeding[]> {
+  if (!schAccountsPreceedingsId) return [];
+  const data = await fetchDetails<
+    SchPreceeding[] | { content?: SchPreceeding[] }
+  >(SCHOLARSHIP_API.SCH_PRECEEDINGS, {
+    schAccountsPreceedingsId,
+    isActive: "true",
+    page: 0,
+    size: 99,
+  });
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.content)) return data.content;
+  return [];
+}
+
 /** Angular view-std-preceedings: domain list SchPreceeding by id (includes `stdPreceedings`). */
-export async function getSchPreceedingById(
-  schPreceedingId: number,
-): Promise<
+export async function getSchPreceedingById(schPreceedingId: number): Promise<
   | (SchPreceeding & {
       stdPreceedings?: Record<string, unknown>[];
       collegeCode?: string;
@@ -469,24 +579,63 @@ export async function listNullPreceedings(
 
 // ── Fee Scholarship Structure (Scholarship Value) ───────────────────────────────
 
+/**
+ * Angular list on scholarship-value:
+ * `domain/list/FeeSchStructure` with
+ * `college.collegeId` + `course.courseId` + (`batch.batchId` | `AcademicYear.academicYearId`)
+ * + `isAcademicScholarship` + `isActive`.
+ */
 export async function listFeeSchStructures(filters: {
   collegeId: number;
+  courseId: number;
   academicYearId?: number;
-  courseId?: number;
   batchId?: number;
+  isAcademicScholarship: boolean;
 }): Promise<FeeSchStructureRow[]> {
+  if (!filters.collegeId || !filters.courseId) return [];
+  if (filters.isAcademicScholarship && !filters.academicYearId) return [];
+  if (!filters.isAcademicScholarship && !filters.batchId) return [];
+
   const conditions: Record<string, string | number | boolean> = {
-    "College.collegeId": filters.collegeId,
+    "college.collegeId": filters.collegeId,
+    "course.courseId": filters.courseId,
+    isAcademicScholarship: filters.isAcademicScholarship,
     isActive: true,
   };
-  if (filters.academicYearId)
+  if (filters.isAcademicScholarship && filters.academicYearId) {
     conditions["AcademicYear.academicYearId"] = filters.academicYearId;
-  if (filters.courseId) conditions["Course.courseId"] = filters.courseId;
-  if (filters.batchId) conditions["Batch.batchId"] = filters.batchId;
-  return domainList<FeeSchStructureRow>(
+  }
+  if (!filters.isAcademicScholarship && filters.batchId) {
+    conditions["batch.batchId"] = filters.batchId;
+  }
+
+  const rows = await domainList<FeeSchStructureRow>(
     ENTITIES.FEE_SCH_STRUCTURE.name,
     buildQuery(conditions),
   );
+  return rows.map(normalizeFeeSchStructure);
+}
+
+export async function listScholarshipTypesByUniversity(
+  universityId: number,
+): Promise<ScholarshipType[]> {
+  if (!universityId) return [];
+  const queries = [
+    buildQuery({ "Universities.universityId": universityId, isActive: true }),
+    buildQuery({ "University.universityId": universityId, isActive: true }),
+  ];
+  for (const query of queries) {
+    try {
+      const rows = await domainList<ScholarshipType>(
+        ENTITIES.SCHOLARSHIP_TYPE.name,
+        query,
+      );
+      if (rows.length > 0) return rows;
+    } catch {
+      // try next query shape
+    }
+  }
+  return [];
 }
 
 export async function createFeeSchStructure(
@@ -529,6 +678,20 @@ export async function updateFeeSchStructure(
     feeSchStructureId,
     data,
   );
+}
+
+/** Angular `crudService.add(addFeeSchStructuresUrl, payLoad)` — body is an array. */
+export async function addFeeSchStructures(
+  payload: FeeSchStructureBulkPayload[],
+): Promise<ApiResponse<unknown>> {
+  return postDetailsEnvelope(SCHOLARSHIP_API.ADD_FEE_SCH_STRUCTURES, payload);
+}
+
+/** Angular `crudService.update1(updateFeeSchStructuresUrl, feeStructuree)`. */
+export async function updateFeeSchStructures(
+  payload: FeeSchStructureBulkPayload,
+): Promise<ApiResponse<unknown>> {
+  return putDetailsEnvelope(SCHOLARSHIP_API.UPDATE_FEE_SCH_STRUCTURES, payload);
 }
 
 export async function listScholarshipValuesByStructure(

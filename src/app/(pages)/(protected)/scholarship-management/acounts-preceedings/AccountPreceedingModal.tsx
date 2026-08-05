@@ -12,21 +12,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listBanks, listNullPreceedings } from "@/services";
+import type { SchAccountsPreceeding } from "@/types/scholarship";
 
-const schema = z
-  .object({
-    collegeId: z.coerce.number().min(1),
-    schPreceedingList: z.array(z.string()).min(1, "Preceedings is required"),
-    bankId: z.coerce.number().min(1, "Bank is required"),
-    title: z.string().min(1, "Cheque Title is required"),
-    chequeNo: z.string().min(1, "Cheque No is required"),
-    chequeDate: z.date().nullable().optional(),
-    comments: z.string().optional(),
-    isHandOvertoAcc: z.boolean(),
-    isActive: z.boolean(),
-    reason: z.string().optional(),
-  })
-  .superRefine((values, ctx) => {
+const baseFields = {
+  collegeId: z.coerce.number().min(1),
+  bankId: z.coerce.number().min(1, "Bank is required"),
+  title: z.string().min(1, "Cheque Title is required"),
+  chequeNo: z.string().min(1, "Cheque No is required"),
+  chequeDate: z.date().nullable().optional(),
+  comments: z.string().optional(),
+  isHandOvertoAcc: z.boolean(),
+  isActive: z.boolean(),
+  reason: z.string().optional(),
+  schPreceedingList: z.array(z.string()).default([]),
+};
+
+function buildSchema(mode: "create" | "edit") {
+  return z.object(baseFields).superRefine((values, ctx) => {
+    if (mode === "create" && values.schPreceedingList.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["schPreceedingList"],
+        message: "Preceedings is required",
+      });
+    }
     if (!values.isActive && !values.reason?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -35,8 +44,9 @@ const schema = z
       });
     }
   });
+}
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<ReturnType<typeof buildSchema>>;
 
 export type AccountPreceedingModalResult = {
   collegeId: number;
@@ -50,6 +60,7 @@ export type AccountPreceedingModalResult = {
   reason?: string;
   schPreceedingList: number[];
   schPreceedingIds: string;
+  schAccountsPreceedingsId?: number;
 };
 
 function toDate(value: unknown): Date | null {
@@ -63,21 +74,33 @@ function toIso(value: Date | null | undefined): string | null {
   return value.toISOString();
 }
 
+function accountId(row?: SchAccountsPreceeding | null): number {
+  if (!row) return 0;
+  return Number(
+    row.schAccountsPreceedingsId ?? row.schAccountsPreceedingId ?? 0,
+  );
+}
+
 interface AccountPreceedingModalProps {
   open: boolean;
   onClose: () => void;
+  mode?: "create" | "edit";
   collegeId: number;
   collegeCode?: string;
+  row?: SchAccountsPreceeding | null;
   onSubmit: (payload: AccountPreceedingModalResult) => Promise<void>;
 }
 
 export function AccountPreceedingModal({
   open,
   onClose,
+  mode = "create",
   collegeId,
   collegeCode,
+  row = null,
   onSubmit,
 }: Readonly<AccountPreceedingModalProps>) {
+  const schema = useMemo(() => buildSchema(mode), [mode]);
   const {
     register,
     handleSubmit,
@@ -112,7 +135,7 @@ export function AccountPreceedingModal({
   const { data: preceedings = [], isLoading: loadingPreceedings } = useQuery({
     queryKey: ["SchPreceeding", "null", collegeId],
     queryFn: () => listNullPreceedings(collegeId),
-    enabled: open && collegeId > 0,
+    enabled: open && mode === "create" && collegeId > 0,
   });
 
   const bankOptions = useMemo(
@@ -141,6 +164,21 @@ export function AccountPreceedingModal({
 
   useEffect(() => {
     if (!open) return;
+    if (mode === "edit" && row) {
+      reset({
+        collegeId: Number(row.collegeId ?? collegeId),
+        schPreceedingList: [],
+        bankId: Number(row.bankId ?? 0),
+        title: String(row.title ?? ""),
+        chequeNo: String(row.chequeNo ?? ""),
+        chequeDate: toDate(row.chequeDate) ?? new Date(),
+        comments: String(row.comments ?? ""),
+        isHandOvertoAcc: Boolean(row.isHandOvertoAcc),
+        isActive: row.isActive !== false,
+        reason: String(row.reason ?? ""),
+      });
+      return;
+    }
     reset({
       collegeId,
       schPreceedingList: [],
@@ -153,12 +191,19 @@ export function AccountPreceedingModal({
       isActive: true,
       reason: "",
     });
-  }, [open, collegeId, reset]);
+  }, [open, collegeId, mode, row, reset]);
 
   const submitForm = async (values: FormValues) => {
-    const ids = values.schPreceedingList
-      .map((id) => Number(id))
-      .filter((id) => Number.isFinite(id) && id > 0);
+    const ids =
+      mode === "edit"
+        ? String(row?.schPreceedingIds ?? "")
+            .split(",")
+            .map((id) => Number(id.trim()))
+            .filter((id) => Number.isFinite(id) && id > 0)
+        : values.schPreceedingList
+            .map((id) => Number(id))
+            .filter((id) => Number.isFinite(id) && id > 0);
+
     await onSubmit({
       collegeId: values.collegeId,
       bankId: values.bankId,
@@ -170,7 +215,12 @@ export function AccountPreceedingModal({
       isActive: values.isActive,
       reason: values.isActive ? undefined : values.reason?.trim() || undefined,
       schPreceedingList: ids,
-      schPreceedingIds: ids.join(","),
+      schPreceedingIds:
+        mode === "edit"
+          ? String(row?.schPreceedingIds ?? ids.join(","))
+          : ids.join(","),
+      schAccountsPreceedingsId:
+        mode === "edit" ? accountId(row) || undefined : undefined,
     });
   };
 
@@ -190,26 +240,34 @@ export function AccountPreceedingModal({
       cancelLabel="Close"
     >
       <div className="grid gap-3 sm:grid-cols-4">
-        <div className="space-y-1.5 sm:col-span-3">
-          <Controller
-            name="schPreceedingList"
-            control={control}
-            render={({ field }) => (
-              <MultiSelect
-                label="Preceedings"
-                required
-                value={field.value}
-                onChange={field.onChange}
-                options={preceedingOptions}
-                placeholder="Select preceedings"
-                isLoading={loadingPreceedings}
-                searchable
-                error={errors.schPreceedingList?.message}
-              />
-            )}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-1">
+        {mode === "create" ? (
+          <div className="space-y-1.5 sm:col-span-3">
+            <Controller
+              name="schPreceedingList"
+              control={control}
+              render={({ field }) => (
+                <MultiSelect
+                  label="Preceedings"
+                  required
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={preceedingOptions}
+                  placeholder="Select preceedings"
+                  isLoading={loadingPreceedings}
+                  searchable
+                  error={errors.schPreceedingList?.message}
+                />
+              )}
+            />
+          </div>
+        ) : null}
+        <div
+          className={
+            mode === "create"
+              ? "space-y-1.5 sm:col-span-1"
+              : "space-y-1.5 sm:col-span-2"
+          }
+        >
           <Controller
             name="bankId"
             control={control}
@@ -263,7 +321,13 @@ export function AccountPreceedingModal({
           />
         </div>
 
-        <div className="space-y-1.5 sm:col-span-4">
+        <div
+          className={
+            mode === "create"
+              ? "space-y-1.5 sm:col-span-4"
+              : "space-y-1.5 sm:col-span-4"
+          }
+        >
           <Label htmlFor="comments">Comments</Label>
           <Input id="comments" {...register("comments")} />
         </div>

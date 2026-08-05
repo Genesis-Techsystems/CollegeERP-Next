@@ -1267,9 +1267,26 @@ export function resolveForcedNavRoute(
         labelLower.includes("type") &&
         !labelLower.includes("application") &&
         !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
         !labelLower.includes("assign"))
     ) {
       return "/scholarship-management/scholarship-type";
+    }
+    // Angular scholarship-management/scholarship-value (Scholarship Structure).
+    // Missing route 404s to dashboard; pin before application / preceedings.
+    if (
+      hrefLower.includes("scholarship-value") ||
+      hrefLower.includes("scholarship-structure") ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("value") || labelLower.includes("structure")) &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("assign") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/scholarship-value";
     }
     if (
       hrefLower.includes("scholarship-application") ||
@@ -1283,6 +1300,12 @@ export function resolveForcedNavRoute(
     }
     // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
     // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("view-std-preceedings") ||
+      hrefLower.includes("view-std-proceedings")
+    ) {
+      return "/scholarship-management/view-std-preceedings";
+    }
     if (
       hrefLower.includes("acounts-preceedings") ||
       hrefLower.includes("accounts-preceedings") ||
