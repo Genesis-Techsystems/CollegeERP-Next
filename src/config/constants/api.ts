@@ -717,8 +717,8 @@ export const STUDENT_API = {
   SEND_STUDENT_MAILS: "sendStudentMails",
   /** Angular `batchWiseStudentsUrl` */
   BATCH_WISE_STUDENTS: "batchwisestudents",
-  /** Angular `batchwiseStudentsElectiveUrl` */
-  BATCHWISE_STUDENTS_ELECTIVE: "batchwisestudentselective",
+  /** Angular `batchWiseStudentsElective` (PUT modify elective batches) */
+  BATCHWISE_STUDENTS_ELECTIVE: "batchWiseStudentsElective",
   /** Angular `batchWiseStudentUrl` */
   BATCH_WISE_STUDENT: "BatchwiseStudent",
   /** Angular `batchwiseStudentSecUrl` */
@@ -2438,6 +2438,26 @@ export const FEEDBACK_API = {
   SURVEY_FEEDBACK_DETAIL: "SurveyFeedbackDetail",
   /** Angular `surveyfeedbackEmpUrl` */
   SURVEYFEEDBACK_EMP: "surveyfeedbackEmp",
+  /**
+   * Angular `studentFeedbackSummaryReportUrl`
+   * → `getAllRecords/s_feedback_summary_report_backup`
+   */
+  STUDENT_FEEDBACK_SUMMARY_REPORT: "s_feedback_summary_report_backup",
+  /**
+   * Angular `feedbackSummaryReportUrl`
+   * → `getAllRecords/s_get_feedback_report`
+   */
+  FEEDBACK_SUMMARY_REPORT: "s_get_feedback_report",
+  /**
+   * Angular `feedbackSuggestionReportUrl`
+   * → `getAllRecords/s_feedback_suggestion_report`
+   */
+  FEEDBACK_SUGGESTION_REPORT: "s_feedback_suggestion_report",
+  /**
+   * Angular `getFeedbackStatusUrl`
+   * → `getAllRecords/s_get_feedback_status`
+   */
+  FEEDBACK_STATUS_REPORT: "s_get_feedback_status",
 } as const;
 
 // ─── Campus Maintenance ───────────────────────────────────────────────

@@ -66,6 +66,7 @@ export default function GeneratePaylinkPage() {
     ALL,
   ]);
   const [rows, setRows] = useState<FeeDueNotificationRow[]>([]);
+  const [listLoaded, setListLoaded] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [sendingId, setSendingId] = useState<number | null>(null);
   const [sendingAll, setSendingAll] = useState(false);
@@ -155,6 +156,7 @@ export default function GeneratePaylinkPage() {
       setBatchId(0);
       setStudentStatusId(0);
       setRows([]);
+      setListLoaded(false);
       setBatches([ALL]);
 
       const courses = filterCourses(source, nextCollegeId);
@@ -213,6 +215,7 @@ export default function GeneratePaylinkPage() {
       setCourseGroupId(0);
       setCourseYearId(0);
       setRows([]);
+      setListLoaded(false);
       return;
     }
     applyCollege(next, filtersData);
@@ -225,6 +228,7 @@ export default function GeneratePaylinkPage() {
     setCourseYearId(0);
     setBatchId(0);
     setRows([]);
+    setListLoaded(false);
     if (!next || !collegeId) return;
     const groups = filterCourseGroups(filtersData, collegeId, next);
     const firstGroup = pickNum(groups[0], [
@@ -249,6 +253,7 @@ export default function GeneratePaylinkPage() {
     setCourseGroupId(next);
     setCourseYearId(0);
     setRows([]);
+    setListLoaded(false);
     if (!collegeId || !courseId) return;
     const years = filterCourseYears(
       filtersData,
@@ -278,9 +283,11 @@ export default function GeneratePaylinkPage() {
         studentStatusId: studentStatusId || 0,
       });
       setRows(Array.isArray(data) ? data : []);
+      setListLoaded(true);
       if (!data?.length) toastSuccess("No due records found");
     } catch (err) {
       setRows([]);
+      setListLoaded(true);
       toastError(err, "Failed to load due list");
     } finally {
       setLoadingList(false);
@@ -431,6 +438,7 @@ export default function GeneratePaylinkPage() {
                 onChange={(v) => {
                   setCourseYearId(v ? Number(v) : 0);
                   setRows([]);
+                  setListLoaded(false);
                 }}
                 options={yearOptions}
                 placeholder="All"
@@ -444,6 +452,7 @@ export default function GeneratePaylinkPage() {
                 onChange={(v) => {
                   setQuotaId(v ? Number(v) : 0);
                   setRows([]);
+                  setListLoaded(false);
                 }}
                 options={quotaOptions}
                 placeholder="All"
@@ -456,6 +465,7 @@ export default function GeneratePaylinkPage() {
                 onChange={(v) => {
                   setBatchId(v ? Number(v) : 0);
                   setRows([]);
+                  setListLoaded(false);
                 }}
                 options={batches}
                 placeholder="All"
@@ -471,6 +481,7 @@ export default function GeneratePaylinkPage() {
                 onChange={(v) => {
                   setStudentStatusId(v ? Number(v) : 0);
                   setRows([]);
+                  setListLoaded(false);
                 }}
                 options={statusOptions}
                 placeholder="All"
@@ -501,9 +512,10 @@ export default function GeneratePaylinkPage() {
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={rows}
-      columnDefs={columnDefs}
-      loading={loadingList}
+      rowData={listLoaded ? rows : []}
+      columnDefs={listLoaded ? columnDefs : undefined}
+      body={listLoaded ? undefined : null}
+      loading={listLoaded && loadingList}
       pagination
       toolbar={{
         search: true,

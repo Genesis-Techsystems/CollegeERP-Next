@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Trash2 } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { ConfirmDialog } from "@/common/components/feedback";
@@ -59,6 +59,8 @@ export default function ElectiveGroupMappingPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [academicData, setAcademicData] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
+  /** Ungrouped DTO rows from college+AY list — used when by-code View API returns []. */
+  const [rawMappings, setRawMappings] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [tableEnabled, setTableEnabled] = useState(false);
@@ -240,6 +242,7 @@ export default function ElectiveGroupMappingPage() {
 
   useEffect(() => {
     setRows([]);
+    setRawMappings([]);
     setTableEnabled(false);
   }, [collegeId, academicYearId]);
   useEffect(() => {
@@ -377,6 +380,26 @@ export default function ElectiveGroupMappingPage() {
     addCourseGroupId,
   ]);
 
+  function electiveGroupCodeOf(row: AnyRow) {
+    // Do NOT use groupCode — that is the course-group code (IT/CSE), not electiveGroupCode.
+    const direct = pickText(row, [
+      "electiveGroupCode",
+      "electivegroupcode",
+      "elective_group_code",
+    ]);
+    if (direct) return direct;
+    const nested = (row?.ElectiveGroup ??
+      row?.electiveGroup ??
+      row?.electivegroup ??
+      {}) as AnyRow;
+    return pickText(nested, [
+      "electiveGroupCode",
+      "electivegroupcode",
+      "elective_group_code",
+      "code",
+    ]);
+  }
+
   function electiveGroupNameOf(row: AnyRow) {
     const direct = pickText(row, [
       "electivegroupname",
@@ -406,38 +429,49 @@ export default function ElectiveGroupMappingPage() {
     ]);
     if (nestedName) return nestedName;
 
-    const fallbackCode = pickText(row, [
-      "electiveGroupCode",
-      "groupCode",
-      "elective_group_code",
-    ]);
+    const fallbackCode = electiveGroupCodeOf(row);
     if (fallbackCode) return fallbackCode;
 
     return "-";
   }
 
-  /** Angular getMappingList: one row per electiveGroupCode with aggregated sectionIds. */
+  /** Angular getMappingList: one row per elective group (code, else same display name). */
   function groupElectiveMappings(list: AnyRow[]): AnyRow[] {
     const grouped: AnyRow[] = [];
+
+    const groupKeyOf = (item: AnyRow) => {
+      const code = electiveGroupCodeOf(item).trim().toLowerCase();
+      if (code) return `code:${code}`;
+      const name = electiveGroupNameOf(item).trim().toLowerCase();
+      if (name && name !== "-") return `name:${name}`;
+      // Last resort: keep distinct mapping rows
+      return `id:${n(item.electiveGroupyrMappingId) || Math.random()}`;
+    };
+
     for (const item of list) {
-      const code = s(item.electiveGroupCode);
-      if (!code) {
-        grouped.push({
-          ...item,
-          sectionIds: [n(item.groupSectionId)].filter(Boolean),
-        });
-        continue;
-      }
-      const existing = grouped.find((g) => s(g.electiveGroupCode) === code);
+      const key = groupKeyOf(item);
+      const code = electiveGroupCodeOf(item);
+      const existing = grouped.find((g) => s(g.__groupKey) === key);
+      const sectionId = n(
+        item.groupSectionId ??
+          item.groupsectionId ??
+          item.GroupSection?.groupSectionId,
+      );
+
       if (!existing) {
         grouped.push({
           ...item,
-          sectionIds: [n(item.groupSectionId)].filter(Boolean),
+          __groupKey: key,
+          electiveGroupCode: code || s(item.electiveGroupCode),
+          sectionIds: sectionId ? [sectionId] : [],
         });
       } else {
-        const sectionId = n(item.groupSectionId);
         if (sectionId && !existing.sectionIds.includes(sectionId)) {
           existing.sectionIds.push(sectionId);
+        }
+        // Prefer a real electiveGroupCode if a later section row has it
+        if (!electiveGroupCodeOf(existing) && code) {
+          existing.electiveGroupCode = code;
         }
       }
     }
@@ -452,22 +486,80 @@ export default function ElectiveGroupMappingPage() {
       collegeId,
       academicYearId,
     }).catch(() => []);
-    setRows(groupElectiveMappings(Array.isArray(list) ? list : []));
+    const arr = Array.isArray(list) ? list : [];
+    setRawMappings(arr);
+    setRows(groupElectiveMappings(arr));
     setLoading(false);
   };
 
+  // Keep latest values for AG Grid action renderers (columnDefs useMemo must not stale-close over state).
+  const rawMappingsRef = useRef(rawMappings);
+  rawMappingsRef.current = rawMappings;
+  const collegeIdRef = useRef(collegeId);
+  collegeIdRef.current = collegeId;
+  const academicYearIdRef = useRef(academicYearId);
+  academicYearIdRef.current = academicYearId;
+
+  /** Prefer Angular by-code; fall back to college+AY rows / group name / clicked row. */
+  async function mappingsForCode(
+    code: string,
+    clicked?: AnyRow,
+  ): Promise<AnyRow[]> {
+    const needle = code.trim().toLowerCase();
+    const matchesCode = (r: AnyRow) =>
+      electiveGroupCodeOf(r).trim().toLowerCase() === needle;
+
+    // Exact Angular call: GET electivegroupyrmapping?isActive=true&electiveGroupCode=
+    const fromApi = await listElectiveGroupMappingsByCode(code).catch(() => []);
+    if (fromApi.length > 0) return fromApi;
+
+    const cached = rawMappingsRef.current;
+    const fromCache = cached.filter(matchesCode);
+    if (fromCache.length > 0) return fromCache;
+
+    const cid = collegeIdRef.current;
+    const ayId = academicYearIdRef.current;
+    if (cid && ayId) {
+      const all = await listElectiveGroupMappings({
+        collegeId: cid,
+        academicYearId: ayId,
+      }).catch(() => []);
+      const byCode = all.filter(matchesCode);
+      if (byCode.length > 0) return byCode;
+    }
+
+    // Same elective group by display name (when by-code is empty on this backend)
+    if (clicked) {
+      const name = electiveGroupNameOf(clicked);
+      if (name && name !== "-") {
+        const byName = cached.filter((r) => electiveGroupNameOf(r) === name);
+        if (byName.length > 0) return byName;
+      }
+      // Last resort — show the grid row itself so View is never blank
+      return [clicked];
+    }
+    return [];
+  }
+
   // Angular viewDialog → ViewDialogComponent.getData
   async function openView(row: AnyRow) {
-    const code = s(row.electiveGroupCode);
-    if (!code) {
-      toastInfo("Elective group code not found.");
-      return;
-    }
+    const code = electiveGroupCodeOf(row);
     setViewOpen(true);
     setViewLoading(true);
     setViewRows([]);
     try {
-      const list = await listElectiveGroupMappingsByCode(code);
+      if (!code) {
+        const name = electiveGroupNameOf(row);
+        const byName =
+          name && name !== "-"
+            ? rawMappingsRef.current.filter(
+                (r) => electiveGroupNameOf(r) === name,
+              )
+            : [];
+        setViewRows(byName.length > 0 ? byName : [row]);
+        return;
+      }
+      const list = await mappingsForCode(code, row);
       setViewRows(list);
     } catch (err) {
       toastError(err, "Failed to load elective group details");
@@ -484,7 +576,7 @@ export default function ElectiveGroupMappingPage() {
   }
 
   async function confirmDelete() {
-    const code = s(deleteTarget?.electiveGroupCode);
+    const code = electiveGroupCodeOf(deleteTarget ?? {});
     if (!code) {
       toastInfo("Elective group code not found.");
       setDeleteOpen(false);
@@ -493,7 +585,7 @@ export default function ElectiveGroupMappingPage() {
     }
     setDeleting(true);
     try {
-      const maps = await listElectiveGroupMappingsByCode(code);
+      const maps = await mappingsForCode(code, deleteTarget ?? undefined);
       const hasStudents = maps.some(
         (m) =>
           Array.isArray(m.batchwiseStudents) && m.batchwiseStudents.length > 0,
@@ -840,40 +932,79 @@ export default function ElectiveGroupMappingPage() {
           ) : (
             <div className="space-y-3 text-sm border rounded-md p-4">
               <div className="grid grid-cols-[120px_1fr] gap-2">
-                <span className="text-muted-foreground">College :</span>
+                <span className="font-semibold">College :</span>
                 <span className="text-[hsl(var(--primary))] font-medium">
-                  {s(viewRows[0].collegeName) || "-"}
+                  {pickText(viewRows[0], [
+                    "collegeName",
+                    "college_name",
+                    "college",
+                  ]) || "-"}
                 </span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2">
-                <span className="text-muted-foreground">Subject :</span>
+                <span className="font-semibold">Subject :</span>
                 <span className="text-[hsl(var(--primary))] font-medium">
-                  {s(viewRows[0].subjectName) || "-"}
-                  {s(viewRows[0].subjectType)
-                    ? ` (${s(viewRows[0].subjectType)})`
+                  {pickText(viewRows[0], [
+                    "subjectName",
+                    "subject_name",
+                    "subject",
+                  ]) || "-"}
+                  {pickText(viewRows[0], [
+                    "subjectType",
+                    "subject_type",
+                    "subjectTypeName",
+                  ])
+                    ? ` (${pickText(viewRows[0], [
+                        "subjectType",
+                        "subject_type",
+                        "subjectTypeName",
+                      ])})`
                     : ""}
                 </span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2">
-                <span className="text-muted-foreground">Staff :</span>
+                <span className="font-semibold">Staff :</span>
                 <span className="text-[hsl(var(--primary))] font-medium">
-                  {s(viewRows[0].firstName) || "-"}
-                  {s(viewRows[0].empNumber)
-                    ? ` (${s(viewRows[0].empNumber)})`
+                  {pickText(viewRows[0], [
+                    "firstName",
+                    "employeeName",
+                    "empName",
+                    "staffName",
+                  ]) || "-"}
+                  {pickText(viewRows[0], [
+                    "empNumber",
+                    "employeeNumber",
+                    "empNo",
+                  ])
+                    ? ` (${pickText(viewRows[0], [
+                        "empNumber",
+                        "employeeNumber",
+                        "empNo",
+                      ])})`
                     : ""}
                 </span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2">
-                <span className="text-muted-foreground">Sections :</span>
-                <div className="space-y-1">
-                  {viewRows.map((m, i) => (
-                    <p key={n(m.electiveGroupyrMappingId) || i}>
-                      {s(m.courseCode)} / {s(m.groupCode)} /{" "}
-                      <span className="text-[hsl(var(--primary))] font-medium">
-                        {s(m.courseYearName)} - {s(m.section)}
-                      </span>
-                    </p>
-                  ))}
+                <span className="font-semibold">Sections :</span>
+                <div className="space-y-1 text-[hsl(var(--primary))] font-medium">
+                  {viewRows.map((m, i) => {
+                    const course = pickText(m, ["courseCode", "course_code"]);
+                    const group = pickText(m, ["groupCode", "group_code"]);
+                    const year = pickText(m, [
+                      "courseYearName",
+                      "course_year_name",
+                    ]);
+                    const section = pickText(m, ["section", "sectionName"]);
+                    const label = [course, group, year]
+                      .filter(Boolean)
+                      .join(" / ");
+                    return (
+                      <p key={n(m.electiveGroupyrMappingId) || i}>
+                        {label}
+                        {section ? ` - ${section}` : ""}
+                      </p>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -328,8 +328,16 @@ export default function FeeReceiptUpdatePage() {
           </div>
         }
         rowData={studentNum > 0 && ayNum > 0 && collegeNum > 0 ? rows : []}
-        columnDefs={columnDefs}
-        loading={receiptsQuery.isLoading}
+        columnDefs={
+          studentNum > 0 && ayNum > 0 && collegeNum > 0 ? columnDefs : undefined
+        }
+        body={studentNum > 0 && ayNum > 0 && collegeNum > 0 ? undefined : null}
+        loading={
+          studentNum > 0 &&
+          ayNum > 0 &&
+          collegeNum > 0 &&
+          receiptsQuery.isLoading
+        }
         height="auto"
         pagination
         toolbar={{ search: true, searchPlaceholder: "Search" }}

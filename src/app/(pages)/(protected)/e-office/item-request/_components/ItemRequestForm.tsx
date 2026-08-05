@@ -1,20 +1,26 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { ClipboardListIcon, PlusIcon, Trash2Icon } from 'lucide-react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { DatePicker } from '@/common/components/date-picker'
-import { Select } from '@/common/components/select'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { ActiveStatusField } from '@/common/components/forms'
-import { QK } from '@/lib/query-keys'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { getErrorMessage } from '@/lib/errors'
-import { toDateOnlyISO } from '@/common/generic-functions'
+/**
+ * Angular `add-item-request` parity — New / Edit Internal Requisition.
+ * Reuses e-office services only (no new APIs).
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BookIcon, PlusIcon, XIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select } from "@/common/components/select";
+import { ActiveStatusField } from "@/common/components/forms";
+import { PageContainer } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { QK } from "@/lib/query-keys";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
+import { toDateOnlyISO } from "@/common/generic-functions";
 import {
   createInternalIndent,
   getEOfficeContextIds,
@@ -23,10 +29,10 @@ import {
   listInvStores,
   listInternalIndentTransactionTypes,
   updateInternalIndent,
-} from '@/services'
-import type { InvInternalIndentItemRow } from '@/types/e-office'
+} from "@/services";
+import type { InvInternalIndentItemRow } from "@/types/e-office";
 
-type ItemLine = InvInternalIndentItemRow & { key: string }
+type ItemLine = InvInternalIndentItemRow & { key: string };
 
 function newLine(): ItemLine {
   return {
@@ -36,96 +42,197 @@ function newLine(): ItemLine {
     indentQuantity: 0,
     orderQuantity: 0,
     receivedQty: 0,
-  }
+  };
 }
 
 export function ItemRequestForm({
   indentId,
-  listPath = '/e-office/item-request',
+  listPath = "/e-office/item-request",
 }: {
-  indentId?: number
-  /** Route to return to after save/cancel (inventory vs e-office). */
-  listPath?: string
+  indentId?: number;
+  listPath?: string;
 }) {
-  const router = useRouter()
-  const isEdit = Boolean(indentId && indentId > 0)
-  const ctx = getEOfficeContextIds()
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const isEdit = Boolean(indentId && indentId > 0);
+  const ctx = getEOfficeContextIds();
 
-  const [storeId, setStoreId] = useState<string | null>(null)
-  const [transTypeId, setTransTypeId] = useState<string | null>(null)
-  const [indentDate, setIndentDate] = useState<Date | null>(new Date())
-  const [internalIndNo, setInternalIndNo] = useState('')
-  const [purpose, setPurpose] = useState('')
-  const [isActive, setIsActive] = useState(true)
-  const [reason, setReason] = useState('active')
-  const [lines, setLines] = useState<ItemLine[]>([newLine()])
+  const [storeId, setStoreId] = useState<string | null>(null);
+  const [transTypeId, setTransTypeId] = useState<string | null>(null);
+  const [indentDate, setIndentDate] = useState<Date | null>(new Date());
+  const [purpose, setPurpose] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [reason, setReason] = useState("active");
+  const [lines, setLines] = useState<ItemLine[]>([newLine()]);
+  const [existingItems, setExistingItems] = useState<
+    InvInternalIndentItemRow[]
+  >([]);
+  const [fieldErrors, setFieldErrors] = useState<{
+    storeId?: string;
+    transTypeId?: string;
+    items?: string;
+  }>({});
 
   const { data: stores = [] } = useQuery({
-    queryKey: [...QK.eOffice.lookup(), 'stores'],
+    queryKey: [...QK.eOffice.lookup(), "stores"],
     queryFn: listInvStores,
-  })
+  });
   const { data: items = [] } = useQuery({
-    queryKey: [...QK.eOffice.lookup(), 'items'],
+    queryKey: [...QK.eOffice.lookup(), "items"],
     queryFn: listInvItems,
-  })
+  });
   const { data: transTypes = [] } = useQuery({
-    queryKey: [...QK.eOffice.lookup(), 'transTypes', 'indent'],
+    queryKey: [...QK.eOffice.lookup(), "transTypes", "indent"],
     queryFn: listInternalIndentTransactionTypes,
-  })
+  });
 
   const { data: existing, isLoading: loadingExisting } = useQuery({
     queryKey: QK.eOffice.internalIndent(indentId ?? 0),
     queryFn: () => getInternalIndentById(indentId!),
     enabled: isEdit,
-  })
+  });
 
   useEffect(() => {
-    if (transTypes.length > 0 && !transTypeId) {
-      setTransTypeId(String(transTypes[0].generalDetailId))
-    }
-  }, [transTypes, transTypeId])
-
-  useEffect(() => {
-    if (!existing) return
-    setStoreId(existing.storeId ? String(existing.storeId) : null)
-    setTransTypeId(existing.invTranstypeCatdetId ? String(existing.invTranstypeCatdetId) : null)
-    setInternalIndNo(existing.internalIndNo ?? '')
-    setPurpose(existing.purpose ?? '')
-    setIsActive(existing.isActive ?? true)
+    if (!existing) return;
+    setStoreId(existing.storeId ? String(existing.storeId) : null);
+    setTransTypeId(
+      existing.invTranstypeCatdetId
+        ? String(existing.invTranstypeCatdetId)
+        : null,
+    );
+    setPurpose(existing.purpose ?? "");
+    setIsActive(existing.isActive ?? true);
+    setReason(existing.reason ?? "active");
     if (existing.indentDate) {
-      const d = new Date(existing.indentDate)
-      if (!Number.isNaN(d.getTime())) setIndentDate(d)
+      const d = new Date(existing.indentDate);
+      if (!Number.isNaN(d.getTime())) setIndentDate(d);
     }
-    const itemRows = (existing.invInternalIndentitems ?? []).map((it) => ({
-      ...it,
-      key: String(it.interIndItemId ?? crypto.randomUUID()),
-      isActive: it.isActive !== false,
-    }))
-    setLines(itemRows.length > 0 ? itemRows : [newLine()])
-  }, [existing])
+    const rawItems = existing.invInternalIndentitems ?? [];
+    setExistingItems(rawItems);
+    const active = rawItems.filter((it) => it.isActive !== false);
+    setLines(
+      active.length > 0
+        ? active.map((it) => ({
+            ...it,
+            key: String(it.interIndItemId ?? crypto.randomUUID()),
+            isActive: true,
+          }))
+        : [newLine()],
+    );
+  }, [existing]);
+
+  useEffect(() => {
+    if (isEdit || transTypeId || transTypes.length === 0) return;
+    const internal = transTypes.find((t) => {
+      const code = String(t.generalDetailCode ?? "").toUpperCase();
+      const name = String(t.generalDetailDisplayName ?? "").toUpperCase();
+      return code === "INTERNAL INDENT" || name === "INTERNAL INDENT";
+    });
+    const pick = internal ?? transTypes[0];
+    if (pick?.generalDetailId != null) {
+      setTransTypeId(String(pick.generalDetailId));
+    }
+  }, [isEdit, transTypeId, transTypes]);
 
   const storeOptions = useMemo(
-    () => stores.map((s) => ({ value: String(s.storeId), label: s.storeCode ?? s.storeName ?? String(s.storeId) })),
+    () =>
+      stores.map((s) => ({
+        value: String(s.storeId),
+        label: s.storeCode ?? s.storeName ?? String(s.storeId),
+      })),
     [stores],
-  )
+  );
+
   const itemOptions = useMemo(
     () =>
       items.map((it) => ({
         value: String(it.itemId),
-        label: `${it.itemName ?? ''} (${it.itemCode ?? ''})`.trim(),
+        label: `${it.itemName ?? ""} (${it.itemCode ?? ""})`.trim(),
       })),
     [items],
-  )
+  );
+
+  const transTypeOptions = useMemo(
+    () =>
+      transTypes.map((t) => ({
+        value: String(t.generalDetailId),
+        label: String(t.generalDetailDisplayName ?? t.generalDetailId ?? ""),
+      })),
+    [transTypes],
+  );
+
+  const updateLine = useCallback((key: string, patch: Partial<ItemLine>) => {
+    setLines((prev) =>
+      prev.map((l) => (l.key === key ? { ...l, ...patch } : l)),
+    );
+  }, []);
+
+  const removeLine = useCallback((key: string) => {
+    setLines((prev) => {
+      const next = prev.filter((l) => l.key !== key);
+      return next.length > 0 ? next : [newLine()];
+    });
+  }, []);
+
+  const validate = useCallback(() => {
+    const errors: typeof fieldErrors = {};
+    if (!storeId) errors.storeId = "Store is required";
+    if (!transTypeId) errors.transTypeId = "Transaction Type is required";
+    const activeLines = lines.filter((l) => l.isActive !== false && l.itemId);
+    if (activeLines.length === 0) {
+      errors.items = "At least one item is required";
+    }
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [storeId, transTypeId, lines]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!validate()) throw new Error("Please fill required fields");
+
+      const sid = Number(storeId);
+      const tid = Number(transTypeId);
+      const dateStr = indentDate ? toDateOnlyISO(indentDate) : undefined;
+
+      if (isEdit) {
+        const updateItems: Record<string, unknown>[] = [];
+        for (const orig of existingItems) {
+          const match = lines.find(
+            (l) =>
+              l.isActive !== false &&
+              l.itemId != null &&
+              Number(l.itemId) === Number(orig.itemId),
+          );
+          if (match && orig.interIndItemId) {
+            updateItems.push({
+              interIndItemId: orig.interIndItemId,
+              itemId: Number(match.itemId),
+              indentQuantity: Number(match.indentQuantity) || 0,
+              storeId: sid,
+            });
+          }
+        }
+
+        await updateInternalIndent({
+          internalIndId: indentId,
+          storeId: sid,
+          invTranstypeCatdetId: tid,
+          indentDate: dateStr,
+          purpose,
+          invInternalIndentitems: updateItems,
+          isActive,
+          reason: isActive ? "active" : reason,
+        });
+        return;
+      }
+
       const invInternalIndentitems = lines
         .filter((l) => l.isActive !== false && l.itemId)
         .map((l) => {
-          const master = items.find((m) => m.itemId === Number(l.itemId))
+          const master = items.find((m) => m.itemId === Number(l.itemId));
           return {
             isActive: true,
-            itemCode: master?.itemCode ?? 'code',
+            itemCode: master?.itemCode ?? "code",
             itemId: Number(l.itemId),
             indentQuantity: Number(l.indentQuantity) || 0,
             orderQuantity: Number(l.orderQuantity) || 0,
@@ -137,200 +244,278 @@ export function ItemRequestForm({
             itemTotalDiscountAmount: 0,
             itemTotalCost: 0,
             issuedQty: 0,
-            storeId: Number(storeId),
-            ...(l.interIndItemId ? { interIndItemId: l.interIndItemId } : {}),
-          }
-        })
+            storeId: sid,
+          };
+        });
 
-      if (isEdit) {
-        await updateInternalIndent({
-          internalIndId: indentId,
-          storeId: Number(storeId),
-          invTranstypeCatdetId: Number(transTypeId),
-          indentDate: indentDate ? toDateOnlyISO(indentDate) : undefined,
-          purpose,
-          invInternalIndentitems,
-          isActive,
-          reason: isActive ? 'active' : reason,
-        })
-      } else {
-        await createInternalIndent({
-          storeId: Number(storeId),
-          invTranstypeCatdetId: Number(transTypeId),
-          indentDate: indentDate ? toDateOnlyISO(indentDate) : undefined,
-          invInternalIndentitems,
-          igst: 0,
-          poActualAmount: 0,
-          poTotalCost: 0,
-          sgst: 0,
-          shippingCharges: 0,
-          otherCharges: 0,
-          purpose,
-          poComments: '',
-          totalTax: 0,
-          poNetCost: 0,
-          academicYearId: ctx.academicYearId,
-          collegeId: ctx.collegeId,
-          authEmployeeId: ctx.employeeId,
-          indentRaisedEmpId: ctx.employeeId,
-          destDeptId: ctx.empDeptId,
-          destinationEmpId: ctx.employeeId,
-        })
+      await createInternalIndent({
+        storeId: sid,
+        invTranstypeCatdetId: tid,
+        indentDate: dateStr,
+        invInternalIndentitems,
+        igst: 0,
+        poActualAmount: 0,
+        poTotalCost: 0,
+        sgst: 0,
+        shippingCharges: 0,
+        otherCharges: 0,
+        purpose,
+        poComments: "",
+        totalTax: 0,
+        poNetCost: 0,
+        academicYearId: ctx.academicYearId,
+        collegeId: ctx.collegeId,
+        authEmployeeId: ctx.employeeId,
+        indentRaisedEmpId: ctx.employeeId,
+        destDeptId: ctx.empDeptId,
+        destinationEmpId: ctx.employeeId,
+        isActive,
+        reason: isActive ? "active" : reason,
+      });
+    },
+    onSuccess: async () => {
+      toastSuccess(isEdit ? "Indent updated." : "Indent created.");
+      await queryClient.invalidateQueries({ queryKey: QK.eOffice.all });
+      router.push(listPath);
+    },
+    onError: (err) => {
+      if (
+        err instanceof Error &&
+        err.message === "Please fill required fields"
+      ) {
+        return;
       }
+      toastError(getErrorMessage(err));
     },
-    onSuccess: () => {
-      toastSuccess(isEdit ? 'Indent updated.' : 'Indent created.')
-      router.push('/e-office/item-request')
-    },
-    onError: (err) => toastError(getErrorMessage(err)),
-  })
+  });
 
-  const updateLine = useCallback((key: string, patch: Partial<ItemLine>) => {
-    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)))
-  }, [])
-
-  const removeLine = useCallback((key: string) => {
-    setLines((prev) => {
-      if (prev.length <= 1) return [newLine()]
-      return prev.filter((l) => l.key !== key)
-    })
-  }, [])
-
-  const title = isEdit ? 'Edit Internal Requisition' : 'New Internal Requisition'
+  const title = isEdit
+    ? "Edit Internal Requisition"
+    : "New Internal Requisition";
+  const canSave = lines.some((l) => l.isActive !== false);
+  const activeLines = lines.filter((l) => l.isActive !== false);
 
   return (
     <PageContainer className="space-y-5">
       <div className="app-card overflow-hidden">
-        <div className="p-4 md:p-5 space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-            <ClipboardListIcon className="h-4 w-4 text-[#5da394]" aria-hidden />
-            <h1 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">{title}</h1>
+        <div className="space-y-5 p-4 md:p-6">
+          <div className="flex items-center gap-2 border-b border-border pb-3">
+            <BookIcon
+              className="h-4 w-4 text-[hsl(var(--primary))]"
+              aria-hidden
+            />
+            <h1 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
+              {title}
+            </h1>
           </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Select
-            label="Store"
-            value={storeId}
-            onChange={setStoreId}
-            options={storeOptions}
-            searchable
-            placeholder="Select store"
-          />
-          <Select
-            label="Transaction Type"
-            value={transTypeId}
-            onChange={setTransTypeId}
-            options={transTypes.map((t) => ({
-              value: String(t.generalDetailId),
-              label: t.generalDetailDisplayName ?? String(t.generalDetailId),
-            }))}
-            disabled
-          />
-          {isEdit && (
-            <div className="space-y-1.5">
-              <Label>Indent No.</Label>
-              <Input value={internalIndNo} disabled />
-            </div>
-          )}
-          <DatePicker label="Indent Date" value={indentDate} onChange={setIndentDate} />
-        </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="purpose">Purpose</Label>
-          <Input
-            id="purpose"
-            value={purpose}
-            onChange={(e) => setPurpose(e.target.value)}
-          />
-        </div>
-
-        {isEdit && (
-          <ActiveStatusField
-            isActive={isActive}
-            onActiveChange={(v) => setIsActive(v === true)}
-            reason={reason}
-            onReasonChange={setReason}
-          />
-        )}
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Items</h3>
-            <Button type="button" size="sm" variant="outline" onClick={() => setLines((p) => [...p, newLine()])}>
-              <PlusIcon className="h-3.5 w-3.5 mr-1" />
-              Add row
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {lines.map((line) => (
-              <div
-                key={line.key}
-                className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_100px_100px_40px] items-end border-b border-border/60 pb-2"
-              >
-                <Select
-                  label="Item"
-                  value={line.itemId ? String(line.itemId) : null}
-                  onChange={(v) => updateLine(line.key, { itemId: v ? Number(v) : undefined })}
-                  options={itemOptions}
-                  searchable
-                  placeholder="Select item"
-                />
-                <div className="space-y-1.5">
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={line.indentQuantity ?? ''}
-                    onChange={(e) =>
-                      updateLine(line.key, { indentQuantity: Number(e.target.value) || 0 })
-                    }
-                  />
+          {loadingExisting && isEdit ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-x-10 gap-y-4 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
+                    <Label className="text-sm font-medium text-foreground">
+                      Store
+                    </Label>
+                    <div className="min-w-0">
+                      <Select
+                        value={storeId}
+                        onChange={(v) => {
+                          setStoreId(v);
+                          setFieldErrors((e) => ({ ...e, storeId: undefined }));
+                        }}
+                        options={storeOptions}
+                        searchable
+                        placeholder="Store"
+                        error={fieldErrors.storeId}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1">
+                    <Label className="text-sm font-medium text-foreground">
+                      Trans. Type
+                    </Label>
+                    <div className="min-w-0">
+                      <Select
+                        value={transTypeId}
+                        onChange={(v) => {
+                          setTransTypeId(v);
+                          setFieldErrors((e) => ({
+                            ...e,
+                            transTypeId: undefined,
+                          }));
+                        }}
+                        options={transTypeOptions}
+                        searchable
+                        placeholder="Transaction Type"
+                        error={fieldErrors.transTypeId}
+                        disabled
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Order Qty</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={line.orderQuantity ?? ''}
-                    onChange={(e) =>
-                      updateLine(line.key, { orderQuantity: Number(e.target.value) || 0 })
-                    }
-                  />
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-x-3">
+                    <Label className="text-sm font-medium text-foreground">
+                      Date
+                    </Label>
+                    <DatePicker
+                      value={indentDate}
+                      onChange={setIndentDate}
+                      placeholder="Indent Date"
+                      displayFormat="dd/MM/yyyy"
+                    />
+                  </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9"
-                  aria-label="Remove row"
-                  onClick={() => removeLine(line.key)}
-                >
-                  <Trash2Icon className="h-4 w-4" />
-                </Button>
               </div>
-            ))}
-          </div>
-        </div>
 
-          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 min-w-[5.5rem]"
-              onClick={() => router.push(listPath)}
-            >
-              Back
-            </Button>
-            <Button
-              type="button"
-              className="h-9 min-w-[5.5rem]"
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending || loadingExisting || !storeId}
-            >
-              {saveMutation.isPending ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
+              <div className="max-w-3xl space-y-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-xs">
+                    <thead>
+                      <tr>
+                        <th className="border border-border bg-[hsl(var(--primary)/0.06)] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                          Items
+                        </th>
+                        <th className="w-40 border border-border bg-[hsl(var(--primary)/0.06)] px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-[hsl(var(--app-table-header-color))]">
+                          Quantity
+                        </th>
+                        <th
+                          className="w-12 border border-border bg-[hsl(var(--primary)/0.06)] px-2 py-2"
+                          aria-hidden
+                        />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeLines.map((line) => (
+                        <tr key={line.key}>
+                          <td className="border border-border px-2 py-2 align-middle">
+                            <Select
+                              value={line.itemId ? String(line.itemId) : null}
+                              onChange={(v) => {
+                                const id = v ? Number(v) : undefined;
+                                const master = items.find(
+                                  (m) => m.itemId === id,
+                                );
+                                updateLine(line.key, {
+                                  itemId: id,
+                                  itemCode: master?.itemCode ?? line.itemCode,
+                                  itemName: master?.itemName,
+                                });
+                                setFieldErrors((e) => ({
+                                  ...e,
+                                  items: undefined,
+                                }));
+                              }}
+                              options={itemOptions}
+                              searchable
+                              placeholder="Item"
+                            />
+                          </td>
+                          <td className="border border-border px-2 py-2 align-middle">
+                            <Input
+                              type="number"
+                              step="any"
+                              min={0}
+                              className="h-9 text-right tabular-nums"
+                              placeholder="Indent Quantity"
+                              value={line.indentQuantity ?? 0}
+                              onChange={(e) =>
+                                updateLine(line.key, {
+                                  indentQuantity: Number(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="border border-border px-1 py-2 text-center align-middle">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Remove row"
+                              onClick={() => removeLine(line.key)}
+                            >
+                              <XIcon className="h-4 w-4" strokeWidth={2.5} />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {!isEdit ? (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        type="button"
+                        size="icon"
+                        className="h-9 w-9 shrink-0 rounded-md shadow-sm"
+                        aria-label="Add item row"
+                        title="Add item"
+                        onClick={() => setLines((p) => [...p, newLine()])}
+                      >
+                        <PlusIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+                {fieldErrors.items ? (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors.items}
+                  </p>
+                ) : null}
+
+                <div className="space-y-1.5 pt-3">
+                  <Label
+                    htmlFor="indent-purpose"
+                    className="text-sm font-medium"
+                  >
+                    Purpose
+                  </Label>
+                  <Textarea
+                    id="indent-purpose"
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value)}
+                    placeholder="Purpose"
+                    className="min-h-[100px] resize-y"
+                  />
+                </div>
+              </div>
+
+              <ActiveStatusField
+                isActive={isActive}
+                onActiveChange={(v) => setIsActive(v === true)}
+                reason={reason}
+                onReasonChange={setReason}
+              />
+
+              {canSave ? (
+                <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 min-w-[6rem]"
+                    onClick={() => router.push(listPath)}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-9 min-w-[6rem]"
+                    onClick={() => saveMutation.mutate()}
+                    disabled={saveMutation.isPending || loadingExisting}
+                  >
+                    {saveMutation.isPending ? "Saving…" : "Save"}
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
     </PageContainer>
-  )
+  );
 }

@@ -364,7 +364,8 @@ export default function FeeRefundsPage() {
         </GlobalFilterBarRow>
       }
       rowData={showTable ? receipts : []}
-      columnDefs={columnDefs}
+      columnDefs={showTable ? columnDefs : undefined}
+      body={showTable ? undefined : null}
       loading={loadingReceipts}
       pagination
       toolbar={{

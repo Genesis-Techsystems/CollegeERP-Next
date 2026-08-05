@@ -144,7 +144,7 @@ export default function InternalIndentPage() {
 
   return (
     <ListPage
-      title="Internal Requisitions"
+      title="Internal Indent"
       rowData={rows}
       columnDefs={columnDefs}
       loading={isLoading}

@@ -1671,6 +1671,64 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/student-grievances";
     }
 
+    // Feedback Status Report — Angular `feedback/feedback-status-report`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("feedback-status") ||
+        labelKey === "feedback status report" ||
+        labelKey === "feedback status"
+      ) {
+        return "/feedback/feedback-status-report";
+      }
+    }
+
+    // Feedback Suggestions Report — Angular `feedback/feedback-suggestion-repot`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("feedback-suggestion") ||
+        hrefLower.includes("feedback-suggestion-repot") ||
+        (hrefLower.includes("feedback") &&
+          hrefLower.includes("suggestion") &&
+          (hrefLower.includes("report") || hrefLower.includes("repot"))) ||
+        labelKey === "feedback suggestions report" ||
+        labelKey === "feedback suggestion report" ||
+        labelKey === "survey feedback suggestion report"
+      ) {
+        return "/feedback/feedback-suggestion-report";
+      }
+    }
+
+    // Feedback Consolidate Report — Angular `feedback/feedback-consolidated-report`
+    if (
+      hrefLower.includes("feedback-consolidated") ||
+      hrefLower.includes("feedback-consolidate") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "feedback consolidate report" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "feedback consolidated report" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "survey feedback consolidated report"
+    ) {
+      return "/feedback/feedback-consolidated-report";
+    }
+
+    // Feedback Summary — Angular `feedback/feedback-summary`
+    if (
+      hrefLower.includes("feedback-summary") ||
+      hrefLower.includes("feedback-summary-report") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "feedback summary" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "survey summary"
+    ) {
+      return "/feedback/feedback-summary";
+    }
+
+    // Student Feedback List — Angular `feedback/student-feedback-list`
+    if (hrefLower.includes("student-feedback-list")) {
+      return "/feedback/student-feedback-list";
+    }
+
     // Student Feedback — Angular `student-student-feedback`
     if (
       hrefLower.includes("student-student-feedback") ||
@@ -3736,6 +3794,21 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/assessments/test";
     }
+    // Angular scholarship/assign-scholarship (404 → dashboard otherwise).
+    // Pin before scholarship-type / scholarship-value / application.
+    if (
+      hrefLower.includes("assign-scholarship") ||
+      (labelLower.includes("assign") &&
+        labelLower.includes("scholarship") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding"))
+    ) {
+      return "/scholarship-management/assign-scholarship";
+    }
     // Angular scholarship-management/scholarship-type (404 → dashboard otherwise).
     if (
       hrefLower.includes("scholarship-type") ||
@@ -3743,12 +3816,35 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("type") &&
         !labelLower.includes("application") &&
         !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
         !labelLower.includes("assign"))
     ) {
       return "/scholarship-management/scholarship-type";
     }
+    // Angular scholarship-management/scholarship-value (Scholarship Structure).
+    // Missing route 404s to dashboard; pin before application / preceedings.
+    if (
+      hrefLower.includes("scholarship-value") ||
+      hrefLower.includes("scholarship-structure") ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("value") || labelLower.includes("structure")) &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("assign") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/scholarship-value";
+    }
     // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
     // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("view-std-preceedings") ||
+      hrefLower.includes("view-std-proceedings")
+    ) {
+      return "/scholarship-management/view-std-preceedings";
+    }
     if (
       hrefLower.includes("acounts-preceedings") ||
       hrefLower.includes("accounts-preceedings") ||

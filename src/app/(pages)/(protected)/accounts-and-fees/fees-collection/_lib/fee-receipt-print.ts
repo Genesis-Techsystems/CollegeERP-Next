@@ -153,11 +153,51 @@ function pickPrint(data: FeeReceiptPrintData, ...keys: string[]): string {
   return "";
 }
 
+/**
+ * Iframe `document.write` runs on about:blank — relative `/assets/...` paths
+ * break. Always use absolute http(s)/data URLs for print `<img src>`.
+ */
+function toAbsolutePrintUrl(src: string): string {
+  const path = String(src ?? "").trim();
+  if (!path) return toAbsolutePrintUrl(DEFAULT_PRINT_LOGO);
+  if (/^(https?:\/\/|data:)/i.test(path)) return path;
+  if (typeof window !== "undefined") {
+    if (path.startsWith("/")) return `${window.location.origin}${path}`;
+    if (MINIO_URL) return `${MINIO_URL}${path.replace(/^\/+/, "")}`;
+    return `${window.location.origin}/${path.replace(/^\/+/, "")}`;
+  }
+  if (path.startsWith("/")) return path;
+  return MINIO_URL ? `${MINIO_URL}${path.replace(/^\/+/, "")}` : path;
+}
+
 function printLogoUrl(data: FeeReceiptPrintData): string {
-  const path = pickPrint(data, "logo_path", "logoPath");
-  if (!path) return DEFAULT_PRINT_LOGO;
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${MINIO_URL}${path.replace(/^\/+/, "")}`;
+  const path = pickPrint(data, "logo_path", "logoPath", "logo");
+  if (!path) return toAbsolutePrintUrl(DEFAULT_PRINT_LOGO);
+  if (/^(https?:\/\/|data:)/i.test(path)) return path;
+  if (path.startsWith("/")) return toAbsolutePrintUrl(path);
+  return toAbsolutePrintUrl(
+    MINIO_URL ? `${MINIO_URL}${path.replace(/^\/+/, "")}` : path,
+  );
+}
+
+/** Prefer embedding the logo so print does not depend on MinIO/network. */
+async function logoToDataUrl(src: string): Promise<string> {
+  const abs = toAbsolutePrintUrl(src);
+  if (abs.startsWith("data:")) return abs;
+  try {
+    const res = await fetch(abs, { mode: "cors", credentials: "omit" });
+    if (!res.ok) return abs;
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/")) return abs;
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? abs));
+      reader.onerror = () => reject(new Error("read failed"));
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return abs;
+  }
 }
 
 function formatPrintDateTime(value?: string): string {
@@ -174,8 +214,9 @@ function formatPrintDateTime(value?: string): string {
 }
 
 /**
- * Angular `student-fee-receipt-print.component.scss` — print sheet CSS.
- * Nearly full A4 width/height: Student + Department, minimal white space.
+ * Angular student-fee-receipt-print layout:
+ * Student + Department on one A4 page; NOTE near bottom of each copy;
+ * backdrop watermark centered behind details.
  */
 const STUDENT_FEE_RECEIPT_PRINT_CSS = `
   * { box-sizing: border-box; }
@@ -187,15 +228,15 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     background: #fff;
     color: #000;
     font-family: Arial, Helvetica, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   #print-section {
     width: 100% !important;
     height: 100%;
     min-height: 100vh;
-    padding: 0;
     margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
   }
@@ -224,6 +265,8 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     width: 110px !important;
     padding: 10px !important;
     object-fit: contain;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   .college-wrap {
     flex: 1;
@@ -241,22 +284,27 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     text-align: center;
     font-weight: bold;
     margin: 5px !important;
-    font-size: 14px;
+    font-size: 13px;
   }
   .title-row {
+    position: relative;
     display: flex;
     align-items: center;
+    justify-content: center;
     width: 100%;
     flex-shrink: 0;
+    min-height: 32px;
   }
   .title-row .title-left {
-    flex: 0 0 55%;
-    text-align: right;
+    width: 100%;
+    text-align: center;
   }
   .title-row .title-right {
-    flex: 0 0 45%;
-    text-align: right;
-    padding: 17px;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 10px 14px;
     font-size: 13px;
   }
   .title-row h3 {
@@ -273,27 +321,32 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     border: none;
     flex-shrink: 0;
   }
-  .main-card {
-    padding: 15px !important;
+  .body-block {
+    flex: 1 1 auto;
+    min-height: 0;
     position: relative;
     display: flex;
-    gap: 8px;
-    flex: 1 1 auto;
-    align-items: flex-start;
+    flex-direction: column;
   }
   .img-2 {
-    width: 40%;
-    height: 55%;
-    max-height: 160px;
+    width: 44%;
+    height: 62%;
     opacity: 0.2;
     position: absolute;
     left: 50%;
-    top: 45%;
+    top: 42%;
     transform: translate(-50%, -50%);
-    margin: 0;
     object-fit: contain;
     pointer-events: none;
     z-index: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .main-card {
+    padding: 15px !important;
+    z-index: 1;
+    display: flex;
+    flex-shrink: 0;
   }
   .main-card .col {
     flex: 1;
@@ -315,7 +368,7 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     text-align: left !important;
     font-weight: 500;
     vertical-align: top;
-    padding: 3px 0;
+    padding: 2px 0;
   }
   .main-card td {
     font-family: Arial, sans-serif;
@@ -324,7 +377,7 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     border: none !important;
     font-weight: 600;
     vertical-align: top;
-    padding: 3px 0;
+    padding: 2px 0;
   }
   .main-card .dots {
     width: 5% !important;
@@ -334,7 +387,9 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
   .amount-wrap {
     display: flex;
     justify-content: center;
-    padding: 4px 10px 8px;
+    padding: 0 10px;
+    position: relative;
+    z-index: 1;
     flex-shrink: 0;
   }
   #table2 {
@@ -348,7 +403,7 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
   #table2 th {
     text-align: left !important;
     border: 1px solid black !important;
-    padding: 4px 8px !important;
+    padding: 1px 6px !important;
     font-weight: 600;
   }
   #table2 th.center {
@@ -358,28 +413,33 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     text-align: right !important;
     border: 1px solid black !important;
     font-weight: 550;
-    padding: 4px 8px !important;
+    padding: 1px 6px !important;
   }
+  /* Keep NOTE directly under amount table (compact like Angular content block) */
   .note-wrap {
-    padding: 10px 12px 14px !important;
-    margin-top: auto;
+    padding: 10px !important;
+    margin-top: 0;
+    position: relative;
+    z-index: 1;
     flex-shrink: 0;
   }
   .border {
     border: 1px solid black;
     width: 90%;
-    margin: auto;
+    margin: 0 auto;
   }
   .border p {
     margin-left: 10px !important;
-    margin-top: 0;
-    margin-bottom: 0;
+    margin-right: 10px !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     font-size: smaller;
     font-weight: 600;
     text-align: left !important;
+    line-height: 1.4;
   }
   .border p + p {
-    margin-top: 2px !important;
+    margin-top: -6px !important;
   }
   .cut-line {
     border-top: 1px dashed #000 !important;
@@ -389,7 +449,7 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
   }
   @page {
     size: A4 portrait;
-    margin: 4mm;
+    margin: 5mm;
   }
   @media print {
     html, body {
@@ -401,12 +461,12 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
     }
     #print-section {
       min-height: 0;
-      height: 289mm; /* A4 297mm − ~8mm total margin */
+      height: 287mm;
     }
     .First-Border {
       page-break-inside: avoid;
-      height: calc((289mm - 12px) / 2);
-      max-height: calc((289mm - 12px) / 2);
+      height: calc((287mm - 8px) / 2);
+      max-height: calc((287mm - 8px) / 2);
     }
   }
 `;
@@ -414,9 +474,14 @@ const STUDENT_FEE_RECEIPT_PRINT_CSS = `
 function buildOneStudentFeeReceiptHtml(
   data: FeeReceiptPrintData,
   copyLabel: "Student Copy" | "Department Copy",
+  logoUrl: string,
+  fallbackLogoUrl: string,
 ): string {
   const e = escapeHtml;
-  const logo = printLogoUrl(data);
+  const logo = e(logoUrl);
+  const fallback = e(fallbackLogoUrl)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'");
   const college = pickPrint(data, "college_name", "collegeName") || "College";
   const address = pickPrint(data, "address", "college_address");
   const amount = pickPrint(data, "receipt_amount", "receiptAmount") || "0";
@@ -447,8 +512,8 @@ function buildOneStudentFeeReceiptHtml(
   return `
     <div class="First-Border">
       <div class="firstborder">
-        <img class="h-logo" src="${e(logo)}" alt=""
-          onerror="this.onerror=null;this.src='${DEFAULT_PRINT_LOGO}';" />
+        <img class="h-logo" src="${logo}" alt=""
+          onerror="if(this.dataset.fbk)return;this.dataset.fbk='1';this.src='${fallback}';" />
         <div class="college-wrap">
           <h2>${e(college)}</h2>
           <h4>${e(address)}</h4>
@@ -459,48 +524,50 @@ function buildOneStudentFeeReceiptHtml(
         <div class="title-right"><span>${e(copyLabel)}</span></div>
       </div>
       <hr class="line" />
-      <div class="main-card">
-        <img class="img-2" src="${e(logo)}" alt=""
-          onerror="this.style.display='none'" />
-        <div class="col">
-          <table>
-            <tr><th>Receipt No</th><td class="dots">:</td><td>${e(pickPrint(data, "payment_receipts_no", "paymentReceiptsNo"))}</td></tr>
-            <tr><th>Student Name</th><td class="dots">:</td><td>${e(pickPrint(data, "student_name", "studentName", "firstName"))}</td></tr>
-            <tr><th>HallTicket No</th><td class="dots">:</td><td>${e(pickPrint(data, "hallticket_number", "hallTicketNo", "rollNumber"))}</td></tr>
-            <tr><th>Branch</th><td class="dots">:</td><td>${e(branchParts)}</td></tr>
+      <div class="body-block">
+        <img class="img-2" src="${logo}" alt=""
+          onerror="if(this.dataset.fbk)return;this.dataset.fbk='1';this.src='${fallback}';" />
+        <div class="main-card">
+          <div class="col">
+            <table>
+              <tr><th>Receipt No</th><td class="dots">:</td><td>${e(pickPrint(data, "payment_receipts_no", "paymentReceiptsNo"))}</td></tr>
+              <tr><th>Student Name</th><td class="dots">:</td><td>${e(pickPrint(data, "student_name", "studentName", "firstName"))}</td></tr>
+              <tr><th>HallTicket No</th><td class="dots">:</td><td>${e(pickPrint(data, "hallticket_number", "hallTicketNo", "rollNumber"))}</td></tr>
+              <tr><th>Branch</th><td class="dots">:</td><td>${e(branchParts)}</td></tr>
+            </table>
+          </div>
+          <div class="col">
+            <table>
+              <tr><th>Date</th><td class="dots">:</td><td>${e(formatPrintDateTime(pickPrint(data, "receipt_date", "receiptDt")))}</td></tr>
+              <tr><th>Father Name</th><td class="dots">:</td><td>${e(pickPrint(data, "father_name", "fatherName"))}</td></tr>
+              <tr><th>Year</th><td class="dots">:</td><td>${e(pickPrint(data, "year_name", "yearName", "courseYearName"))}</td></tr>
+              <tr><th>Payment Type</th><td class="dots">:</td><td>${e(paymentTypeLine)}</td></tr>
+              <tr><th>Merchant Ref.No</th><td class="dots">:</td><td>${e(txn)}</td></tr>
+            </table>
+          </div>
+        </div>
+        <div class="amount-wrap">
+          <table id="table2">
+            <tr>
+              <th class="center">Details</th>
+              <th class="center">Amount</th>
+            </tr>
+            <tr>
+              <th>Amount Paid</th>
+              <td>₹${e(formatInrAmount(amount))}</td>
+            </tr>
+            <tr>
+              <th>Amount In Words</th>
+              <td>${e(feeAmountInWords(amount))} Only</td>
+            </tr>
           </table>
         </div>
-        <div class="col">
-          <table>
-            <tr><th>Date</th><td class="dots">:</td><td>${e(formatPrintDateTime(pickPrint(data, "receipt_date", "receiptDt")))}</td></tr>
-            <tr><th>Father Name</th><td class="dots">:</td><td>${e(pickPrint(data, "father_name", "fatherName"))}</td></tr>
-            <tr><th>Year</th><td class="dots">:</td><td>${e(pickPrint(data, "year_name", "yearName", "courseYearName"))}</td></tr>
-            <tr><th>Payment Type</th><td class="dots">:</td><td>${e(paymentTypeLine)}</td></tr>
-            <tr><th>Merchant Ref.No</th><td class="dots">:</td><td>${e(txn)}</td></tr>
-          </table>
-        </div>
-      </div>
-      <div class="amount-wrap">
-        <table id="table2">
-          <tr>
-            <th class="center">Details</th>
-            <th class="center">Amount</th>
-          </tr>
-          <tr>
-            <th>Amount Paid</th>
-            <td>₹${e(formatInrAmount(amount))}</td>
-          </tr>
-          <tr>
-            <th>Amount In Words</th>
-            <td>${e(feeAmountInWords(amount))} Only</td>
-          </tr>
-        </table>
-      </div>
-      <div class="note-wrap">
-        <div class="border">
-          <p>NOTE: </p>
-          <p>1. Please check the receipt before leaving the window</p>
-          <p>2. This is system generated receipt</p>
+        <div class="note-wrap">
+          <div class="border">
+            <p>NOTE: </p>
+            <p>1. Please check the receipt before leaving the window</p>
+            <p>2. This is system generated receipt</p>
+          </div>
         </div>
       </div>
     </div>
@@ -510,12 +577,15 @@ function buildOneStudentFeeReceiptHtml(
 /** Angular `#print-section`: Student Copy + dashed cut + Department Copy. */
 export function buildStudentFeeReceiptPrintHtml(
   data: FeeReceiptPrintData,
+  logoUrl?: string,
 ): string {
+  const logo = logoUrl || printLogoUrl(data);
+  const fallback = toAbsolutePrintUrl(DEFAULT_PRINT_LOGO);
   const body = `
     <div id="print-section">
-      ${buildOneStudentFeeReceiptHtml(data, "Student Copy")}
+      ${buildOneStudentFeeReceiptHtml(data, "Student Copy", logo, fallback)}
       <div class="cut-line"></div>
-      ${buildOneStudentFeeReceiptHtml(data, "Department Copy")}
+      ${buildOneStudentFeeReceiptHtml(data, "Department Copy", logo, fallback)}
     </div>
   `;
   return `<!doctype html><html><head><meta charset="utf-8"><title>FEE-RECEIPT</title><style>${STUDENT_FEE_RECEIPT_PRINT_CSS}</style></head><body>${body}</body></html>`;
@@ -526,49 +596,52 @@ export function buildStudentFeeReceiptPrintHtml(
  * chrome and matches Angular student-fee-receipt-print size on one page.
  */
 export function printStudentFeeReceipt(data: FeeReceiptPrintData): void {
-  const html = buildStudentFeeReceiptPrintHtml(data);
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
+  void (async () => {
+    const preferred = printLogoUrl(data);
+    const logo = await logoToDataUrl(preferred);
+    const html = buildStudentFeeReceiptPrintHtml(data, logo);
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(frame);
 
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
+    const fdoc = frame.contentDocument;
+    const win = frame.contentWindow;
+    if (!fdoc || !win) {
+      frame.remove();
+      return;
+    }
 
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
+    fdoc.open();
+    fdoc.write(html);
+    fdoc.close();
 
-  const cleanup = () => frame.remove();
-  win.addEventListener("afterprint", cleanup);
+    const cleanup = () => frame.remove();
+    win.addEventListener("afterprint", cleanup);
 
-  const imgs = Array.from(fdoc.images);
-  const waitForImages = imgs.length
-    ? Promise.all(
-        imgs.map(
-          (img) =>
-            new Promise<void>((resolve) => {
-              if (img.complete) {
-                resolve();
-                return;
-              }
-              img.onload = () => resolve();
-              img.onerror = () => resolve();
-            }),
-        ),
-      )
-    : Promise.resolve();
+    const imgs = Array.from(fdoc.images);
+    const waitForImages = imgs.length
+      ? Promise.all(
+          imgs.map(
+            (img) =>
+              new Promise<void>((resolve) => {
+                if (img.complete) {
+                  resolve();
+                  return;
+                }
+                img.onload = () => resolve();
+                img.onerror = () => resolve();
+              }),
+          ),
+        )
+      : Promise.resolve();
 
-  void waitForImages.then(() => {
+    await waitForImages;
     setTimeout(() => {
       win.focus();
       win.print();
       setTimeout(cleanup, 1500);
     }, 100);
-  });
+  })();
 }

@@ -344,7 +344,8 @@ export default function FeeReceiptsPage() {
         </div>
       }
       rowData={showTable ? receipts : []}
-      columnDefs={columnDefs}
+      columnDefs={showTable ? columnDefs : undefined}
+      body={showTable ? undefined : null}
       loading={showTable && (loadingReceipts || fetchingReceipts)}
       height="auto"
       pagination

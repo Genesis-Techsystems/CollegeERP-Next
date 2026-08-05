@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpen, PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { EmptyState } from "@/common/components/feedback";
 import { StatusBadge } from "@/common/components/data-display";
@@ -17,7 +17,7 @@ import { ScholarshipTypeModal } from "./ScholarshipTypeModal";
 
 const COL_DEFS = {
   siNo: {
-    headerName: "SI.No",
+    headerName: "Sl.No",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
@@ -46,7 +46,7 @@ const COL_DEFS = {
   } as ColDef<ScholarshipType>,
   sortOrder: {
     field: "sortOrder",
-    headerName: "Sort Order",
+    headerName: "Sort order",
     minWidth: 100,
     flex: 0.6,
   } as ColDef<ScholarshipType>,
@@ -149,13 +149,13 @@ export default function ScholarshipTypePage() {
   return (
     <ListPage
       title="Scholarship Type"
-      rowData={isError ? [] : rows}
+      rowData={isError ? [] : (rows ?? [])}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: "Search…",
+        searchPlaceholder: "Search",
         pdfDocumentTitle: "Scholarship Type",
       }}
       toolbarTrailing={
@@ -178,23 +178,7 @@ export default function ScholarshipTypePage() {
             description={getErrorMessage(error)}
             action={{ label: "Retry", onClick: () => void refetch() }}
           />
-        ) : (
-          <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <BookOpen className="mb-3 h-10 w-10 opacity-40" />
-            <p className="text-sm">No scholarship types found</p>
-            <Button
-              size="sm"
-              className="mt-4"
-              onClick={() => {
-                setEditing(null);
-                setModalOpen(true);
-              }}
-            >
-              <PlusIcon className="mr-1 h-4 w-4" />
-              Add Scholarship Type
-            </Button>
-          </div>
-        )
+        ) : undefined
       }
     >
       <ScholarshipTypeModal

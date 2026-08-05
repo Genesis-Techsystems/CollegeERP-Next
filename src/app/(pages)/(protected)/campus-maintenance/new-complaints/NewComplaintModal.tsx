@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { format, isValid, parseISO } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +58,18 @@ function toDateInput(value?: string | null) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
   return d.toISOString().split("T")[0];
+}
+
+/** Angular `{{ issueLogDate | date:'MMM d, y' }}` — same as table column */
+function formatComplaintDate(value?: string | null): string {
+  if (!value) return "";
+  const raw = String(value);
+  const d = parseISO(raw.includes("T") ? raw : `${raw.slice(0, 10)}T00:00:00`);
+  if (!isValid(d)) {
+    const fallback = new Date(raw);
+    return isValid(fallback) ? format(fallback, "MMM d, y") : raw.slice(0, 10);
+  }
+  return format(d, "MMM d, y");
 }
 
 function getDefaults(collegeId = ""): FormValues {
@@ -383,7 +396,10 @@ export default function NewComplaintModal({
                     .join(" / ") || editData.collegeName
                 }
               />
-              <Row label="Complaint LogDate" value={editData.issueLogDate} />
+              <Row
+                label="Complaint LogDate"
+                value={formatComplaintDate(editData.issueLogDate)}
+              />
               <Row label="Issue Title" value={editData.issueTitle} />
               {editData.issueCategoryDisplayName && (
                 <Row
@@ -430,7 +446,10 @@ export default function NewComplaintModal({
                     .join(" / ") || editData.collegeName
                 }
               />
-              <Row label="Complaint LogDate" value={editData.issueLogDate} />
+              <Row
+                label="Complaint LogDate"
+                value={formatComplaintDate(editData.issueLogDate)}
+              />
               <Row label="Issue Title" value={editData.issueTitle} />
               {editData.issueCategoryDisplayName && (
                 <Row

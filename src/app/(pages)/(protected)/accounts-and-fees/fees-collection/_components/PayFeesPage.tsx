@@ -36,7 +36,9 @@ import {
   saveFeeStudentWiseFines,
   saveFeeStudentWiseParticulars,
   saveFeeStudentWiseScholarship,
+  initiatePayment,
   submitFeeReceipt,
+  submitOnlineFeeReceipt,
   updateMinFeePercent,
 } from "@/services";
 import type {
@@ -143,6 +145,8 @@ export function PayFeesPage() {
   const [confirmData, setConfirmData] = useState<PayFeesConfirmData | null>(
     null,
   );
+  /** Angular: Pay fees vs Pay Online */
+  const [payChannel, setPayChannel] = useState<"counter" | "online">("counter");
   const [submitting, setSubmitting] = useState(false);
   const [extraSaving, setExtraSaving] = useState(false);
   const [addParticularOpen, setAddParticularOpen] = useState(false);
@@ -427,14 +431,9 @@ export function PayFeesPage() {
   }
 
   const modeField = pickModeField(paymentModeId, paymentModeOptions);
-  const canPay =
-    financialYears.length > 0 &&
-    amountFlag &&
-    equalAmount === 0 &&
-    amount > 0 &&
-    Boolean(paymentModeId) &&
-    Boolean(paymentTypeId) &&
-    !loadingFy;
+  // Angular: [disabled]="(!flag || equalAmount > 0)" when financialYearDetails.length > 0
+  const buttonsEnabled =
+    financialYears.length > 0 && amountFlag && equalAmount === 0 && !loadingFy;
 
   function buildPaymentLines(): FeeStudentParticularRow[] {
     const fyId = financialYears[0]?.financialYearId;
@@ -476,9 +475,13 @@ export function PayFeesPage() {
     return lines.map((item) => ({ ...item, paidAmount: num(item.amount) }));
   }
 
-  function openPayConfirm() {
-    if (!feeStudentData || !canPay || !receiptDt) {
+  function openPayConfirm(channel: "counter" | "online") {
+    if (!feeStudentData || !receiptDt || !buttonsEnabled) {
       toastInfo("Please complete payment details.");
+      return;
+    }
+    if (!paymentModeId || !paymentTypeId || amount <= 0) {
+      toastInfo("Please select pay mode, payment type and enter amount.");
       return;
     }
     const lines = buildPaymentLines();
@@ -486,6 +489,7 @@ export function PayFeesPage() {
       toastInfo("Enter particulars pay amount.");
       return;
     }
+    setPayChannel(channel);
     setConfirmData({
       firstName: feeStudentData.firstName,
       collegeCode: searchParams.get("collegeCode") ?? undefined,
@@ -518,6 +522,7 @@ export function PayFeesPage() {
 
     const employeeId =
       globalThis?.localStorage?.getItem("employeeId") ?? undefined;
+    const lines = buildPaymentLines();
     const payload: FeeReceiptPaymentPayload = {
       paymentFor: paymentForValue,
       fineReason: fineReason || undefined,
@@ -538,12 +543,46 @@ export function PayFeesPage() {
       receiptAmount: amount,
       feeStdDataId: Number(feeStudentData.feeStdDataId),
       revertbByEmployeeId: employeeId,
-      feeParticularwisePayments: buildPaymentLines(),
+      feeParticularwisePayments: lines,
       payerTypeId,
+      payerName: feeStudentData.firstName,
+      firstName: feeStudentData.firstName,
+      collegeCode: searchParams.get("collegeCode") ?? undefined,
+      academicYear: feeStudentData.academicYear,
+      courseCode: searchParams.get("courseCode") ?? undefined,
+      groupCode: searchParams.get("groupCode") ?? undefined,
+      courseYearName: searchParams.get("courseYearName") ?? undefined,
+      section: searchParams.get("section") ?? undefined,
     };
 
     setSubmitting(true);
     try {
+      if (payChannel === "online") {
+        // Angular payByOnline → stgOnlineFeereceipts then initiatePayment gateway.
+        const onlineResult = await submitOnlineFeeReceipt({
+          ...payload,
+          tranCatDetailsId: 685,
+          orderId: null,
+          stgOnlineFeeParticularwisePaymentDTOS: lines,
+          feeParticularwisePayments: lines,
+        });
+        const orderId = onlineResult.orderId;
+        if (orderId == null || orderId === "") {
+          throw new Error("Online payment order was not created.");
+        }
+        const courseCode = String(searchParams.get("courseCode") ?? "");
+        const gatewayCollegeId =
+          courseCode.toUpperCase() === "PHD"
+            ? 0
+            : Number(onlineResult.collegeId ?? collegeId);
+        const feeType =
+          courseCode.toUpperCase() === "PHD" ? "PHD" : "COLLEGEFEE";
+        setConfirmOpen(false);
+        setConfirmData(null);
+        await initiatePayment(amount, orderId, gatewayCollegeId, feeType);
+        return;
+      }
+
       await submitFeeReceipt(payload);
       toastSuccess("Fee payment saved successfully");
       setConfirmOpen(false);
@@ -552,7 +591,12 @@ export function PayFeesPage() {
       await refetchFee();
       goBack();
     } catch (e) {
-      toastError(e, "Fee payment failed");
+      toastError(
+        e,
+        payChannel === "online"
+          ? "Online fee payment failed"
+          : "Fee payment failed",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -991,10 +1035,18 @@ export function PayFeesPage() {
                   <Button
                     type="button"
                     className="h-9 rounded-sm"
-                    disabled={!canPay}
-                    onClick={openPayConfirm}
+                    disabled={!buttonsEnabled}
+                    onClick={() => openPayConfirm("counter")}
                   >
                     Pay fees
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-9 rounded-sm"
+                    disabled={!buttonsEnabled}
+                    onClick={() => openPayConfirm("online")}
+                  >
+                    Pay Online
                   </Button>
                 </div>
               </div>

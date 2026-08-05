@@ -485,6 +485,12 @@ export const QK = {
     all: ["SchAccountsPreceeding"] as const,
     list: (collegeId?: number) =>
       ["SchAccountsPreceeding", "list", collegeId] as const,
+    viewPreceedings: (schAccountsPreceedingsId: number) =>
+      [
+        "SchAccountsPreceeding",
+        "viewPreceedings",
+        schAccountsPreceedingsId,
+      ] as const,
   },
   schStdPreceedings: {
     all: ["SchStdPreceeding"] as const,
@@ -495,14 +501,17 @@ export const QK = {
     all: ["FeeSchStructure"] as const,
     list: (filters: {
       collegeId: number;
-      academicYearId?: number;
       courseId?: number;
+      academicYearId?: number;
       batchId?: number;
+      isAcademicScholarship?: boolean;
     }) => ["FeeSchStructure", "list", filters] as const,
     detail: (feeSchStructureId: number) =>
       ["FeeSchStructure", "detail", feeSchStructureId] as const,
     values: (feeSchStructureId: number) =>
       ["ScholarshipValue", "byStructure", feeSchStructureId] as const,
+    typesByUniversity: (universityId: number) =>
+      ["ScholarshipType", "byUniversity", universityId] as const,
   },
   assignScholarship: {
     all: ["AssignScholarship"] as const,
@@ -1310,6 +1319,69 @@ export const QK = {
   fbOptionChoices: {
     all: ["FbOptionchoice"] as const,
     list: () => ["FbOptionchoice", "list"] as const,
+  },
+
+  /** Angular `feedback/masters/feedback-questions` — FeedbackQuestion. */
+  fbQuestions: {
+    all: ["FeedbackQuestion"] as const,
+    list: () => ["FeedbackQuestion", "list"] as const,
+  },
+
+  /** Angular `feedback/survey-form-list` / `survey-form`. */
+  surveyForms: {
+    all: ["SurveyForm"] as const,
+    list: () => ["SurveyForm", "list"] as const,
+    detail: (id: number) => ["SurveyForm", "detail", id] as const,
+  },
+
+  /** Angular `feedback/student-feedback-list`. */
+  studentFeedbackList: {
+    all: ["StudentFeedbackList"] as const,
+    forms: (collegeId: number) =>
+      ["StudentFeedbackList", "forms", collegeId] as const,
+    feedback: (surveyFormId: number, page: number) =>
+      ["StudentFeedbackList", "feedback", surveyFormId, page] as const,
+  },
+
+  /** Angular `feedback/feedback-summary`. */
+  feedbackSummary: {
+    all: ["FeedbackSummary"] as const,
+    filters: (organizationId: number, employeeId: number) =>
+      ["FeedbackSummary", "filters", organizationId, employeeId] as const,
+    sections: (
+      collegeId: number,
+      academicYearId: number,
+      courseGroupId: number,
+      courseYearId: number,
+    ) =>
+      [
+        "FeedbackSummary",
+        "sections",
+        collegeId,
+        academicYearId,
+        courseGroupId,
+        courseYearId,
+      ] as const,
+  },
+
+  /** Angular `feedback/feedback-suggestion-repot`. */
+  feedbackSuggestionReport: {
+    all: ["FeedbackSuggestionReport"] as const,
+    colleges: () => ["FeedbackSuggestionReport", "colleges"] as const,
+    departments: (collegeId: number) =>
+      ["FeedbackSuggestionReport", "departments", collegeId] as const,
+    surveys: (collegeId: number) =>
+      ["FeedbackSuggestionReport", "surveys", collegeId] as const,
+    employees: (surveyFormId: number) =>
+      ["FeedbackSuggestionReport", "employees", surveyFormId] as const,
+  },
+
+  /** Angular `feedback/feedback-status-report`. */
+  feedbackStatusReport: {
+    all: ["FeedbackStatusReport"] as const,
+    colleges: () => ["FeedbackStatusReport", "colleges"] as const,
+    academicYears: (universityId: number) =>
+      ["FeedbackStatusReport", "academicYears", universityId] as const,
   },
 
   /** Angular `principal-my-approvals/leave-applications` + `tc-no-due-approvals`. */

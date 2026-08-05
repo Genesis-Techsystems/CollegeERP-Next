@@ -618,16 +618,25 @@ export async function submitStudentPassout(
   return putDetails<unknown>("passedout", rows);
 }
 
-/** Mirrors Angular `genericFunctions.momentWithTime()`. */
+/**
+ * Angular `studentsList` section-change dates: `YYYY-MM-DDTHH:mm:ss±HH:mm`
+ * (local calendar day at midnight + timezone offset), e.g. `2026-08-05T00:00:00+05:30`.
+ */
 export function modifyStudentSectionDateTime(d: Date | null): string {
   if (!d) return "";
   const p = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const y = d.getFullYear();
+  const m = p(d.getMonth() + 1);
+  const day = p(d.getDate());
+  const offsetMin = -d.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMin);
+  return `${y}-${m}-${day}T00:00:00${sign}${p(Math.floor(abs / 60))}:${p(abs % 60)}`;
 }
 
 /**
  * Angular modify-student-section `changeStudentSections` payload — PUT `studentsList`
- * with `groupSectionId`, `fromDate`/`toDate`, and `isStudentModification: true`.
+ * with full student row + `groupSectionId`, `fromDate`/`toDate`, `isStudentModification: true`.
  */
 export function buildModifyStudentSectionPayload(
   row: AnyRow,
@@ -635,68 +644,21 @@ export function buildModifyStudentSectionPayload(
   fromDate: Date | null,
   toDate: Date | null = fromDate,
 ): Record<string, unknown> {
-  const fromDateTime = modifyStudentSectionDateTime(fromDate);
-  const toDateTime = modifyStudentSectionDateTime(toDate ?? fromDate);
+  const {
+    __rowKey: _key,
+    studentName: _studentName,
+    student_name: _studentNameSnake,
+    courseName: _courseName,
+    sectionName: _sectionName,
+    mobileNumber: _mobileNumber,
+    ...student
+  } = row;
   return {
-    academicYearId: num(row, ["academicYearId", "fk_academic_year_id"]),
-    admissionNumber: row.admissionNumber ?? null,
-    applicationNo: row.applicationNo ?? null,
-    batchId: row.batchId ?? null,
-    collegeId: num(row, ["collegeId", "fk_college_id"]),
-    courseGroupId: num(row, ["courseGroupId", "fk_course_group_id"]),
-    courseId: num(row, ["courseId", "fk_course_id"]),
-    courseYearId: num(row, ["courseYearId", "fk_course_year_id"]),
-    dateOfBirth: row.dateOfBirth ?? null,
-    fatherAddress: row.fatherAddress ?? null,
-    fatherEmailId: row.fatherEmailId ?? null,
-    fatherMobileNo: row.fatherMobileNo ?? null,
-    fatherName: row.fatherName ?? null,
-    fatherQualification: row.fatherQualification ?? null,
-    firstName: row.firstName ?? row.studentName ?? row.student_name ?? null,
-    genderId: row.genderId ?? null,
+    ...student,
     groupSectionId: targetSectionId,
-    guardianAddress: row.guardianAddress ?? null,
-    guardianEmailId: row.guardianEmailId ?? null,
-    guardianMobileNo: row.guardianMobileNo ?? null,
-    guardianName: row.guardianName ?? null,
-    hallticketNumber: row.hallticketNumber ?? null,
-    isActive: row.isActive ?? true,
-    isLateral: row.isLateral ?? null,
-    isMinority: row.isMinority ?? null,
-    isPresent: row.isPresent ?? true,
-    isScholarship: row.isScholarship ?? null,
+    fromDate: modifyStudentSectionDateTime(fromDate),
+    toDate: modifyStudentSectionDateTime(toDate ?? fromDate),
     isStudentModification: true,
-    lastName: row.lastName ?? null,
-    middleName: row.middleName ?? null,
-    mobile: row.mobile ?? null,
-    motherEmailId: row.motherEmailId ?? null,
-    motherMobileNo: row.motherMobileNo ?? null,
-    motherName: row.motherName ?? null,
-    permanentAddress: row.permanentAddress ?? null,
-    permanentPincode: row.permanentPincode ?? null,
-    permanentStreet: row.permanentStreet ?? null,
-    premanentMandal: row.premanentMandal ?? null,
-    presentAddress: row.presentAddress ?? null,
-    presentMandal: row.presentMandal ?? null,
-    presentPincode: row.presentPincode ?? null,
-    presentStreet: row.presentStreet ?? null,
-    primaryContact: row.primaryContact ?? null,
-    qualifyingId: row.qualifyingId ?? null,
-    quotaId: row.quotaId ?? null,
-    reason: row.reason ?? null,
-    regulationId: row.regulationId ?? null,
-    rfid: row.rfid ?? null,
-    rollNumber: row.rollNumber ?? null,
-    sscNo: row.sscNo ?? null,
-    stdEmailId: row.stdEmailId ?? null,
-    studentAppId: row.studentAppId ?? null,
-    studentEmailId: row.studentEmailId ?? null,
-    studentId: num(row, ["studentId", "fk_student_id"]),
-    studentPhotoPath: row.studentPhotoPath ?? null,
-    studentStatusId: row.studentStatusId ?? null,
-    toDate: toDateTime,
-    userId: row.userId ?? null,
-    fromDate: fromDateTime,
   };
 }
 
@@ -1581,6 +1543,11 @@ export async function listElectiveBatchStudents(params: {
 /**
  * Reassign selected students to a target elective batch.
  * Mirrors Angular `assignStudents` → `crudService.update('batchWiseStudentsElective', rows)`.
+ *
+ * Angular body shape (array):
+ * `{ electiveGroupyrMappingId, toDate: 'YYYY-MM-DDT00:00:00±HH:mm',
+ *    batchwiseStudentId, subjectId, studentSubjectDTOList: [{ subjectId }] }`
+ * — `subjectId` is the **target** elective subject; do not send `studentSubjectId`.
  */
 export async function submitElectiveBatchChange(
   rows: AnyRow[],
@@ -1588,7 +1555,7 @@ export async function submitElectiveBatchChange(
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new Error("No students selected for elective batch change");
   }
-  return putDetails<unknown>("batchWiseStudentsElective", rows);
+  return putDetails<unknown>(STUDENT_API.BATCHWISE_STUDENTS_ELECTIVE, rows);
 }
 
 export async function listStudentBatchesByCollegeCourse(params: {
