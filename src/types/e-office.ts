@@ -40,13 +40,17 @@ export type InvInternalIndentRow = {
   storeId?: number;
   storeCode?: string;
   storeName?: string;
+  collegeId?: number;
   indentDate?: string;
   purpose?: string;
   isActive?: boolean;
+  reason?: string;
   internalIndWfStage?: number;
   internalIndWfStageName?: string;
   indentRaisedEmpId?: number;
   invTranstypeCatdetId?: number;
+  /** Angular list/view field name */
+  invTranstypeCatdetIdDisplayName?: string;
   invTranstypeCatdetDisplayName?: string;
   poId?: number;
   invInternalIndentitems?: InvInternalIndentItemRow[];
@@ -59,8 +63,16 @@ export type InvPoItemRow = {
   itemName?: string;
   unitPrice?: number;
   orderQuantity?: number;
+  receivedQty?: number;
   itemDiscountPercentage?: number;
+  itemTaxPercentage?: number;
+  itemTotalActualAmount?: number;
+  itemTotalDiscountAmount?: number;
   itemTotalCost?: number;
+  authorizedByEmpId?: number;
+  reason?: string;
+  igst?: number;
+  isReqTracking?: boolean;
   isActive?: boolean;
 };
 
@@ -72,6 +84,7 @@ export type InvPurchaseOrderRow = {
   potypeCatdetDisplayName?: string;
   invTranstypeCatdetId?: number;
   invTranstypeCatdetCode?: string;
+  invTranstypeCatdetDisplayName?: string;
   poActualAmount?: number;
   poNetCost?: number;
   invoiceNo?: string;
@@ -84,6 +97,7 @@ export type InvPurchaseOrderRow = {
   requestText?: string;
   poComments?: string;
   poStatusCatdetId?: number | null;
+  poStatusCatdetDisplayName?: string;
   poWorkFlowName?: string;
   poWorkFlowStage?: number;
   storeId?: number;
@@ -91,7 +105,19 @@ export type InvPurchaseOrderRow = {
   supplierId?: number;
   supplierName?: string;
   accountTypeId?: number;
+  accounttypeCode?: string;
+  accounttypeName?: string;
   financialYearId?: number;
+  financialYear?: string;
+  accountEntityId?: number;
+  /** GET invpurchaseorder returns entity as entityTypeId (Angular edit uses this). */
+  entityTypeId?: number;
+  templateName?: string;
+  subjectTextCode?: string;
+  entityType?: string;
+  paymentNoteFlag?: number;
+  requestText2?: string;
+  requestText3?: string;
   isActive?: boolean;
   wfDocumentPath?: string;
   poRefFilePath1?: string;
@@ -107,6 +133,8 @@ export type InvStoreRow = {
   storeCode?: string;
   storeName?: string;
   collegeId?: number;
+  /** Angular store master field used for finance college filter */
+  collegeIds?: number;
 };
 
 export type InvSupplierRow = {

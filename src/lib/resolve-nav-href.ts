@@ -481,6 +481,55 @@ export function resolveForcedNavRoute(
     return "/student-grievances";
   }
 
+  // Feedback Status Report — Angular `feedback/feedback-status-report`
+  if (
+    hrefLower.includes("feedback-status") ||
+    labelKey === "feedback status report" ||
+    labelKey === "feedback status"
+  ) {
+    return "/feedback/feedback-status-report";
+  }
+
+  // Feedback Suggestions Report — Angular `feedback/feedback-suggestion-repot`
+  if (
+    hrefLower.includes("feedback-suggestion") ||
+    hrefLower.includes("feedback-suggestion-repot") ||
+    (hrefLower.includes("feedback") &&
+      hrefLower.includes("suggestion") &&
+      (hrefLower.includes("report") || hrefLower.includes("repot"))) ||
+    labelKey === "feedback suggestions report" ||
+    labelKey === "feedback suggestion report" ||
+    labelKey === "survey feedback suggestion report"
+  ) {
+    return "/feedback/feedback-suggestion-report";
+  }
+
+  // Feedback Consolidate Report — Angular `feedback/feedback-consolidated-report`
+  if (
+    hrefLower.includes("feedback-consolidated") ||
+    hrefLower.includes("feedback-consolidate") ||
+    labelKey === "feedback consolidate report" ||
+    labelKey === "feedback consolidated report" ||
+    labelKey === "survey feedback consolidated report"
+  ) {
+    return "/feedback/feedback-consolidated-report";
+  }
+
+  // Feedback Summary — Angular `feedback/feedback-summary`
+  if (
+    hrefLower.includes("feedback-summary") ||
+    hrefLower.includes("feedback-summary-report") ||
+    labelKey === "feedback summary" ||
+    labelKey === "survey summary"
+  ) {
+    return "/feedback/feedback-summary";
+  }
+
+  // Student Feedback List — Angular `feedback/student-feedback-list`
+  if (hrefLower.includes("student-feedback-list")) {
+    return "/feedback/student-feedback-list";
+  }
+
   // Student Feedback — Angular `student-student-feedback`
   if (
     hrefLower.includes("student-student-feedback") ||

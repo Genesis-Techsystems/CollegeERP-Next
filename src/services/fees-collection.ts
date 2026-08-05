@@ -208,7 +208,8 @@ export async function getFinancialYearForReceiptDate(
   receiptDate: Date,
 ): Promise<FinancialYearRow[]> {
   if (!collegeId) return [];
-  const checkDate = format(receiptDate, "yyyy-MM-dd");
+  // Angular `momentFormatYMD` → YYYY/MM/DD (hyphens return 400 from Spring).
+  const checkDate = format(receiptDate, "yyyy/MM/dd");
   const data = await fetchDetails<FinancialYearRow[] | FinancialYearRow>(
     FEE_API.FINANCIAL_YEAR_DATE,
     {
@@ -282,6 +283,21 @@ export async function submitFeeReceipt(
   payload: FeeReceiptPaymentPayload,
 ): Promise<unknown> {
   return postDetails<unknown>(FEE_API.FEE_RECEIPTS, payload);
+}
+
+/** Angular `payByOnline` → POST `stgOnlineFeereceipts` (returns orderId for gateway). */
+export async function submitOnlineFeeReceipt(
+  payload: FeeReceiptPaymentPayload & {
+    tranCatDetailsId?: number;
+    orderId?: null;
+    stgOnlineFeeParticularwisePaymentDTOS?: FeeStudentParticularRow[];
+  },
+): Promise<{ orderId?: string | number; collegeId?: number }> {
+  const data = await postDetails<{
+    orderId?: string | number;
+    collegeId?: number;
+  }>(FEE_API.STG_ONLINE_FEE_RECEIPTS, payload);
+  return data ?? {};
 }
 
 /** Angular `feeparticularwisepayments` — receipts for one student particular. */
@@ -421,7 +437,11 @@ export async function printStudentFeeReceiptDownload(
 export async function searchStudentsInCollege(
   collegeId: number,
   term: string,
-  options?: { courseId?: number; courseGroupId?: number; includeActive?: boolean },
+  options?: {
+    courseId?: number;
+    courseGroupId?: number;
+    includeActive?: boolean;
+  },
 ): Promise<StudentFeeSearchRow[]> {
   const q = term.trim();
   if (!collegeId || q.length < 5) return [];

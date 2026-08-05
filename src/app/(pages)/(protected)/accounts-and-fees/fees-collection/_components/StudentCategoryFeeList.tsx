@@ -365,20 +365,22 @@ export function StudentCategoryFeeList({
   );
 
   if (useFilteredShell) {
+    const showTable = Boolean(selectedStudent && studentNum > 0);
     return (
       <FilteredListPage
         title={title}
         filters={
           <div className="space-y-4">
             {studentFilter}
-            {selectedStudent && studentNum > 0 ? (
-              <FeeStudentProfileCard student={selectedStudent} />
+            {showTable ? (
+              <FeeStudentProfileCard student={selectedStudent!} />
             ) : null}
           </div>
         }
-        columnDefs={columnDefs}
-        rowData={selectedStudent && studentNum > 0 ? feeRows : []}
-        loading={isLoading && studentNum > 0}
+        columnDefs={showTable ? columnDefs : undefined}
+        body={showTable ? undefined : null}
+        rowData={showTable ? feeRows : []}
+        loading={showTable && isLoading}
         height="auto"
         pagination
         toolbar={{

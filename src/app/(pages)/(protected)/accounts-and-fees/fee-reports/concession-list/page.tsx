@@ -99,6 +99,7 @@ export default function ConcessionListPage() {
   const [collegeId, setCollegeId] = useState<string | null>(null);
   const [academicYearId, setAcademicYearId] = useState<string | null>(null);
   const [rows, setRows] = useState<FeeConcessionRow[]>([]);
+  const [listLoaded, setListLoaded] = useState(false);
   const [dataDetails, setDataDetails] = useState("");
   const [loadingList, setLoadingList] = useState(false);
 
@@ -195,11 +196,13 @@ export default function ConcessionListPage() {
         status: true,
       });
       setRows(result.rows);
+      setListLoaded(true);
       if (result.rows.length === 0)
         toastInfo("No institutional scholarship records found.");
     } catch (e) {
       toastError(e, "Failed to load institutional scholarship list");
       setRows([]);
+      setListLoaded(true);
     } finally {
       setLoadingList(false);
     }
@@ -239,6 +242,7 @@ export default function ConcessionListPage() {
               setCollegeId(v);
               setAcademicYearId(null);
               setRows([]);
+              setListLoaded(false);
               setDataDetails("");
             }}
             options={collegeOptions}
@@ -252,6 +256,7 @@ export default function ConcessionListPage() {
             onChange={(v) => {
               setAcademicYearId(v);
               setRows([]);
+              setListLoaded(false);
             }}
             options={ayOptions}
             placeholder="Select"
@@ -283,9 +288,10 @@ export default function ConcessionListPage() {
           </div>
         </div>
       }
-      rowData={rows}
-      columnDefs={columnDefs}
-      loading={loadingList}
+      rowData={listLoaded ? rows : []}
+      columnDefs={listLoaded ? columnDefs : undefined}
+      body={listLoaded ? undefined : null}
+      loading={listLoaded && loadingList}
       height="auto"
       pagination
       toolbar={{

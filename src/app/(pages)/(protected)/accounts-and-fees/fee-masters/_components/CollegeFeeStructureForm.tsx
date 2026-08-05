@@ -931,8 +931,14 @@ export function CollegeFeeStructureForm({
       activefromdate: toFeeDateIsoMidnight(activeFromDate),
       activetodate: toFeeDateIsoMidnight(activeToDate),
       feeStructureParticularDTOs: particulars,
-      // Full CourseGroup domain rows (Angular parity) — not a slim DTO.
-      feeStructureCourseyrDTOs: courseGroups.filter((g) => g.checked),
+      // Checked → isActive true; previously mapped but unchecked → isActive false
+      // (so backend can unlink). Never-mapped unchecked groups are omitted.
+      feeStructureCourseyrDTOs: courseGroups
+        .filter((g) => g.checked || g.feeStructureCoursyrId)
+        .map((g) => ({
+          ...g,
+          isActive: Boolean(g.checked),
+        })),
       // Preview-only labels (stripped before POST to match Angular edit).
       college: collegeCode,
       course: courseCode.split(" (")[0] ?? courseCode,

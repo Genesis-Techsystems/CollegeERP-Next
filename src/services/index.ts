@@ -176,6 +176,8 @@ export * from "./student-fee";
 export * from "./student-grievance";
 export * from "./feedback-option-group";
 export * from "./feedback-option-choice";
+export * from "./feedback-question";
+export * from "./survey-form";
 export * from "./fee-masters";
 export * from "./fees-collection";
 export * from "./email-sms";

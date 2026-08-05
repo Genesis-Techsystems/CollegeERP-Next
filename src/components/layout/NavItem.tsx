@@ -1671,6 +1671,64 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/student-grievances";
     }
 
+    // Feedback Status Report — Angular `feedback/feedback-status-report`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("feedback-status") ||
+        labelKey === "feedback status report" ||
+        labelKey === "feedback status"
+      ) {
+        return "/feedback/feedback-status-report";
+      }
+    }
+
+    // Feedback Suggestions Report — Angular `feedback/feedback-suggestion-repot`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("feedback-suggestion") ||
+        hrefLower.includes("feedback-suggestion-repot") ||
+        (hrefLower.includes("feedback") &&
+          hrefLower.includes("suggestion") &&
+          (hrefLower.includes("report") || hrefLower.includes("repot"))) ||
+        labelKey === "feedback suggestions report" ||
+        labelKey === "feedback suggestion report" ||
+        labelKey === "survey feedback suggestion report"
+      ) {
+        return "/feedback/feedback-suggestion-report";
+      }
+    }
+
+    // Feedback Consolidate Report — Angular `feedback/feedback-consolidated-report`
+    if (
+      hrefLower.includes("feedback-consolidated") ||
+      hrefLower.includes("feedback-consolidate") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "feedback consolidate report" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "feedback consolidated report" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "survey feedback consolidated report"
+    ) {
+      return "/feedback/feedback-consolidated-report";
+    }
+
+    // Feedback Summary — Angular `feedback/feedback-summary`
+    if (
+      hrefLower.includes("feedback-summary") ||
+      hrefLower.includes("feedback-summary-report") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "feedback summary" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "survey summary"
+    ) {
+      return "/feedback/feedback-summary";
+    }
+
+    // Student Feedback List — Angular `feedback/student-feedback-list`
+    if (hrefLower.includes("student-feedback-list")) {
+      return "/feedback/student-feedback-list";
+    }
+
     // Student Feedback — Angular `student-student-feedback`
     if (
       hrefLower.includes("student-student-feedback") ||
