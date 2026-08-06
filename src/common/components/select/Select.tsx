@@ -16,6 +16,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SELECT_TOOLTIP_MIN_LENGTH } from "./OptionTooltip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,7 +26,10 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
-  /** Native browser tooltip on the option (e.g. full store name when label is code). */
+  /**
+   * Tooltip text. Defaults to `label` so truncated long options show the full
+   * value on hover (applied app-wide in Select / MultiSelect).
+   */
   title?: string;
   /** Secondary line under the label (e.g. course-group names on subject options). */
   description?: string;
@@ -79,6 +83,16 @@ export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
     out.push(o);
   }
   return out;
+}
+
+/** Tooltip text for long/truncated select options; short labels return undefined. */
+export function selectOptionTooltip(
+  opt: Pick<SelectOption, "label" | "title"> | null | undefined,
+): string | undefined {
+  if (!opt) return undefined;
+  const text = String(opt.title ?? opt.label ?? "").trim();
+  if (!text || text.length <= SELECT_TOOLTIP_MIN_LENGTH) return undefined;
+  return text;
 }
 
 /** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
