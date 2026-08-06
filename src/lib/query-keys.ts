@@ -867,9 +867,9 @@ export const QK = {
       ["EmailSms", "sendLoginDetails", "roles", organizationId] as const,
     /** `domain/list/SmsPattern` — `messagepatternfor==ABSENT` (Angular send-absent-sms). */
     smsPatternsAbsent: () => ["EmailSms", "smsPatterns", "ABSENT"] as const,
-    /** Email logs grid — college + optional yyyy-MM-dd range. */
-    emailLogs: (collegeId: number, fromDate: string, toDate: string) =>
-      ["EmailSms", "emailLogs", collegeId, fromDate, toDate] as const,
+    /** Email logs grid — college + messageSentDate (`YYYY/MM/DD`, Angular emailsentlistbydate). */
+    emailLogs: (collegeId: number, messageSentDate: string) =>
+      ["EmailSms", "emailLogs", collegeId, messageSentDate] as const,
     /** Active colleges for email logs filter (same source as department-wise email). */
     emailLogsColleges: () => ["EmailSms", "emailLogs", "colleges"] as const,
   },

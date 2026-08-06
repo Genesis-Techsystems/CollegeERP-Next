@@ -5,7 +5,7 @@ import { Send } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { SearchInput } from "@/common/components/search";
 import { FormField } from "@/common/components/forms";
-import { FilteredPage } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import { toastError, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
   getDigitalOnlineSyncFilters,
+  listGroupSectionsByFilters,
   listStudentsForPromotionPreview,
   sendBulkSmsToStudents,
 } from "@/services";
@@ -68,6 +69,7 @@ type StudentPickRow = AnyRow & { checked?: boolean };
 export default function SendSmsToStudentsPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [academicData, setAcademicData] = useState<AnyRow[]>([]);
+  const [sections, setSections] = useState<AnyRow[]>([]);
   const [students, setStudents] = useState<StudentPickRow[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [sending, setSending] = useState(false);
@@ -153,29 +155,17 @@ export default function SendSmsToStudentsPage() {
     );
   }, [academicData, filtersData, collegeId]);
 
-  /** Angular `selectedYear` — sections from `clg_filters` rows (not GroupSection domain). */
-  const sections = useMemo(() => {
-    if (!collegeId || !courseId || !courseGroupId || !courseYearId) return [];
-    return uniq(
-      filtersData.filter(
-        (r) =>
-          n(r.fk_college_id) === collegeId &&
-          n(r.fk_course_id) === courseId &&
-          n(r.fk_course_group_id) === courseGroupId &&
-          n(r.fk_course_year_id) === courseYearId &&
-          n(r.fk_group_section_id) > 0,
-      ),
-      "fk_group_section_id",
-    );
-  }, [filtersData, collegeId, courseId, courseGroupId, courseYearId]);
-
   const sectionOptions = useMemo(
     () =>
       sections.map((x) => ({
         value: String(
-          n(x.fk_group_section_id ?? x.pk_group_section_id ?? x.groupSectionId),
+          n(x.groupSectionId ?? x.pk_group_section_id ?? x.fk_group_section_id),
         ),
-        label: s(x.section) || s(x.sectionName) || s(x.groupSectionName),
+        label:
+          s(x.groupSectionName) ||
+          s(x.section) ||
+          s(x.sectionName) ||
+          s(x.groupSectionCode),
       })),
     [sections],
   );
@@ -196,9 +186,9 @@ export default function SendSmsToStudentsPage() {
     if (!courseId && courses.length) setCourseId(n(courses[0].fk_course_id));
   }, [courses, courseId]);
   useEffect(() => {
+    // Academic Year is college/university-scoped — do not clear it when Course changes.
     setCourseGroupId(null);
     setCourseYearId(null);
-    setAcademicYearId(null);
     setGroupSectionId(null);
     setStudents([]);
   }, [courseId]);
@@ -208,7 +198,6 @@ export default function SendSmsToStudentsPage() {
   }, [courseGroups, courseGroupId]);
   useEffect(() => {
     setCourseYearId(null);
-    setAcademicYearId(null);
     setGroupSectionId(null);
     setStudents([]);
   }, [courseGroupId]);
@@ -217,7 +206,6 @@ export default function SendSmsToStudentsPage() {
       setCourseYearId(n(courseYears[0].fk_course_year_id));
   }, [courseYears, courseYearId]);
   useEffect(() => {
-    setAcademicYearId(null);
     setGroupSectionId(null);
     setStudents([]);
   }, [courseYearId]);
@@ -248,12 +236,24 @@ export default function SendSmsToStudentsPage() {
     setStudents([]);
   }, [academicYearId]);
 
-  // Angular `selectedYear` → auto-select first section, then `selectedSection` loads students.
   useEffect(() => {
-    if (!groupSectionId && sectionOptions.length > 0) {
-      setGroupSectionId(n(sectionOptions[0].value));
-      return;
+    async function loadSections() {
+      if (!collegeId || !courseGroupId || !courseYearId || !academicYearId) {
+        setSections([]);
+        return;
+      }
+      const list = await listGroupSectionsByFilters({
+        collegeId,
+        academicYearId,
+        courseGroupId,
+        courseYearId,
+      }).catch(() => []);
+      setSections(Array.isArray(list) ? list : []);
     }
+    void loadSections();
+  }, [collegeId, courseGroupId, courseYearId, academicYearId]);
+
+  useEffect(() => {
     if (!groupSectionId || sectionOptions.length === 0) return;
     const stillValid = sectionOptions.some(
       (o) => n(o.value) === groupSectionId,
@@ -289,7 +289,7 @@ export default function SendSmsToStudentsPage() {
   }, [collegeId, courseGroupId, groupSectionId]);
 
   const selectedCount = useMemo(
-    () => students.filter((r) => r.checked).length,
+    () => students.filter((r) => r.checked !== false).length,
     [students],
   );
 
@@ -349,7 +349,7 @@ export default function SendSmsToStudentsPage() {
 
   const previewRows = useMemo(() => {
     return students
-      .filter((r) => r.checked && studentMobile(r))
+      .filter((r) => r.checked !== false && studentMobile(r))
       .map((r) => ({
         userName: studentFirstName(r) || "-",
         mobileNumber: studentMobile(r),
@@ -362,10 +362,7 @@ export default function SendSmsToStudentsPage() {
       toastError("Please enter a message");
       return;
     }
-    const nums = students
-      .filter((r) => r.checked && studentMobile(r))
-      .map((r) => studentMobile(r));
-    if (nums.length === 0) {
+    if (previewRows.length === 0) {
       toastError("No student is selected with a valid mobile number.");
       return;
     }
@@ -384,9 +381,7 @@ export default function SendSmsToStudentsPage() {
       toastError("Please complete all filters");
       return;
     }
-    const numbers = students
-      .filter((r) => r.checked && studentMobile(r))
-      .map((r) => studentMobile(r));
+    const numbers = previewRows.map((r) => r.mobileNumber);
     if (numbers.length === 0) {
       toastError("No student is selected.");
       return;
@@ -418,10 +413,10 @@ export default function SendSmsToStudentsPage() {
   }
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Send SMS To Students"
       filters={
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
           <Select
             label="College *"
             value={collegeId ? String(collegeId) : null}
@@ -485,71 +480,75 @@ export default function SendSmsToStudentsPage() {
             searchable
             clearable
             placeholder="Select section"
-            disabled={!collegeId || !courseGroupId || !courseYearId}
+            disabled={
+              !collegeId || !academicYearId || !courseGroupId || !courseYearId
+            }
             className="md:col-span-2"
           />
         </div>
       }
-    >
-      {groupSectionId ? (
-        <div className="app-card p-4 space-y-4">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm">
-            <span>
-              No. of students —{" "}
-              <span className="font-semibold tabular-nums">
-                {loadingStudents ? "…" : students.length}
-              </span>
-            </span>
-            {students.length > 0 ? (
-              <>
-                <button
-                  type="button"
-                  className="text-primary font-medium hover:underline"
-                  onClick={openPickModal}
-                >
-                  Select students
-                </button>
-                <span className="text-muted-foreground">
-                  No. of students selected{" "}
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {selectedCount}
-                  </span>
+      body={
+        groupSectionId ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <span className="inline-flex items-center gap-2">
+                No. of students -{" "}
+                <span className="inline-flex min-w-7 items-center justify-center rounded bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white tabular-nums">
+                  {loadingStudents ? "…" : students.length}
                 </span>
-              </>
-            ) : null}
-          </div>
+              </span>
+              {students.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    className="font-medium text-primary hover:underline"
+                    onClick={openPickModal}
+                  >
+                    Select students
+                  </button>
+                  <span className="text-muted-foreground">
+                    No. of students selected{" "}
+                    <span className="font-semibold text-foreground tabular-nums">
+                      {selectedCount}
+                    </span>
+                  </span>
+                </>
+              ) : null}
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <FormField label="Message *" className="md:col-span-10">
-              <textarea
-                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                value={messageContent}
-                onChange={(e) => setMessageContent(e.target.value)}
-                placeholder="SMS message"
-              />
-            </FormField>
-            <div className="md:col-span-2 flex md:justify-end">
-              <Button
-                type="button"
-                className="w-full md:w-auto gap-1"
-                onClick={openPreview}
-                disabled={sending}
-              >
-                <Send className="h-4 w-4" />
-                Send SMS
-              </Button>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12 md:items-end">
+              <FormField label="Message *" className="md:col-span-10">
+                <textarea
+                  className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  placeholder="Message"
+                />
+              </FormField>
+              <div className="flex md:col-span-2 md:justify-end">
+                <Button
+                  type="button"
+                  className="w-full gap-1 md:w-auto"
+                  onClick={openPreview}
+                  disabled={sending || loadingStudents}
+                >
+                  <Send className="h-4 w-4" />
+                  Send SMS
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
-
+        ) : null
+      }
+      bodyClassName="border-t-0"
+    >
       <Dialog open={pickOpen} onOpenChange={(o) => !o && setPickOpen(false)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Student List</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <SearchInput
                 className="max-w-sm"
                 placeholder="Student name / roll no."
@@ -563,12 +562,12 @@ export default function SendSmsToStudentsPage() {
                 </span>
               </div>
             </div>
-            <div className="rounded-md border overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b">
+                <thead className="border-b bg-muted/50">
                   <tr>
-                    <th className="text-left px-3 py-2 w-10">
-                      <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <th className="w-10 px-3 py-2 text-left">
+                      <label className="inline-flex cursor-pointer items-center gap-2">
                         <input
                           type="checkbox"
                           checked={allDraftChecked}
@@ -579,9 +578,9 @@ export default function SendSmsToStudentsPage() {
                         </span>
                       </label>
                     </th>
-                    <th className="text-left px-3 py-2">Roll No.</th>
-                    <th className="text-left px-3 py-2">Student Name</th>
-                    <th className="text-left px-3 py-2">Mobile No.</th>
+                    <th className="px-3 py-2 text-left">Roll No.</th>
+                    <th className="px-3 py-2 text-left">Student Name</th>
+                    <th className="px-3 py-2 text-left">Mobile No.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -639,7 +638,7 @@ export default function SendSmsToStudentsPage() {
         open={previewOpen}
         onOpenChange={(o) => !o && !sending && setPreviewOpen(false)}
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>View SMS List</DialogTitle>
           </DialogHeader>
@@ -648,14 +647,14 @@ export default function SendSmsToStudentsPage() {
               Recipients ({previewRows.length}): confirm to send the message to
               these numbers.
             </p>
-            <div className="rounded-md border max-h-[50vh] overflow-auto">
+            <div className="max-h-[50vh] overflow-auto rounded-md border">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b sticky top-0">
+                <thead className="sticky top-0 border-b bg-muted/50">
                   <tr>
-                    <th className="text-left px-3 py-2 w-12">SI.No</th>
-                    <th className="text-left px-3 py-2">User Name</th>
-                    <th className="text-left px-3 py-2">Mobile No.</th>
-                    <th className="text-left px-3 py-2">Email</th>
+                    <th className="w-12 px-3 py-2 text-left">SI.No</th>
+                    <th className="px-3 py-2 text-left">User Name</th>
+                    <th className="px-3 py-2 text-left">Mobile No.</th>
+                    <th className="px-3 py-2 text-left">Email</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -693,6 +692,6 @@ export default function SendSmsToStudentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredPage>
+    </FilteredListPage>
   );
 }

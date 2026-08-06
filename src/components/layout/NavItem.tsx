@@ -188,6 +188,7 @@ import {
 } from "@/lib/hostel-navigation";
 import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
+import { scheduleNavigation } from "@/lib/schedule-navigation";
 import type { NavItem as NavItemType } from "@/types/navigation";
 
 // ---------------------------------------------------------------------------
@@ -4257,7 +4258,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             if (forcedRoute && !hasChildren) {
               e.preventDefault();
               e.stopPropagation();
-              router.push(normalizeHref(forcedRoute));
+              scheduleNavigation(() => {
+                router.push(normalizeHref(forcedRoute));
+              });
             }
           }}
           className={cn(
@@ -4328,7 +4331,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       onClick={(e) => {
         if (forcedRoute) {
           e.preventDefault();
-          router.push(normalizeHref(forcedRoute));
+          scheduleNavigation(() => {
+            router.push(normalizeHref(forcedRoute));
+          });
         }
       }}
       aria-current={isSelfActive ? "page" : undefined}

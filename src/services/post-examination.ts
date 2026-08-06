@@ -12,10 +12,7 @@ import {
 } from "@/services/crud";
 import { EXAM_API, EXAM_EVAL_API, NEXT_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
-import {
-  getUnivExamFiltersByType,
-  getUnivExamRestNoTtBundle,
-} from "@/services/pre-examination";
+import { getUnivExamFiltersByType } from "@/services/pre-examination";
 
 type AnyRow = Record<string, any>;
 
@@ -1776,40 +1773,31 @@ export async function getInternalAttendanceRestFilters(params: {
   academicYearId: number;
   employeeId: number;
 }): Promise<AnyRow[]> {
-  try {
-    // Angular selectedExam → univ_exam_rest_in_regexamstd / ALL → univ_exam_rest_filters
-    const data = await getAllRecords<{ result: AnyRow[][] }>(
-      "s_get_exam_filters_bycode",
-      {
-        in_flag: "univ_exam_rest_in_regexamstd",
-        in_flag_type: "ALL",
-        in_university_id: 0,
-        in_univ_examcenter_id: 0,
-        in_college_id: 0,
-        in_course_id: params.courseId,
-        in_course_group_id: 0,
-        in_course_year_id: 0,
-        in_exam_id: params.examId,
-        in_academic_year_id: params.academicYearId,
-        in_regulation_id: 0,
-        in_subject_id: 0,
-        in_sub_flag_type: "",
-        in_param1: 0,
-        in_param2: 0,
-        in_loginuser_roleid: 0,
-        in_loginuser_empid: params.employeeId || 0,
-      },
-    );
-    const groups = data?.result ?? [];
-    const picked = firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
-    if (picked.length > 0) return picked;
-  } catch {
-    // fallback below
-  }
-
-  const bundle = await getUnivExamRestNoTtBundle(params);
-  const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : [];
-  return rest;
+  // Angular selectedExam — same payload (no univ_exam_rest_no_tt fallback)
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_rest_in_regexamstd",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  return firstGroupByFlag(groups, ["univ_exam_rest_filters"]);
 }
 
 export async function getInternalAttendanceSubjects(params: {

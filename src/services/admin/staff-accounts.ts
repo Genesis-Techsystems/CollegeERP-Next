@@ -369,6 +369,7 @@ export async function assertStaffUserNotAlreadyExists(params: {
 
 /**
  * Angular: `addMasterDetails(createuserUrl, details)` → POST `/cms/api/createuser`
+ * (proxied `/api/proxy/api/createuser`)
  */
 export async function createStaffAccount(
   data: Omit<StaffAccount, "userId">,

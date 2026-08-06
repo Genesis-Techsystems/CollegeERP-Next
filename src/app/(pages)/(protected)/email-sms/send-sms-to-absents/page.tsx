@@ -8,8 +8,6 @@ import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCrudList } from '@/hooks/useCrudList'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -256,143 +254,151 @@ export default function SendSmsToAbsentsPage() {
   return (
     <FilteredPage
       title={mode === '1' ? 'Send SMS to Absents' : 'SMS history — absentees'}
-      notice={(
-        <RadioGroup
-          value={mode}
-          onValueChange={(v) => {
-            setMode(v as '1' | '2')
-            clearLists()
-          }}
-          className="flex flex-row flex-wrap gap-4"
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="1" id="mode-send" />
-            <Label htmlFor="mode-send" className="cursor-pointer font-normal text-sm">
-              Send SMS to absentees
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="2" id="mode-history" />
-            <Label htmlFor="mode-history" className="cursor-pointer font-normal text-sm inline-flex items-center gap-1">
-              <History className="h-3.5 w-3.5" aria-hidden />
-              Sent SMS to absentees
-            </Label>
-          </div>
-        </RadioGroup>
-      )}
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <Select
-            label="College *"
-            value={collegeId ? String(collegeId) : null}
-            onChange={(v) => setCollegeId(v ? Number(v) : null)}
-            options={collegeOptions}
-            searchable
-            className="md:col-span-2"
-          />
-          <Select
-            label="Academic Year *"
-            value={academicYearId ? String(academicYearId) : null}
-            onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-            options={academicYearOptions}
-            searchable
-            disabled={!collegeId}
-            className="md:col-span-2"
-          />
-          <DatePicker
-            label="Date *"
-            value={attendanceDay}
-            onChange={setAttendanceDay}
-            className="md:col-span-2"
-            clearable={false}
-          />
-          <div className="md:col-span-3">
-            <Button type="button" onClick={() => void runLookup()} disabled={loading}>
-              {loading ? 'Loading…' : mode === '1' ? 'Get Students' : 'Load SMS history'}
-            </Button>
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-6 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="sms-absent-mode"
+                checked={mode === '1'}
+                onChange={() => {
+                  setMode('1')
+                  clearLists()
+                }}
+                className="accent-primary"
+              />
+              Send SMS to absentees
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="sms-absent-mode"
+                checked={mode === '2'}
+                onChange={() => {
+                  setMode('2')
+                  clearLists()
+                }}
+                className="accent-primary"
+              />
+              <span className="inline-flex items-center gap-1">
+                <History className="h-3.5 w-3.5" aria-hidden />
+                Sent SMS to absentees
+              </span>
+            </label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <Select
+              label="College *"
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              options={collegeOptions}
+              searchable
+              className="md:col-span-2"
+            />
+            <Select
+              label="Academic Year *"
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYearOptions}
+              searchable
+              disabled={!collegeId}
+              className="md:col-span-2"
+            />
+            <DatePicker
+              label="Date *"
+              value={attendanceDay}
+              onChange={setAttendanceDay}
+              className="md:col-span-2"
+              clearable={false}
+            />
+            <div className="md:col-span-3">
+              <Button type="button" onClick={() => void runLookup()} disabled={loading}>
+                {loading ? 'Loading…' : mode === '1' ? 'Get Students' : 'Load SMS history'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
-    >
-      {mode === '1' && students.length > 0 ? (
-        <div className="app-card p-4 space-y-4">
-          <SearchInput
-            value={tableSearch}
-            onChange={setTableSearch}
-            placeholder="Search roll no., name, mobile, message"
-            className="max-w-md"
-          />
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-2 text-left font-medium w-14">SI.No</th>
-                  <th className="p-2 text-left font-medium">Roll Number</th>
-                  <th className="p-2 text-left font-medium">Student</th>
-                  <th className="p-2 text-left font-medium">Mobile</th>
-                  <th className="p-2 text-left font-medium">Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStudents.map((row) => (
-                  <tr key={`${String(row.studentRollNo ?? '')}-${students.indexOf(row)}`} className="border-t">
-                    <td className="p-2 tabular-nums text-muted-foreground">{students.indexOf(row) + 1}</td>
-                    <td className="p-2">{s(row.studentRollNo ?? row.rollNumber)}</td>
-                    <td className="p-2">{s(row.studentName ?? row.firstName)}</td>
-                    <td className="p-2 tabular-nums">{s(row.mobileNumber ?? row.mobile)}</td>
-                    <td className="p-2">{s(row.message ?? row.messageContent)}</td>
+      body={
+        mode === '1' && students.length > 0 ? (
+          <div className="space-y-4">
+            <SearchInput
+              value={tableSearch}
+              onChange={setTableSearch}
+              placeholder="Search roll no., name, mobile, message"
+              className="max-w-md"
+            />
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="p-2 text-left font-medium w-14">SI.No</th>
+                    <th className="p-2 text-left font-medium">Roll Number</th>
+                    <th className="p-2 text-left font-medium">Student</th>
+                    <th className="p-2 text-left font-medium">Mobile</th>
+                    <th className="p-2 text-left font-medium">Message</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-end">
-            <Button type="button" onClick={() => void confirmSendSms()} disabled={sending}>
-              <Send className="h-4 w-4 mr-1.5" />
-              {sending ? 'Sending…' : 'Send SMS'}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {mode === '2' && smsHistory.length > 0 ? (
-        <div className="app-card p-4 space-y-3">
-          <p className="text-sm font-medium text-foreground">
-            SMS history of absentees on{' '}
-            <span className="text-primary">{historyDateLabel}</span>
-          </p>
-          <SearchInput
-            value={tableSearch}
-            onChange={setTableSearch}
-            placeholder="Search mobile or message"
-            className="max-w-md"
-          />
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-2 text-left font-medium w-14">SI.No</th>
-                  <th className="p-2 text-left font-medium">Mobile Number</th>
-                  <th className="p-2 text-left font-medium">Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHistory.map((row, idx) => {
-                  const { mobile, msg } = historyRecipient(row)
-                  const rid = n(row.messagingId ?? row.id ?? row.messageId)
-                  return (
-                    <tr key={rid > 0 ? `h-${rid}` : `h-${mobile}-${idx}`} className="border-t">
-                      <td className="p-2 tabular-nums text-muted-foreground">{idx + 1}</td>
-                      <td className="p-2 tabular-nums">{mobile || '—'}</td>
-                      <td className="p-2">{msg || '—'}</td>
+                </thead>
+                <tbody>
+                  {filteredStudents.map((row) => (
+                    <tr key={`${String(row.studentRollNo ?? '')}-${students.indexOf(row)}`} className="border-t">
+                      <td className="p-2 tabular-nums text-muted-foreground">{students.indexOf(row) + 1}</td>
+                      <td className="p-2">{s(row.studentRollNo ?? row.rollNumber)}</td>
+                      <td className="p-2">{s(row.studentName ?? row.firstName)}</td>
+                      <td className="p-2 tabular-nums">{s(row.mobileNumber ?? row.mobile)}</td>
+                      <td className="p-2">{s(row.message ?? row.messageContent)}</td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => void confirmSendSms()} disabled={sending}>
+                <Send className="h-4 w-4 mr-1.5" />
+                {sending ? 'Sending…' : 'Send SMS'}
+              </Button>
+            </div>
           </div>
-        </div>
-      ) : null}
-    </FilteredPage>
+        ) : mode === '2' && smsHistory.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">
+              SMS history of absentees on{' '}
+              <span className="text-primary">{historyDateLabel}</span>
+            </p>
+            <SearchInput
+              value={tableSearch}
+              onChange={setTableSearch}
+              placeholder="Search mobile or message"
+              className="max-w-md"
+            />
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="p-2 text-left font-medium w-14">SI.No</th>
+                    <th className="p-2 text-left font-medium">Mobile Number</th>
+                    <th className="p-2 text-left font-medium">Message</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHistory.map((row, idx) => {
+                    const { mobile, msg } = historyRecipient(row)
+                    const rid = n(row.messagingId ?? row.id ?? row.messageId)
+                    return (
+                      <tr key={rid > 0 ? `h-${rid}` : `h-${mobile}-${idx}`} className="border-t">
+                        <td className="p-2 tabular-nums text-muted-foreground">{idx + 1}</td>
+                        <td className="p-2 tabular-nums">{mobile || '—'}</td>
+                        <td className="p-2">{msg || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null
+      }
+    />
   )
 }

@@ -17,68 +17,6 @@ function str(v: unknown): string {
   return "";
 }
 
-function firstStrFromRow(m: Record<string, unknown>, keys: string[]): string {
-  for (const k of keys) {
-    const v = str(m[k]);
-    if (v) return v;
-  }
-  return "";
-}
-
-function emailFromStudentRow(m: Record<string, unknown>): string {
-  return firstStrFromRow(m, [
-    "email",
-    "studentEmail",
-    "stdEmailId",
-    "student_email",
-    "std_email_id",
-    "emailId",
-    "mailId",
-    "stdEmail",
-    "studentEmailId",
-    "collegeEmail",
-  ]);
-}
-
-function mobileFromStudentRow(m: Record<string, unknown>): string {
-  return firstStrFromRow(m, [
-    "mobileNumber",
-    "mobile_number",
-    "student_mobile_no",
-    "phone",
-    "mobile",
-    "contactNumber",
-    "primaryContact",
-    "fatherMobile",
-    "motherMobile",
-    "smsMobile",
-    "whatsappNo",
-    "whatsapp_no",
-    "stdMobile",
-  ]);
-}
-
-/** Password expiry — many `User` create flows require a non-null `passwordExpDate` (see general-user-accounts). */
-function defaultPasswordExpDateIso(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString();
-}
-
-function departmentIdFromStudentRow(
-  s: Record<string, unknown>,
-): number | undefined {
-  let id =
-    Number(s.departmentId ?? s.fk_department_id ?? s.fk_departmentId ?? 0) || 0;
-  if (id) return id;
-  const nested = s.Department ?? s.department;
-  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
-    const d = nested as Record<string, unknown>;
-    id = Number(d.departmentId ?? d.deptId ?? 0) || 0;
-  }
-  return id || undefined;
-}
-
 function extractStudentAccountFromCreateResponse(
   body: unknown,
 ): StudentAccount | null {
@@ -112,8 +50,8 @@ function extractStudentAccountFromCreateResponse(
 }
 
 /**
- * POST `cms/api/createuser` — Spring CMS student user creation (dev parity:
- * `https://host:8443/cms/api/createuser`).
+ * Angular `addMasterDetails(createuserUrl, details)` → POST `api/createuser`
+ * (browser: `/api/proxy/api/createuser` → Spring `/cms/api/createuser`).
  */
 async function createStudentUserViaCmsApi(
   payload: Record<string, unknown>,
@@ -564,54 +502,31 @@ export interface DefaultStudentAccountFailureRow {
 
 /**
  * Creates a **User** for the selected **Student** via the same CMS endpoint as Angular:
- * `POST …/cms/api/createuser` (proxied as `/api/proxy/cms/api/createuser`).
- * With `account`, uses the add-student modal form. Without it, derives fields from **Student**
- * and uses a fixed bootstrap password.
+ * `POST …/cms/api/createuser` (proxied as `/api/proxy/api/createuser`).
+ *
+ * With `account` (add-student modal), posts the form fields directly — Angular does **not**
+ * fetch `domain/list/Student` first. Without `account`, derives fields from **Student**.
  */
 export async function createStudentUserAccountForStudent(params: {
   studentId: number;
   collegeId: number;
   organizationId: number;
   account?: CreateStudentUserAccountForm;
+  /** Angular sends `academicYearId: ""` from the add modal when unset. */
+  academicYearId?: string | number;
 }): Promise<StudentAccount> {
   const { studentId, collegeId, organizationId, account } = params;
   if (!studentId || !collegeId) {
     throw new AppError("VALIDATION", "College and student are required.");
   }
-
-  const rows = await domainList<Record<string, unknown>>(
-    "Student",
-    buildQuery({ studentId }),
-  );
-  const raw = rows[0];
-  if (!raw) throw new AppError("NOT_FOUND", "Student record not found.");
-
-  const s = mergeStudentRow(raw);
-  const orgNested = s.Organization ?? s.organization;
-  let orgFromNested = 0;
-  if (orgNested && typeof orgNested === "object" && !Array.isArray(orgNested)) {
-    const o = orgNested as Record<string, unknown>;
-    orgFromNested = Number(o.organizationId ?? o.organizationid ?? 0) || 0;
-  }
-  const orgId =
-    Number(organizationId) ||
-    orgFromNested ||
-    Number(
-      s.organizationId ??
-        s.fk_organization_id ??
-        s.orgId ??
-        s.orgOrganizationId ??
-        s["Organization.organizationId"] ??
-        0,
-    );
-  if (!orgId) {
+  if (!organizationId) {
     throw new AppError(
       "VALIDATION",
-      "Organization is missing for this college. Cannot resolve STUDENT user type.",
+      "Organization is required. Cannot resolve STUDENT user type.",
     );
   }
 
-  const types = await listUserTypesByOrganization(orgId);
+  const types = await listUserTypesByOrganization(organizationId);
   const studType = types.find(
     (t) =>
       String(t.userTypeCode ?? "").toUpperCase() === STUDENT_USER_TYPE_CODE,
@@ -623,38 +538,18 @@ export async function createStudentUserAccountForStudent(params: {
     );
   }
 
-  const hallDefault = str(
-    s.hallticketNumber ??
-      s.hallTicketNumber ??
-      s.rollNumber ??
-      s.roll_no ??
-      s.admissionNumber,
-  );
-
-  let firstName: string;
-  let lastName: string;
-  let userName: string;
-  let email: string;
-  let mobileNumber: string | undefined;
-  let pwd: string;
-  let pwdConfirm: string;
-
+  // Angular add-modal: POST createuser with form body (no Student domain GET).
   if (account) {
-    firstName =
-      str(account.firstName) ||
-      str(s.firstName ?? s.studentName) ||
-      hallDefault;
-    lastName = str(account.lastName) || str(s.lastName);
-    userName = str(account.userName);
-    const emailFromForm = str(account.email);
-    const mobileFromForm = str(account.mobileNumber);
-    email =
-      emailFromForm ||
-      emailFromStudentRow(s) ||
-      (userName ? `${userName}@student.local` : "");
-    mobileNumber = mobileFromForm || mobileFromStudentRow(s) || undefined;
-    pwd = str(account.password);
-    pwdConfirm = str(account.passwordConfirm);
+    const userName = str(account.userName);
+    const firstName = str(account.firstName);
+    const lastName = str(account.lastName);
+    const email =
+      str(account.email) || (userName ? `${userName}@student.local` : "");
+    const pwd = str(account.password);
+    const pwdConfirm = str(account.passwordConfirm);
+    if (!firstName) {
+      throw new AppError("VALIDATION", "First name is required.");
+    }
     if (!userName) {
       throw new AppError("VALIDATION", "User name is required.");
     }
@@ -667,53 +562,99 @@ export async function createStudentUserAccountForStudent(params: {
         "Password and confirm password must match.",
       );
     }
-  } else {
-    if (!hallDefault) {
-      throw new AppError(
-        "VALIDATION",
-        "Student has no hall ticket / roll number to use as user name.",
-      );
+
+    const mobileRaw = str(account.mobileNumber);
+    const mobileAsNumber =
+      mobileRaw && /^\d+$/.test(mobileRaw) ? Number(mobileRaw) : undefined;
+
+    const academicYearId =
+      params.academicYearId === undefined || params.academicYearId === null
+        ? ""
+        : params.academicYearId;
+
+    // Match Angular addMasterDetails payload shape exactly.
+    const payload: Record<string, unknown> = {
+      firstName,
+      lastName,
+      userName,
+      email,
+      organizationId,
+      collegeId,
+      userTypeId: studType.userTypeId,
+      isActive: account.isActive !== false,
+      isEditable: account.isEditable === true,
+      isReset: account.isReset === true,
+      password: pwd,
+      passwordConfirm: pwdConfirm,
+      studentId,
+      academicYearId,
+    };
+    if (mobileAsNumber !== undefined) {
+      payload.mobileNumber = mobileAsNumber;
+    } else if (mobileRaw) {
+      payload.mobileNumber = mobileRaw;
     }
-    userName = hallDefault;
-    firstName = str(s.firstName ?? s.studentName) || userName;
-    lastName = str(s.lastName);
-    const emailRaw = str(s.email ?? s.studentEmail);
-    email = emailRaw || `${userName}@student.local`;
-    mobileNumber =
-      str(s.mobileNumber ?? s.mobile_no ?? s.student_mobile_no) || undefined;
-    pwd = "Student@123";
-    pwdConfirm = pwd;
+
+    return createStudentUserViaCmsApi(payload);
   }
 
-  const departmentId = departmentIdFromStudentRow(s);
+  // Bootstrap path (no form): load Student and derive username/password.
+  const rows = await domainList<Record<string, unknown>>(
+    "Student",
+    buildQuery({ studentId }),
+  );
+  const raw = rows[0];
+  if (!raw) throw new AppError("NOT_FOUND", "Student record not found.");
 
-  // Angular add-modal defaults: isActive=true, isEditable=false, isReset=false
-  const isActive = account?.isActive !== false;
-  const isEditable = account?.isEditable === true;
-  const isReset = account?.isReset === true;
-  const reason = str(account?.reason) || (isActive ? "active" : "inactive");
+  const s = mergeStudentRow(raw);
+  const hallDefault = str(
+    s.hallticketNumber ??
+      s.hallTicketNumber ??
+      s.rollNumber ??
+      s.roll_no ??
+      s.admissionNumber,
+  );
+  if (!hallDefault) {
+    throw new AppError(
+      "VALIDATION",
+      "Student has no hall ticket / roll number to use as user name.",
+    );
+  }
+
+  const userName = hallDefault;
+  const firstName = str(s.firstName ?? s.studentName) || userName;
+  const lastName = str(s.lastName);
+  const emailRaw = str(s.email ?? s.studentEmail);
+  const email = emailRaw || `${userName}@student.local`;
+  const mobileRaw =
+    str(s.mobileNumber ?? s.mobile_no ?? s.student_mobile_no) || "";
+  const mobileAsNumber =
+    mobileRaw && /^\d+$/.test(mobileRaw) ? Number(mobileRaw) : undefined;
+  const pwd = "Student@123";
 
   const payload: Record<string, unknown> = {
-    userTypeId: studType.userTypeId,
-    collegeId,
-    organizationId: orgId,
     firstName,
     lastName,
     userName,
     email,
+    organizationId,
+    collegeId,
+    userTypeId: studType.userTypeId,
+    isActive: true,
+    isEditable: false,
+    isReset: false,
     password: pwd,
-    passwordConfirm: pwdConfirm,
-    passwordExpDate: defaultPasswordExpDateIso(),
-    isActive,
-    isEditable,
-    isReset,
-    reason,
+    passwordConfirm: pwd,
+    studentId,
+    academicYearId: "",
   };
-  const mob = str(mobileNumber ?? "");
-  if (mob) payload.mobileNumber = mob;
-  if (departmentId) payload.departmentId = departmentId;
+  if (mobileAsNumber !== undefined) {
+    payload.mobileNumber = mobileAsNumber;
+  } else if (mobileRaw) {
+    payload.mobileNumber = mobileRaw;
+  }
 
-  return createStudentUserViaCmsApi({ ...payload, studentId });
+  return createStudentUserViaCmsApi(payload);
 }
 
 /**

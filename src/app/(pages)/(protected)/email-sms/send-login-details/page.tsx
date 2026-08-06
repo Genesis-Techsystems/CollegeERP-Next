@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Send } from 'lucide-react'
 import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
-import { FilteredPage } from '@/components/layout'
+import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -57,6 +57,7 @@ export default function SendLoginDetailsPage() {
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [roleId, setRoleId] = useState<number | null>(null)
   const [users, setUsers] = useState<UserRow[]>([])
+  const [listLoaded, setListLoaded] = useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [loadingList, setLoadingList] = useState(false)
   const [sending, setSending] = useState(false)
@@ -98,6 +99,7 @@ export default function SendLoginDetailsPage() {
 
   useEffect(() => {
     setUsers([])
+    setListLoaded(false)
     setUserSearch('')
   }, [collegeId, roleId])
 
@@ -154,12 +156,14 @@ export default function SendLoginDetailsPage() {
         } satisfies UserRow
       })
       setUsers(withFlags)
+      setListLoaded(true)
       if (withFlags.length === 0) {
         toastSuccess('No users found for this filter')
       }
     } catch (e) {
       toastError(getErrorMessage(e))
       setUsers([])
+      setListLoaded(false)
     } finally {
       setLoadingList(false)
     }
@@ -190,6 +194,7 @@ export default function SendLoginDetailsPage() {
       toastSuccess('Login details sent successfully')
       setPreviewOpen(false)
       setUsers([])
+      setListLoaded(false)
     } catch (e) {
       toastError(getErrorMessage(e))
     } finally {
@@ -198,7 +203,7 @@ export default function SendLoginDetailsPage() {
   }
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Send Login Details"
       filters={(
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -228,68 +233,88 @@ export default function SendLoginDetailsPage() {
           </div>
         </div>
       )}
-    >
-      {users.length > 0 ? (
-        <div className="app-card p-4 space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <SearchInput
-              value={userSearch}
-              onChange={setUserSearch}
-              placeholder="Search by user name, mobile, or email"
-              className="max-w-md"
-            />
-            <div className="text-sm text-muted-foreground">
-              Selected count: <span className="font-semibold text-foreground tabular-nums">{selectedCount}</span>
+      body={
+        listLoaded ? (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <SearchInput
+                value={userSearch}
+                onChange={setUserSearch}
+                placeholder="Search by user name, mobile, or email"
+                className="max-w-md"
+              />
+              <div className="text-sm text-muted-foreground">
+                Selected count:{' '}
+                <span className="font-semibold text-foreground tabular-nums">{selectedCount}</span>
+              </div>
             </div>
-          </div>
 
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="w-10 p-2 text-center">
-                    <Checkbox
-                      checked={masterChecked}
-                      onCheckedChange={(v) => toggleMaster(v === true)}
-                      aria-label="Select all visible rows"
-                    />
-                  </th>
-                  <th className="p-2 text-left font-medium">User Name</th>
-                  <th className="p-2 text-left font-medium">Mobile</th>
-                  <th className="p-2 text-left font-medium">Email</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedUsers.map((row) => {
-                  const uid = n(row.userId)
-                  return (
-                    <tr key={uid || `${rowText(row, 'userName')}-${rowText(row, 'mobileNumber', 'mobile_number')}`} className="border-t">
-                      <td className="p-2 text-center">
-                        <Checkbox
-                          checked={Boolean(row.checked)}
-                          onCheckedChange={(v) => setRowChecked(uid, v === true)}
-                          aria-label={`Select ${rowText(row, 'userName')}`}
-                        />
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="w-10 p-2 text-center">
+                      <Checkbox
+                        checked={masterChecked}
+                        onCheckedChange={(v) => toggleMaster(v === true)}
+                        aria-label="Select all visible rows"
+                      />
+                    </th>
+                    <th className="p-2 text-left font-medium">User Name</th>
+                    <th className="p-2 text-left font-medium">Mobile</th>
+                    <th className="p-2 text-left font-medium">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                        No users found
                       </td>
-                      <td className="p-2">{rowText(row, 'userName', 'user_name') || '—'}</td>
-                      <td className="p-2 tabular-nums">{rowText(row, 'mobileNumber', 'mobile_number') || '—'}</td>
-                      <td className="p-2">{rowText(row, 'email') || '—'}</td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    displayedUsers.map((row) => {
+                      const uid = n(row.userId)
+                      return (
+                        <tr
+                          key={
+                            uid ||
+                            `${rowText(row, 'userName')}-${rowText(row, 'mobileNumber', 'mobile_number')}`
+                          }
+                          className="border-t"
+                        >
+                          <td className="p-2 text-center">
+                            <Checkbox
+                              checked={Boolean(row.checked)}
+                              onCheckedChange={(v) => setRowChecked(uid, v === true)}
+                              aria-label={`Select ${rowText(row, 'userName')}`}
+                            />
+                          </td>
+                          <td className="p-2">{rowText(row, 'userName', 'user_name') || '—'}</td>
+                          <td className="p-2 tabular-nums">
+                            {rowText(row, 'mobileNumber', 'mobile_number') || '—'}
+                          </td>
+                          <td className="p-2">{rowText(row, 'email') || '—'}</td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-          <div className="flex justify-end">
-            <Button type="button" onClick={openPreview}>
-              <Send className="h-4 w-4 mr-1.5" />
-              Send SMS
-            </Button>
+            {users.length > 0 ? (
+              <div className="flex justify-end">
+                <Button type="button" onClick={openPreview}>
+                  <Send className="h-4 w-4 mr-1.5" />
+                  Send SMS
+                </Button>
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
-
+        ) : null
+      }
+    >
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -302,7 +327,9 @@ export default function SendLoginDetailsPage() {
                 className="flex flex-wrap gap-x-3 gap-y-1 border-b border-border pb-2 last:border-0"
               >
                 <span className="font-medium">{rowText(r, 'userName', 'user_name')}</span>
-                <span className="text-muted-foreground tabular-nums">{rowText(r, 'mobileNumber', 'mobile_number')}</span>
+                <span className="text-muted-foreground tabular-nums">
+                  {rowText(r, 'mobileNumber', 'mobile_number')}
+                </span>
               </div>
             ))}
           </div>
@@ -316,6 +343,6 @@ export default function SendLoginDetailsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredPage>
+    </FilteredListPage>
   )
 }
