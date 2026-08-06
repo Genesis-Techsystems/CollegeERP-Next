@@ -11,6 +11,7 @@ import { FormSectionHeader } from "./FormSectionHeader";
 import { PhotoField } from "./PhotoField";
 import {
   calcAge,
+  DEFAULT_MOTHER_PHOTO,
   EDIT_PLACEHOLDERS,
   entityOptions,
   gdOptions,
@@ -424,6 +425,7 @@ export function PersonalInfoStep(props: PersonalInfoStepProps) {
             src={props.motherPhotoUrl}
             onFile={props.onMotherPhoto}
             label="Mother Photo"
+            fallback={DEFAULT_MOTHER_PHOTO}
           />
         </div>
         <div className="space-y-1">

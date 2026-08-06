@@ -8,6 +8,8 @@ export interface PhotoFieldProps {
   onFile: (file: File) => void;
   className?: string;
   label?: string;
+  /** Placeholder when `src` is empty or the image fails to load. */
+  fallback?: string;
 }
 
 export function PhotoField({
@@ -15,8 +17,10 @@ export function PhotoField({
   onFile,
   className = "h-24 w-24",
   label,
+  fallback = DEFAULT_STUDENT_PHOTO,
 }: PhotoFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const fallbackName = fallback.split("/").pop() ?? "default_Student.png";
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -29,13 +33,12 @@ export function PhotoField({
         onClick={() => inputRef.current?.click()}
       >
         <img
-          src={src || DEFAULT_STUDENT_PHOTO}
+          src={src || fallback}
           alt=""
           className={`${className} cursor-pointer rounded object-cover`}
           onError={(e) => {
             const img = e.currentTarget;
-            if (!img.src.includes("default_Student.png"))
-              img.src = DEFAULT_STUDENT_PHOTO;
+            if (!img.src.includes(fallbackName)) img.src = fallback;
           }}
         />
       </button>

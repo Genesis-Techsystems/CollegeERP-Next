@@ -170,7 +170,7 @@ export default function QuestionBankPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingImportBank = useRef<Assessment | null>(null);
 
-  // Angular: always preparedbyUser.userId (admin SKOLOADMIN uses session userId, e.g. 1739)
+  // Angular list: Assessment?query=order(createdDt=desc)&size=99999 (no user filter)
   const userId = user?.userId ?? 0;
 
   const {
@@ -180,7 +180,7 @@ export default function QuestionBankPage() {
   } = useCrudList({
     queryKey: QK.questionBanks.list(userId),
     queryFn: () => listQuestionBanks(userId),
-    enabled: !sessionLoading && userId > 0,
+    enabled: !sessionLoading,
     staleTime: 0,
   });
 

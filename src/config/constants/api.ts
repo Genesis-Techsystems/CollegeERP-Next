@@ -925,6 +925,9 @@ export const FEE_API = {
   FEE_MANAGEMENT_SAVE: "feeManagmentStdDetail",
   /** GET: fee due list for pay-link / notifications. */
   FEE_DUE_LIST: "getAllRecords/s_fee_due_list",
+  /** Angular `feeDueListScholarshipHoldUrl` — Fee Due List report. */
+  FEE_DUE_LIST_SCHOLARSHIP_HOLD:
+    "getAllRecords/s_fee_due_list_scholarship_hold",
   /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV` — Angular base URL includes `/cms`). */
   EMPLOYEE_SEARCH: "cms/employeesearch",
   /** GET: transport allocation by employee. */
@@ -1011,6 +1014,11 @@ export const FEE_API = {
   FEE_LEDGER_2: "feeLedgerDownload",
   /** Angular `dayWiseReceiptsNewReportUrl` */
   DAY_WISE_RECEIPTS_NEW_REPORT: "daywisereceiptsNewReport",
+  /**
+   * Angular `dayWiseFeeCollectionUrl` —
+   * `getAllRecords/daywise_fee_collection` (Day Wise / Monthly Fee Report).
+   */
+  DAY_WISE_FEE_COLLECTION: "getAllRecords/daywise_fee_collection",
   /** Angular `feeStudentWiseParticularsCrudUrl` */
   FEE_STUDENT_WISE_PARTICULARS_2: "feestudentwiseparticulars",
   /** Angular `feeStudentDataParticularCrudUrl` */
@@ -1102,6 +1110,8 @@ export const SCHOLARSHIP_API = {
   SCHOLARSHIP_STD_PRECEDINGS: "scholarshipStdPrecedings",
   /** Angular `scholarshipStdPrecedingsDownloadUrl` */
   SCHOLARSHIP_STD_PRECEDINGS_2: "scholarshipStdPrecedingsDownload",
+  /** Angular `scholarshipDueListUrl` */
+  SCHOLARSHIP_DUE_LIST: "getAllRecords/s_rep_scholarship_duelist",
   /** Angular `scholarshipduelistDownloadUrl` */
   SCHOLARSHIPDUELIST: "scholarshipduelistDownload",
   /** Angular `addFeeStudentwiseScholorshiUrl` */
@@ -1904,6 +1914,10 @@ export const ADMISSION_API = {
   UNIV_STUDENT_APPLICATION: "univStudentApplication",
   /** Angular `studentApplicationUrl` */
   STUDENT_APPLICATION: "StudentApplication",
+  /** Angular `getStudentsReports` */
+  GET_STUDENTS_REPORTS: "getAllRecords/s_get_student_reports",
+  /** Angular `studentsReportsDownloadUrl` */
+  STUDENTS_REPORTS_DOWNLOAD: "getAllRecordsDownload/s_get_student_reports",
   /** Angular `univStdApplicationFormSearchUrl` */
   UNIV_STD_APPLICATION_FORM_SEARCH: "univStdApplicationFormSearch",
   /** Angular `getUnivStdApplicationsAndEducationDetailsUrl` */

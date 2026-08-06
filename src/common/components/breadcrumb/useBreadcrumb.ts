@@ -100,6 +100,112 @@ function examReportsModuleBreadcrumb(
   ];
 }
 
+/**
+ * Fee report pages live under Reports → Fee Reports in the menu even though
+ * App Router paths are under `/accounts-and-fees/fee-reports/…`.
+ * Breadcrumb: Reports > Fee Reports > {page}.
+ */
+function feeReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+
+  const leaf =
+    /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/daywise-fee-report$/i.test(
+      path,
+    )
+      ? "Day Wise Receipts"
+      : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/due-list$/i.test(
+            path,
+          )
+        ? "Due List"
+        : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/fee-ledger$/i.test(
+              path,
+            )
+          ? "Fee Ledger"
+          : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/bus-fee-collections$/i.test(
+                path,
+              )
+            ? "Bus Fee Report"
+            : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/mgt-fee-collections$/i.test(
+                  path,
+                )
+              ? "Management Fee Reports"
+              : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/library-fee-collections$/i.test(
+                    path,
+                  )
+                ? "Library Fee Report"
+                : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/scholarship-due-list$/i.test(
+                      path,
+                    )
+                  ? "Scholarship Report"
+                  : null;
+
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "fee reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Fee Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Student report pages under Reports → Student Reports.
+ */
+function studentReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+
+  const leaf =
+    /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-application-report$/i.test(
+      path,
+    )
+      ? "Day Wise Application Report"
+      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-caste-wise-gender-count(?:-report)?$/i.test(
+            path,
+          )
+        ? "Student Caste Wise Gender Count Report"
+        : null;
+
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "student reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Student Reports" },
+    { label: leaf },
+  ];
+}
+
+/** Angular Report Catalog (`report-catalyst`). */
+function reportCatalogBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/\/report-catalyst$/i.test(path)) return items;
+  return [{ label: "Home", href: "/dashboard" }, { label: "Report Catalog" }];
+}
+
 const FEE_PAYMENT_HREF =
   "/accounts-and-fees/fees-collection/payment/fee-payment";
 const FEE_RECEIPTS_HREF = "/accounts-and-fees/fees-collection/fee-receipts";
@@ -624,6 +730,9 @@ export function useBreadcrumb(
   }
 
   items = examReportsModuleBreadcrumb(pathname, items);
+  items = feeReportsMenuBreadcrumb(pathname, items);
+  items = studentReportsMenuBreadcrumb(pathname, items);
+  items = reportCatalogBreadcrumb(pathname, items);
   items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
   items = assignRegulationToStudentsBreadcrumb(pathname, items);

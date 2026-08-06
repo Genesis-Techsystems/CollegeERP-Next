@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileTextIcon } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { PageContainer } from "@/components/layout";
@@ -106,6 +106,7 @@ export function StockReceiptVoucherForm({
   listPath?: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isEdit = Boolean(srvId && srvId > 0);
 
   const [poId, setPoId] = useState<string | null>(null);
@@ -273,12 +274,17 @@ export function StockReceiptVoucherForm({
       void refFile1;
       void refFile2;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toastSuccess(
         isEdit
           ? "Stock receipt voucher updated."
           : "Stock receipt voucher created.",
       );
+      // Call InvSrv list after save so the table shows the new/updated row.
+      await queryClient.fetchQuery({
+        queryKey: QK.invStockReceiptVouchers.list(),
+        queryFn: listInvStockReceiptVouchers,
+      });
       router.push(listPath);
     },
     onError: (err) => {

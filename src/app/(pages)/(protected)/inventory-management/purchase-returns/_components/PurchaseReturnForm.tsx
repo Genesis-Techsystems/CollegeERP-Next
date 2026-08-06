@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDownIcon, FileTextIcon } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { PageContainer } from "@/components/layout";
@@ -25,6 +25,7 @@ import {
   getInvPurchaseReturnById,
   getInvSrvById,
   listActiveSrvsForPurchaseReturn,
+  listInvPurchaseReturns,
   updateInvPurchaseReturn,
 } from "@/services";
 import type {
@@ -120,6 +121,7 @@ export function PurchaseReturnForm({
   listPath?: string;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isEdit = Boolean(purchaseReturnId && purchaseReturnId > 0);
 
   const [srvId, setSrvId] = useState<string | null>(null);
@@ -298,10 +300,15 @@ export function PurchaseReturnForm({
       void refFile1;
       void refFile2;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toastSuccess(
         isEdit ? "Purchase return updated." : "Purchase return created.",
       );
+      // Call InvPurchasereturn list after save so the table shows the new/updated row.
+      await queryClient.fetchQuery({
+        queryKey: QK.invPurchaseReturns.list(),
+        queryFn: listInvPurchaseReturns,
+      });
       router.push(listPath);
     },
     onError: (err) => {

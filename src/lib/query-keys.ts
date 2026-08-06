@@ -307,6 +307,23 @@ export const QK = {
       ["FeesCollection", "feeReceiptDetails", filters] as const,
     feeConcessions: (filters: Record<string, unknown>) =>
       ["FeesCollection", "feeConcessions", filters] as const,
+    dayWiseFeeReport: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "dayWiseFeeReport",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+      accountants: (collegeId: number) =>
+        [
+          "FeesCollection",
+          "dayWiseFeeReport",
+          "accountants",
+          collegeId,
+        ] as const,
+    },
     employeeSearch: (term: string) =>
       ["FeesCollection", "employeeSearch", term] as const,
     employeeDetails: (employeeId: number) =>
@@ -440,7 +457,7 @@ export const QK = {
   // ── Question Banks ─────────────────────────────────────────────────────
   questionBanks: {
     all: ["Assessment"] as const,
-    /** Filter by preparedbyUser.userId (Angular listDetailsByTwoIdWithSort) */
+    /** Angular listAllDetails(Assessment) — order(createdDt=desc); client filters isForQuestionbank */
     list: (userId: number) => ["Assessment", "list", userId] as const,
     /** Questions inside a specific bank */
     questions: (assessmentId: number) =>
