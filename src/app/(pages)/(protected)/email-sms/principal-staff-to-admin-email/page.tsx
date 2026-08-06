@@ -299,13 +299,9 @@ export default function PrincipalStaffToAdminEmailPage() {
           </div>
         </div>
       )}
-    >
-      {showCompose ? (
-        <div className="app-card p-0 overflow-hidden">
-          <div className="border-b px-4 py-2.5">
-            <h2 className="text-sm font-semibold text-foreground">Compose email</h2>
-          </div>
-          <div className="space-y-4 p-4">
+      body={
+        showCompose ? (
+          <div className="space-y-4">
             <FormField label="Subject *">
               <input
                 type="text"
@@ -356,8 +352,8 @@ export default function PrincipalStaffToAdminEmailPage() {
               </div>
             </div>
           </div>
-        </div>
-      ) : null}
-    </FilteredPage>
+        ) : null
+      }
+    />
   )
 }

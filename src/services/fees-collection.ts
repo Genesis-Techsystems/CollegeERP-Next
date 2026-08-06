@@ -134,7 +134,12 @@ export async function listStudentFeeStructuresByStudent(
     params,
   );
   const rows = Array.isArray(data) ? data : [];
-  return [...rows].sort(
+  // Angular BusPayList: flatten feeStudentDataDTO.isActive onto each row
+  const normalized = rows.map((row) => ({
+    ...row,
+    isActive: row.isActive ?? row.feeStudentDataDTO?.isActive,
+  }));
+  return [...normalized].sort(
     (a, b) => Number(a.courseYearNo ?? 0) - Number(b.courseYearNo ?? 0),
   );
 }

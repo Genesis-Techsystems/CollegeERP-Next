@@ -62,10 +62,11 @@ export const USER_MANAGEMENT_API = {
    */
   STUDENT_SEARCH: "cms/studentsearch",
   /**
-   * POST CMS student **User** create (Spring: `/cms/api/createuser`).
-   * Proxied as `/api/proxy/cms/api/createuser`.
+   * POST create user (Angular `createuserUrl` / `addMasterDetails('api/createuser', …)`).
+   * Upstream: `{SPRING_API_URL}/api/createuser` → `/cms/api/createuser`.
+   * Proxied as `/api/proxy/api/createuser`.
    */
-  CREATE_USER_CMS: "cms/api/createuser",
+  CREATE_USER_CMS: "api/createuser",
   /** Angular `roleCrudUrl` */
   ROLE: "Role",
   /** Angular `rolePrivilegeCrudUrl` */

@@ -42,6 +42,7 @@ import type {
 import { FeeStudentProfileCard } from "./FeeStudentProfileCard";
 import {
   buildTransportPaymentFor,
+  formatTransportTime,
   referenceFieldForPaymentMode,
   type CategoryFeePayConfig,
 } from "../_lib/pay-fees-mode";
@@ -436,6 +437,7 @@ export function CategoryFeePayForm({
     [feeStudentData, queryParams],
   );
 
+  // Angular Payment-for banner: college / AY / course / group / year only (no route).
   const contextLine = [
     queryParams.get("collegeCode"),
     queryParams.get("academicYear"),
@@ -445,6 +447,14 @@ export function CategoryFeePayForm({
   ]
     .filter(Boolean)
     .join(" / ");
+
+  // Angular profile path suffix when transport is allocated.
+  const transportLine = transport
+    ? `${transport.pickupRouteStopName ?? ""} ${formatTransportTime(transport.pickTime)} - ${transport.dropRoutestopName ?? ""} ${formatTransportTime(transport.dropTime)} / ${transport.routeCode ?? ""}`.trim()
+    : null;
+
+  // Angular: Pay fees only when route allocated AND financial year exists.
+  const showPayFeesButton = transportOk && hasFinancialYear;
 
   const updateParticular = useCallback(
     (patch: Partial<FeeStudentParticularRow>) => {
@@ -828,7 +838,10 @@ export function CategoryFeePayForm({
 
   const profileNotices = (
     <>
-      <FeeStudentProfileCard student={profileStudent} />
+      <FeeStudentProfileCard
+        student={profileStudent}
+        transportLine={requireTransport ? transportLine : null}
+      />
 
       {requireTransport && !transport ? (
         <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -847,15 +860,6 @@ export function CategoryFeePayForm({
       {contextLine ? (
         <div className="rounded-md bg-[#c3d9ff] px-3 py-2 text-sm font-medium text-slate-900">
           Payment for {contextLine}
-          {transport ? (
-            <span className="ml-1 font-medium text-blue-700">
-              ({transport.pickupRouteStopName}{" "}
-              {formatTransportTimeLabel(transport.pickTime)} -{" "}
-              {transport.dropRoutestopName}{" "}
-              {formatTransportTimeLabel(transport.dropTime)} /{" "}
-              {transport.routeCode})
-            </span>
-          ) : null}
         </div>
       ) : null}
     </>
@@ -947,16 +951,19 @@ export function CategoryFeePayForm({
                   }
                 />
               </div>
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  className="h-9 w-full bg-[#f0c040] text-slate-900 hover:bg-[#e5b535]"
-                  disabled={!canSubmit || paying}
-                  onClick={() => void preparePay()}
-                >
-                  Pay fees
-                </Button>
-              </div>
+              {/* Angular: *ngIf="transportDetails.length > 0 && financialYearDetails.length > 0" */}
+              {showPayFeesButton ? (
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    className="h-9 w-full bg-[#f0c040] text-slate-900 hover:bg-[#e5b535]"
+                    disabled={!canSubmit || paying}
+                    onClick={() => void preparePay()}
+                  >
+                    Pay fees
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1252,15 +1259,4 @@ export function CategoryFeePayForm({
       {confirmDialog}
     </PageContainer>
   );
-}
-
-function formatTransportTimeLabel(time?: string): string {
-  if (!time) return "";
-  const match = String(time).match(/^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/);
-  if (!match) return String(time);
-  const hour = Number(match[1]);
-  const min = match[2];
-  const ampm = hour < 12 ? "AM" : "PM";
-  const h12 = hour % 12 || 12;
-  return `${h12}:${min} ${ampm}`;
 }

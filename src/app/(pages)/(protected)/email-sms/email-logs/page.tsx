@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { format, isValid, parseISO } from 'date-fns'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
 import { DatePicker } from '@/common/components/date-picker'
 import { Select } from '@/common/components/select'
@@ -12,7 +13,7 @@ import { toastError } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
 import { QK } from '@/lib/query-keys'
 import { rowIndexGetter } from '@/lib/utils'
-import { toDateOnlyISO } from '@/common/generic-functions'
+import { toExamApiDate } from '@/common/generic-functions'
 import { listActiveCollegesForDepartments, listEmailLogsForCollege, type AnySmsRow } from '@/services'
 import type { College } from '@/types/college'
 
@@ -26,84 +27,92 @@ function readPrincipalCollegeLock(): { locked: boolean; collegeId: number | null
 }
 
 function pickStr(d: AnySmsRow | undefined, keys: string[]): string {
-  if (!d) return '—'
+  if (!d) return ''
   for (const k of keys) {
     const v = d[k]
     if (v == null) continue
     const t = String(v).trim()
     if (t !== '') return t
   }
-  return '—'
+  return ''
 }
 
-function startOfMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1)
+/** Angular `| date : 'MMMM d, y'`. */
+function formatEmailDate(raw: unknown): string {
+  if (raw == null || raw === '') return '—'
+  const s = String(raw)
+  let d = parseISO(s)
+  if (!isValid(d)) d = new Date(s)
+  return isValid(d) ? format(d, 'MMMM d, yyyy') : s
 }
 
 const COL_DEFS = {
   siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<AnySmsRow>,
-  sentOn: { colId: 'sentOn', headerName: 'Sent on', minWidth: 130, flex: 0.9 } as ColDef<AnySmsRow>,
-  toEmail: { colId: 'toEmail', headerName: 'To', minWidth: 180, flex: 1.1 } as ColDef<AnySmsRow>,
-  subject: { colId: 'subject', headerName: 'Subject', minWidth: 200, flex: 1.4 } as ColDef<AnySmsRow>,
-  fromEmail: { colId: 'fromEmail', headerName: 'From', minWidth: 160, flex: 1 } as ColDef<AnySmsRow>,
+  emailTo: { colId: 'emailTo', headerName: 'Email To', minWidth: 200, flex: 1.2 } as ColDef<AnySmsRow>,
+  emailId: { colId: 'emailId', headerName: 'Email', minWidth: 180, flex: 1.1 } as ColDef<AnySmsRow>,
+  messageSentDate: { colId: 'messageSentDate', headerName: 'Email Date', minWidth: 140, flex: 0.9 } as ColDef<AnySmsRow>,
+  collegeCode: { colId: 'collegeCode', headerName: 'College', minWidth: 110, flex: 0.7 } as ColDef<AnySmsRow>,
   status: { colId: 'status', headerName: 'Status', minWidth: 110, flex: 0.7 } as ColDef<AnySmsRow>,
 }
 
-function sentOnGetter(p: ValueGetterParams<AnySmsRow>): string {
-  return pickStr(p.data, [
-    'sentDate',
-    'sent_date',
-    'emailDate',
-    'email_date',
-    'createdDt',
-    'created_dt',
-    'messagingDate',
-    'messaging_date',
-  ])
+/** Angular: stdName (rollNumber) and/or empName (empNumber). */
+function emailToRenderer(p: ICellRendererParams<AnySmsRow>) {
+  const d = p.data
+  if (!d) return '—'
+  const stdName = pickStr(d, ['stdName', 'std_name'])
+  const rollNumber = pickStr(d, ['rollNumber', 'roll_number'])
+  const empName = pickStr(d, ['empName', 'emp_name'])
+  const empNumber = pickStr(d, ['empNumber', 'emp_number'])
+
+  const parts: ReactNode[] = []
+  if (stdName) {
+    parts.push(
+      <span key="std">
+        {stdName}
+        {rollNumber ? <span className="text-muted-foreground"> ({rollNumber})</span> : null}
+      </span>,
+    )
+  }
+  if (empName) {
+    parts.push(
+      <span key="emp">
+        {empName}
+        {empNumber ? <span className="text-muted-foreground"> ({empNumber})</span> : null}
+      </span>,
+    )
+  }
+  if (parts.length === 0) return '—'
+  return <span className="inline-flex flex-col gap-0.5">{parts}</span>
 }
 
-function toEmailGetter(p: ValueGetterParams<AnySmsRow>): string {
-  return pickStr(p.data, [
-    'toEmail',
-    'to_email',
-    'recipientEmail',
-    'recipient_email',
-    'stdEmailId',
-    'std_email_id',
-    'email',
-    'mailTo',
-    'mail_to',
-  ])
+function emailIdGetter(p: ValueGetterParams<AnySmsRow>): string {
+  return pickStr(p.data, ['emailId', 'email_id', 'email']) || '—'
 }
 
-function subjectGetter(p: ValueGetterParams<AnySmsRow>): string {
-  return pickStr(p.data, ['subject', 'mailSubject', 'mail_subject', 'subjectLine', 'subject_line'])
+function messageSentDateGetter(p: ValueGetterParams<AnySmsRow>): string {
+  return formatEmailDate(p.data?.messageSentDate ?? p.data?.message_sent_date)
 }
 
-function fromEmailGetter(p: ValueGetterParams<AnySmsRow>): string {
-  return pickStr(p.data, ['fromEmail', 'from_email', 'fromEmailId', 'from_email_id', 'senderEmail', 'sender_email'])
+function collegeCodeGetter(p: ValueGetterParams<AnySmsRow>): string {
+  return pickStr(p.data, ['collegeCode', 'college_code']) || '—'
 }
 
 function statusRenderer(p: ICellRendererParams<AnySmsRow>) {
   const d = p.data
   if (!d) return '—'
-  for (const k of ['isDelivered', 'isSent', 'isSuccess', 'isActive', 'delivered'] as const) {
-    const v = d[k]
-    if (typeof v === 'boolean') return <StatusBadge status={v} />
-  }
-  const s = pickStr(d, ['status', 'deliveryStatus', 'delivery_status', 'emailStatus', 'email_status'])
-  return s === '—' ? '—' : <span className="text-xs text-muted-foreground">{s}</span>
+  const raw = d.isSuccessful ?? d.is_successful
+  if (typeof raw !== 'boolean') return '—'
+  return <StatusBadge status={raw} label={raw ? 'Success' : 'Fail'} />
 }
 
 export default function EmailLogsPage() {
   const [collegeId, setCollegeId] = useState<number | null>(null)
   const [principalLock, setPrincipalLock] = useState(false)
-  const [fromDay, setFromDay] = useState<Date | null>(() => startOfMonth(new Date()))
-  const [toDay, setToDay] = useState<Date | null>(() => new Date())
+  const [day, setDay] = useState<Date | null>(() => new Date())
 
   const [rows, setRows] = useState<AnySmsRow[]>([])
   const [loading, setLoading] = useState(false)
-  /** Grid only after user runs Get logs with valid filters. */
+  /** Grid only after user runs Get Logs with valid filters (Angular shows table when staff.length > 0). */
   const [resultsVisible, setResultsVisible] = useState(false)
 
   const { data: colleges, isLoading: collegesLoading } = useCrudList<College>({
@@ -126,7 +135,8 @@ export default function EmailLogsPage() {
 
   useEffect(() => {
     setResultsVisible(false)
-  }, [collegeId, fromDay, toDay])
+    setRows([])
+  }, [collegeId, day])
 
   const collegeOptions = useMemo(
     () =>
@@ -137,20 +147,19 @@ export default function EmailLogsPage() {
   )
 
   const loadLogs = useCallback(async () => {
-    if (!collegeId || !fromDay || !toDay) {
-      toastError('Select college, from date, and to date.')
+    if (!collegeId || !day) {
+      toastError('Select college and date.')
       return
     }
-    const fromDate = toDateOnlyISO(fromDay)
-    const toDate = toDateOnlyISO(toDay)
-    if (fromDate > toDate) {
-      toastError('From date cannot be after to date.')
+    const messageSentDate = toExamApiDate(day)
+    if (!messageSentDate) {
+      toastError('Select a valid date.')
       return
     }
     setResultsVisible(true)
     setLoading(true)
     try {
-      const data = await listEmailLogsForCollege({ collegeId, fromDate, toDate })
+      const data = await listEmailLogsForCollege({ collegeId, messageSentDate })
       setRows(Array.isArray(data) ? data : [])
     } catch (e) {
       toastError(getErrorMessage(e))
@@ -158,15 +167,15 @@ export default function EmailLogsPage() {
     } finally {
       setLoading(false)
     }
-  }, [collegeId, fromDay, toDay])
+  }, [collegeId, day])
 
   const columnDefs = useMemo<ColDef<AnySmsRow>[]>(
     () => [
       COL_DEFS.siNo,
-      { ...COL_DEFS.sentOn, valueGetter: sentOnGetter },
-      { ...COL_DEFS.toEmail, valueGetter: toEmailGetter },
-      { ...COL_DEFS.subject, valueGetter: subjectGetter },
-      { ...COL_DEFS.fromEmail, valueGetter: fromEmailGetter },
+      { ...COL_DEFS.emailTo, cellRenderer: emailToRenderer },
+      { ...COL_DEFS.emailId, valueGetter: emailIdGetter },
+      { ...COL_DEFS.messageSentDate, valueGetter: messageSentDateGetter },
+      { ...COL_DEFS.collegeCode, valueGetter: collegeCodeGetter },
       { ...COL_DEFS.status, cellRenderer: statusRenderer },
     ],
     [],
@@ -174,7 +183,7 @@ export default function EmailLogsPage() {
 
   return (
     <FilteredListPage
-      title="Email logs"
+      title="Email Logs"
       filters={(
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
           <Select
@@ -187,11 +196,10 @@ export default function EmailLogsPage() {
             isLoading={collegesLoading}
             className="lg:col-span-3"
           />
-          <DatePicker label="From *" value={fromDay} onChange={setFromDay} className="lg:col-span-3" clearable={false} />
-          <DatePicker label="To *" value={toDay} onChange={setToDay} className="lg:col-span-3" clearable={false} />
+          <DatePicker label="Date *" value={day} onChange={setDay} className="lg:col-span-3" clearable={false} />
           <div className="flex items-end lg:col-span-3">
             <Button type="button" className="w-full sm:w-auto" onClick={() => void loadLogs()} disabled={loading || !collegeId}>
-              {loading ? 'Loading…' : 'Get logs'}
+              {loading ? 'Loading…' : 'Get Logs'}
             </Button>
           </div>
         </div>
@@ -205,14 +213,14 @@ export default function EmailLogsPage() {
       getRowId={(p) => {
         const d = p.data
         if (!d) return 'row-0'
-        const id = Number(d.emailLogId ?? d.email_log_id ?? d.id ?? 0)
+        const id = Number(d.messagingRecipientsId ?? d.messaging_recipients_id ?? d.emailLogId ?? d.id ?? 0)
         if (id > 0) return String(id)
-        return `${pickStr(d, ['createdDt', 'sentDate', 'sent_date'])}-${pickStr(d, ['subject', 'mailSubject'])}-${pickStr(d, ['toEmail', 'email'])}`
+        return `${pickStr(d, ['messageSentDate', 'emailId'])}-${pickStr(d, ['stdName', 'empName'])}-${pickStr(d, ['rollNumber', 'empNumber'])}`
       }}
       toolbar={{
         search: resultsVisible,
-        searchPlaceholder: 'Search logs…',
-        pdfDocumentTitle: 'Email logs',
+        searchPlaceholder: 'Search',
+        pdfDocumentTitle: 'Email Logs',
       }}
     />
   )

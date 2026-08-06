@@ -80,6 +80,27 @@ function amtValue(v: unknown): string {
   return Number.isFinite(n) ? String(n) : String(v);
 }
 
+function structureRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
+  const row = p.data;
+  if (!row) return null;
+  // Angular: isActive from feeStudentDataDTO
+  const active = Boolean(row.isActive ?? row.feeStudentDataDTO?.isActive);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span>{row.structureName ?? "—"}</span>
+      <span
+        className={
+          active
+            ? "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-50"
+            : "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 bg-slate-100"
+        }
+      >
+        {active ? "Active" : "In Active"}
+      </span>
+    </span>
+  );
+}
+
 function makePayRenderer(
   onPay: (row: StudentFeeStructureRow) => void,
   label: string,
@@ -318,7 +339,11 @@ export function StudentCategoryFeeList({
 
     return [
       { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
-      { field: "structureName", headerName: "Structure", minWidth: 160 },
+      {
+        headerName: "Structure",
+        minWidth: 200,
+        cellRenderer: structureRenderer,
+      },
       {
         headerName: "Course",
         minWidth: 180,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StudentFeeSearchRow } from "@/types/fees-collection";
 
 const DEFAULT_STUDENT_PHOTO = "/assets/images/avatars/default_Student.png";
@@ -25,22 +25,32 @@ function statusClass(code?: string): string {
 
 export function FeeStudentProfileCard({
   student,
+  /** Angular bus pay: route/stop times appended after the academic path. */
+  transportLine,
 }: {
   readonly student: StudentFeeSearchRow;
+  readonly transportLine?: string | null;
 }) {
   const [photoError, setPhotoError] = useState(false);
   const photoUrl = studentPhotoUrl(student.studentPhotoPath);
 
-  const pathLine = [
+  // Reset broken-photo state when switching students (same card instance).
+  useEffect(() => {
+    setPhotoError(false);
+  }, [student.studentId, student.studentPhotoPath]);
+
+  // Angular always renders the full path slots (incl. Section …).
+  const pathParts = [
     student.collegeCode,
     student.academicYear,
     student.courseCode,
     student.groupCode,
     student.courseYearName,
-    student.section ? `Section ${student.section}` : "",
-  ]
-    .filter(Boolean)
-    .join(" / ");
+  ].filter(Boolean);
+  const pathLine =
+    pathParts.length > 0
+      ? [...pathParts, `Section ${student.section ?? ""}`.trimEnd()].join(" / ")
+      : "";
 
   return (
     <div className="rounded-sm border border-sky-200 bg-sky-50/30 p-3">
@@ -71,24 +81,34 @@ export function FeeStudentProfileCard({
             </span>
           </p>
           <p>{student.hallticketNumber ?? student.rollNumber}</p>
-          {pathLine ? <p>{pathLine}</p> : null}
+          {pathLine || transportLine ? (
+            <p>
+              {pathLine}
+              {transportLine ? (
+                <span className="ml-1 font-medium text-blue-600">
+                  ({transportLine})
+                </span>
+              ) : null}
+            </p>
+          ) : null}
           {student.mobile ? <p>{student.mobile}</p> : null}
         </div>
         <div className="space-y-1 text-xs sm:min-w-[160px]">
-          {student.quotaDisplayName ? (
-            <p className="text-slate-600">
-              Quota:{" "}
+          {/* Angular always shows Quota / Student Status labels */}
+          <p className="text-slate-600">
+            Quota:{" "}
+            {student.quotaDisplayName ? (
               <span className="text-blue-600">{student.quotaDisplayName}</span>
-            </p>
-          ) : null}
-          {student.studentStatusDisplayName ? (
-            <p className="text-slate-600">
-              Student Status:{" "}
+            ) : null}
+          </p>
+          <p className="text-slate-600">
+            Student Status:{" "}
+            {student.studentStatusDisplayName ? (
               <span className={statusClass(student.studentStatusCode)}>
                 {student.studentStatusDisplayName}
               </span>
-            </p>
-          ) : null}
+            ) : null}
+          </p>
         </div>
       </div>
     </div>

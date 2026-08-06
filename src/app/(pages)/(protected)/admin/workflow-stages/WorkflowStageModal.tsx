@@ -31,7 +31,7 @@ const schema = z.object({
   wfForCode: z.string().min(1, 'Workflow for code is required'),
   wfStatus: z.string().optional(),
   availableFor: z.string().optional(),
-  goBackPoint: z.boolean().optional(),
+  goBackPoint: z.string().optional(),
   isSelfAvailable: z.boolean().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -69,7 +69,7 @@ export default function WorkflowStageModal({
       wfForCode: '',
       wfStatus: '',
       availableFor: '',
-      goBackPoint: false,
+      goBackPoint: '',
       isSelfAvailable: false,
       isActive: true,
       reason: '',
@@ -106,7 +106,9 @@ export default function WorkflowStageModal({
         wfForCode: row.wfForCode,
         wfStatus: row.wfStatus ?? '',
         availableFor: row.availableFor != null ? String(row.availableFor) : '',
-        goBackPoint: row.goBackPoint === true || row.goBackPoint === 1,
+        goBackPoint: row.goBackPoint != null && row.goBackPoint !== false
+          ? String(row.goBackPoint)
+          : '',
         isSelfAvailable: row.isSelfAvailable === true || row.isSelfAvailable === 1,
         isActive: row.isActive,
         reason: row.reason ?? '',
@@ -122,7 +124,7 @@ export default function WorkflowStageModal({
         wfForCode: '',
         wfStatus: '',
         availableFor: '',
-        goBackPoint: false,
+        goBackPoint: '',
         isSelfAvailable: false,
         isActive: true,
         reason: '',
@@ -145,6 +147,7 @@ export default function WorkflowStageModal({
     const payload = {
       ...data,
       availableFor: data.availableFor?.trim() ? Number(data.availableFor) : null,
+      goBackPoint: data.goBackPoint?.trim() ? Number(data.goBackPoint) : null,
     }
     try {
       if (isEditing) await updateWorkflowStage(row!.workflowStageId, payload, row!)
@@ -235,28 +238,22 @@ export default function WorkflowStageModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <Label htmlFor="wfStatus">Workflow Status</Label>
               <Input id="wfStatus" {...register('wfStatus')} />
             </div>
             <div>
               <Label htmlFor="availableFor">Available For</Label>
-              <Input id="availableFor" {...register('availableFor')} />
+              <Input id="availableFor" type="number" {...register('availableFor')} />
+            </div>
+            <div>
+              <Label htmlFor="goBackPoint">Go Back Point</Label>
+              <Input id="goBackPoint" type="number" {...register('goBackPoint')} />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Controller
-              name="goBackPoint"
-              control={control}
-              render={({ field }) => (
-                <div className="flex items-center gap-2">
-                  <Checkbox id="goBackPoint" checked={Boolean(field.value)} onCheckedChange={(checked) => field.onChange(Boolean(checked))} />
-                  <Label htmlFor="goBackPoint">Go Back Point</Label>
-                </div>
-              )}
-            />
+          <div className="pt-1">
             <Controller
               name="isSelfAvailable"
               control={control}

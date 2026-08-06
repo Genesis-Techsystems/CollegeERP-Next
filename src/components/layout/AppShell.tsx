@@ -23,8 +23,6 @@ import { APP_CONFIG } from "@/config/constants/app";
 interface AppShellProps {
   children: ReactNode;
   initialNavItems: NavItem[];
-  children: ReactNode;
-  initialNavItems: NavItem[];
 }
 
 export function AppShell({
@@ -201,7 +199,8 @@ export function AppShell({
 
   // Prevent full-tree hydration drift in protected pages (sidebar/topbar are highly
   // interactive and depend on client-only persisted state and browser environment).
-  // We render a stable shell frame first, then mount the interactive tree on client.
+  // Keep `{children}` in the tree so page mounts do not race App Router init when
+  // the interactive chrome swaps in (avoids "Router action dispatched before initialization").
   if (!mounted) {
     return (
       <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
@@ -213,7 +212,7 @@ export function AppShell({
           <div className="sticky top-0 z-20 h-14 border-b border-border bg-card" />
           <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))]">
             <div className="mx-auto w-full max-w-none px-0 py-0">
-              <div className="px-6 pt-3 pb-1" />
+              {children}
             </div>
           </main>
         </div>

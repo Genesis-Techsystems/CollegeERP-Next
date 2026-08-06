@@ -53,10 +53,31 @@ function formatDt(value: unknown): string {
   }
 }
 
+/** Angular `new Date(value)` then JSON-serialized (Invalid Date → null). */
+function toApiDate(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+/** Angular `isEmptyObject` — true only for `{}` (null/undefined are treated as non-empty). */
 function isEmptyObject(obj: unknown): boolean {
-  return (
-    !obj || (typeof obj === "object" && Object.keys(obj as object).length === 0)
+  return Boolean(
+    obj && typeof obj === "object" && Object.keys(obj as object).length === 0,
   );
+}
+
+const SAMPLE_XL_HREF = "/assets/docs/sampleScholarshipStg.xlsx";
+
+/** Angular `FileSaver.saveAs('assets/docs/sampleScholarshipStg.xlsx')`. */
+function downloadSampleXl() {
+  const link = document.createElement("a");
+  link.href = SAMPLE_XL_HREF;
+  link.download = "sampleScholarshipStg.xlsx";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function studentNameRenderer(p: ICellRendererParams<StagingRow>) {
@@ -133,9 +154,10 @@ export default function ScholarshipStudentsUploadPage() {
     if (localRows) return localRows;
     const mapped: StagingRow[] = [];
     for (const raw of staging) {
+      // Angular mutates staging rows in place; keep the same shape.
       const row: StagingRow = { ...raw };
-      const app = (row.applicationDTO ?? {}) as Record<string, unknown>;
-      const balance = Number(app.balanceAmount ?? 0);
+      const app = row.applicationDTO as Record<string, unknown> | undefined;
+      const balance = Number(app?.balanceAmount ?? 0);
       const tution = Number(row.tutionFee ?? 0);
       row.balanceAmount = balance;
       row.color = "transparent";
@@ -144,7 +166,9 @@ export default function ScholarshipStudentsUploadPage() {
         row.color = "#ffa0a0";
         row.isValidate = true;
       }
-      if (!collegeCode || String(app.collegeCode ?? "") === collegeCode) {
+      // Angular: applicationDTO.collegeCode === params.collegeCode
+      // If query collegeCode is missing, keep all rows so Save is not stuck empty.
+      if (!collegeCode || String(app?.collegeCode ?? "") === collegeCode) {
         mapped.push(row);
       }
     }
@@ -231,7 +255,8 @@ export default function ScholarshipStudentsUploadPage() {
   }, [refetch]);
 
   const handleSave = useCallback(async () => {
-    const rows = [...preStaggings];
+    // Angular `addStdPreceedings` mutates `preStaggings` then POSTs the same array.
+    const rows = preStaggings.map((r) => ({ ...r }));
     let flag = false;
     for (const row of rows) {
       const app = row.applicationDTO;
@@ -242,12 +267,9 @@ export default function ScholarshipStudentsUploadPage() {
         row.schStdApplicationId = app.schStdApplicationId;
         row.courseYearId = app.courseYearId;
         row.schPreceedingId = schPreceedingId;
-        row.releaseFromDt = row.releasedFromDt
-          ? new Date(String(row.releasedFromDt)).toISOString()
-          : null;
-        row.releaseToDt = row.releasedToDt
-          ? new Date(String(row.releasedToDt)).toISOString()
-          : null;
+        // Angular: `new Date(releasedFromDt)` / `new Date(releasedToDt)` (JSON → ISO/null).
+        row.releaseFromDt = toApiDate(row.releasedFromDt);
+        row.releaseToDt = toApiDate(row.releasedToDt);
         row.isAmountSettled = 0;
         row.color = "transparent";
         row.isValidate = false;
@@ -392,10 +414,8 @@ export default function ScholarshipStudentsUploadPage() {
             >
               {uploading ? "Uploading…" : "Upload"}
             </Button>
-            <Button type="button" variant="outline" asChild>
-              <a href="/assets/docs/sampleScholarshipStg.xlsx" download>
-                Download Sample XL
-              </a>
+            <Button type="button" variant="outline" onClick={downloadSampleXl}>
+              Download Sample XL
             </Button>
             {excelRowCount > 0 ? (
               <p className="text-sm text-destructive">
@@ -426,7 +446,7 @@ export default function ScholarshipStudentsUploadPage() {
           <Button
             type="button"
             onClick={() => void handleSave()}
-            disabled={saving || preStaggings.length === 0}
+            disabled={saving}
           >
             {saving ? "Saving…" : "Save"}
           </Button>

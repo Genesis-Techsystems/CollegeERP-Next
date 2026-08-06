@@ -30,6 +30,7 @@ import { flattenNavItemsForSearch } from "@/lib/navigation";
 import { resolveNavHref } from "@/lib/resolve-nav-href";
 import { logout } from "@/services/auth";
 import { ThemeSwitcher } from "@/common/components/theme-setting-modal";
+import { scheduleNavigation } from "@/lib/schedule-navigation";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -133,7 +134,9 @@ export function Topbar() {
     (url: string, displayName?: string, id?: string) => {
       // Same resolver as sidebar NavItem clicks (forced routes + canonical slugs).
       const resolved = resolveNavHref(url, displayName ?? "", id) || url;
-      router.push(resolved);
+      scheduleNavigation(() => {
+        router.push(resolved);
+      });
       setSearchTerm("");
       setIsSearchOpen(false);
       setActiveResultIndex(-1);

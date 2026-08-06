@@ -1,5 +1,6 @@
 import { COMMUNICATION_API, MENTORSHIP_API } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
+import type { ApiResponse } from "@/types/api";
 import {
   buildQuery,
   domainCreate,
@@ -35,13 +36,116 @@ export type CounselorActivityType = MentorshipRow & {
   reason?: string;
 };
 
+/**
+ * Unwrap Spring list payloads used by mentorship endpoints.
+ * Handles array `data`, nested `resultList`/`content`/`result`, and top-level envelope `resultList`
+ * when `data` is null (common for studentsList / mappedcounselorstudents).
+ */
 function asRows(data: unknown): MentorshipRow[] {
   if (Array.isArray(data)) return data as MentorshipRow[];
-  if (data && typeof data === "object" && "resultList" in data) {
-    const list = (data as { resultList?: unknown }).resultList;
-    if (Array.isArray(list)) return list as MentorshipRow[];
+  if (!data || typeof data !== "object") return [];
+  const obj = data as Record<string, unknown>;
+  if (Array.isArray(obj.resultList)) return obj.resultList as MentorshipRow[];
+  if (Array.isArray(obj.content)) return obj.content as MentorshipRow[];
+  if (Array.isArray(obj.result)) return obj.result as MentorshipRow[];
+  if (Array.isArray(obj.data)) return obj.data as MentorshipRow[];
+  if (obj.data && typeof obj.data === "object") {
+    const nested = obj.data as Record<string, unknown>;
+    if (Array.isArray(nested.resultList))
+      return nested.resultList as MentorshipRow[];
+    if (Array.isArray(nested.content)) return nested.content as MentorshipRow[];
+    if (Array.isArray(nested.result)) return nested.result as MentorshipRow[];
   }
   return [];
+}
+
+function asRowsFromEnvelope(body: ApiResponse<unknown>): MentorshipRow[] {
+  if (Array.isArray(body.data)) return body.data as MentorshipRow[];
+  const fromData = asRows(body.data);
+  if (fromData.length > 0) return fromData;
+  if (Array.isArray(body.resultList)) return body.resultList as MentorshipRow[];
+  return [];
+}
+
+function pickNum(row: MentorshipRow, keys: string[]): number {
+  for (const key of keys) {
+    const n = Number(row[key]);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+function pickText(row: MentorshipRow, keys: string[]): string {
+  for (const key of keys) {
+    const v = row[key];
+    if (v == null || v === "") continue;
+    return String(v);
+  }
+  return "";
+}
+
+/** Normalize student / mapping rows so the Assign Counselor UI can split lists reliably. */
+export function normalizeCounselorStudentRow(
+  row: MentorshipRow,
+): MentorshipRow {
+  const nestedEmp =
+    row.employeeDetail && typeof row.employeeDetail === "object"
+      ? (row.employeeDetail as MentorshipRow)
+      : null;
+  const studentId = pickNum(row, [
+    "studentId",
+    "fk_student_id",
+    "student_id",
+    "pk_student_id",
+  ]);
+  const counselorId = pickNum(row, [
+    "counselorId",
+    "fk_counselor_id",
+    "counselor_id",
+  ]);
+  const employeeId =
+    pickNum(row, ["employeeId", "fk_employee_id", "employee_id"]) ||
+    pickNum(nestedEmp ?? {}, ["employeeId", "fk_employee_id"]);
+  const firstName = pickText(row, [
+    "firstName",
+    "studentName",
+    "student_name",
+    "name",
+  ]);
+  const rollNumber = pickText(row, [
+    "rollNumber",
+    "hallticketNumber",
+    "hallticket_number",
+    "admissionNumber",
+  ]);
+  let genderDisplayName = pickText(row, [
+    "genderDisplayName",
+    "gender",
+    "genderName",
+  ]);
+  if (genderDisplayName === "Male") genderDisplayName = "M";
+  if (genderDisplayName === "Female") genderDisplayName = "F";
+
+  return {
+    ...row,
+    ...(studentId ? { studentId } : {}),
+    ...(counselorId ? { counselorId } : {}),
+    ...(employeeId ? { employeeId } : {}),
+    ...(firstName ? { firstName } : {}),
+    ...(rollNumber ? { rollNumber } : {}),
+    ...(genderDisplayName ? { genderDisplayName } : {}),
+  };
+}
+
+function isMappingActive(value: unknown): boolean {
+  return (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    value === "true" ||
+    value === "Y" ||
+    value === "y"
+  );
 }
 
 /** Activity rows nested under first counselormappings result. */
@@ -436,27 +540,26 @@ export async function listStudentsForCounselorAssignment(params: {
   courseYearId: number;
 }): Promise<MentorshipRow[]> {
   const p = params;
-  const paramSets: Record<string, string | number>[] = [
-    {
-      collegeId: p.collegeId,
-      academicYearId: p.academicYearId,
-      courseId: p.courseId,
-      courseGroupId: p.courseGroupId,
-      courseYearId: p.courseYearId,
-    },
-  ];
-  for (const query of paramSets) {
-    try {
-      const data = await fetchDetails<unknown>("studentsList", query);
-      const rows = asRows(data);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next
-    }
+  if (
+    !p.collegeId ||
+    !p.academicYearId ||
+    !p.courseId ||
+    !p.courseGroupId ||
+    !p.courseYearId
+  ) {
+    return [];
   }
+  const query = {
+    collegeId: p.collegeId,
+    academicYearId: p.academicYearId,
+    courseId: p.courseId,
+    courseGroupId: p.courseGroupId,
+    courseYearId: p.courseYearId,
+  };
   try {
-    const data = await fetchDetails<unknown>("studentsList", paramSets[0]!);
-    return asRows(data);
+    const body = await fetchDetailsEnvelope<unknown>("studentsList", query);
+    if (!body.success) return [];
+    return asRowsFromEnvelope(body).map(normalizeCounselorStudentRow);
   } catch {
     return [];
   }
@@ -468,14 +571,26 @@ export async function listMappedCounselorStudents(params: {
   courseGroupId: number;
   courseYearId: number;
 }): Promise<MentorshipRow[]> {
-  return asRows(
-    await fetchDetails(MENTORSHIP_API.MAPPED_COUNSELOR_STUDENTS, {
-      collegeId: params.collegeId,
-      courseGroupId: params.courseGroupId,
-      courseYearId: params.courseYearId,
-    }),
-  );
+  if (!params.collegeId || !params.courseGroupId || !params.courseYearId) {
+    return [];
+  }
+  try {
+    const body = await fetchDetailsEnvelope<unknown>(
+      MENTORSHIP_API.MAPPED_COUNSELOR_STUDENTS,
+      {
+        collegeId: params.collegeId,
+        courseGroupId: params.courseGroupId,
+        courseYearId: params.courseYearId,
+      },
+    );
+    if (!body.success) return [];
+    return asRowsFromEnvelope(body).map(normalizeCounselorStudentRow);
+  } catch {
+    return [];
+  }
 }
+
+export { isMappingActive };
 
 /** Angular `add(counselormappings, rows)`. */
 export async function saveCounselorMappings(
