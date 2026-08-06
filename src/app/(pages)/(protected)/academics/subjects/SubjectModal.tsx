@@ -279,10 +279,10 @@ export function SubjectModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title={isEdit ? "Edit Subject - " : "Add Subject -  "}
-      description={
+      title={isEdit ? "Edit Subject" : "Add Subject"}
+      headerInfo={
         courseName || courseCode
-          ? ` Course : ${courseCode}${courseCode && courseName ? " - " : ""}${courseName}`
+          ? `Course : ${courseCode}${courseCode && courseName ? " - " : ""}${courseName}`
           : undefined
       }
       onSubmit={handleSubmit}

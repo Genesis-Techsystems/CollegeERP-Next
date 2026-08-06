@@ -2,18 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Menu,
-  LogOut,
-  User,
-  Bell,
-  LayoutGrid,
-  HelpCircle,
-  Sparkles,
-  ChevronDown,
-  Loader2,
-} from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Menu, LogOut, User, Search, ChevronDown, Loader2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -31,10 +21,6 @@ import { resolveNavHref } from "@/lib/resolve-nav-href";
 import { logout } from "@/services/auth";
 import { ThemeSwitcher } from "@/common/components/theme-setting-modal";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const roleAvatarStyle: Record<string, string> = {
   ADMIN: "bg-red-100    text-red-700",
   PRINCIPAL: "bg-red-100    text-red-700",
@@ -45,17 +31,12 @@ const roleAvatarStyle: Record<string, string> = {
 
 const MAX_SEARCH_RESULTS = 8;
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function Topbar() {
   const router = useRouter();
   const { user } = useSessionContext();
   const { toggleSidebar, navItems } = useNavigationStore();
 
   const pages = useMemo(() => {
-    // Resolve with the same forced-route + slug rules as sidebar clicks.
     return flattenNavItemsForSearch(navItems).map((page) => ({
       ...page,
       url: resolveNavHref(page.url, page.displayName, page.id) || page.url,
@@ -71,7 +52,6 @@ export function Topbar() {
 
   const pagesLoading = navItems.length === 0;
 
-  // ── Close search dropdown on outside click ──────────────────────────────
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
       if (
@@ -86,7 +66,6 @@ export function Topbar() {
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
-  // ── Global ⌘K / Ctrl+K shortcut ───────────────────────────────────────
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -131,7 +110,6 @@ export function Topbar() {
 
   const navigateTo = useCallback(
     (url: string, displayName?: string, id?: string) => {
-      // Same resolver as sidebar NavItem clicks (forced routes + canonical slugs).
       const resolved = resolveNavHref(url, displayName ?? "", id) || url;
       router.push(resolved);
       setSearchTerm("");
@@ -202,44 +180,51 @@ export function Topbar() {
   const avatarStyle =
     roleAvatarStyle[user?.userRole ?? ""] ?? "bg-cyan-100 text-cyan-700";
 
+  const empLabel = user?.employeeId
+    ? `EMP${String(user.employeeId).padStart(3, "0")}`
+    : user?.userName
+      ? user.userName
+      : null;
+
   async function handleLogout() {
     await logout();
     window.location.href = "/login";
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4 sm:px-5">
-      {/* ── Mobile hamburger ─────────────────────────────────────────── */}
+    <header className="app-toolbar flex shrink-0 items-center gap-3 px-3 sm:px-4">
       <Button
         variant="ghost"
         size="icon"
-        className="shrink-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground md:hidden"
+        className="shrink-0 text-black/80 hover:bg-black/10 hover:text-black md:hidden"
         onClick={toggleSidebar}
         aria-label="Toggle navigation sidebar"
       >
         <Menu className="h-5 w-5" aria-hidden="true" />
       </Button>
 
-      {/* ── Search — left side ─────────────────────────────────────── */}
+      {/* Angular: fa-graduation-cap (filled) + collegeName */}
+      <div className="hidden min-w-0 max-w-[28%] items-center gap-2 md:flex lg:max-w-[32%]">
+        <i
+          className="fa fa-graduation-cap app-toolbar__clg-icon"
+          aria-hidden="true"
+        />
+        <span
+          className="app-toolbar__college"
+          title={user?.collegeName ?? "University Campus"}
+        >
+          {user?.collegeName ?? "University Campus"}
+        </span>
+      </div>
+
       <div
         ref={searchContainerRef}
-        className="relative flex min-w-0 flex-1 items-center sm:max-w-md lg:max-w-lg xl:max-w-xl"
+        className="relative ml-auto flex min-w-0 items-center sm:w-[280px]"
         role="combobox"
         aria-expanded={showSearchDropdown && filteredPages.length > 0}
         aria-haspopup="listbox"
         aria-owns="search-results-listbox"
       >
-        {pagesLoading ? (
-          <Loader2
-            className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 animate-spin text-primary"
-            aria-hidden="true"
-          />
-        ) : (
-          <Sparkles
-            className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary"
-            aria-hidden="true"
-          />
-        )}
         <input
           ref={searchInputRef}
           type="search"
@@ -252,7 +237,7 @@ export function Topbar() {
               ? `search-result-${activeResultIndex}`
               : undefined
           }
-          placeholder="Search pages…"
+          placeholder="Search..."
           value={searchTerm}
           onChange={handleSearchChange}
           onKeyDown={handleKeyDown}
@@ -260,22 +245,28 @@ export function Topbar() {
             if (searchTerm.trim().length > 0) setIsSearchOpen(true);
           }}
           className={cn(
-            "h-9 w-full rounded-full border border-input bg-[hsl(var(--background))]",
-            "pl-10 pr-14 text-[13px] text-foreground placeholder:text-muted-foreground",
-            "focus:border-primary focus:bg-card focus:outline-none focus:ring-2 focus:ring-primary/15",
-            "transition-all duration-150",
+            "app-toolbar__search w-full pl-0 pr-8 text-black placeholder:text-[#848484]",
+            "focus:outline-none",
           )}
         />
-        <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground sm:inline">
-          ⌘K
-        </kbd>
+        {pagesLoading ? (
+          <Loader2
+            className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-[#9e9e9e]"
+            aria-hidden="true"
+          />
+        ) : (
+          <Search
+            className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9e9e9e]"
+            aria-hidden="true"
+          />
+        )}
 
         {showSearchDropdown && (
           <div
             id="search-results-listbox"
             role="listbox"
             aria-label="Search results"
-            className="absolute top-full left-0 z-50 mt-1.5 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
+            className="absolute top-full left-0 z-50 mt-1.5 max-h-72 w-full overflow-y-auto rounded-md border border-border bg-card shadow-lg"
           >
             {filteredPages.length > 0 ? (
               filteredPages.map((page, index) => (
@@ -286,13 +277,15 @@ export function Topbar() {
                   aria-selected={index === activeResultIndex}
                   type="button"
                   className={cn(
-                    "w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent",
-                    index === activeResultIndex && "bg-accent",
+                    "w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted",
+                    index === activeResultIndex && "bg-muted",
                   )}
                   onPointerDown={(e) => {
                     e.preventDefault();
                   }}
-                  onClick={() => navigateTo(page.url, page.displayName, page.id)}
+                  onClick={() =>
+                    navigateTo(page.url, page.displayName, page.id)
+                  }
                 >
                   <span className="block font-medium text-foreground">
                     {page.displayName}
@@ -313,71 +306,64 @@ export function Topbar() {
         )}
       </div>
 
-      {/* ── Right side — actions & profile ───────────────────────────── */}
-      <div className="ml-auto flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-2.5">
         <ThemeSwitcher />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+        <button
+          type="button"
+          className="app-toolbar__notification hidden sm:inline-flex"
+          aria-label="Mail"
+        >
+          <span className="material-icons" aria-hidden="true">
+            mail_outline
+          </span>
+        </button>
+
+        <button
+          type="button"
+          className="app-toolbar__notification relative"
           aria-label="Notifications"
         >
-          <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
+          <span className="material-icons" aria-hidden="true">
+            notifications_none
+          </span>
           <span
-            className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card"
+            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500"
             aria-hidden="true"
           />
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:inline-flex"
-          aria-label="All apps"
-        >
-          <LayoutGrid className="h-[18px] w-[18px]" aria-hidden="true" />
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground sm:inline-flex"
-          aria-label="Help"
-        >
-          <HelpCircle className="h-[18px] w-[18px]" aria-hidden="true" />
-        </Button>
-
-        <div
-          className="mx-1 hidden h-6 w-px bg-border sm:block"
-          aria-hidden="true"
-        />
+        </button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#042956]/30"
               aria-label="User menu"
             >
-              <div className="hidden text-right md:block">
-                <p className="text-[13px] font-semibold leading-tight tracking-tight text-foreground">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">
-                  {user?.roleName ?? user?.userRole ?? "User"}
-                </p>
-              </div>
-
-              <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border">
+              <Avatar className="h-[30px] w-[30px] shrink-0">
+                <AvatarImage
+                  src="/assets/images/avatars/default_Student.png"
+                  alt=""
+                />
                 <AvatarFallback
-                  className={cn("text-[12px] font-semibold", avatarStyle)}
+                  className={cn("text-[11px] font-semibold", avatarStyle)}
                 >
                   {initials}
                 </AvatarFallback>
               </Avatar>
 
+              <div className="hidden text-left md:block">
+                <p className="text-[13px] font-medium leading-tight text-black">
+                  {user?.firstName} {user?.lastName}
+                </p>
+                {empLabel ? (
+                  <p className="mt-0.5 text-[11px] leading-tight text-[#7b7667]">
+                    ({empLabel})
+                  </p>
+                ) : null}
+              </div>
+
               <ChevronDown
-                className="hidden h-3.5 w-3.5 text-muted-foreground md:block"
+                className="hidden h-4 w-4 text-black/70 md:block"
                 aria-hidden="true"
               />
             </button>

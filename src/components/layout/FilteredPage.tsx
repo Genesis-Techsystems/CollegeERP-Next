@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { ChevronDown, Filter } from "lucide-react";
+import { CardHeadingTitle } from "@/common/components/data-display";
 import { PageContainer } from "./PageContainer";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { cn } from "@/lib/utils";
@@ -55,10 +56,7 @@ export function FilteredPage({
       <div className="app-data-table app-data-table-card flex flex-col">
         {showHeading ? (
           <div
-            className={cn(
-              "app-data-table-heading px-5",
-              filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
-            )}
+            className={cn("app-data-table-heading", filtersOpen ? "pb-0" : "")}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -70,9 +68,7 @@ export function FilteredPage({
                     aria-expanded={filtersOpen}
                     aria-label="Toggle filters"
                   >
-                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                      {displayTitle}
-                    </h2>
+                    <CardHeadingTitle>{displayTitle}</CardHeadingTitle>
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
                       <Filter className="h-3.5 w-3.5" aria-hidden />
                       <ChevronDown
@@ -85,9 +81,7 @@ export function FilteredPage({
                     </span>
                   </button>
                 ) : (
-                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                    {displayTitle}
-                  </h2>
+                  <CardHeadingTitle>{displayTitle}</CardHeadingTitle>
                 )}
               </div>
             </div>

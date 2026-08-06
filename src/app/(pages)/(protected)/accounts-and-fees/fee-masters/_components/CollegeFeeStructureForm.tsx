@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2Icon } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
+import { CardHeadingTitle } from "@/common/components/data-display";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
 import { PageContainer } from "@/components/layout";
@@ -678,8 +679,8 @@ export function CollegeFeeStructureForm({
   return (
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
-        <div className="border-b border-border bg-muted/40 px-4 py-3">
-          <h1 className="text-base font-semibold">{title}</h1>
+        <div className="flex items-center justify-between gap-2">
+          <CardHeadingTitle>{title}</CardHeadingTitle>
         </div>
 
         <div className="space-y-4 p-4">

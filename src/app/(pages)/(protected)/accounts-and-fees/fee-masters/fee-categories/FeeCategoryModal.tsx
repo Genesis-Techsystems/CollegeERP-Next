@@ -164,7 +164,7 @@ export function FeeCategoryModal({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader className="pr-8">
-          <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
+          <DialogTitle className="text-base font-semibold leading-none">
             {dialogTitle}
           </DialogTitle>
         </DialogHeader>

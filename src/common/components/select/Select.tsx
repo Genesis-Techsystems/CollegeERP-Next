@@ -27,6 +27,8 @@ export interface SelectOption {
   disabled?: boolean;
   /** Native browser tooltip on the option (e.g. full store name when label is code). */
   title?: string;
+  /** Secondary line under the label (e.g. course-group names on subject options). */
+  description?: string;
 }
 
 export interface SelectProps {
@@ -178,7 +180,8 @@ export function Select({
       ? uniqueOptions.filter((o) => {
           const l = o.label.toLowerCase();
           const v = String(o.value).toLowerCase();
-          return l.includes(needle) || v.includes(needle);
+          const d = (o.description ?? "").toLowerCase();
+          return l.includes(needle) || v.includes(needle) || d.includes(needle);
         })
       : uniqueOptions;
 
@@ -199,7 +202,9 @@ export function Select({
   }
 
   function handleSelect(optValue: string) {
-    onChange(optValue);
+    // Re-clicking the already selected option should not re-fire onChange
+    // (avoids resetting dependent filter cascades).
+    if (optValue !== value) onChange(optValue);
     setOpen(false);
   }
 
@@ -362,10 +367,10 @@ export function Select({
                     className={cn(
                       "flex w-full gap-2 px-3 py-2 text-sm transition-colors",
                       wrapOptionLabels ? "items-start" : "items-center",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      "focus:bg-accent focus:text-accent-foreground focus:outline-none",
+                      "hover:bg-muted hover:text-foreground",
+                      "focus:bg-muted focus:text-foreground focus:outline-none",
                       "disabled:cursor-not-allowed disabled:opacity-50",
-                      isSelected && "bg-accent/50 font-medium",
+                      isSelected && "bg-muted font-medium text-[#042956]",
                     )}
                   >
                     {/* Checkmark slot — keeps label alignment consistent */}
@@ -377,12 +382,24 @@ export function Select({
                     <span
                       className={cn(
                         "min-w-0 flex-1 text-left",
-                        wrapOptionLabels
+                        wrapOptionLabels || opt.description
                           ? "whitespace-normal leading-snug"
                           : "truncate",
                       )}
                     >
-                      {opt.label}
+                      <span
+                        className={cn(
+                          "block",
+                          opt.description ? "truncate" : undefined,
+                        )}
+                      >
+                        {opt.label}
+                      </span>
+                      {opt.description ? (
+                        <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground leading-4 whitespace-normal break-words">
+                          {opt.description}
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                 );

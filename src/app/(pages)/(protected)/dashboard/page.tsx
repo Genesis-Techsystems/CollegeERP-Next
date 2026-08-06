@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid } from "lucide-react";
 import { Breadcrumb, useBreadcrumb } from "@/common/components/breadcrumb";
 import { PageContainer } from "@/components/layout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import { getDigitalLiveClassEnv, readDashStorage } from "@/services";
@@ -244,84 +242,85 @@ export default function DashboardPage() {
         : "my";
 
   return (
-    <PageContainer className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <Breadcrumb items={breadcrumbs} maxItems={5} />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Quick links"
-            >
-              <LayoutGrid className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            {QUICK_LINKS.map((item) => (
-              <DropdownMenuItem key={item.href} asChild>
-                <Link href={item.href}>{item.label}</Link>
-              </DropdownMenuItem>
-            ))}
-            {showReportLink ? (
-              <DropdownMenuItem asChild>
-                <Link href="/staff-reports/student-result-summary-report">
-                  Report
-                </Link>
-              </DropdownMenuItem>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+    <PageContainer className="app-dashboard-page space-y-3 bg-white">
+      <Breadcrumb
+        items={breadcrumbs}
+        maxItems={5}
+        endAction={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Quick links"
+                className="inline-flex h-8 w-8 items-center justify-center text-[#042956] transition-colors hover:bg-black/5"
+              >
+                <span className="material-icons text-[20px]" aria-hidden="true">
+                  apps
+                </span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              {QUICK_LINKS.map((item) => (
+                <DropdownMenuItem key={item.href} asChild>
+                  <Link href={item.href}>{item.label}</Link>
+                </DropdownMenuItem>
+              ))}
+              {showReportLink ? (
+                <DropdownMenuItem asChild>
+                  <Link href="/staff-reports/student-result-summary-report">
+                    Report
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
 
       <Tabs value={tab || defaultTab} onValueChange={setTab} className="w-full">
-        <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0 border-b border-border rounded-none w-full">
+        <TabsList className="app-dashboard-tabs h-9 w-full flex-wrap justify-start gap-0 rounded-none bg-white p-0">
           {tabs.showMy ? (
-            <TabsTrigger
-              value="my"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-400 data-[state=active]:bg-amber-400/90 data-[state=active]:text-slate-900 px-4"
-            >
+            <TabsTrigger value="my" className="app-dashboard-tab">
               My Dashboard
             </TabsTrigger>
           ) : null}
           {tabs.showAdmin ? (
-            <TabsTrigger value="admin" className="rounded-none px-4">
+            <TabsTrigger value="admin" className="app-dashboard-tab">
               Admin Dashboard
             </TabsTrigger>
           ) : null}
           {tabs.showHod ? (
-            <TabsTrigger value="hod" className="rounded-none px-4">
+            <TabsTrigger value="hod" className="app-dashboard-tab">
               {tabs.hodLabel}
             </TabsTrigger>
           ) : null}
           {tabs.showPrincipal ? (
-            <TabsTrigger value="principal" className="rounded-none px-4">
+            <TabsTrigger value="principal" className="app-dashboard-tab">
               {tabs.principalLabel}
             </TabsTrigger>
           ) : null}
           {tabs.showEvaluator ? (
-            <TabsTrigger value="examiner" className="rounded-none px-4">
+            <TabsTrigger value="examiner" className="app-dashboard-tab">
               Examiner Dashboard
             </TabsTrigger>
           ) : null}
           {tabs.showModerator ? (
-            <TabsTrigger value="moderator" className="rounded-none px-4">
+            <TabsTrigger value="moderator" className="app-dashboard-tab">
               Moderator Dashboard
             </TabsTrigger>
           ) : null}
           {tabs.showManagement ? (
-            <TabsTrigger value="management" className="rounded-none px-4">
+            <TabsTrigger value="management" className="app-dashboard-tab">
               Management Dashboard
             </TabsTrigger>
           ) : null}
           {tabs.showVc ? (
-            <TabsTrigger value="vc" className="rounded-none px-4">
+            <TabsTrigger value="vc" className="app-dashboard-tab">
               {tabs.vcLabel}
             </TabsTrigger>
           ) : null}
           {tabs.showVision ? (
-            <TabsTrigger value="vision" className="rounded-none px-4">
+            <TabsTrigger value="vision" className="app-dashboard-tab">
               Vision and Mission
             </TabsTrigger>
           ) : null}

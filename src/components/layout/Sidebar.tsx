@@ -238,58 +238,54 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex h-full w-full flex-col border-r border-[hsl(var(--sidebar-border))]",
+        "flex h-full w-full flex-col",
         isSidebarOpen ? "" : "overflow-hidden md:flex",
         isRightPositioned && "order-last",
       )}
       style={{
-        background:
-          "linear-gradient(180deg, hsl(var(--sidebar-background)), hsl(var(--sidebar-background-end)))",
+        background: "#042956",
+        boxShadow: "0 2px 8px 0 rgba(0, 0, 0, 0.35)",
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ── Brand header — min-h-14 matches the Topbar height ── */}
+      {/* ── Brand header — white strip like Angular navbar-top (55px) ── */}
       <div
         className={cn(
-          "flex min-h-14 shrink-0 items-center py-1.5",
+          "app-sidebar-brand flex shrink-0 items-center",
           isExpanded ? "gap-2.5 px-3" : "justify-center px-2",
         )}
       >
         {showCollegeLogo ? (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-md ring-1 ring-white/30">
-            {/* Minio-hosted dynamic logo — plain <img> like the other MINIO_URL usages */}
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={collegeLogoUrl ?? ""}
               alt={user?.collegeName ?? "College logo"}
-              className="h-full w-full object-contain p-0.5"
+              className="h-full w-full object-contain"
               onError={() => setCollegeLogoFailed(true)}
             />
           </span>
         ) : (
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-md"
-            style={{ background: "var(--gradient-primary)" }}
-          >
+          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center">
             <Image
               src={smartLogo}
               alt="Smart Campus"
-              width={20}
-              height={20}
-              className="h-5 w-5 object-contain brightness-0 invert"
+              width={30}
+              height={30}
+              className="h-[30px] w-[30px] object-contain"
             />
           </div>
         )}
         {isExpanded && (
           <p
-            className="min-w-0 flex-1 mr-1 text-[12.5px] font-bold text-[hsl(var(--sidebar-foreground-active))] leading-[1.2] tracking-tight break-words"
+            className="min-w-0 flex-1 mr-1 text-[12px] font-medium text-[#042956] leading-[1.2] tracking-tight break-words"
             style={{
-              fontFamily: "var(--font-heading), Sora, system-ui, sans-serif",
+              fontFamily: "var(--font-body), Inter, system-ui, sans-serif",
             }}
-            title={user?.collegeName ?? "Smart Campus"}
+            title={user?.collegeName ?? "University Campus"}
           >
-            {user?.collegeName ?? "Smart Campus"}
+            {user?.collegeName ?? "University Campus"}
           </p>
         )}
 
@@ -304,9 +300,9 @@ export function Sidebar() {
             aria-label={
               collapsedForChrome ? "Expand sidebar" : "Collapse sidebar"
             }
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[hsl(var(--sidebar-foreground-active))] transition-colors duration-150 hover:bg-[hsl(var(--sidebar-hover-bg))]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#042956] transition-colors duration-150 hover:bg-black/5"
           >
-            <Menu className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
+            <Menu className="h-5 w-5" strokeWidth={2.75} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -354,7 +350,7 @@ export function Sidebar() {
         {isExpanded && !searchTerm && (
           <div className="sidebar-section-label">Main Menu</div>
         )}
-        <ul className="space-y-1">
+        <ul className="space-y-0">
           {displayedItems.map((item) => (
             <li key={item.id}>
               <NavItem item={item} depth={0} layoutHydrated={mounted} />
@@ -369,7 +365,7 @@ export function Sidebar() {
       </nav>
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-[hsl(var(--sidebar-border))] px-2 py-2">
+      <div className="shrink-0 border-t border-white/10 px-2 py-2">
         <div
           className={cn(
             "flex items-center gap-1",
@@ -385,8 +381,8 @@ export function Sidebar() {
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-150",
                   searchOpen
-                    ? "bg-[hsl(var(--sidebar-hover-bg))] text-[hsl(var(--sidebar-foreground-active))]"
-                    : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]",
+                    ? "bg-white/10 text-[#ffcf46]"
+                    : "text-white/80 hover:bg-white/10 hover:text-[#ffcf46]",
                 )}
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
@@ -398,7 +394,7 @@ export function Sidebar() {
                 type="button"
                 onClick={handleLogout}
                 title="Logout"
-                className="flex h-8 w-8 items-center justify-center rounded-md text-[hsl(var(--sidebar-foreground))] hover:bg-red-500/15 hover:text-red-400 transition-colors duration-150"
+                className="flex h-8 w-8 items-center justify-center rounded-md text-white/80 hover:bg-red-500/20 hover:text-red-300 transition-colors duration-150"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>

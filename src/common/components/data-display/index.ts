@@ -1,3 +1,5 @@
 export { StatusBadge } from './StatusBadge'
 export { StatCard } from './StatCard'
 export { EvalStatusBadge } from './EvalStatusBadge'
+export { CardHeadingTitle } from './CardHeadingTitle'
+export type { CardHeadingTitleProps } from './CardHeadingTitle'

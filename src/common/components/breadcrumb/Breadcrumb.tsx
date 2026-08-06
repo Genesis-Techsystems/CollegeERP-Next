@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Home } from "lucide-react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export interface BreadcrumbItem {
@@ -21,6 +21,8 @@ export interface BreadcrumbProps {
    * last 2 items.
    */
   maxItems?: number;
+  /** Extra content on the right of the breadcrumb bar (e.g. Angular apps grid). */
+  endAction?: ReactNode;
   /** Additional CSS classes for the outer nav element. */
   className?: string;
 }
@@ -32,11 +34,19 @@ function collapseItems(items: BreadcrumbItem[]): BreadcrumbItem[] {
 }
 
 function isHomeItem(item: BreadcrumbItem, index: number): boolean {
-  // Icon for the leading Home crumb — any home href (admin /dashboard or student home).
   return index === 0 && item.label === "Home" && Boolean(item.href);
 }
 
-export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
+/**
+ * Angular `.link-header` breadcrumb — Material home + chevron_right separators,
+ * navy `#042956` labels, icon color `#1f5fab`.
+ */
+export function Breadcrumb({
+  items,
+  maxItems,
+  endAction,
+  className,
+}: BreadcrumbProps) {
   const shouldCollapse = maxItems !== undefined && items.length > maxItems;
 
   const visibleItems: BreadcrumbItem[] = shouldCollapse
@@ -44,62 +54,73 @@ export function Breadcrumb({ items, maxItems, className }: BreadcrumbProps) {
     : items;
 
   return (
-    <nav aria-label="Breadcrumb" className={cn(className)}>
-      <ol className="flex flex-wrap items-center gap-0 text-[13px] leading-5">
-        {visibleItems.map((item, index) => {
-          const isFirst = index === 0;
-          const isEllipsis =
-            item.label === "..." && item.href === undefined && shouldCollapse;
-          const isLast = index === visibleItems.length - 1;
-          const isHome = isHomeItem(item, index);
+    <nav aria-label="Breadcrumb" className={cn("link-header", className)}>
+      <div className="flex w-full items-center justify-between gap-2">
+        <ol className="flex min-w-0 flex-wrap items-center gap-0 text-[13px] leading-5">
+          {visibleItems.map((item, index) => {
+            const isFirst = index === 0;
+            const isEllipsis =
+              item.label === "..." && item.href === undefined && shouldCollapse;
+            const isLast = index === visibleItems.length - 1;
+            const isHome = isHomeItem(item, index);
 
-          return (
-            <li key={`${item.label}-${index}`} className="flex items-center">
-              {!isFirst && (
-                <ChevronRight
-                  className="mx-2 h-3.5 w-3.5 shrink-0 text-muted-foreground/70"
-                  aria-hidden="true"
-                />
-              )}
+            return (
+              <li key={`${item.label}-${index}`} className="flex items-center">
+                {!isFirst && (
+                  <span
+                    className="material-icons link-header__sep"
+                    aria-hidden="true"
+                  >
+                    chevron_right
+                  </span>
+                )}
 
-              {isEllipsis ? (
-                <span
-                  className="select-none text-muted-foreground"
-                  aria-label="more items"
-                >
-                  &hellip;
-                </span>
-              ) : isHome ? (
-                <Link
-                  href={item.href!}
-                  className="inline-flex items-center text-muted-foreground transition-colors hover:text-foreground"
-                  aria-label="Home"
-                >
-                  <Home className="h-4 w-4" aria-hidden="true" />
-                </Link>
-              ) : isLast || !item.href ? (
-                <span
-                  className={cn(
-                    isLast
-                      ? "font-semibold text-[hsl(var(--primary))]"
-                      : "font-normal text-muted-foreground",
-                  )}
-                  aria-current={isLast ? "page" : undefined}
-                >
-                  {item.label}
-                </span>
-              ) : (
-                <Link
-                  href={item.href}
-                  className="font-normal text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              )}
-            </li>
-          );
-        })}
-      </ol>
+                {isEllipsis ? (
+                  <span
+                    className="select-none text-[#042956]/60"
+                    aria-label="more items"
+                  >
+                    &hellip;
+                  </span>
+                ) : isHome ? (
+                  <Link
+                    href={item.href!}
+                    className="inline-flex items-center"
+                    aria-label="Home"
+                  >
+                    <span
+                      className="material-icons link-header__home"
+                      aria-hidden="true"
+                    >
+                      home
+                    </span>
+                  </Link>
+                ) : isLast || !item.href ? (
+                  <span
+                    className={cn(
+                      "link-header__label",
+                      isLast && "link-header__label--current",
+                    )}
+                    aria-current={isLast ? "page" : undefined}
+                  >
+                    {item.label}
+                  </span>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className="link-header__label hover:underline"
+                  >
+                    {item.label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        {endAction ? (
+          <div className="flex shrink-0 items-center">{endAction}</div>
+        ) : null}
+      </div>
     </nav>
   );
 }

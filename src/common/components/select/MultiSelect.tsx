@@ -328,7 +328,7 @@ export function MultiSelect({
                   onClick={handleSelectAll}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors",
-                    "hover:bg-accent hover:text-accent-foreground select-none",
+                    "hover:bg-muted hover:text-foreground select-none",
                   )}
                 >
                   <Checkbox
@@ -379,8 +379,8 @@ export function MultiSelect({
                     onClick={() => !opt.disabled && toggle(opt.value)}
                     className={cn(
                       "flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors select-none",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      isSelected && "bg-accent/50",
+                      "hover:bg-muted hover:text-foreground",
+                      isSelected && "bg-muted font-medium text-[#042956]",
                       opt.disabled && "cursor-not-allowed opacity-50",
                     )}
                   >

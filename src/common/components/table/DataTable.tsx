@@ -24,6 +24,7 @@ import {
   type GridReadyEvent,
 } from "ag-grid-community";
 import { ChevronDown, Download, Filter } from "lucide-react";
+import { CardHeadingTitle } from "@/common/components/data-display";
 import { Button } from "@/components/ui/button";
 import { PRINTCONFIG } from "@/common/print-config";
 import { cn } from "@/lib/utils";
@@ -681,10 +682,7 @@ export function DataTable<T>({
     >
       {(resolvedTitle || resolvedSubtitle || filters) && (
         <div
-          className={cn(
-            "app-data-table-heading px-5",
-            filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
-          )}
+          className={cn("app-data-table-heading", filtersOpen ? "pb-0" : "")}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -697,9 +695,7 @@ export function DataTable<T>({
                     aria-expanded={contentOpen}
                     aria-label={`Toggle ${resolvedTitle}`}
                   >
-                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                      {resolvedTitle}
-                    </h2>
+                    <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
                     <ChevronDown
                       className={cn(
                         "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
@@ -716,9 +712,7 @@ export function DataTable<T>({
                     aria-expanded={filtersOpen}
                     aria-label="Toggle filters"
                   >
-                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                      {resolvedTitle}
-                    </h2>
+                    <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
                       <Filter className="h-3.5 w-3.5" aria-hidden />
                       <ChevronDown
@@ -731,9 +725,7 @@ export function DataTable<T>({
                     </span>
                   </button>
                 ) : (
-                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                    {resolvedTitle}
-                  </h2>
+                  <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
                 )
               ) : null}
               {resolvedSubtitle ? (

@@ -11,6 +11,7 @@ import {
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { AppFooter } from "@/components/layout/AppFooter";
 import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types/navigation";
@@ -21,8 +22,6 @@ import { Toaster } from "sonner";
 import { APP_CONFIG } from "@/config/constants/app";
 
 interface AppShellProps {
-  children: ReactNode;
-  initialNavItems: NavItem[];
   children: ReactNode;
   initialNavItems: NavItem[];
 }
@@ -199,29 +198,9 @@ export function AppShell({
     prevPathname.current = pathname;
   }, [pathname, autoCollapse, isSidebarHovered, setSidebarCollapsed]);
 
-  // Prevent full-tree hydration drift in protected pages (sidebar/topbar are highly
-  // interactive and depend on client-only persisted state and browser environment).
-  // We render a stable shell frame first, then mount the interactive tree on client.
-  if (!mounted) {
-    return (
-      <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
-        <div
-          className="relative z-30 w-[248px] shrink-0"
-          style={{ height: "100vh", position: "sticky", top: 0 }}
-        />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="sticky top-0 z-20 h-14 border-b border-border bg-card" />
-          <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))]">
-            <div className="mx-auto w-full max-w-none px-0 py-0">
-              <div className="px-6 pt-3 pb-1" />
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  const sidebarIsExpanded = !isSidebarCollapsed || isSidebarHovered;
+  // Zustand persist rehydrates after mount. Until then keep the SSR default
+  // (expanded) so width matches server HTML — no empty gray placeholder flash.
+  const sidebarIsExpanded = !mounted || !isSidebarCollapsed || isSidebarHovered;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
@@ -236,19 +215,26 @@ export function AppShell({
 
       {/* -- Sidebar --------------------------------------------------------- */}
       {/* data-print-hide on the wrapper too — hiding <aside> alone leaves a
-          260px / 56px gutter on the printed sheet because this wrapper div
+          280px / 64px gutter on the printed sheet because this wrapper div
           carries the width. */}
       <div
         data-print-hide
         className={cn(
-          "relative z-30 shrink-0 overflow-hidden transition-all duration-200 ease-in-out",
+          "relative z-30 shrink-0 transition-all duration-200 ease-in-out",
           isSidebarOpen
             ? "translate-x-0"
             : "-translate-x-full md:translate-x-0",
-          // Match reference UI widths (tighter)
-          sidebarIsExpanded ? "w-[248px]" : "w-[56px]",
+          // Angular Fuse sidebar: 280px expanded / 64px folded
+          sidebarIsExpanded ? "w-[280px]" : "w-[64px]",
         )}
-        style={{ height: "100vh", position: "sticky", top: 0 }}
+        style={{
+          height: "100vh",
+          position: "sticky",
+          top: 0,
+          // Angular fuse-sidebar shadow — keep below dialogs (z-1100)
+          boxShadow: "0 2px 8px 0 rgba(0, 0, 0, 0.35)",
+          zIndex: 30,
+        }}
       >
         <Sidebar />
       </div>
@@ -261,12 +247,12 @@ export function AppShell({
 
         <main
           key={pathname}
-          className="flex-1 overflow-y-auto scrollbar-thin animate-fade-up bg-[hsl(var(--background))]"
+          className="flex flex-1 flex-col overflow-y-auto scrollbar-thin animate-fade-up bg-[hsl(var(--background))]"
         >
           {/* Page container without outer card; sections control their own surfaces. */}
           <div
             ref={pageContentRef}
-            className="mx-auto w-full max-w-none px-0 py-0"
+            className="mx-auto w-full max-w-none flex-1 px-0 py-0"
             data-page-content
             onClick={handlePageContentClick}
             style={
@@ -280,13 +266,14 @@ export function AppShell({
               <div
                 data-print-hide
                 data-breadcrumb-card
-                className="border-b border-border/60 bg-muted/20 px-[var(--spacing-page-x)] py-2.5"
+                className="link-header-wrap px-[var(--spacing-page-x)] pt-2.5 pb-1"
               >
                 <Breadcrumb items={breadcrumbItems} maxItems={5} />
               </div>
             )}
             {children}
           </div>
+          <AppFooter />
         </main>
       </div>
 

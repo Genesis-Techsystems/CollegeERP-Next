@@ -45,7 +45,7 @@ export interface ColorThemeMeta {
 }
 
 export const COLOR_THEMES: ColorThemeMeta[] = [
-  { id: 'university-blue', label: 'University Blue', swatch: ['#185FA5', '#0C447C'] },
+  { id: 'university-blue', label: 'University Campus', swatch: ['#042956', '#ffcf46'] },
   { id: 'indigo-teal', label: 'Indigo & Teal', swatch: ['#4F46E5', '#14B8A6'] },
   { id: 'deep-blue', label: 'Deep Blue', swatch: ['#2563EB', '#0EA5E9'] },
   { id: 'emerald', label: 'Emerald', swatch: ['#059669', '#14B8A6'] },
@@ -70,9 +70,9 @@ export const DEFAULT_THEME: ThemeSettings = {
 }
 
 const FONT_SIZE_MAP: Record<FontSize, string> = {
-  sm: '13px',
+  sm: '14px',
   md: '15px',
-  lg: '17px',
+  lg: '16px',
 }
 
 // ---------------------------------------------------------------------------

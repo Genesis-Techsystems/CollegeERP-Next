@@ -1,4 +1,5 @@
 export { AppShell } from './AppShell'
+export { AppFooter } from './AppFooter'
 export { Topbar } from './Topbar'
 export { PageHeader } from './PageHeader'
 export { PageContainer } from './PageContainer'

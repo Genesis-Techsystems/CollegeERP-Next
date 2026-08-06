@@ -122,20 +122,28 @@
   --spacing-stack: 1rem; /* default vertical gap between page sections */
 
   /* ── Typography ─────────────────────────────────────────────────────────── */
-  --font-size-page-title: 1.375rem; /* 22px — H1 */
+  --font-size-page-title: 1.25rem; /* 20px — closer to Angular card titles */
   --font-size-section-title: 1rem; /* 16px — H2 */
   --font-size-label: 0.8125rem; /* 13px */
   --font-size-caption: 0.75rem; /* 12px */
-  --font-size-body: 0.875rem; /* 14px base */
-  --font-size-nav: 0.8125rem; /* 13px nav items */
+  --font-size-body: 0.9375rem; /* 15px — Angular campus density */
+  --font-size-nav: 0.875rem; /* 14px nav items (Angular .nav-link-title) */
   --font-size-nav-section: 0.6875rem; /* 11px uppercase section label */
-  --app-control-height: 32px;
-  --app-control-font-size: 13px;
+  --app-control-height: 36px;
+  --app-control-font-size: 14px;
   --app-label-font-size: 13px;
-  --app-table-header-font-size: 12px;
-  --app-table-row-font-size: 12.5px;
-  --app-table-row-height: 32px;
+  --app-table-header-font-size: 13px;
+  --app-table-row-font-size: 13px;
+  --app-table-row-height: 36px;
   --app-table-header-color: var(--primary);
+
+  /* Angular toolbar */
+  --toolbar-background: 44 100% 64%; /* #ffcf46 */
+  --toolbar-foreground: 0 0% 0%;
+  --toolbar-muted: 40 8% 45%;
+  --toolbar-height: 55px;
+  --sidebar-width: 280px;
+  --sidebar-collapsed-width: 64px;
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
   --radius-card: 0.5rem;
@@ -145,13 +153,15 @@
 
 /* ── AG Grid (Quartz) — app-wide table design ─────────────────────────────── */
 
-/* Table card shell — matches reference .card.adt-card (1rem radius + soft shadow) */
+/* Table card shell — Angular mat-elevation-z2, no curve */
 .app-data-table-card {
-  border-radius: 1rem;
+  border-radius: 0;
   overflow: hidden;
   background: hsl(var(--card));
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  border: none;
+  box-shadow:
+    0 2px 6px 0 rgba(218, 218, 253, 0.65),
+    0 2px 6px 0 rgba(206, 206, 238, 0.54);
 }
 
 /* ── Global filter bar — Review Queue reference layout ───────────────────── */
@@ -384,6 +394,57 @@
   max-width: 7.5rem !important;
 }
 
+/* Assign Evaluator Subject Roles — Angular fxFlex 20/20/60 and 18/20/50/12 */
+.global-filter-bar__row--aesr-r1,
+.global-filter-bar__row--aesr-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  flex-wrap: nowrap !important;
+}
+
+.global-filter-bar__row--aesr-r1 > .global-filter-field,
+.global-filter-bar__row--aesr-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--aesr-r1 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+}
+
+.global-filter-bar__row--aesr-r1 > .global-filter-field--fx60 {
+  flex: 0 0 60% !important;
+  width: 60% !important;
+  max-width: 60% !important;
+}
+
+.global-filter-bar__row--aesr-r2 > .global-filter-field--fx18 {
+  flex: 0 0 18% !important;
+  width: 18% !important;
+  max-width: 18% !important;
+}
+
+.global-filter-bar__row--aesr-r2 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+}
+
+.global-filter-bar__row--aesr-r2 > .global-filter-field--fx50 {
+  flex: 0 0 50% !important;
+  width: 50% !important;
+  max-width: 50% !important;
+}
+
+.global-filter-bar__row--aesr-r2 > .global-filter-field--fx12 {
+  flex: 0 0 12% !important;
+  width: 12% !important;
+  max-width: 12% !important;
+}
+
 @media (max-width: 768px) {
   .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx15,
   .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx69,
@@ -404,7 +465,13 @@
   .global-filter-bar__row--ebcr-r2 > .global-filter-field--fx30,
   .global-filter-bar__row--ebcr-r3 > .global-filter-field--fx40,
   .global-filter-bar__row--ebcr-r3 > .global-filter-field--fx15,
-  .global-filter-bar__row--ebcr-r3 > .global-filter-field--fx10 {
+  .global-filter-bar__row--ebcr-r3 > .global-filter-field--fx10,
+  .global-filter-bar__row--aesr-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--aesr-r1 > .global-filter-field--fx60,
+  .global-filter-bar__row--aesr-r2 > .global-filter-field--fx18,
+  .global-filter-bar__row--aesr-r2 > .global-filter-field--fx20,
+  .global-filter-bar__row--aesr-r2 > .global-filter-field--fx50,
+  .global-filter-bar__row--aesr-r2 > .global-filter-field--fx12 {
     flex: 1 1 100% !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -412,7 +479,9 @@
 
   .global-filter-bar__row--ebcr-r1,
   .global-filter-bar__row--ebcr-r2,
-  .global-filter-bar__row--ebcr-r3 {
+  .global-filter-bar__row--ebcr-r3,
+  .global-filter-bar__row--aesr-r1,
+  .global-filter-bar__row--aesr-r2 {
     flex-wrap: wrap !important;
   }
 }
@@ -921,20 +990,39 @@
   max-height: none !important;
 }
 
-/* Toolbar search */
+/* Toolbar search — white field (Angular) */
 .app-data-table-toolbar-wrap input[type="search"],
-.app-data-table-toolbar-wrap input[type="text"] {
+.app-data-table-toolbar-wrap input[type="text"],
+.app-data-table-toolbar-wrap .relative input {
   height: 2.25rem;
-  border-radius: calc(var(--radius) - 2px);
+  border-radius: 9999px;
+  background-color: #fff !important;
+  border: 1px solid hsl(var(--border));
 }
 
-/* Primary toolbar action (e.g. + New Organization) */
-.app-data-table-toolbar-wrap button[data-table-primary-action] {
-  height: 2.25rem;
-  border-radius: calc(var(--radius) - 2px);
-  padding-inline: 0.875rem;
-  font-size: 12px;
-  font-weight: 600;
+/* Primary toolbar action (e.g. + Add Organization) — Angular pill .btn-add */
+.app-data-table-toolbar-wrap button[data-table-primary-action],
+button.app-control[data-app-add],
+a.app-control[data-app-add] {
+  height: 30px;
+  min-height: 30px;
+  border-radius: 9999px !important;
+  padding-inline: 1rem;
+  font-size: 13px;
+  font-weight: 500;
+  background-color: #042956 !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.app-data-table-toolbar-wrap button[data-table-primary-action]:hover,
+button.app-control[data-app-add]:hover,
+a.app-control[data-app-add]:hover {
+  background-color: #031f42 !important;
+  color: #fff !important;
 }
 
 /* Action column buttons */
@@ -1184,21 +1272,21 @@ input[type="reset"]:disabled,
   -webkit-user-select: text;
 }
 
-/* ── App-wide card shadow utility ─────────────────────────────────────────── */
+/* ── App-wide card — Angular mat-elevation-z2, square corners ─────────────── */
 .app-card {
-  border: 1px solid hsl(var(--border));
+  border: none;
   background: hsl(var(--card));
-  border-radius: 0.625rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition:
-    box-shadow 150ms ease,
-    border-color 150ms ease;
+  border-radius: 0;
+  box-shadow:
+    0 2px 6px 0 rgba(218, 218, 253, 0.65),
+    0 2px 6px 0 rgba(206, 206, 238, 0.54);
+  transition: box-shadow 150ms ease;
 }
 .app-card:hover {
-  border-color: hsl(var(--border) / 0.8);
+  border-color: transparent;
   box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 6px 16px rgba(15, 23, 42, 0.04);
+    0 2px 6px 0 rgba(218, 218, 253, 0.65),
+    0 2px 6px 0 rgba(206, 206, 238, 0.54);
 }
 
 /* ── Page name inside the filters card (fallback) ───────────────────────────
@@ -1217,15 +1305,22 @@ input[type="reset"]:disabled,
     [data-no-page-name]
   )::before {
   content: var(--page-name, none);
-  display: block;
-  padding: 0.4rem 0.75rem;
-  font-size: 13.5px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 14px 24px;
+  font-size: 18px;
+  font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.25;
-  color: hsl(var(--primary));
-  font-family: var(--font-heading), Sora, system-ui, sans-serif;
-  border-bottom: 1px solid hsl(var(--primary) / 0.35);
+  color: #0c51a4;
+  font-family: var(--font-heading), Inter, system-ui, sans-serif;
+  border-bottom: 2px solid #ffcf46;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230c51a4'%3E%3Cpath d='M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 24px center;
+  background-size: 18px 18px;
+  padding-left: 50px;
 }
 /* Hand-rolled shells are padded (p-3/p-4), so give their injected header
    breathing room from the content below; .app-card headers don't need it. */
@@ -1476,49 +1571,52 @@ input[type="reset"]:disabled,
   --shadow-glow: 0 0 20px -4px hsl(174 45% 48% / 0.3);
 }
 
-/* University Blue (UniERP reference) — medium-blue sidebar + #185FA5 primary.
-   Unlike the accent-only themes, this also recolours the sidebar + canvas. */
+/* University Blue / Angular Campus (theme-lime) — gold toolbar + navy sidebar.
+   Mirrors goldcollegeerp Angular: #ffcf46 toolbar, #042956 sidenav, Inter 14–16px. */
 [data-theme="university-blue"] {
-  --background: 0 0% 100%; /* pure white canvas */
-  --foreground: 218 32% 15%; /* #1A2433 */
-  --muted-foreground: 218 10% 47%; /* #6B7384 */
-  --border: 218 25% 91%; /* #E2E6EE thin light border */
-  --input: 218 25% 91%;
-  --primary: 208 75% 37%; /* #185FA5 */
+  --background: 220 14% 95%; /* #F0F1F3 page canvas */
+  --foreground: 214 91% 14%; /* near #042956 */
+  --muted: 220 12% 92%;
+  --muted-foreground: 215 10% 42%;
+  --border: 214 16% 86%;
+  --input: 214 16% 86%;
+  --primary: 214 91% 18%; /* #042956 navy actions */
   --primary-foreground: 0 0% 100%;
-  --ring: 208 75% 37%;
-  --accent: 210 70% 54%; /* #378ADD */
-  --accent-foreground: 0 0% 100%;
-  --card-title: var(--primary);
-  --section-title: 218 32% 18%;
+  --ring: 207 79% 51%; /* mat-blue-600 #1e88e5 */
+  /* Soft surface for menus/hover — NOT gold (gold stays on toolbar/secondary) */
+  --accent: 220 14% 96%;
+  --accent-foreground: 214 91% 14%;
+  --secondary: 44 100% 64%; /* #ffcf46 gold */
+  --secondary-foreground: 214 91% 14%;
+  --card: 0 0% 100%;
+  --card-foreground: 214 91% 14%;
+  --card-title: 214 91% 18%;
+  --section-title: 214 91% 18%;
+  --page-title: 214 91% 18%;
 
-  /* Sidebar — deep navy (#0A2F5C) + white text + solid blue active pill (Option C) */
-  --sidebar-background: 213 80% 20%; /* #0A2F5C deep navy */
-  --sidebar-background-end: 213 82% 15%;
-  --sidebar-surface: 213 45% 28%;
-  --sidebar-foreground: 210 35% 92%; /* near-white nav text + icons */
-  --sidebar-foreground-active: 0 0% 100%; /* pure white on active */
-  --sidebar-section-label: 210 58% 74%; /* light blue MAIN MENU label */
-  --sidebar-primary: 0 0% 100%;
-  --sidebar-primary-foreground: 213 80% 20%;
-  --sidebar-accent: 0 0% 100%;
-  --sidebar-border: 213 45% 26%;
-  --sidebar-ring: 0 0% 100%;
-  --sidebar-active-bg: 213 52% 44%; /* solid medium-blue pill */
-  --sidebar-active-border: 213 60% 62% / 0.55;
-  --sidebar-hover-bg: 0 0% 100% / 0.07;
+  /* Sidebar — solid navy #042956 (no gradient), gold accents */
+  --sidebar-background: 214 91% 18%;
+  --sidebar-background-end: 214 91% 18%;
+  --sidebar-surface: 214 70% 22%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-foreground-active: 44 100% 64%; /* gold on hover/active */
+  --sidebar-section-label: 210 20% 70%;
+  --sidebar-primary: 44 100% 64%; /* #ffcf46 icons + active */
+  --sidebar-primary-foreground: 214 91% 18%;
+  --sidebar-accent: 44 100% 64%;
+  --sidebar-border: 214 60% 24%;
+  --sidebar-ring: 44 100% 64%;
+  --sidebar-active-bg: 207 100% 50% / 0.15; /* rgba(0,140,255,0.15) */
+  --sidebar-active-border: 44 100% 64%;
+  --sidebar-hover-bg: 207 100% 50% / 0.15;
 
-  --gradient-sidebar: linear-gradient(
-    180deg,
-    hsl(213 80% 20%),
-    hsl(213 82% 15%)
-  );
-  --gradient-primary: linear-gradient(
-    135deg,
-    hsl(208 75% 37%),
-    hsl(210 70% 54%)
-  );
-  --shadow-glow: 0 0 20px -4px hsl(208 75% 37% / 0.3);
+  --toolbar-background: 44 100% 64%; /* #ffcf46 */
+  --toolbar-foreground: 0 0% 0%;
+  --toolbar-muted: 40 8% 45%; /* #7b7667 emp subtitle */
+
+  --gradient-sidebar: #042956;
+  --gradient-primary: linear-gradient(135deg, #042956, #1e88e5);
+  --shadow-glow: 0 0 20px -4px hsl(44 100% 64% / 0.35);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1840,51 +1938,122 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CARD TITLE — visible card header (reference design): page name with a small
-   primary square marker, hosted in the card's header row which carries an
-   accent underline. The header rows also hold each page's "Filter" collapse
-   toggle, so un-hiding them restores filter collapsibility.
+   CARD TITLE — Angular filters card: Material `book` + #0c51a4 title + #ffcf46 underline
    ───────────────────────────────────────────────────────────────────────── */
 .app-card-title {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 13.5px;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 18px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   line-height: 1.25;
-  color: hsl(var(--primary));
-  font-family: var(--font-heading), Sora, system-ui, sans-serif;
+  color: #0c51a4;
+  font-family: var(--font-heading), Inter, system-ui, sans-serif;
 }
-/* Header rows hosting a card title: compact padding + light theme-color
-   underline (overrides the pages' utility `border-b`/`px-4 py-3` — :has()
-   lifts specificity above them). Pages use either a <div> header row with a
-   toggle <button>, or a full-width <button> header row — cover both. */
+
+.app-card-title__icon {
+  font-size: 18px !important;
+  width: 22px;
+  height: 22px;
+  line-height: 22px !important;
+  color: #0c51a4;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.app-card-title__text {
+  min-width: 0;
+  font-weight: 600;
+}
+
+/* Angular Material `book` when title omits CardHeadingTitle markup */
+.app-card-title:not(:has(.app-card-title__icon))::before,
+.app-card > div:first-child > h1:not(.app-card-title)::before,
+.app-card > div:first-child > h2:not(.app-card-title)::before,
+.app-card > div:first-child > h3:not(.app-card-title)::before,
+.app-data-table-heading > div > div > h1:not(.app-card-title)::before,
+.app-data-table-heading > div > div > h2:not(.app-card-title)::before,
+.app-data-table-heading h1:not(:has(.app-card-title__icon)):not(.app-card-title)::before,
+.app-data-table-heading h2:not(:has(.app-card-title__icon)):not(.app-card-title)::before {
+  content: "book";
+  font-family: "Material Icons", sans-serif;
+  font-size: 18px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  color: #0c51a4;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-card > div:first-child > h1:not(.app-card-title),
+.app-card > div:first-child > h2:not(.app-card-title),
+.app-card > div:first-child > h3:not(.app-card-title),
+.app-data-table-heading h1:not(.app-card-title),
+.app-data-table-heading h2:not(.app-card-title) {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: #0c51a4;
+  font-family: var(--font-heading), Inter, system-ui, sans-serif;
+}
+
+/* Header rows hosting a card title: Angular expansion-panel header padding
+   (~14px / 24px) + gold underline under the full width. */
 .app-card > div:has(> .app-card-title),
 .app-card > button:has(> .app-card-title),
 .app-card > div:has(> * > .app-card-title),
 .app-card > div:first-child:has(> h1, > h2, > h3) {
-  padding: 0.6rem 0.875rem;
-  border-bottom: 1px solid hsl(var(--primary) / 0.35);
+  padding: 14px 24px !important;
+  background: transparent;
+  border-bottom: 2px solid #ffcf46;
 }
-/* The FIRST card's title always shows the page name (AppShell tags the first
-   card-looking element with `data-page-first-card` and sets `--page-name`),
-   regardless of the heading text the page hardcodes — keeps every page's
-   filters card consistent. `font-size: 0` hides the page-provided text; the
-   ::before inherits color/font from .app-card-title.
-   NOTE: selectors here are deliberately simple — Lightning CSS mis-compiles
-   chained `:not(.x ~ .x)` prefixes (drops them), so first-card detection
-   lives in AppShell JS, not CSS. */
-[data-page-first-card] .app-card-title {
+
+/* DataTable / FilteredPage shared heading chrome — same padding as Angular */
+.app-data-table-heading {
+  padding: 14px 24px !important;
+  border-bottom: 2px solid #ffcf46;
+}
+
+/* Legacy first-card title rewrite (no CardHeadingTitle markup): keep page-name
+   injection. New markup uses .app-card-title__text and is left alone. */
+[data-page-first-card] .app-card-title:not(:has(.app-card-title__text)) {
   font-size: 0;
 }
-[data-page-first-card] .app-card-title::before {
+[data-page-first-card]
+  .app-card-title:not(:has(.app-card-title__text))::before {
+  content: "book";
+  font-family: "Material Icons", sans-serif;
+  font-size: 20px;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  color: #0c51a4;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  -webkit-font-smoothing: antialiased;
+}
+[data-page-first-card]
+  .app-card-title:not(:has(.app-card-title__text))::after {
   content: var(--page-name, none);
-  font-size: 13.5px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.25;
+  color: #0c51a4;
+  font-family: var(--font-heading), Inter, system-ui, sans-serif;
+  vertical-align: middle;
 }
+
 /* Accordion — the whole header row is the collapse trigger (AppShell forwards
    header clicks to the page's filter button). NOTE: lucide-react aliases
    Filter → Funnel, so the svg class is `lucide-funnel`; match all variants. */
@@ -1993,7 +2162,7 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   SIDEBAR — section labels, nav item, active pill
+   SIDEBAR — section labels, nav item, active pill (Angular theme-lime parity)
    ───────────────────────────────────────────────────────────────────────── */
 .sidebar-section-label {
   font-size: var(--font-size-nav-section);
@@ -2006,20 +2175,382 @@ h4,
 }
 
 .nav-item {
-  font-size: var(--font-size-nav);
+  font-size: 14px !important;
+  font-weight: 500 !important;
   line-height: 1.25;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
+  min-height: 44px;
+  border-radius: 0 !important;
+  border-left: 3px solid transparent;
+}
+
+[data-theme="university-blue"] .nav-item:hover,
+[data-theme="university-blue"] .nav-item[data-state="open"],
+[data-theme="university-blue"] a.nav-item:hover {
+  background-color: transparent !important;
+  color: #ffcf46 !important;
+  border-left-color: #ffcf46;
+}
+
+/* Active leaf only: gold text/icons, no blue fill */
+[data-theme="university-blue"] .nav-item-active,
+[data-theme="university-blue"] a.nav-item[aria-current="page"],
+[data-theme="university-blue"] [data-active="true"].nav-item {
+  background-color: transparent !important;
+  color: #ffcf46 !important;
+  border-left-color: #ffcf46;
+  font-weight: 600 !important;
+}
+
+/* Open ancestors must not look filled — gold only when they own aria-current / self-active */
+[data-theme="university-blue"] .nav-item[data-state="open"]:not([aria-current="page"]):not([data-active="true"]) {
+  background-color: transparent !important;
+  color: inherit;
+  border-left-color: transparent;
+}
+
+[data-theme="university-blue"] .nav-item[data-state="open"]:not([aria-current="page"]):not([data-active="true"]) > span:first-of-type,
+[data-theme="university-blue"] .nav-item[data-state="open"]:not([aria-current="page"]):not([data-active="true"]) .nav-link-icon {
+  color: #ffcf46 !important;
+}
+
+/* Angular: nav icons are gold #ffcf46 */
+[data-theme="university-blue"] aside nav svg {
+  color: #ffcf46 !important;
+  stroke: #ffcf46 !important;
+}
+
+/* Collapse arrows stay white (Angular chevron) — override gold icon rule */
+[data-theme="university-blue"] aside nav .nav-item > svg.lucide-chevron-right,
+[data-theme="university-blue"] aside nav .nav-item span > svg.lucide-chevron-right {
+  color: #fff !important;
+  stroke: #fff !important;
+}
+
+[data-theme="university-blue"] aside nav .material-icons.nav-link-icon,
+[data-theme="university-blue"] aside nav i.nav-link-icon {
+  color: #ffcf46 !important;
+  font-size: 18px !important;
+  width: 18px;
+  height: 18px;
+  line-height: 18px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Material Icons — Angular mat-icon parity */
+.material-icons {
+  font-family: "Material Icons", sans-serif;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Angular `.link-header` breadcrumb bar */
+.link-header-wrap {
+  background: transparent;
+}
+
+.link-header {
+  background: #fff;
+  padding: 5px 10px;
+  border-radius: 3px;
+  box-shadow:
+    0 2px 6px rgba(218, 218, 253, 0.65),
+    0 2px 6px rgba(206, 206, 238, 0.54);
+}
+
+.link-header__home,
+.link-header__sep {
+  font-size: 18px !important;
+  line-height: 18px !important;
+  width: 18px;
+  height: 18px;
+  color: #1f5fab;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.link-header__sep {
+  margin: 0 2px;
+}
+
+.link-header__label {
+  color: #042956;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.link-header__label--current {
+  font-weight: 600;
+  color: #042956;
+}
+
+/* Hide React pill accent bars — Angular uses left gold border instead */
+[data-theme="university-blue"] aside nav .absolute.left-0 {
+  display: none !important;
 }
 
 .nav-item-active {
   background: hsl(var(--sidebar-active-bg));
   color: hsl(var(--sidebar-foreground-active));
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .nav-item-hover:hover {
   background: hsl(var(--sidebar-hover-bg));
   color: hsl(var(--sidebar-foreground-active));
+}
+
+/* Angular gold toolbar shell — Material elevation-z1 */
+.app-toolbar {
+  height: var(--toolbar-height, 55px);
+  min-height: var(--toolbar-height, 55px);
+  background-color: #ffcf46;
+  color: #000;
+  border-bottom: none;
+  z-index: 4;
+  box-shadow:
+    0 2px 1px -1px rgba(0, 0, 0, 0.2),
+    0 1px 1px 0 rgba(0, 0, 0, 0.14),
+    0 1px 3px 0 rgba(0, 0, 0, 0.12);
+}
+
+.app-toolbar__college {
+  font-size: 17px;
+  font-weight: 500;
+  color: #000;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Angular `.clg-icon` — Font Awesome filled graduation cap */
+.app-toolbar__clg-icon {
+  color: #000 !important;
+  font-size: 18px;
+  margin-right: 2px;
+  line-height: 1;
+}
+
+/* Angular mat-form-field underline search on gold toolbar (no white fill) */
+.app-toolbar__search {
+  height: 26px;
+  font-size: 15px;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid #9c9c9c !important;
+  box-shadow: none !important;
+  color: #000;
+}
+
+.app-toolbar__search:focus {
+  border-bottom-color: #656565 !important;
+}
+
+/* Angular `.toolbar-notification` — light circle behind mail/bell */
+.app-toolbar__notification {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 3px;
+  color: #656565;
+  background: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.app-toolbar__notification .material-icons {
+  font-size: 17px !important;
+  line-height: 1 !important;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+}
+
+.app-toolbar__notification:hover {
+  background: #f1f2f4;
+}
+
+.app-sidebar-brand {
+  height: 55px;
+  min-height: 55px;
+  max-height: 55px;
+  background: #fff;
+  border-bottom: 1px solid #dedede;
+}
+
+/* Bold hamburger in sidebar brand (collapse control) */
+.app-sidebar-brand button svg {
+  stroke-width: 2.75;
+}
+
+/* Angular fuse-sidebar elevation — below dialog overlay (z-1100) */
+aside.app-sidebar,
+[data-theme="university-blue"] aside {
+  box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.35);
+  z-index: 30;
+}
+
+/* FilteredPage shell (no .app-card class) shares Angular elevation */
+.app-data-table.app-data-table-card {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow:
+    0 2px 6px 0 rgba(218, 218, 253, 0.65),
+    0 2px 6px 0 rgba(206, 206, 238, 0.54) !important;
+}
+
+/* Angular Fuse footer */
+.app-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 35px;
+  min-height: 35px;
+  padding: 0 16px;
+  background: #fff;
+  box-shadow:
+    0 -1px 1px -1px rgba(0, 0, 0, 0.2),
+    0 0 1px 0 rgba(0, 0, 0, 0.14),
+    0 -1px 3px 0 rgba(0, 0, 0, 0.12);
+}
+
+.app-footer__text {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b6b6b;
+}
+
+/* Angular white Cancel / Back */
+button.app-control[data-app-back],
+a.app-control[data-app-back],
+button.back-btn,
+a.back-btn {
+  background-color: #fff !important;
+  color: #042956 !important;
+  border: 1px solid #cfcfcf !important;
+}
+
+button.app-control[data-app-back]:hover,
+a.app-control[data-app-back]:hover,
+button.back-btn:hover,
+a.back-btn:hover {
+  background-color: #f5f5f5 !important;
+  color: #042956 !important;
+}
+
+/* Angular dialog title icon */
+.app-dialog-title__icon {
+  font-size: 20px !important;
+  width: 22px;
+  height: 22px;
+  line-height: 22px !important;
+  color: #0c51a4;
+}
+
+/* Gold line under EVERY popup heading (Angular mat-dialog / Fuse) */
+.app-dialog-header {
+  position: relative;
+  background: #fff !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+.app-dialog-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: #ffcf46;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app-dialog-header__info {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding-right: 0.25rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0c51a4;
+  white-space: nowrap;
+}
+
+/* Force white modal body (not page gray canvas) */
+[data-radix-dialog-content],
+[role="dialog"].group\/dialog,
+div[role="dialog"] {
+  background-color: #fff !important;
+  background: #fff !important;
+}
+
+/* Also cover dialogs that skip DialogHeader but put a title row first */
+[role="dialog"] > .app-dialog-header,
+[data-radix-dialog-content] > .app-dialog-header {
+  border-bottom: none !important;
+}
+
+/* Angular mat-tab-group on /dashboard */
+.app-dashboard-tabs {
+  min-height: 36px;
+  height: auto !important;
+  background: #fff !important;
+  background-color: #fff !important;
+  border-radius: 0 !important;
+  border-bottom: 2px solid #ffcf46 !important;
+  gap: 0 !important;
+  padding: 0 !important;
+}
+
+.app-dashboard-tab {
+  height: 36px !important;
+  min-height: 36px;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: #fff !important;
+  background-color: #fff !important;
+  color: #757575 !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+.app-dashboard-tab[data-state="active"] {
+  background: #ffcf46 !important;
+  background-color: #ffcf46 !important;
+  color: #000 !important;
+  opacity: 1 !important;
+  box-shadow: none !important;
+}
+
+.app-dashboard-tab[data-state="inactive"] {
+  background: #fff !important;
+  background-color: #fff !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

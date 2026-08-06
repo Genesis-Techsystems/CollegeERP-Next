@@ -38,6 +38,17 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Material Icons + Font Awesome — Angular Fuse sidenav / page-header icon fonts */}
+        <link
+          href="https://fonts.googleapis.com/icon?family=Material+Icons"
+          rel="stylesheet"
+        />
+        <link
+          rel="stylesheet"
+          href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
+          integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
+          crossOrigin="anonymous"
+        />
         {/* Apply saved colour theme + dark mode before first paint (no flash) */}
         <script
           dangerouslySetInnerHTML={{
@@ -45,7 +56,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col" suppressHydrationWarning>{children}</body>
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }

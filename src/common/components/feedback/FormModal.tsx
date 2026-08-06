@@ -28,6 +28,8 @@ export interface FormModalProps {
   onClose: () => void;
   title: string;
   description?: string;
+  /** Right-side header info (Angular e.g. "Course : Bachelor of Arts"). */
+  headerInfo?: React.ReactNode;
   /** Called when the <form> fires its submit event. */
   onSubmit: (e: { preventDefault: () => void }) => void;
   isSubmitting?: boolean;
@@ -64,6 +66,7 @@ export function FormModal({
   onClose,
   title,
   description,
+  headerInfo,
   onSubmit,
   isSubmitting = false,
   submitLabel = "Save",
@@ -100,17 +103,18 @@ export function FormModal({
         <DialogHeader
           className={cn(
             "shrink-0 items-center text-left sm:text-left",
-            showHeaderDivider && "border-b border-border",
+            showHeaderDivider && "border-b-2 border-[#ffcf46]",
           )}
         >
           <DialogTitle className={cn("text-left", titleClassName)}>
             {title}
           </DialogTitle>
-          {description ? (
-            <DialogDescription>{description}</DialogDescription>
-          ) : (
-            <DialogDescription className="sr-only">{title}</DialogDescription>
-          )}
+          {headerInfo ? (
+            <span className="app-dialog-header__info">{headerInfo}</span>
+          ) : null}
+          <DialogDescription className="sr-only">
+            {description || title}
+          </DialogDescription>
         </DialogHeader>
 
         <form

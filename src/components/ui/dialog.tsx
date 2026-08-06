@@ -16,7 +16,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-[1100] bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
     )}
     {...props}
@@ -116,7 +116,7 @@ const DialogContent = React.forwardRef<
             onEscapeKeyDown?.(e);
           }}
           className={cn(
-            "group/dialog fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
+            "group/dialog fixed left-[50%] top-[50%] z-[1100] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-[#e0e0e0] bg-white shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
             padded ? "px-6 pb-6 pt-0" : "p-0",
             className,
           )}
@@ -148,10 +148,11 @@ function DialogHeader({
   return (
     <div
       className={cn(
-        "flex min-h-14 items-center border-b border-border bg-muted/40 pr-12 text-center sm:text-left",
+        "app-dialog-header flex min-h-14 items-center justify-between gap-3 bg-white pr-12 text-left",
         "group-data-[dialog-padded]/dialog:-mx-6 group-data-[dialog-padded]/dialog:px-6",
         "px-6",
         className,
+        "border-b-0",
       )}
       {...props}
     />
@@ -178,15 +179,20 @@ DialogFooter.displayName = "DialogFooter";
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight m-0",
+      "app-dialog-title m-0 inline-flex items-center gap-2 text-left text-[18px] font-semibold leading-none tracking-tight text-[#0c51a4]",
       className,
     )}
     {...props}
-  />
+  >
+    <span className="material-icons app-dialog-title__icon" aria-hidden="true">
+      apps
+    </span>
+    <span className="app-dialog-title__text">{children}</span>
+  </DialogPrimitive.Title>
 ));
 DialogTitle.displayName = DialogPrimitive.Title.displayName;
 

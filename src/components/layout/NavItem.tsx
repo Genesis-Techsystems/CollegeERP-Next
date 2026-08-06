@@ -716,27 +716,61 @@ function NavIcon({
   kind?: "module" | "page";
   primarySurface?: boolean;
 }) {
-  const resolved = resolveIcon(name);
-  const Icon = resolved ?? (kind === "module" ? LayoutDashboard : ChevronRight);
+  const raw = name?.trim() ?? "";
 
-  return (
-    <span
-      className={cn(
-        "flex items-center justify-center h-[20px] w-[20px] shrink-0 transition-colors duration-150",
-        primarySurface && "text-[hsl(var(--primary-foreground))]",
-        !primarySurface &&
-          (active
-            ? "text-white"
-            : kind === "module"
-              ? "text-[hsl(var(--sidebar-foreground))]"
-              : "text-[hsl(var(--sidebar-foreground))]/80"),
-      )}
-    >
-      <Icon
-        className="h-[18px] w-[18px]"
-        strokeWidth={1.75}
+  // Angular Fuse: multi-token with spaces → Font Awesome <i class="fa fa-...">
+  if (raw.includes(" ") && /\bfa[- ]/.test(raw)) {
+    return (
+      <i
+        className={cn(raw, "nav-link-icon")}
+        style={{
+          fontSize: 18,
+          width: 18,
+          height: 18,
+          lineHeight: "18px",
+          color: primarySurface ? undefined : "#ffcf46",
+        }}
         aria-hidden="true"
       />
+    );
+  }
+
+  // Angular Fuse: single token → Material Icons ligature (<mat-icon>{{icon}}</mat-icon>)
+  if (raw && !raw.includes(" ")) {
+    const ligature = raw.replace(/-/g, "_");
+    return (
+      <span
+        className="material-icons nav-link-icon"
+        style={{
+          fontSize: 18,
+          width: 18,
+          height: 18,
+          lineHeight: "18px",
+          color: primarySurface ? undefined : "#ffcf46",
+        }}
+        aria-hidden="true"
+      >
+        {ligature}
+      </span>
+    );
+  }
+
+  // No API icon — Material fallback by kind (Angular default arrows / dashboard)
+  const fallbackLigature = kind === "module" ? "dashboard" : "arrow_forward";
+  return (
+    <span
+      className="material-icons nav-link-icon"
+      style={{
+        fontSize: 18,
+        width: 18,
+        height: 18,
+        lineHeight: "18px",
+        color: primarySurface ? undefined : "#ffcf46",
+        opacity: active ? 1 : 0.95,
+      }}
+      aria-hidden="true"
+    >
+      {fallbackLigature}
     </span>
   );
 }
@@ -1192,55 +1226,36 @@ function navCollapsibleTriggerClasses(
   isSelfActive: boolean,
   isActive: boolean,
 ): string {
-  if (isSelfActive) {
-    // The module page itself is current — soft tint (the left accent bar marks it).
-    return cn(
-      "text-[hsl(var(--sidebar-foreground-active))]",
-      "font-semibold",
-      "bg-[hsl(var(--sidebar-primary))]/15",
-      "hover:bg-[hsl(var(--sidebar-primary))]/20",
-    );
-  }
-  if (isChildActive) {
-    // Ancestor of the active page — keep it light: bright bold text only, no fill.
-    // (Stacked solid pills on every ancestor looked heavy/cluttered.)
+  if (isSelfActive || isChildActive || isActive) {
+    // Gold label only — no blue fill (Angular active = color, not pill)
     return cn(
       "text-[hsl(var(--sidebar-foreground-active))]",
       "font-semibold",
       "bg-transparent",
-      "hover:bg-[hsl(var(--sidebar-hover-bg))]",
-    );
-  }
-  if (isActive) {
-    return cn(
-      "text-[hsl(var(--sidebar-foreground-active))]",
-      "bg-transparent",
-      "hover:bg-[hsl(var(--sidebar-hover-bg))]",
+      "hover:bg-transparent",
+      "hover:text-[hsl(var(--sidebar-foreground-active))]",
     );
   }
   return cn(
     "text-[hsl(var(--sidebar-foreground))]",
-    "hover:bg-[hsl(var(--sidebar-hover-bg))]",
+    "hover:bg-transparent",
     "hover:text-[hsl(var(--sidebar-foreground-active))]",
   );
 }
 
-/** Leaf row on active: theme-driven pill (`--sidebar-active-bg`) + active foreground.
- *  Never use `--sidebar-primary` as a fill here — some themes (University Blue)
- *  define it as pure white, which made the active row a white pill with white text. */
+/** Leaf row on active: gold text only (no background highlight). */
 function navLeafClasses(_examMasters: boolean, isSelfActive: boolean): string {
   if (isSelfActive) {
     return cn(
       "text-[hsl(var(--sidebar-foreground-active))]",
       "font-semibold",
-      "bg-[hsl(var(--sidebar-active-bg))]",
-      "shadow-sm",
-      "hover:brightness-110",
+      "bg-transparent",
+      "hover:bg-transparent",
     );
   }
   return cn(
     "text-[hsl(var(--sidebar-foreground))]",
-    "hover:bg-[hsl(var(--sidebar-hover-bg))]",
+    "hover:bg-transparent",
     "hover:text-[hsl(var(--sidebar-foreground-active))]",
   );
 }
@@ -1266,15 +1281,18 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     item.icon === "arrow_forward_ios" ||
     item.icon === "chevron_right";
   const inferredIconName = inferIconNameFromLabel(item.label);
-  const providedIconIsResolvable = !!item.icon && !!resolveIcon(item.icon);
+  // Angular Fuse renders API icon as-is (mat-icon / FA). Do NOT require Lucide
+  // ICON_MAP — that remapped Material names and showed the wrong glyphs.
+  const hasProvidedIcon =
+    Boolean(item.icon?.trim()) &&
+    item.icon !== "null" &&
+    item.icon !== "undefined";
   const shouldPreferInferredIcon =
-    !providedIconIsResolvable || (depth > 0 && hasGenericArrowIcon);
+    !hasProvidedIcon || (depth > 0 && hasGenericArrowIcon);
   const iconName = shouldPreferInferredIcon
     ? (inferredIconName ?? item.icon)
     : item.icon;
-  // Always show a meaningful icon (backend value, then label inference). The
-  // NavIcon component handles the final fallback for leaf pages with no
-  // resolvable icon — a subtle dot keeps the icon column rhythm intact.
+  // Always show a meaningful icon (backend value, then label inference).
   const renderedIconName = iconName ?? inferredIconName;
 
   const labelLower = (item.label ?? "").toLowerCase();
@@ -3926,8 +3944,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           "group relative flex w-full items-center justify-center rounded-md py-2 px-1",
           "transition-colors duration-150 ease-out",
           isActive
-            ? "text-[hsl(var(--sidebar-foreground-active))] bg-[hsl(var(--sidebar-active-bg))]"
-            : "text-[hsl(var(--sidebar-foreground))] hover:bg-[hsl(var(--sidebar-hover-bg))] hover:text-[hsl(var(--sidebar-foreground-active))]",
+            ? "text-[hsl(var(--sidebar-foreground-active))] bg-transparent"
+            : "text-[hsl(var(--sidebar-foreground))] hover:bg-transparent hover:text-[hsl(var(--sidebar-foreground-active))]",
         )}
       >
         {isActive && (
@@ -3952,7 +3970,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           : "pl-12";
 
   const baseLinkClasses = cn(
-    "group relative flex items-center gap-2.5 rounded-md h-10 nav-item font-semibold",
+    "group relative flex items-center gap-2.5 h-[44px] nav-item",
     "transition-colors duration-150 ease-out",
     `pr-3 ${paddingLeft}`,
   );
@@ -4021,14 +4039,13 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           </span>
           <span
             className={cn(
-              "ml-auto shrink-0 transition-transform duration-200",
-              isActive
-                ? "text-white/80"
-                : "text-[hsl(var(--sidebar-foreground))]/60",
+              "material-icons ml-auto shrink-0 text-white transition-transform duration-200",
               isOpen && "rotate-90",
             )}
+            style={{ fontSize: 18, width: 18, height: 18, lineHeight: "18px" }}
+            aria-hidden="true"
           >
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            keyboard_arrow_right
           </span>
         </CollapsibleTrigger>
 

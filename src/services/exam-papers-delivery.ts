@@ -1216,18 +1216,14 @@ export function pickUnivExamCenterRoomId(row: AnyRow): number {
 }
 
 export async function listBuildingsByUnivExamCenter(
-  univExamcenterId: number,
+  _univExamcenterId?: number,
 ): Promise<AnyRow[]> {
-  if (!univExamcenterId) return [];
-  // Angular selectedExamCenter: listDetailsById(Building, isActive) then client-filter
-  // by univExamCenterId — server query on univExamCenterId causes Internal Server Error.
+  // Return all active buildings from API (no client filter by centerId).
   const rows = await domainList<AnyRow>(
     SETUP_API.BUILDING,
     buildQuery({ isActive: true }),
   );
-  return (Array.isArray(rows) ? rows : []).filter(
-    (r) => num(r.univExamCenterId ?? r.univExamcenterId) === univExamcenterId,
-  );
+  return Array.isArray(rows) ? rows : [];
 }
 
 export async function listBlocksByBuilding(
