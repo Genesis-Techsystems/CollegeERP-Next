@@ -128,7 +128,8 @@ export function PayFeesPage() {
   const page = searchParams.get("page") ?? "fee-payment";
 
   const [receiptDt, setReceiptDt] = useState<Date | null>(new Date());
-  const [amount, setAmount] = useState(0);
+  /** `""` while clearing so Payment Amount can backspace past 0. */
+  const [amount, setAmount] = useState<number | "">(0);
   const [paymentModeId, setPaymentModeId] = useState<string | null>(null);
   const [paymentTypeId, setPaymentTypeId] = useState<string | null>(null);
   const [paymentFor, setPaymentFor] = useState("");
@@ -385,6 +386,14 @@ export function PayFeesPage() {
   );
 
   function onPaymentAmountChange(raw: string) {
+    // Allow empty while typing — Number("") === 0 would pin the input at 0.
+    if (raw.trim() === "") {
+      setAmount("");
+      setEqualAmount(0);
+      setAmountFlag(false);
+      setParticulars((prev) => prev.map((p) => ({ ...p, amount: 0 })));
+      return;
+    }
     const value = Number(raw);
     const bal = num(feeStudentData?.balanceAmount);
     if (!Number.isFinite(value) || value < 0) {
@@ -427,9 +436,10 @@ export function PayFeesPage() {
         ? { ...p, amount: Number.isFinite(value) ? value : 0 }
         : p,
     );
-    recomputeEqual(next, amount);
+    recomputeEqual(next, amount === "" ? 0 : amount);
   }
 
+  const amountNum = amount === "" ? 0 : amount;
   const modeField = pickModeField(paymentModeId, paymentModeOptions);
   // Angular: [disabled]="(!flag || equalAmount > 0)" when financialYearDetails.length > 0
   const buttonsEnabled =
@@ -480,7 +490,7 @@ export function PayFeesPage() {
       toastInfo("Please complete payment details.");
       return;
     }
-    if (!paymentModeId || !paymentTypeId || amount <= 0) {
+    if (!paymentModeId || !paymentTypeId || amountNum <= 0) {
       toastInfo("Please select pay mode, payment type and enter amount.");
       return;
     }
@@ -502,7 +512,7 @@ export function PayFeesPage() {
       courseYearName: searchParams.get("courseYearName") ?? undefined,
       section: searchParams.get("section") ?? undefined,
       courseYearNo: searchParams.get("courseYearNo") ?? undefined,
-      receiptAmount: amount,
+      receiptAmount: amountNum,
       feeParticularwisePayments: lines,
     });
     setConfirmOpen(true);
@@ -527,7 +537,7 @@ export function PayFeesPage() {
       paymentFor: paymentForValue,
       fineReason: fineReason || undefined,
       receiptDt,
-      amount,
+      amount: amountNum,
       paymentTypeId: Number(paymentTypeId),
       paymentModeId: Number(paymentModeId),
       transactionNo: transactionNo || undefined,
@@ -540,7 +550,7 @@ export function PayFeesPage() {
       studentId,
       financialYearId: fyId,
       isFeeRefund: false,
-      receiptAmount: amount,
+      receiptAmount: amountNum,
       feeStdDataId: Number(feeStudentData.feeStdDataId),
       revertbByEmployeeId: employeeId,
       feeParticularwisePayments: lines,
@@ -579,7 +589,7 @@ export function PayFeesPage() {
           courseCode.toUpperCase() === "PHD" ? "PHD" : "COLLEGEFEE";
         setConfirmOpen(false);
         setConfirmData(null);
-        await initiatePayment(amount, orderId, gatewayCollegeId, feeType);
+        await initiatePayment(amountNum, orderId, gatewayCollegeId, feeType);
         return;
       }
 
@@ -933,7 +943,7 @@ export function PayFeesPage() {
                   type="number"
                   min={0}
                   className="h-9 max-w-[140px] rounded-sm text-base font-bold"
-                  value={Number.isFinite(amount) ? amount : 0}
+                  value={amount}
                   onChange={(e) => onPaymentAmountChange(e.target.value)}
                 />
               </div>
@@ -1110,7 +1120,7 @@ export function PayFeesPage() {
                   key={`s-${p.feeCategoryId}-${p.feeParticularsId}-${i}`}
                   index={i}
                   row={p}
-                  payDisabled={amount <= 0}
+                  payDisabled={amountNum <= 0}
                   onPayChange={(v) => onParticularPayChange(i, v, "structure")}
                 />
               ))}
@@ -1135,7 +1145,7 @@ export function PayFeesPage() {
                   key={`w-${p.feeCategoryId}-${p.feeParticularsId}-${i}`}
                   index={i}
                   row={p}
-                  payDisabled={amount <= 0}
+                  payDisabled={amountNum <= 0}
                   onPayChange={(v) => onParticularPayChange(i, v, "stdwise")}
                   onDelete={
                     num(p.balanceAmount) > 0 &&

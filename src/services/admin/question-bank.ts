@@ -2,7 +2,7 @@
  * Question Bank (Assessment) service — Angular `question-bank-list` parity.
  *
  * API endpoints (match Angular CONSTANTS + crudService):
- *   GET  /domain/list/Assessment?size=99999&query=…     — list (ADMIN / by user)
+ *   GET  /domain/list/Assessment?query=order(createdDt=desc)&size=99999 — listAllDetails
  *   POST /assessment                                     — create question bank (assessmentUrl)
  *   PUT  /assessment                                     — update question bank (assessmentUrl)
  *   POST /assessment/addQuestion                         — add / update / soft-delete question
@@ -21,6 +21,7 @@ import type {
 import type { ApiResponse } from "@/types/api";
 import {
   domainList,
+  domainListRawQuery,
   buildQuery,
   postDetails,
   putDetails,
@@ -32,48 +33,27 @@ import { AppError } from "@/lib/errors";
 
 // ─── Question Bank CRUD ───────────────────────────────────────────────────────
 
-/**
- * Angular `listDetailsByTwoIdWithSort` → filter + sort on Assessment.
- * Use `.and.` (not a literal `&`) so the full query stays in one `query=`
- * param; a raw `&` splits the URL and drops `order(createdDt=DESC)`.
- * → `preparedbyUser.userId==1739.and.isActive==true.order(createdDt=DESC)`
- */
-function buildQuestionBankListQuery(userId: number): string {
-  return buildQuery(
-    { "preparedbyUser.userId": userId, isActive: true },
-    { field: "createdDt", direction: "DESC" },
-  );
-}
-
+/** Angular: keep only truthy `isForQuestionbank` (drops false / null / undefined). */
 function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
-  return rows.filter((r) => {
-    if (r.isForQuestionbank === true) return true;
-    if (r.isForQuestionbank === false) return false;
-    return true;
-  });
-}
-
-/** Newest first — createdDt DESC, then assessmentId DESC (tie-break for same day). */
-function sortQuestionBanksNewestFirst(rows: Assessment[]): Assessment[] {
-  return [...rows].sort((a, b) => {
-    const ta = a.createdDt ? new Date(a.createdDt).getTime() : 0;
-    const tb = b.createdDt ? new Date(b.createdDt).getTime() : 0;
-    if (tb !== ta) return tb - ta;
-    return (b.assessmentId ?? 0) - (a.assessmentId ?? 0);
-  });
+  return rows.filter((r) => r.isForQuestionbank);
 }
 
 /**
- * List question banks for the logged-in preparer.
- * Angular (admin + QuestionPaperSetter): same payload shape —
- * `preparedbyUser.userId=={userId}.and.isActive==true.order(createdDt=DESC)`.
- * Client filter: `isForQuestionbank` (same as Angular).
+ * List question banks — Angular `question-bank-list` / listAllDetails parity:
+ *   GET /domain/list/Assessment?query=order(createdDt=desc)&size=99999
+ * (no preparedbyUser / isActive filter — Active + InActive both returned).
+ * Client filter: `isForQuestionbank`.
  */
-export async function listQuestionBanks(userId: number): Promise<Assessment[]> {
-  if (!userId) return [];
-  const query = buildQuestionBankListQuery(userId);
-  const rows = await domainList<Assessment>(ENTITIES.ASSESSMENT.name, query);
-  return sortQuestionBanksNewestFirst(filterQuestionBankRows(rows));
+export async function listQuestionBanks(
+  _userId?: number,
+): Promise<Assessment[]> {
+  // Match Angular query key order + casing: query=order(createdDt=desc)&size=99999
+  const rows = await domainListRawQuery<Assessment>(
+    ENTITIES.ASSESSMENT.name,
+    "order(createdDt=desc)",
+    true,
+  );
+  return filterQuestionBankRows(rows);
 }
 
 /**

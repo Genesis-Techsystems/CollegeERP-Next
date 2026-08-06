@@ -41,6 +41,7 @@ import {
 } from "./crud";
 import { getGeneralDetails } from "./exam-master";
 import { listQuotaOptions } from "./fee-masters";
+import { listDesignations } from "./admin/designation";
 
 export type PaginatedStudentFeeDue = {
   rows: StudentFeeDueRow[];
@@ -425,6 +426,27 @@ export async function printStudentFeeReceiptDownload(
   const res = await fetch(
     NEXT_API.PROXY(FEE_API.STUDENT_FEE_RECEIPT_DOWNLOAD) +
       `?studentId=${studentId}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  await openPdfBlobPrint(await res.blob());
+}
+
+/**
+ * Angular Fee Ledger `print()` —
+ * GET `feeLedgerDownload?collegeId=&studentId=` → PDF blob → iframe print.
+ */
+export async function printFeeLedgerDownload(
+  collegeId: number,
+  studentId: number,
+): Promise<void> {
+  if (!collegeId || !studentId) return;
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.FEE_LEDGER_2) +
+      `?collegeId=${collegeId}&studentId=${studentId}`,
     { credentials: "include" },
   );
   if (!res.ok) {
@@ -1020,6 +1042,259 @@ export async function listFeeDueNotifications(params: {
   return Array.isArray(block) ? block : [];
 }
 
+export type FeeDueListReportParams = {
+  flag: string;
+  collegeId: number;
+  courseId: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  quotaId?: number;
+  /** Angular `in_fee_type_id` — pivot unchecked → 1, checked → 0 */
+  feeTypeId?: number;
+  studentId?: number;
+  feeCategoryId?: number;
+  feeParticularId?: number;
+  studentStatusId?: number;
+  batchId?: number;
+  includeScholarship?: boolean;
+};
+
+/**
+ * Angular Fee Due List `getDueList` —
+ * `listByFiveteenIds(feeDueListScholarshipHoldUrl, …)` →
+ * `getAllRecords/s_fee_due_list_scholarship_hold?in_flag=&in_clg_id=&…`
+ */
+export async function fetchFeeDueListScholarshipHold(
+  params: FeeDueListReportParams,
+): Promise<Record<string, unknown>[]> {
+  if (!params.flag || !params.collegeId || !params.courseId) return [];
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    "s_fee_due_list_scholarship_hold",
+    {
+      in_flag: params.flag,
+      in_clg_id: params.collegeId,
+      in_course_id: params.courseId,
+      in_group_id: params.courseGroupId ?? 0,
+      in_year_id: params.courseYearId ?? 0,
+      in_ac_yr_id: 0,
+      in_section_id: 0,
+      in_quota_id: params.quotaId ?? 0,
+      in_fee_type_id: params.feeTypeId ?? 1,
+      in_std_id: params.studentId ?? 0,
+      in_category_id: params.feeCategoryId ?? 0,
+      in_particulars_id: params.feeParticularId ?? 0,
+      in_StdStatus_id: params.studentStatusId ?? 0,
+      in_Batch_id: params.batchId ?? 0,
+      in_include_sch: params.includeScholarship ? 1 : 0,
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+export type FeeTransportCollectionParams = {
+  collegeId: number;
+  academicYearId?: number;
+  quotaId?: number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  travellerId?: number;
+  /** Angular `in_traveller_type` — `S` | `E` | `` */
+  travellerType?: string;
+};
+
+/**
+ * Angular Bus Fee Collections `getDueList` —
+ * `listByEightIds(feeTransportCollectionUrl, …)` →
+ * `getAllRecords/s_rep_fee_transport_collection?in_college_id=&…`
+ */
+export async function fetchFeeTransportCollection(
+  params: FeeTransportCollectionParams,
+): Promise<Record<string, unknown>[]> {
+  if (!params.collegeId) return [];
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    "s_rep_fee_transport_collection",
+    {
+      in_college_id: params.collegeId,
+      in_academicyear_id: params.academicYearId ?? 0,
+      in_quota_catdet_id: params.quotaId ?? 0,
+      in_course_id: params.courseId ?? 0,
+      in_coursegroup_id: params.courseGroupId ?? 0,
+      in_courseyear_id: params.courseYearId ?? 0,
+      in_traveller_id: params.travellerId ?? 0,
+      in_traveller_type: params.travellerType ?? "",
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+export type ManagementStdFeeCollectionsParams = {
+  collegeId: number;
+  academicYearId?: number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  page?: number;
+  size?: number;
+};
+
+/**
+ * Angular MNGT Students Fee Collections `getDueList` —
+ * `listByEightIds(managementStdFeeCollectionsUrl, collegeId, academicYearId, page, size, courseId, courseGroupId, courseYearId, true, …)`
+ * → `managementstdfeecollections?collegeId=&academicYearId=&page=&size=&courseId=&courseGroupId=&courseYearId=&status=true`
+ */
+export async function fetchManagementStdFeeCollections(
+  params: ManagementStdFeeCollectionsParams,
+): Promise<{
+  rows: Record<string, unknown>[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}> {
+  if (!params.collegeId) {
+    return { rows: [], totalCount: 0, page: 0, pageSize: params.size ?? 1000 };
+  }
+  const page = params.page ?? 0;
+  const size = params.size ?? 1000;
+  const query = new URLSearchParams({
+    collegeId: String(params.collegeId),
+    academicYearId: String(params.academicYearId ?? 0),
+    page: String(page),
+    size: String(size),
+    courseId: String(params.courseId ?? 0),
+    courseGroupId: String(params.courseGroupId ?? 0),
+    courseYearId: String(params.courseYearId ?? 0),
+    status: "true",
+  });
+
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.MANAGEMENT_STD_FEE_COLLECTIONS) + `?${query}`,
+    { cache: "no-store", credentials: "include" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<Record<string, unknown>[]> & {
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+  };
+  if (!body.success) {
+    throw new AppError(
+      "API_ERROR",
+      body.message ?? "Failed to load management fee collections",
+    );
+  }
+  return {
+    rows: Array.isArray(body.data) ? body.data : [],
+    totalCount: Number(body.totalCount ?? 0),
+    page: Number(body.page ?? page),
+    pageSize: Number(body.pageSize ?? size),
+  };
+}
+
+export type LibraryFeeCollectionsParams = {
+  collegeId: number;
+  academicYearId?: number;
+  quotaId?: number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  page?: number;
+  size?: number;
+};
+
+/**
+ * Angular Library Fee Collections `getDueList` —
+ * `libraryfeecollections?collegeId=&academicYearId=&quotaId=&page=&size=&courseId=&courseGroupId=&courseYearId=&status=true`
+ */
+export async function fetchLibraryFeeCollections(
+  params: LibraryFeeCollectionsParams,
+): Promise<{
+  rows: Record<string, unknown>[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}> {
+  if (!params.collegeId) {
+    return { rows: [], totalCount: 0, page: 0, pageSize: params.size ?? 1000 };
+  }
+  const page = params.page ?? 0;
+  const size = params.size ?? 1000;
+  const query = new URLSearchParams({
+    collegeId: String(params.collegeId),
+    academicYearId: String(params.academicYearId ?? 0),
+    quotaId: String(params.quotaId ?? 0),
+    page: String(page),
+    size: String(size),
+    courseId: String(params.courseId ?? 0),
+    courseGroupId: String(params.courseGroupId ?? 0),
+    courseYearId: String(params.courseYearId ?? 0),
+    status: "true",
+  });
+
+  const res = await fetch(
+    NEXT_API.PROXY(FEE_API.LIBRARY_FEE_COLLECTIONS) + `?${query}`,
+    { cache: "no-store", credentials: "include" },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
+  }
+  const body = (await res.json()) as ApiResponse<Record<string, unknown>[]> & {
+    totalCount?: number;
+    page?: number;
+    pageSize?: number;
+  };
+  if (!body.success) {
+    throw new AppError(
+      "API_ERROR",
+      body.message ?? "Failed to load library fee collections",
+    );
+  }
+  return {
+    rows: Array.isArray(body.data) ? body.data : [],
+    totalCount: Number(body.totalCount ?? 0),
+    page: Number(body.page ?? page),
+    pageSize: Number(body.pageSize ?? size),
+  };
+}
+
+export type ScholarshipDueListParams = {
+  collegeId: number;
+  academicYearId?: number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  studentId?: number;
+};
+
+/**
+ * Angular Scholarship Due List `getDueList` —
+ * `getAllRecords/s_rep_scholarship_duelist?in_collegeId=&in_academicYearId=&in_course_id=&…`
+ */
+export async function fetchScholarshipDueList(
+  params: ScholarshipDueListParams,
+): Promise<Record<string, unknown>[]> {
+  if (!params.collegeId) return [];
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    "s_rep_scholarship_duelist",
+    {
+      in_collegeId: params.collegeId,
+      in_academicYearId: params.academicYearId ?? 0,
+      in_course_id: params.courseId ?? 0,
+      in_coursegroup_id: params.courseGroupId ?? 0,
+      in_courseyear_id: params.courseYearId ?? 0,
+      in_student_id: params.studentId ?? 0,
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
 /** Angular `sendPaymentMailNotification` — POST array of `pk_fee_stdduepayment_id`. */
 export async function sendFeeDueNotifications(ids: number[]): Promise<unknown> {
   const list = ids.filter((id) => id > 0);
@@ -1243,4 +1518,101 @@ export function buildFeeManagementSavePayloads(
       feeStdDataParticularsId: dto.feeStdDataParticularsId ?? null,
     };
   });
+}
+
+export type DayWiseFeeCollectionRow = Record<string, unknown> & {
+  payer_type?: string;
+  empNumber?: string;
+  created_EmployeeName?: string;
+  student_name?: string;
+  hallticket_number?: string;
+  firstName?: string;
+  rollNumber?: string;
+  course_code?: string;
+  pay_type?: string;
+  payment_mode?: string;
+  card_name?: string;
+  receipt_date?: string;
+  payment_receipts_no?: string;
+  transaction_no?: string;
+  receipt_amount?: number | string;
+};
+
+type ProcEnvelope = {
+  result?: unknown[][];
+};
+
+/**
+ * Angular day-wise-fee-report `getDueList` / `getMonthDueList` →
+ * `getAllRecords/daywise_fee_collection` with Angular param names.
+ */
+export async function getDayWiseFeeCollection(params: {
+  collegeId: number;
+  employeeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  fromDate: string;
+  toDate: string;
+  paymentStatus: string;
+}): Promise<DayWiseFeeCollectionRow[]> {
+  const data = await getAllRecords<ProcEnvelope>(
+    FEE_API.DAY_WISE_FEE_COLLECTION,
+    {
+      in_flag: "day_wise_collection",
+      in_clg_id: params.collegeId,
+      in_emp_id: params.employeeId,
+      in_academic_year: params.academicYearId,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_from_date: params.fromDate,
+      in_to_date: params.toDate,
+      payment_status: params.paymentStatus,
+    },
+  );
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  const first = groups[0];
+  if (!Array.isArray(first)) return [];
+
+  return first.map((raw) => {
+    const row = { ...(raw as DayWiseFeeCollectionRow) };
+    if (row.payer_type !== "STD") {
+      row.rollNumber = String(row.empNumber ?? "");
+      row.firstName = String(row.created_EmployeeName ?? "");
+    } else {
+      row.firstName = String(row.student_name ?? "");
+      row.rollNumber = String(row.hallticket_number ?? "");
+    }
+    return row;
+  });
+}
+
+/**
+ * Angular `getAccountants` — ACCOUNTANT designation + ACTV status + college.
+ */
+export async function listAccountantEmployeesByCollege(
+  collegeId: number,
+): Promise<DayWiseFeeCollectionRow[]> {
+  if (!collegeId) return [];
+  const designations = await listDesignations();
+  const acct = designations.find(
+    (d) => String(d.designationName ?? "").toUpperCase() === "ACCOUNTANT",
+  );
+  if (!acct?.designationId) return [];
+  const statuses = await getGeneralDetails(GM_CODES.EMPLOYEE_STATUS);
+  const actv = statuses.find(
+    (s) => String(s.generalDetailCode ?? "") === GM_CODES.EMP_ACTIVE_STATUS,
+  );
+  if (!actv?.generalDetailId) return [];
+  return domainList<DayWiseFeeCollectionRow>(
+    ENTITIES.EMPLOYEE_DETAIL.name,
+    buildQuery({
+      isActive: true,
+      "Designation.designationId": acct.designationId,
+      "employeeStatus.generalDetailId": actv.generalDetailId,
+      "College.collegeId": collegeId,
+    }),
+  );
 }

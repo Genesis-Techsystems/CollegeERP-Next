@@ -2383,9 +2383,151 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         (labelLower.includes("fee receipt") &&
           !labelLower.includes("update") &&
           !labelLower.includes("exam") &&
-          !labelLower.includes("print"))
+          !labelLower.includes("print") &&
+          !labelLower.includes("day wise") &&
+          !labelLower.includes("day-wise"))
       ) {
         return "/accounts-and-fees/fees-collection/fee-receipts";
+      }
+      // Fee Reports → Due List only (not Exam/Scholarship/Fee Due List Report).
+      {
+        const dueLabel = labelLower.replace(/\s+/g, " ").trim();
+        const isFeeReportsDueListPath =
+          /(?:^|\/)(?:accounts-and-fees\/)?fee-reports\/due-list(?:\/|$)/.test(
+            hrefLower,
+          ) ||
+          /(?:^|\/)(?:reports\/)?admin-fee-reports\/due-list(?:\/|$)/.test(
+            hrefLower,
+          );
+        const isExactDueListLabel = dueLabel === "due list";
+        if (
+          isFeeReportsDueListPath ||
+          (isExactDueListLabel &&
+            (hrefLower.includes("fee-reports") ||
+              hrefLower.includes("admin-fee-reports") ||
+              hrefLower.includes("accounts-and-fees") ||
+              hrefLower.includes("due-list")))
+        ) {
+          return "/reports/admin-fee-reports/due-list";
+        }
+      }
+      // Angular Fee Ledger report
+      if (
+        hrefLower.includes("fee-ledger") ||
+        hrefLower.includes("admin-fee-reports/feeledger") ||
+        (labelLower.includes("fee ledger") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/")))
+      ) {
+        return "/reports/admin-fee-reports/fee-ledger";
+      }
+      // Angular Bus Fee Collections / Bus Fee Report
+      if (
+        hrefLower.includes("bus-fee-collections") ||
+        hrefLower.includes("admin-fee-reports/bus-fee") ||
+        (labelLower.includes("bus fee") &&
+          (labelLower.includes("collection") ||
+            labelLower.includes("report")) &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("fee")))
+      ) {
+        return "/reports/admin-fee-reports/bus-fee-collections";
+      }
+      // Angular MNGT Students Fee Collections / Management Fee Report
+      if (
+        hrefLower.includes("mgt-fee-collections") ||
+        hrefLower.includes("admin-fee-reports/mgt-fee") ||
+        hrefLower.includes("managementstdfeecollections") ||
+        ((labelLower.includes("mngt") ||
+          labelLower.includes("mgt") ||
+          labelLower.includes("management")) &&
+          labelLower.includes("fee") &&
+          labelLower.includes("collection") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("student")))
+      ) {
+        return "/reports/admin-fee-reports/mgt-fee-collections";
+      }
+      // Angular Library Students Fee Collections
+      if (
+        hrefLower.includes("library-fee-collections") ||
+        hrefLower.includes("admin-fee-reports/library-fee") ||
+        hrefLower.includes("libraryfeecollections") ||
+        (labelLower.includes("library") &&
+          labelLower.includes("fee") &&
+          labelLower.includes("collection") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("student")))
+      ) {
+        return "/reports/admin-fee-reports/library-fee-collections";
+      }
+      // Angular Scholarship Due List
+      if (
+        hrefLower.includes("scholarship-due-list") ||
+        hrefLower.includes("admin-fee-reports/scholarship-due") ||
+        hrefLower.includes("s_rep_scholarship_duelist") ||
+        (labelLower.includes("scholarship") &&
+          labelLower.includes("due list") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("fee")))
+      ) {
+        return "/reports/admin-fee-reports/scholarship-due-list";
+      }
+      // Angular Day Wise Application Report
+      if (
+        hrefLower.includes("student-application-report") ||
+        hrefLower.includes("admin-student-reports/student-application") ||
+        (labelLower.includes("day wise") &&
+          labelLower.includes("application") &&
+          (hrefLower.includes("student") ||
+            hrefLower.includes("admin-student") ||
+            labelLower.includes("report")))
+      ) {
+        return "/reports/admin-student-reports/student-application-report";
+      }
+      // Angular Student Caste Wise Gender Count
+      if (
+        hrefLower.includes("caste-wise-gender") ||
+        hrefLower.includes("caste_wise_gender") ||
+        hrefLower.includes("student-caste-wise-gender") ||
+        (labelLower.includes("caste") &&
+          labelLower.includes("gender") &&
+          (labelLower.includes("count") || labelLower.includes("wise")) &&
+          (hrefLower.includes("student") ||
+            hrefLower.includes("admin-student") ||
+            labelLower.includes("student")))
+      ) {
+        return "/reports/admin-student-reports/student-caste-wise-gender-count-report";
+      }
+      // Angular Report Catalog (report-catalyst)
+      if (
+        hrefLower.includes("report-catalyst") ||
+        hrefLower.includes("overall-reports") ||
+        labelLower === "report catalog" ||
+        (labelLower.includes("report catalog") && !labelLower.includes("fee"))
+      ) {
+        return "/report-catalyst";
+      }
+      // Angular Day Wise Fee Report / Day Wise Receipts
+      if (
+        hrefLower.includes("daywise-fee-report") ||
+        hrefLower.includes("day-wise-fee-report") ||
+        hrefLower.includes("admin-fee-reports/daywise") ||
+        (labelLower.includes("day wise") &&
+          (labelLower.includes("receipt") || labelLower.includes("fee"))) ||
+        (labelLower.includes("day-wise") &&
+          (labelLower.includes("receipt") || labelLower.includes("fee")))
+      ) {
+        return "/accounts-and-fees/fee-reports/daywise-fee-report";
       }
       if (
         hrefLower.includes("fee-masters/fee-categor") ||
@@ -4075,6 +4217,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+  // Fee Reports → Due List only — do not highlight Exam/Scholarship/Fee Due List Report.
+  if (
+    !hasChildren &&
+    (canonicalHref === "/reports/admin-fee-reports/due-list" ||
+      canonicalHref === "/accounts-and-fees/fee-reports/due-list")
+  ) {
+    const onFeeReportsDueList =
+      normPathname === "/reports/admin-fee-reports/due-list" ||
+      normPathname.startsWith("/reports/admin-fee-reports/due-list/") ||
+      normPathname === "/accounts-and-fees/fee-reports/due-list" ||
+      normPathname.startsWith("/accounts-and-fees/fee-reports/due-list/");
+    isSelfActive = diaryLabelKey === "due list" && onFeeReportsDueList;
+  }
   const onStaffClassDiary =
     normPathname === "/staff-classes/class-dairy" ||
     normPathname.startsWith("/staff-classes/class-dairy/");

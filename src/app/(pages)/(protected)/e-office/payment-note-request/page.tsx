@@ -195,7 +195,7 @@ export default function PaymentNoteRequestPage() {
 
   return (
     <ListPage
-      title="Purchase Order"
+      title="Payment Note Request"
       rowData={pending}
       columnDefs={columnDefs}
       loading={isLoading}

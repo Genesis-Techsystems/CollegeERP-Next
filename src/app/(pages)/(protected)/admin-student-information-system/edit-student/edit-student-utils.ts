@@ -5,6 +5,9 @@ export type AnyRow = Record<string, any>;
 export const DEFAULT_STUDENT_PHOTO =
   "/assets/images/avatars/default_Student.png";
 
+/** Angular mother placeholder — `assets/images/avatars/female_icon.png` */
+export const DEFAULT_MOTHER_PHOTO = "/assets/images/avatars/female_icon.png";
+
 export const EDIT_STEPS = [
   { id: "office", label: "Office Use", progress: 20 },
   { id: "personal", label: "Personal Info", progress: 25 },
@@ -87,8 +90,12 @@ export function calcAge(dob: Date | null): number | null {
   return age;
 }
 
-export function photoSrc(path?: string | null, cacheBust = true): string {
-  if (!path) return DEFAULT_STUDENT_PHOTO;
+export function photoSrc(
+  path?: string | null,
+  cacheBust = true,
+  fallback: string = DEFAULT_STUDENT_PHOTO,
+): string {
+  if (!path) return fallback;
   const base = String(path);
   return cacheBust ? `${base}?${Date.now()}` : base;
 }

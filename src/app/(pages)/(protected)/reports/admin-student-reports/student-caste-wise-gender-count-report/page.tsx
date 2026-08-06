@@ -1,0 +1,605 @@
+"use client";
+
+/**
+ * Student Caste Wise Gender Count Report —
+ * Angular `reports/admin-student-reports/student-Caste-wise-gender-count-report` parity.
+ * Get List: `getAllRecords/s_get_student_reports?in_flag=caste_wise_gender_count_report&…`
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FileSpreadsheet } from "lucide-react";
+import { Select } from "@/common/components/select";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/errors";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
+import { toastError, toastInfo } from "@/lib/toast";
+import {
+  filterAcademicYears,
+  filterColleges,
+  filterCourseGroups,
+  filterCourses,
+  filterCourseYears,
+  pickNum,
+  pickText,
+  type FilterRow,
+} from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
+import {
+  fetchStudentReports,
+  getFeePaylinkCollegeFilters,
+} from "@/services";
+
+type AnyRow = Record<string, unknown>;
+
+type GenderCell = { caste: string; gender: string; count: number };
+type BranchRow = { Branch: string; studentCasteCount: GenderCell[] };
+
+const ALL0 = { value: "0", label: "All" };
+
+function gmOptions(rows: FilterRow[], gmId: number) {
+  return rows
+    .filter((r) => Number(r.pk_gm_id ?? r.generalMasterId ?? 0) === gmId)
+    .map((r) => ({
+      value: String(r.pk_gd_id ?? r.generalDetailId ?? ""),
+      label: String(r.gd_name ?? r.generalDetailDisplayName ?? r.gd_code ?? ""),
+    }))
+    .filter((o) => o.value && o.value !== "0");
+}
+
+/** Angular caste/gender pivot shaping for `caste_wise_gender_count_report`. */
+function buildCasteGenderMatrix(raw: AnyRow[]): {
+  keys: { Caste: string }[];
+  casteCount: BranchRow[];
+} {
+  const casteKeys: { Caste: string }[] = [];
+  for (const row of raw) {
+    const caste = String(row.Caste ?? "");
+    if (!casteKeys.some((k) => k.Caste === caste)) {
+      casteKeys.push({ Caste: caste });
+    }
+  }
+
+  const studentGenders: GenderCell[] = [];
+  for (const k of casteKeys) {
+    studentGenders.push({ caste: k.Caste, gender: "Male", count: 0 });
+    studentGenders.push({ caste: k.Caste, gender: "Female", count: 0 });
+  }
+  casteKeys.push({ Caste: "Total Count" });
+
+  const casteCount: BranchRow[] = [];
+
+  for (const row of raw) {
+    const branch = String(row.Branch ?? "");
+    const caste = String(row.Caste ?? "");
+    const gender = String(row.Gender ?? "");
+    const count = Number(row.Student_Count ?? 0);
+
+    let branchEntry = casteCount.find((x) => x.Branch === branch);
+    if (!branchEntry) {
+      const template = studentGenders.map((g) => ({
+        caste: g.caste,
+        gender: g.gender,
+        count: g.caste === caste && g.gender === gender ? count : 0,
+      }));
+      casteCount.push({ Branch: branch, studentCasteCount: template });
+    } else {
+      const cell = branchEntry.studentCasteCount.find(
+        (y) => y.caste === caste && y.gender === gender,
+      );
+      if (cell) cell.count = count;
+    }
+  }
+
+  for (const branch of casteCount) {
+    let mTotal = 0;
+    let fTotal = 0;
+    for (const cell of branch.studentCasteCount) {
+      if (cell.gender === "Male") mTotal += Number(cell.count) || 0;
+      else fTotal += Number(cell.count) || 0;
+    }
+    branch.studentCasteCount.push({
+      caste: "Total Count",
+      gender: "Male",
+      count: mTotal,
+    });
+    branch.studentCasteCount.push({
+      caste: "Total Count",
+      gender: "Female",
+      count: fTotal,
+    });
+  }
+
+  return { keys: casteKeys, casteCount };
+}
+
+export default function StudentCasteWiseGenderCountPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const excelTableRef = useRef<HTMLDivElement>(null);
+
+  const [filtersData, setFiltersData] = useState<FilterRow[]>([]);
+  const [academicData, setAcademicData] = useState<FilterRow[]>([]);
+  const [gmRows, setGmRows] = useState<FilterRow[]>([]);
+  const [loadingFilters, setLoadingFilters] = useState(true);
+
+  const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<string>("0");
+  const [courseId, setCourseId] = useState<string>("0");
+  const [courseGroupId, setCourseGroupId] = useState<string>("0");
+  const [courseYearId, setCourseYearId] = useState<string>("0");
+  const [quotaId, setQuotaId] = useState<string>("0");
+  const [studentStatusId, setStudentStatusId] = useState<string>("0");
+
+  const [casteKeys, setCasteKeys] = useState<{ Caste: string }[]>([]);
+  const [casteCount, setCasteCount] = useState<BranchRow[]>([]);
+  const [dataDetails, setDataDetails] = useState("");
+  const [loadingList, setLoadingList] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
+  const clearResults = useCallback(() => {
+    setCasteKeys([]);
+    setCasteCount([]);
+    setShowTable(false);
+    setDataDetails("");
+    setSearchText("");
+  }, []);
+
+  useEffect(() => {
+    const orgId = Number(
+      globalThis.localStorage?.getItem("organizationId") ?? 0,
+    );
+    const empId = Number(globalThis.localStorage?.getItem("employeeId") ?? 0);
+    if (!orgId || !empId) {
+      setLoadingFilters(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingFilters(true);
+    void getFeePaylinkCollegeFilters(orgId, empId)
+      .then((data) => {
+        if (cancelled) return;
+        setFiltersData((data.filtersData ?? []) as FilterRow[]);
+        setAcademicData((data.academicData ?? []) as FilterRow[]);
+        setGmRows((data.generalDetails ?? []) as FilterRow[]);
+      })
+      .catch((err) => {
+        if (!cancelled) toastError(getErrorMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFilters(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const collegeOptions = useMemo(
+    () =>
+      filterColleges(filtersData).map((r) => ({
+        value: String(pickNum(r, ["fk_college_id", "collegeId"])),
+        label: pickText(r, ["college_code", "collegeCode"]),
+      })),
+    [filtersData],
+  );
+
+  const ayOptions = useMemo(() => {
+    const cid = Number(collegeId ?? 0);
+    return [
+      ALL0,
+      ...filterAcademicYears(academicData, cid || null, filtersData).map(
+        (r) => ({
+          value: String(pickNum(r, ["fk_academic_year_id", "academicYearId"])),
+          label: pickText(r, ["academic_year", "academicYear"]) || "—",
+        }),
+      ),
+    ];
+  }, [academicData, collegeId, filtersData]);
+
+  const courseOptions = useMemo(() => {
+    const cid = Number(collegeId ?? 0);
+    return [
+      ALL0,
+      ...filterCourses(filtersData, cid || null).map((r) => ({
+        value: String(pickNum(r, ["fk_course_id", "courseId"])),
+        label: pickText(r, ["course_code", "courseCode", "course_name"]),
+      })),
+    ];
+  }, [filtersData, collegeId]);
+
+  const groupOptions = useMemo(() => {
+    const cid = Number(collegeId ?? 0);
+    const cr = Number(courseId || 0);
+    return [
+      ALL0,
+      ...filterCourseGroups(filtersData, cid || null, cr || null).map((r) => ({
+        value: String(pickNum(r, ["fk_course_group_id", "courseGroupId"])),
+        label: pickText(r, ["group_code", "groupCode", "courseGroupCode"]),
+      })),
+    ];
+  }, [filtersData, collegeId, courseId]);
+
+  const yearOptions = useMemo(() => {
+    const cid = Number(collegeId ?? 0);
+    const cr = Number(courseId || 0);
+    const g = Number(courseGroupId || 0);
+    return [
+      ALL0,
+      ...filterCourseYears(filtersData, cid || null, cr || null, g || null)
+        .sort(
+          (a, b) =>
+            pickNum(a, ["year_order", "sortOrder"]) -
+            pickNum(b, ["year_order", "sortOrder"]),
+        )
+        .map((r) => ({
+          value: String(pickNum(r, ["fk_course_year_id", "courseYearId"])),
+          label: pickText(r, ["course_year_name", "courseYearName"]),
+        })),
+    ];
+  }, [filtersData, collegeId, courseId, courseGroupId]);
+
+  const quotaOptions = useMemo(
+    () => [ALL0, ...gmOptions(gmRows, 8)],
+    [gmRows],
+  );
+  const statusOptions = useMemo(
+    () => [ALL0, ...gmOptions(gmRows, 51)],
+    [gmRows],
+  );
+
+  useEffect(() => {
+    if (collegeId || collegeOptions.length === 0) return;
+    setCollegeId(collegeOptions[0].value);
+  }, [collegeId, collegeOptions]);
+
+  useEffect(() => {
+    if (!collegeId) return;
+    const rowsAy = filterAcademicYears(
+      academicData,
+      Number(collegeId),
+      filtersData,
+    );
+    if (rowsAy.length === 0) {
+      setAcademicYearId("0");
+      setCourseId("0");
+      setCourseGroupId("0");
+      setCourseYearId("0");
+      return;
+    }
+    const current =
+      rowsAy.find((r) => Number(r.is_curr_ay ?? 0) === 1) ?? rowsAy[0];
+    setAcademicYearId(
+      String(pickNum(current, ["fk_academic_year_id", "academicYearId"])),
+    );
+  }, [collegeId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!collegeId || !academicYearId) return;
+    const courses = courseOptions.filter((o) => o.value !== "0");
+    if (courses.length === 0) {
+      setCourseId("0");
+      setCourseGroupId("0");
+      setCourseYearId("0");
+      return;
+    }
+    setCourseId(courses[0].value);
+  }, [collegeId, academicYearId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!courseId || courseId === "0") {
+      setCourseGroupId("0");
+      setCourseYearId("0");
+      return;
+    }
+    const groups = groupOptions.filter((o) => o.value !== "0");
+    setCourseGroupId(groups[0]?.value ?? "0");
+  }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!courseGroupId || courseGroupId === "0") {
+      setCourseYearId("0");
+      return;
+    }
+    const years = yearOptions.filter((o) => o.value !== "0");
+    setCourseYearId(years[0]?.value ?? "0");
+  }, [courseGroupId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onCollegeChange = (v: string | null) => {
+    setCollegeId(v);
+    setAcademicYearId("0");
+    setCourseId("0");
+    setCourseGroupId("0");
+    setCourseYearId("0");
+    setQuotaId("0");
+    setStudentStatusId("0");
+    clearResults();
+  };
+
+  const buildDataDetails = () => {
+    const parts: string[] = [];
+    const clg = collegeOptions.find((o) => o.value === collegeId);
+    if (clg?.label) parts.push(clg.label);
+    const ay = ayOptions.find(
+      (o) => o.value === academicYearId && o.value !== "0",
+    );
+    if (ay?.label) parts.push(ay.label);
+    const cr = courseOptions.find((o) => o.value === courseId && o.value !== "0");
+    if (cr?.label) parts.push(cr.label);
+    const g = groupOptions.find(
+      (o) => o.value === courseGroupId && o.value !== "0",
+    );
+    if (g?.label) parts.push(g.label);
+    const y = yearOptions.find(
+      (o) => o.value === courseYearId && o.value !== "0",
+    );
+    if (y?.label) parts.push(y.label);
+    const q = quotaOptions.find((o) => o.value === quotaId && o.value !== "0");
+    if (q?.label) parts.push(q.label);
+    const st = statusOptions.find(
+      (o) => o.value === studentStatusId && o.value !== "0",
+    );
+    if (st?.label) parts.push(st.label);
+    return parts.join(" / ");
+  };
+
+  const handleGetList = async () => {
+    const cid = Number(collegeId ?? 0);
+    if (!cid) {
+      toastInfo("College is required");
+      return;
+    }
+    if (!studentStatusId || studentStatusId === "0") {
+      toastInfo("Student Status is required");
+      return;
+    }
+    setLoadingList(true);
+    clearResults();
+    const details = buildDataDetails();
+    setDataDetails(details);
+    try {
+      const raw = await fetchStudentReports({
+        flag: "caste_wise_gender_count_report",
+        fromDate: "1990-01-01",
+        toDate: "1990-01-01",
+        collegeId: cid,
+        courseId: Number(courseId || 0),
+        academicYearId: Number(academicYearId || 0),
+        courseGroupId: Number(courseGroupId || 0),
+        courseYearId: Number(courseYearId || 0),
+        quotaId: Number(quotaId || 0),
+        regulationId: 0,
+        isCurrentYear: -1,
+        isLateral: -1,
+        appStatus: 0,
+        studentStatusIds: Number(studentStatusId || 0),
+      });
+      if (raw.length === 0) {
+        toastInfo("No caste wise gender count records found.");
+        return;
+      }
+      const shaped = buildCasteGenderMatrix(raw);
+      setCasteKeys(shaped.keys);
+      setCasteCount(shaped.casteCount);
+      setShowTable(true);
+    } catch (err) {
+      toastError(getErrorMessage(err));
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  const filteredRows = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return casteCount;
+    return casteCount.filter((r) => r.Branch.toLowerCase().includes(q));
+  }, [casteCount, searchText]);
+
+  const exportAsExcel = () => {
+    if (!excelTableRef.current) return;
+    const uri = "data:application/vnd.ms-excel;base64,";
+    const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>`;
+    const base64 = (s: string) => window.btoa(unescape(encodeURIComponent(s)));
+    const formatTpl = (s: string, c: Record<string, string>) =>
+      s.replace(/{(\w+)}/g, (_, p: string) => c[p] ?? "");
+    const link = document.createElement("a");
+    link.download = "Student Caste Wise Gender Count Report.xls";
+    link.href =
+      uri +
+      base64(
+        formatTpl(template, {
+          worksheet: "Worksheet",
+          table: excelTableRef.current.innerHTML,
+        }),
+      );
+    link.click();
+  };
+
+  const goBack = () => {
+    router.push(resolveReportCatalogHref(searchParams.get("path")));
+  };
+
+  const pageTitle = showTable
+    ? `Student Caste Wise Gender Count Report — ${dataDetails}`
+    : "Student Caste Wise Gender Count Report";
+
+  return (
+    <FilteredListPage
+      title={pageTitle}
+      filters={
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Select
+              label="College"
+              required
+              value={collegeId}
+              onChange={onCollegeChange}
+              options={collegeOptions}
+              placeholder="College"
+              isLoading={loadingFilters}
+            />
+            <Select
+              label="Academic Year"
+              value={academicYearId}
+              onChange={(v) => {
+                setAcademicYearId(v ?? "0");
+                clearResults();
+              }}
+              options={ayOptions}
+              placeholder="Academic Year"
+            />
+            <Select
+              label="Course"
+              value={courseId}
+              onChange={(v) => {
+                setCourseId(v ?? "0");
+                clearResults();
+              }}
+              options={courseOptions}
+              placeholder="Course"
+              disabled={!collegeId}
+            />
+            <Select
+              label="CourseGroup"
+              value={courseGroupId}
+              onChange={(v) => {
+                setCourseGroupId(v ?? "0");
+                clearResults();
+              }}
+              options={groupOptions}
+              placeholder="CourseGroup"
+            />
+            <Select
+              label="Course Year"
+              value={courseYearId}
+              onChange={(v) => {
+                setCourseYearId(v ?? "0");
+                clearResults();
+              }}
+              options={yearOptions}
+              placeholder="Course Year"
+            />
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-full min-w-[10rem] sm:w-[12rem]">
+              <Select
+                label="Quota"
+                value={quotaId}
+                onChange={(v) => {
+                  setQuotaId(v ?? "0");
+                  clearResults();
+                }}
+                options={quotaOptions}
+                placeholder="Quota"
+              />
+            </div>
+            <div className="w-full min-w-[10rem] sm:w-[14rem]">
+              <Select
+                label="Student Status"
+                required
+                value={studentStatusId}
+                onChange={(v) => {
+                  setStudentStatusId(v ?? "0");
+                  clearResults();
+                }}
+                options={statusOptions}
+                placeholder="Student Status"
+              />
+            </div>
+            <div className="flex shrink-0 items-center gap-2 pb-0.5">
+              <Button
+                type="button"
+                className="h-9 w-fit px-4"
+                disabled={loadingList}
+                onClick={() => void handleGetList()}
+              >
+                {loadingList ? "Loading…" : "Get Student List"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-9 w-fit px-4"
+                onClick={goBack}
+              >
+                Back
+              </Button>
+            </div>
+          </div>
+        </div>
+      }
+      body={
+        showTable ? (
+          <>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Search</Label>
+                <input
+                  className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Search"
+                />
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={exportAsExcel}
+              >
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                Export Excel
+              </Button>
+            </div>
+            <div ref={excelTableRef} className="overflow-x-auto">
+              <strong className="hidden">
+                Student Caste Wise Gender Count Report - {dataDetails}
+              </strong>
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-sky-50">
+                    <th className="border px-1 py-1 text-center font-semibold">
+                      S.No
+                    </th>
+                    <th className="border px-1 py-1 text-center font-semibold">
+                      Branch
+                    </th>
+                    {casteKeys.map((k) => (
+                      <th
+                        key={k.Caste}
+                        colSpan={2}
+                        className="border px-1 py-1 text-center font-semibold"
+                      >
+                        {k.Caste}
+                        <p className="m-0 text-[10px] font-medium text-blue-600">
+                          M | F
+                        </p>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRows.map((row, i) => (
+                    <tr key={`${row.Branch}-${i}`}>
+                      <td className="border px-1 py-1 text-center">{i + 1}</td>
+                      <td className="border px-1 py-1">{row.Branch}</td>
+                      {row.studentCasteCount.map((cell, ci) => (
+                        <td
+                          key={`${cell.caste}-${cell.gender}-${ci}`}
+                          className="border px-1 py-1 text-center"
+                        >
+                          {cell.count}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null
+      }
+      bodyClassName={showTable ? undefined : "hidden border-0 p-0"}
+    />
+  );
+}
