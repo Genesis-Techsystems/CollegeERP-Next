@@ -92,6 +92,7 @@ export * from "./examcenter-rooms-report";
 export * from "./examcenter-students-report";
 export * from "./examcenter-profiles-report";
 export * from "./curriculum-report";
+export * from "./student-subjects-report";
 export * from "./answer-paper-bags-report";
 export * from "./exam-registration-reports";
 // pre-examination: listActiveColleges conflicts with invigilator-remuneration; listCoursesByUniversity
@@ -174,6 +175,7 @@ export * from "./mentorship";
 export * from "./events";
 export * from "./student-fee";
 export * from "./student-grievance";
+export * from "./grievance-masters";
 export * from "./feedback-option-group";
 export * from "./feedback-option-choice";
 export * from "./feedback-question";

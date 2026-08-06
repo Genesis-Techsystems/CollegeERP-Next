@@ -947,6 +947,12 @@ export const FEE_API = {
   /** GET: online payments comparative report */
   ONLINE_PAYMENTS_COMPARATIVE:
     "getAllRecords/s_get_online_payments_comparative_report",
+  /** Angular `getFeeCollectionReportUrl` */
+  FEE_COLLECTION_REPORT: "getAllRecords/s_get_fee_collection_report",
+  /** Angular `getFeeParticularWiseReportUrl` */
+  FEE_PARTICULAR_WISE_REPORT: "getAllRecords/s_get_fee_particular_wise_report",
+  /** Angular `getFeeDueListReportUrl` */
+  FEE_DUE_LIST_REPORT: "getAllRecords/s_get_fee_due_list_report",
   /** GET: fee transport collection */
   FEE_TRANSPORT_COLLECTION: "getAllRecords/s_rep_fee_transport_collection",
   /** GET: fee transport collection download */
@@ -1754,6 +1760,8 @@ export const DASHBOARD_API = {
   FINANCE_REPORT: "getAllRecords/s_rep_finance",
   /** GET: income expense summary */
   INCOME_EXPENSE_SUMMARY: "getAllRecords/s_get_income_expense_summary",
+  /** GET: school-wise salaries — Angular `salarySummaryUrl` */
+  SCHOOL_WISE_SALARIES: "getAllRecords/s_school_wise_salaries",
   /** GET: expense summary */
   EXPENSE_SUMMARY: "getAllRecords/s_get_expense_summary",
   /** GET: inventory stock summary */
@@ -2376,6 +2384,8 @@ export const MISC_REPORT_API = {
   GET_PARENT_APPOINTMENT: "getAllRecords/s_get_parent_appointment_details",
   /** GET: student co-curricular activities report */
   GET_STD_CC_ACTIVITIES: "getAllRecords/s_get_std_ccactivities_report",
+  /** Angular `studentSubjectReportUrl` */
+  STUDENT_SUBJECT_REPORT: "getAllRecords/s_get_std_sub_report",
   /** POST: upload to temp table */
   UPLOAD_TEMP_TABLE: "upload",
 } as const;

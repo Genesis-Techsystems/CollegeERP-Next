@@ -25,9 +25,11 @@ import {
   fetchDetails,
   fetchDetailsEnvelope,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   postDetailsEnvelope,
 } from "./crud";
+import { AppError } from "@/lib/errors";
 import { getGeneralDetails } from "./exam-master";
 import {
   listActiveCollegesForCollegeCertificates,
@@ -636,19 +638,23 @@ export async function getCertificateSummaryReport(params: {
 }): Promise<CertificateSummaryReportRow[]> {
   const { collegeId, fromDate, toDate } = params;
   if (!collegeId) return [];
-  try {
-    const data = await getAllRecords<{
-      result?: CertificateSummaryReportRow[][];
-    }>(FEE_API.GET_CERTIFICATE_SUMMARY, {
-      in_clg_id: collegeId,
-      in_from_Date: fromDate,
-      in_to_Date: toDate,
-    });
-    const rows = data?.result?.[0];
-    return Array.isArray(rows) ? rows.map((r, i) => ({ ...r, id: i + 1 })) : [];
-  } catch {
-    return [];
+  const envelope = await getAllRecordsEnvelope<{
+    result?: CertificateSummaryReportRow[][];
+  }>(FEE_API.GET_CERTIFICATE_SUMMARY, {
+    in_clg_id: collegeId,
+    in_from_Date: fromDate,
+    in_to_Date: toDate,
+  });
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load certificate request report",
+    );
   }
+  const rows = envelope.data?.result?.[0];
+  return Array.isArray(rows) ? rows.map((r, i) => ({ ...r, id: i + 1 })) : [];
 }
 
 export function appliedOnNow(): string {

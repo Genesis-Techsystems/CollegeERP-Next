@@ -50,8 +50,9 @@ export const searchStudentsForBonafideCertificate =
   searchStudentsForCertificate;
 
 /**
- * Angular `getStudentTcDetails` — `getAllRecords/s_get_fee_certificate_issue`.
- * Was hardcoded `in_certificate_id: 106`; now sends `certifcateCode` like generate.
+ * Angular `getStudentTcDetails` — `getAllRecords/s_get_fee_certificate_issue`
+ * with `in_certificate_id: 106` (Bonafied).
+ * `certifcateCode` is only for generate (`generateAllStdCertificates`), not this proc.
  */
 export async function getBonafideCertificateIssue(params: {
   collegeId: number;
@@ -66,7 +67,7 @@ export async function getBonafideCertificateIssue(params: {
       in_flag: "tc_certificate",
       in_clg_id: collegeId,
       in_std_id: studentId,
-      certifcateCode: BONAFIDE_CERTIFICATE_CODE,
+      in_certificate_id: 106,
     });
     const row = data?.result?.[0]?.[0];
     return row ?? null;

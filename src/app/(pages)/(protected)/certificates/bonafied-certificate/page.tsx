@@ -149,6 +149,10 @@ export default function BonafiedCertificatePage() {
   }
 
   function handlePrint() {
+    if (!selectedStudent || isEmptyStudent(selectedStudent)) {
+      toastError(new Error("Please select a student"), "Validation");
+      return;
+    }
     setPrintDate(new Date());
     window.print();
   }
@@ -323,7 +327,7 @@ export default function BonafiedCertificatePage() {
         }
       />
 
-      {selectedStudent && orgCode ? (
+      {selectedStudent && !isEmptyStudent(selectedStudent) ? (
         <BonafideCertificatePrint
           orgCode={orgCode}
           student={selectedStudent}

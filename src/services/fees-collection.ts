@@ -36,8 +36,10 @@ import {
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   putDetails,
+  uploadFile,
 } from "./crud";
 import { getGeneralDetails } from "./exam-master";
 import { listQuotaOptions } from "./fee-masters";
@@ -1243,4 +1245,216 @@ export function buildFeeManagementSavePayloads(
       feeStdDataParticularsId: dto.feeStdDataParticularsId ?? null,
     };
   });
+}
+
+// ── Fee reports: merchant staging upload + complete student fee ───────────────
+
+/**
+ * Angular fee-staging-merchant-payment-details `uploadFile`:
+ * POST `uploadFeeStgMerchantPaymentFileDetails` — FormData `file` only.
+ */
+export async function uploadFeeStgMerchantPaymentFile(
+  file: File,
+): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  const body = (await uploadFile(
+    FEE_API.UPLOAD_FEE_STG_MERCHANT_PAYMENT_FILE_DETAILS,
+    formData,
+  )) as { success?: boolean; message?: string; data?: unknown } | null;
+  if (body?.success === false) {
+    throw new AppError("API_ERROR", body.message ?? "Upload failed");
+  }
+  return body?.message ?? "Uploaded successfully";
+}
+
+export type CompleteStdFeeRawRow = Record<string, unknown> & {
+  hallticket_number?: string | null;
+  Student_Name?: string | null;
+  Batch?: string | null;
+  student_quota?: string | null;
+  Student_Mobile?: string | null;
+  year_name?: string | number | null;
+  gross_amount?: number | null;
+  discount_amount?: number | null;
+  college_fee?: number | null;
+  Scholarship_Hold_Amount?: number | null;
+  scholarship_amount?: number | null;
+  paid_amount?: number | null;
+  balance_amount?: number | null;
+  clg_logo?: string | null;
+  Course_Details?: string | null;
+};
+
+/**
+ * Angular student-complete-fee-details `getDueList`:
+ * GET `getAllRecords/s_get_complete_std_fee_report`
+ */
+export async function fetchCompleteStudentFeeReport(params: {
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  quotaId: number;
+  batchId: number;
+  studentStatusId: number;
+  feeCategoryId?: number;
+  feeParticularId?: number;
+}): Promise<CompleteStdFeeRawRow[]> {
+  const envelope = await getAllRecordsEnvelope<{
+    result?: CompleteStdFeeRawRow[][];
+  }>(FEE_API.COMPLETE_STD_FEE_REPORT, {
+    in_flag: "fee_details",
+    in_clg_id: params.collegeId,
+    in_course_id: params.courseId,
+    in_group_id: params.courseGroupId,
+    in_year_id: params.courseYearId,
+    in_ac_yr_id: 0,
+    in_section_id: 0,
+    in_quota_id: params.quotaId,
+    in_fee_type_id: 0,
+    in_std_id: 0,
+    in_category_id: params.feeCategoryId ?? 0,
+    in_particulars_id: params.feeParticularId ?? 0,
+    in_StdStatus_id: params.studentStatusId,
+    in_Batch_id: params.batchId,
+    // Angular request hardcodes 0 even when Include Scholarship is checked.
+    in_include_sch: 0,
+  });
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load student complete fee details",
+    );
+  }
+  const block = envelope.data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+export type OnlinePaymentsComparativeRow = Record<string, unknown> & {
+  college_code?: string | null;
+  student_name?: string | null;
+  hallticket_number?: string | null;
+  payment_gateway_type?: string | null;
+  bank_ref_no?: string | null;
+  tracking_id?: string | null;
+  payment_mode?: string | null;
+  card_name?: string | null;
+  amount?: number | string | null;
+  order_status?: string | null;
+  trans_date?: string | null;
+  settled_amount?: number | string | null;
+  settlementdate?: string | null;
+  Settlement_Status?: string | null;
+  logo_path?: string | null;
+  __rowKey?: string;
+};
+
+/**
+ * Angular online-payments-comparative-report `getDueList`:
+ * GET `getAllRecords/s_get_online_payments_comparative_report`
+ */
+export async function fetchOnlinePaymentsComparative(params: {
+  collegeId: number;
+  settlementStatus: string;
+  fromDate: string;
+  toDate: string;
+}): Promise<OnlinePaymentsComparativeRow[]> {
+  const envelope = await getAllRecordsEnvelope<{
+    result?: OnlinePaymentsComparativeRow[][];
+  }>(FEE_API.ONLINE_PAYMENTS_COMPARATIVE, {
+    in_clg_id: params.collegeId,
+    in_settlement_status: params.settlementStatus,
+    in_from_date: params.fromDate,
+    in_to_date: params.toDate,
+  });
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load online payments comparative report",
+    );
+  }
+  const block = envelope.data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+export type FeeCollectionReportRow = Record<string, unknown> & {
+  __rowKey?: string;
+};
+
+export type CollegeCourseFeeReportParams = {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+};
+
+async function fetchCollegeCourseFeeReport(
+  apiPath: string,
+  params: CollegeCourseFeeReportParams,
+  errorLabel: string,
+): Promise<FeeCollectionReportRow[]> {
+  const envelope = await getAllRecordsEnvelope<{
+    result?: FeeCollectionReportRow[][];
+  }>(apiPath, {
+    in_college_id: params.collegeId,
+    in_academic_year_id: params.academicYearId,
+    in_course_id: params.courseId,
+    in_course_group_id: params.courseGroupId,
+    in_course_year_id: params.courseYearId,
+  });
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError("API_ERROR", message || `Failed to load ${errorLabel}`);
+  }
+  const block = envelope.data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+/**
+ * Angular collections-report `getDueList`:
+ * GET `getAllRecords/s_get_fee_collection_report`
+ */
+export async function fetchFeeCollectionReport(
+  params: CollegeCourseFeeReportParams,
+): Promise<FeeCollectionReportRow[]> {
+  return fetchCollegeCourseFeeReport(
+    FEE_API.FEE_COLLECTION_REPORT,
+    params,
+    "collections report",
+  );
+}
+
+/**
+ * Angular fee-particular-wise-report `getDueList`:
+ * GET `getAllRecords/s_get_fee_particular_wise_report`
+ */
+export async function fetchFeeParticularWiseReport(
+  params: CollegeCourseFeeReportParams,
+): Promise<FeeCollectionReportRow[]> {
+  return fetchCollegeCourseFeeReport(
+    FEE_API.FEE_PARTICULAR_WISE_REPORT,
+    params,
+    "fee particular wise report",
+  );
+}
+
+/**
+ * Angular fee-due-list-report `getDueList`:
+ * GET `getAllRecords/s_get_fee_due_list_report`
+ */
+export async function fetchFeeDueListReport(
+  params: CollegeCourseFeeReportParams,
+): Promise<FeeCollectionReportRow[]> {
+  return fetchCollegeCourseFeeReport(
+    FEE_API.FEE_DUE_LIST_REPORT,
+    params,
+    "fee due list report",
+  );
 }

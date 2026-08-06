@@ -1,82 +1,212 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColDef } from 'ag-grid-community'
-import { useQuery } from '@tanstack/react-query'
-import { Select } from '@/common/components/select'
-import { DatePicker } from '@/common/components/date-picker'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { format } from 'date-fns'
-import { getCertificateSummaryReport } from '@/services'
-import type { CertificateSummaryReportRow } from '@/types/tc-no-due'
-import { useTcCollegeCascade } from '../_lib/use-tc-college-cascade'
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { ColDef } from "ag-grid-community";
+import { format } from "date-fns";
+import { FilteredListPage } from "@/components/layout";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select } from "@/common/components/select";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { toastInfo } from "@/lib/toast";
+import { useApiQueryToasts } from "@/hooks";
+import { getCertificateSummaryReport } from "@/services";
+import type { CertificateSummaryReportRow } from "@/types/tc-no-due";
+import { useTcCollegeCascade } from "@/app/(pages)/(protected)/tc-no-due-approval/_lib/use-tc-college-cascade";
+
+const COL_DEFS: ColDef<CertificateSummaryReportRow>[] = [
+  {
+    field: "id",
+    headerName: "S.No",
+    width: 80,
+    flex: 0,
+    cellClass: "text-left",
+  },
+  {
+    field: "college_shortname",
+    headerName: "College",
+    minWidth: 120,
+    flex: 1,
+    cellClass: "text-left",
+  },
+  {
+    field: "academic_year",
+    headerName: "Academic Year",
+    minWidth: 120,
+    flex: 1,
+    cellClass: "text-left",
+  },
+  {
+    field: "Transfer_Certificates",
+    headerName: "Transfer Certificate",
+    minWidth: 140,
+    flex: 1,
+    cellClass: "text-left",
+  },
+  {
+    field: "Bonafide_Certificates",
+    headerName: "Bonafide Certificate",
+    minWidth: 140,
+    flex: 1,
+    cellClass: "text-left",
+  },
+  {
+    field: "Other_Certificates",
+    headerName: "Other Certificates",
+    minWidth: 140,
+    flex: 1,
+    cellClass: "text-left",
+  },
+];
 
 export default function CertificateRequestReportPage() {
-  const [collegeId, setCollegeId] = useState<string | null>(null)
-  const [fromDate, setFromDate] = useState<Date | null>(new Date())
-  const [toDate, setToDate] = useState<Date | null>(new Date())
-  const [runKey, setRunKey] = useState(0)
+  const router = useRouter();
+  const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [fromDate, setFromDate] = useState<Date | null>(new Date());
+  const [toDate, setToDate] = useState<Date | null>(new Date());
+  const [loadKey, setLoadKey] = useState<string | null>(null);
 
-  const collegeNum = Number(collegeId ?? 0)
-  const fromStr = fromDate ? format(fromDate, 'yyyy-MM-dd') : ''
-  const toStr = toDate ? format(toDate, 'yyyy-MM-dd') : ''
-  const { colleges, loadingColleges } = useTcCollegeCascade(collegeNum)
+  const collegeNum = Number(collegeId ?? 0);
+  const { colleges, loadingColleges } = useTcCollegeCascade(collegeNum);
 
-  const { data: rows = [], isLoading, isFetching } = useQuery({
-    queryKey: [...QK.tcNoDue.summaryReport(collegeNum, fromStr, toStr), runKey],
-    queryFn: () =>
-      getCertificateSummaryReport({
+  useEffect(() => {
+    if (!collegeId && colleges.length > 0) {
+      setCollegeId(String(colleges[0]!.value));
+    }
+  }, [colleges, collegeId]);
+
+  const {
+    data: rows = [],
+    isFetching,
+    error,
+    isSuccess,
+    isError,
+  } = useQuery({
+    queryKey: QK.tcNoDue.summaryReport(
+      loadKey ? Number(JSON.parse(loadKey).collegeId) : 0,
+      loadKey ? JSON.parse(loadKey).fromDate : "",
+      loadKey ? JSON.parse(loadKey).toDate : "",
+    ),
+    queryFn: () => {
+      const p = JSON.parse(loadKey!) as {
+        collegeId: number;
+        fromDate: string;
+        toDate: string;
+      };
+      return getCertificateSummaryReport(p);
+    },
+    enabled: loadKey != null,
+  });
+
+  const { resetApiToast } = useApiQueryToasts({
+    requestKey: loadKey,
+    isFetching,
+    isSuccess,
+    isError,
+    error,
+    rowCount: rows.length,
+  });
+
+  const tableRows = useMemo(
+    () =>
+      rows.map((row, i) => ({
+        ...row,
+        id: row.id ?? i + 1,
+      })),
+    [rows],
+  );
+
+  function handleGetList() {
+    if (!collegeNum) {
+      toastInfo("Please select college.");
+      return;
+    }
+    if (!fromDate || !toDate) {
+      toastInfo("Please select from and to dates.");
+      return;
+    }
+    resetApiToast();
+    setLoadKey(
+      JSON.stringify({
         collegeId: collegeNum,
-        fromDate: fromStr,
-        toDate: toStr,
+        fromDate: format(fromDate, "yyyy-MM-dd"),
+        toDate: format(toDate, "yyyy-MM-dd"),
       }),
-    enabled: collegeNum > 0 && !!fromStr && !!toStr && runKey > 0,
-  })
+    );
+  }
 
-  const columnDefs = useMemo<ColDef<CertificateSummaryReportRow>[]>(() => {
-    if (rows.length === 0) return []
-    const keys = Object.keys(rows[0]).filter((k) => k !== 'id')
-    return keys.map((key) => ({
-      field: key,
-      headerName: key.replace(/_/g, ' '),
-      minWidth: 120,
-    }))
-  }, [rows])
+  const resultsVisible = loadKey != null && !isFetching && rows.length > 0;
 
   return (
-    <FilteredListPage
+    <FilteredListPage<CertificateSummaryReportRow>
       title="Certificate Request Report"
-      filters={(
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Select
-            label="College"
-            value={collegeId}
-            onChange={setCollegeId}
-            options={colleges}
-            placeholder="Select college"
-            searchable
-            isLoading={loadingColleges}
-          />
-          <DatePicker label="From date" value={fromDate} onChange={setFromDate} />
-          <DatePicker label="To date" value={toDate} onChange={setToDate} />
-          <div className="flex items-end">
-            <Button
-              type="button"
-              disabled={!collegeNum || !fromStr || !toStr}
-              onClick={() => setRunKey((k) => k + 1)}
-            >
-              Generate report
-            </Button>
+      filters={
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[180px] flex-1">
+            <Select
+              label="College"
+              required
+              value={collegeId}
+              onChange={(v) => {
+                setCollegeId(v);
+                setLoadKey(null);
+              }}
+              options={colleges}
+              placeholder="College"
+              isLoading={loadingColleges}
+            />
           </div>
+          <div className="min-w-[160px] flex-1">
+            <DatePicker
+              label="From Date"
+              value={fromDate}
+              onChange={(d) => {
+                setFromDate(d);
+                setLoadKey(null);
+              }}
+              maxDate={new Date()}
+            />
+          </div>
+          <div className="min-w-[160px] flex-1">
+            <DatePicker
+              label="To Date"
+              value={toDate}
+              onChange={(d) => {
+                setToDate(d);
+                setLoadKey(null);
+              }}
+              maxDate={new Date()}
+            />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isFetching || !collegeId || !fromDate || !toDate}
+            onClick={handleGetList}
+          >
+            {isFetching ? "Loading…" : "Get List"}
+          </Button>
         </div>
-      )}
-      rowData={runKey > 0 ? rows : []}
-      columnDefs={columnDefs}
-      loading={isLoading || isFetching}
+      }
+      rowData={tableRows}
+      columnDefs={COL_DEFS}
+      loading={isFetching}
+      resultsVisible={resultsVisible}
       height="auto"
-      toolbar={{ search: true, searchPlaceholder: 'Search report…' }}
+      pagination
+      columnFilters={true}
+      getRowId={(p) => String(p.data?.id ?? "")}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: true,
+        exportPdf: true,
+        columnPicker: false,
+        excelDocumentTitle: "Certificate Request Report",
+        excelFileName: "Certificate Request Report.xls",
+      }}
     />
-  )
+  );
 }

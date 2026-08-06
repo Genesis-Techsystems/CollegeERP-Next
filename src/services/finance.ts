@@ -10,6 +10,10 @@ import type {
   FinTransaction,
   GeneralDetailOption,
   IncomeExpenseSummaryRow,
+  ExpenseSummaryRow,
+  SchoolWiseSalaryRow,
+  LibrarySummaryRow,
+  TransportSummaryRow,
 } from "@/types/finance";
 import { DASHBOARD_API, FINANCE_API } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
@@ -465,4 +469,132 @@ export async function fetchIncomeExpenseSummary(params: {
     );
   }
   return firstResultSet<IncomeExpenseSummaryRow>(envelope.data);
+}
+
+/**
+ * Angular management-reports/expense-report getReport:
+ * GET `getAllRecords/s_get_expense_summary`
+ * `in_district_id=0&in_clg_id=&in_year=&in_month=0`
+ *
+ * Angular mat-option binds `academic_year` string as `academicYearId` → `in_year`.
+ */
+export async function fetchExpenseSummary(params: {
+  collegeId: number;
+  year: string | number;
+}): Promise<ExpenseSummaryRow[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.EXPENSE_SUMMARY,
+    {
+      in_district_id: 0,
+      in_clg_id: params.collegeId,
+      in_year: params.year,
+      in_month: 0,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError("API_ERROR", message || "Failed to load expense report");
+  }
+  return firstResultSet<ExpenseSummaryRow>(envelope.data);
+}
+
+/**
+ * Angular management-reports/salary-report getReport:
+ * GET `getAllRecords/s_school_wise_salaries`
+ * `in_districtId=0&in_collegeId=&in_year=&in_month=0`
+ *
+ * Chart + other management reports use `result[0]` (row set). Angular salary-report
+ * incorrectly assigns `result` itself; React uses the first result set of row objects.
+ */
+export async function fetchSchoolWiseSalaries(params: {
+  collegeId: number;
+  /** Academic year label (e.g. "2026-2027") — Angular mat-option `academic_year`. */
+  year: string | number;
+}): Promise<SchoolWiseSalaryRow[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.SCHOOL_WISE_SALARIES,
+    {
+      in_districtId: 0,
+      in_collegeId: params.collegeId,
+      in_year: params.year,
+      in_month: 0,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError("API_ERROR", message || "Failed to load salary report");
+  }
+  const result = envelope.data?.result;
+  if (!Array.isArray(result) || result.length === 0) return [];
+
+  // Standard stored-proc shape: result[0] = rows[]
+  const first = result[0];
+  if (Array.isArray(first)) {
+    if (
+      first.length === 0 ||
+      (typeof first[0] === "object" &&
+        first[0] !== null &&
+        !Array.isArray(first[0]))
+    ) {
+      return first as SchoolWiseSalaryRow[];
+    }
+  }
+  // Flat list of row objects (defensive)
+  if (typeof first === "object" && first !== null && !Array.isArray(first)) {
+    return result as unknown as SchoolWiseSalaryRow[];
+  }
+  return [];
+}
+
+/**
+ * Angular management-reports/library-report getReport:
+ * GET `getAllRecords/s_get_library_summary`
+ * `in_districtId=0&in_collegeId=&in_year=`
+ */
+export async function fetchLibrarySummary(params: {
+  collegeId: number;
+}): Promise<LibrarySummaryRow[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.LIBRARY_SUMMARY,
+    {
+      in_districtId: 0,
+      in_collegeId: params.collegeId,
+      in_year: "",
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError("API_ERROR", message || "Failed to load library report");
+  }
+  return firstResultSet<LibrarySummaryRow>(envelope.data);
+}
+
+/**
+ * Angular management-reports/transport-report getReport:
+ * GET `getAllRecords/s_get_transport_summary`
+ * `in_districtId=0&in_collegeId=&in_year=`
+ */
+export async function fetchTransportSummary(params: {
+  collegeId: number;
+}): Promise<TransportSummaryRow[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.TRANSPORT_SUMMARY,
+    {
+      in_districtId: 0,
+      in_collegeId: params.collegeId,
+      in_year: "",
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load transport report",
+    );
+  }
+  return firstResultSet<TransportSummaryRow>(envelope.data);
 }

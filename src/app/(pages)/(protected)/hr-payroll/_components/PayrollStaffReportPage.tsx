@@ -133,6 +133,7 @@ function buildAngularPayrollTableHtml(
 
   const tables = groups
     .map((group) => {
+      const heading = group.label ? `<h3>${escapeHtml(group.label)}</h3>` : "";
       const rowsHtml = group.rows
         .map((row) => {
           // Angular only emits Basic <td> when a BASIC earning exists on the pivot.
@@ -200,8 +201,9 @@ function buildAngularPayrollTableHtml(
         })
         .join("");
 
+      // Angular leaves empty category bodies blank (no placeholder row).
       return `
-        ${group.label ? `<h3>${escapeHtml(group.label)} STAFF</h3>` : ""}
+        ${heading}
         <div class="payroll-report-scroll">
         <table class="${tableClass}">
           <thead>
@@ -227,10 +229,7 @@ function buildAngularPayrollTableHtml(
               <th class="table-th">Bank A/c No.</th>
             </tr>
           </thead>
-          <tbody>${
-            rowsHtml ||
-            `<tr><td class="table-td" colspan="20" style="text-align:center">No employees in this category</td></tr>`
-          }</tbody>
+          <tbody>${rowsHtml}</tbody>
         </table>
         </div>`;
     })
@@ -303,6 +302,10 @@ export function PayrollStaffReportPage({
   const [departments, setDepartments] = useState<SelectOption[]>([
     { value: "0", label: "All" },
   ]);
+  /** Angular print uses `deptName`; dropdown labels use `deptCode`. */
+  const [departmentDetails, setDepartmentDetails] = useState<
+    Array<{ id: number; code: string; name: string }>
+  >([]);
   const [categories, setCategories] = useState<SelectOption[]>([
     { value: "0", label: "All" },
   ]);
@@ -367,17 +370,24 @@ export function PayrollStaffReportPage({
     void (async () => {
       try {
         const depts = await listDepartmentsByCollege(collegeId);
+        const details = depts.map((d) => ({
+          id: Number(d.departmentId),
+          code: String(d.deptCode ?? d.deptName ?? d.departmentId),
+          name: String(d.deptName ?? d.deptCode ?? d.departmentId),
+        }));
+        setDepartmentDetails(details);
         setDepartments([
           { value: "0", label: "All" },
-          ...depts.map((d) => ({
-            value: String(d.departmentId),
-            label: String(d.deptCode ?? d.deptName ?? d.departmentId),
+          ...details.map((d) => ({
+            value: String(d.id),
+            label: d.code,
           })),
         ]);
-        if (depts.length > 0) {
-          setDepartmentId(Number(depts[0]!.departmentId));
+        if (details.length > 0) {
+          setDepartmentId(details[0]!.id);
         }
       } catch (e) {
+        setDepartmentDetails([]);
         setDepartments([{ value: "0", label: "All" }]);
         toastError(e, "Failed to load departments");
       }
@@ -475,33 +485,25 @@ export function PayrollStaffReportPage({
     departments,
   ]);
 
-  // Report search — match visible identity fields (name + employee no., etc.).
-  // Angular facultyFilter only checks Faculty; searching emp prefix like "unigug"
-  // then incorrectly emptied the grid.
+  // Angular `facultyFilter` pipe — Faculty name only (case-insensitive contains).
   const filteredRows = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     if (!q) return flatRows;
     return flatRows.filter((row) => {
-      const haystack = [
-        row.Faculty,
-        row.emp_number,
-        row.Emp_Designation,
-        row.Emp_Department,
-        row.SNo,
-      ]
-        .map((v) => String(v ?? "").toLowerCase())
-        .join(" ");
-      return haystack.includes(q);
+      const faculty = row.Faculty;
+      return faculty != null && String(faculty).toLowerCase().includes(q);
     });
   }, [flatRows, searchText]);
 
   const reportGroups = useMemo(() => {
+    // Angular: single category → "{{Empcategory}} staff"; All → "{{name}} STAFF".
     if (empCategoryId !== 0) {
+      const name =
+        categoryDetails.find((category) => category.id === empCategoryId)
+          ?.label ?? "Employee";
       return [
         {
-          label:
-            categoryDetails.find((category) => category.id === empCategoryId)
-              ?.label ?? "Employee",
+          label: `${name} staff`,
           rows: filteredRows,
         },
       ];
@@ -510,7 +512,7 @@ export function PayrollStaffReportPage({
       return [{ label: "", rows: filteredRows }];
     }
     return categoryDetails.map((category) => ({
-      label: category.label,
+      label: `${category.label} STAFF`,
       rows: filteredRows.filter(
         (row) => String(row.gd_code ?? "") === category.code,
       ),
@@ -563,11 +565,12 @@ export function PayrollStaffReportPage({
   const handlePrint = () => {
     if (flatRows.length === 0) return;
     const college = collegeDetails.find((entry) => entry.id === collegeId);
+    // Angular `selectedDepartment()` → print "Department : {{deptName}}".
     const departmentLabel =
       departmentId === 0
         ? "All"
-        : (departments.find((entry) => entry.value === String(departmentId))
-            ?.label ?? "All");
+        : (departmentDetails.find((entry) => entry.id === departmentId)?.name ??
+          "All");
     const monthName = MONTHS[period.getMonth()] ?? "";
     const year = period.getFullYear();
     const logoSrc = resolvePrintLogoUrl(college?.logo);
@@ -623,7 +626,7 @@ export function PayrollStaffReportPage({
   };
 
   const headingTitle =
-    hasRun && dataDetails ? `${title} — ${dataDetails}` : title;
+    hasRun && dataDetails ? `${title} - ${dataDetails}` : title;
 
   return (
     <FilteredPage

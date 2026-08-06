@@ -11,6 +11,9 @@ function isNoRecordsFoundMessage(message: string): boolean {
  * Extracts a safe user-facing message via getErrorMessage.
  * "No Record(s) found" uses the existing info toast (white), not red error.
  *
+ * For report Get Report / Get List pages, prefer `useApiQueryToasts` from
+ * `@/hooks` so success and error both use toasts (not inline red notices).
+ *
  * @param err     - Any caught value (Error, AppError, unknown)
  * @param context - Optional prefix, e.g. 'Failed to load' → "Failed to load: ..."
  */

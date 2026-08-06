@@ -163,6 +163,56 @@ export type IncomeExpenseSummaryRow = Record<string, unknown> & {
   __rowKey?: string;
 };
 
+/** Row from `s_get_expense_summary` (management Expense Report). */
+export type ExpenseSummaryRow = Record<string, unknown> & {
+  college_shortname?: string;
+  Year?: string | number;
+  Month?: string;
+  Category?: string;
+  TotalExpense?: number | null;
+  /** Client-only stable AG Grid row id. */
+  __rowKey?: string;
+};
+
+/**
+ * Row from `s_school_wise_salaries` (management Salary Report / school-wise salaries chart).
+ * Column headers are derived from response keys (Angular HTML still shows stale fee columns).
+ */
+export type SchoolWiseSalaryRow = Record<string, unknown> & {
+  district_name?: string;
+  college_shortname?: string;
+  Year?: string | number;
+  month?: string | number;
+  Month?: string | number;
+  Amount?: number | null;
+  pk_district_id?: number;
+  pk_college_id?: number;
+  /** Client-only stable AG Grid row id. */
+  __rowKey?: string;
+};
+
+/** Row from `s_get_library_summary` (management Library Report). */
+export type LibrarySummaryRow = Record<string, unknown> & {
+  college_shortname?: string;
+  Year?: string | number;
+  Title?: string;
+  Publisher?: string;
+  Author?: string;
+  /** API returns spaced key; also accept camel/Pascal without space. */
+  "Total Books"?: number | null;
+  TotalBooks?: number | null;
+  __rowKey?: string;
+};
+
+/** Row from `s_get_transport_summary` (management Transport Report). */
+export type TransportSummaryRow = Record<string, unknown> & {
+  college_code?: string;
+  district_name?: string;
+  Type?: string;
+  Count?: number | null;
+  __rowKey?: string;
+};
+
 export interface FinBudgetMidyearEstimation {
   finBudgetMidyrEstimationId: number;
   accountEntityId?: number;

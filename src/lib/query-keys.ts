@@ -1182,6 +1182,27 @@ export const QK = {
     ["FinBudgetMidyear", accountEntityId, financialYearId] as const,
   incomeExpenseSummary: (collegeId: number, year: string | number) =>
     ["IncomeExpenseSummary", collegeId, year] as const,
+  schoolWiseSalaries: (collegeId: number, year: string | number) =>
+    ["SchoolWiseSalaries", collegeId, year] as const,
+  feeDiscountSummary: (collegeId: number, year: string | number) =>
+    ["FeeDiscountSummary", collegeId, year] as const,
+  expenseSummary: (collegeId: number, year: string | number) =>
+    ["ExpenseSummary", collegeId, year] as const,
+  librarySummary: (collegeId: number) => ["LibrarySummary", collegeId] as const,
+  transportSummary: (collegeId: number) =>
+    ["TransportSummary", collegeId] as const,
+  payrollBankStatement: (collegeId: number, month: number, year: number) =>
+    ["PayrollBankStatement", collegeId, month, year] as const,
+  completeStudentFeeReport: (key: string) =>
+    ["CompleteStudentFeeReport", key] as const,
+  onlinePaymentsComparative: (key: string) =>
+    ["OnlinePaymentsComparative", key] as const,
+  feeCollectionReport: (key: string) => ["FeeCollectionReport", key] as const,
+  feeParticularWiseReport: (key: string) =>
+    ["FeeParticularWiseReport", key] as const,
+  feeDueListReport: (key: string) => ["FeeDueListReport", key] as const,
+  studentSubjectsReport: (key: string) =>
+    ["StudentSubjectsReport", key] as const,
 
   // ── Fee Masters ───────────────────────────────────────────────────────────
   feeMasters: {
@@ -1262,6 +1283,17 @@ export const QK = {
         audienceId,
         deptId,
       ] as const,
+  },
+
+  // ── Grievance Masters ────────────────────────────────────────────────────
+  grievanceMasters: {
+    categories: () => ["GrievanceMasters", "categories"] as const,
+    grievantTypes: () => ["GrievanceMasters", "grievantTypes"] as const,
+    committees: () => ["GrievanceMasters", "committees"] as const,
+    members: (grvCommitteeId: number) =>
+      ["GrievanceMasters", "members", grvCommitteeId] as const,
+    adminList: () => ["GrievanceMasters", "adminList"] as const,
+    adminAcknowledged: () => ["GrievanceMasters", "adminAcknowledged"] as const,
   },
 
   // ── Student Grievances & Feedback ────────────────────────────────────────

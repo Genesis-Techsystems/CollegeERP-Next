@@ -283,14 +283,6 @@ export default function PrintExamFeeReceiptPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4" data-print-root>
-      <div className="mb-4 flex items-center gap-2 text-[13px] text-muted-foreground print:hidden">
-        <span>Examination</span>
-        <span>/</span>
-        <span>Student Exam Fee Collection</span>
-        <span>/</span>
-        <span>Exam Fee Receipt</span>
-      </div>
-
       {/* Screen: Student Copy only. Print button uses iframe with both copies. */}
       <div id="printsection" className="space-y-0">
         <ReceiptCopy data={data} copyLabel="Student Copy" />

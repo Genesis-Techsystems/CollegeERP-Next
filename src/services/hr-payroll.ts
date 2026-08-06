@@ -15,6 +15,7 @@ import {
   fetchDetails,
   fetchDetailsEnvelope,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   postDetailsEnvelope,
   putDetails,
@@ -22,6 +23,7 @@ import {
   uploadFile,
 } from "./crud";
 import { listGeneralDetailsByCode } from "./student-information";
+import { AppError } from "@/lib/errors";
 
 type AnyRow = Record<string, unknown>;
 
@@ -1683,4 +1685,45 @@ export async function uploadEmployeeEnrollmentFiles(
   formData: FormData,
 ): Promise<unknown> {
   return uploadFile(EMPLOYEE_API.UPLOAD_FILES, formData);
+}
+
+export type PayrollBankStatementRow = Record<string, unknown> & {
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  designation_name?: string | null;
+  account_number?: string | null;
+  net_pay?: number | null;
+  ifsc_code?: string | null;
+  __rowKey?: string;
+};
+
+/**
+ * Angular hr-reports/employee-salaries-process-bank-copy getList:
+ * GET `getAllRecords/s_rep_payroll_bank_statement`
+ * `in_clg_id=&in_pay_month=&in_pay_year=`
+ */
+export async function fetchPayrollBankStatement(params: {
+  collegeId: number;
+  month: number;
+  year: number;
+}): Promise<PayrollBankStatementRow[]> {
+  const envelope = await getAllRecordsEnvelope<{ result?: unknown[][] }>(
+    HR_PAYROLL_API.PAYROLL_BANK_STATEMENT,
+    {
+      in_clg_id: params.collegeId,
+      in_pay_month: params.month,
+      in_pay_year: params.year,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load payroll bank statement",
+    );
+  }
+  const block = envelope.data?.result?.[0];
+  return Array.isArray(block) ? (block as PayrollBankStatementRow[]) : [];
 }
