@@ -2,6 +2,7 @@ import { STUDENT_API } from "@/config/constants/api";
 import type { ApiResponse } from "@/types/api";
 import {
   buildQuery,
+  crud,
   domainCreate,
   domainList,
   domainUpdate,
@@ -617,16 +618,25 @@ export async function submitStudentPassout(
   return putDetails<unknown>("passedout", rows);
 }
 
-/** Mirrors Angular `genericFunctions.momentWithTime()`. */
+/**
+ * Angular `studentsList` section-change dates: `YYYY-MM-DDTHH:mm:ss±HH:mm`
+ * (local calendar day at midnight + timezone offset), e.g. `2026-08-05T00:00:00+05:30`.
+ */
 export function modifyStudentSectionDateTime(d: Date | null): string {
   if (!d) return "";
   const p = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  const y = d.getFullYear();
+  const m = p(d.getMonth() + 1);
+  const day = p(d.getDate());
+  const offsetMin = -d.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMin);
+  return `${y}-${m}-${day}T00:00:00${sign}${p(Math.floor(abs / 60))}:${p(abs % 60)}`;
 }
 
 /**
  * Angular modify-student-section `changeStudentSections` payload — PUT `studentsList`
- * with `groupSectionId`, `fromDate`/`toDate`, and `isStudentModification: true`.
+ * with full student row + `groupSectionId`, `fromDate`/`toDate`, `isStudentModification: true`.
  */
 export function buildModifyStudentSectionPayload(
   row: AnyRow,
@@ -634,68 +644,21 @@ export function buildModifyStudentSectionPayload(
   fromDate: Date | null,
   toDate: Date | null = fromDate,
 ): Record<string, unknown> {
-  const fromDateTime = modifyStudentSectionDateTime(fromDate);
-  const toDateTime = modifyStudentSectionDateTime(toDate ?? fromDate);
+  const {
+    __rowKey: _key,
+    studentName: _studentName,
+    student_name: _studentNameSnake,
+    courseName: _courseName,
+    sectionName: _sectionName,
+    mobileNumber: _mobileNumber,
+    ...student
+  } = row;
   return {
-    academicYearId: num(row, ["academicYearId", "fk_academic_year_id"]),
-    admissionNumber: row.admissionNumber ?? null,
-    applicationNo: row.applicationNo ?? null,
-    batchId: row.batchId ?? null,
-    collegeId: num(row, ["collegeId", "fk_college_id"]),
-    courseGroupId: num(row, ["courseGroupId", "fk_course_group_id"]),
-    courseId: num(row, ["courseId", "fk_course_id"]),
-    courseYearId: num(row, ["courseYearId", "fk_course_year_id"]),
-    dateOfBirth: row.dateOfBirth ?? null,
-    fatherAddress: row.fatherAddress ?? null,
-    fatherEmailId: row.fatherEmailId ?? null,
-    fatherMobileNo: row.fatherMobileNo ?? null,
-    fatherName: row.fatherName ?? null,
-    fatherQualification: row.fatherQualification ?? null,
-    firstName: row.firstName ?? row.studentName ?? row.student_name ?? null,
-    genderId: row.genderId ?? null,
+    ...student,
     groupSectionId: targetSectionId,
-    guardianAddress: row.guardianAddress ?? null,
-    guardianEmailId: row.guardianEmailId ?? null,
-    guardianMobileNo: row.guardianMobileNo ?? null,
-    guardianName: row.guardianName ?? null,
-    hallticketNumber: row.hallticketNumber ?? null,
-    isActive: row.isActive ?? true,
-    isLateral: row.isLateral ?? null,
-    isMinority: row.isMinority ?? null,
-    isPresent: row.isPresent ?? true,
-    isScholarship: row.isScholarship ?? null,
+    fromDate: modifyStudentSectionDateTime(fromDate),
+    toDate: modifyStudentSectionDateTime(toDate ?? fromDate),
     isStudentModification: true,
-    lastName: row.lastName ?? null,
-    middleName: row.middleName ?? null,
-    mobile: row.mobile ?? null,
-    motherEmailId: row.motherEmailId ?? null,
-    motherMobileNo: row.motherMobileNo ?? null,
-    motherName: row.motherName ?? null,
-    permanentAddress: row.permanentAddress ?? null,
-    permanentPincode: row.permanentPincode ?? null,
-    permanentStreet: row.permanentStreet ?? null,
-    premanentMandal: row.premanentMandal ?? null,
-    presentAddress: row.presentAddress ?? null,
-    presentMandal: row.presentMandal ?? null,
-    presentPincode: row.presentPincode ?? null,
-    presentStreet: row.presentStreet ?? null,
-    primaryContact: row.primaryContact ?? null,
-    qualifyingId: row.qualifyingId ?? null,
-    quotaId: row.quotaId ?? null,
-    reason: row.reason ?? null,
-    regulationId: row.regulationId ?? null,
-    rfid: row.rfid ?? null,
-    rollNumber: row.rollNumber ?? null,
-    sscNo: row.sscNo ?? null,
-    stdEmailId: row.stdEmailId ?? null,
-    studentAppId: row.studentAppId ?? null,
-    studentEmailId: row.studentEmailId ?? null,
-    studentId: num(row, ["studentId", "fk_student_id"]),
-    studentPhotoPath: row.studentPhotoPath ?? null,
-    studentStatusId: row.studentStatusId ?? null,
-    toDate: toDateTime,
-    userId: row.userId ?? null,
-    fromDate: fromDateTime,
   };
 }
 
@@ -895,6 +858,83 @@ export async function listStudentsForStudentDetails(params: {
   return lastRows.map((row) => ({ ...normalizeStudentRow(row), ...row }));
 }
 
+/**
+ * Angular assign-student-to-section exact calls:
+ * - `domain/list/GroupSection?query=College.collegeId==...and.CourseYear.courseYearId==...`
+ * - `studentsList?collegeId=...&academicYearId=...&courseId=...&courseGroupId=...&courseYearId=...`
+ *
+ * These helpers intentionally do not try fallback key variants, so the page emits
+ * one request per resource instead of multiple compatibility probes.
+ */
+export async function listAssignStudentSectionOptionsExact(params: {
+  collegeId: number;
+  academicYearId: number;
+  courseGroupId: number;
+  courseYearId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseGroupId, courseYearId } = params;
+  if (!collegeId || !academicYearId || !courseGroupId || !courseYearId)
+    return [];
+  const query =
+    `College.collegeId==${collegeId}` +
+    `.and.CourseYear.courseYearId==${courseYearId}` +
+    `.and.AcademicYear.academicYearId==${academicYearId}` +
+    `.and.CourseGroup.courseGroupId==${courseGroupId}` +
+    `.and.isActive==true`;
+  const rows = await crud.listRawQuery<AnyRow>("GroupSection", query, true);
+  return rows.map((row) => ({
+    ...row,
+    groupSectionId: num(row, [
+      "groupSectionId",
+      "pk_group_section_id",
+      "fk_group_section_id",
+      "group_section_id",
+    ]),
+    groupSectionName: text(row, [
+      "groupSectionName",
+      "group_section_name",
+      "section",
+      "sectionName",
+    ]),
+    groupSectionCode: text(row, [
+      "groupSectionCode",
+      "group_section_code",
+      "section_code",
+    ]),
+  }));
+}
+
+export async function listStudentsForStudentDetailsExact(params: {
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, academicYearId, courseId, courseGroupId, courseYearId } =
+    params;
+  if (
+    !collegeId ||
+    !academicYearId ||
+    !courseId ||
+    !courseGroupId ||
+    !courseYearId
+  ) {
+    return [];
+  }
+  const data = await fetchDetails<any>("studentsList", {
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+  });
+  return asArray<AnyRow>(data).map((row) => ({
+    ...normalizeStudentRow(row),
+    ...row,
+  }));
+}
+
 /** Angular `sendStudentMailsUrl` — POST student credential emails. */
 export async function sendStudentCredentials(
   rows: Array<{ studentId: number; collegeId: number }>,
@@ -935,6 +975,107 @@ export async function searchStudentsByKeyword(term: string): Promise<AnyRow[]> {
       buildQuery({ isActive: true, firstName: q }),
     );
     return rows.map(normalizeStudentRow);
+  }
+}
+
+export type StudentDetailsEmpSecurity = {
+  collegeId?: number | string | null;
+  courseId?: number | string | null;
+  courseGroupId?: number | string | null;
+};
+
+/**
+ * Angular `StudentsListComponent.enteredStudent` — role-scoped search (length > 4).
+ * - Dept admin: `studentsearch?collegeId&courseId&courseGroupId&q`
+ * - Non-admin: `studentSearchInMultipleColleges?collegeIds&q`
+ * - Admin: `studentsearch?q=` (no isActive filter)
+ */
+export async function searchStudentsForStudentDetailsList(params: {
+  q: string;
+  isAdmin: boolean;
+  isDeptAdmin: boolean;
+  empSecurity?: StudentDetailsEmpSecurity[];
+  /** Comma-separated college IDs for multi-college search (Angular `collegeIds`). */
+  collegeIds?: string | number;
+  /** Typing uses localStorage course/group; restore uses empSecurity[0]. */
+  mode?: "type" | "restore";
+}): Promise<AnyRow[]> {
+  const q = String(params.q ?? "").trim();
+  if (q.length <= 4) return [];
+
+  const security = Array.isArray(params.empSecurity) ? params.empSecurity : [];
+  const first = security[0];
+  const mode = params.mode ?? "type";
+
+  try {
+    if (params.isDeptAdmin && first) {
+      const collegeId = Number(first.collegeId ?? 0);
+      const courseId =
+        mode === "type"
+          ? Number(
+              typeof window !== "undefined"
+                ? (window.localStorage.getItem("courseId") ??
+                    first.courseId ??
+                    0)
+                : (first.courseId ?? 0),
+            )
+          : Number(first.courseId ?? 0);
+      const courseGroupId =
+        mode === "type"
+          ? Number(
+              typeof window !== "undefined"
+                ? (window.localStorage.getItem("courseGroupId") ??
+                    first.courseGroupId ??
+                    0)
+                : (first.courseGroupId ?? 0),
+            )
+          : Number(first.courseGroupId ?? 0);
+      if (collegeId > 0) {
+        const data = await fetchDetails<any>("studentsearch", {
+          collegeId,
+          courseId: courseId || 0,
+          courseGroupId: courseGroupId || 0,
+          q,
+        });
+        return asArray<AnyRow>(data).map((row) => ({
+          ...normalizeStudentRow(row),
+          ...row,
+        }));
+      }
+    }
+
+    if (!params.isAdmin) {
+      const collegeIds =
+        params.collegeIds != null && String(params.collegeIds).trim() !== ""
+          ? String(params.collegeIds)
+          : security
+              .map((r) => Number(r.collegeId ?? 0))
+              .filter((id) => id > 0)
+              .join(",");
+      if (collegeIds) {
+        // Angular CONSTANTS.studentSearchInMultipleCollegesUrl
+        const data = await fetchDetails<any>(
+          "studentSearchInMultipleColleges",
+          {
+            collegeIds,
+            q,
+          },
+        );
+        return asArray<AnyRow>(data).map((row) => ({
+          ...normalizeStudentRow(row),
+          ...row,
+        }));
+      }
+    }
+
+    // Admin (and fallback): Angular `listByIds(studentSearchUrl, q, 'q')`
+    const data = await fetchDetails<any>("studentsearch", { q });
+    return asArray<AnyRow>(data).map((row) => ({
+      ...normalizeStudentRow(row),
+      ...row,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -1402,6 +1543,11 @@ export async function listElectiveBatchStudents(params: {
 /**
  * Reassign selected students to a target elective batch.
  * Mirrors Angular `assignStudents` → `crudService.update('batchWiseStudentsElective', rows)`.
+ *
+ * Angular body shape (array):
+ * `{ electiveGroupyrMappingId, toDate: 'YYYY-MM-DDT00:00:00±HH:mm',
+ *    batchwiseStudentId, subjectId, studentSubjectDTOList: [{ subjectId }] }`
+ * — `subjectId` is the **target** elective subject; do not send `studentSubjectId`.
  */
 export async function submitElectiveBatchChange(
   rows: AnyRow[],
@@ -1409,7 +1555,7 @@ export async function submitElectiveBatchChange(
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new Error("No students selected for elective batch change");
   }
-  return putDetails<unknown>("batchWiseStudentsElective", rows);
+  return putDetails<unknown>(STUDENT_API.BATCHWISE_STUDENTS_ELECTIVE, rows);
 }
 
 export async function listStudentBatchesByCollegeCourse(params: {

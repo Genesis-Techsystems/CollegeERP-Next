@@ -1,153 +1,365 @@
 "use client";
 
+/**
+ * Additional Fee Collection — Angular `additional-exam-fee-collection`.
+ * Flow: Student → Exam → Regular/Supple → Semester → Additional Fee → Add Fee → Pay
+ * Pay: POST examfeereceipt[] (not addExamAdditionalFeeReceipt).
+ */
+
 import { useEffect, useMemo, useState } from "react";
-import { Eye, PlusCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import type {
+  ColDef,
+  ICellRendererParams,
+  ValueGetterParams,
+} from "ag-grid-community";
+import { ClipboardList, Printer } from "lucide-react";
+import defaultStudent from "@/assets/images/avatars/default_Student.png";
+import { StudentSearchSelect } from "@/common/components/student-search";
+import { Select, type SelectOption } from "@/common/components/select";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { DataTable } from "@/common/components/table";
+import { toDateStr, toDateOnlyISO } from "@/common/generic-functions";
+import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import defaultStudent from "@/assets/images/avatars/default_Student.png";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Select, type SelectOption } from "@/common/components/select";
-import { StudentSearchSelect } from "@/common/components/student-search";
-import { toDateStr, toDateOnlyISO } from "@/common/generic-functions";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
-  addExamAdditionalFeeReceipt,
-  getUnivExamFiltersRegSup,
-  listAdditionalExamFeeTypes,
-  listExamFeeReceipts,
-  listStudents,
+  getStudentAcademicBatches,
   getStudentExamFeeStructure,
-  listExamFeeAdditionalStructureByExamType,
-} from "@/services/pre-examination";
-import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow } from "@/common/components/forms";
+  getStudentSubjectsForRegularExam,
+  getStudentSubjectsForSupplyExam,
+  listExamFeeReceipts,
+  listExamFeeTypes,
+  listExamMastersByCourse,
+  listPaymentModes,
+  listStudents,
+  payExamFeeReceipts,
+} from "@/services";
+import { saveExamFeePrintPayload } from "../student-exam-fee-registration/_print/store";
 
 type AnyRow = Record<string, any>;
-type AddedFeeRow = {
+
+type CartRow = {
+  collegeCode: string;
   courseYearId: number;
+  courseName: string;
   courseYearName: string;
-  examType: "Regular" | "Supplementary";
-  feeTypeId: number;
-  feeTypeName: string;
-  amount: number;
-  examFeeReceiptId: number | null;
+  examType: string; // Regular | Supple (Angular examTypeCatDisplayCode)
+  examAddFee: number;
+  academicYear: string;
+  examFeeStructureId: number | null;
+  examFeeAmount?: number;
+  examFineAmount?: number;
+  /** Source DTO(s) from fee structure — enriched on pay */
+  examAdditionalFeeReceiptDTOs: AnyRow[];
 };
 
-const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>();
-  return rows.filter((r) => {
-    const key = keyFn(r);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+const COMPACT_TOOLBAR = {
+  search: false,
+  columnPicker: false,
+  exportExcel: false,
+  exportPdf: false,
+  columnFilters: false,
+} as const;
+
+/** Angular Exam Fee Payment table columns */
+const PAYMENT_COL_DEFS = {
+  siNo: {
+    headerName: "SI No",
+    valueGetter: (p: ValueGetterParams<CartRow>) => (p.node?.rowIndex ?? 0) + 1,
+    width: 80,
+    flex: 0,
+  } as ColDef<CartRow>,
+  semester: {
+    field: "courseYearName",
+    headerName: "Semester",
+    minWidth: 160,
+    flex: 1.4,
+  } as ColDef<CartRow>,
+  examType: {
+    field: "examType",
+    headerName: "Exam Type",
+    minWidth: 120,
+    flex: 0.9,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+  } as ColDef<CartRow>,
+  addFeeAmt: {
+    field: "examAddFee",
+    headerName: "Add. Fee Amt(₹)",
+    minWidth: 130,
+    flex: 0.9,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+  } as ColDef<CartRow>,
+  feeAmt: {
+    field: "examAddFee",
+    headerName: "Fee Amt (₹)",
+    minWidth: 120,
+    flex: 0.9,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+  } as ColDef<CartRow>,
 };
 
-const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
+/** Angular Exam Fee Receipts table columns */
+const RECEIPT_COL_DEFS = {
+  siNo: {
+    headerName: "SI No.",
+    valueGetter: (p: ValueGetterParams<AnyRow>) => (p.node?.rowIndex ?? 0) + 1,
+    width: 80,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  semester: {
+    field: "courseYearName",
+    headerName: "Semester",
+    minWidth: 110,
+    flex: 0.9,
+  } as ColDef<AnyRow>,
+  receiptNo: {
+    field: "feeReceiptNo",
+    headerName: "Receipt No.",
+    minWidth: 140,
+    flex: 1.1,
+  } as ColDef<AnyRow>,
+  paymentDate: {
+    headerName: "Payment Date",
+    minWidth: 130,
+    flex: 1,
+    valueGetter: (p: ValueGetterParams<AnyRow>) => {
+      const d = p.data?.receiptDate;
+      if (!d) return "-";
+      return new Date(d).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    },
+  } as ColDef<AnyRow>,
+  paymentMode: {
+    field: "paymentModeCatDisplayName",
+    headerName: "Payment Mode",
+    minWidth: 120,
+    flex: 0.9,
+  } as ColDef<AnyRow>,
+  examType: {
+    field: "examtypeCatDisplayName",
+    headerName: "Exam Type",
+    minWidth: 110,
+    flex: 0.8,
+  } as ColDef<AnyRow>,
+  addFee: {
+    headerName: "Add. Fee (₹)",
+    minWidth: 120,
+    flex: 0.8,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueGetter: (p: ValueGetterParams<AnyRow>) =>
+      p.data?.examAddtFee != null ? p.data.examAddtFee : "-",
+  } as ColDef<AnyRow>,
+  amount: {
+    headerName: "Amount (₹)",
+    minWidth: 110,
+    flex: 0.8,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueGetter: (p: ValueGetterParams<AnyRow>) =>
+      p.data?.examAddtFee != null ? p.data.examAddtFee : "-",
+  } as ColDef<AnyRow>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 90,
+    width: 90,
+    flex: 0,
+    sortable: false,
+    filter: false,
+  } as ColDef<AnyRow>,
+};
+
+function makePrintReceiptRenderer(onPrint: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    if (!p.data) return null;
+    return (
+      <button
+        type="button"
+        title="Print Receipt"
+        onClick={() => onPrint(p.data as AnyRow)}
+        className="inline-flex text-red-600 hover:text-red-700"
+      >
+        <Printer className="h-4 w-4" />
+      </button>
+    );
+  };
+}
+
+/** Angular additional-exam-fee-pay-dialog columns */
+const PAY_CONFIRM_COL_DEFS = {
+  siNo: {
+    headerName: "SI.No.",
+    valueGetter: (p: ValueGetterParams<CartRow>) => (p.node?.rowIndex ?? 0) + 1,
+    width: 80,
+    flex: 0,
+  } as ColDef<CartRow>,
+  courseYear: {
+    field: "courseYearName",
+    headerName: "Course Year",
+    minWidth: 140,
+    flex: 1,
+  } as ColDef<CartRow>,
+  examType: {
+    field: "examType",
+    headerName: "Exam Type",
+    minWidth: 120,
+    flex: 1,
+  } as ColDef<CartRow>,
+  additionalAmount: {
+    field: "examAddFee",
+    headerName: "Additional Amount",
+    minWidth: 140,
+    flex: 1,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueFormatter: (p) =>
+      p.value == null || p.value === "" ? "—" : String(p.value),
+  } as ColDef<CartRow>,
+};
+
+const DEFAULT_PAYMENT_MODE_ID = 131;
+
+function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
   if (!row) return 0;
   for (const key of keys) {
     const v = Number(row[key]);
-    if (v > 0) return v;
+    if (Number.isFinite(v) && v > 0) return v;
   }
   return 0;
-};
+}
 
-const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
+function pickText(row: AnyRow | null | undefined, keys: string[]): string {
   if (!row) return "";
   for (const key of keys) {
     const v = row[key];
-    if (v != null && String(v).trim() !== "") return String(v);
+    if (v != null && String(v).trim() !== "") return String(v).trim();
   }
   return "";
-};
+}
 
-const getFeeTypeLabel = (row: AnyRow | null | undefined) => {
+function dedupeBy<T>(rows: T[], keyFn: (r: T) => string | number): T[] {
+  const seen = new Set<string | number>();
+  return rows.filter((r) => {
+    const key = keyFn(r);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function feeTypeLabel(row: AnyRow | null | undefined): string {
   if (!row) return "Additional Fee";
-  const code = pickText(row, [
-    "adtExamfeetypeCatCode",
-    "addtExamFeeTypeCatCode",
-    "generalDetailCode",
-    "addtFeeTypeCode",
-  ]);
-  const name = pickText(row, [
-    "addtExamFeeTypeName",
-    "addtFeeTypeName",
-    "generalDetailDisplayName",
-    "generalDetailName",
-    "name",
-  ]);
-  const raw = code || name || "Additional Fee";
-  const text = String(raw).trim();
-  // Some legacy payloads return duplicated text like "DUPHALLTICKETDUPHALLTICKETD".
-  if (text.length % 2 === 0) {
-    const half = text.length / 2;
-    const left = text.slice(0, half);
-    const right = text.slice(half);
-    if (left === right) return left;
-  }
-  return text;
-};
+  return (
+    pickText(row, [
+      "adtExamfeetypeCatCode",
+      "addtExamFeeTypeCatCode",
+      "addtExamFeeTypeName",
+      "addtFeeTypeName",
+      "generalDetailDisplayName",
+      "generalDetailName",
+    ]) || "Additional Fee"
+  );
+}
 
-const dedupeFeeTypes = (rows: AnyRow[]) => {
-  const seen = new Set<string>();
-  const out: AnyRow[] = [];
-  for (const row of rows) {
-    const label = getFeeTypeLabel(row).toUpperCase();
-    if (!label || seen.has(label)) continue;
-    seen.add(label);
-    out.push(row);
-  }
-  return out;
-};
+function feeTypeIdOf(row: AnyRow): number {
+  return pickNum(row, [
+    "adtExamfeetypeCatId",
+    "addtExamFeeTypeCatId",
+    "addtFeeTypeCatId",
+    "generalDetailId",
+  ]);
+}
 
 export default function AdditionalExamFeesPage() {
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
+
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [students, setStudents] = useState<AnyRow[]>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [student, setStudent] = useState<AnyRow | null>(null);
-  const [selectedStudentCache, setSelectedStudentCache] =
-    useState<AnyRow | null>(null);
 
-  const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [exams, setExams] = useState<AnyRow[]>([]);
   const [examId, setExamId] = useState<number | null>(null);
   const [examSearch, setExamSearch] = useState("");
+  const [flag, setFlag] = useState(false);
 
-  const [rows, setRows] = useState<AnyRow[]>([]);
-  const [hasFetched, setHasFetched] = useState(false);
-
-  const [feeTypes, setFeeTypes] = useState<AnyRow[]>([]);
-  const [structure, setStructure] = useState<AnyRow | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForRow, setAddForRow] = useState<AnyRow | null>(null);
-  const [feeTypeId, setFeeTypeId] = useState<number | null>(null);
-  const [feeAmount, setFeeAmount] = useState<number>(0);
-  const [feePreviewAmount, setFeePreviewAmount] = useState<number>(0);
-
-  const [subjectsOpen, setSubjectsOpen] = useState(false);
-  const [subjectsRows, setSubjectsRows] = useState<AnyRow[]>([]);
-  const [examType, setExamType] = useState<"Regular" | "Supplementary">(
-    "Regular",
-  );
+  const [checkExam, setCheckExam] = useState<1 | 2>(1); // 1 Regular, 2 Supple
+  const [batches, setBatches] = useState<AnyRow[]>([]);
   const [semesterId, setSemesterId] = useState<number | null>(null);
-  const [addedFees, setAddedFees] = useState<AddedFeeRow[]>([]);
-  const [paymentMode, setPaymentMode] = useState("Cash");
-  const [referenceNumber, setReferenceNumber] = useState("");
-  const [paymentDate, setPaymentDate] = useState(toDateOnlyISO(new Date()));
+
+  const [structure, setStructure] = useState<AnyRow | null>(null);
+  const [feeOptions, setFeeOptions] = useState<AnyRow[]>([]);
+  const [additionalFeeId, setAdditionalFeeId] = useState<number | null>(null);
+  const [feePreviewAmount, setFeePreviewAmount] = useState(0);
+  const [studentSubjects, setStudentSubjects] = useState<AnyRow[]>([]);
+
+  const [cart, setCart] = useState<CartRow[]>([]);
+  const [receipts, setReceipts] = useState<AnyRow[]>([]);
+
+  const [paymentModes, setPaymentModes] = useState<AnyRow[]>([]);
+  const [examFeeTypes, setExamFeeTypes] = useState<AnyRow[]>([]);
+  const [paymentModeCatId, setPaymentModeCatId] = useState(
+    DEFAULT_PAYMENT_MODE_ID,
+  );
+  const [receiptDate, setReceiptDate] = useState(toDateOnlyISO(new Date()));
   const [feeComments, setFeeComments] = useState("");
-  const [inlineNotice, setInlineNotice] = useState<string | null>(null);
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [transactionNo, setTransactionNo] = useState("");
+  const [chequeNo, setChequeNo] = useState("");
+  const [ddno, setDdno] = useState("");
+  const [otherPaymentNumber, setOtherPaymentNumber] = useState("");
+
   const [payConfirmOpen, setPayConfirmOpen] = useState(false);
   const [paying, setPaying] = useState(false);
-
-  const employeeId = Number(
-    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  /** Supple mode subject filter: All = full supply list; Supple = FAIL/ABSENT only */
+  const [suppleSubjectMode, setSuppleSubjectMode] = useState<"all" | "supple">(
+    "supple",
   );
+
+  // Init payment modes + exam fee types (Angular getData)
+  useEffect(() => {
+    void (async () => {
+      const [modes, types] = await Promise.all([
+        listPaymentModes().catch(() => []),
+        listExamFeeTypes().catch(() => []),
+      ]);
+      setPaymentModes(Array.isArray(modes) ? modes : []);
+      setExamFeeTypes(Array.isArray(types) ? types : []);
+      const cash = (Array.isArray(modes) ? modes : []).find(
+        (m) => Number(m.generalDetailId) === DEFAULT_PAYMENT_MODE_ID,
+      );
+      if (cash) setPaymentModeCatId(Number(cash.generalDetailId));
+      else if (modes[0]) setPaymentModeCatId(Number(modes[0].generalDetailId));
+    })();
+  }, []);
 
   async function onSearchStudents(term: string) {
     const q = term.trim();
@@ -165,1354 +377,1038 @@ export default function AdditionalExamFeesPage() {
     }
   }
 
-  function onStudentChange(id: number | null, row: AnyRow | null) {
+  function clearAfterStudent() {
+    setExamId(null);
+    setExams([]);
+    setFlag(false);
+    setBatches([]);
+    setSemesterId(null);
+    setStructure(null);
+    setFeeOptions([]);
+    setAdditionalFeeId(null);
+    setStudentSubjects([]);
+    setCart([]);
+    setReceipts([]);
+  }
+
+  async function onStudentChange(id: number | null, row: AnyRow | null) {
     setStudentId(id);
     if (!id || !row) {
       setStudent(null);
-      setSelectedStudentCache(null);
-      setAddedFees([]);
-      setInlineNotice(null);
-      setAcademicYearId(null);
-      setExamId(null);
-      setRows([]);
-      setHasFetched(false);
+      clearAfterStudent();
       return;
     }
-    setStudents((prev) => {
-      const sid = pickNum(row, [
-        "studentId",
-        "fk_student_id",
-        "student_id",
-        "std_id",
-      ]);
-      return prev.some(
-        (s) =>
-          pickNum(s, ["studentId", "fk_student_id", "student_id", "std_id"]) ===
-          sid,
-      )
-        ? prev
-        : [...prev, row];
-    });
-    setSelectedStudentCache(row);
     setStudent(row);
-    const sidAy = pickNum(row, [
-      "academicYearId",
-      "fk_academic_year_id",
-      "fk_academicYearId",
+    setStudents((prev) =>
+      prev.some((s) => Number(s.studentId) === Number(id))
+        ? prev
+        : [...prev, row],
+    );
+    clearAfterStudent();
+
+    // Angular: StudentAcademicbatch + ExamMaster by courseId
+    const courseId = pickNum(row, ["courseId", "fk_course_id"]);
+    const [batchRows, examRows] = await Promise.all([
+      getStudentAcademicBatches(id).catch(() => []),
+      listExamMastersByCourse(courseId).catch(() => []),
     ]);
-    setAcademicYearId(sidAy > 0 ? sidAy : null);
-    setExamId(null);
-    setRows([]);
-    setHasFetched(false);
-    setAddedFees([]);
-    setInlineNotice(null);
+    const dedupedBatches = dedupeBy(
+      Array.isArray(batchRows) ? batchRows : [],
+      (b) => pickNum(b, ["fromCourseYearId", "courseYearId"]),
+    );
+    setBatches(dedupedBatches);
+    const external = (Array.isArray(examRows) ? examRows : []).filter(
+      (e) => !Boolean(e.isInternalExam ?? e.is_internal_exam),
+    );
+    setExams(external);
   }
 
+  // Exam selected → show student card, load receipts + structure for current CY
   useEffect(() => {
-    async function init() {
-      const [filters, types] = await Promise.all([
-        getUnivExamFiltersRegSup(employeeId).catch(() => []),
-        listAdditionalExamFeeTypes().catch(() => []),
-      ]);
-      setFilterRows(Array.isArray(filters) ? filters : []);
-      setFeeTypes(dedupeFeeTypes(Array.isArray(types) ? types : []));
-    }
-    void init();
-  }, [employeeId]);
-
-  // Load fee structure for selected semester (courseYear) and exam
-  useEffect(() => {
-    async function loadStructure() {
-      if (!student || !examId || !semesterId) {
-        setStructure(null);
-        return;
-      }
-      const s = await getStudentExamFeeStructure({
-        collegeId: Number(student.collegeId ?? 0),
-        examId: Number(examId),
-        courseGroupId: Number(
-          student.courseGroupId ?? student.fk_course_group_id ?? 0,
-        ),
-        courseYearId: Number(semesterId),
-      }).catch(() => null);
-      setStructure(s);
-    }
-    void loadStructure();
-  }, [student, examId, semesterId]);
-
-  // Build fee types using exact Angular source API (ExamFeeAdditionalStructure by exam type).
-  // If fee-structure DTO exists, only use it to override fee amounts for matching types.
-  useEffect(() => {
-    const isRegular = examType === "Regular";
-    (async () => {
-      const sourceList: AnyRow[] =
-        await listExamFeeAdditionalStructureByExamType(isRegular ? 405 : 406);
-
-      if (!Array.isArray(sourceList) || sourceList.length === 0) {
-        setFeeTypes([]);
-        return;
-      }
-
-      const structureRows = Array.isArray(
-        structure?.examFeeAdditionalStructureDTOs,
-      )
-        ? (structure?.examFeeAdditionalStructureDTOs as AnyRow[])
-        : [];
-
-      const structureFeeByTypeId = new Map<number, number>();
-      for (const sr of structureRows) {
-        const typeId = Number(
-          sr.adtExamfeetypeCatId ??
-            sr.addtExamFeeTypeCatId ??
-            sr.addtFeeTypeCatId ??
-            sr?.adtExamfeetypeCat?.generalDetailId ??
-            sr?.addtExamFeeTypeCat?.generalDetailId ??
-            0,
-        );
-        if (typeId > 0) {
-          structureFeeByTypeId.set(
-            typeId,
-            Number(sr.fee ?? sr.addtFeeAmount ?? sr.amount ?? 0),
-          );
-        }
-      }
-
-      const getName = (row: AnyRow) =>
-        row.addtExamFeeTypeName ??
-        row.addtFeeTypeName ??
-        row.generalDetailName ??
-        row.generalDetailDisplayName ??
-        row?.adtExamfeetypeCat?.generalDetailName ??
-        row?.adtExamfeetypeCat?.generalDetailDisplayName ??
-        row?.addtExamFeeTypeCat?.generalDetailName ??
-        row?.addtExamFeeTypeCat?.generalDetailDisplayName ??
-        "Additional Fee";
-
-      const filtered: AnyRow[] = [];
-      for (const row of sourceList) {
-        const includeInReg = Boolean(row.includeInReg);
-        const includeInRev = Boolean(row.includeInRev);
-        const code = String(
-          row.examTypeCatDisplayCode ??
-            row.examType ??
-            row.examtypeCatCode ??
-            "",
-        ).toLowerCase();
-        const fee = Number(row.fee ?? 0);
-        const catId = Number(
-          row.adtExamfeetypeCatId ??
-            row.addtExamFeeTypeCatId ??
-            row.addtFeeTypeCatId ??
-            row?.adtExamfeetypeCat?.generalDetailId ??
-            row?.addtExamFeeTypeCat?.generalDetailId ??
-            0,
-        );
-        const name = getName(row);
-
-        const matchesType =
-          (isRegular &&
-            (code.includes("regular") ||
-              code === "reg" ||
-              code === "regular")) ||
-          (!isRegular &&
-            (code.includes("supple") ||
-              code.includes("supp") ||
-              code === "supple"));
-        if (!matchesType) continue;
-
-        filtered.push({
-          ...row,
-          generalDetailId: catId,
-          generalDetailName: name,
-          fee:
-            structureFeeByTypeId.get(catId) ??
-            (includeInReg === false && includeInRev === false ? fee : 0),
-        });
-      }
-
-      if (filtered.length > 0) {
-        setFeeTypes(dedupeFeeTypes(filtered));
-        if (feeTypeId) {
-          const picked = filtered.find(
-            (t) => Number(t.generalDetailId) === Number(feeTypeId),
-          );
-          setFeePreviewAmount(
-            Number(
-              picked?.fee ??
-                picked?.amount ??
-                picked?.defaultAmount ??
-                picked?.addtFeeAmount ??
-                0,
-            ) || 0,
-          );
-        }
-      } else {
-        // Same data as `sourceList` — broader mapping when exam-type filter yields no rows (single API call).
-        const mapped = sourceList.map((row) => {
-          const name =
-            row.addtExamFeeTypeName ??
-            row.addtFeeTypeName ??
-            row.generalDetailName ??
-            row.generalDetailDisplayName ??
-            row?.adtExamfeetypeCat?.generalDetailName ??
-            row?.adtExamfeetypeCat?.generalDetailDisplayName ??
-            row?.addtExamFeeTypeCat?.generalDetailName ??
-            row?.addtExamFeeTypeCat?.generalDetailDisplayName ??
-            "Additional Fee";
-          return {
-            ...row,
-            generalDetailId: Number(
-              row.adtExamfeetypeCatId ??
-                row.addtExamFeeTypeCatId ??
-                row.addtFeeTypeCatId ??
-                row?.adtExamfeetypeCat?.generalDetailId ??
-                row?.addtExamFeeTypeCat?.generalDetailId ??
-                0,
-            ),
-            generalDetailName: name,
-            fee:
-              Boolean(row.includeInReg) === false &&
-              Boolean(row.includeInRev) === false
-                ? Number(row.fee ?? 0)
-                : 0,
-          };
-        });
-        setFeeTypes(dedupeFeeTypes(mapped));
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [structure, examType, examId]);
-
-  // Keep the side-box amount in sync with the selected fee type default
-  useEffect(() => {
-    if (!feeTypeId) {
-      setFeePreviewAmount(0);
+    if (!studentId || !examId || !student) {
+      setFlag(false);
       return;
     }
-    const picked =
-      feeTypes.find(
-        (t) =>
-          Number(t.generalDetailId ?? t.addtExamFeeTypeCatId ?? 0) ===
-          Number(feeTypeId),
-      ) ?? null;
-    const defAmt =
-      Number(
-        picked?.fee ??
-          picked?.amount ??
-          picked?.defaultAmount ??
-          picked?.addtFeeAmount ??
-          0,
-      ) || 0;
-    setFeePreviewAmount(defAmt);
-  }, [feeTypeId, feeTypes]);
-
-  // When fee types load or change, auto-select the first sensible option
-  useEffect(() => {
-    if (!Array.isArray(feeTypes) || feeTypes.length === 0) return;
-    const exists = feeTypes.find(
-      (t) =>
-        Number(t.generalDetailId ?? t.addtExamFeeTypeCatId ?? 0) ===
-        Number(feeTypeId),
-    );
-    if (!exists) {
-      const preferred =
-        feeTypes.find(
-          (t) =>
-            Number(
-              t.fee ?? t.amount ?? t.defaultAmount ?? t.addtFeeAmount ?? 0,
-            ) > 0,
-        ) ?? feeTypes[0];
-      const id = Number(
-        preferred.generalDetailId ?? preferred.addtExamFeeTypeCatId ?? 0,
-      );
-      if (id > 0) setFeeTypeId(id);
-    }
-  }, [feeTypes]);
-
-  const academicYears = useMemo(() => {
-    if (!student) return [];
-    return dedupeBy(
-      filterRows.filter(
-        (r) =>
-          pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) ===
-            pickNum(student, ["courseId", "fk_course_id", "fk_courseId"]) &&
-          pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) ===
-            pickNum(student, ["collegeId", "fk_college_id", "fk_collegeId"]),
-      ),
-      (r) =>
-        pickNum(r, [
-          "fk_academic_year_id",
-          "academicYearId",
-          "fk_academicYearId",
-        ]),
-    ).filter(
-      (r) =>
-        pickNum(r, [
-          "fk_academic_year_id",
-          "academicYearId",
-          "fk_academicYearId",
-        ]) > 0,
-    );
-  }, [filterRows, student]);
-
-  const exams = useMemo(() => {
-    if (!student) return [];
-    const studentCourseId = pickNum(student, [
-      "courseId",
-      "fk_course_id",
-      "fk_courseId",
-    ]);
-    const studentCollegeId = pickNum(student, [
-      "collegeId",
-      "fk_college_id",
-      "fk_collegeId",
-    ]);
-
-    // Legacy behavior is course-first. Some rows carry college/AY as 0 (ALL),
-    // so strict equality can hide valid exams.
-    const byCourse = filterRows.filter(
-      (r) =>
-        pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) ===
-          studentCourseId && !Boolean(r.is_internal_exam ?? r.isInternalExam),
-    );
-
-    const strictScoped = byCourse.filter((r) => {
-      const rowCollegeId = pickNum(r, [
-        "fk_college_id",
-        "collegeId",
-        "fk_collegeId",
-      ]);
-      const rowAyId = pickNum(r, [
-        "fk_academic_year_id",
-        "academicYearId",
-        "fk_academicYearId",
-      ]);
-      const collegeOk = rowCollegeId === 0 || rowCollegeId === studentCollegeId;
-      const ayOk =
-        !academicYearId || rowAyId === 0 || rowAyId === Number(academicYearId);
-      return collegeOk && ayOk;
-    });
-
-    const source = strictScoped.length > 0 ? strictScoped : byCourse;
-    const all = dedupeBy(source, (r) =>
-      pickNum(r, ["fk_exam_id", "examId", "fk_examId"]),
-    ).filter((r) => pickNum(r, ["fk_exam_id", "examId", "fk_examId"]) > 0);
-    const q = examSearch.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter((r) =>
-      `${r.exam_name ?? r.examName ?? ""}`.toLowerCase().includes(q),
-    );
-  }, [filterRows, student, academicYearId, examSearch]);
-
-  const examOptions = useMemo<SelectOption[]>(
-    () =>
-      exams.map((e, i) => ({
-        value: String(pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) || i),
-        label: (() => {
-          const name =
-            pickText(e, ["exam_name", "examName"]) ||
-            `Exam ${pickNum(e, ["fk_exam_id", "examId", "fk_examId"])}`;
-          const fromDate = toDateStr(pickText(e, ["fromDate", "from_date"]));
-          const toDate = toDateStr(pickText(e, ["toDate", "to_date"]));
-          const tags = [
-            e?.isInternalExam ? "(Internal)" : "",
-            e?.isRegularExam ? "(Regular)" : "",
-            e?.isSupplyExam ? "(Supple)" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          const datePart =
-            fromDate && toDate ? ` (${fromDate} - ${toDate})` : "";
-          return `${name}${datePart}${tags ? ` ${tags}` : ""}`.trim();
-        })(),
-      })),
-    [exams],
-  );
-
-  async function onLoadReceipts() {
-    if (!studentId || !examId) return;
-    setLoading(true);
-    try {
+    setFlag(true);
+    void (async () => {
       const list = await listExamFeeReceipts({ studentId, examId }).catch(
         () => [],
       );
-      setRows(Array.isArray(list) ? list : []);
-      const firstSem = pickNum((Array.isArray(list) ? list : [])[0], [
-        "courseYearId",
-        "course_year_id",
-        "fk_course_year_id",
-        "fk_course_yearId",
-        "fromCourseYearId",
+      setReceipts(Array.isArray(list) ? list : []);
+    })();
+  }, [studentId, examId, student]);
+
+  /**
+   * Angular getRelevantExamSujects / getStudentSubjects / getExamCourseYearSubjets
+   * + getExamFeeStructure — load structure + subjects when semester changes.
+   */
+  useEffect(() => {
+    if (!student || !examId || !semesterId) {
+      setStructure(null);
+      setFeeOptions([]);
+      setStudentSubjects([]);
+      return;
+    }
+    void (async () => {
+      const collegeId = pickNum(student, ["collegeId", "fk_college_id"]);
+      const courseGroupId = pickNum(student, [
+        "courseGroupId",
+        "fk_course_group_id",
       ]);
-      if (firstSem > 0) setSemesterId(firstSem);
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!studentId || !examId) return;
-    void onLoadReceipts();
-  }, [studentId, examId]);
-
-  useEffect(() => {
-    if (!studentId) return;
-    if (examId) return;
-    const first = exams[0];
-    if (!first) return;
-    const id = pickNum(first, ["fk_exam_id", "examId", "fk_examId"]);
-    if (id > 0) setExamId(id);
-  }, [studentId, exams, examId]);
-
-  function openAddFee(row: AnyRow, presetFeeTypeId?: number | null) {
-    setAddForRow(row);
-    const nextFeeTypeId = presetFeeTypeId ?? feeTypeId ?? null;
-    setFeeTypeId(nextFeeTypeId);
-    const pickedType =
-      feeTypes.find(
-        (t) =>
-          Number(t.generalDetailId ?? t.addtExamFeeTypeCatId ?? 0) ===
-          Number(nextFeeTypeId ?? 0),
-      ) ?? null;
-    const defaultAmt =
-      Number(
-        pickedType?.fee ??
-          pickedType?.amount ??
-          pickedType?.defaultAmount ??
-          pickedType?.addtFeeAmount ??
-          0,
-      ) || 0;
-    setFeeAmount(defaultAmt);
-    setAddOpen(true);
-  }
-
-  const semesters = useMemo(() => {
-    const fromReceipts = dedupeBy(rows, (r) =>
-      pickNum(r, [
+      const academicYearId = pickNum(student, [
+        "academicYearId",
+        "fk_academic_year_id",
+      ]);
+      const currentCy = pickNum(student, [
         "courseYearId",
-        "course_year_id",
-        "fk_course_year_id",
-        "fk_course_yearId",
-        "fromCourseYearId",
-      ]),
-    ).filter(
-      (r) =>
-        pickNum(r, [
-          "courseYearId",
-          "course_year_id",
-          "fk_course_year_id",
-          "fk_course_yearId",
-          "fromCourseYearId",
-        ]) > 0,
-    );
-    if (fromReceipts.length > 0) return fromReceipts;
-
-    if (!student) return [];
-    const studentCourseId = pickNum(student, [
-      "courseId",
-      "fk_course_id",
-      "fk_courseId",
-    ]);
-    const studentCollegeId = pickNum(student, [
-      "collegeId",
-      "fk_college_id",
-      "fk_collegeId",
-    ]);
-
-    const fromFilters = dedupeBy(
-      filterRows.filter((r) => {
-        const rowCourseId = pickNum(r, [
-          "fk_course_id",
-          "courseId",
-          "fk_courseId",
-        ]);
-        const rowCollegeId = pickNum(r, [
-          "fk_college_id",
-          "collegeId",
-          "fk_collegeId",
-        ]);
-        const rowExamId = pickNum(r, ["fk_exam_id", "examId", "fk_examId"]);
-        const rowCourseYearId = pickNum(r, [
-          "fk_course_year_id",
-          "courseYearId",
-          "fk_course_yearId",
-        ]);
-        if (rowCourseYearId <= 0) return false;
-        if (rowCourseId !== studentCourseId) return false;
-        if (rowCollegeId !== 0 && rowCollegeId !== studentCollegeId)
-          return false;
-        if (examId && rowExamId !== 0 && rowExamId !== Number(examId))
-          return false;
-        return true;
-      }),
-      (r) =>
-        pickNum(r, ["fk_course_year_id", "courseYearId", "fk_course_yearId"]),
-    );
-
-    if (fromFilters.length > 0) return fromFilters;
-
-    const sidCy = pickNum(student, [
-      "courseYearId",
-      "fk_course_year_id",
-      "fk_courseYearId",
-    ]);
-    if (sidCy > 0) {
-      return [
-        {
-          courseYearId: sidCy,
-          courseYearName:
-            pickText(student, ["courseYearName", "course_year_name"]) ||
-            pickText(student, ["courseYearCode", "course_year_code"]) ||
-            `Course Year ${sidCy}`,
-        },
-      ];
-    }
-    return [];
-  }, [rows, filterRows, student, examId]);
-
-  const semesterNameById = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const s of semesters) {
-      const id = pickNum(s, [
-        "courseYearId",
-        "course_year_id",
         "fk_course_year_id",
         "fk_courseYearId",
       ]);
-      if (id <= 0) continue;
-      const name =
-        pickText(s, [
-          "courseYearName",
-          "course_year_name",
-          "fromCourseYearName",
-        ]) ||
-        pickText(s, ["courseYearCode", "course_year_code"]) ||
-        `Semester ${id}`;
-      map.set(id, name);
-    }
-    return map;
-  }, [semesters]);
+      const isRegular = checkExam === 1;
+      const isCurrentYear = Number(semesterId) === currentCy;
+
+      const struc = await getStudentExamFeeStructure({
+        collegeId,
+        examId,
+        courseGroupId,
+        courseYearId: semesterId,
+      }).catch(() => null);
+
+      // Subjects: same-year → getStudentSubjects; other year → supply + FAIL/ABSENT (Supple mode)
+      let subjects: AnyRow[] = [];
+      if (isCurrentYear) {
+        if (isRegular) {
+          subjects = await getStudentSubjectsForRegularExam({
+            collegeId,
+            academicYearId,
+            studentId: Number(studentId),
+            courseYearId: semesterId,
+            examId,
+          }).catch(() => []);
+        } else {
+          // Angular getStudentSubjects supply branch for current year
+          subjects = await getStudentSubjectsForSupplyExam({
+            collegeId,
+            courseYearId: semesterId,
+            studentId: Number(studentId),
+            examId,
+          }).catch(() => []);
+        }
+      } else {
+        // Angular getExamCourseYearSubjets — supply API, then FAIL/ABSENT when mode=supple
+        const all = await getStudentSubjectsForSupplyExam({
+          collegeId,
+          courseYearId: semesterId,
+          studentId: Number(studentId),
+          examId,
+        }).catch(() => []);
+        const rows = Array.isArray(all) ? all : [];
+        subjects =
+          checkExam === 2 && suppleSubjectMode === "supple"
+            ? rows.filter((s) => {
+                const code = String(s.examresultCatCode ?? "");
+                return code === "FAIL" || code === "ABSENT";
+              })
+            : rows;
+      }
+
+      setStructure(struc);
+      setStudentSubjects(Array.isArray(subjects) ? subjects : []);
+
+      const dtos = Array.isArray(struc?.examFeeAdditionalStructureDTOs)
+        ? (struc!.examFeeAdditionalStructureDTOs as AnyRow[])
+        : Array.isArray(struc?.examFeeAdditionalStructures)
+          ? (struc!.examFeeAdditionalStructures as AnyRow[])
+          : [];
+
+      // Angular: includeInReg==false && includeInRev==false (null/undefined excluded)
+      const list = dtos.filter((d) => {
+        if (!(d.includeInReg == false && d.includeInRev == false)) return false;
+        const code = String(d.examTypeCatDisplayCode ?? "");
+        return isRegular ? code === "Regular" : code === "Supple";
+      });
+      setFeeOptions(list);
+      // Angular does not auto-select first fee
+      setAdditionalFeeId(null);
+      setFeePreviewAmount(0);
+    })();
+  }, [student, examId, semesterId, checkExam, studentId, suppleSubjectMode]);
 
   useEffect(() => {
-    if (semesterId) return;
-    const first = semesters[0];
-    if (!first) return;
-    const sid = pickNum(first, [
+    if (!additionalFeeId) {
+      setFeePreviewAmount(0);
+      return;
+    }
+    const picked = feeOptions.find(
+      (f) => feeTypeIdOf(f) === Number(additionalFeeId),
+    );
+    setFeePreviewAmount(Number(picked?.fee ?? 0));
+  }, [additionalFeeId, feeOptions]);
+
+  const examOptions = useMemo<SelectOption[]>(() => {
+    const q = examSearch.trim().toLowerCase();
+    const src = q
+      ? exams.filter((e) =>
+          `${e.examName ?? e.exam_name ?? ""}`.toLowerCase().includes(q),
+        )
+      : exams;
+    return src.map((e) => {
+      const id = pickNum(e, ["examId", "fk_exam_id"]);
+      const name = pickText(e, ["examName", "exam_name"]) || `Exam ${id}`;
+      const from = toDateStr(pickText(e, ["fromDate", "from_date"]));
+      const to = toDateStr(pickText(e, ["toDate", "to_date"]));
+      const tags = [
+        e.isRegularExam ? "(Regular)" : "",
+        e.isSupplyExam ? "(Supple)" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const dates = from && to ? ` (${from} - ${to})` : "";
+      return {
+        value: String(id),
+        label: `${name}${dates}${tags ? ` ${tags}` : ""}`.trim(),
+      };
+    });
+  }, [exams, examSearch]);
+
+  /**
+   * Angular supplyCourseYears(type):
+   * Regular → only student's current courseYearId
+   * Supple → all academic batches except current courseYearId
+   */
+  const visibleBatches = useMemo(() => {
+    if (!student) return [];
+    const currentCy = pickNum(student, [
       "courseYearId",
-      "course_year_id",
       "fk_course_year_id",
       "fk_courseYearId",
     ]);
-    if (sid > 0) setSemesterId(sid);
-  }, [semesters, semesterId]);
-
-  function onAddFeeFromSelection() {
-    if (!semesterId) {
-      setInlineNotice("Please select Semester before adding a fee.");
-      return;
-    }
-    if (!feeTypeId) {
-      setInlineNotice("Please select an Additional Fee type before adding.");
-      return;
-    }
-    const scoped = rows.filter((r) => {
-      if (
-        semesterId &&
-        pickNum(r, [
-          "courseYearId",
-          "course_year_id",
-          "fk_course_year_id",
-          "fk_course_yearId",
-          "fromCourseYearId",
-        ]) !== Number(semesterId)
-      )
-        return false;
-      const t = String(
-        r.examtypeCatDisplayName ?? r.examType ?? "",
-      ).toLowerCase();
-      if (examType === "Regular" && t && !t.includes("regular")) return false;
-      if (examType === "Supplementary" && t && !t.includes("supp"))
-        return false;
-      return true;
-    });
-    const row = scoped[0] ?? rows[0] ?? null;
-    // Legacy Angular behavior allows staging fee rows even when no prior receipt exists.
-    // Receipt can be created during pay flow.
-    setInlineNotice(null);
-    const type = feeTypes.find(
-      (t) =>
-        Number(t.generalDetailId ?? t.addtExamFeeTypeCatId ?? 0) ===
-        Number(feeTypeId),
-    );
-    const feeName =
-      type?.generalDetailName ??
-      type?.generalDetailDisplayName ??
-      type?.addtExamFeeTypeName ??
-      type?.addtFeeTypeName ??
-      type?.adtExamfeetypeCatCode ??
-      "Fee";
-    const amount = Number(
-      type?.fee ??
-        type?.amount ??
-        type?.defaultAmount ??
-        type?.addtFeeAmount ??
-        feeAmount ??
-        0,
-    );
-    const cyId = Number(
-      semesterId ??
-        pickNum(row, [
-          "courseYearId",
-          "course_year_id",
-          "fk_course_year_id",
-          "fk_course_yearId",
-          "fromCourseYearId",
-        ]),
-    );
-    const cyName =
-      semesterNameById.get(cyId) ||
-      pickText(row, [
-        "courseYearName",
-        "course_year_name",
-        "fromCourseYearName",
-      ]) ||
-      pickText(row, ["courseYearCode", "course_year_code"]) ||
-      `Semester ${cyId}`;
-    const receiptId = row
-      ? Number(row.examFeeReceiptId ?? row.exam_fee_receipt_id ?? 0)
-      : 0;
-    if (!cyId) {
-      alert("Invalid semester context for adding fee");
-      return;
-    }
-
-    setAddedFees((prev) => {
-      const idx = prev.findIndex(
-        (x) =>
-          x.courseYearId === cyId &&
-          x.feeTypeId === Number(feeTypeId) &&
-          x.examType === examType,
+    if (checkExam === 1) {
+      const current = batches.find(
+        (b) => pickNum(b, ["fromCourseYearId", "courseYearId"]) === currentCy,
       );
-      const nextAmount =
-        feePreviewAmount && feePreviewAmount > 0
-          ? feePreviewAmount
-          : amount > 0
-            ? amount
-            : Number(feeAmount || 0);
-      if (idx >= 0) {
-        const list = [...prev];
-        list[idx] = {
-          ...list[idx],
-          amount: nextAmount,
-          courseYearName:
-            list[idx].courseYearName ||
-            semesterNameById.get(cyId) ||
-            `Semester ${cyId}`,
-        };
-        return list;
-      }
-      return [
-        ...prev,
-        {
-          courseYearId: cyId,
-          courseYearName: cyName,
-          examType,
-          feeTypeId: Number(feeTypeId),
-          feeTypeName: feeName,
-          amount: nextAmount,
-          examFeeReceiptId: receiptId > 0 ? receiptId : null,
-        },
-      ];
-    });
-  }
+      return current ? [current] : batches.slice(0, 1);
+    }
+    return batches.filter(
+      (b) => pickNum(b, ["fromCourseYearId", "courseYearId"]) !== currentCy,
+    );
+  }, [batches, student, checkExam]);
 
-  const totalFees = useMemo(
-    () => addedFees.reduce((sum, r) => sum + Number(r.amount || 0), 0),
-    [addedFees],
+  const semesterOptions = useMemo<SelectOption[]>(
+    () =>
+      visibleBatches
+        .map((b) => {
+          const id = pickNum(b, ["fromCourseYearId", "courseYearId"]);
+          return {
+            value: String(id),
+            label:
+              pickText(b, ["fromCourseYearName", "courseYearName"]) ||
+              `Semester ${id}`,
+          };
+        })
+        .filter((o) => Number(o.value) > 0),
+    [visibleBatches],
   );
 
-  function updateAmountAt(index: number, next: number) {
-    setAddedFees((prev) => {
-      const list = [...prev];
-      if (list[index])
-        list[index] = { ...list[index], amount: isFinite(next) ? next : 0 };
-      return list;
-    });
-  }
-
-  function removeRowAt(index: number) {
-    setAddedFees((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function onPayFees() {
-    if (addedFees.length === 0) return;
-    const payloads = addedFees.map((f) => ({
-      collegeId: Number(student?.collegeId ?? 0),
-      ...(f.examFeeReceiptId ? { examFeeReceiptId: f.examFeeReceiptId } : {}),
-      addtExamFeeTypeCatId: f.feeTypeId,
-      addtExamFeeTypeName: f.feeTypeName,
-      addtFeeAmount: Number(f.amount || 0),
-      collectedEmpId: employeeId,
-      addtReceiptDate: paymentDate,
-      feeComments,
-      paymentModeCatDisplayName: paymentMode,
-      referenceNumber,
-      isActive: true,
-    }));
-    for (const p of payloads) {
-      await addExamAdditionalFeeReceipt(p).catch(() => null);
+  // Angular supplyCourseYears: Regular → current CY; Supple → first other batch
+  useEffect(() => {
+    if (!flag || !student) return;
+    if (checkExam === 1) {
+      const currentCy = pickNum(student, [
+        "courseYearId",
+        "fk_course_year_id",
+        "fk_courseYearId",
+      ]);
+      if (currentCy > 0) setSemesterId(currentCy);
+      return;
     }
-    await onLoadReceipts();
-    setAddedFees([]);
-    setReferenceNumber("");
-    setFeeComments("");
-    setInlineNotice("Additional fee payment saved successfully.");
-  }
+    const first = visibleBatches[0];
+    const id = first ? pickNum(first, ["fromCourseYearId", "courseYearId"]) : 0;
+    setSemesterId(id > 0 ? id : null);
+    setSuppleSubjectMode("supple");
+  }, [checkExam, flag, student, visibleBatches]);
 
-  const selectedExamRow = useMemo(
+  const selectedExam = useMemo(
     () =>
       exams.find(
-        (e) =>
-          pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) ===
-          Number(examId ?? 0),
+        (e) => pickNum(e, ["examId", "fk_exam_id"]) === Number(examId),
       ) ?? null,
     [exams, examId],
   );
 
-  async function onConfirmPayFees() {
-    if (paying) return;
+  const totalFees = useMemo(
+    () => cart.reduce((s, r) => s + Number(r.examAddFee || 0), 0),
+    [cart],
+  );
+
+  const paymentColumnDefs = useMemo<ColDef<CartRow>[]>(
+    () => [
+      PAYMENT_COL_DEFS.siNo,
+      PAYMENT_COL_DEFS.semester,
+      PAYMENT_COL_DEFS.examType,
+      PAYMENT_COL_DEFS.addFeeAmt,
+      PAYMENT_COL_DEFS.feeAmt,
+    ],
+    [],
+  );
+
+  const payConfirmColumnDefs = useMemo<ColDef<CartRow>[]>(
+    () => [
+      PAY_CONFIRM_COL_DEFS.siNo,
+      PAY_CONFIRM_COL_DEFS.courseYear,
+      PAY_CONFIRM_COL_DEFS.examType,
+      PAY_CONFIRM_COL_DEFS.additionalAmount,
+    ],
+    [],
+  );
+
+  function onExamTypeChange(next: 1 | 2) {
+    // Angular clear() + supplyCourseYears(type)
+    setCheckExam(next);
+    setCart([]);
+    setSemesterId(null);
+    setAdditionalFeeId(null);
+    setFeePreviewAmount(0);
+    setStudentSubjects([]);
+    setStructure(null);
+    setFeeOptions([]);
+    setSuppleSubjectMode("supple");
+    setReferenceNumber("");
+    setTransactionNo("");
+    setChequeNo("");
+    setDdno("");
+    setOtherPaymentNumber("");
+    setFeeComments("");
+  }
+
+  /** Angular getStudentSubjects — All link (no FAIL/ABSENT filter) */
+  function onSuppleAllSubjects() {
+    setSuppleSubjectMode("all");
+  }
+
+  /** Angular getRelevantExamSujects — Supple link (FAIL/ABSENT for other years) */
+  function onSuppleFailAbsentSubjects() {
+    setSuppleSubjectMode("supple");
+  }
+
+  function onOpenPayDialog() {
+    if (!examId || !studentId) {
+      toastError(new Error("Select student and exam"), "Validation");
+      return;
+    }
+    if (!paymentModeCatId) {
+      toastError(new Error("Pay Mode is required"), "Validation");
+      return;
+    }
+    if (!receiptDate) {
+      toastError(new Error("Payment Date is required"), "Validation");
+      return;
+    }
+    if (cart.length === 0) {
+      toastInfo("Add at least one additional fee.");
+      return;
+    }
+    setPayConfirmOpen(true);
+  }
+
+  function clearAfterPay() {
+    // Angular clear() after successful pay
+    setCart([]);
+    setSemesterId(null);
+    setAdditionalFeeId(null);
+    setFeePreviewAmount(0);
+    setStudentSubjects([]);
+    setStructure(null);
+    setFeeOptions([]);
+    setReferenceNumber("");
+    setTransactionNo("");
+    setChequeNo("");
+    setDdno("");
+    setOtherPaymentNumber("");
+    setFeeComments("");
+  }
+
+  function onAddFee() {
+    if (!student || !examId || !semesterId) {
+      toastInfo("Select student, exam and semester.");
+      return;
+    }
+    if (!additionalFeeId) {
+      toastInfo("Please select an Additional Fee.");
+      return;
+    }
+    // Angular gate: studentSubjects.length > 0
+    if (studentSubjects.length === 0) {
+      toastInfo("No subjects found for this semester / exam type.");
+      return;
+    }
+    if (!structure) {
+      toastInfo("No Exam Fee Structure for this branch and Year.");
+      return;
+    }
+
+    const dto = feeOptions.find(
+      (f) => feeTypeIdOf(f) === Number(additionalFeeId),
+    );
+    if (!dto) {
+      toastInfo("Selected additional fee not found in structure.");
+      return;
+    }
+
+    const amount =
+      feePreviewAmount > 0 ? feePreviewAmount : Number(dto.fee ?? 0);
+    const cyName =
+      semesterOptions.find((o) => Number(o.value) === Number(semesterId))
+        ?.label || `Semester ${semesterId}`;
+    const examTypeCode =
+      pickText(dto, ["examTypeCatDisplayCode", "examType"]) ||
+      (checkExam === 1 ? "Regular" : "Supple");
+
+    const enrichedDto = {
+      ...dto,
+      fee: amount,
+    };
+
+    setCart((prev) => [
+      ...prev,
+      {
+        collegeCode: pickText(student, ["collegeCode"]),
+        courseYearId: Number(semesterId),
+        courseName: pickText(student, ["courseName", "courseCode"]),
+        courseYearName: cyName,
+        examType: examTypeCode,
+        examAddFee: amount,
+        academicYear: pickText(student, ["academicYear"]),
+        examFeeStructureId: Number(structure.examFeeStructureId ?? 0) || null,
+        examFeeAmount: 0,
+        examFineAmount: 0,
+        examAdditionalFeeReceiptDTOs: [enrichedDto],
+      },
+    ]);
+  }
+
+  /** Angular printreceipt() → print-examfee-receipt via ParametersService */
+  function printFeeReceipt(row: AnyRow) {
+    if (!row) return;
+    saveExamFeePrintPayload(row);
+    router.push(
+      "/admin-examination-management/pre-examination/student-exam-fee-registration/print-receipt",
+    );
+  }
+
+  const receiptColumnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      RECEIPT_COL_DEFS.siNo,
+      RECEIPT_COL_DEFS.semester,
+      RECEIPT_COL_DEFS.receiptNo,
+      RECEIPT_COL_DEFS.paymentDate,
+      RECEIPT_COL_DEFS.paymentMode,
+      RECEIPT_COL_DEFS.examType,
+      RECEIPT_COL_DEFS.addFee,
+      RECEIPT_COL_DEFS.amount,
+      {
+        ...RECEIPT_COL_DEFS.actions,
+        cellRenderer: makePrintReceiptRenderer(printFeeReceipt),
+      },
+    ],
+    [],
+  );
+
+  /** Angular payExamFees() body — POST examfeereceipt[] */
+  function buildPayPayload(): AnyRow[] {
+    if (!student || !examId) return [];
+    const examName = pickText(selectedExam, ["examName", "exam_name"]);
+    const examFromDate = pickText(selectedExam, ["fromDate", "from_date"]);
+    const examToDate = pickText(selectedExam, ["toDate", "to_date"]);
+
+    return cart.map((row) => {
+      // Angular: generalDetailCode === examType (exact)
+      const match = examFeeTypes.find(
+        (t) => String(t.generalDetailCode ?? "") === String(row.examType),
+      );
+      const examtypeCatId = Number(match?.generalDetailId ?? 0);
+
+      const addTFee: AnyRow[] = [];
+      let addFeeAmt = 0;
+      const srcList = Array.isArray(row.examAdditionalFeeReceiptDTOs)
+        ? row.examAdditionalFeeReceiptDTOs
+        : [row.examAdditionalFeeReceiptDTOs].filter(Boolean);
+
+      for (const d of srcList) {
+        const fee = Number(d.fee ?? 0);
+        if (fee <= 0) continue;
+        addFeeAmt += fee;
+        addTFee.push({
+          ...d,
+          collegeId: pickNum(student, ["collegeId"]),
+          addtFeeAmount: fee,
+          isActive: true,
+          addtExamFeeTypeCatId: feeTypeIdOf(d),
+          collectedEmpId: employeeId || null,
+          addtReceiptDate: receiptDate,
+        });
+      }
+
+      return {
+        chequeNo: chequeNo || null,
+        ddno: ddno || null,
+        examFeeAmount: row.examFeeAmount ?? 0,
+        examFineAmount: row.examFineAmount ?? 0,
+        examAddtFee: addFeeAmt,
+        examTotalAmount: addFeeAmt,
+        collegeCode: row.collegeCode,
+        examName,
+        courseName: row.courseName,
+        courseYearName: row.courseYearName,
+        examType: row.examType,
+        examFromDate,
+        examToDate,
+        courseGroupName: pickText(student, ["groupCode"]),
+        academicYear: row.academicYear,
+        studentName: pickText(student, ["firstName", "studentName"]),
+        rollno: pickText(student, ["hallticketNumber", "rollNumber"]),
+        feeComments: feeComments || null,
+        employeeId: employeeId || null,
+        collegeId: pickNum(student, ["collegeId"]),
+        courseYearId: row.courseYearId,
+        examFeeFineId: null,
+        examFeeStructureId: row.examFeeStructureId,
+        examId,
+        examtypeCatId,
+        paymentModeCatId,
+        studentId,
+        isActive: true,
+        otherPaymentNumber: otherPaymentNumber || null,
+        receiptDate,
+        referenceNumber: referenceNumber || null,
+        transactionNo: transactionNo || null,
+        examAdditionalFeeReceiptDTOs: addTFee,
+        examStudentDTOs: [
+          {
+            feeComments: feeComments || null,
+            collegeId: pickNum(student, ["collegeId"]),
+            courseYearId: row.courseYearId,
+            examFeeAmount: row.examFeeAmount ?? 0,
+            examtypeCatId,
+            regulationId: pickNum(student, [
+              "regulationId",
+              "fk_regulation_id",
+            ]),
+            studentId,
+            isActive: true,
+            isFeePaid: true,
+            registrationDate: receiptDate,
+            examId,
+          },
+        ],
+      };
+    });
+  }
+
+  async function onConfirmPay() {
+    if (paying || cart.length === 0) return;
+    if (!examId || !studentId) {
+      toastError(new Error("Select student and exam"), "Validation");
+      return;
+    }
+    if (!paymentModeCatId) {
+      toastError(new Error("Pay Mode is required"), "Validation");
+      return;
+    }
     setPaying(true);
     try {
-      await onPayFees();
+      const payload = buildPayPayload();
+      await payExamFeeReceipts(payload);
+      toastSuccess("Exam fee paid successfully");
       setPayConfirmOpen(false);
+      clearAfterPay();
+      const list = await listExamFeeReceipts({
+        studentId: Number(studentId),
+        examId: Number(examId),
+      }).catch(() => []);
+      setReceipts(Array.isArray(list) ? list : []);
+    } catch (e) {
+      toastError(e, "Failed to pay exam fee");
     } finally {
       setPaying(false);
     }
   }
 
-  async function saveAdditionalFee() {
-    if (!addForRow || !feeTypeId || !feeAmount) return;
-    const type = feeTypes.find(
-      (t) =>
-        Number(t.generalDetailId ?? t.addtExamFeeTypeCatId) ===
-        Number(feeTypeId),
-    );
-    const payload = {
-      collegeId: Number(addForRow.collegeId ?? student?.collegeId ?? 0),
-      examFeeReceiptId: Number(
-        addForRow.examFeeReceiptId ?? addForRow.exam_fee_receipt_id ?? 0,
-      ),
-      addtExamFeeTypeCatId: Number(feeTypeId),
-      addtExamFeeTypeName:
-        type?.generalDetailName ??
-        type?.generalDetailDisplayName ??
-        "Additional Fee",
-      addtFeeAmount: Number(feeAmount),
-      collectedEmpId: employeeId,
-      addtReceiptDate: toDateOnlyISO(new Date()),
-      isActive: true,
-    };
-    await addExamAdditionalFeeReceipt(payload).catch(() => null);
-    setAddOpen(false);
-    await onLoadReceipts();
-  }
-
-  function onViewSubjects(row: AnyRow) {
-    const first = row.examStudentDTOs?.[0];
-    const list = first?.examStudentDetailDTOs ?? row.subjects ?? [];
-    setSubjectsRows(Array.isArray(list) ? list : []);
-    setSubjectsOpen(true);
-  }
+  const showStudentCard = Boolean(student && flag);
 
   return (
     <FilteredPage
-      title="Additional Fee Collection"
-      filters={(
+      title="Additional Exam Fee"
+      filtersCollapsible
+      filtersDefaultOpen
+      filters={
         <GlobalFilterBarRow>
-          <div className="md:col-span-4 space-y-1">
+          <GlobalFilterField label="Student *" className="md:col-span-4">
             <StudentSearchSelect
-              label="Student *"
+              label=""
+              fullWidth
               value={studentId}
               students={students}
-              selectedStudent={student ?? selectedStudentCache}
+              selectedStudent={student}
               isLoading={studentsLoading}
               onSearch={(term) => void onSearchStudents(term)}
-              onChange={onStudentChange}
+              onChange={(id, row) => void onStudentChange(id, row)}
             />
-          </div>
-          <div className="md:col-span-7 space-y-1">
-            <Label>Exam *</Label>
+          </GlobalFilterField>
+          <GlobalFilterField label="Exam *" className="md:col-span-8">
             <Select
               value={examId ? String(examId) : null}
               onChange={(v) => {
-                const next = v ? Number(v) : null;
-                setExamId(next);
-                setExamSearch("");
+                setExamId(v ? Number(v) : null);
+                setCart([]);
+                setSemesterId(null);
               }}
               options={examOptions}
-              placeholder="Search exam…"
+              placeholder={student ? "Search exam…" : "Select student first"}
               searchable
-              onSearch={(term) => setExamSearch(term)}
+              disabled={!student}
+              onSearch={setExamSearch}
             />
-          </div>
+          </GlobalFilterField>
         </GlobalFilterBarRow>
-      )}
-    >
-      {student && examId && (
-        <div className="rounded border border-blue-200 bg-blue-50/40 p-3">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-            {/* Student Image */}
-            <div className="md:col-span-2 flex justify-center">
-              <img
-                src={student?.studentPhotoPath || defaultStudent.src}
-                alt="Student"
-                className="h-24 w-24 rounded object-cover border"
-                onError={(e) => {
-                  e.currentTarget.src = defaultStudent.src;
-                }}
-              />
-            </div>
-
-            {/* Student Details */}
-            <div className="md:col-span-7 text-[12px] leading-6">
-              <div className="font-semibold text-[16px]">
-                {student.firstName ?? student.studentName ?? "-"} (
-                <span className="text-blue-700">
-                  {student.isLateral ? "LATERAL" : "REGULAR"}
-                </span>
-                )
-              </div>
-
-              <div className="text-muted-foreground">
-                {student.hallticketNumber ?? student.rollNumber ?? "-"}
-              </div>
-
-              <div className="text-muted-foreground">
-                {student.collegeCode ?? "-"} / {student.academicYear ?? "-"} /{" "}
-                {student.courseCode ?? "-"} / {student.groupCode ?? "-"} /{" "}
-                {student.courseYearName ?? "-"}
-                {student.section ? ` / Section ${student.section}` : ""}
-              </div>
-
-              <div className="text-muted-foreground">
-                {student.mobile ?? "-"}
-              </div>
-            </div>
-
-            {/* Right Side */}
-            <div className="md:col-span-3 text-[12px] leading-7 pl-4">
-              <div>
-                Quota :
-                <span className="text-blue-700 ml-2">
-                  {student.quotaDisplayName ?? "-"}
-                </span>
-              </div>
-
-              <div>
-                Student Status :
-                <span className="text-green-700 font-medium ml-2">
-                  {student.studentStatusDisplayName ?? "-"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {student && examId && (
-        <div className="app-card overflow-hidden border border-border bg-card">
-          <div className="px-4 py-3 border-b border-border bg-card">
-            <h3 className="app-card-title">Select Exam Fee Subjects</h3>
-          </div>
-          <div className="p-3">
-            <div className="mt-2.5 flex items-center gap-5 text-[12px]">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={examType === "Regular"}
-                  onChange={() => setExamType("Regular")}
-                />
-                Regular
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={examType === "Supplementary"}
-                  onChange={() => setExamType("Supplementary")}
-                />
-                Supplementary
-              </label>
-            </div>
-            <div className="mt-2.5 grid grid-cols-1 md:grid-cols-12 gap-2 items-end border p-3">
-              <div className="md:col-span-4 space-y-1">
-                <Label>Semester *</Label>
-                <Select
-                  value={semesterId ? String(semesterId) : null}
-                  onChange={(v) => setSemesterId(v ? Number(v) : null)}
-                  options={semesters.map((s) => ({
-                    value: String(
-                      pickNum(s, [
-                        "courseYearId",
-                        "course_year_id",
-                        "fk_course_year_id",
-                        "fk_course_yearId",
-                        "fromCourseYearId",
-                      ]),
-                    ),
-                    label:
-                      pickText(s, ["courseYearName", "course_year_name"]) ||
-                      "-",
-                  }))}
-                  placeholder="Semester"
-                />
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label>Additional Fee *</Label>
-                <Select
-                  value={feeTypeId ? String(feeTypeId) : null}
-                  onChange={(v) => setFeeTypeId(v ? Number(v) : null)}
-                  options={feeTypes.map((t) => ({
-                    value: String(t.generalDetailId ?? t.addtExamFeeTypeCatId),
-                    label: getFeeTypeLabel(t),
-                  }))}
-                  placeholder="Additional Fee"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Button
-                  type="button"
-                  className="h-8 text-[12px] w-full bg-[#0d376d] hover:bg-[#0b2f5d]"
-                  onClick={onAddFeeFromSelection}
-                  disabled={!feeTypeId}
-                >
-                  Add Fee
-                </Button>
-              </div>
-              <div className="md:col-span-3 border border-border">
-                <div className="border-b border-border bg-card px-2 py-1 text-[12px] font-semibold text-[hsl(var(--primary))]">
-                  Additional Fee
-                </div>
-                <div className="flex items-center gap-3 px-2 py-2 text-[13px]">
-                  <span className="flex-1">
-                    {getFeeTypeLabel(
-                      feeTypes.find(
-                        (t) =>
-                          Number(
-                            t.generalDetailId ?? t.addtExamFeeTypeCatId,
-                          ) === Number(feeTypeId),
-                      ),
-                    )}
-                  </span>
-                  <Input
-                    type="number"
-                    className="h-8 text-[12px] w-24 text-right"
-                    value={String(feePreviewAmount || 0)}
-                    onChange={(e) =>
-                      setFeePreviewAmount(Number(e.target.value || 0))
-                    }
+      }
+      body={
+        !showStudentCard ? (
+          <p className="text-sm text-muted-foreground">
+            Search and select a student, then choose an exam to continue.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {/* Student profile — Angular std-his card */}
+            <div className="rounded-md border border-blue-200 bg-blue-50/40 p-3">
+              <div className="grid grid-cols-1 items-center gap-3 md:grid-cols-12">
+                <div className="flex justify-center md:col-span-2">
+                  <img
+                    src={student?.studentPhotoPath || defaultStudent.src}
+                    alt="Student"
+                    className="h-24 w-24 rounded border object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = defaultStudent.src;
+                    }}
                   />
                 </div>
+                <div className="space-y-1 text-[13px] leading-6 md:col-span-7">
+                  <div className="text-base font-semibold text-blue-700">
+                    {student?.firstName ?? student?.studentName ?? "-"} (
+                    {student?.isLateral ? "LATERAL" : "REGULAR"})
+                  </div>
+                  <div className="text-muted-foreground">
+                    {student?.hallticketNumber ?? student?.rollNumber ?? "-"}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {[
+                      student?.collegeCode,
+                      student?.academicYear,
+                      student?.courseCode,
+                      student?.groupCode,
+                      student?.courseYearName,
+                      student?.section ? `Section ${student.section}` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" / ")}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {student?.mobile ?? "-"}
+                  </div>
+                </div>
+                <div className="space-y-1 text-[13px] md:col-span-3">
+                  <div>
+                    Quota :{" "}
+                    <span className="text-blue-700">
+                      {student?.quotaDisplayName ?? ""}
+                    </span>
+                  </div>
+                  <div>
+                    Student Status :{" "}
+                    <span className="font-semibold text-green-700">
+                      {student?.studentStatusDisplayName ?? "-"}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-            {inlineNotice && (
-              <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                {inlineNotice}
+
+            {/* Select Exam Fee Subjects */}
+            <div className="rounded-md border border-border">
+              <div className="border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                Select Exam Fee Subjects
+              </div>
+              <div className="space-y-3 p-3">
+                <div className="flex flex-wrap gap-5 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={checkExam === 1}
+                      onChange={() => onExamTypeChange(1)}
+                    />
+                    Regular
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={checkExam === 2}
+                      onChange={() => onExamTypeChange(2)}
+                    />
+                    Supplementary
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
+                  <div className="space-y-1 md:col-span-4">
+                    <Label>Semester *</Label>
+                    <Select
+                      value={semesterId ? String(semesterId) : null}
+                      onChange={(v) => {
+                        setSemesterId(v ? Number(v) : null);
+                        // Angular selectionChange → getRelevantExamSujects (FAIL/ABSENT default)
+                        if (checkExam === 2) setSuppleSubjectMode("supple");
+                      }}
+                      options={semesterOptions}
+                      placeholder="Semester"
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-3">
+                    <Label>Additional Fee *</Label>
+                    <Select
+                      value={additionalFeeId ? String(additionalFeeId) : null}
+                      onChange={(v) => setAdditionalFeeId(v ? Number(v) : null)}
+                      options={feeOptions.map((f) => ({
+                        value: String(feeTypeIdOf(f)),
+                        label: feeTypeLabel(f),
+                      }))}
+                      placeholder="Additional Fee"
+                    />
+                  </div>
+                  {studentSubjects.length > 0 && (
+                    <div className="md:col-span-2">
+                      <Button
+                        type="button"
+                        className="h-9 w-full bg-[#0d376d] hover:bg-[#0b2f5d]"
+                        onClick={onAddFee}
+                        disabled={!additionalFeeId || !semesterId}
+                      >
+                        Add Fee
+                      </Button>
+                    </div>
+                  )}
+                  {additionalFeeId != null && (
+                    <div className="overflow-hidden rounded border border-border md:col-span-3">
+                      <div className="border-b bg-muted/40 px-2 py-1 text-xs font-semibold text-[hsl(var(--primary))]">
+                        Additional Fee
+                      </div>
+                      <div className="flex items-center gap-2 px-2 py-2 text-sm">
+                        <span className="min-w-0 flex-1 truncate">
+                          {feeTypeLabel(
+                            feeOptions.find(
+                              (f) => feeTypeIdOf(f) === Number(additionalFeeId),
+                            ),
+                          )}
+                        </span>
+                        <Input
+                          type="number"
+                          className="h-8 w-24 text-right"
+                          value={String(feePreviewAmount || 0)}
+                          onChange={(e) =>
+                            setFeePreviewAmount(Number(e.target.value || 0))
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Angular All / Supple subject filter links (Supplementary only) */}
+                {checkExam === 2 && semesterId != null && (
+                  <div className="flex gap-4 text-sm font-medium text-blue-700">
+                    <button
+                      type="button"
+                      className={
+                        suppleSubjectMode === "all"
+                          ? "underline"
+                          : "hover:underline"
+                      }
+                      onClick={onSuppleAllSubjects}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        suppleSubjectMode === "supple"
+                          ? "underline"
+                          : "hover:underline"
+                      }
+                      onClick={onSuppleFailAbsentSubjects}
+                    >
+                      Supple
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Exam Fee Payment */}
+            {cart.length > 0 && (
+              <div className="space-y-2 rounded-md border border-border">
+                <div className="border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                  Exam Fee Payment
+                </div>
+                <DataTable
+                  title=""
+                  bordered={false}
+                  rowData={cart}
+                  columnDefs={paymentColumnDefs}
+                  getRowId={(p) =>
+                    String(
+                      `${(p.data as CartRow)?.courseYearId}-${(p.data as CartRow)?.examType}-${(p.data as CartRow)?.examAddFee}-${(p.data as CartRow)?.examFeeStructureId ?? "x"}`,
+                    )
+                  }
+                  pagination={false}
+                  toolbar={COMPACT_TOOLBAR}
+                  height="auto"
+                  columnFilters={false}
+                />
+                <div className="mx-2 mb-2 flex items-center justify-between rounded border bg-white px-3 py-2 text-[13px]">
+                  <span className="font-bold text-blue-700">Summary</span>
+                  <span className="font-bold">
+                    Total Fees{" "}
+                    <span className="ml-6 tabular-nums">{totalFees}</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 border-t p-3 md:grid-cols-12">
+                  <div className="space-y-1 md:col-span-3">
+                    <Label>Pay Mode *</Label>
+                    <Select
+                      value={String(paymentModeCatId || "")}
+                      onChange={(v) =>
+                        setPaymentModeCatId(
+                          v ? Number(v) : DEFAULT_PAYMENT_MODE_ID,
+                        )
+                      }
+                      options={paymentModes.map((m) => ({
+                        value: String(m.generalDetailId),
+                        label:
+                          m.generalDetailDisplayName ??
+                          m.generalDetailName ??
+                          String(m.generalDetailId),
+                      }))}
+                      placeholder="Pay Mode"
+                    />
+                  </div>
+                  {paymentModeCatId === 131 && (
+                    <div className="space-y-1 md:col-span-3">
+                      <Label>Reference Number</Label>
+                      <Input
+                        className="h-9"
+                        value={referenceNumber}
+                        onChange={(e) => setReferenceNumber(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {paymentModeCatId === 132 && (
+                    <div className="space-y-1 md:col-span-3">
+                      <Label>Transaction Number</Label>
+                      <Input
+                        className="h-9"
+                        value={transactionNo}
+                        onChange={(e) => setTransactionNo(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {paymentModeCatId === 133 && (
+                    <div className="space-y-1 md:col-span-3">
+                      <Label>Cheque Number</Label>
+                      <Input
+                        className="h-9"
+                        value={chequeNo}
+                        onChange={(e) => setChequeNo(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {paymentModeCatId === 134 && (
+                    <div className="space-y-1 md:col-span-3">
+                      <Label>DD Number</Label>
+                      <Input
+                        className="h-9"
+                        value={ddno}
+                        onChange={(e) => setDdno(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {paymentModeCatId === 135 && (
+                    <div className="space-y-1 md:col-span-3">
+                      <Label>Other Payment Number</Label>
+                      <Input
+                        className="h-9"
+                        value={otherPaymentNumber}
+                        onChange={(e) => setOtherPaymentNumber(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-1 md:col-span-2">
+                    <Label>Payment Date *</Label>
+                    <Input
+                      type="date"
+                      className="h-9"
+                      value={receiptDate}
+                      onChange={(e) => setReceiptDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label>Fee Comments</Label>
+                    <Input
+                      className="h-9"
+                      value={feeComments}
+                      onChange={(e) => setFeeComments(e.target.value)}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="mb-1 text-right text-[11px]">
+                      Payment Amount
+                    </div>
+                    <div className="flex h-9 items-center justify-end rounded border px-2 text-lg font-semibold">
+                      {totalFees}
+                    </div>
+                  </div>
+                  <div className="flex justify-end md:col-span-12">
+                    <Button
+                      type="button"
+                      className="bg-[#0d376d] hover:bg-[#0b2f5d]"
+                      onClick={onOpenPayDialog}
+                    >
+                      Pay fees
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Exam Fee Receipts */}
+            {receipts.length > 0 && (
+              <div className="space-y-2 rounded-md border border-border">
+                <div className="border-b border-border bg-muted/30 px-3 py-2 text-sm font-semibold">
+                  Exam Fee Receipts
+                </div>
+                <DataTable
+                  title=""
+                  bordered={false}
+                  rowData={receipts}
+                  columnDefs={receiptColumnDefs}
+                  getRowId={(p) =>
+                    String(
+                      (p.data as AnyRow)?.examFeeReceiptId ??
+                        `${(p.data as AnyRow)?.feeReceiptNo}-${(p.data as AnyRow)?.courseYearId}-${(p.data as AnyRow)?.receiptDate}`,
+                    )
+                  }
+                  pagination={false}
+                  toolbar={COMPACT_TOOLBAR}
+                  height="auto"
+                  columnFilters={false}
+                />
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {addedFees.length > 0 && (
-        <div className="app-card overflow-hidden border border-border bg-card">
-          <div className="px-4 py-3 border-b border-border bg-card">
-            <h3 className="app-card-title">Exam Fee Payment</h3>
-          </div>
-          <div className="overflow-auto p-2">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-2 py-1 text-left">SI No</th>
-                  <th className="px-2 py-1 text-left">Semester</th>
-                  <th className="px-2 py-1 text-left">Exam Type</th>
-                  <th className="px-2 py-1 text-left">Additional Fee</th>
-                  <th className="px-2 py-1 text-right">Add. Fee Amt(₹)</th>
-                  <th className="px-2 py-1 text-right">Fee Amt (₹)</th>
-                  <th className="px-2 py-1 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {addedFees.map((f, i) => (
-                  <tr key={`afee-${i}`} className="border-b">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {f.courseYearName ||
-                        semesterNameById.get(f.courseYearId) ||
-                        `Semester ${f.courseYearId}`}
-                    </td>
-                    <td className="px-2 py-1">{f.examType}</td>
-                    <td className="px-2 py-1">{f.feeTypeName}</td>
-                    <td className="px-2 py-1 text-right">
-                      <input
-                        className="h-8 w-20 rounded border px-2 text-right"
-                        value={String(f.amount ?? 0)}
-                        onChange={(e) =>
-                          updateAmountAt(i, Number(e.target.value || 0))
-                        }
-                      />
-                    </td>
-                    <td className="px-2 py-1 text-right">{f.amount}</td>
-                    <td className="px-2 py-1 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        onClick={() => removeRowAt(i)}
-                      >
-                        Remove
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                <tr className="bg-card">
-                  <td className="px-2 py-2" />
-                  <td className="px-2 py-2 app-card-title" colSpan={6}>
-                    Summary
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-2 py-2" />
-                  <td className="px-2 py-2 font-semibold" colSpan={5}>
-                    Total Fees
-                  </td>
-                  <td className="px-2 py-2 text-right font-semibold">
-                    {totalFees}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-2.5 border border-border bg-card p-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-              <div className="md:col-span-3 space-y-1">
-                <Label>Pay Mode *</Label>
-                <Select
-                  value={paymentMode ?? null}
-                  onChange={(v) => setPaymentMode(v ?? "")}
-                  options={[
-                    { value: "Cash", label: "Cash" },
-                    { value: "Online", label: "Online" },
-                    { value: "Cheque", label: "Cheque" },
-                    { value: "DD", label: "DD" },
-                  ]}
-                  placeholder="Pay Mode"
-                />
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label>Reference Number</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Payment Date *</Label>
-                <Input
-                  type="date"
-                  className="h-8 text-[12px]"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                />
-              </div>
-              <div className="md:col-span-2 space-y-1">
-                <Label>Fee Comments</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  value={feeComments}
-                  onChange={(e) => setFeeComments(e.target.value)}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <div className="text-right text-[11px] mb-1">
-                  Payment Amount
-                </div>
-                <div className="h-8 rounded border bg-card px-2 py-1 text-right text-[18px] font-semibold">
-                  {totalFees}
-                </div>
-              </div>
-              <div className="md:col-span-12 flex justify-end">
-                <Button
-                  type="button"
-                  className="h-8 text-[12px] bg-[#0d376d] hover:bg-[#0b2f5d]"
-                  onClick={() => setPayConfirmOpen(true)}
-                >
-                  Pay fees
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {rows.length > 0 && (
-        <div className="app-card overflow-auto bg-card border border-border">
-          <h3 className="m-0 rounded border border-border bg-card px-3 py-2 app-card-title">
-            Exam Fee Receipts
-          </h3>
-          <table className="w-full text-[12px]">
-            <thead className="bg-muted/40">
-              <tr>
-                <th className="px-2 py-1 text-left">SI.No</th>
-                <th className="px-2 py-1 text-left">Course Year</th>
-                <th className="px-2 py-1 text-left">Receipt No.</th>
-                <th className="px-2 py-1 text-left">Payment Date</th>
-                <th className="px-2 py-1 text-left">Payment Mode</th>
-                <th className="px-2 py-1 text-left">Exam Type</th>
-                <th className="px-2 py-1 text-right">Amount</th>
-                <th className="px-2 py-1 text-right">Late Fee</th>
-                <th className="px-2 py-1 text-right">Add. Fee Amt</th>
-                <th className="px-2 py-1 text-right">Total Amt</th>
-                <th className="px-2 py-1 text-left">Subjects</th>
-                <th className="px-2 py-1 text-left">Additional Fees</th>
-                <th className="px-2 py-1 text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={`fr-${i}`} className="border-t">
-                  <td className="px-2 py-1">{i + 1}</td>
-                  <td className="px-2 py-1">
-                    {r.courseYearName ??
-                      r.course_year_name ??
-                      r.courseYearCode ??
-                      "-"}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.feeReceiptNo ?? r.fee_receipt_no ?? "-"}
-                  </td>
-                  <td className="px-2 py-1">
-                    {(r.receiptDate ?? r.receipt_date)
-                      ? new Date(
-                          r.receiptDate ?? r.receipt_date,
-                        ).toLocaleDateString()
-                      : "-"}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.paymentModeCatDisplayName ??
-                      r.payment_mode_cat_display_name ??
-                      "-"}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.examtypeCatDisplayName ??
-                      r.examtype_cat_display_name ??
-                      r.examType ??
-                      "-"}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {r.examFeeAmount ?? "-"}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {r.examFineAmount ?? "-"}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {r.examAddtFee ?? "-"}
-                  </td>
-                  <td className="px-2 py-1 text-right">
-                    {r.examTotalAmount ?? "-"}
-                  </td>
-                  <td className="px-2 py-1">
-                    <button
-                      type="button"
-                      onClick={() => onViewSubjects(r)}
-                      className="text-slate-700 hover:text-blue-700"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </td>
-                  <td className="px-2 py-1">
-                    {(r.examAdditionalFeeReceiptDTOs ?? []).length > 0
-                      ? (r.examAdditionalFeeReceiptDTOs ?? []).map(
-                          (x: AnyRow, idx: number) => (
-                            <div key={`af-${idx}`} className="text-blue-700">
-                              {(x.addtExamFeeTypeName ??
-                                x.addtFeeTypeName ??
-                                "Fee") +
-                                " - " +
-                                (x.addtFeeAmount ?? "-")}
-                            </div>
-                          ),
-                        )
-                      : "-"}
-                  </td>
-                  <td className="px-2 py-1">
-                    <button
-                      type="button"
-                      onClick={() => openAddFee(r)}
-                      className="text-slate-700 hover:text-blue-700"
-                    >
-                      <PlusCircle className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <Dialog open={subjectsOpen} onOpenChange={setSubjectsOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Subjects</DialogTitle>
-          </DialogHeader>
-          <div className="overflow-auto border rounded">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Subject</th>
-                  <th className="px-2 py-1 text-left">Type</th>
-                  <th className="px-2 py-1 text-left">Credits</th>
-                </tr>
-              </thead>
-              <tbody>
-                {subjectsRows.map((s, i) => (
-                  <tr key={`sub-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {s.shortName ?? s.subjectName ?? "-"}
-                    </td>
-                    <td className="px-2 py-1">
-                      {s.subjecttypeCode ?? s.subjectTypeCode ?? "-"}
-                    </td>
-                    <td className="px-2 py-1">{s.credits ?? "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add Additional Exam Fee</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Additional Fee Type *</Label>
-              <Select
-                value={feeTypeId ? String(feeTypeId) : null}
-                onChange={(v) => setFeeTypeId(v ? Number(v) : null)}
-                options={feeTypes.map((t) => ({
-                  value: String(t.generalDetailId ?? t.addtExamFeeTypeCatId),
-                  label: getFeeTypeLabel(t),
-                }))}
-                placeholder="Fee Type"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label>Amount *</Label>
-              <Input
-                type="number"
-                className="h-9 text-[12px]"
-                value={feeAmount}
-                onChange={(e) => setFeeAmount(Number(e.target.value || 0))}
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                className="h-8 text-[12px]"
-                onClick={saveAdditionalFee}
-                disabled={!feeTypeId || !feeAmount}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+        )
+      }
+    >
       <Dialog open={payConfirmOpen} onOpenChange={setPayConfirmOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Exam Fee Payment</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-[16px] font-semibold text-[hsl(var(--primary))]">
+              <ClipboardList className="h-5 w-5" aria-hidden />
+              Exam Fee Payment
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="rounded border border-cyan-200 p-3 text-[12px] space-y-1">
-            <div>
-              <span className="font-medium">Student :</span>{" "}
-              {student?.firstName ?? student?.studentName ?? "-"} (
-              {student?.rollNumber ?? student?.hallticketNumber ?? "-"})
+          <div className="space-y-3">
+            <div className="rounded border-2 border-[#89c5ff] bg-[#f7fbff] px-3 py-2 text-[13px]">
+              <div className="grid grid-cols-[7rem_1fr] gap-y-1.5 sm:grid-cols-[8rem_1fr]">
+                <span className="font-medium">Student :</span>
+                <span className="text-blue-600">
+                  {student?.firstName ?? "—"} (
+                  {student?.hallticketNumber ?? student?.rollNumber ?? "—"})
+                </span>
+                <span className="font-medium">College :</span>
+                <span className="text-blue-600">
+                  {student?.collegeCode ?? "—"}
+                  {student?.academicYear ? ` / (${student.academicYear})` : ""}
+                </span>
+                <span className="font-medium">Course :</span>
+                <span className="text-blue-600">
+                  {student?.courseName ?? student?.courseCode ?? "—"} / (
+                  {student?.groupCode ?? "—"})
+                </span>
+                <span className="font-medium">Exam :</span>
+                <span className="text-blue-600">
+                  {(() => {
+                    const name =
+                      pickText(selectedExam, ["examName", "exam_name"]) || "—";
+                    const from = pickText(selectedExam, [
+                      "fromDate",
+                      "from_date",
+                    ]);
+                    const to = pickText(selectedExam, ["toDate", "to_date"]);
+                    if (!from && !to) return name;
+                    const fmt = (d: string) =>
+                      d
+                        ? new Date(d).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "";
+                    return `${name} (${fmt(from)} - ${fmt(to)})`;
+                  })()}
+                </span>
+              </div>
             </div>
-            <div>
-              <span className="font-medium">College :</span>{" "}
-              {student?.collegeCode ?? "-"} / {student?.academicYear ?? "-"}
-            </div>
-            <div>
-              <span className="font-medium">Course :</span>{" "}
-              {student?.courseName ?? "-"} / ({student?.groupCode ?? "-"})
-            </div>
-            <div>
-              <span className="font-medium">Exam :</span>{" "}
-              {pickText(selectedExamRow, ["exam_name", "examName"]) || "-"} (
-              {toDateStr(pickText(selectedExamRow, ["fromDate", "from_date"]))}{" "}
-              - {toDateStr(pickText(selectedExamRow, ["toDate", "to_date"]))})
+
+            <DataTable
+              bordered={false}
+              rowData={cart}
+              columnDefs={payConfirmColumnDefs}
+              getRowId={(p) =>
+                String(
+                  `${(p.data as CartRow)?.courseYearId}-${(p.data as CartRow)?.examType}-${(p.data as CartRow)?.examFeeStructureId ?? "x"}`,
+                )
+              }
+              pagination={false}
+              toolbar={COMPACT_TOOLBAR}
+              height="auto"
+              columnFilters={false}
+            />
+
+            <div className="flex justify-end border-t px-1 pt-2 text-[13px] font-medium">
+              <span className="mr-8">Total Amount</span>
+              <span className="min-w-[4rem] text-right tabular-nums">
+                {totalFees}
+              </span>
             </div>
           </div>
 
-          <div className="overflow-auto border rounded mt-2">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">Sl.No.</th>
-                  <th className="px-2 py-1 text-left">Course Year</th>
-                  <th className="px-2 py-1 text-left">Exam Type</th>
-                  <th className="px-2 py-1 text-right">Additional Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {addedFees.map((f, i) => (
-                  <tr key={`confirm-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {f.courseYearName ||
-                        semesterNameById.get(f.courseYearId) ||
-                        `Semester ${f.courseYearId}`}
-                    </td>
-                    <td className="px-2 py-1">{f.examType}</td>
-                    <td className="px-2 py-1 text-right">
-                      {Number(f.amount || 0)}
-                    </td>
-                  </tr>
-                ))}
-                <tr className="border-t font-semibold">
-                  <td colSpan={3} className="px-2 py-1 text-right">
-                    Total Amount
-                  </td>
-                  <td className="px-2 py-1 text-right">{totalFees}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex justify-end gap-2 mt-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => setPayConfirmOpen(false)}
+              disabled={paying}
             >
               Close
             </Button>
-            <Button type="button" onClick={onConfirmPayFees} disabled={paying}>
-              {paying ? "Paying..." : "Pay"}
+            <Button
+              type="button"
+              onClick={() => void onConfirmPay()}
+              disabled={paying}
+            >
+              {paying ? "Paying…" : "Pay"}
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </FilteredPage>

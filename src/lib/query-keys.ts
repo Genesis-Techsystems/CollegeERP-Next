@@ -307,6 +307,23 @@ export const QK = {
       ["FeesCollection", "feeReceiptDetails", filters] as const,
     feeConcessions: (filters: Record<string, unknown>) =>
       ["FeesCollection", "feeConcessions", filters] as const,
+    dayWiseFeeReport: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "dayWiseFeeReport",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+      accountants: (collegeId: number) =>
+        [
+          "FeesCollection",
+          "dayWiseFeeReport",
+          "accountants",
+          collegeId,
+        ] as const,
+    },
     employeeSearch: (term: string) =>
       ["FeesCollection", "employeeSearch", term] as const,
     employeeDetails: (employeeId: number) =>
@@ -440,7 +457,7 @@ export const QK = {
   // ── Question Banks ─────────────────────────────────────────────────────
   questionBanks: {
     all: ["Assessment"] as const,
-    /** Filter by preparedbyUser.userId (Angular listDetailsByTwoIdWithSort) */
+    /** Angular listAllDetails(Assessment) — order(createdDt=desc); client filters isForQuestionbank */
     list: (userId: number) => ["Assessment", "list", userId] as const,
     /** Questions inside a specific bank */
     questions: (assessmentId: number) =>
@@ -485,6 +502,12 @@ export const QK = {
     all: ["SchAccountsPreceeding"] as const,
     list: (collegeId?: number) =>
       ["SchAccountsPreceeding", "list", collegeId] as const,
+    viewPreceedings: (schAccountsPreceedingsId: number) =>
+      [
+        "SchAccountsPreceeding",
+        "viewPreceedings",
+        schAccountsPreceedingsId,
+      ] as const,
   },
   schStdPreceedings: {
     all: ["SchStdPreceeding"] as const,
@@ -495,14 +518,17 @@ export const QK = {
     all: ["FeeSchStructure"] as const,
     list: (filters: {
       collegeId: number;
-      academicYearId?: number;
       courseId?: number;
+      academicYearId?: number;
       batchId?: number;
+      isAcademicScholarship?: boolean;
     }) => ["FeeSchStructure", "list", filters] as const,
     detail: (feeSchStructureId: number) =>
       ["FeeSchStructure", "detail", feeSchStructureId] as const,
     values: (feeSchStructureId: number) =>
       ["ScholarshipValue", "byStructure", feeSchStructureId] as const,
+    typesByUniversity: (universityId: number) =>
+      ["ScholarshipType", "byUniversity", universityId] as const,
   },
   assignScholarship: {
     all: ["AssignScholarship"] as const,
@@ -632,6 +658,21 @@ export const QK = {
         : (["HrPayroll", "employeeReporting"] as const),
     employeeDetail: (employeeId: number) =>
       ["HrPayroll", "employeeDetail", employeeId] as const,
+    /** Angular `staff-faculty-details/faculty-details` list */
+    hodFacultyDetails: (
+      mode: "active" | "resigned",
+      collegeId: string,
+      departmentId: string,
+      isPrincipal: boolean,
+    ) =>
+      [
+        "HrPayroll",
+        "hodFacultyDetails",
+        mode,
+        collegeId,
+        departmentId,
+        isPrincipal,
+      ] as const,
     performanceAssessment: (employeeId?: number) =>
       employeeId != null
         ? (["HrPayroll", "performanceAssessment", employeeId] as const)
@@ -843,9 +884,9 @@ export const QK = {
       ["EmailSms", "sendLoginDetails", "roles", organizationId] as const,
     /** `domain/list/SmsPattern` — `messagepatternfor==ABSENT` (Angular send-absent-sms). */
     smsPatternsAbsent: () => ["EmailSms", "smsPatterns", "ABSENT"] as const,
-    /** Email logs grid — college + optional yyyy-MM-dd range. */
-    emailLogs: (collegeId: number, fromDate: string, toDate: string) =>
-      ["EmailSms", "emailLogs", collegeId, fromDate, toDate] as const,
+    /** Email logs grid — college + messageSentDate (`YYYY/MM/DD`, Angular emailsentlistbydate). */
+    emailLogs: (collegeId: number, messageSentDate: string) =>
+      ["EmailSms", "emailLogs", collegeId, messageSentDate] as const,
     /** Active colleges for email logs filter (same source as department-wise email). */
     emailLogsColleges: () => ["EmailSms", "emailLogs", "colleges"] as const,
   },
@@ -1156,6 +1197,29 @@ export const QK = {
     ["FinBudgetReport", flag, params] as const,
   finBudgetMidyear: (accountEntityId: number, financialYearId: number) =>
     ["FinBudgetMidyear", accountEntityId, financialYearId] as const,
+  incomeExpenseSummary: (collegeId: number, year: string | number) =>
+    ["IncomeExpenseSummary", collegeId, year] as const,
+  schoolWiseSalaries: (collegeId: number, year: string | number) =>
+    ["SchoolWiseSalaries", collegeId, year] as const,
+  feeDiscountSummary: (collegeId: number, year: string | number) =>
+    ["FeeDiscountSummary", collegeId, year] as const,
+  expenseSummary: (collegeId: number, year: string | number) =>
+    ["ExpenseSummary", collegeId, year] as const,
+  librarySummary: (collegeId: number) => ["LibrarySummary", collegeId] as const,
+  transportSummary: (collegeId: number) =>
+    ["TransportSummary", collegeId] as const,
+  payrollBankStatement: (collegeId: number, month: number, year: number) =>
+    ["PayrollBankStatement", collegeId, month, year] as const,
+  completeStudentFeeReport: (key: string) =>
+    ["CompleteStudentFeeReport", key] as const,
+  onlinePaymentsComparative: (key: string) =>
+    ["OnlinePaymentsComparative", key] as const,
+  feeCollectionReport: (key: string) => ["FeeCollectionReport", key] as const,
+  feeParticularWiseReport: (key: string) =>
+    ["FeeParticularWiseReport", key] as const,
+  feeDueListReport: (key: string) => ["FeeDueListReport", key] as const,
+  studentSubjectsReport: (key: string) =>
+    ["StudentSubjectsReport", key] as const,
 
   // ── Fee Masters ───────────────────────────────────────────────────────────
   feeMasters: {
@@ -1238,6 +1302,17 @@ export const QK = {
       ] as const,
   },
 
+  // ── Grievance Masters ────────────────────────────────────────────────────
+  grievanceMasters: {
+    categories: () => ["GrievanceMasters", "categories"] as const,
+    grievantTypes: () => ["GrievanceMasters", "grievantTypes"] as const,
+    committees: () => ["GrievanceMasters", "committees"] as const,
+    members: (grvCommitteeId: number) =>
+      ["GrievanceMasters", "members", grvCommitteeId] as const,
+    adminList: () => ["GrievanceMasters", "adminList"] as const,
+    adminAcknowledged: () => ["GrievanceMasters", "adminAcknowledged"] as const,
+  },
+
   // ── Student Grievances & Feedback ────────────────────────────────────────
   studentGrievances: {
     all: ["StudentGrievances"] as const,
@@ -1259,6 +1334,8 @@ export const QK = {
   staffSuggestions: {
     all: ["StaffSuggestions"] as const,
     byUser: (userId: number) => ["StaffSuggestions", "byUser", userId] as const,
+    byOrganization: (organizationId: number) =>
+      ["StaffSuggestions", "byOrganization", organizationId] as const,
     lookup: () => ["StaffSuggestions", "lookup"] as const,
   },
   studentSurveyFeedback: {
@@ -1267,5 +1344,122 @@ export const QK = {
       ["StudentSurveyFeedback", "forms", collegeId] as const,
     employees: (surveyFormId: number, studentId: number) =>
       ["StudentSurveyFeedback", "employees", surveyFormId, studentId] as const,
+  },
+  /** Angular `feedback-details/employee-feedback` (`my-feedback/suvey-form`). */
+  employeeSurveyFeedback: {
+    all: ["EmployeeSurveyFeedback"] as const,
+    forms: (collegeId: number) =>
+      ["EmployeeSurveyFeedback", "forms", collegeId] as const,
+    form: (surveyFormId: number) =>
+      ["EmployeeSurveyFeedback", "form", surveyFormId] as const,
+    hods: (collegeId: number, empDeptId: number) =>
+      ["EmployeeSurveyFeedback", "hods", collegeId, empDeptId] as const,
+    reportingManagers: (employeeId: number) =>
+      ["EmployeeSurveyFeedback", "reportingManagers", employeeId] as const,
+  },
+
+  /** Angular `feedback/masters/option-group` — FbOptionGroup. */
+  fbOptionGroups: {
+    all: ["FbOptionGroup"] as const,
+    list: () => ["FbOptionGroup", "list"] as const,
+  },
+
+  /** Angular `feedback/masters/option-choices` — FbOptionchoice. */
+  fbOptionChoices: {
+    all: ["FbOptionchoice"] as const,
+    list: () => ["FbOptionchoice", "list"] as const,
+  },
+
+  /** Angular `feedback/masters/feedback-questions` — FeedbackQuestion. */
+  fbQuestions: {
+    all: ["FeedbackQuestion"] as const,
+    list: () => ["FeedbackQuestion", "list"] as const,
+  },
+
+  /** Angular `feedback/survey-form-list` / `survey-form`. */
+  surveyForms: {
+    all: ["SurveyForm"] as const,
+    list: () => ["SurveyForm", "list"] as const,
+    detail: (id: number) => ["SurveyForm", "detail", id] as const,
+  },
+
+  /** Angular `feedback/student-feedback-list`. */
+  studentFeedbackList: {
+    all: ["StudentFeedbackList"] as const,
+    forms: (collegeId: number) =>
+      ["StudentFeedbackList", "forms", collegeId] as const,
+    feedback: (surveyFormId: number, page: number) =>
+      ["StudentFeedbackList", "feedback", surveyFormId, page] as const,
+  },
+
+  /** Angular `feedback/feedback-summary`. */
+  feedbackSummary: {
+    all: ["FeedbackSummary"] as const,
+    filters: (organizationId: number, employeeId: number) =>
+      ["FeedbackSummary", "filters", organizationId, employeeId] as const,
+    sections: (
+      collegeId: number,
+      academicYearId: number,
+      courseGroupId: number,
+      courseYearId: number,
+    ) =>
+      [
+        "FeedbackSummary",
+        "sections",
+        collegeId,
+        academicYearId,
+        courseGroupId,
+        courseYearId,
+      ] as const,
+  },
+
+  /** Angular `feedback/feedback-suggestion-repot`. */
+  feedbackSuggestionReport: {
+    all: ["FeedbackSuggestionReport"] as const,
+    colleges: () => ["FeedbackSuggestionReport", "colleges"] as const,
+    departments: (collegeId: number) =>
+      ["FeedbackSuggestionReport", "departments", collegeId] as const,
+    surveys: (collegeId: number) =>
+      ["FeedbackSuggestionReport", "surveys", collegeId] as const,
+    employees: (surveyFormId: number) =>
+      ["FeedbackSuggestionReport", "employees", surveyFormId] as const,
+  },
+
+  /** Angular `feedback/feedback-status-report`. */
+  feedbackStatusReport: {
+    all: ["FeedbackStatusReport"] as const,
+    colleges: () => ["FeedbackStatusReport", "colleges"] as const,
+    academicYears: (universityId: number) =>
+      ["FeedbackStatusReport", "academicYears", universityId] as const,
+  },
+
+  /** Angular `principal-my-approvals/leave-applications` + `tc-no-due-approvals`. */
+  principalMyApprovals: {
+    all: ["PrincipalMyApprovals"] as const,
+    leaveApplications: (employeeId: number, leaveYear: number) =>
+      [
+        "PrincipalMyApprovals",
+        "leaveApplications",
+        employeeId,
+        leaveYear,
+      ] as const,
+    leaveYears: () => ["PrincipalMyApprovals", "leaveYears"] as const,
+    leaveStatuses: () => ["PrincipalMyApprovals", "leaveStatuses"] as const,
+    noDueWorkflowStatuses: () =>
+      ["PrincipalMyApprovals", "noDueWorkflowStatuses"] as const,
+    noDueCertificates: (collegeId: number) =>
+      ["PrincipalMyApprovals", "noDueCertificates", collegeId] as const,
+    noDueApprovals: (
+      employeeId: number,
+      collegeCertificateId: number,
+      tabIndex: number,
+    ) =>
+      [
+        "PrincipalMyApprovals",
+        "noDueApprovals",
+        employeeId,
+        collegeCertificateId,
+        tabIndex,
+      ] as const,
   },
 } as const;

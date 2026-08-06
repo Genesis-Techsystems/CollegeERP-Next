@@ -342,6 +342,46 @@
   min-width: 5.5rem !important;
 }
 
+/* Exam Forms — Angular fxFlex.gt-xs (20/20/60, 20/20/20/20/30/10)
+   Use flex-grow ratios (not % widths) so row gap does not force wrap. */
+.global-filter-bar__row--ef-r1,
+.global-filter-bar__row--ef-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--ef-r1 > .global-filter-field,
+.global-filter-bar__row--ef-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+/* Row 1: 20 / 20 / 60 → 1 / 1 / 3 */
+.global-filter-bar__row--ef-r1 > .global-filter-field--fx20 {
+  flex: 1 1 0 !important;
+}
+.global-filter-bar__row--ef-r1 > .global-filter-field--fx60 {
+  flex: 3 1 0 !important;
+}
+
+/* Row 2: 20 / 20 / 20 / 20 / 30 / 10 → 2 / 2 / 2 / 2 / 3 / auto */
+.global-filter-bar__row--ef-r2 > .global-filter-field--fx20 {
+  flex: 2 1 0 !important;
+}
+.global-filter-bar__row--ef-r2 > .global-filter-field--fx30 {
+  flex: 3 1 0 !important;
+}
+.global-filter-bar__row--ef-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
 /* Evaluators Bank Copy Report — Angular fxFlex.gt-xs (20/20/60, 20/20/15/15/30, 40/15/10)
    Use flex-grow ratios (not % widths) so row gap does not force wrap. */
 .global-filter-bar__row--ebcr-r1,
@@ -458,6 +498,11 @@
   .global-filter-bar__row--ecr-r2 > .global-filter-field--fx50,
   .global-filter-bar__row--ecr-r2 > .global-filter-field--fx16,
   .global-filter-bar__row--ecr-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--ef-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--ef-r1 > .global-filter-field--fx60,
+  .global-filter-bar__row--ef-r2 > .global-filter-field--fx20,
+  .global-filter-bar__row--ef-r2 > .global-filter-field--fx30,
+  .global-filter-bar__row--ef-r2 > .global-filter-field--fx10,
   .global-filter-bar__row--ebcr-r1 > .global-filter-field--fx20,
   .global-filter-bar__row--ebcr-r1 > .global-filter-field--fx60,
   .global-filter-bar__row--ebcr-r2 > .global-filter-field--fx20,
@@ -477,6 +522,8 @@
     max-width: 100% !important;
   }
 
+  .global-filter-bar__row--ef-r1,
+  .global-filter-bar__row--ef-r2,
   .global-filter-bar__row--ebcr-r1,
   .global-filter-bar__row--ebcr-r2,
   .global-filter-bar__row--ebcr-r3,
@@ -797,7 +844,55 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: hsl(var(--app-table-header-color));
+  color: hsl(var(--primary));
+  text-transform: uppercase;
+  white-space: normal;
+  line-height: 1.25;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+/* Column-group headers (Appeared / Passed / …) — match leaf header row */
+.app-data-table .ag-theme-quartz .ag-header-group-cell {
+  background-color: hsl(var(--primary) / 0.06) !important;
+}
+
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell
+  .ag-header-group-cell-label,
+.app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-group-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: hsl(var(--primary)) !important;
+  text-transform: uppercase;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-group-cell.app-table-header-group,
+.app-data-table .ag-theme-quartz .ag-header-cell.app-table-header-group {
+  background-color: hsl(var(--primary) / 0.06) !important;
+}
+
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell.app-table-header-group
+  .ag-header-group-cell-label,
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell
+  .ag-header-group-cell-label,
+.app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-group-text,
+.app-data-table .ag-theme-quartz .ag-header-group-cell-label,
+.app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-cell-text,
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-cell.app-table-header-group
+  .ag-header-cell-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: hsl(var(--primary)) !important;
   text-transform: uppercase;
 }
 
@@ -812,7 +907,7 @@
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-icon-filter,
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-sort-indicator-icon {
   opacity: 0.9;
-  color: hsl(var(--app-table-header-color));
+  color: hsl(var(--primary));
 }
 
 .app-data-table .ag-theme-quartz .ag-cell {
@@ -1088,12 +1183,27 @@ a.app-control[data-app-add]:hover {
 }
 
 /* Primary action in toolbar (Add / New …) — pages don't add a special class */
-.app-data-table-toolbar-wrap button:not(.app-data-table-toolbar-btn) {
+.app-data-table-toolbar-wrap
+  button:not(.app-data-table-toolbar-btn):not([role="radio"]):not(
+    [role="checkbox"]
+  ) {
   height: 2.25rem;
   border-radius: calc(var(--radius) - 2px);
   padding-inline: 0.875rem;
   font-size: 12px;
   font-weight: 600;
+}
+
+/* Radix checkboxes in toolbar — keep compact (same as grid row checkboxes) */
+.app-data-table-toolbar-wrap [role="checkbox"] {
+  height: 1rem !important;
+  width: 1rem !important;
+  min-height: 1rem !important;
+  min-width: 1rem !important;
+  max-height: 1rem !important;
+  max-width: 1rem !important;
+  padding: 0 !important;
+  flex-shrink: 0;
 }
 
 /* College Counselling — fit all columns without horizontal scroll */
@@ -1189,6 +1299,36 @@ a.app-control[data-app-add]:hover {
 .app-data-table .ag-theme-quartz .ag-pinned-right-header,
 .app-data-table .ag-theme-quartz .ag-pinned-left-header {
   border-color: hsl(var(--border)) !important;
+}
+
+/* Wide tables (fitColumnsToWidth=false) — scroll every column, not just the viewport */
+.app-data-table-wide.app-data-table-card {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll,
+.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll-viewport {
+  display: block !important;
+  min-height: 14px !important;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-center-cols-viewport {
+  overflow-x: auto !important;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-header-cell-text,
+.app-data-table-wide .ag-theme-quartz .ag-header-group-text {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.app-data-table-wide .ag-theme-quartz .ag-horizontal-left-spacer,
+.app-data-table-wide .ag-theme-quartz .ag-horizontal-right-spacer {
+  display: block !important;
+  width: auto !important;
+  min-width: unset !important;
+  overflow: visible !important;
 }
 
 /* Hide horizontal-scroll track under pinned SI.No / Actions columns —

@@ -20,6 +20,7 @@ import { flattenNavItemsForSearch } from "@/lib/navigation";
 import { resolveNavHref } from "@/lib/resolve-nav-href";
 import { logout } from "@/services/auth";
 import { ThemeSwitcher } from "@/common/components/theme-setting-modal";
+import { scheduleNavigation } from "@/lib/schedule-navigation";
 
 const roleAvatarStyle: Record<string, string> = {
   ADMIN: "bg-red-100    text-red-700",
@@ -111,7 +112,9 @@ export function Topbar() {
   const navigateTo = useCallback(
     (url: string, displayName?: string, id?: string) => {
       const resolved = resolveNavHref(url, displayName ?? "", id) || url;
-      router.push(resolved);
+      scheduleNavigation(() => {
+        router.push(resolved);
+      });
       setSearchTerm("");
       setIsSearchOpen(false);
       setActiveResultIndex(-1);
@@ -271,7 +274,7 @@ export function Topbar() {
             {filteredPages.length > 0 ? (
               filteredPages.map((page, index) => (
                 <button
-                  key={page.url}
+                  key={`${page.id ?? "page"}-${page.url}-${index}`}
                   id={`search-result-${index}`}
                   role="option"
                   aria-selected={index === activeResultIndex}

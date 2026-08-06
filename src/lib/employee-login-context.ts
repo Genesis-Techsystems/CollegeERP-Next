@@ -128,10 +128,28 @@ export function readStorageId(key: string): number {
   return positiveId(globalThis.localStorage.getItem(key));
 }
 
+/** Role flags that leak across logins if not cleared (dashboard tabs, filters). */
+const STICKY_ROLE_STORAGE_KEYS = [
+  "isHOD",
+  "isHODDashboard",
+  "isPRINCIPAL",
+  "isMgnt",
+  "isDeprtAdmin",
+] as const;
+
+/** Call on logout so a prior HOD session cannot show HOD Dashboard after admin login. */
+export function clearStickyRoleFlagsFromLocalStorage(): void {
+  if (typeof globalThis.window === "undefined") return;
+  const storage = globalThis.localStorage;
+  for (const key of STICKY_ROLE_STORAGE_KEYS) {
+    storage.removeItem(key);
+  }
+}
+
 /**
  * Angular login localStorage keys used by assignments / employee search.
- * Never overwrite an existing `isHOD=true` with false (session/role may already
- * have marked the user as HOD before employeedetailsbyid returns).
+ * Writes the resolved HOD outcome (true or false). Call only after
+ * employeedetailsbyid + EmpDeptHeads have settled for this login.
  */
 export function syncEmployeeLoginContextToStorage(
   ctx: EmployeeLoginContext,
@@ -140,12 +158,8 @@ export function syncEmployeeLoginContextToStorage(
   const storage = globalThis.localStorage;
   if (ctx.employeeId > 0) storage.setItem("employeeId", String(ctx.employeeId));
   if (ctx.empDeptId > 0) storage.setItem("empDeptId", String(ctx.empDeptId));
-  if (ctx.isHod) {
-    storage.setItem("isHOD", "true");
-    storage.setItem("isHODDashboard", "true");
-  } else if (storage.getItem("isHOD") !== "true") {
-    storage.setItem("isHOD", "false");
-  }
+  storage.setItem("isHOD", ctx.isHod ? "true" : "false");
+  storage.setItem("isHODDashboard", ctx.isHod ? "true" : "false");
   if (ctx.uName) storage.setItem("uName", ctx.uName);
   if (ctx.empNumber) storage.setItem("empNumber", ctx.empNumber);
 }

@@ -8,7 +8,7 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LayoutList, Loader2 } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
@@ -20,16 +20,28 @@ import { toastError, toastSuccess } from "@/lib/toast";
 import {
   fetchStudentDetail,
   getStudentInfoCollegeFilters,
+  listEmployeeDataSecurityByEmployeeId,
   listStudentsForStudentDetails,
   listStudentSectionsByProc,
   normalizeStudentRow,
-  searchStudentsByKeyword,
+  searchStudentsForStudentDetailsList,
   sendStudentCredentials,
   updateStudentQuickProfile,
+  type StudentDetailsEmpSecurity,
 } from "@/services";
 import { EditStudentProfileModal } from "./EditStudentProfileModal";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import { StudentsListTable, headerPartsFromRow } from "./StudentsListTable";
+
+type SectionRestore = {
+  universityId?: number;
+  collegeId: number;
+  academicYearId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  groupSectionId: number;
+};
 
 type AnyRow = Record<string, any>;
 
@@ -135,10 +147,12 @@ const SEC = [
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Angular students-list section cascade
 export default function StudentDetailsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useSessionContext();
 
   const employeeId = Number(user?.employeeId ?? 0);
   const organizationId = Number(user?.organizationId ?? 0);
+  const sessionCollegeId = Number(user?.collegeId ?? 0);
 
   const [mode, setMode] = useState<"student" | "section">("student");
 
@@ -153,6 +167,10 @@ export default function StudentDetailsPage() {
   const [sectionApiRows, setSectionApiRows] = useState<AnyRow[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
+  const [empSecurity, setEmpSecurity] = useState<StudentDetailsEmpSecurity[]>(
+    [],
+  );
+  const [empSecurityReady, setEmpSecurityReady] = useState(false);
 
   const [universityId, setUniversityId] = useState<number | null>(null);
   const [collegeId, setCollegeId] = useState<number | null>(null);
@@ -179,24 +197,39 @@ export default function StudentDetailsPage() {
   const studentsLoadSeq = useRef(0);
   const sectionUserPickRef = useRef(false);
   const sectionCascadeAutoFill = useRef(true);
+  const urlRestoreApplied = useRef(false);
+  const pendingSectionRestore = useRef<SectionRestore | null>(null);
+  const pendingStudentRestore = useRef<{
+    studentId?: number;
+    rollNumber?: string;
+  } | null>(null);
 
   const isAdmin = user?.isAdmin ?? readStorage("isAdmin") === "true";
-  // isHOD is never written to localStorage in Next (SessionContext doesn't sync it),
-  // so this must read the server-derived session flag — otherwise it is permanently
-  // false, which mis-authorizes HODs (full edit instead of the restricted modal) and
-  // blocks them from sending credentials.
   const isHod = user?.isHod ?? readStorage("isHOD") === "true";
+  const isDeptAdmin =
+    user?.isDeptAdmin ?? readStorage("isDeprtAdmin") === "true";
   const roleName = user?.roleName ?? readStorage("roleName");
   const check = mode === "section" ? 2 : 1;
+  // Match Angular effective visibility: full-page Edit only for Admin or
+  // Junior Accountant / Student Details / FEE COLLECTION. HOD gets modal Edit.
+  // Other staff (e.g. Additional Controller) see View Profile | View details only.
   const specialEditRoles = [
     "Junior Accountant",
     "Student Details",
     "FEE COLLECTION",
   ];
-  const canNavigateEdit =
-    !isHod || isAdmin || specialEditRoles.includes(roleName);
-  const canModalEdit = isHod && !specialEditRoles.includes(roleName);
+  const hasSpecialEditRole = specialEditRoles.includes(roleName ?? "");
+  const canNavigateEdit = isAdmin || hasSpecialEditRole;
+  const canModalEdit = isHod && !isAdmin && !hasSpecialEditRole;
   const canSendCredentials = isHod || isAdmin;
+
+  const collegeIdsForSearch = useMemo(() => {
+    const ids = empSecurity
+      .map((r) => Number(r.collegeId ?? 0))
+      .filter((id) => id > 0);
+    if (ids.length > 0) return [...new Set(ids)].join(",");
+    return sessionCollegeId > 0 ? String(sessionCollegeId) : "";
+  }, [empSecurity, sessionCollegeId]);
 
   const loadFilters = useCallback(async () => {
     setLoadingFilters(true);
@@ -214,8 +247,171 @@ export default function StudentDetailsPage() {
   }, [organizationId, employeeId]);
 
   useEffect(() => {
+    if (!employeeId) {
+      setEmpSecurity([]);
+      setEmpSecurityReady(true);
+      return;
+    }
+    let cancelled = false;
+    setEmpSecurityReady(false);
+    void listEmployeeDataSecurityByEmployeeId(employeeId)
+      .then((rows) => {
+        if (cancelled) return;
+        setEmpSecurity(
+          (Array.isArray(rows) ? rows : []).filter(
+            (r) => Number(r.collegeId ?? 0) > 0,
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setEmpSecurity([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEmpSecurityReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  // Angular queryParams restore on return from profile / edit-student
+  useEffect(() => {
+    if (urlRestoreApplied.current) return;
+    const checkParam = searchParams.get("check");
+    urlRestoreApplied.current = true;
+    if (!checkParam) return;
+
+    if (checkParam === "1") {
+      setMode("student");
+      pendingStudentRestore.current = {
+        studentId: Number(searchParams.get("studentId") || 0) || undefined,
+        rollNumber: searchParams.get("rollNumber") ?? undefined,
+      };
+      return;
+    }
+
+    if (checkParam === "2") {
+      const college = Number(searchParams.get("collegeId") || 0);
+      const ay = Number(searchParams.get("academicYearId") || 0);
+      const course = Number(searchParams.get("courseId") || 0);
+      const group = Number(searchParams.get("courseGroupId") || 0);
+      const year = Number(searchParams.get("courseYearId") || 0);
+      const sectionRaw = searchParams.get("groupSectionId");
+      const section =
+        sectionRaw == null || sectionRaw === "" ? NaN : Number(sectionRaw);
+      if (
+        !college ||
+        !ay ||
+        !course ||
+        !group ||
+        !year ||
+        !Number.isFinite(section)
+      )
+        return;
+      setMode("section");
+      sectionCascadeAutoFill.current = false;
+      pendingSectionRestore.current = {
+        universityId:
+          Number(searchParams.get("universityId") || 0) || undefined,
+        collegeId: college,
+        academicYearId: ay,
+        courseId: course,
+        courseGroupId: group,
+        courseYearId: year,
+        groupSectionId: section,
+      };
+      void loadFilters();
+    }
+  }, [searchParams, loadFilters]);
+
+  useEffect(() => {
     if (mode === "section") void loadFilters();
   }, [mode, loadFilters]);
+
+  // Apply section restore once filter rows are available
+  useEffect(() => {
+    const restore = pendingSectionRestore.current;
+    if (!restore || loadingFilters || filtersData.length === 0) return;
+
+    const collegeRow = filtersData.find(
+      (r) => pickNum(r, COL) === restore.collegeId,
+    );
+    const univ =
+      restore.universityId ||
+      pickNum(collegeRow, UNIV) ||
+      Number(user?.universityId ?? 0) ||
+      0;
+    if (!univ) return;
+
+    pendingSectionRestore.current = null;
+    sectionCascadeAutoFill.current = false;
+    setUniversityId(univ);
+    setCollegeId(restore.collegeId);
+    setAcademicYearId(restore.academicYearId);
+    setCourseId(restore.courseId);
+    setCourseGroupId(restore.courseGroupId);
+    setCourseYearId(restore.courseYearId);
+    setGroupSectionId(restore.groupSectionId);
+    sectionUserPickRef.current = true;
+  }, [filtersData, loadingFilters, user?.universityId]);
+
+  // Apply student restore (Angular enteredStudent(rollNumber, 'para'))
+  useEffect(() => {
+    const restore = pendingStudentRestore.current;
+    if (!restore) return;
+    const q = (restore.rollNumber || "").trim();
+    if (q.length <= 4) {
+      pendingStudentRestore.current = null;
+      return;
+    }
+    // Wait for empSecurity fetch so dept-admin / multi-college paths match Angular.
+    if (!empSecurityReady) return;
+
+    pendingStudentRestore.current = null;
+    let cancelled = false;
+    void (async () => {
+      setStudentSearchLoading(true);
+      try {
+        const list = await searchStudentsForStudentDetailsList({
+          q,
+          isAdmin,
+          isDeptAdmin,
+          empSecurity,
+          collegeIds: collegeIdsForSearch,
+          mode: "restore",
+        });
+        if (cancelled) return;
+        setStudentOptions(list);
+        const match =
+          (restore.studentId
+            ? list.find(
+                (r) =>
+                  pickNum(r, ["studentId", "fk_student_id"]) ===
+                  restore.studentId,
+              )
+            : null) ??
+          list[0] ??
+          null;
+        if (match) {
+          const sid = pickNum(match, ["studentId", "fk_student_id"]);
+          setSelectedStudentId(sid || null);
+          setRows(normalizeRowList([match]));
+        }
+      } finally {
+        if (!cancelled) setStudentSearchLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isAdmin,
+    isDeptAdmin,
+    empSecurity,
+    empSecurityReady,
+    collegeIdsForSearch,
+    searchParams,
+  ]);
 
   const universities = useMemo(
     () =>
@@ -337,18 +533,25 @@ export default function StudentDetailsPage() {
     );
   }, [courseGroups]);
 
+  // Angular `selectedGroup` does NOT auto-select course year (else branch commented).
+  // Only keep a still-valid selection; user (or URL restore) must pick a year.
   useEffect(() => {
+    if (pendingSectionRestore.current) return;
     if (!courseYears.length) {
       setCourseYearId(null);
+      setGroupSectionId(null);
+      setRows([]);
       return;
     }
-    if (!sectionCascadeAutoFill.current) return;
-    setCourseYearId((prev) =>
-      prev && courseYears.some((y) => pickNum(y, YR) === prev)
-        ? prev
-        : pickNum(courseYears[0], YR),
-    );
-  }, [courseYears]);
+    if (
+      courseYearId != null &&
+      !courseYears.some((y) => pickNum(y, YR) === courseYearId)
+    ) {
+      setCourseYearId(null);
+      setGroupSectionId(null);
+      setRows([]);
+    }
+  }, [courseYears, courseYearId]);
 
   useEffect(() => {
     async function loadSections() {
@@ -484,7 +687,14 @@ export default function StudentDetailsPage() {
     if (q.length < 5) return;
     setStudentSearchLoading(true);
     try {
-      const list = await searchStudentsByKeyword(q).catch(() => []);
+      const list = await searchStudentsForStudentDetailsList({
+        q,
+        isAdmin,
+        isDeptAdmin,
+        empSecurity,
+        collegeIds: collegeIdsForSearch,
+        mode: "type",
+      });
       setStudentOptions(Array.isArray(list) ? list : []);
     } finally {
       setStudentSearchLoading(false);
@@ -734,137 +944,135 @@ export default function StudentDetailsPage() {
         ) : (
           <div className="space-y-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                  <div className={selectClass()}>
-                    <Select
-                      label="University"
-                      value={universityId ? String(universityId) : null}
-                      options={univOpts}
-                      placeholder="Select University"
-                      clearable
-                      onChange={(v) => {
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setUniversityId(parseSelectNumber(v));
-                        setCollegeId(null);
-                        setCourseId(null);
-                        setCourseGroupId(null);
-                        setCourseYearId(null);
-                        clearSectionCascade();
-                      }}
-                      disabled={loadingFilters}
-                      searchable
-                    />
-                  </div>
-                  <div className={selectClass()}>
-                    <Select
-                      label="College"
-                      value={collegeId ? String(collegeId) : null}
-                      options={collegeOpts}
-                      placeholder="Select College"
-                      clearable
-                      onChange={(v) => {
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setCollegeId(parseSelectNumber(v));
-                        setCourseId(null);
-                        setCourseGroupId(null);
-                        setCourseYearId(null);
-                        clearSectionCascade();
-                      }}
-                      disabled={loadingFilters || !collegeOpts.length}
-                      searchable
-                    />
-                  </div>
-                  <div className={selectClass()}>
-                    <Select
-                      label="Course"
-                      value={courseId ? String(courseId) : null}
-                      options={courseOpts}
-                      placeholder="Select Course"
-                      clearable
-                      onChange={(v) => {
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setCourseId(parseSelectNumber(v));
-                        setCourseGroupId(null);
-                        setCourseYearId(null);
-                        clearSectionCascade();
-                      }}
-                      disabled={loadingFilters || !courseOpts.length}
-                      searchable
-                    />
-                  </div>
-                  <div className={selectClass()}>
-                    <Select
-                      label="Course Group"
-                      value={courseGroupId ? String(courseGroupId) : null}
-                      options={groupOpts}
-                      placeholder="Select Course Group"
-                      clearable
-                      onChange={(v) => {
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setCourseGroupId(parseSelectNumber(v));
-                        setCourseYearId(null);
-                        clearSectionCascade();
-                      }}
-                      disabled={loadingFilters || !groupOpts.length}
-                      searchable
-                    />
-                  </div>
-                  <div className={selectClass()}>
-                    <Select
-                      label="Course Year"
-                      value={courseYearId ? String(courseYearId) : null}
-                      options={yearOpts}
-                      placeholder="Select Course Year"
-                      clearable
-                      onChange={(v) => {
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setCourseYearId(parseSelectNumber(v));
-                        clearSectionCascade();
-                      }}
-                      disabled={loadingFilters || !yearOpts.length}
-                      searchable
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                  <div className={selectClass()}>
-                    <Select
-                      label="Academic Year"
-                      value={academicYearId ? String(academicYearId) : null}
-                      options={ayOpts}
-                      placeholder="Select Academic Year"
-                      clearable
-                      onChange={(v) => {
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setAcademicYearId(parseSelectNumber(v));
-                        clearSectionCascade();
-                      }}
-                      disabled={loadingFilters || !ayOpts.length}
-                      searchable
-                    />
-                  </div>
-                  <div className={selectClass()}>
-                    <Select
-                      label="Section"
-                      value={
-                        groupSectionId === null ? null : String(groupSectionId)
-                      }
-                      options={sectionOpts}
-                      placeholder="Select Section"
-                      clearable
-                      onChange={(v) => {
-                        sectionUserPickRef.current = true;
-                        onSectionCascadeSelect(v, sectionCascadeAutoFill);
-                        setGroupSectionId(parseSectionSelect(v));
-                      }}
-                      disabled={loadingFilters || !courseYearId}
-                      searchable
-                    />
-                  </div>
-                </div>
-                {loadingStudents && (
-              <p className="text-xs text-muted-foreground">
-                Loading students…
-              </p>
+              <div className={selectClass()}>
+                <Select
+                  label="University"
+                  value={universityId ? String(universityId) : null}
+                  options={univOpts}
+                  placeholder="Select University"
+                  clearable
+                  onChange={(v) => {
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setUniversityId(parseSelectNumber(v));
+                    setCollegeId(null);
+                    setCourseId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    clearSectionCascade();
+                  }}
+                  disabled={loadingFilters}
+                  searchable
+                />
+              </div>
+              <div className={selectClass()}>
+                <Select
+                  label="College"
+                  value={collegeId ? String(collegeId) : null}
+                  options={collegeOpts}
+                  placeholder="Select College"
+                  clearable
+                  onChange={(v) => {
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setCollegeId(parseSelectNumber(v));
+                    setCourseId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    clearSectionCascade();
+                  }}
+                  disabled={loadingFilters || !collegeOpts.length}
+                  searchable
+                />
+              </div>
+              <div className={selectClass()}>
+                <Select
+                  label="Course"
+                  value={courseId ? String(courseId) : null}
+                  options={courseOpts}
+                  placeholder="Select Course"
+                  clearable
+                  onChange={(v) => {
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setCourseId(parseSelectNumber(v));
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    clearSectionCascade();
+                  }}
+                  disabled={loadingFilters || !courseOpts.length}
+                  searchable
+                />
+              </div>
+              <div className={selectClass()}>
+                <Select
+                  label="Course Group"
+                  value={courseGroupId ? String(courseGroupId) : null}
+                  options={groupOpts}
+                  placeholder="Select Course Group"
+                  clearable
+                  onChange={(v) => {
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setCourseGroupId(parseSelectNumber(v));
+                    setCourseYearId(null);
+                    clearSectionCascade();
+                  }}
+                  disabled={loadingFilters || !groupOpts.length}
+                  searchable
+                />
+              </div>
+              <div className={selectClass()}>
+                <Select
+                  label="Course Year"
+                  value={courseYearId ? String(courseYearId) : null}
+                  options={yearOpts}
+                  placeholder="Select Course Year"
+                  clearable
+                  onChange={(v) => {
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setCourseYearId(parseSelectNumber(v));
+                    clearSectionCascade();
+                  }}
+                  disabled={loadingFilters || !yearOpts.length}
+                  searchable
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+              <div className={selectClass()}>
+                <Select
+                  label="Academic Year"
+                  value={academicYearId ? String(academicYearId) : null}
+                  options={ayOpts}
+                  placeholder="Select Academic Year"
+                  clearable
+                  onChange={(v) => {
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setAcademicYearId(parseSelectNumber(v));
+                    clearSectionCascade();
+                  }}
+                  disabled={loadingFilters || !ayOpts.length}
+                  searchable
+                />
+              </div>
+              <div className={selectClass()}>
+                <Select
+                  label="Section"
+                  value={
+                    groupSectionId === null ? null : String(groupSectionId)
+                  }
+                  options={sectionOpts}
+                  placeholder="Select Section"
+                  clearable
+                  onChange={(v) => {
+                    sectionUserPickRef.current = true;
+                    onSectionCascadeSelect(v, sectionCascadeAutoFill);
+                    setGroupSectionId(parseSectionSelect(v));
+                  }}
+                  disabled={loadingFilters || !courseYearId}
+                  searchable
+                />
+              </div>
+            </div>
+            {loadingStudents && (
+              <p className="text-xs text-muted-foreground">Loading students…</p>
             )}
           </div>
         )
@@ -877,6 +1085,7 @@ export default function StudentDetailsPage() {
         tableFilter={tableFilter}
         onTableFilterChange={setTableFilter}
         canSendCredentials={canSendCredentials}
+        showBulkSendCredentials
         canNavigateEdit={canNavigateEdit}
         canModalEdit={canModalEdit}
         onViewProfile={navigateViewProfile}

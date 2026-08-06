@@ -564,15 +564,16 @@ export function ExamHallticketPage({
     orgCode,
   ]);
 
-  // Printable HALL TICKET — iframe print (avoids AppShell blank PDF).
+  // Hallticket By Student — Angular in-page Print() → student layout (no affix).
   const { printButton } = useHallticketPrint(
     isStudentPortal ? [] : mode === "student" ? rowsForPrint : [],
     printUniversityCode,
+    "student",
   );
 
   function handleSectionPrintAll() {
     if (rowsForPrint.length === 0) return;
-    // Angular printBulk() → navigate to print-exam-hallticket with ParametersService.
+    // Angular printBulk() → navigate to print-exam-hallticket (bulk layout).
     saveExamHallticketPrintPayload({
       rows: rowsForPrint,
       universityCode: printUniversityCode,
@@ -1247,14 +1248,11 @@ export function ExamHallticketPage({
       }
       loading={loading}
       pagination
-      toolbar={{ pdfDocumentTitle: "Exam hallticket list" }}
-      toolbarLeading={
-        <span className="text-[12px] text-muted-foreground whitespace-nowrap">
-          {mode === "student"
-            ? `${studentDisplayRows.length} records`
-            : `${sectionTableRows.length} students`}
-        </span>
-      }
+      toolbar={{
+        exportExcel: false,
+        exportPdf: false,
+        pdfDocumentTitle: "Exam hallticket list",
+      }}
       toolbarTrailing={
         isStudentPortal && mode === "student" ? (
           studentDisplayRows.length > 0 ? (

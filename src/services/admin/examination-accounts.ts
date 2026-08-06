@@ -261,7 +261,7 @@ export interface CreateExaminationAccountResult {
 
 /**
  * Angular: addMasterDetails('api/createuser', details)
- * → POST /cms/api/createuser (CREATE_USER_CMS)
+ * → POST /cms/api/createuser via `/api/proxy/api/createuser` (CREATE_USER_CMS)
  */
 export async function createExaminationAccount(
   data: Omit<ExaminationAccount, "userId">,

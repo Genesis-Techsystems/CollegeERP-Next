@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, UserPlus } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
@@ -13,8 +13,10 @@ import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
   getMentorshipAssignFilters,
+  isMappingActive,
   listMappedCounselorStudents,
   listStudentsForCounselorAssignment,
+  normalizeCounselorStudentRow,
   saveCounselorMappings,
   searchEmployeesForMentorship,
   type ClgFilterAcademicYearRow,
@@ -131,6 +133,8 @@ export function AssignCounselorPage({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [headerLine, setHeaderLine] = useState("");
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
+  const loadSeqRef = useRef(0);
 
   const colleges = useMemo(
     () =>
@@ -237,12 +241,38 @@ export function AssignCounselorPage({
   }
 
   function resetStudents() {
+    loadSeqRef.current += 1;
     setAllStudents([]);
     setUnassigned([]);
     setAssigned([]);
     setSelectedUnassigned(new Set());
     setSelectedAssigned(new Set());
     setHeaderLine("");
+    setStudentsLoaded(false);
+    setLoading(false);
+  }
+
+  function buildHeaderLine(): string {
+    const clg = colleges.find((c) => num(c.fk_college_id) === collegeId);
+    const ay = academicYears.find(
+      (a) => num(a.fk_academic_year_id) === academicYearId,
+    );
+    const course = courses.find((c) => num(c.fk_course_id) === courseId);
+    const group = courseGroups.find(
+      (g) => num(g.fk_course_group_id) === courseGroupId,
+    );
+    const year = courseYears.find(
+      (y) => num(y.fk_course_year_id) === courseYearId,
+    );
+    return [
+      text(clg?.college_code),
+      text(ay?.academic_year),
+      text(course?.course_code),
+      text(group?.group_name) || text(group?.group_code),
+      text(year?.course_year_name),
+    ]
+      .filter(Boolean)
+      .join(" / ");
   }
 
   // Angular getFiltersList — auto-select first college.
@@ -449,8 +479,16 @@ export function AssignCounselorPage({
         !courseYearId
       )
         return;
+
+      const seq = ++loadSeqRef.current;
       setLoading(true);
-      resetStudents();
+      setStudentsLoaded(false);
+      setAllStudents([]);
+      setUnassigned([]);
+      setAssigned([]);
+      setSelectedUnassigned(new Set());
+      setSelectedAssigned(new Set());
+
       try {
         const [students, mapped] = await Promise.all([
           listStudentsForCounselorAssignment({
@@ -466,8 +504,14 @@ export function AssignCounselorPage({
             courseYearId,
           }),
         ]);
+        if (seq !== loadSeqRef.current) return;
 
         if (students.length === 0) {
+          setAllStudents([]);
+          setUnassigned([]);
+          setAssigned([]);
+          setHeaderLine(buildHeaderLine());
+          setStudentsLoaded(true);
           toastSuccess("No Record(s) found.");
           return;
         }
@@ -475,20 +519,22 @@ export function AssignCounselorPage({
         let mappingFrom: Date | null = null;
         let mappingTo: Date | null = null;
         const normalized = students.map((s) => {
-          const row = { ...(s as StudentRow) };
-          if (row.genderDisplayName === "Male") row.genderDisplayName = "M";
-          if (row.genderDisplayName === "Female") row.genderDisplayName = "F";
+          const row = {
+            ...(normalizeCounselorStudentRow(s) as StudentRow),
+          };
           const map = mapped.find(
             (m) =>
               Number(m.studentId) === Number(row.studentId) &&
-              m.isActive === true,
+              isMappingActive(m.isActive),
           );
           if (map) {
-            row.counselorId = Number(map.counselorId);
-            row.employeeId = Number(map.employeeId);
+            const mapEmpId = Number(map.employeeId ?? 0);
+            const mapCounselorId = Number(map.counselorId ?? 0);
+            row.counselorId = mapCounselorId || undefined;
+            row.employeeId = mapEmpId || undefined;
             row.fromDate = map.fromDate;
             row.toDate = map.toDate;
-            if (Number(map.employeeId) === eid) {
+            if (mapEmpId === eid) {
               if (map.fromDate) mappingFrom = new Date(String(map.fromDate));
               if (map.toDate) mappingTo = new Date(String(map.toDate));
             }
@@ -496,6 +542,8 @@ export function AssignCounselorPage({
           return row;
         });
 
+        // Angular: left = no active mapping; right = mapped to selected employee.
+        // Students mapped to another counselor stay out of both lists.
         setAllStudents(normalized);
         setAssigned(
           normalized.filter(
@@ -505,47 +553,20 @@ export function AssignCounselorPage({
         setUnassigned(normalized.filter((s) => !s.counselorId));
         if (mappingFrom) setFromDate(mappingFrom);
         if (mappingTo) setToDate(mappingTo);
-
-        const clg = colleges.find((c) => num(c.fk_college_id) === collegeId);
-        const ay = academicYears.find(
-          (a) => num(a.fk_academic_year_id) === academicYearId,
-        );
-        const course = courses.find((c) => num(c.fk_course_id) === courseId);
-        const group = courseGroups.find(
-          (g) => num(g.fk_course_group_id) === courseGroupId,
-        );
-        const year = courseYears.find(
-          (y) => num(y.fk_course_year_id) === courseYearId,
-        );
-        setHeaderLine(
-          [
-            text(clg?.college_code),
-            text(ay?.academic_year),
-            text(course?.course_code),
-            text(group?.group_name) || text(group?.group_code),
-            text(year?.course_year_name),
-          ]
-            .filter(Boolean)
-            .join(" / "),
-        );
+        setHeaderLine(buildHeaderLine());
+        setStudentsLoaded(true);
       } catch (e) {
-        toastError(getErrorMessage(e));
+        if (seq === loadSeqRef.current) {
+          toastError(getErrorMessage(e));
+          setStudentsLoaded(true);
+        }
       } finally {
-        setLoading(false);
+        if (seq === loadSeqRef.current) setLoading(false);
       }
     },
-    [
-      collegeId,
-      academicYearId,
-      courseId,
-      courseGroupId,
-      courseYearId,
-      colleges,
-      academicYears,
-      courses,
-      courseGroups,
-      courseYears,
-    ],
+    // Header line reads current filter options from closure on completion.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch keyed by filter ids only
+    [collegeId, academicYearId, courseId, courseGroupId, courseYearId],
   );
 
   useEffect(() => {
@@ -681,8 +702,8 @@ export function AssignCounselorPage({
     }
   }
 
-  // Angular shows dual lists when students API returned rows (even if both sides empty of unassigned).
-  const showStudents = allStudents.length > 0;
+  // Show dual lists once Employee is selected (Angular selectedEmployee flow).
+  const showStudentsPanel = Boolean(employeeId && courseYearId);
   const counselorName =
     (employees.find((e) => Number(e.employeeId) === employeeId)?.firstName as
       | string
@@ -755,7 +776,7 @@ export function AssignCounselorPage({
                 searchable
                 isLoading={employeeSearching}
                 onSearch={(term) => void onEmployeeSearch(term)}
-                placeholder="Employee"
+                placeholder="Type 4+ chars to search employee"
                 className="md:col-span-4"
               />
             ) : null}
@@ -778,7 +799,7 @@ export function AssignCounselorPage({
       }
       bodyClassName="border-t-0"
       body={
-        showStudents ? (
+        showStudentsPanel ? (
           <div className="space-y-3">
             {headerLine ? (
               <p className="text-sm font-medium text-[hsl(var(--card-title))]">
@@ -789,120 +810,134 @@ export function AssignCounselorPage({
               </p>
             ) : null}
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
-              <div className="md:col-span-5 border rounded-sm overflow-hidden bg-card">
-                <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
-                  <span>Students</span>
-                  <span>{unassigned.length}</span>
-                </div>
-                <div className="p-2 space-y-2">
-                  <SearchInput
-                    value={leftSearch}
-                    onChange={setLeftSearch}
-                    placeholder="Search…"
-                  />
-                  <ul className="h-[360px] overflow-y-auto border rounded-sm p-1 space-y-0.5">
-                    {filteredUnassigned.length === 0 ? (
-                      <li className="p-3 text-sm text-muted-foreground">
-                        No students
-                      </li>
-                    ) : (
-                      filteredUnassigned.map((s) => {
-                        const id = studentKey(s);
-                        return (
-                          <li key={id}>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1.5 hover:bg-muted/40 rounded-sm">
-                              <input
-                                type="checkbox"
-                                checked={selectedUnassigned.has(id)}
-                                onChange={() =>
-                                  toggleSet(setSelectedUnassigned, id)
-                                }
-                              />
-                              {studentLabel(s)}
-                            </label>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading students…</p>
+            ) : null}
+
+            {!loading && studentsLoaded && allStudents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No Record(s) found.
+              </p>
+            ) : null}
+
+            {!loading && allStudents.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+                  <div className="md:col-span-5 border rounded-sm overflow-hidden bg-card">
+                    <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
+                      <span>Students</span>
+                      <span>{unassigned.length}</span>
+                    </div>
+                    <div className="p-2 space-y-2">
+                      <SearchInput
+                        value={leftSearch}
+                        onChange={setLeftSearch}
+                        placeholder="Search…"
+                      />
+                      <ul className="h-[360px] overflow-y-auto border rounded-sm p-1 space-y-0.5">
+                        {filteredUnassigned.length === 0 ? (
+                          <li className="p-3 text-sm text-muted-foreground">
+                            No students
                           </li>
-                        );
-                      })
-                    )}
-                  </ul>
-                </div>
-              </div>
+                        ) : (
+                          filteredUnassigned.map((s) => {
+                            const id = studentKey(s);
+                            return (
+                              <li key={id || `${studentLabel(s)}`}>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1.5 hover:bg-muted/40 rounded-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedUnassigned.has(id)}
+                                    onChange={() =>
+                                      toggleSet(setSelectedUnassigned, id)
+                                    }
+                                  />
+                                  {studentLabel(s)}
+                                </label>
+                              </li>
+                            );
+                          })
+                        )}
+                      </ul>
+                    </div>
+                  </div>
 
-              <div className="md:col-span-1 flex flex-row md:flex-col items-center justify-center gap-2 py-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={moveToAssigned}
-                  disabled={loading}
-                >
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={moveToUnassigned}
-                  disabled={loading}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </div>
+                  <div className="md:col-span-1 flex flex-row md:flex-col items-center justify-center gap-2 py-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={moveToAssigned}
+                      disabled={loading}
+                      title="Assign selected"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={moveToUnassigned}
+                      disabled={loading}
+                      title="Unassign selected"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-              <div className="md:col-span-6 border rounded-sm overflow-hidden bg-card">
-                <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
-                  <span className="truncate">{counselorName}</span>
-                  <span>{assigned.length}</span>
-                </div>
-                <div className="p-2 space-y-2">
-                  <SearchInput
-                    value={rightSearch}
-                    onChange={setRightSearch}
-                    placeholder="Search…"
-                  />
-                  <ul className="h-[360px] overflow-y-auto border rounded-sm p-1 space-y-0.5">
-                    {filteredAssigned.length === 0 ? (
-                      <li className="p-3 text-sm text-muted-foreground">
-                        No students
-                      </li>
-                    ) : (
-                      filteredAssigned.map((s) => {
-                        const id = studentKey(s);
-                        return (
-                          <li key={id}>
-                            <label className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1.5 hover:bg-muted/40 rounded-sm">
-                              <input
-                                type="checkbox"
-                                checked={selectedAssigned.has(id)}
-                                onChange={() =>
-                                  toggleSet(setSelectedAssigned, id)
-                                }
-                              />
-                              {studentLabel(s)}
-                            </label>
+                  <div className="md:col-span-6 border rounded-sm overflow-hidden bg-card">
+                    <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
+                      <span className="truncate">{counselorName}</span>
+                      <span>{assigned.length}</span>
+                    </div>
+                    <div className="p-2 space-y-2">
+                      <SearchInput
+                        value={rightSearch}
+                        onChange={setRightSearch}
+                        placeholder="Search…"
+                      />
+                      <ul className="h-[360px] overflow-y-auto border rounded-sm p-1 space-y-0.5">
+                        {filteredAssigned.length === 0 ? (
+                          <li className="p-3 text-sm text-muted-foreground">
+                            No students
                           </li>
-                        );
-                      })
-                    )}
-                  </ul>
+                        ) : (
+                          filteredAssigned.map((s) => {
+                            const id = studentKey(s);
+                            return (
+                              <li key={id || `${studentLabel(s)}-a`}>
+                                <label className="flex items-center gap-2 text-sm cursor-pointer px-2 py-1.5 hover:bg-muted/40 rounded-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedAssigned.has(id)}
+                                    onChange={() =>
+                                      toggleSet(setSelectedAssigned, id)
+                                    }
+                                  />
+                                  {studentLabel(s)}
+                                </label>
+                              </li>
+                            );
+                          })
+                        )}
+                      </ul>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                onClick={() => void assignCounselor()}
-                disabled={saving || loading}
-              >
-                <UserPlus className="h-4 w-4 mr-1.5" />
-                {saving ? "Saving…" : "Assign Counselor"}
-              </Button>
-            </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => void assignCounselor()}
+                    disabled={saving || loading}
+                  >
+                    <UserPlus className="h-4 w-4 mr-1.5" />
+                    {saving ? "Saving…" : "Assign Counselor"}
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </div>
-        ) : loading ? (
-          <p className="text-sm text-muted-foreground">Loading students…</p>
         ) : null
       }
     />

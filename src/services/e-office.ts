@@ -224,36 +224,72 @@ export async function listIndentsForPaymentNote(): Promise<
   );
 }
 
-export async function createPurchaseOrderMultipart(
+type PoRefFiles = {
+  poRefFileDoc1?: File | null;
+  poRefFileDoc2?: File | null;
+  /** Comparative statement → `poRefFileDoc1` */
+  comparative?: File | null;
+  /** Note document → `poRefFileDoc2` */
+  note?: File | null;
+};
+
+function resolvePoRefFiles(files?: PoRefFiles): {
+  poRefFileDoc1: File | null;
+  poRefFileDoc2: File | null;
+} {
+  return {
+    poRefFileDoc1: files?.poRefFileDoc1 ?? files?.comparative ?? null,
+    poRefFileDoc2: files?.poRefFileDoc2 ?? files?.note ?? null,
+  };
+}
+
+function buildInvPurchaseOrderFormData(
   payload: Record<string, unknown>,
-  files?: { comparative?: File | null; note?: File | null },
-): Promise<unknown> {
+  files?: PoRefFiles,
+): FormData {
+  const { poRefFileDoc1: file1, poRefFileDoc2: file2 } =
+    resolvePoRefFiles(files);
+  const dto = payload;
   const formData = new FormData();
+
   formData.append(
     "data",
-    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+    new Blob([JSON.stringify(dto)], {
+      type: "application/json",
+    }),
   );
-  if (files?.comparative)
-    formData.append("poRefFileDoc1", files.comparative, files.comparative.name);
-  if (files?.note)
-    formData.append("poRefFileDoc2", files.note, files.note.name);
-  return postMultipart(E_OFFICE_API.INV_PO, formData);
+
+  // required=false — append only when selected
+  if (file1) formData.append("poRefFileDoc1", file1);
+  if (file2) formData.append("poRefFileDoc2", file2);
+
+  return formData;
+}
+
+/**
+ * Angular `addOrder`: always multipart
+ * `data` = Blob JSON (`application/json`)
+ * `poRefFileDoc1` = Comparative Statement (optional)
+ * `poRefFileDoc2` = P.O. Ref / note document (optional)
+ */
+export async function createPurchaseOrderMultipart(
+  payload: Record<string, unknown>,
+  files?: PoRefFiles,
+): Promise<unknown> {
+  return postMultipart(
+    E_OFFICE_API.INV_PO,
+    buildInvPurchaseOrderFormData(payload, files),
+  );
 }
 
 export async function updatePurchaseOrderMultipart(
   payload: Record<string, unknown>,
-  files?: { comparative?: File | null; note?: File | null },
+  files?: PoRefFiles,
 ): Promise<void> {
-  const formData = new FormData();
-  formData.append(
-    "data",
-    new Blob([JSON.stringify(payload)], { type: "application/json" }),
+  await putMultipart(
+    E_OFFICE_API.UPDATE_INV_PURCHASE_ORDER,
+    buildInvPurchaseOrderFormData(payload, files),
   );
-  if (files?.comparative)
-    formData.append("poRefFileDoc1", files.comparative, files.comparative.name);
-  if (files?.note)
-    formData.append("poRefFileDoc2", files.note, files.note.name);
-  await putMultipart(E_OFFICE_API.UPDATE_INV_PURCHASE_ORDER, formData);
 }
 
 export async function completePurchaseOrder(

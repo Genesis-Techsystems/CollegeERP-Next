@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { PageContainer } from "./PageContainer";
 import { FilteredPage } from "./FilteredPage";
 import { DataTable, type DataTableProps } from "@/common/components/table";
@@ -31,12 +31,13 @@ export interface FilteredListPageProps<T> extends Omit<
   children?: ReactNode;
   className?: string;
   rowData?: T[];
-  columnDefs?: ColDef<T>[];
+  columnDefs?: (ColDef<T> | ColGroupDef<T>)[];
 }
 
 /**
  * Header + filters + table in **one** card (Grade Setup / Room Details pattern).
  * Filters sit between the title and the search toolbar inside DataTable.
+ * Column header filters are on by default (`columnFilters` from DataTable).
  * Pass `body` (without column defs) for custom non-grid content in the same shell.
  */
 export function FilteredListPage<T>({

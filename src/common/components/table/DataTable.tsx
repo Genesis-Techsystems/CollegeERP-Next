@@ -13,6 +13,7 @@ import {
   ModuleRegistry,
   AllCommunityModule,
   type ColDef,
+  type ColGroupDef,
   type GridApi,
   type CellClickedEvent,
   type GetRowIdFunc,
@@ -34,6 +35,7 @@ import {
   type DataTablePageSize,
 } from "./DataTableFooter";
 import { DataTableToolbar } from "./DataTableToolbar";
+import { exportDataTableAsExcel } from "./exportDataTableExcel";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -42,16 +44,25 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 export interface DataTableToolbarConfig {
   /** Client-side filter across row values. Default **true**. */
   search?: boolean;
+  /**
+   * When set, toolbar search only matches these row fields (partial, case-insensitive).
+   * When omitted, search walks all string/number values on the row (default).
+   */
+  searchFields?: string[];
   columnPicker?: boolean;
   exportPdf?: boolean;
-  /** Export visible columns as CSV (shown as “Excel”). Default **true**. */
+  /** Export visible columns as HTML `.xls` (shown as “Excel”). Default **true**. */
   exportExcel?: boolean;
-  /** AG Grid per-column header filters. Default **true**. */
+  /** AG Grid per-column header filters. Default **true**. Prefer top-level `columnFilters` prop. */
   columnFilters?: boolean;
   /** Show “Show inactive” checkbox. Default **false**. */
   showInactiveToggle?: boolean;
   searchPlaceholder?: string;
   pdfDocumentTitle?: string;
+  /** Title row in the exported `.xls` file. Defaults to table title. */
+  excelDocumentTitle?: string;
+  /** Download filename for Excel export. Defaults to `{title}.xls`. */
+  excelFileName?: string;
   lockColumnIds?: string[];
 }
 
@@ -147,8 +158,18 @@ export interface DataTableProps<T> {
   /** Uncontrolled default open state for a collapsible card body. */
   contentDefaultOpen?: boolean;
   rowData: T[];
-  columnDefs: ColDef<T>[];
+  columnDefs: (ColDef<T> | ColGroupDef<T>)[];
   loading?: boolean;
+  /**
+   * When true, hide the grid and pagination while there is no row data
+   * (title / filters / toolbar stay visible). Default false.
+   */
+  hideEmptyGrid?: boolean;
+  /**
+   * When false, hide search toolbar + grid + pagination (filters/title stay).
+   * Use after a "Get List" action — Angular `*ngIf="flag"` pattern. Default true.
+   */
+  resultsVisible?: boolean;
   height?: string;
   getRowId?: GetRowIdFunc<T>;
   onCellClicked?: (event: CellClickedEvent<T>) => void;
@@ -167,7 +188,17 @@ export interface DataTableProps<T> {
   rightRail?: ReactNode;
   /** @deprecated Use toolbar.exportExcel instead */
   exportCsv?: boolean;
+  /** Override toolbar Excel export (e.g. custom HTML workbook). */
+  onExportExcel?: () => void;
+  /** Override toolbar PDF export (e.g. custom iframe print layout). */
+  onExportPdf?: () => void;
   onGridApiReady?: (api: GridApi<T>) => void;
+  /**
+   * AG Grid per-column header filters (filter icon on each column).
+   * Default **true** for DataTable and FilteredListPage. Pass `false` to disable.
+   * Overrides `toolbar.columnFilters` when both are set.
+   */
+  columnFilters?: boolean;
   /**
    * When false, columns keep their defined widths/minWidths (horizontal scroll if needed)
    * instead of being squeezed by `sizeColumnsToFit`. Default **true**.
@@ -206,8 +237,47 @@ const DEFAULT_COL_DEF: ColDef = {
   resizable: true,
   minWidth: 70,
   suppressHeaderMenuButton: false,
+  wrapHeaderText: true,
+  autoHeaderHeight: true,
   tooltipValueGetter: defaultTooltipValueGetter,
+  headerTooltipValueGetter: (p) => {
+    const name = p.colDef?.headerName;
+    return typeof name === "string" && name.trim() !== "" ? name : undefined;
+  },
 };
+
+/** Wide tables: fixed widths (no flex) so horizontal scroll spans every column. */
+function resolveWideColumnDef(def: ColDef | ColGroupDef): ColDef | ColGroupDef {
+  if ("children" in def && Array.isArray(def.children)) {
+    return {
+      ...def,
+      children: def.children.map((child) =>
+        resolveWideColumnDef(child as ColDef | ColGroupDef),
+      ),
+    } as ColGroupDef;
+  }
+  const leaf = def as ColDef;
+  if (leaf.flex == null) return leaf;
+  const { flex: _flex, ...rest } = leaf;
+  const width = rest.width ?? rest.minWidth ?? 120;
+  return {
+    ...rest,
+    width,
+    minWidth: rest.minWidth ?? width,
+  };
+}
+
+function computeWideGridHeight(
+  rowCount: number,
+  pageSize: number,
+  rowHeightPx?: number,
+): number {
+  const rowH = rowHeightPx ?? 40;
+  const visibleRows = Math.max(Math.min(rowCount, pageSize), 1);
+  const headerH = 96;
+  const hScrollBar = 16;
+  return headerH + visibleRows * rowH + hScrollBar;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -256,9 +326,23 @@ function collectStrings(
   }
 }
 
-function rowMatchesSearch<T>(row: T, q: string): boolean {
+function rowMatchesSearch<T>(
+  row: T,
+  q: string,
+  searchFields?: string[],
+): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
+
+  if (searchFields && searchFields.length > 0) {
+    const record = row as Record<string, unknown>;
+    return searchFields.some((field) => {
+      const value = record?.[field];
+      if (value == null) return false;
+      return String(value).toLowerCase().includes(needle);
+    });
+  }
+
   const hay: string[] = [];
   collectStrings(row, 0, hay, new WeakSet());
   // Per-field match (userName, mobile, …)
@@ -282,27 +366,40 @@ function filterInactiveRows<T>(rows: T[], showInactive: boolean): T[] {
   );
 }
 
-function isActionsColumn(def: ColDef): boolean {
-  const header = String(def.headerName ?? "")
+function isActionsColumn(def: ColDef | ColGroupDef): boolean {
+  if ("children" in def && Array.isArray(def.children)) return false;
+  const header = String((def as ColDef).headerName ?? "")
     .trim()
     .toLowerCase();
   return header === "actions" || header === "action";
 }
 
-function withCellClass(def: ColDef, className: string): ColDef {
-  const existing = def.cellClass;
-  if (!existing) return { ...def, cellClass: className };
+function withCellClass(
+  def: ColDef | ColGroupDef,
+  className: string,
+): ColDef | ColGroupDef {
+  if ("children" in def && Array.isArray(def.children)) {
+    return {
+      ...def,
+      children: def.children.map((child) =>
+        withCellClass(child as ColDef | ColGroupDef, className),
+      ),
+    } as ColGroupDef;
+  }
+  const leaf = def as ColDef;
+  const existing = leaf.cellClass;
+  if (!existing) return { ...leaf, cellClass: className };
   if (typeof existing === "string") {
     return existing.split(/\s+/).includes(className)
-      ? def
-      : { ...def, cellClass: `${existing} ${className}` };
+      ? leaf
+      : { ...leaf, cellClass: `${existing} ${className}` };
   }
   if (Array.isArray(existing)) {
     return existing.includes(className)
-      ? def
-      : { ...def, cellClass: [...existing, className] };
+      ? leaf
+      : { ...leaf, cellClass: [...existing, className] };
   }
-  return def;
+  return leaf;
 }
 
 function escapeHtml(s: string): string {
@@ -387,6 +484,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
     return {
       show: false,
       search: false,
+      searchFields: undefined as string[] | undefined,
       columnPicker: false,
       exportPdf: false,
       exportExcel: false,
@@ -394,6 +492,8 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
       showInactiveToggle: false,
       searchPlaceholder: "",
       pdfDocumentTitle: undefined as string | undefined,
+      excelDocumentTitle: undefined as string | undefined,
+      excelFileName: undefined as string | undefined,
       lockColumnIds: [] as string[],
     };
   }
@@ -402,6 +502,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
   return {
     show: true,
     search: t.search !== false,
+    searchFields: t.searchFields,
     columnPicker: t.columnPicker !== false,
     exportPdf: t.exportPdf !== false,
     exportExcel: t.exportExcel !== false,
@@ -409,6 +510,8 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
     showInactiveToggle: t.showInactiveToggle === true,
     searchPlaceholder: t.searchPlaceholder ?? "Search…",
     pdfDocumentTitle: t.pdfDocumentTitle,
+    excelDocumentTitle: t.excelDocumentTitle,
+    excelFileName: t.excelFileName,
     lockColumnIds: t.lockColumnIds ?? [],
   };
 }
@@ -430,6 +533,8 @@ export function DataTable<T>({
   rowData,
   columnDefs,
   loading = false,
+  hideEmptyGrid = false,
+  resultsVisible = true,
   height = "auto",
   getRowId,
   onCellClicked,
@@ -445,11 +550,15 @@ export function DataTable<T>({
   toolbarTrailing,
   rightRail,
   exportCsv = false,
+  onExportExcel: onExportExcelProp,
+  onExportPdf: onExportPdfProp,
   onGridApiReady,
+  columnFilters: columnFiltersProp = true,
   fitColumnsToWidth = true,
   rowHeight,
 }: DataTableProps<T>) {
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp]);
+  const enableColumnFilters = columnFiltersProp;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const [popupParent, setPopupParent] = useState<HTMLElement | undefined>(
@@ -505,8 +614,10 @@ export function DataTable<T>({
   const filteredRowData = useMemo(() => {
     if (!tb.show || !tb.search || !searchQuery.trim())
       return inactiveFilteredData;
-    return inactiveFilteredData.filter((r) => rowMatchesSearch(r, searchQuery));
-  }, [inactiveFilteredData, tb.show, tb.search, searchQuery]);
+    return inactiveFilteredData.filter((r) =>
+      rowMatchesSearch(r, searchQuery, tb.searchFields),
+    );
+  }, [inactiveFilteredData, tb.show, tb.search, tb.searchFields, searchQuery]);
 
   const [clientPage, setClientPage] = useState(0);
   const [clientPageSize, setClientPageSize] = useState<DataTablePageSize>(
@@ -534,20 +645,23 @@ export function DataTable<T>({
   const defaultColDef = useMemo<ColDef>(
     () => ({
       ...DEFAULT_COL_DEF,
-      ...(tb.columnFilters
+      ...(enableColumnFilters
         ? { filter: "agTextColumnFilter", floatingFilter: false }
         : {}),
     }),
-    [tb.columnFilters],
+    [enableColumnFilters],
   );
+
+  const isWideTable = !fitColumnsToWidth;
 
   const resolvedColumnDefs = useMemo(
     () =>
       columnDefs.map((def) => {
-        if (isActionsColumn(def)) {
+        const shaped = isWideTable ? resolveWideColumnDef(def) : def;
+        if (isActionsColumn(shaped)) {
           return withCellClass(
             {
-              ...def,
+              ...shaped,
               filter: false,
               sortable: false,
               tooltipValueGetter: () => undefined,
@@ -555,16 +669,17 @@ export function DataTable<T>({
             "app-cell-actions",
           );
         }
-        return withCellClass(def, "app-cell-ellipsis");
+        return withCellClass(shaped, "app-cell-ellipsis");
       }),
-    [columnDefs],
+    [columnDefs, isWideTable],
   );
 
   const resolvedSubtitle =
     subtitle ??
-    (resolvedTitle && tb.columnFilters && tb.show ? FILTER_HINT : undefined);
+    (resolvedTitle && enableColumnFilters && tb.show ? FILTER_HINT : undefined);
 
-  const isAutoHeight = height === "auto" || pagination || serverSide;
+  const isAutoHeight =
+    !isWideTable && (height === "auto" || pagination || serverSide);
 
   const dataForPaging = clientPaginationEnabled ? filteredRowData : rowData;
   const clientTotalRows = dataForPaging.length;
@@ -586,6 +701,29 @@ export function DataTable<T>({
     serverSide,
     safePage,
     clientPageSize,
+  ]);
+
+  const resolvedGridHeight = useMemo((): number | string | undefined => {
+    if (isAutoHeight) return undefined;
+    if (height !== "auto" && height !== undefined) return height;
+    if (isWideTable) {
+      const pageSizeForHeight = serverSide ? serverPageSize : clientPageSize;
+      return computeWideGridHeight(
+        pagedRowData.length,
+        pageSizeForHeight,
+        rowHeight,
+      );
+    }
+    return undefined;
+  }, [
+    isAutoHeight,
+    height,
+    isWideTable,
+    pagedRowData.length,
+    clientPageSize,
+    serverPageSize,
+    serverSide,
+    rowHeight,
   ]);
 
   const rowNumberOffset = clientPaginationEnabled
@@ -618,9 +756,26 @@ export function DataTable<T>({
     onPageChange?.(0, size);
   }
 
-  function handleExportCsv() {
-    gridRef.current?.api.exportDataAsCsv();
-  }
+  const handleExportExcelCallback = useCallback(() => {
+    const api = gridRef.current?.api ?? gridApi;
+    if (!api) return;
+    const exportTitle = tb.excelDocumentTitle ?? resolvedTitle;
+    const exportName =
+      tb.excelFileName ??
+      `${(exportTitle || "Export").replace(/[<>:"/\\|?*]+/g, "_")}.xls`;
+    exportDataTableAsExcel({
+      api,
+      rows: filteredRowData,
+      fileName: exportName,
+      title: exportTitle,
+    });
+  }, [
+    gridApi,
+    filteredRowData,
+    tb.excelDocumentTitle,
+    tb.excelFileName,
+    resolvedTitle,
+  ]);
 
   const handleExportPdf = useCallback(() => {
     const api = gridRef.current?.api ?? gridApi;
@@ -630,8 +785,10 @@ export function DataTable<T>({
       .filter((d) => Boolean(d.field) || typeof d.valueGetter === "function");
     const defs = exportDefs.length
       ? exportDefs
-      : columnDefs.filter(
-          (d) => Boolean(d.field) || typeof d.valueGetter === "function",
+      : (columnDefs as ColDef<T>[]).filter(
+          (d) =>
+            !("children" in d) &&
+            (Boolean(d.field) || typeof d.valueGetter === "function"),
         );
     printTableAsPdf(docTitle, defs, filteredRowData);
   }, [gridApi, tb.pdfDocumentTitle, columnDefs, filteredRowData]);
@@ -659,8 +816,12 @@ export function DataTable<T>({
   const exportExcelEnabled = tb.exportExcel || exportCsv;
 
   const isGridEmpty = !loading && pagedRowData.length === 0;
+  const suppressGrid =
+    !resultsVisible ||
+    (hideEmptyGrid && !loading && (!rowData || rowData.length === 0));
 
   const showMainToolbar =
+    resultsVisible &&
     tb.show &&
     (tb.search ||
       tb.columnPicker ||
@@ -676,8 +837,14 @@ export function DataTable<T>({
       ref={rootRef}
       className={
         bordered
-          ? "app-data-table app-data-table-card flex flex-col"
-          : "app-data-table flex flex-col"
+          ? cn(
+              "app-data-table app-data-table-card flex flex-col",
+              isWideTable && "app-data-table-wide",
+            )
+          : cn(
+              "app-data-table flex flex-col",
+              isWideTable && "app-data-table-wide",
+            )
       }
     >
       {(resolvedTitle || resolvedSubtitle || filters) && (
@@ -764,7 +931,14 @@ export function DataTable<T>({
             : "grid-rows-[0fr]",
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div
+          className={cn(
+            "min-h-0",
+            isWideTable
+              ? "overflow-x-auto overflow-y-visible"
+              : "overflow-hidden",
+          )}
+        >
           {filters ? (
             <div
               className={cn(
@@ -784,45 +958,48 @@ export function DataTable<T>({
             <div className="px-5 pb-3 pt-2">{filtersFooter}</div>
           ) : null}
 
-          {(showMainToolbar || (!showMainToolbar && exportCsv)) && (
-            <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
-              {showMainToolbar ? (
-                <DataTableToolbar
-                  leading={toolbarLeading}
-                  searchEnabled={tb.search}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  searchPlaceholder={tb.searchPlaceholder}
-                  rowCount={filteredRowData.length}
-                  showInactiveToggle={Boolean(showInactiveToggle)}
-                  showInactive={showInactive}
-                  onShowInactiveChange={setShowInactive}
-                  columnPickerEnabled={tb.columnPicker}
-                  exportExcelEnabled={exportExcelEnabled}
-                  onExportExcel={handleExportCsv}
-                  exportPdfEnabled={tb.exportPdf}
-                  onExportPdf={handleExportPdf}
-                  lockColumnIds={tb.lockColumnIds}
-                  getColumns={getColumns}
-                  applyColumnVisible={applyColumnVisible}
-                  endActions={toolbarTrailing}
-                />
-              ) : (
-                <div className="flex items-center justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-                    onClick={handleExportCsv}
-                    aria-label="Export to Excel"
-                  >
-                    <Download className="mr-1.5 h-3.5 w-3.5" />
-                    Excel
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+          {resultsVisible &&
+            (showMainToolbar || (!showMainToolbar && exportCsv)) && (
+              <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
+                {showMainToolbar ? (
+                  <DataTableToolbar
+                    leading={toolbarLeading}
+                    searchEnabled={tb.search}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    searchPlaceholder={tb.searchPlaceholder}
+                    rowCount={filteredRowData.length}
+                    showInactiveToggle={Boolean(showInactiveToggle)}
+                    showInactive={showInactive}
+                    onShowInactiveChange={setShowInactive}
+                    columnPickerEnabled={tb.columnPicker}
+                    exportExcelEnabled={exportExcelEnabled}
+                    onExportExcel={
+                      onExportExcelProp ?? handleExportExcelCallback
+                    }
+                    exportPdfEnabled={tb.exportPdf}
+                    onExportPdf={onExportPdfProp ?? handleExportPdf}
+                    lockColumnIds={tb.lockColumnIds}
+                    getColumns={getColumns}
+                    applyColumnVisible={applyColumnVisible}
+                    endActions={toolbarTrailing}
+                  />
+                ) : (
+                  <div className="flex items-center justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+                      onClick={handleExportExcelCallback}
+                      aria-label="Export to Excel"
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      Excel
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
           <div
             className={cn(
@@ -831,47 +1008,54 @@ export function DataTable<T>({
             )}
           >
             <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
-              <div
-                className={cn(
-                  "ag-theme-quartz",
-                  isGridEmpty && "app-data-table-grid-empty",
-                )}
-                style={isAutoHeight ? undefined : { height }}
-              >
-                <AgGridReact<T>
-                  ref={gridRef}
-                  context={{ __rowNumberOffset: rowNumberOffset }}
-                  rowData={pagedRowData}
-                  columnDefs={resolvedColumnDefs}
-                  defaultColDef={defaultColDef}
-                  domLayout={isAutoHeight ? "autoHeight" : undefined}
-                  rowHeight={rowHeight}
-                  loading={loading}
-                  suppressCellFocus
-                  overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
-                  onGridReady={handleGridReady}
-                  onFirstDataRendered={(e) => fitColumns(e.api)}
-                  onRowDataUpdated={(e) => fitColumns(e.api)}
-                  onGridSizeChanged={(e) => fitColumns(e.api)}
-                  alwaysShowHorizontalScroll={!fitColumnsToWidth}
-                  enableCellTextSelection
-                  ensureDomOrder
-                  getRowId={getRowId}
-                  onCellClicked={onCellClicked}
-                  onRowClicked={onRowClick ? handleRowClicked : undefined}
-                  popupParent={popupParent}
-                  animateRows
-                  tooltipShowMode="whenTruncated"
-                  tooltipShowDelay={400}
-                />
-              </div>
+              {!suppressGrid ? (
+                <div
+                  className={cn(
+                    "ag-theme-quartz",
+                    isGridEmpty && "app-data-table-grid-empty",
+                    isWideTable && "app-data-table-grid-wide",
+                  )}
+                  style={
+                    isAutoHeight
+                      ? undefined
+                      : { height: resolvedGridHeight ?? height }
+                  }
+                >
+                  <AgGridReact<T>
+                    ref={gridRef}
+                    context={{ __rowNumberOffset: rowNumberOffset }}
+                    rowData={pagedRowData}
+                    columnDefs={resolvedColumnDefs}
+                    defaultColDef={defaultColDef}
+                    domLayout={isAutoHeight ? "autoHeight" : undefined}
+                    rowHeight={rowHeight}
+                    loading={loading}
+                    suppressCellFocus
+                    overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
+                    onGridReady={handleGridReady}
+                    onFirstDataRendered={(e) => fitColumns(e.api)}
+                    onRowDataUpdated={(e) => fitColumns(e.api)}
+                    onGridSizeChanged={(e) => fitColumns(e.api)}
+                    alwaysShowHorizontalScroll={!fitColumnsToWidth}
+                    enableCellTextSelection
+                    ensureDomOrder
+                    getRowId={getRowId}
+                    onCellClicked={onCellClicked}
+                    onRowClicked={onRowClick ? handleRowClicked : undefined}
+                    popupParent={popupParent}
+                    animateRows
+                    tooltipShowMode="whenTruncated"
+                    tooltipShowDelay={400}
+                  />
+                </div>
+              ) : null}
             </div>
             {rightRail ? (
               <div className="min-w-0 lg:col-span-4">{rightRail}</div>
             ) : null}
           </div>
 
-          {clientPaginationEnabled && (
+          {clientPaginationEnabled && !suppressGrid && (
             <DataTableFooter
               totalRows={clientTotalRows}
               page={safePage}
@@ -882,7 +1066,7 @@ export function DataTable<T>({
             />
           )}
 
-          {serverSide && (
+          {serverSide && !suppressGrid && (
             <DataTableFooter
               totalRows={totalCount}
               page={currentPage}

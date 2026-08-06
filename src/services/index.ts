@@ -92,6 +92,7 @@ export * from "./examcenter-rooms-report";
 export * from "./examcenter-students-report";
 export * from "./examcenter-profiles-report";
 export * from "./curriculum-report";
+export * from "./student-subjects-report";
 export * from "./answer-paper-bags-report";
 export * from "./exam-registration-reports";
 // pre-examination: listActiveColleges conflicts with invigilator-remuneration; listCoursesByUniversity
@@ -103,6 +104,7 @@ export * from "./pre-examination";
 export {
   resolveExamLoginEmpId,
   getUnivExamFiltersAll,
+  getUnivExamFiltersGroupForLogin,
   getUnivExamFiltersForExamFeeSetup,
   getUnivExamRestCollegesForRevaluationFee,
   getMarksSetupFilters,
@@ -131,12 +133,15 @@ export {
   listExamMasterDetails,
   getExamTimetableDetails,
   getExamFiltersNoTimetable,
+  getExamFiltersNoTimetableBundle,
+  getUnivExamRestNoTtGroups,
   getExamSubjectsForSchedule,
   getUnivExamSubjectFilters,
   listExamMarksSetup,
   listSubjectCategories,
   saveExamMarksSetup,
   saveExamTimetable,
+  saveExamTimetableDetailsByExamDate,
 } from "./examination";
 // exam-master: CollegeFiltersResult and getCollegeFilters conflict with evaluation.ts and examination.ts;
 // use named re-exports to avoid ambiguity.
@@ -170,6 +175,11 @@ export * from "./mentorship";
 export * from "./events";
 export * from "./student-fee";
 export * from "./student-grievance";
+export * from "./grievance-masters";
+export * from "./feedback-option-group";
+export * from "./feedback-option-choice";
+export * from "./feedback-question";
+export * from "./survey-form";
 export * from "./fee-masters";
 export * from "./fees-collection";
 export * from "./email-sms";
@@ -233,6 +243,10 @@ export {
   listLeaveProcessStatuses,
   listEmployeeRunningLeaves,
   listStaffLeaveApplications,
+  listCollegeLeaveApplications,
+  listAssignedLeaveApplications,
+  getEmpLeaveCount,
+  listFacultyWorkloadProxies,
   cancelEmployeeLeaveApplication,
   listLeaveDayCalSettings,
   listLeaveHolidayEvents,
@@ -241,6 +255,10 @@ export {
   leaveApplicationDateYmd,
   toLeaveYmd,
   toLeaveSlashYmd,
+  getLeaveSummaryFilters,
+  searchEmployeesForLeaveSummary,
+  getEmpLeaveSummaryReport,
+  downloadEmpLeaveSummaryReport,
 } from "./staff-faculty-leaves";
 // tConvert omitted — conflicts with staff-dashboard (same helper).
 export {

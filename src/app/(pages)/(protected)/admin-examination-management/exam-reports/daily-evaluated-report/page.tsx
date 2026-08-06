@@ -827,7 +827,7 @@ export default function DailyEvaluatedReportPage() {
           setSheetOpen(false);
         }}
         submitLabel="Close"
-        cancelLabel="Cancel"
+        // cancelLabel="Cancel"
         size="lg"
       >
         <div className="space-y-3">

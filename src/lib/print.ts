@@ -98,3 +98,42 @@ export function printHtmlInIframe(html: string): void {
     }
   }
 }
+
+/**
+ * Print a rendered DOM node via iframe (Angular `window.open` + write HTML parity).
+ * Copies active stylesheets so Tailwind utility classes in the capture still apply.
+ */
+export function printElementInIframe(
+  el: HTMLElement,
+  title = "Print",
+  options?: { extraCss?: string },
+): void {
+  if (typeof document === "undefined") return;
+  const headBits = Array.from(
+    document.querySelectorAll('link[rel="stylesheet"], style'),
+  )
+    .map((n) => n.outerHTML)
+    .join("\n");
+  const safeTitle = String(title)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const extraCss = options?.extraCss?.trim() ?? "";
+  printHtmlInIframe(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${safeTitle}</title>
+${headBits}
+<style>
+  html, body { margin: 0; padding: 0; background: #fff !important; color: #000; }
+  @page { margin: 1cm; }
+  .page-break { page-break-before: always; break-before: page; }
+  [data-print-hide], .print-hide, .screen-only { display: none !important; }
+  ${extraCss}
+</style>
+</head>
+<body>${el.outerHTML}</body>
+</html>`);
+}

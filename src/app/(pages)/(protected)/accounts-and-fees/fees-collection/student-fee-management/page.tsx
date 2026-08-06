@@ -866,7 +866,8 @@ export default function StudentFeeManagementPage() {
           ) : null}
           <div className="fee-mgmt-data-table">
             <DataTable
-              title="Student Fee Details"
+              title=""
+              subtitle=""
               bordered
               rowData={rows}
               columnDefs={columnDefs}

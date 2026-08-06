@@ -48,7 +48,7 @@ function makePayslipActionsRenderer(collegeId: number) {
           <Link
             href={`/hr-payroll/payroll/payslip-for-employees/generate-payslip?${query}`}
           >
-            Generate
+            Generate payslip
           </Link>
         </Button>
         <span className="text-muted-foreground">|</span>
@@ -56,7 +56,7 @@ function makePayslipActionsRenderer(collegeId: number) {
           <Link
             href={`/hr-payroll/payroll/payslip-for-employees/view-payslip?${query}`}
           >
-            View
+            View payslips
           </Link>
         </Button>
       </div>
@@ -160,13 +160,13 @@ export function PayslipForEmployeesPage() {
       },
       {
         field: "paymentFrequencyCode",
-        headerName: "Frequency",
-        minWidth: 110,
+        headerName: "Payment Frequency",
+        minWidth: 140,
       },
       {
         field: "generatedDate",
-        headerName: "Payslip",
-        minWidth: 130,
+        headerName: "Recent payslip",
+        minWidth: 140,
         valueFormatter: (params) =>
           params.value
             ? format(new Date(String(params.value)), "MMM d, yyyy")
@@ -174,7 +174,7 @@ export function PayslipForEmployeesPage() {
       },
       {
         headerName: "Actions",
-        minWidth: 160,
+        minWidth: 220,
         flex: 0,
         cellRenderer: collegeId
           ? makePayslipActionsRenderer(collegeId)
@@ -186,7 +186,7 @@ export function PayslipForEmployeesPage() {
 
   return (
     <FilteredListPage<EmpRow>
-      title="Payslips for Employees"
+      title="Payslip For Employees"
       filters={
         <GlobalFilterBarRow>
           <GlobalFilterField label="College *">
@@ -239,7 +239,7 @@ export function PayslipForEmployeesPage() {
         columnPicker: true,
         exportExcel: true,
         exportPdf: true,
-        pdfDocumentTitle: "Payslips for Employees",
+        pdfDocumentTitle: "Payslip For Employees",
       }}
     />
   );

@@ -119,6 +119,19 @@ export function resolveForcedNavRoute(
   const sidebarPin = resolveSidebarLabelPin(href, label);
   if (sidebarPin) return sidebarPin;
 
+  // Faculty Leaves → Leave Summary (Angular `staff-faculty-leaves/leave-summary`)
+  // Missing route 404s to root not-found → dashboard; pin before generic leave remaps.
+  if (
+    hrefLower.includes("staff-faculty-leaves/leave-summary") ||
+    hrefLower.includes("leave-summary") ||
+    labelLower === "leave summary" ||
+    (labelLower.includes("leave") &&
+      labelLower.includes("summary") &&
+      !labelLower.includes("result"))
+  ) {
+    return "/staff-faculty-leaves/leave-summary";
+  }
+
   // Label + href pins for all Examination Reports pages — must run before any
   // generic `/exam-reports/{slug}` passthrough (wrong DB slugs like
   // `subject-wise-percentage-report` would otherwise 404).
@@ -339,6 +352,16 @@ export function resolveForcedNavRoute(
     return `${examReportsBase}/invigilators-remuneration-report`;
   }
   if (
+    hrefLower.includes("ou-result-sheet") ||
+    hrefLower.includes("ou-result-report") ||
+    hrefLower.includes("ou_result") ||
+    (labelLower.includes("ou result") && labelLower.includes("report")) ||
+    labelLower === "ou result report" ||
+    labelLower === "ou result sheet"
+  ) {
+    return `${examReportsBase}/ou-result-sheet`;
+  }
+  if (
     hrefLower.includes("group-wise-passed-result-sheets") ||
     hrefLower.includes("branch-wise-passes-result-sheets") ||
     (labelLower.includes("group wise passed") &&
@@ -403,6 +426,74 @@ export function resolveForcedNavRoute(
     return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
   }
 
+  // Admin Grievance List — Angular `/grievance/complaint`
+  if (
+    (hrefLower.includes("grievance") &&
+      (hrefLower.includes("/complaint") || hrefLower.endsWith("complaint")) &&
+      !hrefLower.includes("complaint-details") &&
+      !hrefLower.includes("complaint-tasks") &&
+      !hrefLower.includes("complaints-list") &&
+      !hrefLower.includes("staff-grievances") &&
+      !hrefLower.includes("staff-grevievances") &&
+      !hrefLower.includes("student-grievances") &&
+      !hrefLower.includes("student-grevievances")) ||
+    (labelKey === "grievance list" &&
+      hrefLower.includes("grievance") &&
+      !hrefLower.includes("staff") &&
+      !hrefLower.includes("student"))
+  ) {
+    return "/grievance/complaint";
+  }
+
+  // Grievance Masters — Angular `/grievance/grievance-masters/*`
+  // Require grievance in href/label so Univ Committees / Committee Members are not stolen.
+  if (
+    hrefLower.includes("grievance-masters") ||
+    hrefLower.includes("grievance-categories") ||
+    (hrefLower.includes("grievance") &&
+      hrefLower.includes("complaints-list")) ||
+    labelKey === "grievance categories" ||
+    labelKey === "grievance category" ||
+    labelKey === "grievance types" ||
+    labelKey === "grievant types" ||
+    labelKey === "grievance committees" ||
+    (hrefLower.includes("grievance") &&
+      (hrefLower.includes("committees") ||
+        hrefLower.includes("committee-members") ||
+        hrefLower.includes("categories") ||
+        hrefLower.includes("complaints-list")))
+  ) {
+    if (
+      hrefLower.includes("members-list") ||
+      hrefLower.includes("member-list")
+    ) {
+      return "/grievance/grievance-masters/committee-members/members-list";
+    }
+    if (hrefLower.includes("committee-members")) {
+      return "/grievance/grievance-masters/committee-members";
+    }
+    if (
+      hrefLower.includes("grievance-categories") ||
+      labelKey === "grievance categories" ||
+      labelKey === "grievance category"
+    ) {
+      return "/grievance/grievance-masters/grievance-categories";
+    }
+    if (
+      hrefLower.includes("complaints-list") ||
+      labelKey === "grievance types" ||
+      labelKey === "grievant types"
+    ) {
+      return "/grievance/grievance-masters/complaints-list";
+    }
+    if (
+      hrefLower.includes("committees") ||
+      labelKey === "grievance committees"
+    ) {
+      return "/grievance/grievance-masters/committees";
+    }
+  }
+
   // Staff Grievances & Suggestions — must beat generic grievance-details / student pins
   if (
     hrefLower.includes("staff-grievances") ||
@@ -458,12 +549,71 @@ export function resolveForcedNavRoute(
     return "/student-grievances";
   }
 
+  // Feedback Status Report — Angular `feedback/feedback-status-report`
+  if (
+    hrefLower.includes("feedback-status") ||
+    labelKey === "feedback status report" ||
+    labelKey === "feedback status"
+  ) {
+    return "/feedback/feedback-status-report";
+  }
+
+  // Feedback Suggestions Report — Angular `feedback/feedback-suggestion-repot`
+  if (
+    hrefLower.includes("feedback-suggestion") ||
+    hrefLower.includes("feedback-suggestion-repot") ||
+    (hrefLower.includes("feedback") &&
+      hrefLower.includes("suggestion") &&
+      (hrefLower.includes("report") || hrefLower.includes("repot"))) ||
+    labelKey === "feedback suggestions report" ||
+    labelKey === "feedback suggestion report" ||
+    labelKey === "survey feedback suggestion report"
+  ) {
+    return "/feedback/feedback-suggestion-report";
+  }
+
+  // Feedback Consolidate Report — Angular `feedback/feedback-consolidated-report`
+  if (
+    hrefLower.includes("feedback-consolidated") ||
+    hrefLower.includes("feedback-consolidate") ||
+    labelKey === "feedback consolidate report" ||
+    labelKey === "feedback consolidated report" ||
+    labelKey === "survey feedback consolidated report"
+  ) {
+    return "/feedback/feedback-consolidated-report";
+  }
+
+  // Feedback Summary — Angular `feedback/feedback-summary`
+  if (
+    hrefLower.includes("feedback-summary") ||
+    hrefLower.includes("feedback-summary-report") ||
+    labelKey === "feedback summary" ||
+    labelKey === "survey summary"
+  ) {
+    return "/feedback/feedback-summary";
+  }
+
+  // Student Feedback List — Angular `feedback/student-feedback-list`
+  if (hrefLower.includes("student-feedback-list")) {
+    return "/feedback/student-feedback-list";
+  }
+
   // Student Feedback — Angular `student-student-feedback`
   if (
     hrefLower.includes("student-student-feedback") ||
     labelKey === "student feedback"
   ) {
     return "/student-student-feedback";
+  }
+
+  // Employee Feedback — Angular `my-feedback/suvey-form` (`EmployeeFeedbackComponent`)
+  if (
+    hrefLower.includes("my-feedback/suvey-form") ||
+    hrefLower.includes("suvey-form") ||
+    hrefLower.includes("employee-feedback") ||
+    labelKey === "employee feedback"
+  ) {
+    return "/my-feedback/suvey-form";
   }
 
   // Student Requests — No Due Certificate (must beat TC staff "nodue" catch-all)
@@ -971,6 +1121,63 @@ export function resolveForcedNavRoute(
       return "/transport/distance-fee";
     }
 
+    // Principal My Approvals — TC No Due Approvals (must beat staff "nodue" catch-all)
+    if (
+      hrefLower.includes("tc-no-due-approvals") ||
+      hrefLower.includes("no-due-status") ||
+      hrefLower.includes("principal-my-approvals/tc-no-due") ||
+      labelKey === "tc no due approvals" ||
+      (labelLower.includes("tc") &&
+        labelLower.includes("no") &&
+        labelLower.includes("due") &&
+        labelLower.includes("approv"))
+    ) {
+      return "/principal-my-approvals/tc-no-due-approvals";
+    }
+
+    // HOD Faculty Details — Angular `staff-faculty-details/faculty-details`
+    // (must pin before leave-approvals / faculty-details/leave-approvals remap)
+    if (
+      labelKey === "faculty details" ||
+      labelKey === "faculty detail" ||
+      hrefLower.includes("staff-faculty-details/faculty-details") ||
+      (hrefLower.includes("faculty-details") &&
+        !hrefLower.includes("leave-approvals") &&
+        !hrefLower.includes("leave_approvals") &&
+        !hrefLower.includes("performance") &&
+        !hrefLower.includes("appraisal") &&
+        !hrefLower.includes("salary") &&
+        !hrefLower.includes("proxy"))
+    ) {
+      return "/staff-faculty-details/faculty-details";
+    }
+
+    // Principal Leave Requests (Angular `leave-applications`; also leave-approvals / faculty-details)
+    if (
+      hrefLower.includes("leave-applications") ||
+      hrefLower.includes("leave_applications") ||
+      hrefLower.includes("leaveapplications") ||
+      hrefLower.includes("leave-approvals") ||
+      hrefLower.includes("leave_approvals") ||
+      hrefLower.includes("leaveapprovals") ||
+      labelKey === "leave approvals" ||
+      labelKey === "leave approval" ||
+      labelKey === "leave requests" ||
+      labelKey === "leave request" ||
+      labelKey === "leave applications" ||
+      labelKey === "leave application" ||
+      (labelLower.includes("leave") &&
+        (labelLower.includes("approv") ||
+          labelLower.includes("request") ||
+          labelLower.includes("application")) &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("entitlement") &&
+        !labelLower.includes("allotment") &&
+        !labelLower.includes("apply"))
+    ) {
+      return "/principal-my-approvals/leave-applications";
+    }
+
     // TC & No Due — disambiguate certificate routes (shared Angular certificates module).
     // Skip student-requests TC (handled above as `/student-requests/request-for-tc`).
     if (
@@ -991,8 +1198,12 @@ export function resolveForcedNavRoute(
         hrefLower.includes("nodue")) &&
       !hrefLower.includes("student-request") &&
       !hrefLower.includes("no-due-certificate") &&
+      !hrefLower.includes("tc-no-due-approvals") &&
+      !hrefLower.includes("no-due-status") &&
+      !hrefLower.includes("principal-my-approvals") &&
       labelKey !== "no due certificate" &&
-      labelKey !== "request for no due certificate"
+      labelKey !== "request for no due certificate" &&
+      labelKey !== "tc no due approvals"
     ) {
       return "/tc-no-due-approval/send-no-due-approval-request";
     }
@@ -1005,8 +1216,29 @@ export function resolveForcedNavRoute(
     if (labelLower.includes("issued") && labelLower.includes("certificate")) {
       return "/tc-no-due-approval/certificates-issued-list";
     }
-    if (labelLower.includes("certificate") && labelLower.includes("report")) {
-      return "/tc-no-due-approval/certificate-request-report";
+    if (
+      hrefLower.includes("certificate-request-report") ||
+      (labelLower.includes("certificate") && labelLower.includes("report"))
+    ) {
+      return "/reports/admin-student-reports/certificate-request-report";
+    }
+    // Angular: reports/student-admission-reports/students-subject-report
+    // Must beat generic "student subjects" → SIS master mapping.
+    if (
+      hrefLower.includes("students-subject-report") ||
+      hrefLower.includes("student-subjects-report") ||
+      (labelLower.includes("student") &&
+        labelLower.includes("subject") &&
+        labelLower.includes("report"))
+    ) {
+      return "/reports/admin-student-reports/student-subjects-report";
+    }
+    if (
+      hrefLower.includes("employee-salaries-process-bank-copy") ||
+      (labelLower.includes("bank copy") &&
+        (labelLower.includes("salary") || labelLower.includes("salaries")))
+    ) {
+      return "/reports/admin-hr-reports/employee-salaries-process-bank-copy";
     }
     if (
       labelLower.includes("certificate") &&
@@ -1117,6 +1349,34 @@ export function resolveForcedNavRoute(
     ) {
       return "/accounts-and-fees/fees-collection/allocate-structure-to-student";
     }
+    // Angular scholarship-management/scholarship-type (404 → dashboard otherwise).
+    if (
+      hrefLower.includes("scholarship-type") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
+        !labelLower.includes("assign"))
+    ) {
+      return "/scholarship-management/scholarship-type";
+    }
+    // Angular scholarship-management/scholarship-value (Scholarship Structure).
+    // Missing route 404s to dashboard; pin before application / preceedings.
+    if (
+      hrefLower.includes("scholarship-value") ||
+      hrefLower.includes("scholarship-structure") ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("value") || labelLower.includes("structure")) &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("assign") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/scholarship-value";
+    }
     if (
       hrefLower.includes("scholarship-application") ||
       (labelLower.includes("scholarship") &&
@@ -1126,6 +1386,30 @@ export function resolveForcedNavRoute(
         !labelLower.includes("form"))
     ) {
       return "/scholarship-management/scholarship-application";
+    }
+    // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
+    // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("view-std-preceedings") ||
+      hrefLower.includes("view-std-proceedings")
+    ) {
+      return "/scholarship-management/view-std-preceedings";
+    }
+    if (
+      hrefLower.includes("acounts-preceedings") ||
+      hrefLower.includes("accounts-preceedings") ||
+      hrefLower.includes("acounts-preceeding") ||
+      hrefLower.includes("accounts-preceeding") ||
+      (labelLower.includes("account") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        !labelLower.includes("process") &&
+        !hrefLower.includes("process-acount") &&
+        !hrefLower.includes("process-account") &&
+        !labelLower.includes("report") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/acounts-preceedings";
     }
     // Angular scholarship-management/preceeding-details (+ students-upload)
     // Must pin before fee-reports scholarship-preceedings (404 → dashboard otherwise).
@@ -1153,6 +1437,136 @@ export function resolveForcedNavRoute(
       }
       return "/scholarship-management/preceeding-details";
     }
+    // Fee Reports → Due List only (not Exam/Scholarship/Fee Due List Report).
+    {
+      const dueLabel = labelLower.replace(/\s+/g, " ").trim();
+      const isFeeReportsDueListPath =
+        /(?:^|\/)(?:accounts-and-fees\/)?fee-reports\/due-list(?:\/|$)/.test(
+          hrefLower,
+        ) ||
+        /(?:^|\/)(?:reports\/)?admin-fee-reports\/due-list(?:\/|$)/.test(
+          hrefLower,
+        );
+      const isExactDueListLabel = dueLabel === "due list";
+      if (
+        isFeeReportsDueListPath ||
+        (isExactDueListLabel &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("accounts-and-fees") ||
+            hrefLower.includes("due-list")))
+      ) {
+        return "/reports/admin-fee-reports/due-list";
+      }
+    }
+    if (
+      hrefLower.includes("fee-ledger") ||
+      hrefLower.includes("admin-fee-reports/feeledger") ||
+      (labelLower.includes("fee ledger") &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/")))
+    ) {
+      return "/reports/admin-fee-reports/fee-ledger";
+    }
+    if (
+      hrefLower.includes("bus-fee-collections") ||
+      hrefLower.includes("admin-fee-reports/bus-fee") ||
+      (labelLower.includes("bus fee") &&
+        (labelLower.includes("collection") || labelLower.includes("report")) &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/") ||
+          labelLower.includes("fee")))
+    ) {
+      return "/reports/admin-fee-reports/bus-fee-collections";
+    }
+    if (
+      hrefLower.includes("mgt-fee-collections") ||
+      hrefLower.includes("admin-fee-reports/mgt-fee") ||
+      hrefLower.includes("managementstdfeecollections") ||
+      ((labelLower.includes("mngt") ||
+        labelLower.includes("mgt") ||
+        labelLower.includes("management")) &&
+        labelLower.includes("fee") &&
+        labelLower.includes("collection") &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/") ||
+          labelLower.includes("student")))
+    ) {
+      return "/reports/admin-fee-reports/mgt-fee-collections";
+    }
+    if (
+      hrefLower.includes("library-fee-collections") ||
+      hrefLower.includes("admin-fee-reports/library-fee") ||
+      hrefLower.includes("libraryfeecollections") ||
+      (labelLower.includes("library") &&
+        labelLower.includes("fee") &&
+        labelLower.includes("collection") &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/") ||
+          labelLower.includes("student")))
+    ) {
+      return "/reports/admin-fee-reports/library-fee-collections";
+    }
+    if (
+      hrefLower.includes("scholarship-due-list") ||
+      hrefLower.includes("admin-fee-reports/scholarship-due") ||
+      hrefLower.includes("s_rep_scholarship_duelist") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("due list") &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/") ||
+          labelLower.includes("fee")))
+    ) {
+      return "/reports/admin-fee-reports/scholarship-due-list";
+    }
+    if (
+      hrefLower.includes("student-application-report") ||
+      hrefLower.includes("admin-student-reports/student-application") ||
+      (labelLower.includes("day wise") &&
+        labelLower.includes("application") &&
+        (hrefLower.includes("student") ||
+          hrefLower.includes("admin-student") ||
+          labelLower.includes("report")))
+    ) {
+      return "/reports/admin-student-reports/student-application-report";
+    }
+    if (
+      hrefLower.includes("caste-wise-gender") ||
+      hrefLower.includes("caste_wise_gender") ||
+      hrefLower.includes("student-caste-wise-gender") ||
+      (labelLower.includes("caste") &&
+        labelLower.includes("gender") &&
+        (labelLower.includes("count") || labelLower.includes("wise")) &&
+        (hrefLower.includes("student") ||
+          hrefLower.includes("admin-student") ||
+          labelLower.includes("student")))
+    ) {
+      return "/reports/admin-student-reports/student-caste-wise-gender-count-report";
+    }
+    if (
+      hrefLower.includes("report-catalyst") ||
+      hrefLower.includes("overall-reports") ||
+      labelLower === "report catalog" ||
+      (labelLower.includes("report catalog") && !labelLower.includes("fee"))
+    ) {
+      return "/report-catalyst";
+    }
+    if (
+      hrefLower.includes("daywise-fee-report") ||
+      hrefLower.includes("day-wise-fee-report") ||
+      hrefLower.includes("admin-fee-reports/daywise") ||
+      (labelLower.includes("day wise") &&
+        (labelLower.includes("receipt") || labelLower.includes("fee"))) ||
+      (labelLower.includes("day-wise") &&
+        (labelLower.includes("receipt") || labelLower.includes("fee")))
+    ) {
+      return "/accounts-and-fees/fee-reports/daywise-fee-report";
+    }
     if (
       hrefLower.includes("fee-reports/scholarship-preceedings") ||
       hrefLower.includes("fee-reports/scholarship-proceedings") ||
@@ -1179,6 +1593,135 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fee-reports/concession-list";
     }
     if (
+      hrefLower.includes("fee-staging-merchant-payment") ||
+      hrefLower.includes("fee-stg-merchant") ||
+      (labelLower.includes("merchant") &&
+        labelLower.includes("payment") &&
+        (labelLower.includes("staging") || labelLower.includes("fee")))
+    ) {
+      return "/accounts-and-fees/fee-reports/fee-staging-merchant-payment-details";
+    }
+    if (
+      hrefLower.includes("student-complete-fee-details") ||
+      (labelLower.includes("student") &&
+        labelLower.includes("complete") &&
+        labelLower.includes("fee"))
+    ) {
+      return "/accounts-and-fees/fee-reports/student-complete-fee-details";
+    }
+    if (
+      hrefLower.includes("online-payments-comparative") ||
+      (labelLower.includes("online") &&
+        labelLower.includes("payment") &&
+        labelLower.includes("comparative"))
+    ) {
+      return "/accounts-and-fees/fee-reports/online-payments-comparative-report";
+    }
+    if (
+      hrefLower.includes("collections-report") ||
+      (labelLower.includes("collections") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("library") &&
+        !labelLower.includes("mngt") &&
+        !labelLower.includes("management") &&
+        !labelLower.includes("bus"))
+    ) {
+      return "/accounts-and-fees/fee-reports/collections-report";
+    }
+    // Angular: /reports/admin-fee-reports/fee-particular-wise-report
+    if (
+      hrefLower.includes("fee-particular-wise-report") ||
+      (labelLower.includes("fee") &&
+        labelLower.includes("particular") &&
+        labelLower.includes("wise") &&
+        labelLower.includes("report"))
+    ) {
+      return "/accounts-and-fees/fee-reports/fee-particular-wise-report";
+    }
+    // Angular: /reports/admin-fee-reports/fee-due-list-report
+    if (
+      hrefLower.includes("fee-due-list-report") ||
+      (labelLower.includes("fee") &&
+        labelLower.includes("due") &&
+        labelLower.includes("list") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("exam") &&
+        !labelLower.includes("scholarship"))
+    ) {
+      return "/accounts-and-fees/fee-reports/fee-due-list-report";
+    }
+    // Angular: /reports/management-reports/income-expense-report
+    if (
+      hrefLower.includes("income-expense-report") ||
+      hrefLower.includes("income-and-expense-report") ||
+      (labelLower.includes("income") &&
+        labelLower.includes("expense") &&
+        labelLower.includes("report") &&
+        (hrefLower.includes("management-reports") ||
+          hrefLower.includes("finance-reports") ||
+          hrefLower.includes("/reports/")))
+    ) {
+      return "/reports/management-reports/income-expense-report";
+    }
+    // Angular Finance Reports: /reports/admin-finance-reports/monthly-payroll-report
+    // (also available under /hr-payroll/payroll/monthly-payroll-report)
+    if (
+      hrefLower.includes("admin-finance-reports/monthly-payroll-report") ||
+      hrefLower.includes("monthly-payroll-report") ||
+      (labelLower.includes("monthly") &&
+        labelLower.includes("payroll") &&
+        labelLower.includes("report"))
+    ) {
+      return "/reports/admin-finance-reports/monthly-payroll-report";
+    }
+    // Angular: /reports/admin-finance-reports/salary-report
+    if (
+      hrefLower.includes("salary-report") ||
+      (labelLower.includes("salary") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("payroll"))
+    ) {
+      return "/reports/admin-finance-reports/salary-report";
+    }
+    // Angular: /reports/admin-finance-reports/discount-report
+    if (
+      hrefLower.includes("discount-report") ||
+      (labelLower.includes("discount") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("fee-discount"))
+    ) {
+      return "/reports/admin-finance-reports/discount-report";
+    }
+    // Angular: /reports/admin-finance-reports/expense-report
+    if (
+      hrefLower.includes("/expense-report") ||
+      hrefLower.endsWith("expense-report") ||
+      labelLower === "expense report" ||
+      (labelLower.includes("expense") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("income") &&
+        !labelLower.includes("day") &&
+        !labelLower.includes("category"))
+    ) {
+      return "/reports/admin-finance-reports/expense-report";
+    }
+    // Angular: /reports/admin-library-reports/library-report
+    if (
+      hrefLower.includes("library-report") ||
+      (labelLower.includes("library") && labelLower.includes("report"))
+    ) {
+      return "/reports/admin-library-reports/library-report";
+    }
+    // Angular: /reports/admin-transport-reports/transport-report
+    if (
+      hrefLower.includes("transport-report") ||
+      (labelLower.includes("transport") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("collection"))
+    ) {
+      return "/reports/admin-transport-reports/transport-report";
+    }
+    if (
       hrefLower.includes("fee-masters/fee-categor") ||
       (labelLower.includes("fee categor") &&
         !labelLower.includes("particular") &&
@@ -1189,7 +1732,9 @@ export function resolveForcedNavRoute(
     if (
       hrefLower.includes("fee-masters/fee-particular") ||
       (labelLower.includes("fee particular") &&
-        !labelLower.includes("structure"))
+        !labelLower.includes("structure") &&
+        !labelLower.includes("wise") &&
+        !labelLower.includes("report"))
     ) {
       return "/accounts-and-fees/fee-masters/fee-particular";
     }
@@ -1363,6 +1908,12 @@ export function resolveForcedNavRoute(
   ) {
     return "/admin/bulk-uploads/books-bulk-upload";
   }
+  if (
+    hrefLower.includes("/excel-bulk-uploads/subject-unit-topic-upload") ||
+    hrefLower.includes("subject-unit-topics-bulk-upload")
+  ) {
+    return "/admin/bulk-uploads/subject-unit-topic-upload";
+  }
   if (hrefLower.includes("/excel-bulk-uploads/unit-topic-bulk-upload")) {
     return "/admin/bulk-uploads/unit-topic-bulk-upload";
   }
@@ -1380,6 +1931,8 @@ export function resolveForcedNavRoute(
     return "/admin/bulk-uploads/temporary-staging-tables-bulk-upload";
   }
   if (
+    hrefLower.includes("principal-communications/sms") ||
+    hrefLower.includes("/sms/send-sms") ||
     hrefLower.includes("send-student-sms") ||
     hrefLower.includes("send-sms-to-student") ||
     (labelLower.includes("send sms") &&
@@ -1388,6 +1941,13 @@ export function resolveForcedNavRoute(
       !labelLower.includes("absent"))
   ) {
     return "/email-sms/send-sms-to-students";
+  }
+  if (
+    hrefLower.includes("principal-communications/email") ||
+    hrefLower.includes("/email/send-emails") ||
+    hrefLower.includes("principal-to-dpt-email")
+  ) {
+    return "/email-sms/principal-to-dept-email";
   }
   if (
     hrefLower.includes("send-absent-sms") ||
@@ -1462,7 +2022,9 @@ export function resolveForcedNavRoute(
   }
   if (
     hrefLower.includes("principal-to-dept-email") ||
-    hrefLower.includes("principal-to-dpt-email")
+    hrefLower.includes("principal-to-dpt-email") ||
+    hrefLower.includes("principal-communications/email") ||
+    hrefLower.includes("/email/send-emails")
   ) {
     return "/email-sms/principal-to-dept-email";
   }
@@ -2018,7 +2580,10 @@ export function resolveForcedNavRoute(
   if (
     (labelLower.includes("student subjects") ||
       labelLower.includes("student subject")) &&
-    !hrefLower.includes("affiliated-colleges")
+    !hrefLower.includes("affiliated-colleges") &&
+    !labelLower.includes("report") &&
+    !hrefLower.includes("students-subject-report") &&
+    !hrefLower.includes("student-subjects-report")
   ) {
     return "/admin-student-information-system/student-subjects";
   }
@@ -2366,6 +2931,12 @@ export function resolveForcedNavRoute(
     return "/admin/document-repository";
   }
   if (labelLower.includes("unit topic bulk upload")) {
+    if (
+      hrefLower.includes("subject-unit-topic-upload") ||
+      hrefLower.includes("subject-unit-topics-bulk-upload")
+    ) {
+      return "/admin/bulk-uploads/subject-unit-topic-upload";
+    }
     return "/admin/bulk-uploads/unit-topic-bulk-upload";
   }
   if (

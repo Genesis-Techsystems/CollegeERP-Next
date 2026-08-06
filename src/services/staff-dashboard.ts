@@ -13,10 +13,12 @@ import { GM_CODES } from "@/config/constants/ui";
 import type { ApiResponse } from "@/types/api";
 import {
   buildQuery,
+  domainGetRawQuery,
   domainList,
   fetchDetailsEnvelope,
   getAllRecords,
   postDetailsEnvelope,
+  uploadFile,
 } from "./crud";
 
 export type StaffDashRow = Record<string, unknown>;
@@ -109,6 +111,11 @@ export interface DashboardNotification extends StaffDashRow {
   notificationMessage?: string;
   publishDate?: string;
   notificationDocPath?: string | null;
+  isAnnouncement?: boolean;
+  notificationAudiences?: Array<{
+    categoryName?: string;
+    notificationAudienceId?: number;
+  }>;
 }
 
 export interface LeaveApplicationRow extends StaffDashRow {
@@ -782,4 +789,77 @@ export function readDashStorageNum(key: string): number {
   const v = readDashStorage(key);
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Audience row on notification create/edit (Angular `notificationAudiences`). */
+export interface NotificationAudienceRow {
+  notificationAudienceId?: number;
+  audienceTypeId: number;
+  audienceTypeCode?: string;
+  collegeId?: number;
+  courseId?: number | null;
+  courseName?: string | null;
+  categoryName?: string;
+  categoryValue?: string | number;
+  isActive?: boolean;
+}
+
+/** Notification entity for add/edit (Angular `Notification` / `notifications`). */
+export interface NotificationSaveRow {
+  notificationId?: number;
+  collegeId?: number;
+  academicYearId?: number;
+  notificationTitle?: string;
+  description?: string | null;
+  publishDate?: string;
+  notificationEnddate?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  isPublished?: boolean;
+  isAnnouncement?: boolean;
+  isActive?: boolean;
+  reason?: string | null;
+  notificationDoc?: string | null;
+  createdDt?: string;
+  notificationAudiences?: NotificationAudienceRow[];
+}
+
+/**
+ * Angular `getDetailsById(Notification, id, notificationId)`
+ * → `domain/get/Notification?query=notificationId=={id}`
+ */
+export async function getNotificationById(
+  notificationId: number,
+): Promise<NotificationSaveRow | null> {
+  if (!notificationId) return null;
+  try {
+    const data = await domainGetRawQuery<NotificationSaveRow>(
+      EVENTS_API.NOTIFICATION,
+      `notificationId==${notificationId}`,
+    );
+    return data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Angular `crudService.add(notificationsUrl, [notification])`
+ * → POST `/cms/notifications` (via proxy). Returns envelope so callers can read
+ * `data` (notificationId) for optional file upload.
+ */
+export async function saveNotifications(
+  rows: NotificationSaveRow[],
+): Promise<ApiResponse<unknown>> {
+  return postDetailsEnvelope(EVENTS_API.NOTIFICATIONS, rows);
+}
+
+/**
+ * Angular `crudService.upload(notificationUploadUrl, formData)`
+ * FormData keys: `notificationId`, `notificationDoc` (file).
+ */
+export async function uploadNotificationDoc(
+  formData: FormData,
+): Promise<unknown> {
+  return uploadFile(EVENTS_API.NOTIFICATION_UPLOAD, formData);
 }

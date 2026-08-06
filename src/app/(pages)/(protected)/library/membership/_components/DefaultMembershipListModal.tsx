@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { FormModal } from "@/common/components/feedback";
@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import {
   listCollegesForLibrary,
   listEmployeesWithoutLibraryMembership,
+  listLibrariesByCollege,
   listStudentsWithoutLibraryMembership,
 } from "@/services";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastInfo } from "@/lib/toast";
 import type { LibraryMembership } from "@/types/library";
 import { LIBRARY_MODAL_TITLE_CLASS } from "../../_lib/modal-styles";
 
@@ -20,37 +23,80 @@ type MemberKind = "S" | "E";
 interface DefaultMembershipListModalProps {
   open: boolean;
   kind: MemberKind;
+  libraryId?: number | null;
   onClose: () => void;
 }
 
 export function DefaultMembershipListModal({
   open,
   kind,
+  libraryId = null,
   onClose,
 }: Readonly<DefaultMembershipListModalProps>) {
   const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [selectedLibraryId, setSelectedLibraryId] = useState<string | null>(
+    null,
+  );
   const [requestedCollegeId, setRequestedCollegeId] = useState<string | null>(
     null,
   );
+  const [requestedLibraryId, setRequestedLibraryId] = useState<number>(0);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedLibraryId(libraryId && libraryId > 0 ? String(libraryId) : null);
+    setRequestedCollegeId(null);
+    setRequestedLibraryId(0);
+  }, [open, libraryId]);
 
   const collegesQuery = useQuery({
     queryKey: ["Library", "membership-default-colleges"],
     queryFn: () => listCollegesForLibrary(),
     enabled: open,
   });
+
+  const collegeNum = Number(collegeId) || 0;
+  const librariesQuery = useQuery({
+    queryKey: ["Library", "membership-default-libraries", collegeNum],
+    queryFn: () => listLibrariesByCollege(collegeNum),
+    enabled: open && kind === "S" && collegeNum > 0,
+  });
+
   const rowsQuery = useQuery({
-    queryKey: ["Library", "membership-default-list", kind, requestedCollegeId],
+    queryKey: [
+      "Library",
+      "membership-default-list",
+      kind,
+      requestedCollegeId,
+      requestedLibraryId,
+    ],
     queryFn: () =>
       kind === "S"
-        ? listStudentsWithoutLibraryMembership(Number(requestedCollegeId))
+        ? listStudentsWithoutLibraryMembership(
+            Number(requestedCollegeId),
+            requestedLibraryId,
+          )
         : listEmployeesWithoutLibraryMembership(Number(requestedCollegeId)),
     enabled: open && Number(requestedCollegeId) > 0,
+    retry: false,
   });
+
+  // Angular: success:false still shows result.message via snotify (e.g. "Record(s) already exists")
+  useEffect(() => {
+    if (!rowsQuery.isError || !rowsQuery.error) return;
+    toastInfo(getErrorMessage(rowsQuery.error));
+  }, [rowsQuery.isError, rowsQuery.error]);
 
   const collegeOptions = (collegesQuery.data ?? []).map((college) => ({
     value: String(college.collegeId),
     label: String(
       college.collegeCode ?? college.collegeName ?? college.collegeId,
+    ),
+  }));
+  const libraryOptions = (librariesQuery.data ?? []).map((library) => ({
+    value: String(library.libraryId),
+    label: String(
+      library.libraryCode ?? library.libraryName ?? library.libraryId,
     ),
   }));
   const rows = rowsQuery.data ?? [];
@@ -82,6 +128,16 @@ export function DefaultMembershipListModal({
     [kind],
   );
 
+  function handleGetList() {
+    if (!collegeId) return;
+    if (kind === "S" && !selectedLibraryId) {
+      toastError("Library is required");
+      return;
+    }
+    setRequestedCollegeId(collegeId);
+    setRequestedLibraryId(Number(selectedLibraryId) || 0);
+  }
+
   return (
     <FormModal
       open={open}
@@ -98,26 +154,46 @@ export function DefaultMembershipListModal({
         onClose();
       }}
     >
-      <div className="flex items-end gap-2">
-        <div className="flex-1">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-[160px] flex-1">
           <Select
             label="College"
             required
             value={collegeId}
             onChange={(value) => {
               setCollegeId(value);
+              setSelectedLibraryId(null);
               setRequestedCollegeId(null);
+              setRequestedLibraryId(0);
             }}
             options={collegeOptions}
             placeholder="Select college"
             isLoading={collegesQuery.isFetching}
           />
         </div>
+        {kind === "S" ? (
+          <div className="min-w-[160px] flex-1">
+            <Select
+              label="Library"
+              required
+              value={selectedLibraryId}
+              onChange={(value) => {
+                setSelectedLibraryId(value);
+                setRequestedCollegeId(null);
+                setRequestedLibraryId(0);
+              }}
+              options={libraryOptions}
+              placeholder="Select library"
+              isLoading={librariesQuery.isFetching}
+              disabled={!collegeId}
+            />
+          </div>
+        ) : null}
         <Button
           type="button"
           size="sm"
-          disabled={!collegeId}
-          onClick={() => setRequestedCollegeId(collegeId)}
+          disabled={!collegeId || (kind === "S" && !selectedLibraryId)}
+          onClick={handleGetList}
         >
           Get List
         </Button>

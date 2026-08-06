@@ -18,7 +18,7 @@ export default async function Page({ params }: PageProps) {
       "/tc-no-due-approval/certificate-requests/print-certificate-receipt",
     "certificates-issued-list": "/tc-no-due-approval/certificates-issued-list",
     "certificate-request-report":
-      "/tc-no-due-approval/certificate-request-report",
+      "/reports/admin-student-reports/certificate-request-report",
   };
 
   const tcRoute = tcMirrorRoutes[slug];

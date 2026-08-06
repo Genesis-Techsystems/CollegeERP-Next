@@ -293,33 +293,71 @@ const S = {
 
 type UniKind = "MECS" | "MVSR" | "OTHER";
 
-function PhotoCell({ head, rowSpan = 5 }: { head: AnyRow; rowSpan?: number }) {
+/**
+ * Angular has two print surfaces:
+ * - student: in-page `#printsection` on exam-hallticket (window.print)
+ * - bulk: print-exam-hallticket route (Print All)
+ * OTHER university layouts differ between them (affix / signatures / instructions).
+ */
+export type HallticketPrintVariant = "student" | "bulk";
+
+function PhotoCell({
+  head,
+  rowSpan = 5,
+  showAffix,
+}: {
+  head: AnyRow;
+  rowSpan?: number;
+  /** Angular bulk / MECS/MVSR — photo + affix box. Student OTHER — photo only. */
+  showAffix: boolean;
+}) {
   return (
     <td rowSpan={rowSpan} style={S.photoCell}>
-      <div style={S.photoLayout}>
-        <div style={S.photoRow}>
-          <div style={S.photoContainer}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={studentPhotoSrc(head)}
-              alt="Student"
-              style={S.studentPhoto}
-              onError={(e) => {
-                const img = e.currentTarget as HTMLImageElement;
-                if (!img.src.endsWith("default_Student.png"))
-                  img.src = DEFAULT_STUDENT;
-              }}
-            />
+      {showAffix ? (
+        <div style={S.photoLayout}>
+          <div style={S.photoRow}>
+            <div style={S.photoContainer}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={studentPhotoSrc(head)}
+                alt="Student"
+                style={S.studentPhoto}
+                onError={(e) => {
+                  const img = e.currentTarget as HTMLImageElement;
+                  if (!img.src.endsWith("default_Student.png"))
+                    img.src = DEFAULT_STUDENT;
+                }}
+              />
+            </div>
+            <div style={S.attachBox}>
+              Affix latest photo of the candidate <br /> duly attested by the
+              HOD
+            </div>
           </div>
-          <div style={S.attachBox}>
-            Affix latest photo of the candidate <br /> duly attested by the HOD
+          <div style={S.signatureRow}>
+            <div style={S.signatureBox} />
+            <div style={S.signatureBox} />
           </div>
         </div>
-        <div style={S.signatureRow}>
-          <div style={S.signatureBox} />
-          <div style={S.signatureBox} />
-        </div>
-      </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={studentPhotoSrc(head)}
+          alt="Student"
+          style={{
+            ...S.studentPhoto,
+            width: "90px",
+            height: "110px",
+            border: "1px solid #000",
+            objectFit: "cover",
+          }}
+          onError={(e) => {
+            const img = e.currentTarget as HTMLImageElement;
+            if (!img.src.endsWith("default_Student.png"))
+              img.src = DEFAULT_STUDENT;
+          }}
+        />
+      )}
     </td>
   );
 }
@@ -373,18 +411,35 @@ function SubjectTable({ rows, kind }: { rows: AnyRow[]; kind: UniKind }) {
   );
 }
 
-function Instructions({ kind }: { kind: UniKind }) {
-  // MECS prints all 11; MVSR/other drop the last "first two hours" line.
+function Instructions({
+  kind,
+  variant,
+}: {
+  kind: UniKind;
+  variant: HallticketPrintVariant;
+}) {
+  // MECS prints all 11; others drop the last "first two hours" line.
   const items = kind === "MECS" ? INSTRUCTIONS : INSTRUCTIONS.slice(0, 10);
+  // Angular student OTHER: only "INSTRUCTIONS TO THE CANDIDATES" heading.
+  // Angular bulk / MECS / MVSR: preserved + NOTE + list.
+  const useBulkInstrHeader = variant === "bulk" || kind !== "OTHER";
   return (
     <div style={S.instructions}>
-      <h4 style={S.instrH4}>
-        Hall ticket should be preserved till the end of the examinations
-      </h4>
-      <ol style={{ ...S.instrOl, listStyleType: "none", paddingLeft: 0 }}>
-        <li>INSTRUCTIONS TO THE CANDIDATES</li>
-        <li>NOTE : CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li>
-      </ol>
+      {useBulkInstrHeader ? (
+        <>
+          <h4 style={S.instrH4}>
+            Hall ticket should be preserved till the end of the examinations
+          </h4>
+          <ol style={{ ...S.instrOl, listStyleType: "none", paddingLeft: 0 }}>
+            <li>INSTRUCTIONS TO THE CANDIDATES</li>
+            <li>
+              NOTE : CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM
+            </li>
+          </ol>
+        </>
+      ) : (
+        <h4 style={S.instrH4}>INSTRUCTIONS TO THE CANDIDATES</h4>
+      )}
       <ol style={S.instrOl}>
         {items.map((line, idx) => (
           <li key={`instr-${idx}`} style={{ marginBottom: "2px" }}>
@@ -404,7 +459,15 @@ function headVal(head: AnyRow, ...keys: string[]): string {
   return "";
 }
 
-function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
+function HallTicketPage({
+  group,
+  kind,
+  variant,
+}: {
+  group: AnyRow[];
+  kind: UniKind;
+  variant: HallticketPrintVariant;
+}) {
   const head = group[0] ?? {};
   const banner =
     kind === "MECS"
@@ -451,6 +514,19 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
     "examcenter",
   );
 
+  // Angular student OTHER: photo only. Bulk OTHER + MECS/MVSR: photo + affix.
+  const showAffix = !(variant === "student" && kind === "OTHER");
+  // Angular student OTHER: Student / COE / Principal. Bulk OTHER + MECS/MVSR: HOD / COE.
+  const useStudentSignatures = variant === "student" && kind === "OTHER";
+  // Angular student: `CODE. (GROUP)`; bulk: `CODE (GROUP)`.
+  const courseTitle = courseCode
+    ? variant === "student"
+      ? `${courseCode}. (${groupName.toUpperCase()})`
+      : `${courseCode} (${groupName.toUpperCase()})`
+    : groupName
+      ? `(${groupName.toUpperCase()})`
+      : "";
+
   return (
     <div style={S.pageAlign}>
       {banner ? (
@@ -473,15 +549,14 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
 
       <div style={S.examHeader}>
         <h4 style={S.examTitle}>{examTitle}</h4>
-        {regulation ? <div style={S.regulationBox}>{regulation}</div> : null}
+        {regulation && (variant === "bulk" || kind !== "OTHER") ? (
+          <div style={S.regulationBox}>{regulation}</div>
+        ) : null}
       </div>
 
       <div style={S.titleBar}>
         <div>HALL TICKET</div>
-        <div>
-          {courseCode}
-          {courseCode ? ". " : ""}({groupName.toUpperCase()})
-        </div>
+        <div>{courseTitle}</div>
       </div>
 
       <table style={S.infoTable}>
@@ -489,7 +564,11 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
           <tr>
             <td style={S.infoLabelTd}>Hall Ticket No&nbsp;&nbsp;:</td>
             <td style={S.infoValTd}>{hallticket}</td>
-            <PhotoCell head={head} rowSpan={motherName ? 6 : 5} />
+            <PhotoCell
+              head={head}
+              rowSpan={motherName ? 6 : showAffix ? 5 : 4}
+              showAffix={showAffix}
+            />
           </tr>
           <tr>
             <td style={S.infoLabelTd}>Student Name&nbsp;&nbsp;:</td>
@@ -518,7 +597,7 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
 
       <SubjectTable rows={group} kind={kind} />
 
-      {kind === "OTHER" ? (
+      {useStudentSignatures ? (
         <div
           style={{
             display: "flex",
@@ -561,7 +640,7 @@ function HallTicketPage({ group, kind }: { group: AnyRow[]; kind: UniKind }) {
         <div style={S.dashedLine} />
       </div>
 
-      <Instructions kind={kind} />
+      <Instructions kind={kind} variant={variant} />
     </div>
   );
 }
@@ -596,9 +675,11 @@ export function resolveHallticketKind(universityCode: string): UniKind {
 export function HallticketPrintDocuments({
   rows,
   universityCode,
+  variant = "bulk",
 }: {
   rows: AnyRow[];
   universityCode: string;
+  variant?: HallticketPrintVariant;
 }) {
   const kind = resolveHallticketKind(universityCode);
   const groups = groupByStudentAndYear(rows);
@@ -614,7 +695,12 @@ export function HallticketPrintDocuments({
         </p>
       ) : (
         groups.map((group, i) => (
-          <HallTicketPage key={`ht-${i}`} group={group} kind={kind} />
+          <HallTicketPage
+            key={`ht-${i}`}
+            group={group}
+            kind={kind}
+            variant={variant}
+          />
         ))
       )}
     </div>
@@ -644,6 +730,7 @@ function absUrl(src: string): string {
 export function buildHallticketPrintHtml(
   rows: AnyRow[],
   universityCode: string,
+  variant: HallticketPrintVariant = "student",
 ): string {
   const kind = resolveHallticketKind(universityCode);
   const groups = groupByStudentAndYear(rows);
@@ -651,6 +738,9 @@ export function buildHallticketPrintHtml(
   const instrHtml = instrItems
     .map((line) => `<li style="margin-bottom:2px;">${escapeHtml(line)}</li>`)
     .join("");
+  const useBulkInstrHeader = variant === "bulk" || kind !== "OTHER";
+  const showAffix = !(variant === "student" && kind === "OTHER");
+  const useStudentSignatures = variant === "student" && kind === "OTHER";
 
   const pages = groups
     .map((group) => {
@@ -704,6 +794,25 @@ export function buildHallticketPrintHtml(
       const motherRow = motherName
         ? `<tr><td class="lbl">Mother Name&nbsp;&nbsp;:</td><td class="val">${e(motherName)}</td></tr>`
         : "";
+      const courseTitle = courseCode
+        ? variant === "student"
+          ? `${e(courseCode)}. (${e(groupName.toUpperCase())})`
+          : `${e(courseCode)} (${e(groupName.toUpperCase())})`
+        : groupName
+          ? `(${e(groupName.toUpperCase())})`
+          : "";
+      const showReg = !!regulation && (variant === "bulk" || kind !== "OTHER");
+      const photoRowSpan = motherName ? 6 : showAffix ? 5 : 4;
+      const photoCell = showAffix
+        ? `<div class="photo-layout">
+                <div class="photo-row">
+                  <div class="photo-box"><img src="${e(photo)}" alt="" onerror="this.src='${e(absUrl(DEFAULT_STUDENT))}'" /></div>
+                  <div class="affix">Affix latest photo of the candidate<br/>duly attested by the HOD</div>
+                </div>
+                <div class="sig-row"><div class="sig-box"></div><div class="sig-box"></div></div>
+              </div>`
+        : `<img class="photo-only" src="${e(photo)}" alt="" onerror="this.src='${e(absUrl(DEFAULT_STUDENT))}'" />`;
+
       const subjectRows = group
         .map((d) => {
           const isLab =
@@ -735,14 +844,13 @@ export function buildHallticketPrintHtml(
           ? absUrl("/assets/images/avatars/MVSR_COE-SIGN.jpg")
           : absUrl("/assets/images/avatars/MECS_EXAMINATION_SIGN.png");
 
-      const signatures =
-        kind === "OTHER"
-          ? `<div class="sigs-other">
+      const signatures = useStudentSignatures
+        ? `<div class="sigs-other">
               <div>Signature of the Student</div>
               <div>Controller of Examinations</div>
               <div>Principal</div>
             </div>`
-          : `<div class="sigs">
+        : `<div class="sigs">
               <div class="sig-block"><div>Signature of HOD</div></div>
               <div class="sig-block">
                 <img src="${e(coeSign)}" alt="" style="width:120px;height:30px;margin-bottom:5px;"
@@ -750,6 +858,12 @@ export function buildHallticketPrintHtml(
                 <div>Controller of Examinations</div>
               </div>
             </div>`;
+
+      const instrHeader = useBulkInstrHeader
+        ? `<h4>Hall ticket should be preserved till the end of the examinations</h4>
+          <ol class="none"><li>INSTRUCTIONS TO THE CANDIDATES</li>
+          <li>NOTE : CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li></ol>`
+        : `<h4>INSTRUCTIONS TO THE CANDIDATES</h4>`;
 
       return `<div class="page">
         ${
@@ -759,25 +873,17 @@ export function buildHallticketPrintHtml(
         }
         <div class="exam-header">
           <h4>${e(examTitle)}</h4>
-          ${regulation ? `<div class="reg">${e(regulation)}</div>` : ""}
+          ${showReg ? `<div class="reg">${e(regulation)}</div>` : ""}
         </div>
         <div class="title-bar">
           <div>HALL TICKET</div>
-          <div>${e(courseCode)}${courseCode ? ". " : ""}(${e(groupName.toUpperCase())})</div>
+          <div>${courseTitle}</div>
         </div>
         <table class="info">
           <tr>
             <td class="lbl">Hall Ticket No&nbsp;&nbsp;:</td>
             <td class="val">${e(hallticket)}</td>
-            <td class="photo" rowspan="${motherName ? 6 : 5}">
-              <div class="photo-layout">
-                <div class="photo-row">
-                  <div class="photo-box"><img src="${e(photo)}" alt="" onerror="this.src='${e(absUrl(DEFAULT_STUDENT))}'" /></div>
-                  <div class="affix">Affix latest photo of the candidate<br/>duly attested by the HOD</div>
-                </div>
-                <div class="sig-row"><div class="sig-box"></div><div class="sig-box"></div></div>
-              </div>
-            </td>
+            <td class="photo" rowspan="${photoRowSpan}">${photoCell}</td>
           </tr>
           <tr><td class="lbl">Student Name&nbsp;&nbsp;:</td><td class="val">${e(studentName)}</td></tr>
           <tr><td class="lbl">Father Name&nbsp;&nbsp;:</td><td class="val">${e(fatherName)}</td></tr>
@@ -793,9 +899,7 @@ export function buildHallticketPrintHtml(
         ${signatures}
         <div class="cut"><div class="left-line"></div><div class="dashed"></div></div>
         <div class="instr">
-          <h4>Hall ticket should be preserved till the end of the examinations</h4>
-          <ol class="none"><li>INSTRUCTIONS TO THE CANDIDATES</li>
-          <li>NOTE : CANDIDATES ARE NOT ALLOWED AFTER COMMENCEMENT OF EXAM</li></ol>
+          ${instrHeader}
           <ol>${instrHtml}</ol>
         </div>
       </div>`;
@@ -819,7 +923,7 @@ export function buildHallticketPrintHtml(
   .photo-layout{display:flex;flex-direction:column;align-items:center;gap:5px;}
   .photo-row{display:flex;gap:5px;justify-content:center;}
   .photo-box{border:1px solid #000;width:90px;height:110px;}
-  .photo-box img{width:100%;height:100%;object-fit:cover;}
+  .photo-box img,.photo-only{width:90px;height:110px;object-fit:cover;border:1px solid #000;}
   .affix{border:1px dotted #000;width:90px;height:110px;font-size:10px;color:#555;display:flex;align-items:center;justify-content:center;text-align:center;padding:2px;}
   .sig-row{display:flex;gap:8px;justify-content:center;}
   .sig-box{width:100px;height:35px;border:1px solid #000;}
@@ -845,19 +949,25 @@ export function buildHallticketPrintHtml(
 export function useHallticketPrint(
   rows: AnyRow[],
   universityCode: string,
+  variant: HallticketPrintVariant = "student",
 ): {
   printMode: "hallticket" | null;
   printButton: (label: string) => ReactNode;
   printStudent: (studentRows: AnyRow[]) => void;
   printView: ReactNode;
 } {
-  const doPrint = (printRows: AnyRow[]) => {
+  const doPrint = (
+    printRows: AnyRow[],
+    printVariant: HallticketPrintVariant = variant,
+  ) => {
     if (!printRows.length) return;
-    printHtmlInIframe(buildHallticketPrintHtml(printRows, universityCode));
+    printHtmlInIframe(
+      buildHallticketPrintHtml(printRows, universityCode, printVariant),
+    );
   };
 
   const printStudent = (studentRows: AnyRow[]) => {
-    doPrint(studentRows);
+    doPrint(studentRows, "student");
   };
 
   const printButton = (label: string) => (
@@ -866,7 +976,7 @@ export function useHallticketPrint(
       size="sm"
       className="h-[30px] px-3 text-[12px]"
       disabled={rows.length === 0}
-      onClick={() => doPrint(rows)}
+      onClick={() => doPrint(rows, "student")}
     >
       <Printer className="mr-1.5 h-3.5 w-3.5" />
       {label}

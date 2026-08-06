@@ -360,8 +360,7 @@ export default function TransferCertificatePage() {
         selectedStudent?.academicYearId ?? detail.academicYearId ?? 0,
       ),
       studentId: studentNum,
-      collegeCertificateId:
-        tcCertId || Number(tcCert?.collegeCertificateId ?? 0),
+      certifcateCode: "Transfer Certificate",
       issuedOn: academicEndDate,
     };
 

@@ -1,13 +1,12 @@
-'use client'
+"use client";
 
-import dynamic from 'next/dynamic'
-import { FinancePageLoading } from '../_components/FinancePageLoading'
+import { PageContainer } from "@/components/layout";
 
-const FinanceBookReportPage = dynamic(
-  () => import('../_components/FinanceBookReportPage').then((m) => ({ default: m.FinanceBookReportPage })),
-  { loading: () => <FinancePageLoading /> },
-)
-
+/** Angular stub: finance/bank-book → "bank-book works!" */
 export default function BankBookPage() {
-  return <FinanceBookReportPage title="Bank Book" reportFlag="fin_bank_book" showAccountType />
+  return (
+    <PageContainer>
+      <p>bank-book works!</p>
+    </PageContainer>
+  );
 }

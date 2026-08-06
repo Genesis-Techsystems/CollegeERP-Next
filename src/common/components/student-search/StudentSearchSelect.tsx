@@ -30,6 +30,8 @@ export interface StudentSearchSelectProps {
   onSearch: (term: string) => void;
   onChange: (studentId: number | null, student: AnyRow | null) => void;
   className?: string;
+  /** When true, input stretches to parent width (no max-w-md cap). */
+  fullWidth?: boolean;
 }
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
@@ -201,6 +203,7 @@ export function StudentSearchSelect({
   onSearch,
   onChange,
   className,
+  fullWidth = false,
 }: StudentSearchSelectProps) {
   const inputId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -391,7 +394,10 @@ export function StudentSearchSelect({
 
       <div
         ref={anchorRef}
-        className="w-full max-w-md rounded-md border border-slate-300 bg-white shadow-sm"
+        className={cn(
+          "w-full rounded-md border border-slate-300 bg-white shadow-sm",
+          !fullWidth && "max-w-md",
+        )}
       >
         <div className="relative flex items-center">
           <input

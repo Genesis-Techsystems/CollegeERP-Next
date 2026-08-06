@@ -131,10 +131,30 @@ export async function POST(request: NextRequest) {
             : "";
 
     const nestedCollege = (dto.college ?? dto.College) as
-      | { collegeId?: number; collegeCode?: string; collegeName?: string }
+      | {
+          collegeId?: number;
+          collegeCode?: string;
+          collegeName?: string;
+          universityId?: number;
+          universityCode?: string;
+        }
       | undefined;
     const collegeId =
       Number(dto.collegeId ?? 0) || Number(nestedCollege?.collegeId ?? 0) || 0;
+
+    const nestedUniversity = (dto.university ?? dto.University) as
+      | { universityId?: number; universityCode?: string }
+      | undefined;
+    const universityId =
+      Number(userDto.universityId ?? 0) ||
+      Number(nestedUniversity?.universityId ?? 0) ||
+      Number(nestedCollege?.universityId ?? 0) ||
+      0;
+    const universityCode =
+      userDto.universityCode ||
+      nestedUniversity?.universityCode ||
+      nestedCollege?.universityCode ||
+      "";
 
     const roleUpper = userRole.toUpperCase();
     const roleNameUpper = roleName.toUpperCase();
@@ -142,6 +162,12 @@ export async function POST(request: NextRequest) {
       (r) =>
         r.isActive !== false &&
         String(r.roleName ?? "").toUpperCase() === "ADMIN",
+    );
+    // Angular login: localStorage.isDeprtAdmin = true when userRoles has DEPTADMIN
+    const isDeptAdmin = (userDto.userRoles ?? []).some(
+      (r) =>
+        r.isActive !== false &&
+        String(r.roleName ?? "").toUpperCase() === "DEPTADMIN",
     );
 
     const sessionUser: SessionUser = {
@@ -162,8 +188,8 @@ export async function POST(request: NextRequest) {
       studentId: userDto.studentId,
       organizationId: userDto.organizationId,
       organizationCode: userDto.organizationCode,
-      universityId: userDto.universityId,
-      universityCode: userDto.universityCode,
+      universityId: universityId || undefined,
+      universityCode: universityCode || undefined,
       isAdmin:
         roleUpper === "ADMIN" ||
         roleUpper === "SUPERADMIN" ||
@@ -176,6 +202,7 @@ export async function POST(request: NextRequest) {
       isManagement:
         userTypeCode.toUpperCase().includes("MGNT") ||
         roleName.toUpperCase().includes("MANAGEMENT"),
+      isDeptAdmin,
       // Angular parity: evaluators → /evaluator, students → /student-dashboard,
       // Admin/Staff/others → /dashboard.
       defaultDashboardPath: resolveDefaultDashboardPath(userRole, roleName),

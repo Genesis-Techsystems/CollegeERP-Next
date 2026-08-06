@@ -8,7 +8,7 @@ import type { Campus } from "@/types/campus";
 import type { Organization } from "@/types/organization";
 import { GM_CODES } from "@/config/constants/ui";
 import type { GeneralDetail } from "@/types/exam-master";
-import { parseApiError } from "@/lib/errors";
+import { parseApiError, AppError } from "@/lib/errors";
 import {
   buildQuery,
   domainCreate,
@@ -19,9 +19,12 @@ import {
   domainUpdate,
   fetchDetails,
   fetchDetailsById,
+  fetchDetailsEnvelope,
   getAllRecords,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
+  putDetailsEnvelope,
 } from "@/services/crud";
 import type {
   LibraryAuthor,
@@ -649,11 +652,12 @@ export async function listEmployeeLibraryMemberships(
 
 export async function listStudentsWithoutLibraryMembership(
   collegeId: number,
+  libraryId?: number,
 ): Promise<LibraryMembership[]> {
   if (!collegeId) return [];
-  const data = await fetchDetails<unknown>(LIBRARY_API.NO_MEMBERSHIP, {
-    collegeId,
-  });
+  const params: Record<string, string | number> = { collegeId };
+  if (libraryId && libraryId > 0) params.libraryId = libraryId;
+  const data = await fetchDetails<unknown>(LIBRARY_API.NO_MEMBERSHIP, params);
   return unwrapMemberSearchRows(data).map(normalizeMembershipRow);
 }
 
@@ -1475,15 +1479,35 @@ function normalizeBooksDueRow(row: AnyRow): LibraryRow {
   };
 }
 
-export async function listBooksDue(page = 0, size = 50): Promise<LibraryRow[]> {
+/** Angular `listAllMasterDetailsWithPageNation(bookduelistUrl, page, size, 'page', 'size')`. */
+export async function listBooksDue(
+  page = 0,
+  size = 50,
+): Promise<{ rows: LibraryRow[]; totalCount: number; page: number }> {
   try {
-    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_DUE_LIST, {
-      page,
-      size,
-    });
-    return unwrapMemberSearchRows(data).map(normalizeBooksDueRow);
+    const envelope = await fetchDetailsEnvelope<unknown>(
+      LIBRARY_API.BOOK_DUE_LIST,
+      { page, size },
+    );
+    if (!envelope.success) {
+      const message = envelope.message ?? "Failed to load books due list";
+      if (isNoRecordsError(new AppError("API_ERROR", message))) {
+        return { rows: [], totalCount: 0, page };
+      }
+      throw new AppError("API_ERROR", message);
+    }
+
+    const data = envelope.data;
+    const rows = unwrapMemberSearchRows(data).map(normalizeBooksDueRow);
+    const meta = (isObjectRow(data) ? data : {}) as AnyRow;
+    const envelopeMeta = envelope as unknown as AnyRow;
+    // Angular reads totalCount/page from the Config envelope (siblings of data).
+    const totalCount =
+      Number(envelopeMeta.totalCount ?? meta.totalCount ?? rows.length) || 0;
+    const pageNum = Number(envelopeMeta.page ?? meta.page ?? page) || 0;
+    return { rows, totalCount, page: pageNum };
   } catch (error) {
-    if (isNoRecordsError(error)) return [];
+    if (isNoRecordsError(error)) return { rows: [], totalCount: 0, page };
     throw error;
   }
 }
@@ -1851,11 +1875,68 @@ export async function generateLibraryMemberBarcode(): Promise<void> {
   await putDetails(LIBRARY_API.GENERATE_MEMBER_BARCODE, null);
 }
 
+export type GenerateBooksBarcodeResult = {
+  success: boolean;
+  message: string;
+};
+
+/** Angular `generateBarcodeForBooks` — return API `message` for the toast. */
 export async function generateBooksBarcode(
   accessionNumbers?: string[],
-): Promise<void> {
-  await putDetails(
+): Promise<GenerateBooksBarcodeResult> {
+  const response = await putDetailsEnvelope(
     LIBRARY_API.GENERATE_BOOK_BARCODE,
     accessionNumbers?.length ? accessionNumbers : null,
+  );
+  const message =
+    response.message?.trim() ||
+    (response.success === false
+      ? "Could not generate book barcodes"
+      : "Book barcode generated successfully");
+  // Prefer body `success` — API often returns HTTP/statusCode 200 with success:false
+  // (e.g. "No Records(s) found.").
+  return {
+    success: response.success !== false,
+    message,
+  };
+}
+
+export type UpdateLibraryBookDetailPayload = {
+  bookDetailsId: number;
+  bookId: number;
+  libraryId: number;
+  accessionno?: string;
+  bookregTypeId: number;
+  libraryRefNumber?: string;
+  shelveId?: number | string | null;
+  bookPosition?: string;
+  bookAmount: number | string;
+  bookconditionId?: number | string | null;
+  availabilityStatus?: number;
+  isActive?: boolean;
+  reason?: string;
+  bookbarCode?: string;
+};
+
+/** Angular `updateBookDetailsUrl` — edit a single book copy. */
+export async function updateLibraryBookDetail(
+  payload: UpdateLibraryBookDetailPayload,
+): Promise<void> {
+  await putDetails(LIBRARY_API.UPDATE_BOOK_DETAILS, payload);
+}
+
+/** Angular `checkaccessionnumberUrl` before changing accession no. */
+export async function checkLibraryAccessionNumber(
+  accessionno: string,
+  libraryId: number,
+): Promise<void> {
+  const response = await postDetailsEnvelope(LIBRARY_API.CHECKACCESSIONNUMBER, {
+    accessionno: [accessionno],
+    libraryId,
+  });
+  if (response.statusCode === 200 && response.success === true) return;
+  throw new AppError(
+    "API_ERROR",
+    response.message ?? "Accession number is not available",
   );
 }

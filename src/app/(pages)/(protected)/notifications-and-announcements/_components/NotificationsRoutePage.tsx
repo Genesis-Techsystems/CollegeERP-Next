@@ -1,25 +1,39 @@
-'use client'
+"use client";
 
-import { getNotificationsConfig } from '../_lib/route-config'
-import { NotificationsDashboardPage } from './NotificationsDashboardPage'
-import { NotificationsPlaceholder } from './NotificationsPlaceholder'
+import { getNotificationsConfig } from "../_lib/route-config";
+import { AddNotificationPage } from "./AddNotificationPage";
+import { EmpNotificationsPage } from "./EmpNotificationsPage";
+import { NotificationsDashboardPage } from "./NotificationsDashboardPage";
+import { NotificationsListPage } from "./NotificationsListPage";
+import { NotificationsPlaceholder } from "./NotificationsPlaceholder";
 
-type NotificationsRoutePageProps = { slug: string }
+type NotificationsRoutePageProps = { slug: string };
 
 export function NotificationsRoutePage({ slug }: NotificationsRoutePageProps) {
-  const config = getNotificationsConfig(slug)
+  const config = getNotificationsConfig(slug);
 
-  if (config.kind === 'hub' && slug === '') {
-    return <NotificationsDashboardPage />
+  // Angular `#/principal-communications/announcements` → EmpNotificationsComponent
+  if (slug === "employee-inbox" || slug === "announcements") {
+    return <EmpNotificationsPage />;
   }
 
-  if (slug === 'employee-inbox') {
-    return <NotificationsPlaceholder slug={slug} />
+  // Angular `#/notifications-&-announcements/notifications-list`
+  if (slug === "notifications-list") {
+    return <NotificationsListPage />;
   }
 
-  if (slug === '' || slug === 'notifications-dashboard') {
-    return <NotificationsDashboardPage />
+  // Angular add-notification
+  if (slug === "add-notification") {
+    return <AddNotificationPage />;
   }
 
-  return <NotificationsPlaceholder slug={slug} />
+  if (config.kind === "hub" && slug === "") {
+    return <NotificationsDashboardPage />;
+  }
+
+  if (slug === "" || slug === "notifications-dashboard") {
+    return <NotificationsDashboardPage />;
+  }
+
+  return <NotificationsPlaceholder slug={slug} />;
 }

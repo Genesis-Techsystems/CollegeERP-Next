@@ -13,6 +13,7 @@ import type {
   UnivFeeStructureRow,
 } from "@/types/fee-structure";
 import type { ApiResponse } from "@/types/api";
+import type { FeeDiscountSummaryRow } from "@/types/fees-collection";
 import { AppError, parseApiError } from "@/lib/errors";
 import { GM_CODES } from "@/config/constants/ui";
 import {
@@ -22,6 +23,7 @@ import {
   domainList,
   domainUpdate,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
 } from "./crud";
 import { getGeneralDetails } from "./exam-master";
@@ -173,11 +175,12 @@ export async function updateFeeCategory(
   feeCategoryId: number,
   data: Partial<FeeCategoryPayload>,
 ): Promise<FeeCategory> {
+  // Angular PUT body includes feeCategoryId alongside the form fields.
   return domainUpdate<FeeCategory>(
     ENTITIES.FEE_CATEGORY.name,
     ENTITIES.FEE_CATEGORY.pk,
     feeCategoryId,
-    data,
+    { ...data, feeCategoryId },
   );
 }
 
@@ -200,11 +203,12 @@ export async function updateFeeParticular(
   feeParticularsId: number,
   data: Partial<FeeParticularPayload>,
 ): Promise<FeeParticular> {
+  // Angular PUT body includes feeParticularsId alongside the form fields.
   return domainUpdate<FeeParticular>(
     ENTITIES.FEE_PARTICULAR.name,
     ENTITIES.FEE_PARTICULAR.pk,
     feeParticularsId,
-    data,
+    { ...data, feeParticularsId },
   );
 }
 
@@ -522,13 +526,14 @@ export async function listCourseYearsForFeeStructure(
   const filtered = isLateral
     ? rows.filter((r) => Number(r.yearNo ?? 0) !== 1)
     : rows;
-  const tabs: FeeStructureCourseYearTab[] = [];
-  for (const row of filtered) {
+  // Angular shows every CourseYear row (do not dedupe by yearNo — multiple
+  // fee years can share yearNo, e.g. "1st Sem…" and "I YEAR I SEM" both yearNo=1).
+  const tabs: FeeStructureCourseYearTab[] = filtered.map((row) => {
     const yearNo = Number(row.yearNo ?? 0);
-    if (tabs.some((t) => t.yearNo === yearNo)) continue;
-    tabs.push({
+    const courseYearId = pickCourseYearId(row);
+    return {
       yearNo,
-      courseYearId: pickCourseYearId(row),
+      courseYearId,
       courseYearName: String(row.courseYearName ?? row.course_year_name ?? ""),
       feeLabel: String(
         row.feeLabel ??
@@ -538,9 +543,11 @@ export async function listCourseYearsForFeeStructure(
       ),
       sortOrder: Number(row.sortOrder ?? yearNo),
       particulars: [],
-    });
-  }
-  return tabs.sort((a, b) => a.sortOrder - b.sortOrder);
+    };
+  });
+  return tabs.sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.courseYearId - b.courseYearId,
+  );
 }
 
 export async function listQuotaOptions() {
@@ -563,4 +570,37 @@ export async function getCollegeFeeStructureById(
     buildQuery({ feeStructureId }),
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Angular management-reports/discount-report getReport:
+ * GET `getAllRecords/s_fee_discount_summary`
+ * `in_district_id=0&in_clg_id=&in_fee_category_id=0&in_year=`
+ *
+ * Angular mat-option binds `academic_year` string as `academicYearId` → `in_year`.
+ */
+export async function fetchFeeDiscountSummary(params: {
+  collegeId: number;
+  year: string | number;
+}): Promise<FeeDiscountSummaryRow[]> {
+  type StoredProcRows = { result?: unknown[][] };
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    FEE_API.FEE_DISCOUNT_SUMMARY,
+    {
+      in_district_id: 0,
+      in_clg_id: params.collegeId,
+      in_fee_category_id: 0,
+      in_year: params.year,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load discount report",
+    );
+  }
+  const block = envelope.data?.result?.[0];
+  return Array.isArray(block) ? (block as FeeDiscountSummaryRow[]) : [];
 }

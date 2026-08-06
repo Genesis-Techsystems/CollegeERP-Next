@@ -66,6 +66,46 @@ export async function getUnivExamFiltersAll(
 }
 
 /**
+ * Angular Exam Timetable `getFiltersList`: only the result group whose first row
+ * has `flag === 'univ_exam_filters'` (login-scoped courses / years / exams).
+ * Used for Exam Admin so unrelated filter groups are not mixed in.
+ */
+export async function getUnivExamFiltersGroupForLogin(
+  employeeId: number,
+): Promise<any[]> {
+  const data = await getAllRecords<{ result?: any[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_filters",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: "ALL",
+      in_param1: 0,
+      in_param2: 0,
+    },
+  );
+  const groups = (data?.result ?? []) as any[][];
+  for (const g of groups) {
+    if (!Array.isArray(g) || g.length === 0) continue;
+    const head = g[0] as Record<string, unknown>;
+    if (String(head?.flag ?? head?.FLAG ?? "") === "univ_exam_filters") {
+      return [...g];
+    }
+  }
+  return [];
+}
+
+/**
  * Angular exam fee structure (`exam-fee-structure.component.ts` `getFiltersList`):
  * same proc as {@link getUnivExamFiltersAll} but **`in_sub_flag_type: 0`** (not `'ALL'`),
  * and uses the result group whose first row has `flag === 'univ_exam_filters'` (`CollegesListDetails`).
@@ -555,16 +595,28 @@ export async function getExamTimetableDetails(
   return body;
 }
 
+export type ExamFiltersNoTimetableBundle = {
+  /** `univ_exam_rest_filters` — course years + branch/groups */
+  restFilters: any[];
+  /** `exam_sessions` — sessions for edit modal (Angular selectedExam) */
+  sessions: any[];
+};
+
 /**
- * Branches/groups before timetable rows — `univ_exam_rest_no_tt` → `univ_exam_rest_filters` group.
+ * Angular selectedExam(): `univ_exam_rest_no_tt` → pick `univ_exam_rest_filters` + `exam_sessions`.
  */
-export async function getExamFiltersNoTimetable(params: {
+export async function getExamFiltersNoTimetableBundle(params: {
   courseId: number;
   examId: number;
   academicYearId: number;
   courseYearId?: number;
   employeeId?: number;
-}): Promise<any[]> {
+  /**
+   * When true (Exam Admin), only return the `univ_exam_rest_filters` group —
+   * never flatten other groups. Admin keeps the legacy flatten fallback.
+   */
+  strictRestFiltersGroup?: boolean;
+}): Promise<ExamFiltersNoTimetableBundle> {
   const data = await getAllRecords<{ result?: any[][] }>(
     "s_get_exam_filters_bycode",
     {
@@ -589,10 +641,40 @@ export async function getExamFiltersNoTimetable(params: {
   const groups = data?.result ?? [];
   const rest =
     groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_rest_filters") ?? [];
-  if (Array.isArray(rest) && rest.length > 0) return rest;
-  const out: any[] = [];
-  for (const arr of groups) if (Array.isArray(arr)) out.push(...arr);
-  return out;
+  const sessions =
+    groups.find((g) => (g?.[0]?.flag ?? "") === "exam_sessions") ?? [];
+  let restFilters: any[] = Array.isArray(rest) ? rest : [];
+  if (restFilters.length === 0 && !params.strictRestFiltersGroup) {
+    const out: any[] = [];
+    for (const arr of groups) if (Array.isArray(arr)) out.push(...arr);
+    restFilters = out;
+  }
+  return {
+    restFilters,
+    sessions: Array.isArray(sessions) ? sessions : [],
+  };
+}
+
+/** Alias used by barrel — same as {@link getExamFiltersNoTimetableBundle}. */
+export async function getUnivExamRestNoTtGroups(
+  params: Parameters<typeof getExamFiltersNoTimetableBundle>[0],
+): Promise<ExamFiltersNoTimetableBundle> {
+  return getExamFiltersNoTimetableBundle(params);
+}
+
+/**
+ * Branches/groups before timetable rows — `univ_exam_rest_no_tt` → `univ_exam_rest_filters` group.
+ */
+export async function getExamFiltersNoTimetable(params: {
+  courseId: number;
+  examId: number;
+  academicYearId: number;
+  courseYearId?: number;
+  employeeId?: number;
+  strictRestFiltersGroup?: boolean;
+}): Promise<any[]> {
+  const { restFilters } = await getExamFiltersNoTimetableBundle(params);
+  return restFilters;
 }
 
 /**
@@ -734,12 +816,36 @@ export async function saveExamTimetable(rows: any[]): Promise<{
   message: string;
   data?: any[];
 }> {
-  const { NEXT_API, EXAM_API } = await import("@/config/constants/api");
   const res = await fetch(NEXT_API.PROXY(EXAM_API.SAVE_EXAM_TIMETABLE), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(rows),
   });
+  const body = await res.json().catch(() => null);
+  return {
+    ok: res.ok,
+    ...(body ?? { statusCode: 0, success: false, message: "Save failed" }),
+  };
+}
+
+/**
+ * Angular editDialog → POST `examtimetabledetailsbyexamdate` (array of detail rows).
+ */
+export async function saveExamTimetableDetailsByExamDate(rows: any[]): Promise<{
+  ok: boolean;
+  statusCode: number;
+  success: boolean;
+  message: string;
+  data?: unknown;
+}> {
+  const res = await fetch(
+    NEXT_API.PROXY(EXAM_API.EXAM_TIMETABLE_DETAILS_BY_DATE),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rows),
+    },
+  );
   const body = await res.json().catch(() => null);
   return {
     ok: res.ok,

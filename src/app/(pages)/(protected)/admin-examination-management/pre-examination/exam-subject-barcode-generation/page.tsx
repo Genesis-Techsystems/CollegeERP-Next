@@ -480,10 +480,76 @@ export default function ExamSubjectBarcodeGenerationPage() {
         pickNum(c, ["fk_college_id", "collegeId", "fk_collegeId"]) ===
         Number(collegeId),
     ),
-    ["college_name", "collegeName", "college_code", "collegeCode"],
+    ["college_name", "collegeName"],
   );
-  const { printMode, printButton, printView, printOmrFor, printAnswerFor } =
-    useBarcodeStickerPrint(rows, printExamName, printCollegeName);
+  const printMeta = useMemo(() => {
+    const college = colleges.find(
+      (c) =>
+        pickNum(c, ["fk_college_id", "collegeId", "fk_collegeId"]) ===
+        Number(collegeId),
+    );
+    const ay = academicYears.find(
+      (a) =>
+        pickNum(a, [
+          "fk_academic_year_id",
+          "academicYearId",
+          "fk_academicYearId",
+        ]) === Number(academicYearId),
+    );
+    const course = courses.find(
+      (c) =>
+        pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) ===
+        Number(courseId),
+    );
+    const group = groups.find(
+      (g) =>
+        pickNum(g, [
+          "fk_course_group_id",
+          "courseGroupId",
+          "fk_course_groupId",
+        ]) === Number(courseGroupId),
+    );
+    const year = years.find(
+      (y) =>
+        pickNum(y, [
+          "fk_course_year_id",
+          "courseYearId",
+          "fk_course_yearId",
+        ]) === Number(courseYearId),
+    );
+    return {
+      examName: printExamName,
+      collegeName: printCollegeName,
+      collegeCode: pickText(college, ["college_code", "collegeCode"]) || "",
+      academicYear: pickText(ay, ["academic_year", "academicYear"]) || "",
+      courseCode: pickText(course, ["course_code", "courseCode"]) || "",
+      courseGroupCode: pickText(group, ["group_code", "groupCode"]) || "",
+      courseYear:
+        pickText(year, [
+          "course_year_code",
+          "courseYearCode",
+          "course_year_name",
+          "courseYearName",
+        ]) || "",
+    };
+  }, [
+    colleges,
+    academicYears,
+    courses,
+    groups,
+    years,
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    printExamName,
+    printCollegeName,
+  ]);
+  const { printButton, printOmrFor, printAnswerFor } = useBarcodeStickerPrint(
+    rows,
+    printMeta,
+  );
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -799,14 +865,10 @@ export default function ExamSubjectBarcodeGenerationPage() {
     }
   }
 
-  // When the sticker print is active, replace the page with the print layout
-  // (the AppShell @media print rules hide nav/aside so only stickers print).
-  if (printMode) return <>{printView}</>;
-
   return (
     <FilteredListPage
       title="Exam Subject Barcode"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-2 space-y-1">
             <Label>Course</Label>
@@ -815,8 +877,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
               onChange={(v) => setCourseId(v ? Number(v) : 0)}
               options={courses.map((c, i) => ({
                 value: String(
-                  pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) ||
-                    i,
+                  pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) || i,
                 ),
                 label:
                   pickText(c, [
@@ -842,8 +903,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
                     "fk_academicYearId",
                   ]) || i,
                 ),
-                label:
-                  pickText(a, ["academic_year", "academicYear"]) || "-",
+                label: pickText(a, ["academic_year", "academicYear"]) || "-",
               }))}
               placeholder="Exam Year"
             />
@@ -875,11 +935,8 @@ export default function ExamSubjectBarcodeGenerationPage() {
               onChange={(v) => setCollegeId(v ? Number(v) : 0)}
               options={colleges.map((c, i) => ({
                 value: String(
-                  pickNum(c, [
-                    "fk_college_id",
-                    "collegeId",
-                    "fk_collegeId",
-                  ]) || i,
+                  pickNum(c, ["fk_college_id", "collegeId", "fk_collegeId"]) ||
+                    i,
                 ),
                 label:
                   pickText(c, [
@@ -955,8 +1012,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
               options={regulations.map((r, i) => ({
                 value: String(pickRegValue(r) || i),
                 label:
-                  pickText(r, REG_TEXT_KEYS) ||
-                  `Regulation ${pickRegValue(r)}`,
+                  pickText(r, REG_TEXT_KEYS) || `Regulation ${pickRegValue(r)}`,
               }))}
               placeholder="Regulation"
             />
@@ -988,7 +1044,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
             </Button>
           </div>
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={tableLoading}
@@ -1000,15 +1056,15 @@ export default function ExamSubjectBarcodeGenerationPage() {
         searchPlaceholder: "Search students…",
         pdfDocumentTitle: "Exam Subject Barcode",
       }}
-      toolbarLeading={(
+      toolbarLeading={
         <span
           className="max-w-[min(100%,28rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]"
           title={tableSummaryText}
         >
           {tableSummaryText}
         </span>
-      )}
-      toolbarTrailing={(
+      }
+      toolbarTrailing={
         <div className="flex items-center gap-2">
           {printButton}
           <Button
@@ -1022,7 +1078,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
             Generate Barcode
           </Button>
         </div>
-      )}
+      }
     />
   );
 }

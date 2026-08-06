@@ -13,7 +13,9 @@ import {
   domainList,
   domainUpdate,
   fetchDetails,
+  fetchDetailsEnvelope,
   getAllRecords,
+  getAllRecordsEnvelope,
   postDetails,
   postDetailsEnvelope,
   putDetails,
@@ -21,6 +23,7 @@ import {
   uploadFile,
 } from "./crud";
 import { listGeneralDetailsByCode } from "./student-information";
+import { AppError } from "@/lib/errors";
 
 type AnyRow = Record<string, unknown>;
 
@@ -31,6 +34,15 @@ function normalizeListPayload(data: unknown): AnyRow[] {
     if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
     if (Array.isArray(obj.content)) return obj.content as AnyRow[];
     if (Array.isArray(obj.result)) return obj.result as AnyRow[];
+    if (Array.isArray(obj.data)) return obj.data as AnyRow[];
+    // Some Spring endpoints nest the array one level deeper.
+    if (obj.data && typeof obj.data === "object") {
+      const nested = obj.data as Record<string, unknown>;
+      if (Array.isArray(nested.resultList))
+        return nested.resultList as AnyRow[];
+      if (Array.isArray(nested.content)) return nested.content as AnyRow[];
+      if (Array.isArray(nested.result)) return nested.result as AnyRow[];
+    }
   }
   return [];
 }
@@ -440,10 +452,37 @@ export type LeaveAllotmentTypeRow = {
   leaveCount: number;
   allocatedLeaves: number;
   leaveEntitlementId?: number;
+  createdDt?: unknown;
+  validFrom: string;
+  validTo: string;
   collegeId: number;
   leaveYear: string;
   employeeId: number;
 };
+
+function leaveYearBounds(leaveYear: string): {
+  validFrom: string;
+  validTo: string;
+} {
+  const year = String(leaveYear).trim() || String(new Date().getFullYear());
+  return {
+    validFrom: `${year}-01-01`,
+    validTo: `${year}-12-31`,
+  };
+}
+
+/** Normalize Spring date / ISO string to `yyyy-MM-dd` for leaveentitlement POST. */
+function toLeaveDateYmd(value: unknown, fallback: string): string {
+  if (value == null || value === "") return fallback;
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return fallback;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 /** Merge org leave types with employee entitlements (Angular leave-enrolment). */
 export function buildLeaveAllotmentTypeRows(
@@ -453,11 +492,20 @@ export function buildLeaveAllotmentTypeRows(
   leaveYear: string,
   employeeId: number,
 ): LeaveAllotmentTypeRow[] {
+  const bounds = leaveYearBounds(leaveYear);
+  const defaultFrom = entitlements[0]
+    ? toLeaveDateYmd(entitlements[0].validFrom, bounds.validFrom)
+    : bounds.validFrom;
+  const defaultTo = entitlements[0]
+    ? toLeaveDateYmd(entitlements[0].validTo, bounds.validTo)
+    : bounds.validTo;
+
   return leaveTypes.map((lt) => {
     const typeId = resolveLeaveTypeId(lt);
     const ent = entitlements.find(
       (e) => Number(e.leavetypeId ?? e.leaveTypeId) === typeId,
     );
+    const leaveEntitlementId = ent ? Number(ent.leaveEntitlementId) : undefined;
     return {
       leavetypeId: typeId,
       leaveName: String(lt.leaveName ?? ""),
@@ -466,11 +514,46 @@ export function buildLeaveAllotmentTypeRows(
       allocatedLeaves: ent
         ? Number(ent.allocatedLeaves ?? 0)
         : Number(lt.leaveCount ?? 0),
-      leaveEntitlementId: ent ? Number(ent.leaveEntitlementId) : undefined,
+      leaveEntitlementId:
+        leaveEntitlementId != null && Number.isFinite(leaveEntitlementId)
+          ? leaveEntitlementId
+          : undefined,
+      createdDt: ent?.createdDt,
+      validFrom: ent ? toLeaveDateYmd(ent.validFrom, defaultFrom) : defaultFrom,
+      validTo: ent ? toLeaveDateYmd(ent.validTo, defaultTo) : defaultTo,
       collegeId,
       leaveYear,
       employeeId,
     };
+  });
+}
+
+/**
+ * Angular leave-enrolment / Leave Entitlement POST body for `leaveentitlement`.
+ * Omits UI-only fields; sets isActive / isUpdate / validFrom / validTo / createdDt.
+ */
+export function buildLeaveAllotmentSavePayload(
+  rows: LeaveAllotmentTypeRow[],
+): AnyRow[] {
+  return rows.map((r) => {
+    const isUpdate =
+      r.leaveEntitlementId != null && Number.isFinite(r.leaveEntitlementId);
+    const base: AnyRow = {
+      collegeId: r.collegeId,
+      leaveYear: r.leaveYear,
+      employeeId: r.employeeId,
+      leavetypeId: r.leavetypeId,
+      isActive: true,
+      isUpdate,
+      allocatedLeaves: r.allocatedLeaves,
+      validFrom: r.validFrom,
+      validTo: r.validTo,
+    };
+    if (isUpdate) {
+      base.leaveEntitlementId = r.leaveEntitlementId;
+      if (r.createdDt != null) base.createdDt = r.createdDt;
+    }
+    return base;
   });
 }
 
@@ -869,13 +952,23 @@ export async function deactivateEmployeePayslip(
   );
 }
 
+/**
+ * Angular `listByIds(employeepayslipgenerationsbydate, date, 'payslipgenerationDate')`.
+ * Date must be `YYYY/MM/DD` (`momentFormatYMD`). Angular still shows the employee
+ * grid when this call returns `success: false` (empty / no slips) — do not throw.
+ */
 export async function listEmployeePayslipGenerationsByDate(
   payslipGenerationDate: string,
 ): Promise<AnyRow[]> {
-  const data = await fetchDetails<unknown>(HR_PAYROLL_API.EMP_PAYSLIP_BY_DATE, {
-    payslipgenerationDate: payslipGenerationDate,
-  });
-  return normalizeListPayload(data);
+  const envelope = await fetchDetailsEnvelope<unknown>(
+    HR_PAYROLL_API.EMP_PAYSLIP_BY_DATE,
+    { payslipgenerationDate: payslipGenerationDate },
+  );
+  if (envelope.statusCode != null && envelope.statusCode !== 200) {
+    throw new Error(envelope.message || "Failed to load payslips by date");
+  }
+  if (!envelope.success) return [];
+  return normalizeListPayload(envelope.data);
 }
 
 /** Merge payslip month onto payroll-group employee rows (Angular payslip screens). */
@@ -913,7 +1006,13 @@ export function enrichEmployeesWithLop(employees: AnyRow[]): AnyRow[] {
   });
 }
 
-/** Monthly payslip grid — gross/net only when payslip month matches selected month. */
+/**
+ * Monthly payslip grid enrichment — Angular `getPayrollGroupEmployees` loop.
+ * Last matching payslip wins. Generation id is always applied; gross/net and
+ * `generatedDate` only when payslip month/year match the selected date. When the
+ * month does not match, Angular clears `generatedDate` but leaves existing
+ * gross/net from the payroll-group row intact.
+ */
 export function enrichMonthlyPayslipEmployees(
   employees: AnyRow[],
   payslips: AnyRow[],
@@ -921,36 +1020,31 @@ export function enrichMonthlyPayslipEmployees(
 ): AnyRow[] {
   const genM = generationDate.getMonth();
   const genY = generationDate.getFullYear();
-  return employees.map((emp) => {
-    const slip = payslips.find(
-      (p) => Number(p.employeeId) === Number(emp.employeeId),
+  const rows = employees.map((emp) => ({ ...emp }));
+
+  for (const slip of payslips) {
+    const match = rows.find(
+      (row) => Number(row.employeeId) === Number(slip.employeeId),
     );
-    let generatedDate: unknown = null;
-    let grossPay: unknown = null;
-    let netAmount: unknown = null;
-    let empPayslipGenerationId: unknown;
-    if (slip?.payslipMonth) {
-      // Angular assigns the generation id before checking whether the month matches.
-      empPayslipGenerationId = slip.empPayslipGenerationId;
-      const d = new Date(String(slip.payslipMonth));
-      if (
-        !Number.isNaN(d.getTime()) &&
-        d.getMonth() === genM &&
-        d.getFullYear() === genY
-      ) {
-        generatedDate = slip.payslipMonth;
-        grossPay = slip.grossPay;
-        netAmount = slip.netPay;
-      }
+    if (!match) continue;
+    match.empPayslipGenerationId = slip.empPayslipGenerationId;
+    if (slip.payslipMonth == null || slip.payslipMonth === "") {
+      continue;
     }
-    return {
-      ...emp,
-      generatedDate,
-      grossPay,
-      netAmount,
-      empPayslipGenerationId,
-    };
-  });
+    const d = new Date(String(slip.payslipMonth));
+    if (
+      !Number.isNaN(d.getTime()) &&
+      d.getMonth() === genM &&
+      d.getFullYear() === genY
+    ) {
+      match.generatedDate = slip.payslipMonth;
+      match.grossPay = slip.grossPay;
+      match.netAmount = slip.netPay;
+    } else {
+      match.generatedDate = null;
+    }
+  }
+  return rows;
 }
 
 export async function updateEmployeeLossOfPay(
@@ -1005,6 +1099,49 @@ export async function listEmployeeDetails(): Promise<AnyRow[]> {
   return data.filter(
     (row) => !HR_EXCLUDED_ROLES.has(String(row.roleName ?? "")),
   );
+}
+
+/**
+ * Angular HOD Faculty Details — `listByThreeIds(employeeDetail, deptId, collegeId, statusId,
+ *   'employeeDepartmentId', 'collegeId', 'employeeStatusId')`.
+ * `departmentId` / `collegeId` may be comma-joined scopes from empSecurity.
+ */
+export async function listHodFacultyByDeptCollegeStatus(params: {
+  departmentId: string | number;
+  collegeId: string | number;
+  employeeStatusId: number;
+}): Promise<AnyRow[]> {
+  const { departmentId, collegeId, employeeStatusId } = params;
+  if (!departmentId || !collegeId || !employeeStatusId) return [];
+  const data = await fetchDetails<unknown>(
+    EMPLOYEE_API.EMPLOYEE_DETAIL_FILTER,
+    {
+      employeeDepartmentId: departmentId,
+      collegeId,
+      employeeStatusId,
+    },
+  );
+  return normalizeListPayload(data);
+}
+
+/**
+ * Angular Principal Faculty Details — `listByTwoIds(employeeDetail, collegeId, statusId,
+ *   'collegeId', 'employeeStatusId')`.
+ */
+export async function listHodFacultyByCollegeStatus(params: {
+  collegeId: string | number;
+  employeeStatusId: number;
+}): Promise<AnyRow[]> {
+  const { collegeId, employeeStatusId } = params;
+  if (!collegeId || !employeeStatusId) return [];
+  const data = await fetchDetails<unknown>(
+    EMPLOYEE_API.EMPLOYEE_DETAIL_FILTER,
+    {
+      collegeId,
+      employeeStatusId,
+    },
+  );
+  return normalizeListPayload(data);
 }
 
 /** Angular POST `sendEmployeeMails` — payload `[{ employeeId, collegeId }, ...]`. */
@@ -1548,4 +1685,45 @@ export async function uploadEmployeeEnrollmentFiles(
   formData: FormData,
 ): Promise<unknown> {
   return uploadFile(EMPLOYEE_API.UPLOAD_FILES, formData);
+}
+
+export type PayrollBankStatementRow = Record<string, unknown> & {
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  designation_name?: string | null;
+  account_number?: string | null;
+  net_pay?: number | null;
+  ifsc_code?: string | null;
+  __rowKey?: string;
+};
+
+/**
+ * Angular hr-reports/employee-salaries-process-bank-copy getList:
+ * GET `getAllRecords/s_rep_payroll_bank_statement`
+ * `in_clg_id=&in_pay_month=&in_pay_year=`
+ */
+export async function fetchPayrollBankStatement(params: {
+  collegeId: number;
+  month: number;
+  year: number;
+}): Promise<PayrollBankStatementRow[]> {
+  const envelope = await getAllRecordsEnvelope<{ result?: unknown[][] }>(
+    HR_PAYROLL_API.PAYROLL_BANK_STATEMENT,
+    {
+      in_clg_id: params.collegeId,
+      in_pay_month: params.month,
+      in_pay_year: params.year,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load payroll bank statement",
+    );
+  }
+  const block = envelope.data?.result?.[0];
+  return Array.isArray(block) ? (block as PayrollBankStatementRow[]) : [];
 }

@@ -77,7 +77,7 @@ export function useExamFormsPrint(
         disabled={students.length === 0}
         onClick={() => navigateToPrint("dform")}
       >
-        <Printer className="mr-1.5 h-3.5 w-3.5" /> Print D Forms
+        <Printer className="mr-1.5 h-3.5 w-3.5" /> Print D-Form
       </Button>
       <Button
         type="button"
@@ -85,7 +85,7 @@ export function useExamFormsPrint(
         disabled={students.length === 0}
         onClick={() => navigateToPrint("form")}
       >
-        <Printer className="mr-1.5 h-3.5 w-3.5" /> Print Forms
+        <Printer className="mr-1.5 h-3.5 w-3.5" /> Print Form
       </Button>
     </div>
   );

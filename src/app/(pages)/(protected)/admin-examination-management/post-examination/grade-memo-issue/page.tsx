@@ -755,7 +755,7 @@ export default function GradeMemoIssuePage() {
 
   return (
     <FilteredListPage<AnyRow>
-      title="Student Exam Certificates"
+      title="Grade Memo Issue"
       filters={
         <div className="space-y-3">
           <RadioGroup
@@ -892,60 +892,63 @@ export default function GradeMemoIssuePage() {
       rowData={showStudentTable ? resultRows : undefined}
       columnDefs={showStudentTable ? SUBJECT_COLS : undefined}
       loading={loading}
+      hideEmptyGrid
       pagination
       exportCsv
-      toolbar={{ search: true, searchPlaceholder: "Search…", exportPdf: false }}
-      toolbarLeading={
+      filtersFooter={
         showStudentTable ? (
-          <span className="whitespace-nowrap text-[12px] text-muted-foreground">
-            {strFrom(resultRows[0] ?? {}, ["exam_name"])} —{" "}
-            {strFrom(resultRows[0] ?? {}, ["exam_month_year"])}
-            {" · "}SGPA: {resultRows[0]?.sgpa ?? "-"} · CGPA:{" "}
-            {resultRows[0]?.cgpa ?? "-"}
-          </span>
-        ) : undefined
-      }
-      toolbarTrailing={
-        showStudentTable ? (
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-40">
-              <label
-                htmlFor="grade-memo-student-date"
-                className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-              >
-                Memo Date
-              </label>
-              <Input
-                id="grade-memo-student-date"
-                type="date"
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <span className="min-w-0 flex-1 text-[12px] text-muted-foreground">
+              {strFrom(resultRows[0] ?? {}, ["exam_name"])} —{" "}
+              {strFrom(resultRows[0] ?? {}, ["exam_month_year"])}
+              {" · "}SGPA: {resultRows[0]?.sgpa ?? "-"} · CGPA:{" "}
+              {resultRows[0]?.cgpa ?? "-"}
+            </span>
+            <div className="flex shrink-0 flex-wrap items-end gap-2">
+              <div className="w-40">
+                <label
+                  htmlFor="grade-memo-student-date"
+                  className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+                >
+                  Memo Date
+                </label>
+                <Input
+                  id="grade-memo-student-date"
+                  type="date"
+                  className="h-8 text-[12px]"
+                  value={memoDate}
+                  onChange={(e) => setMemoDate(e.target.value)}
+                />
+              </div>
+              <Button
                 className="h-8 text-[12px]"
-                value={memoDate}
-                onChange={(e) => setMemoDate(e.target.value)}
-              />
+                variant="outline"
+                onClick={() => handlePrint("sample")}
+              >
+                Sample Grade Card
+              </Button>
+              <Button
+                className="h-8 text-[12px]"
+                variant="outline"
+                onClick={() => handlePrint("gradeCard")}
+              >
+                Print Grade Card
+              </Button>
+              <Button
+                className="h-8 text-[12px]"
+                variant="outline"
+                onClick={() => handlePrint("markSheet")}
+              >
+                Print Mark Sheet
+              </Button>
             </div>
-            <Button
-              className="h-8 text-[12px]"
-              variant="outline"
-              onClick={() => handlePrint("sample")}
-            >
-              Sample Grade Card
-            </Button>
-            <Button
-              className="h-8 text-[12px]"
-              variant="outline"
-              onClick={() => handlePrint("gradeCard")}
-            >
-              Print Grade Card
-            </Button>
-            <Button
-              className="h-8 text-[12px]"
-              variant="outline"
-              onClick={() => handlePrint("markSheet")}
-            >
-              Print Mark Sheet
-            </Button>
           </div>
         ) : undefined
+      }
+      toolbar={
+        showStudentTable
+          ? { search: true, searchPlaceholder: "Search…", exportPdf: false }
+          : false
       }
       body={
         !showStudentTable ? (

@@ -47,8 +47,12 @@ export function buildPayFeesSearchParams(
       String(student.studentStatusDisplayName),
     );
   }
-  if (student.isLateral != null)
+  if (student.isLateral != null) {
     params.set("isLateral", String(student.isLateral));
+  } else {
+    // Angular always passes isLateral; default REGULAR when search omits it
+    params.set("isLateral", "false");
+  }
   return params;
 }
 

@@ -10,7 +10,7 @@ import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   BONAFIDE_APPLICATION_STATUS_ID,
-  BONAFIDE_COLLEGE_CERTIFICATE_ID,
+  BONAFIDE_CERTIFICATE_CODE,
   generateBonafideCertificate,
   getBonafideCertificateIssue,
   listFeeReceiptsByStudent,
@@ -133,7 +133,7 @@ export default function BonafiedCertificatePage() {
         collegeId,
         courseYearId,
         studentId: studentNum,
-        collegeCertificateId: BONAFIDE_COLLEGE_CERTIFICATE_ID,
+        certifcateCode: BONAFIDE_CERTIFICATE_CODE,
         applicationStatusId: BONAFIDE_APPLICATION_STATUS_ID,
       });
       toastSuccess(result?.message ?? "Certificate generated successfully");
@@ -149,6 +149,10 @@ export default function BonafiedCertificatePage() {
   }
 
   function handlePrint() {
+    if (!selectedStudent || isEmptyStudent(selectedStudent)) {
+      toastError(new Error("Please select a student"), "Validation");
+      return;
+    }
     setPrintDate(new Date());
     window.print();
   }
@@ -323,7 +327,7 @@ export default function BonafiedCertificatePage() {
         }
       />
 
-      {selectedStudent && orgCode ? (
+      {selectedStudent && !isEmptyStudent(selectedStudent) ? (
         <BonafideCertificatePrint
           orgCode={orgCode}
           student={selectedStudent}

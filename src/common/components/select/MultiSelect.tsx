@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { dedupeSelectOptions, type SelectOption } from "./Select";
+import {
+  dedupeSelectOptions,
+  selectOptionTooltip,
+  type SelectOption,
+} from "./Select";
+import { OptionTooltip } from "./OptionTooltip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -180,30 +185,40 @@ export function MultiSelect({
       return <span className="text-slate-400 truncate">{placeholder}</span>;
     }
 
-    // Map selected values to labels (preserve insertion order from `value`)
-    const selectedLabels = value.map(
-      (v) => uniqueOptions.find((o) => o.value === v)?.label ?? v,
+    // Map selected values to options (preserve insertion order from `value`)
+    const selectedOpts = value.map(
+      (v) =>
+        uniqueOptions.find((o) => o.value === v) ?? {
+          value: v,
+          label: v,
+        },
     );
 
-    const visible = selectedLabels.slice(0, maxDisplay);
-    const overflow = selectedLabels.length - maxDisplay;
+    const visible = selectedOpts.slice(0, maxDisplay);
+    const overflow = selectedOpts.length - maxDisplay;
+    const allLabels = selectedOpts.map((o) => o.label).join(", ");
 
     return (
-      <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
-        {visible.map((lbl, i) => (
-          <span
-            key={i}
-            className="inline-flex max-w-full shrink items-center truncate rounded-md bg-primary/10 px-1.5 py-0 text-[length:var(--app-control-font-size)] font-medium text-primary"
-          >
-            {lbl}
-          </span>
-        ))}
-        {overflow > 0 && (
-          <span className="text-xs text-muted-foreground">
-            +{overflow} more
-          </span>
-        )}
-      </span>
+      <OptionTooltip
+        content={allLabels || undefined}
+        className="min-w-0 flex-1"
+      >
+        <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
+          {visible.map((opt, i) => (
+            <span
+              key={i}
+              className="inline-flex max-w-full shrink items-center truncate rounded-md bg-primary/10 px-1.5 py-0 text-[length:var(--app-control-font-size)] font-medium text-primary"
+            >
+              {opt.label}
+            </span>
+          ))}
+          {overflow > 0 && (
+            <span className="text-xs text-muted-foreground">
+              +{overflow} more
+            </span>
+          )}
+        </span>
+      </OptionTooltip>
     );
   }
 
@@ -392,7 +407,12 @@ export function MultiSelect({
                       onClick={(e) => e.stopPropagation()}
                       aria-label={opt.label}
                     />
-                    <span className="truncate">{opt.label}</span>
+                    <OptionTooltip
+                      content={selectOptionTooltip(opt)}
+                      className="min-w-0 flex-1"
+                    >
+                      <span className="block truncate">{opt.label}</span>
+                    </OptionTooltip>
                   </div>
                 );
               })

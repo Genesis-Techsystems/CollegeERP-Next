@@ -90,6 +90,83 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   return out;
 }
 
+function regulationIdOf(row: AnyRow): number {
+  return Number(row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0);
+}
+
+/** Angular selectedCollege → selectedCourseGroup → selectedYear (client-side only). */
+function cascadeFromRest(
+  rows: AnyRow[],
+  collegeId: number,
+  preferredGroupId?: number | null,
+  preferredYearId?: number | null,
+): { courseGroupId: number; courseYearId: number; regulationId: number | null } {
+  const groupRows = dedupeBy(
+    rows.filter((x) => Number(x.fk_college_id) === Number(collegeId)),
+    "fk_course_group_id",
+  );
+  let nextGroupId: number;
+  if (preferredGroupId === 0) {
+    nextGroupId = 0;
+  } else if (
+    preferredGroupId != null &&
+    groupRows.some(
+      (x) => Number(x.fk_course_group_id) === Number(preferredGroupId),
+    )
+  ) {
+    nextGroupId = Number(preferredGroupId);
+  } else {
+    nextGroupId = groupRows[0] ? Number(groupRows[0].fk_course_group_id) : 0;
+  }
+
+  const yearRows = dedupeBy(
+    rows.filter(
+      (x) =>
+        Number(x.fk_college_id) === Number(collegeId) &&
+        (nextGroupId === 0 ||
+          Number(x.fk_course_group_id) === Number(nextGroupId)),
+    ),
+    "fk_course_year_id",
+  );
+  let nextYearId: number;
+  if (preferredYearId === 0) {
+    nextYearId = 0;
+  } else if (
+    preferredYearId != null &&
+    yearRows.some((x) => Number(x.fk_course_year_id) === Number(preferredYearId))
+  ) {
+    nextYearId = Number(preferredYearId);
+  } else {
+    nextYearId = yearRows[0] ? Number(yearRows[0].fk_course_year_id) : 0;
+  }
+
+  const regRows = dedupeBy(
+    rows
+      .filter(
+        (x) =>
+          Number(x.fk_college_id) === Number(collegeId) &&
+          (nextGroupId === 0 ||
+            Number(x.fk_course_group_id) === Number(nextGroupId)) &&
+          (nextYearId === 0 ||
+            Number(x.fk_course_year_id) === Number(nextYearId)) &&
+          regulationIdOf(x) > 0,
+      )
+      .map((x) => ({ ...x, fk_regulation_id: regulationIdOf(x) })),
+    "fk_regulation_id",
+  );
+
+  return {
+    courseGroupId: nextGroupId,
+    courseYearId: nextYearId,
+    regulationId:
+      nextGroupId === 0 || nextYearId === 0
+        ? null
+        : regRows[0]
+          ? Number(regRows[0].fk_regulation_id)
+          : null,
+  };
+}
+
 function normalizeAttendanceRows(rows: AnyRow[]): AttendanceRow[] {
   return rows.map((r, i) => {
     const isPresent = r.is_present == null ? true : Boolean(r.is_present);
@@ -195,17 +272,16 @@ export default function InternalExamAttendanceMarkingPage() {
       ),
     [collegesListDetails],
   );
-  const courseGroups = useMemo(() => {
+  const courseGroupRows = useMemo(() => {
     const filtered = collegesListDetails.filter(
       (x) => Number(x.fk_college_id) === Number(collegeId),
     );
-    return [
-      0,
-      ...dedupeBy(filtered, "fk_course_group_id").map((x) =>
-        Number(x.fk_course_group_id),
-      ),
-    ];
+    return dedupeBy(filtered, "fk_course_group_id");
   }, [collegesListDetails, collegeId]);
+  const courseGroups = useMemo(
+    () => [0, ...courseGroupRows.map((x) => Number(x.fk_course_group_id))],
+    [courseGroupRows],
+  );
   const courseYears = useMemo(() => {
     const filtered = collegesListDetails.filter(
       (x) =>
@@ -220,13 +296,23 @@ export default function InternalExamAttendanceMarkingPage() {
       ),
     ];
   }, [collegesListDetails, collegeId, courseGroupId]);
+  // Angular selectedYear: regulations from CollegesListDetails (rest filters)
   const regulations = useMemo(() => {
-    const filtered = collegesListDetails.filter(
-      (x) =>
-        Number(x.fk_college_id) === Number(collegeId) &&
-        Number(x.fk_course_group_id) === Number(courseGroupId) &&
-        Number(x.fk_course_year_id) === Number(courseYearId),
-    );
+    if (!collegeId || !courseGroupId || !courseYearId) return [];
+    const filtered = collegesListDetails
+      .filter(
+        (x) =>
+          Number(x.fk_college_id) === Number(collegeId) &&
+          Number(x.fk_course_group_id) === Number(courseGroupId) &&
+          Number(x.fk_course_year_id) === Number(courseYearId) &&
+          regulationIdOf(x) > 0,
+      )
+      .map((x) => ({
+        ...x,
+        fk_regulation_id: regulationIdOf(x),
+        regulation_code:
+          x.regulation_code ?? x.regulationCode ?? x.regulation_name,
+      }));
     return dedupeBy(filtered, "fk_regulation_id");
   }, [collegesListDetails, collegeId, courseGroupId, courseYearId]);
   const subjects = useMemo(
@@ -325,36 +411,69 @@ export default function InternalExamAttendanceMarkingPage() {
     void loadInitial();
   }, [employeeId]);
 
+  // Angular selectedExam → ONE univ_exam_rest_in_regexamstd call, then client cascade.
   useEffect(() => {
+    let cancelled = false;
     async function loadRest() {
-      setCollegesListDetails([]);
       setRows([]);
       setHasFetched(false);
+      setCollegesListDetails([]);
+      setCollegeId(null);
+      setCourseGroupId(0);
+      setCourseYearId(0);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubjectTypeList([]);
+      setInvigilatorRows([]);
       if (!courseId || !examId || !academicYearId) return;
+
       const data = await getInternalAttendanceRestFilters({
         courseId,
         examId,
         academicYearId,
         employeeId,
       }).catch(() => []);
-      setCollegesListDetails(Array.isArray(data) ? data : []);
+      if (cancelled) return;
+
+      const restRows = Array.isArray(data) ? data : [];
+      setCollegesListDetails(restRows);
+
+      const collegeList = dedupeBy(restRows, "fk_college_id").sort(
+        (a, b) => Number(a.clg_sort_order ?? 0) - Number(b.clg_sort_order ?? 0),
+      );
+      if (collegeList.length === 0) return;
+
+      const nextCollegeId = Number(collegeList[0].fk_college_id);
+      const cascaded = cascadeFromRest(restRows, nextCollegeId);
+      setCollegeId(nextCollegeId);
+      setCourseGroupId(cascaded.courseGroupId);
+      setCourseYearId(cascaded.courseYearId);
+      setRegulationId(cascaded.regulationId);
     }
     void loadRest();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId, examId, academicYearId, employeeId]);
 
+  // Angular selectedRegulation → ONE univ_exam_subject_regexamstd call (not during cascade).
   useEffect(() => {
+    let cancelled = false;
     async function loadSubjects() {
-      setSubjectTypeList([]);
       if (
         !collegeId ||
         !courseId ||
         courseGroupId == null ||
         courseYearId == null ||
+        courseGroupId === 0 ||
+        courseYearId === 0 ||
         !examId ||
         !academicYearId ||
         !regulationId
-      )
+      ) {
+        setSubjectTypeList([]);
         return;
+      }
       const data = await getInternalAttendanceSubjects({
         collegeId,
         courseId,
@@ -365,9 +484,13 @@ export default function InternalExamAttendanceMarkingPage() {
         regulationId,
         employeeId,
       }).catch(() => []);
+      if (cancelled) return;
       setSubjectTypeList(Array.isArray(data) ? data : []);
     }
     void loadSubjects();
+    return () => {
+      cancelled = true;
+    };
   }, [
     collegeId,
     courseId,
@@ -379,60 +502,83 @@ export default function InternalExamAttendanceMarkingPage() {
     employeeId,
   ]);
 
+  // Drop stale subject if list refreshes; do NOT auto-pick (Angular requires user select).
   useEffect(() => {
+    if (subjectId == null) return;
+    if (
+      !subjects.some((s) => Number(s.fk_subject_id) === Number(subjectId))
+    ) {
+      setSubjectId(null);
+    }
+  }, [subjects, subjectId]);
+
+  // Angular selectedSubject → invigilators (only after user picks subject).
+  useEffect(() => {
+    let cancelled = false;
     async function loadInvigilators() {
-      setInvigilatorRows([]);
-      if (!collegeId || !examId || !subjectId) return;
+      if (!collegeId || !examId || !subjectId) {
+        setInvigilatorRows([]);
+        return;
+      }
       const data = isStaff
         ? await listStaffExamAllotInvigilators(employeeId).catch(() => [])
         : await listExamAllotmentInvigilators({ collegeId, examId }).catch(
             () => [],
           );
+      if (cancelled) return;
       setInvigilatorRows(Array.isArray(data) ? data : []);
     }
     void loadInvigilators();
+    return () => {
+      cancelled = true;
+    };
   }, [collegeId, examId, subjectId, isStaff, employeeId]);
 
+  // Initial course only — keep selection if still valid (Angular selectedCourse once).
   useEffect(() => {
-    if (courses[0]?.fk_course_id) setCourseId(Number(courses[0].fk_course_id));
+    if (courses.length === 0) return;
+    setCourseId((prev) =>
+      prev != null && courses.some((x) => Number(x.fk_course_id) === Number(prev))
+        ? Number(prev)
+        : Number(courses[0].fk_course_id),
+    );
   }, [courses]);
 
   useEffect(() => {
     if (academicYears.length === 0) return;
     const current =
       academicYears.find((x) => Number(x.is_curr_ay) === 1) ?? academicYears[0];
-    if (current?.fk_academic_year_id)
-      setAcademicYearId(Number(current.fk_academic_year_id));
+    const currentId = Number(current?.fk_academic_year_id ?? 0);
+    if (!currentId) return;
+    setAcademicYearId((prev) =>
+      prev != null &&
+      academicYears.some((x) => Number(x.fk_academic_year_id) === Number(prev))
+        ? Number(prev)
+        : currentId,
+    );
   }, [academicYears]);
 
   useEffect(() => {
-    if (exams[0]?.fk_exam_id) setExamId(Number(exams[0].fk_exam_id));
+    if (exams.length === 0) {
+      setExamId(null);
+      return;
+    }
+    setExamId((prev) =>
+      prev != null && exams.some((x) => Number(x.fk_exam_id) === Number(prev))
+        ? Number(prev)
+        : Number(exams[0].fk_exam_id),
+    );
   }, [exams]);
 
+  // Angular selectedExam sets exam date from exam from_date.
   useEffect(() => {
-    if (colleges[0]?.fk_college_id)
-      setCollegeId(Number(colleges[0].fk_college_id));
-  }, [colleges]);
-
-  useEffect(() => {
-    if (courseGroups.length > 1) setCourseGroupId(courseGroups[1] ?? 0);
-    else setCourseGroupId(0);
-  }, [courseGroups]);
-
-  useEffect(() => {
-    if (courseYears.length > 1) setCourseYearId(courseYears[1] ?? 0);
-    else setCourseYearId(0);
-  }, [courseYears]);
-
-  useEffect(() => {
-    if (regulations[0]?.fk_regulation_id)
-      setRegulationId(Number(regulations[0].fk_regulation_id));
-  }, [regulations]);
-
-  useEffect(() => {
-    if (subjects[0]?.fk_subject_id)
-      setSubjectId(Number(subjects[0].fk_subject_id));
-  }, [subjects]);
+    if (!selectedExam) {
+      setExamDate("");
+      return;
+    }
+    const raw = String(selectedExam.from_date ?? selectedExam.fromDate ?? "").trim();
+    setExamDate(raw ? raw.slice(0, 10) : "");
+  }, [selectedExam]);
 
   useEffect(() => {
     setInvigilatorEmpId(0);
@@ -440,7 +586,6 @@ export default function InternalExamAttendanceMarkingPage() {
     setRows([]);
     setHasFetched(false);
     if (!subjectId) {
-      setExamDate("");
       setLabBatchId(0);
       return;
     }
@@ -448,7 +593,7 @@ export default function InternalExamAttendanceMarkingPage() {
       (x) => Number(x.fk_subject_id) === Number(subjectId),
     );
     const dateRaw = String(subjectRow?.exam_date ?? "").trim();
-    setExamDate(dateRaw ? dateRaw.slice(0, 10) : "");
+    if (dateRaw) setExamDate(dateRaw.slice(0, 10));
     setLabBatchId(0);
   }, [subjectId, subjectTypeList]);
 
@@ -469,7 +614,7 @@ export default function InternalExamAttendanceMarkingPage() {
         (x) => Number(x.fk_subject_id) === Number(subjectId),
       );
       const dateRaw = String(subjectRow?.exam_date ?? "").trim();
-      setExamDate(dateRaw ? dateRaw.slice(0, 10) : "");
+      if (dateRaw) setExamDate(dateRaw.slice(0, 10));
       return;
     }
     const batchRow = labBatches.find(
@@ -488,6 +633,74 @@ export default function InternalExamAttendanceMarkingPage() {
     setRoomId(roomFromAllot > 0 ? roomFromAllot : 0);
   }, [invigilatorEmpId, invigilatorAllotForEmp]);
 
+  function applyCollegeCascade(nextCollegeId: number | null) {
+    setCollegeId(nextCollegeId);
+    setSubjectId(null);
+    setSubjectTypeList([]);
+    setInvigilatorRows([]);
+    setRows([]);
+    setHasFetched(false);
+    if (!nextCollegeId) {
+      setCourseGroupId(0);
+      setCourseYearId(0);
+      setRegulationId(null);
+      return;
+    }
+    const cascaded = cascadeFromRest(collegesListDetails, nextCollegeId);
+    setCourseGroupId(cascaded.courseGroupId);
+    setCourseYearId(cascaded.courseYearId);
+    setRegulationId(cascaded.regulationId);
+  }
+
+  function applyCourseGroupCascade(nextGroupId: number) {
+    setCourseGroupId(nextGroupId);
+    setSubjectId(null);
+    setSubjectTypeList([]);
+    setInvigilatorRows([]);
+    setRows([]);
+    setHasFetched(false);
+    if (!collegeId) {
+      setCourseYearId(0);
+      setRegulationId(null);
+      return;
+    }
+    const cascaded = cascadeFromRest(
+      collegesListDetails,
+      collegeId,
+      nextGroupId,
+    );
+    setCourseYearId(cascaded.courseYearId);
+    setRegulationId(cascaded.regulationId);
+  }
+
+  function applyCourseYearCascade(nextYearId: number) {
+    setCourseYearId(nextYearId);
+    setSubjectId(null);
+    setSubjectTypeList([]);
+    setInvigilatorRows([]);
+    setRows([]);
+    setHasFetched(false);
+    if (!collegeId) {
+      setRegulationId(null);
+      return;
+    }
+    const cascaded = cascadeFromRest(
+      collegesListDetails,
+      collegeId,
+      courseGroupId ?? 0,
+      nextYearId,
+    );
+    setRegulationId(cascaded.regulationId);
+  }
+
+  function applyRegulationChange(nextRegulationId: number | null) {
+    setRegulationId(nextRegulationId);
+    setSubjectId(null);
+    setSubjectTypeList([]);
+    setInvigilatorRows([]);
+    setRows([]);
+    setHasFetched(false);
+  }
   const onTogglePresent = useCallback(
     (examStdDetId: number, value: boolean) => {
       setRows((prev) =>
@@ -660,21 +873,24 @@ export default function InternalExamAttendanceMarkingPage() {
       })),
     [colleges],
   );
-  const courseGroupOptions = useMemo(
-    () =>
-      courseGroups.map((id) => ({
-        value: String(id),
-        label:
-          id === 0
-            ? "All"
-            : String(
-                collegesListDetails.find(
-                  (r) => Number(r.fk_course_group_id) === id,
-                )?.group_code ?? `Group ${id}`,
-              ),
-      })),
-    [courseGroups, collegesListDetails],
-  );
+  const courseGroupOptions = useMemo(() => {
+    // Angular shows group_code from rest-filter rows (no CourseGroup domain call).
+    return [
+      { value: "0", label: "All" },
+      ...courseGroupRows.map((row) => {
+        const id = Number(row.fk_course_group_id);
+        const code = String(
+          row.group_code ?? row.groupCode ?? "",
+        ).trim();
+        const name = String(
+          row.group_name ?? row.groupName ?? "",
+        ).trim();
+        const label =
+          name && code ? `${name}(${code})` : code || name || `Group ${id}`;
+        return { value: String(id), label };
+      }),
+    ];
+  }, [courseGroupRows]);
   const courseYearOptions = useMemo(
     () =>
       courseYears.map((id) => ({
@@ -827,11 +1043,7 @@ export default function InternalExamAttendanceMarkingPage() {
             <Label>Exam</Label>
             <Select
               value={examId ? String(examId) : null}
-              onChange={(v) => {
-                setExamId(v ? Number(v) : null);
-                setCourseGroupId(0);
-                setCourseYearId(0);
-              }}
+              onChange={(v) => setExamId(v ? Number(v) : null)}
               options={examOptions}
               placeholder="Exam"
             />
@@ -840,7 +1052,7 @@ export default function InternalExamAttendanceMarkingPage() {
             <Label>College</Label>
             <Select
               value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              onChange={(v) => applyCollegeCascade(v ? Number(v) : null)}
               options={collegeOptions}
               placeholder="College"
             />
@@ -849,16 +1061,17 @@ export default function InternalExamAttendanceMarkingPage() {
             <Label>Course Group</Label>
             <Select
               value={courseGroupId == null ? "0" : String(courseGroupId)}
-              onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
+              onChange={(v) => applyCourseGroupCascade(v ? Number(v) : 0)}
               options={courseGroupOptions}
               placeholder="Course Group"
+              wrapOptionLabels
             />
           </div>
           <div className="space-y-1 md:col-span-2">
             <Label>Course Year</Label>
             <Select
               value={courseYearId == null ? "0" : String(courseYearId)}
-              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+              onChange={(v) => applyCourseYearCascade(v ? Number(v) : 0)}
               options={courseYearOptions}
               placeholder="Course Year"
             />
@@ -867,7 +1080,7 @@ export default function InternalExamAttendanceMarkingPage() {
             <Label>Regulation</Label>
             <Select
               value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : null)}
+              onChange={(v) => applyRegulationChange(v ? Number(v) : null)}
               options={regulationOptions}
               placeholder="Regulation"
             />
@@ -967,25 +1180,32 @@ export default function InternalExamAttendanceMarkingPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      hideEmptyGrid
       fitColumnsToWidth={false}
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Internal Exam Attendance",
-      }}
-      toolbarTrailing={
-        <label className="inline-flex shrink-0 items-center gap-2 text-[12px]">
-          <Checkbox
-            checked={allPresent}
-            onCheckedChange={(v) =>
-              setRows((prev) =>
-                prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
-              )
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              pdfDocumentTitle: "Internal Exam Attendance",
             }
-          />
-          <span>{allPresent ? "UnMark All" : "Mark All"}</span>
-        </label>
+          : false
+      }
+      toolbarTrailing={
+        hasFetched && rows.length > 0 ? (
+          <label className="inline-flex shrink-0 items-center gap-2 text-[12px]">
+            <Checkbox
+              checked={allPresent}
+              onCheckedChange={(v) =>
+                setRows((prev) =>
+                  prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
+                )
+              }
+            />
+            <span>{allPresent ? "UnMark All" : "Mark All"}</span>
+          </label>
+        ) : undefined
       }
       rightRail={
         hasFetched ? (
@@ -1027,8 +1247,7 @@ export default function InternalExamAttendanceMarkingPage() {
                 </button>
               ) : null}
               <Button
-                className="h-8 px-5 text-[12px]"
-                variant="outline"
+                className="h-8 px-5 text-[12px] bg-blue-600 text-white hover:bg-blue-700"
                 onClick={onUploadAttendanceClick}
                 disabled={uploadingAttendance || rows.length === 0}
               >

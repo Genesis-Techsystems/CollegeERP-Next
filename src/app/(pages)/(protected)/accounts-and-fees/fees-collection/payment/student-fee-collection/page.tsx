@@ -425,100 +425,106 @@ function StudentFeeCollectionContent() {
     [onPay, page],
   );
 
+  const filters = (
+    <div className="space-y-3">
+      <div className="grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
+        <Select
+          label="College"
+          required
+          value={collegeId}
+          onChange={handleCollegeChange}
+          options={collegeOptions}
+          placeholder="Select college"
+          searchable
+          isLoading={loadingColleges}
+        />
+        <Select
+          label="Academic Year"
+          value={academicYearId}
+          onChange={(v) => {
+            setAcademicYearId(v || null);
+            clearDue();
+          }}
+          options={yearOptions}
+          placeholder="Select"
+          searchable
+          disabled={!collegeId}
+          isLoading={loadingYears}
+          clearable
+        />
+        <Select
+          label="Quota"
+          value={quotaId}
+          onChange={(v) => {
+            setQuotaId(v || null);
+            clearDue();
+          }}
+          options={quotaOptions}
+          placeholder="Select"
+          searchable
+          isLoading={loadingQuotas}
+          clearable
+        />
+        <Select
+          label="Course"
+          value={courseId}
+          onChange={handleCourseChange}
+          options={courseOptions}
+          placeholder="Select"
+          searchable
+          disabled={!collegeId}
+          isLoading={loadingCourses}
+          clearable
+        />
+        <Select
+          label="Course Group"
+          value={courseGroupId}
+          onChange={handleGroupChange}
+          options={groupOptions}
+          placeholder="Select"
+          searchable
+          disabled={!courseId}
+          isLoading={loadingGroups}
+          clearable
+        />
+        <Select
+          label="Course Year"
+          value={courseYearId}
+          onChange={(v) => {
+            setCourseYearId(v || null);
+            clearDue();
+          }}
+          options={courseYearOptions}
+          placeholder="Select"
+          searchable
+          disabled={!courseGroupId}
+          isLoading={loadingCourseYears}
+          clearable
+        />
+        <div className="flex items-end">
+          <Button
+            type="button"
+            className="h-9 w-full"
+            disabled={!collegeId}
+            onClick={() => void getDueList()}
+          >
+            Get Due List
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Angular: table card only after Get Due List (`*ngIf="studentDueList.length>0"` /
+  // fetch). Hide search/Columns/Excel/PDF until then.
   return (
     <FilteredListPage
       title="Student Fee Collection"
-      filters={
-        <div className="space-y-3">
-          <div className="grid max-w-6xl grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            <Select
-              label="College"
-              required
-              value={collegeId}
-              onChange={handleCollegeChange}
-              options={collegeOptions}
-              placeholder="Select college"
-              searchable
-              isLoading={loadingColleges}
-            />
-            <Select
-              label="Academic Year"
-              value={academicYearId}
-              onChange={(v) => {
-                setAcademicYearId(v || null);
-                clearDue();
-              }}
-              options={yearOptions}
-              placeholder="Select"
-              searchable
-              disabled={!collegeId}
-              isLoading={loadingYears}
-              clearable
-            />
-            <Select
-              label="Quota"
-              value={quotaId}
-              onChange={(v) => {
-                setQuotaId(v || null);
-                clearDue();
-              }}
-              options={quotaOptions}
-              placeholder="Select"
-              searchable
-              isLoading={loadingQuotas}
-              clearable
-            />
-            <Select
-              label="Course"
-              value={courseId}
-              onChange={handleCourseChange}
-              options={courseOptions}
-              placeholder="Select"
-              searchable
-              disabled={!collegeId}
-              isLoading={loadingCourses}
-              clearable
-            />
-            <Select
-              label="Course Group"
-              value={courseGroupId}
-              onChange={handleGroupChange}
-              options={groupOptions}
-              placeholder="Select"
-              searchable
-              disabled={!courseId}
-              isLoading={loadingGroups}
-              clearable
-            />
-            <Select
-              label="Course Year"
-              value={courseYearId}
-              onChange={(v) => {
-                setCourseYearId(v || null);
-                clearDue();
-              }}
-              options={courseYearOptions}
-              placeholder="Select"
-              searchable
-              disabled={!courseGroupId}
-              isLoading={loadingCourseYears}
-              clearable
-            />
-            <div className="flex items-end">
-              <Button
-                type="button"
-                className="h-9 w-full"
-                disabled={!collegeId}
-                onClick={() => void getDueList()}
-              >
-                Get Due List
-              </Button>
-            </div>
-          </div>
-        </div>
-      }
+      filters={filters}
+      // No columnDefs + body=null → filters-only card (FilteredPage path).
+      columnDefs={fetchEnabled ? columnDefs : undefined}
+      body={fetchEnabled ? undefined : null}
       rowData={fetchEnabled ? rows : []}
-      columnDefs={columnDefs}
       loading={fetchEnabled && (loadingDue || fetchingDue)}
       height="auto"
       pagination

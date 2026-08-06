@@ -27,6 +27,7 @@ import {
   getExamEvaluationDetailReport,
   type AnyRow,
 } from "@/services";
+import { useRouter } from "next/navigation";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -214,9 +215,11 @@ td {
 }
 
 export default function ExamEvaluationReportPage() {
+  const router = useRouter();
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const collegeLogo = useCollegeLogo(null);
+  const [showBack, setShowBack] = useState(false);
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
   const [subjectFilterRows, setSubjectFilterRows] = useState<AnyRow[]>([]);
@@ -234,6 +237,14 @@ export default function ExamEvaluationReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+
+  useEffect(() => {
+    try {
+      setShowBack(sessionStorage.getItem("examVerificationBack") === "back");
+    } catch {
+      setShowBack(false);
+    }
+  }, []);
 
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
@@ -422,6 +433,15 @@ export default function ExamEvaluationReportPage() {
 
   function clearResults() {
     setRows([]);
+  }
+
+  function onBack() {
+    try {
+      sessionStorage.removeItem("examVerificationBack");
+    } catch {
+      /* ignore */
+    }
+    router.back();
   }
 
   async function onGetList() {

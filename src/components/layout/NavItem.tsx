@@ -188,6 +188,7 @@ import {
 } from "@/lib/hostel-navigation";
 import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
+import { scheduleNavigation } from "@/lib/schedule-navigation";
 import type { NavItem as NavItemType } from "@/types/navigation";
 
 // ---------------------------------------------------------------------------
@@ -795,8 +796,18 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   if (!item.children) return false;
   const normPath = normalizeHref(pathname);
 
-  const mapLabelToRoute = (label?: string): string | null => {
+  const mapLabelToRoute = (label?: string, href?: string): string | null => {
     const lower = (label ?? "").toLowerCase();
+    const hrefLower = (href ?? "").toLowerCase();
+    if (
+      hrefLower.includes("subject-unit-topic-upload") ||
+      hrefLower.includes("subject-unit-topics-bulk-upload")
+    ) {
+      return "/admin/bulk-uploads/subject-unit-topic-upload";
+    }
+    if (hrefLower.includes("unit-topic-bulk-upload")) {
+      return "/admin/bulk-uploads/unit-topic-bulk-upload";
+    }
     if (lower.includes("unit topic bulk upload"))
       return "/admin/bulk-uploads/unit-topic-bulk-upload";
     if (
@@ -886,6 +897,8 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
     if (
       lower.includes("principal-to-dept") ||
       lower.includes("principal-to-dpt") ||
+      lower.includes("principal-communications/email") ||
+      lower.includes("/email/send-emails") ||
       (lower.includes("send email") &&
         lower.includes("department") &&
         lower.includes("email") &&
@@ -917,9 +930,17 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
         !lower.includes("staff") &&
         !lower.includes("absent")) ||
       lower.includes("send-student-sms") ||
+      lower.includes("principal-communications/sms") ||
+      lower.includes("/sms/send-sms") ||
       lower.includes("send sms to student")
     ) {
       return "/email-sms/send-sms-to-students";
+    }
+    if (
+      lower.includes("principal-communications/email") ||
+      lower.includes("/email/send-emails")
+    ) {
+      return "/email-sms/principal-to-dept-email";
     }
     if (
       lower.includes("question bank") &&
@@ -1093,7 +1114,7 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
       mapAdminInstitutionalRoomRoute(ch, child.label) ??
       mapHostelNavRoute(ch, child.label) ??
       mapErpModuleNavRoute(ch, child.label) ??
-      mapLabelToRoute(child.label) ??
+      mapLabelToRoute(child.label, ch) ??
       (ch ? mapLegacyMasterSettingsHref(ch) : null) ??
       ch;
     if (mapped) {
@@ -1363,6 +1384,13 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return `${examReportsBase}/invigilators-remuneration-report`;
       }
+      if (
+        slug === "ou-result-sheet" ||
+        slug === "ou-result-report" ||
+        slug === "ou-result-sheet-report"
+      ) {
+        return `${examReportsBase}/ou-result-sheet`;
+      }
       if (slug && hrefLower.includes("admin-exam-reports/")) {
         return `${examReportsBase}/${slug}`;
       }
@@ -1547,6 +1575,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return `${examReportsBase}/invigilators-remuneration-report`;
     }
     if (
+      hrefLower.includes("ou-result-sheet") ||
+      hrefLower.includes("ou-result-report") ||
+      hrefLower.includes("ou_result") ||
+      (labelLower.includes("ou result") && labelLower.includes("report")) ||
+      labelLower === "ou result report" ||
+      labelLower === "ou result sheet"
+    ) {
+      return `${examReportsBase}/ou-result-sheet`;
+    }
+    if (
       hrefLower.includes("group-wise-passed-result-sheets") ||
       hrefLower.includes("branch-wise-passes-result-sheets") ||
       (labelLower.includes("group wise passed") &&
@@ -1595,6 +1633,80 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("lab"))
     ) {
       return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
+    }
+
+    // Admin Grievance List — Angular `/grievance/complaint`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        (hrefLower.includes("grievance") &&
+          (hrefLower.includes("/complaint") ||
+            hrefLower.endsWith("complaint")) &&
+          !hrefLower.includes("complaint-details") &&
+          !hrefLower.includes("complaint-tasks") &&
+          !hrefLower.includes("complaints-list") &&
+          !hrefLower.includes("staff-grievances") &&
+          !hrefLower.includes("staff-grevievances") &&
+          !hrefLower.includes("student-grievances") &&
+          !hrefLower.includes("student-grevievances")) ||
+        (labelKey === "grievance list" &&
+          hrefLower.includes("grievance") &&
+          !hrefLower.includes("staff") &&
+          !hrefLower.includes("student"))
+      ) {
+        return "/grievance/complaint";
+      }
+    }
+
+    // Grievance Masters — Angular `/grievance/grievance-masters/*`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("grievance-masters") ||
+        hrefLower.includes("grievance-categories") ||
+        (hrefLower.includes("grievance") &&
+          hrefLower.includes("complaints-list")) ||
+        labelKey === "grievance categories" ||
+        labelKey === "grievance category" ||
+        labelKey === "grievance types" ||
+        labelKey === "grievant types" ||
+        labelKey === "grievance committees" ||
+        (hrefLower.includes("grievance") &&
+          (hrefLower.includes("committees") ||
+            hrefLower.includes("committee-members") ||
+            hrefLower.includes("categories") ||
+            hrefLower.includes("complaints-list")))
+      ) {
+        if (
+          hrefLower.includes("members-list") ||
+          hrefLower.includes("member-list")
+        ) {
+          return "/grievance/grievance-masters/committee-members/members-list";
+        }
+        if (hrefLower.includes("committee-members")) {
+          return "/grievance/grievance-masters/committee-members";
+        }
+        if (
+          hrefLower.includes("grievance-categories") ||
+          labelKey === "grievance categories" ||
+          labelKey === "grievance category"
+        ) {
+          return "/grievance/grievance-masters/grievance-categories";
+        }
+        if (
+          hrefLower.includes("complaints-list") ||
+          labelKey === "grievance types" ||
+          labelKey === "grievant types"
+        ) {
+          return "/grievance/grievance-masters/complaints-list";
+        }
+        if (
+          hrefLower.includes("committees") ||
+          labelKey === "grievance committees"
+        ) {
+          return "/grievance/grievance-masters/committees";
+        }
+      }
     }
 
     // Staff Grievances & Suggestions — must beat generic grievance-details / student pins
@@ -1652,12 +1764,80 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/student-grievances";
     }
 
+    // Feedback Status Report — Angular `feedback/feedback-status-report`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("feedback-status") ||
+        labelKey === "feedback status report" ||
+        labelKey === "feedback status"
+      ) {
+        return "/feedback/feedback-status-report";
+      }
+    }
+
+    // Feedback Suggestions Report — Angular `feedback/feedback-suggestion-repot`
+    {
+      const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+      if (
+        hrefLower.includes("feedback-suggestion") ||
+        hrefLower.includes("feedback-suggestion-repot") ||
+        (hrefLower.includes("feedback") &&
+          hrefLower.includes("suggestion") &&
+          (hrefLower.includes("report") || hrefLower.includes("repot"))) ||
+        labelKey === "feedback suggestions report" ||
+        labelKey === "feedback suggestion report" ||
+        labelKey === "survey feedback suggestion report"
+      ) {
+        return "/feedback/feedback-suggestion-report";
+      }
+    }
+
+    // Feedback Consolidate Report — Angular `feedback/feedback-consolidated-report`
+    if (
+      hrefLower.includes("feedback-consolidated") ||
+      hrefLower.includes("feedback-consolidate") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "feedback consolidate report" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "feedback consolidated report" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() ===
+        "survey feedback consolidated report"
+    ) {
+      return "/feedback/feedback-consolidated-report";
+    }
+
+    // Feedback Summary — Angular `feedback/feedback-summary`
+    if (
+      hrefLower.includes("feedback-summary") ||
+      hrefLower.includes("feedback-summary-report") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "feedback summary" ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "survey summary"
+    ) {
+      return "/feedback/feedback-summary";
+    }
+
+    // Student Feedback List — Angular `feedback/student-feedback-list`
+    if (hrefLower.includes("student-feedback-list")) {
+      return "/feedback/student-feedback-list";
+    }
+
     // Student Feedback — Angular `student-student-feedback`
     if (
       hrefLower.includes("student-student-feedback") ||
       labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "student feedback"
     ) {
       return "/student-student-feedback";
+    }
+
+    // Employee Feedback — Angular `my-feedback/suvey-form` (`EmployeeFeedbackComponent`)
+    if (
+      hrefLower.includes("my-feedback/suvey-form") ||
+      hrefLower.includes("suvey-form") ||
+      hrefLower.includes("employee-feedback") ||
+      labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "employee feedback"
+    ) {
+      return "/my-feedback/suvey-form";
     }
 
     // Student Requests — No Due Certificate (must beat TC staff "nodue" catch-all)
@@ -2153,6 +2333,63 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       }
 
       // TC & No Due — disambiguate certificate routes (shared Angular certificates module).
+      // Principal My Approvals — TC No Due Approvals (must beat staff "nodue" catch-all)
+      if (
+        hrefLower.includes("tc-no-due-approvals") ||
+        hrefLower.includes("no-due-status") ||
+        hrefLower.includes("principal-my-approvals/tc-no-due") ||
+        labelKey === "tc no due approvals" ||
+        (labelLower.includes("tc") &&
+          labelLower.includes("no") &&
+          labelLower.includes("due") &&
+          labelLower.includes("approv"))
+      ) {
+        return "/principal-my-approvals/tc-no-due-approvals";
+      }
+
+      // HOD Faculty Details — Angular `staff-faculty-details/faculty-details`
+      // (must pin before leave-approvals / faculty-details/leave-approvals remap)
+      if (
+        labelKey === "faculty details" ||
+        labelKey === "faculty detail" ||
+        hrefLower.includes("staff-faculty-details/faculty-details") ||
+        (hrefLower.includes("faculty-details") &&
+          !hrefLower.includes("leave-approvals") &&
+          !hrefLower.includes("leave_approvals") &&
+          !hrefLower.includes("performance") &&
+          !hrefLower.includes("appraisal") &&
+          !hrefLower.includes("salary") &&
+          !hrefLower.includes("proxy"))
+      ) {
+        return "/staff-faculty-details/faculty-details";
+      }
+
+      // Principal Leave Requests (Angular `leave-applications`; also leave-approvals / faculty-details)
+      if (
+        hrefLower.includes("leave-applications") ||
+        hrefLower.includes("leave_applications") ||
+        hrefLower.includes("leaveapplications") ||
+        hrefLower.includes("leave-approvals") ||
+        hrefLower.includes("leave_approvals") ||
+        hrefLower.includes("leaveapprovals") ||
+        labelKey === "leave approvals" ||
+        labelKey === "leave approval" ||
+        labelKey === "leave requests" ||
+        labelKey === "leave request" ||
+        labelKey === "leave applications" ||
+        labelKey === "leave application" ||
+        (labelLower.includes("leave") &&
+          (labelLower.includes("approv") ||
+            labelLower.includes("request") ||
+            labelLower.includes("application")) &&
+          !labelLower.includes("type") &&
+          !labelLower.includes("entitlement") &&
+          !labelLower.includes("allotment") &&
+          !labelLower.includes("apply"))
+      ) {
+        return "/principal-my-approvals/leave-applications";
+      }
+
       // Skip student-requests TC (handled above as `/student-requests/request-for-tc`).
       if (
         labelLower.includes("transfer") &&
@@ -2172,8 +2409,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           hrefLower.includes("nodue")) &&
         !hrefLower.includes("student-request") &&
         !hrefLower.includes("no-due-certificate") &&
+        !hrefLower.includes("tc-no-due-approvals") &&
+        !hrefLower.includes("no-due-status") &&
+        !hrefLower.includes("principal-my-approvals") &&
         labelKey !== "no due certificate" &&
-        labelKey !== "request for no due certificate"
+        labelKey !== "request for no due certificate" &&
+        labelKey !== "tc no due approvals"
       ) {
         return "/tc-no-due-approval/send-no-due-approval-request";
       }
@@ -2187,7 +2428,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/tc-no-due-approval/certificates-issued-list";
       }
       if (labelLower.includes("certificate") && labelLower.includes("report")) {
-        return "/tc-no-due-approval/certificate-request-report";
+        return "/reports/admin-student-reports/certificate-request-report";
       }
       if (
         labelLower.includes("certificate") &&
@@ -2235,9 +2476,183 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         (labelLower.includes("fee receipt") &&
           !labelLower.includes("update") &&
           !labelLower.includes("exam") &&
-          !labelLower.includes("print"))
+          !labelLower.includes("print") &&
+          !labelLower.includes("day wise") &&
+          !labelLower.includes("day-wise"))
       ) {
         return "/accounts-and-fees/fees-collection/fee-receipts";
+      }
+      // Fee reports — must beat Fee Particulars master (label contains "fee particular")
+      if (
+        hrefLower.includes("fee-particular-wise-report") ||
+        (labelLower.includes("fee") &&
+          labelLower.includes("particular") &&
+          labelLower.includes("wise") &&
+          labelLower.includes("report"))
+      ) {
+        return "/accounts-and-fees/fee-reports/fee-particular-wise-report";
+      }
+      if (
+        hrefLower.includes("fee-due-list-report") ||
+        (labelLower.includes("fee") &&
+          labelLower.includes("due") &&
+          labelLower.includes("list") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("exam") &&
+          !labelLower.includes("scholarship"))
+      ) {
+        return "/accounts-and-fees/fee-reports/fee-due-list-report";
+      }
+      if (
+        hrefLower.includes("collections-report") ||
+        (labelLower.includes("collections") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("library") &&
+          !labelLower.includes("mngt") &&
+          !labelLower.includes("management") &&
+          !labelLower.includes("bus"))
+      ) {
+        return "/accounts-and-fees/fee-reports/collections-report";
+      }
+      // Fee Reports → Due List only (not Exam/Scholarship/Fee Due List Report).
+      {
+        const dueLabel = labelLower.replace(/\s+/g, " ").trim();
+        const isFeeReportsDueListPath =
+          /(?:^|\/)(?:accounts-and-fees\/)?fee-reports\/due-list(?:\/|$)/.test(
+            hrefLower,
+          ) ||
+          /(?:^|\/)(?:reports\/)?admin-fee-reports\/due-list(?:\/|$)/.test(
+            hrefLower,
+          );
+        const isExactDueListLabel = dueLabel === "due list";
+        if (
+          isFeeReportsDueListPath ||
+          (isExactDueListLabel &&
+            (hrefLower.includes("fee-reports") ||
+              hrefLower.includes("admin-fee-reports") ||
+              hrefLower.includes("accounts-and-fees") ||
+              hrefLower.includes("due-list")))
+        ) {
+          return "/reports/admin-fee-reports/due-list";
+        }
+      }
+      // Angular Fee Ledger report
+      if (
+        hrefLower.includes("fee-ledger") ||
+        hrefLower.includes("admin-fee-reports/feeledger") ||
+        (labelLower.includes("fee ledger") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/")))
+      ) {
+        return "/reports/admin-fee-reports/fee-ledger";
+      }
+      // Angular Bus Fee Collections / Bus Fee Report
+      if (
+        hrefLower.includes("bus-fee-collections") ||
+        hrefLower.includes("admin-fee-reports/bus-fee") ||
+        (labelLower.includes("bus fee") &&
+          (labelLower.includes("collection") ||
+            labelLower.includes("report")) &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("fee")))
+      ) {
+        return "/reports/admin-fee-reports/bus-fee-collections";
+      }
+      // Angular MNGT Students Fee Collections / Management Fee Report
+      if (
+        hrefLower.includes("mgt-fee-collections") ||
+        hrefLower.includes("admin-fee-reports/mgt-fee") ||
+        hrefLower.includes("managementstdfeecollections") ||
+        ((labelLower.includes("mngt") ||
+          labelLower.includes("mgt") ||
+          labelLower.includes("management")) &&
+          labelLower.includes("fee") &&
+          labelLower.includes("collection") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("student")))
+      ) {
+        return "/reports/admin-fee-reports/mgt-fee-collections";
+      }
+      // Angular Library Students Fee Collections
+      if (
+        hrefLower.includes("library-fee-collections") ||
+        hrefLower.includes("admin-fee-reports/library-fee") ||
+        hrefLower.includes("libraryfeecollections") ||
+        (labelLower.includes("library") &&
+          labelLower.includes("fee") &&
+          labelLower.includes("collection") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("student")))
+      ) {
+        return "/reports/admin-fee-reports/library-fee-collections";
+      }
+      // Angular Scholarship Due List
+      if (
+        hrefLower.includes("scholarship-due-list") ||
+        hrefLower.includes("admin-fee-reports/scholarship-due") ||
+        hrefLower.includes("s_rep_scholarship_duelist") ||
+        (labelLower.includes("scholarship") &&
+          labelLower.includes("due list") &&
+          (hrefLower.includes("fee-reports") ||
+            hrefLower.includes("admin-fee-reports") ||
+            hrefLower.includes("/reports/") ||
+            labelLower.includes("fee")))
+      ) {
+        return "/reports/admin-fee-reports/scholarship-due-list";
+      }
+      // Angular Day Wise Application Report
+      if (
+        hrefLower.includes("student-application-report") ||
+        hrefLower.includes("admin-student-reports/student-application") ||
+        (labelLower.includes("day wise") &&
+          labelLower.includes("application") &&
+          (hrefLower.includes("student") ||
+            hrefLower.includes("admin-student") ||
+            labelLower.includes("report")))
+      ) {
+        return "/reports/admin-student-reports/student-application-report";
+      }
+      // Angular Student Caste Wise Gender Count
+      if (
+        hrefLower.includes("caste-wise-gender") ||
+        hrefLower.includes("caste_wise_gender") ||
+        hrefLower.includes("student-caste-wise-gender") ||
+        (labelLower.includes("caste") &&
+          labelLower.includes("gender") &&
+          (labelLower.includes("count") || labelLower.includes("wise")) &&
+          (hrefLower.includes("student") ||
+            hrefLower.includes("admin-student") ||
+            labelLower.includes("student")))
+      ) {
+        return "/reports/admin-student-reports/student-caste-wise-gender-count-report";
+      }
+      // Angular Report Catalog (report-catalyst)
+      if (
+        hrefLower.includes("report-catalyst") ||
+        hrefLower.includes("overall-reports") ||
+        labelLower === "report catalog" ||
+        (labelLower.includes("report catalog") && !labelLower.includes("fee"))
+      ) {
+        return "/report-catalyst";
+      }
+      // Angular Day Wise Fee Report / Day Wise Receipts
+      if (
+        hrefLower.includes("daywise-fee-report") ||
+        hrefLower.includes("day-wise-fee-report") ||
+        hrefLower.includes("admin-fee-reports/daywise") ||
+        (labelLower.includes("day wise") &&
+          (labelLower.includes("receipt") || labelLower.includes("fee"))) ||
+        (labelLower.includes("day-wise") &&
+          (labelLower.includes("receipt") || labelLower.includes("fee")))
+      ) {
+        return "/accounts-and-fees/fee-reports/daywise-fee-report";
       }
       if (
         hrefLower.includes("fee-masters/fee-categor") ||
@@ -2250,7 +2665,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       if (
         hrefLower.includes("fee-masters/fee-particular") ||
         (labelLower.includes("fee particular") &&
-          !labelLower.includes("structure"))
+          !labelLower.includes("structure") &&
+          !labelLower.includes("wise") &&
+          !labelLower.includes("report"))
       ) {
         return "/accounts-and-fees/fee-masters/fee-particular";
       }
@@ -2427,6 +2844,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/admin/bulk-uploads/books-bulk-upload";
     }
+    if (
+      hrefLower.includes("/excel-bulk-uploads/subject-unit-topic-upload") ||
+      hrefLower.includes("subject-unit-topics-bulk-upload")
+    ) {
+      return "/admin/bulk-uploads/subject-unit-topic-upload";
+    }
     if (hrefLower.includes("/excel-bulk-uploads/unit-topic-bulk-upload")) {
       return "/admin/bulk-uploads/unit-topic-bulk-upload";
     }
@@ -2444,6 +2867,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/bulk-uploads/temporary-staging-tables-bulk-upload";
     }
     if (
+      hrefLower.includes("principal-communications/sms") ||
+      hrefLower.includes("/sms/send-sms") ||
       hrefLower.includes("send-student-sms") ||
       hrefLower.includes("send-sms-to-student") ||
       (labelLower.includes("send sms") &&
@@ -2452,6 +2877,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("absent"))
     ) {
       return "/email-sms/send-sms-to-students";
+    }
+    if (
+      hrefLower.includes("principal-communications/email") ||
+      hrefLower.includes("/email/send-emails")
+    ) {
+      return "/email-sms/principal-to-dept-email";
     }
     if (
       hrefLower.includes("send-absent-sms") ||
@@ -2526,7 +2957,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (
       hrefLower.includes("principal-to-dept-email") ||
-      hrefLower.includes("principal-to-dpt-email")
+      hrefLower.includes("principal-to-dpt-email") ||
+      hrefLower.includes("principal-communications/email") ||
+      hrefLower.includes("/email/send-emails")
     ) {
       return "/email-sms/principal-to-dept-email";
     }
@@ -3053,6 +3486,15 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return `${hrPayrollBase}/employee/employee-list`;
     }
     if (
+      hrefLower.includes("students-subject-report") ||
+      hrefLower.includes("student-subjects-report") ||
+      (labelLower.includes("student") &&
+        labelLower.includes("subject") &&
+        labelLower.includes("report"))
+    ) {
+      return "/reports/admin-student-reports/student-subjects-report";
+    }
+    if (
       (labelLower.includes("assign student subject") ||
         labelLower.includes("college student subject")) &&
       !hrefLower.includes("subject-mapping") &&
@@ -3064,7 +3506,10 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     if (
       (labelLower.includes("student subjects") ||
         labelLower.includes("student subject")) &&
-      !hrefLower.includes("affiliated-colleges")
+      !hrefLower.includes("affiliated-colleges") &&
+      !labelLower.includes("report") &&
+      !hrefLower.includes("students-subject-report") &&
+      !hrefLower.includes("student-subjects-report")
     ) {
       return "/admin-student-information-system/student-subjects";
     }
@@ -3413,6 +3858,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/document-repository";
     }
     if (labelLower.includes("unit topic bulk upload")) {
+      if (
+        hrefLower.includes("subject-unit-topic-upload") ||
+        hrefLower.includes("subject-unit-topics-bulk-upload")
+      ) {
+        return "/admin/bulk-uploads/subject-unit-topic-upload";
+      }
       return "/admin/bulk-uploads/unit-topic-bulk-upload";
     }
     if (
@@ -3624,6 +4075,73 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return "/assessments/test";
     }
+    // Angular scholarship/assign-scholarship (404 → dashboard otherwise).
+    // Pin before scholarship-type / scholarship-value / application.
+    if (
+      hrefLower.includes("assign-scholarship") ||
+      (labelLower.includes("assign") &&
+        labelLower.includes("scholarship") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding"))
+    ) {
+      return "/scholarship-management/assign-scholarship";
+    }
+    // Angular scholarship-management/scholarship-type (404 → dashboard otherwise).
+    if (
+      hrefLower.includes("scholarship-type") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("value") &&
+        !labelLower.includes("structure") &&
+        !labelLower.includes("assign"))
+    ) {
+      return "/scholarship-management/scholarship-type";
+    }
+    // Angular scholarship-management/scholarship-value (Scholarship Structure).
+    // Missing route 404s to dashboard; pin before application / preceedings.
+    if (
+      hrefLower.includes("scholarship-value") ||
+      hrefLower.includes("scholarship-structure") ||
+      (labelLower.includes("scholarship") &&
+        (labelLower.includes("value") || labelLower.includes("structure")) &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("application") &&
+        !labelLower.includes("assign") &&
+        !labelLower.includes("preceeding") &&
+        !labelLower.includes("proceeding") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/scholarship-value";
+    }
+    // Angular scholarship-management/acounts-preceedings (typo path kept for parity).
+    // Missing route 404s to dashboard; pin before preceeding-details / fee-reports.
+    if (
+      hrefLower.includes("view-std-preceedings") ||
+      hrefLower.includes("view-std-proceedings")
+    ) {
+      return "/scholarship-management/view-std-preceedings";
+    }
+    if (
+      hrefLower.includes("acounts-preceedings") ||
+      hrefLower.includes("accounts-preceedings") ||
+      hrefLower.includes("acounts-preceeding") ||
+      hrefLower.includes("accounts-preceeding") ||
+      (labelLower.includes("account") &&
+        (labelLower.includes("preceeding") ||
+          labelLower.includes("proceeding")) &&
+        !labelLower.includes("process") &&
+        !hrefLower.includes("process-acount") &&
+        !hrefLower.includes("process-account") &&
+        !labelLower.includes("report") &&
+        !hrefLower.includes("fee-reports"))
+    ) {
+      return "/scholarship-management/acounts-preceedings";
+    }
     // Scholarship Preceedings (management) — Angular preceeding-details
     if (
       hrefLower.includes("preceeding-details") ||
@@ -3702,7 +4220,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       label.includes("announcement") &&
       !label.includes("my ")
     ) {
-      return normPathname.startsWith("/notifications-and-announcements/");
+      return (
+        normPathname.startsWith("/notifications-and-announcements/") ||
+        normPathname.startsWith("/principal-communications/announcements") ||
+        normPathname.startsWith("/principal-communications/notifications")
+      );
+    }
+    if (
+      label.trim() === "communication" ||
+      (label.includes("communication") && !label.includes("email"))
+    ) {
+      return (
+        normPathname.startsWith("/principal-communications/") ||
+        normPathname.startsWith("/notifications-and-announcements/")
+      );
     }
     if (label.includes("my") && label.includes("notification")) {
       return normPathname.startsWith("/my-notifications");
@@ -3825,6 +4356,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+  // Fee Reports → Due List only — do not highlight Exam/Scholarship/Fee Due List Report.
+  if (
+    !hasChildren &&
+    (canonicalHref === "/reports/admin-fee-reports/due-list" ||
+      canonicalHref === "/accounts-and-fees/fee-reports/due-list")
+  ) {
+    const onFeeReportsDueList =
+      normPathname === "/reports/admin-fee-reports/due-list" ||
+      normPathname.startsWith("/reports/admin-fee-reports/due-list/") ||
+      normPathname === "/accounts-and-fees/fee-reports/due-list" ||
+      normPathname.startsWith("/accounts-and-fees/fee-reports/due-list/");
+    isSelfActive = diaryLabelKey === "due list" && onFeeReportsDueList;
+  }
   const onStaffClassDiary =
     normPathname === "/staff-classes/class-dairy" ||
     normPathname.startsWith("/staff-classes/class-dairy/");
@@ -4007,7 +4551,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             if (forcedRoute && !hasChildren) {
               e.preventDefault();
               e.stopPropagation();
-              router.push(normalizeHref(forcedRoute));
+              scheduleNavigation(() => {
+                router.push(normalizeHref(forcedRoute));
+              });
             }
           }}
           className={cn(
@@ -4077,7 +4623,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       onClick={(e) => {
         if (forcedRoute) {
           e.preventDefault();
-          router.push(normalizeHref(forcedRoute));
+          scheduleNavigation(() => {
+            router.push(normalizeHref(forcedRoute));
+          });
         }
       }}
       aria-current={isSelfActive ? "page" : undefined}

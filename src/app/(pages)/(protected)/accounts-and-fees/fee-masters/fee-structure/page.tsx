@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSession } from "@/hooks/useSession";
 import { toastError, toastInfo } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import { rowIndexGetter } from "@/lib/utils";
 import {
   getFeeMasterCollegeFilters,
@@ -182,14 +183,16 @@ export default function FeeStructurePage() {
         collegeId,
         isAcademicFee,
         batchId: isAcademicFee ? undefined : (batchId ?? undefined),
-        academicYearId: isAcademicFee ? (academicYearId ?? undefined) : undefined,
+        academicYearId: isAcademicFee
+          ? (academicYearId ?? undefined)
+          : undefined,
         page: 0,
         size: 100,
       });
       setRows(result.rows);
     } catch (err) {
       setRows([]);
-      toastError(err, "Failed to load fee structures");
+      toastInfo(getErrorMessage(err));
     } finally {
       setLoadingList(false);
     }
@@ -319,8 +322,7 @@ export default function FeeStructurePage() {
     resetListState();
     if (!next) return;
     const batches = filterBatches(batchesData, next);
-    const firstBatch =
-      pickNum(batches[0], ["fk_batch_id", "batchId"]) || null;
+    const firstBatch = pickNum(batches[0], ["fk_batch_id", "batchId"]) || null;
     if (firstBatch) setBatchId(firstBatch);
   }
 

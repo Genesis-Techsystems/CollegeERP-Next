@@ -5,7 +5,8 @@ import { Plus } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   allocateStudentSubjects,
   getAllocateStudentSubjectFilters,
@@ -196,7 +197,7 @@ export default function AllocateStudentSubjectPage() {
     }
     setSaving(true);
     try {
-      await allocateStudentSubjects({
+      const result = await allocateStudentSubjects({
         collegeId: collegeId!,
         academicYearId: academicYearId!,
         courseGroupId: courseGroupId!,
@@ -204,9 +205,13 @@ export default function AllocateStudentSubjectPage() {
         regulationId: regulationId!,
         studentId: 0,
       });
-      toastSuccess("Student subjects allocated successfully");
-    } catch {
-      toastError("Failed to allocate student subjects");
+      if (!result.success) {
+        toastInfo(result.message || "No Records(s) found.");
+        return;
+      }
+      toastSuccess(result.message || "Student subjects allocated successfully");
+    } catch (error) {
+      toastInfo(getErrorMessage(error));
     } finally {
       setSaving(false);
     }

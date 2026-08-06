@@ -17,7 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select as CommonSelect } from "@/common/components/select";
+import {
+  Select as CommonSelect,
+  type SelectOption,
+} from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import {
   downloadSecureMarksTemplate,
@@ -31,6 +34,7 @@ import {
   listExamMarksSetupForEntry,
   listExamStudentInternalMarksForEntry,
   saveInternalMarksEntry,
+  searchEmployeesForFacultyDataSecurity,
   uploadSecureExamMarks,
 } from "@/services";
 import { MINIO_URL } from "@/config/constants/api";
@@ -44,6 +48,12 @@ type AnyRow = Record<string, any>;
 /** Angular CONSTANTS.THEORY / ELECTIVE */
 const THEORY_SUBJECT_TYPE_ID = 3;
 const ELECTIVE_SUBJECT_TYPE_ID = 4;
+
+function employeeOptionLabel(empNumber: string, firstName?: string | null) {
+  const num = String(empNumber ?? "").trim();
+  const name = String(firstName ?? "").trim();
+  return name ? `${num} (${name})` : num || "Employee";
+}
 
 function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   const seen = new Set<string>();
@@ -119,6 +129,42 @@ function parseUserRoles(): string[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * Angular semister flag — OFFLINEEVALUATION / ExamController / ADMIN.
+ * When true, Subject Type keeps THEORY + ELECTIVE on regular exams.
+ */
+function hasSemisterRole(roleName: string): boolean {
+  const active = String(roleName ?? "").toUpperCase();
+  if (
+    active === "ADMIN" ||
+    active === "EXAMCONTROLLER" ||
+    active === USER_ROLES.OFFLINE_EVALUATION.toUpperCase()
+  ) {
+    return true;
+  }
+  return parseUserRoles().some((role) => {
+    const name = String(role).toUpperCase();
+    return (
+      name === "ADMIN" ||
+      name === "EXAMCONTROLLER" ||
+      name === USER_ROLES.OFFLINE_EVALUATION.toUpperCase()
+    );
+  });
+}
+
+/**
+ * Angular staff flag — exact MSTAFF / STAFF only (not substring match).
+ * Staff see a locked Employee field; everyone else gets searchable Employee.
+ */
+function isStaffRole(roleName: string): boolean {
+  const active = String(roleName ?? "").toUpperCase();
+  if (active === "MSTAFF" || active === "STAFF") return true;
+  return parseUserRoles().some((role) => {
+    const name = String(role).toUpperCase();
+    return name === "MSTAFF" || name === "STAFF";
+  });
 }
 
 function attendanceText(row: AnyRow): string {
@@ -274,8 +320,8 @@ export default function ExamMarksEntryPage() {
     globalThis?.localStorage?.getItem("examEvaluatorProfileId") ?? 0,
   );
   const orgCode = globalThis?.localStorage?.getItem("orgCode") ?? "";
-
-  const [semister, setSemister] = useState(false);
+  const semister = hasSemisterRole(roleName || userRole);
+  const staff = isStaffRole(roleName || userRole);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -312,24 +358,36 @@ export default function ExamMarksEntryPage() {
   const [labBatchId, setLabBatchId] = useState(0);
   const [examDate, setExamDate] = useState("");
   const [marksEnteredEmpId, setMarksEnteredEmpId] = useState(employeeId);
+  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>(() =>
+    employeeId
+      ? [
+          {
+            value: String(employeeId),
+            label: employeeOptionLabel(empNumber, userName),
+          },
+        ]
+      : [],
+  );
+  const [employeeSearching, setEmployeeSearching] = useState(false);
 
   const employeeDisplay = userName ? `${empNumber} (${userName})` : empNumber;
 
   useEffect(() => {
-    const roles = parseUserRoles();
-    const roleLower = roles.map((r) => r.toLowerCase());
-    const allowSemister =
-      roleLower.includes(USER_ROLES.OFFLINE_EVALUATION.toLowerCase()) ||
-      roleLower.includes("examcontroller") ||
-      roleLower.includes("admin") ||
-      roleName.toUpperCase() === "ADMIN";
-    setSemister(allowSemister);
-    const staff =
-      roleLower.includes("mstaff") ||
-      roleLower.includes("staff") ||
-      roles.length === 0;
-    if (staff) setMarksEnteredEmpId(employeeId);
-  }, [employeeId, roleName]);
+    // Angular: only STAFF / MSTAFF lock marks-entered employee to login member.
+    if (staff) {
+      setMarksEnteredEmpId(employeeId);
+      setEmployeeOptions(
+        employeeId
+          ? [
+              {
+                value: String(employeeId),
+                label: employeeOptionLabel(empNumber, userName),
+              },
+            ]
+          : [],
+      );
+    }
+  }, [employeeId, empNumber, userName, staff]);
 
   const selectedCourseFilter = allFilters.find(
     (row) => Number(row.fk_course_id) === Number(courseId),
@@ -373,8 +431,12 @@ export default function ExamMarksEntryPage() {
       ),
       "fk_exam_id",
     );
+    // Angular: ADMIN sees all; others (incl. Offline Internal Evaluator) hide published.
+    // Use loose == like Angular (`is_published == false`).
     if (roleName !== "ADMIN") {
-      list = list.filter((x) => x.is_published === false);
+      list = list.filter(
+        (x) => x.is_published == false || x.isPublished == false,
+      );
     }
     return list;
   }, [allFilters, courseId, academicYearId, roleName]);
@@ -461,60 +523,51 @@ export default function ExamMarksEntryPage() {
   const isInternalExam = Boolean(selectedExam?.is_internal_exam);
 
   const subjectTypes = useMemo(() => {
-    const currentRegId = Number(regulationId ?? 0);
-    const filtered = subjectRows.filter((x) => {
-      const rowRegId = numFrom(x, [
-        "fk_regulation_id",
-        "regulationId",
-        "regulation_id",
-      ]);
-      return rowRegId === 0 || currentRegId === 0 || rowRegId === currentRegId;
-    });
+    // Angular selectedRegulation: dedupe subject types from proc rows (already
+    // scoped by in_regulation_id) — no extra client regulation filter.
     const seen = new Set<number>();
     let out: AnyRow[] = [];
-    for (const row of filtered) {
+    for (const row of subjectRows) {
       const id = numFrom(row, [
         "fk_subjecttype_catdet_id",
+        "fk_subject_type_catdet_id",
         "subjectTypeId",
         "subject_type_id",
+        "subjecttype_catdet_id",
       ]);
       if (!id || seen.has(id)) continue;
       seen.add(id);
       out.push(row);
     }
     // Angular: non-semister roles hide THEORY/ELECTIVE on regular exams
-    if (!semister && selectedExam?.is_regular_exam) {
+    if (!semister && Boolean(selectedExam?.is_regular_exam)) {
       out = out.filter((x) => {
         const id = numFrom(x, [
           "fk_subjecttype_catdet_id",
+          "fk_subject_type_catdet_id",
           "subjectTypeId",
           "subject_type_id",
+          "subjecttype_catdet_id",
         ]);
         return id !== THEORY_SUBJECT_TYPE_ID && id !== ELECTIVE_SUBJECT_TYPE_ID;
       });
     }
     return out;
-  }, [subjectRows, regulationId, semister, selectedExam]);
+  }, [subjectRows, semister, selectedExam]);
 
   const subjects = useMemo(() => {
-    const currentRegId = Number(regulationId ?? 0);
     const currentTypeId = Number(subjectTypeId ?? 0);
+    // Angular only lists subjects after a Subject Type is selected.
+    if (currentTypeId <= 0) return [];
     const filtered = subjectRows.filter((x) => {
-      const rowRegId = numFrom(x, [
-        "fk_regulation_id",
-        "regulationId",
-        "regulation_id",
-      ]);
       const rowTypeId = numFrom(x, [
         "fk_subjecttype_catdet_id",
+        "fk_subject_type_catdet_id",
         "subjectTypeId",
         "subject_type_id",
+        "subjecttype_catdet_id",
       ]);
-      const regMatch =
-        rowRegId === 0 || currentRegId === 0 || rowRegId === currentRegId;
-      const typeMatch =
-        rowTypeId === 0 || currentTypeId === 0 || rowTypeId === currentTypeId;
-      return regMatch && typeMatch;
+      return rowTypeId === 0 || rowTypeId === currentTypeId;
     });
     const seen = new Set<number>();
     const out: AnyRow[] = [];
@@ -530,7 +583,7 @@ export default function ExamMarksEntryPage() {
       out.push(row);
     }
     return out;
-  }, [subjectRows, regulationId, subjectTypeId]);
+  }, [subjectRows, subjectTypeId]);
 
   const selectedSubject = useMemo(
     () =>
@@ -571,6 +624,37 @@ export default function ExamMarksEntryPage() {
     setInternalEvaluators([]);
     setExternalEvaluators([]);
     setMaxValue(0);
+  }
+
+  async function onEmployeeSearch(term: string) {
+    if (staff) return;
+    const q = term.trim();
+    if (q.length <= 4) {
+      if (!marksEnteredEmpId && employeeId) {
+        setEmployeeOptions([
+          {
+            value: String(employeeId),
+            label: employeeOptionLabel(empNumber, userName),
+          },
+        ]);
+      }
+      return;
+    }
+    setEmployeeSearching(true);
+    try {
+      const found = await searchEmployeesForFacultyDataSecurity(q);
+      setEmployeeOptions(
+        found.map((e) => ({
+          value: String(e.employeeId),
+          label: employeeOptionLabel(String(e.empNumber ?? ""), e.firstName),
+        })),
+      );
+    } catch (e) {
+      toastError(e, "Failed to search employees");
+      setEmployeeOptions([]);
+    } finally {
+      setEmployeeSearching(false);
+    }
   }
 
   useEffect(() => {
@@ -773,22 +857,22 @@ export default function ExamMarksEntryPage() {
   ]);
 
   useEffect(() => {
-    const first = subjectTypes[0];
-    const id = numFrom(first ?? {}, [
+    const typeKeys = [
       "fk_subjecttype_catdet_id",
+      "fk_subject_type_catdet_id",
       "subjectTypeId",
       "subject_type_id",
-    ]);
+      "subjecttype_catdet_id",
+    ];
+    const first = subjectTypes[0];
+    const id = numFrom(first ?? {}, typeKeys);
+    if (!subjectTypes.length) {
+      if (subjectTypeId != null) setSubjectTypeId(null);
+      return;
+    }
     if (
       id > 0 &&
-      !subjectTypes.some(
-        (r) =>
-          numFrom(r, [
-            "fk_subjecttype_catdet_id",
-            "subjectTypeId",
-            "subject_type_id",
-          ]) === Number(subjectTypeId),
-      )
+      !subjectTypes.some((r) => numFrom(r, typeKeys) === Number(subjectTypeId))
     ) {
       setSubjectTypeId(id);
     }
@@ -1333,13 +1417,17 @@ export default function ExamMarksEntryPage() {
         .map((x) => {
           const id = numFrom(x, [
             "fk_subjecttype_catdet_id",
+            "fk_subject_type_catdet_id",
             "subjectTypeId",
             "subject_type_id",
+            "subjecttype_catdet_id",
           ]);
           if (id <= 0) return null;
           return {
             value: String(id),
-            label: String(x.subject_type ?? x.subjectType ?? "-"),
+            label: String(
+              x.subject_type ?? x.subjectType ?? x.subject_type_name ?? "-",
+            ),
           };
         })
         .filter(Boolean) as Array<{ value: string; label: string }>,
@@ -1488,7 +1576,7 @@ export default function ExamMarksEntryPage() {
               />
             </div>
             <div className="space-y-1 md:col-span-3">
-              <Label>Faculty *</Label>
+              <Label>College *</Label>
               <CommonSelect
                 value={collegeId ? String(collegeId) : null}
                 onChange={(v) => {
@@ -1586,39 +1674,68 @@ export default function ExamMarksEntryPage() {
                 />
               </div>
             )}
-            <div className="space-y-1 md:col-span-2">
-              <DatePicker
-                label="Choose a exam date."
-                placeholder="dd/MM/yyyy"
-                displayFormat="dd/MM/yyyy"
-                value={ymdToDate(examDate)}
-                minDate={examMinDate ?? undefined}
-                maxDate={examMaxDate ?? undefined}
-                clearable={false}
-                onChange={(date) => {
-                  setExamDate(date ? format(date, "yyyy-MM-dd") : "");
-                  clearResults();
-                }}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Employee</Label>
-              <Input
-                className="h-8 text-[12px]"
-                value={employeeDisplay}
-                disabled
-              />
-            </div>
-            {courseYearId ? (
-              <div className="md:col-span-2">
-                <Button
-                  className="h-8 w-full text-[12px]"
-                  onClick={() => void onGetList()}
-                  disabled={loading}
-                >
-                  {loading ? "Loading..." : "Get List"}
-                </Button>
+            {subjectId ? (
+              <div className="space-y-1 md:col-span-2">
+                <DatePicker
+                  label="Choose a exam date."
+                  placeholder="dd/MM/yyyy"
+                  displayFormat="dd/MM/yyyy"
+                  value={ymdToDate(examDate)}
+                  minDate={examMinDate ?? undefined}
+                  maxDate={examMaxDate ?? undefined}
+                  clearable={false}
+                  disabled
+                  onChange={(date) => {
+                    setExamDate(date ? format(date, "yyyy-MM-dd") : "");
+                    clearResults();
+                  }}
+                />
               </div>
+            ) : null}
+            {courseYearId ? (
+              <>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Employee</Label>
+                  {staff ? (
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={employeeDisplay}
+                      disabled
+                    />
+                  ) : (
+                    <CommonSelect
+                      value={
+                        marksEnteredEmpId ? String(marksEnteredEmpId) : null
+                      }
+                      onChange={(v) => {
+                        if (!v) {
+                          setMarksEnteredEmpId(0);
+                          return;
+                        }
+                        setMarksEnteredEmpId(Number(v));
+                        const selected = employeeOptions.find(
+                          (o) => o.value === v,
+                        );
+                        if (selected) setEmployeeOptions([selected]);
+                      }}
+                      options={employeeOptions}
+                      placeholder="Search Employee"
+                      searchable
+                      onSearch={(t) => void onEmployeeSearch(t)}
+                      isLoading={employeeSearching}
+                    />
+                  )}
+                </div>
+                <div className="md:col-span-2">
+                  <Button
+                    className="h-8 w-full text-[12px]"
+                    onClick={() => void onGetList()}
+                    disabled={loading}
+                  >
+                    {loading ? "Loading..." : "Get List"}
+                  </Button>
+                </div>
+              </>
             ) : null}
           </div>
           {hasFetched && rows.length > 0 && (
@@ -1738,6 +1855,7 @@ export default function ExamMarksEntryPage() {
       }
       columnDefs={columnDefs}
       loading={loading}
+      hideEmptyGrid
       getRowId={(p) =>
         String(
           p.data.studentId ??
@@ -1747,12 +1865,17 @@ export default function ExamMarksEntryPage() {
         )
       }
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        exportExcel: false,
-        exportPdf: false,
-      }}
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              exportExcel: false,
+              exportPdf: false,
+              columnPicker: true,
+            }
+          : false
+      }
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
           <div className="order-first shrink-0 whitespace-nowrap text-[12px] text-slate-600">

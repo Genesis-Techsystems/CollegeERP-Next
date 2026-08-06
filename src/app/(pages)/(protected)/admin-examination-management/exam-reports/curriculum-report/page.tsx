@@ -205,9 +205,7 @@ export default function CurriculumReportPage() {
     return [
       txt(selectedCollege?.college_code),
       txt(selectedCourse?.course_code),
-      Number(courseGroupId) === 0
-        ? "All"
-        : txt(selectedGroup?.group_code),
+      Number(courseGroupId) === 0 ? "All" : txt(selectedGroup?.group_code),
       txt(selectedYear?.course_year_name),
     ]
       .filter(Boolean)
@@ -387,7 +385,7 @@ export default function CurriculumReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="College *">
           <Select
-            value={collegeId || undefined}
+            value={collegeId || null}
             onChange={(v) => setCollegeId(v ?? "")}
             isLoading={loadingFilters}
             options={colleges.map((c) => ({
@@ -400,7 +398,7 @@ export default function CurriculumReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Course *">
           <Select
-            value={courseId || undefined}
+            value={courseId || null}
             onChange={(v) => setCourseId(v ?? "")}
             isLoading={loadingFilters}
             options={courses.map((c) => ({
@@ -413,7 +411,7 @@ export default function CurriculumReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Course Year">
           <Select
-            value={courseYearId || undefined}
+            value={courseYearId || null}
             onChange={(v) => setCourseYearId(v ?? "")}
             isLoading={loadingFilters}
             options={courseYears.map((y) => ({
@@ -426,7 +424,7 @@ export default function CurriculumReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Course Group">
           <Select
-            value={courseGroupId || undefined}
+            value={courseGroupId || null}
             onChange={(v) => setCourseGroupId(v ?? "")}
             isLoading={loadingFilters}
             options={[
@@ -444,7 +442,7 @@ export default function CurriculumReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Regulation">
           <Select
-            value={regulationId || undefined}
+            value={regulationId || null}
             onChange={(v) => {
               setRegulationId(v ?? "");
               clearResults();
@@ -492,11 +490,7 @@ export default function CurriculumReportPage() {
 
   return (
     <FilteredListPage
-      title={
-        rows.length > 0
-          ? `University Curriculum Report`
-          : "University Curriculum Report Filter"
-      }
+      title={rows.length > 0 ? `Curriculum Report` : "Curriculum Report"}
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}

@@ -334,6 +334,40 @@
     "route": "/admin-examination-management/admin-exam-reports/invigilators-remuneration-report"
   },
   {
+    "label": "leave approval",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "staff-faculty-details"
+  },
+  {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "faculty-details"
+  },
+  {
+    "label": "leave approvals",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "leave application",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "leave applications",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "leave request",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "leave requests",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
     "label": "letter format",
     "route": "/e-office/letter-formats"
   },

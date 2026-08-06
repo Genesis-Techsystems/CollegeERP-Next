@@ -36,7 +36,9 @@ import {
   saveFeeStudentWiseFines,
   saveFeeStudentWiseParticulars,
   saveFeeStudentWiseScholarship,
+  initiatePayment,
   submitFeeReceipt,
+  submitOnlineFeeReceipt,
   updateMinFeePercent,
 } from "@/services";
 import type {
@@ -126,7 +128,8 @@ export function PayFeesPage() {
   const page = searchParams.get("page") ?? "fee-payment";
 
   const [receiptDt, setReceiptDt] = useState<Date | null>(new Date());
-  const [amount, setAmount] = useState(0);
+  /** `""` while clearing so Payment Amount can backspace past 0. */
+  const [amount, setAmount] = useState<number | "">(0);
   const [paymentModeId, setPaymentModeId] = useState<string | null>(null);
   const [paymentTypeId, setPaymentTypeId] = useState<string | null>(null);
   const [paymentFor, setPaymentFor] = useState("");
@@ -143,6 +146,8 @@ export function PayFeesPage() {
   const [confirmData, setConfirmData] = useState<PayFeesConfirmData | null>(
     null,
   );
+  /** Angular: Pay fees vs Pay Online */
+  const [payChannel, setPayChannel] = useState<"counter" | "online">("counter");
   const [submitting, setSubmitting] = useState(false);
   const [extraSaving, setExtraSaving] = useState(false);
   const [addParticularOpen, setAddParticularOpen] = useState(false);
@@ -381,6 +386,14 @@ export function PayFeesPage() {
   );
 
   function onPaymentAmountChange(raw: string) {
+    // Allow empty while typing — Number("") === 0 would pin the input at 0.
+    if (raw.trim() === "") {
+      setAmount("");
+      setEqualAmount(0);
+      setAmountFlag(false);
+      setParticulars((prev) => prev.map((p) => ({ ...p, amount: 0 })));
+      return;
+    }
     const value = Number(raw);
     const bal = num(feeStudentData?.balanceAmount);
     if (!Number.isFinite(value) || value < 0) {
@@ -423,18 +436,14 @@ export function PayFeesPage() {
         ? { ...p, amount: Number.isFinite(value) ? value : 0 }
         : p,
     );
-    recomputeEqual(next, amount);
+    recomputeEqual(next, amount === "" ? 0 : amount);
   }
 
+  const amountNum = amount === "" ? 0 : amount;
   const modeField = pickModeField(paymentModeId, paymentModeOptions);
-  const canPay =
-    financialYears.length > 0 &&
-    amountFlag &&
-    equalAmount === 0 &&
-    amount > 0 &&
-    Boolean(paymentModeId) &&
-    Boolean(paymentTypeId) &&
-    !loadingFy;
+  // Angular: [disabled]="(!flag || equalAmount > 0)" when financialYearDetails.length > 0
+  const buttonsEnabled =
+    financialYears.length > 0 && amountFlag && equalAmount === 0 && !loadingFy;
 
   function buildPaymentLines(): FeeStudentParticularRow[] {
     const fyId = financialYears[0]?.financialYearId;
@@ -476,9 +485,13 @@ export function PayFeesPage() {
     return lines.map((item) => ({ ...item, paidAmount: num(item.amount) }));
   }
 
-  function openPayConfirm() {
-    if (!feeStudentData || !canPay || !receiptDt) {
+  function openPayConfirm(channel: "counter" | "online") {
+    if (!feeStudentData || !receiptDt || !buttonsEnabled) {
       toastInfo("Please complete payment details.");
+      return;
+    }
+    if (!paymentModeId || !paymentTypeId || amountNum <= 0) {
+      toastInfo("Please select pay mode, payment type and enter amount.");
       return;
     }
     const lines = buildPaymentLines();
@@ -486,6 +499,7 @@ export function PayFeesPage() {
       toastInfo("Enter particulars pay amount.");
       return;
     }
+    setPayChannel(channel);
     setConfirmData({
       firstName: feeStudentData.firstName,
       collegeCode: searchParams.get("collegeCode") ?? undefined,
@@ -498,7 +512,7 @@ export function PayFeesPage() {
       courseYearName: searchParams.get("courseYearName") ?? undefined,
       section: searchParams.get("section") ?? undefined,
       courseYearNo: searchParams.get("courseYearNo") ?? undefined,
-      receiptAmount: amount,
+      receiptAmount: amountNum,
       feeParticularwisePayments: lines,
     });
     setConfirmOpen(true);
@@ -518,11 +532,12 @@ export function PayFeesPage() {
 
     const employeeId =
       globalThis?.localStorage?.getItem("employeeId") ?? undefined;
+    const lines = buildPaymentLines();
     const payload: FeeReceiptPaymentPayload = {
       paymentFor: paymentForValue,
       fineReason: fineReason || undefined,
       receiptDt,
-      amount,
+      amount: amountNum,
       paymentTypeId: Number(paymentTypeId),
       paymentModeId: Number(paymentModeId),
       transactionNo: transactionNo || undefined,
@@ -535,15 +550,49 @@ export function PayFeesPage() {
       studentId,
       financialYearId: fyId,
       isFeeRefund: false,
-      receiptAmount: amount,
+      receiptAmount: amountNum,
       feeStdDataId: Number(feeStudentData.feeStdDataId),
       revertbByEmployeeId: employeeId,
-      feeParticularwisePayments: buildPaymentLines(),
+      feeParticularwisePayments: lines,
       payerTypeId,
+      payerName: feeStudentData.firstName,
+      firstName: feeStudentData.firstName,
+      collegeCode: searchParams.get("collegeCode") ?? undefined,
+      academicYear: feeStudentData.academicYear,
+      courseCode: searchParams.get("courseCode") ?? undefined,
+      groupCode: searchParams.get("groupCode") ?? undefined,
+      courseYearName: searchParams.get("courseYearName") ?? undefined,
+      section: searchParams.get("section") ?? undefined,
     };
 
     setSubmitting(true);
     try {
+      if (payChannel === "online") {
+        // Angular payByOnline → stgOnlineFeereceipts then initiatePayment gateway.
+        const onlineResult = await submitOnlineFeeReceipt({
+          ...payload,
+          tranCatDetailsId: 685,
+          orderId: null,
+          stgOnlineFeeParticularwisePaymentDTOS: lines,
+          feeParticularwisePayments: lines,
+        });
+        const orderId = onlineResult.orderId;
+        if (orderId == null || orderId === "") {
+          throw new Error("Online payment order was not created.");
+        }
+        const courseCode = String(searchParams.get("courseCode") ?? "");
+        const gatewayCollegeId =
+          courseCode.toUpperCase() === "PHD"
+            ? 0
+            : Number(onlineResult.collegeId ?? collegeId);
+        const feeType =
+          courseCode.toUpperCase() === "PHD" ? "PHD" : "COLLEGEFEE";
+        setConfirmOpen(false);
+        setConfirmData(null);
+        await initiatePayment(amountNum, orderId, gatewayCollegeId, feeType);
+        return;
+      }
+
       await submitFeeReceipt(payload);
       toastSuccess("Fee payment saved successfully");
       setConfirmOpen(false);
@@ -552,7 +601,12 @@ export function PayFeesPage() {
       await refetchFee();
       goBack();
     } catch (e) {
-      toastError(e, "Fee payment failed");
+      toastError(
+        e,
+        payChannel === "online"
+          ? "Online fee payment failed"
+          : "Fee payment failed",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -889,7 +943,7 @@ export function PayFeesPage() {
                   type="number"
                   min={0}
                   className="h-9 max-w-[140px] rounded-sm text-base font-bold"
-                  value={Number.isFinite(amount) ? amount : 0}
+                  value={amount}
                   onChange={(e) => onPaymentAmountChange(e.target.value)}
                 />
               </div>
@@ -991,10 +1045,18 @@ export function PayFeesPage() {
                   <Button
                     type="button"
                     className="h-9 rounded-sm"
-                    disabled={!canPay}
-                    onClick={openPayConfirm}
+                    disabled={!buttonsEnabled}
+                    onClick={() => openPayConfirm("counter")}
                   >
                     Pay fees
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-9 rounded-sm"
+                    disabled={!buttonsEnabled}
+                    onClick={() => openPayConfirm("online")}
+                  >
+                    Pay Online
                   </Button>
                 </div>
               </div>
@@ -1058,7 +1120,7 @@ export function PayFeesPage() {
                   key={`s-${p.feeCategoryId}-${p.feeParticularsId}-${i}`}
                   index={i}
                   row={p}
-                  payDisabled={amount <= 0}
+                  payDisabled={amountNum <= 0}
                   onPayChange={(v) => onParticularPayChange(i, v, "structure")}
                 />
               ))}
@@ -1083,7 +1145,7 @@ export function PayFeesPage() {
                   key={`w-${p.feeCategoryId}-${p.feeParticularsId}-${i}`}
                   index={i}
                   row={p}
-                  payDisabled={amount <= 0}
+                  payDisabled={amountNum <= 0}
                   onPayChange={(v) => onParticularPayChange(i, v, "stdwise")}
                   onDelete={
                     num(p.balanceAmount) > 0 &&

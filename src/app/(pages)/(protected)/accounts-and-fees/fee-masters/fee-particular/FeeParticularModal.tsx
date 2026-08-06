@@ -27,8 +27,8 @@ import type { FeeParticular } from "@/types/fee-particular";
 
 const schema = z.object({
   collegeId: z.number().min(1, "College is required"),
-  particularsName: z.string().min(1, "Particular name is required"),
-  particularsCode: z.string().min(1, "Particular code is required"),
+  particularsName: z.string().trim().min(1, "Particular name is required"),
+  particularsCode: z.string().trim().min(1, "Particular code is required"),
   description: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -61,7 +61,7 @@ export function FeeParticularModal({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      collegeId: undefined,
+      collegeId: 0,
       particularsName: "",
       particularsCode: "",
       description: "",
@@ -89,7 +89,7 @@ export function FeeParticularModal({
       });
     } else {
       reset({
-        collegeId: undefined,
+        collegeId: 0,
         particularsName: "",
         particularsCode: "",
         description: "",
@@ -163,9 +163,7 @@ export function FeeParticularModal({
                 label="College"
                 required
                 value={field.value ? String(field.value) : null}
-                onChange={(value) =>
-                  field.onChange(value ? Number(value) : undefined)
-                }
+                onChange={(value) => field.onChange(value ? Number(value) : 0)}
                 options={collegeOptions}
                 placeholder="Select college"
                 searchable
@@ -175,29 +173,42 @@ export function FeeParticularModal({
           />
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="particularsName">Particular Name *</Label>
-              <Input id="particularsName" {...register("particularsName")} />
+              <Input
+                id="particularsName"
+                placeholder="Enter particular name"
+                {...register("particularsName")}
+              />
               {errors.particularsName ? (
-                <p className="text-xs text-red-500">
+                <p className="text-xs text-destructive">
                   {errors.particularsName.message}
                 </p>
               ) : null}
             </div>
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="particularsCode">Particular Code *</Label>
-              <Input id="particularsCode" {...register("particularsCode")} />
+              <Input
+                id="particularsCode"
+                placeholder="Enter particular code"
+                {...register("particularsCode")}
+              />
               {errors.particularsCode ? (
-                <p className="text-xs text-red-500">
+                <p className="text-xs text-destructive">
                   {errors.particularsCode.message}
                 </p>
               ) : null}
             </div>
           </div>
 
-          <div>
+          <div className="space-y-1.5">
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" rows={3} {...register("description")} />
+            <Textarea
+              id="description"
+              rows={3}
+              placeholder="Enter description"
+              {...register("description")}
+            />
           </div>
 
           <Controller
@@ -215,7 +226,7 @@ export function FeeParticularModal({
           />
 
           {submitError ? (
-            <p className="text-sm text-red-600">{submitError}</p>
+            <p className="text-sm text-destructive">{submitError}</p>
           ) : null}
           <DialogFooter className="pt-1">
             <Button variant="outline" type="button" onClick={onClose}>

@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionContext } from "@/context/SessionContext";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/common/components/select";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { StatusBadge } from "@/common/components/data-display";
 import { FilteredListPage } from "@/components/layout";
@@ -24,9 +21,9 @@ import {
   getGroupwiseAllotmentSummary,
   getRoomwiseAllotmentSummary,
   getRoomwiseSubjectSummary,
-  listExamInvigilationAllotments,
   listExamInvigilationAllotmentsByTimetable,
   listExamRoomAllotments as listExamRoomAllotmentsDomain,
+  listExamStdAttDetails,
   listRoomwiseOmrStudents,
   listUnivExamFiltersByCode,
   popExamInvigilator,
@@ -39,11 +36,18 @@ import {
   listExamTimetablesByExam,
   listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from "@/services/pre-examination";
-import { CalendarDays, Plus, Printer } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  GraduationCap,
+  Plus,
+  Printer,
+  ScrollText,
+} from "lucide-react";
 import { SearchInput } from "@/common/components/search";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toDateStr } from "@/common/generic-functions";
-import { usePrintMode } from "@/lib/print";
+import { printElementInIframe, usePrintMode } from "@/lib/print";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 
 type AllocationRow = {
@@ -92,6 +96,48 @@ function formatExamTimetableLabel(row: any): string {
     .trim()
     .toUpperCase();
   return `${date} (${session})`;
+}
+
+/** Angular date pipe `MMM d, y` → e.g. May 5, 2026 */
+function formatExamMasterDate(value?: string): string {
+  const raw = String(value ?? "").trim();
+  const dateOnly = toDateStr(raw.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? raw);
+  if (!dateOnly) return "";
+  const d = new Date(`${dateOnly}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateOnly;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/** Treat API booleans / 0|1 flags as on (Angular shows Internal/Regular/Supple tags). */
+function examFlagOn(value: unknown): boolean {
+  if (value === true || value === 1 || value === "1" || value === "true")
+    return true;
+  return false;
+}
+
+/** Angular: exam_name (MMM d, y - MMM d, y)(Internal)(Regular)(Supple) */
+function formatExamMasterOption(exam: any): string {
+  const name = String(exam?.examName ?? exam?.exam_name ?? "—").trim() || "—";
+  const from = formatExamMasterDate(
+    String(exam?.fromDate ?? exam?.from_date ?? "").trim(),
+  );
+  const to = formatExamMasterDate(
+    String(exam?.toDate ?? exam?.to_date ?? "").trim(),
+  );
+  const range = from && to ? ` (${from} - ${to})` : "";
+  // Adjacent spans in Angular → no spaces between tags.
+  const tags = [
+    examFlagOn(exam?.isInternalExam ?? exam?.is_internal_exam)
+      ? "(Internal)"
+      : "",
+    examFlagOn(exam?.isRegularExam ?? exam?.is_regular_exam) ? "(Regular)" : "",
+    examFlagOn(exam?.isSupplyExam ?? exam?.is_supply_exam) ? "(Supple)" : "",
+  ].join("");
+  return `${name}${range}${tags}`;
 }
 
 function getExamTimetableParts(row: any): {
@@ -352,7 +398,7 @@ export default function SeatingPlanSetupPage() {
     | "invigilator"
     | "cover-slip"
     | "packing-slip";
-  const { mode: printMode, triggerPrint } = usePrintMode<PrintMode>();
+  const { mode: printMode, setMode: setPrintMode } = usePrintMode<PrintMode>();
   // Per-mode fetched data for prints that need their own server call.
   // Today: room-wise-seating fetches `roomwise_allotment_summary` rows; the
   // other modes fall back to filteredRows until their respective Angular
@@ -367,6 +413,32 @@ export default function SeatingPlanSetupPage() {
     [],
   );
   const [loadingPrintData, setLoadingPrintData] = useState(false);
+  const [autoAssignBusy, setAutoAssignBusy] = useState(false);
+
+  // Angular opens a popup with the print HTML. AppShell + window.print() often
+  // yields blank sheets — capture the rendered print root into an iframe instead.
+  useEffect(() => {
+    if (!printMode || loadingPrintData) return;
+    const timer = window.setTimeout(() => {
+      const root = document.querySelector(
+        "[data-print-root]",
+      ) as HTMLElement | null;
+      if (root) {
+        printElementInIframe(root, "Print");
+      }
+      setPrintMode(null);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [
+    printMode,
+    loadingPrintData,
+    roomWiseAllocations,
+    roomSubjectAllocations,
+    groupwiseAllocations,
+    invigilatorRows,
+    studentAllotmentDetails,
+    setPrintMode,
+  ]);
   const [assignSeatingOpen, setAssignSeatingOpen] = useState(false);
   const [assignSeatingBusy, setAssignSeatingBusy] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(true);
@@ -384,14 +456,13 @@ export default function SeatingPlanSetupPage() {
   const [selectedCourseYearId, setSelectedCourseYearId] = useState<
     number | null
   >(null);
-  const [selectedExamType, setSelectedExamType] = useState<"0" | "1" | "">("");
+  const [selectedExamType, setSelectedExamType] = useState<"0" | "1" | "">("0");
   const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
   const [selectedCollegeId, setSelectedCollegeId] = useState<number | null>(
     null,
   );
   // Dynamic selected-college logo for the print headers (Angular: MINIO + Logo).
   const collegeLogo = useCollegeLogo(selectedCollegeId);
-  const [examMasterSearch, setExamMasterSearch] = useState("");
   const [examTimetables, setExamTimetables] = useState<any[]>([]);
   const [selectedExamTimetableId, setSelectedExamTimetableId] = useState<
     number | null
@@ -401,6 +472,8 @@ export default function SeatingPlanSetupPage() {
 
   // Table data from selected exam session/timetable
   const [previewRows, setPreviewRows] = useState<AllocationRow[]>([]);
+  /** Angular `flag` — search/actions/table only after timetable load completes. */
+  const [showResults, setShowResults] = useState(false);
   const [searchText, setSearchText] = useState("");
 
   const fetchFilters = useCallback(async () => {
@@ -491,6 +564,9 @@ export default function SeatingPlanSetupPage() {
     setRestRows([]);
     setCourseYears([]);
     setSelectedCourseYearId(null);
+    setShowResults(false);
+    setPreviewRows([]);
+    setSelectedExamTimetableId(null);
 
     // Keep exam years aligned to the selected course like legacy flow.
     const rowSource = regSupRows ?? baseRows ?? [];
@@ -528,16 +604,26 @@ export default function SeatingPlanSetupPage() {
   }
 
   useEffect(() => {
-    const list = distinct(
-      (baseRows ?? []).filter(
-        (r: any) =>
-          Number(r.fk_course_id) === Number(selectedCourseId) &&
-          Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
-      ),
-      (r: any) => r.fk_exam_id,
-    ).map((r: any) => ({
+    // Angular selectedExamType: Internal → is_internal_exam, else !is_internal_exam
+    const byCourseAy = (baseRows ?? []).filter(
+      (r: any) =>
+        Number(r.fk_course_id) === Number(selectedCourseId) &&
+        Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
+    );
+    const byType = byCourseAy.filter((r: any) => {
+      const isInternal = Boolean(r.is_internal_exam ?? r.isInternalExam);
+      if (selectedExamType === "1") return isInternal;
+      if (selectedExamType === "0") return !isInternal;
+      return true;
+    });
+    const list = distinct(byType, (r: any) => r.fk_exam_id).map((r: any) => ({
       examId: Number(r.fk_exam_id),
-      examName: r.exam_name,
+      examName: r.exam_name ?? r.examName,
+      fromDate: r.from_date ?? r.fromDate,
+      toDate: r.to_date ?? r.toDate,
+      isInternalExam: r.is_internal_exam ?? r.isInternalExam,
+      isRegularExam: r.is_regular_exam ?? r.isRegularExam,
+      isSupplyExam: r.is_supply_exam ?? r.isSupplyExam,
     }));
     setExamMasters(list);
     setSelectedExamId((prev) => {
@@ -546,17 +632,7 @@ export default function SeatingPlanSetupPage() {
         ? prevId
         : (list[0]?.examId ?? null);
     });
-  }, [baseRows, selectedCourseId, selectedAcademicYearId]);
-
-  const filteredExamMasters = useMemo(() => {
-    const q = examMasterSearch.trim().toLowerCase();
-    if (!q) return examMasters;
-    return examMasters.filter((e: any) =>
-      String(e.examName ?? "")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [examMasters, examMasterSearch]);
+  }, [baseRows, selectedCourseId, selectedAcademicYearId, selectedExamType]);
 
   const colleges = useMemo(
     () =>
@@ -609,21 +685,26 @@ export default function SeatingPlanSetupPage() {
     [sessionOptions, selectedExamTimetableId],
   );
 
-  /** Stable key so room-allotment fetch does not re-run when `sessionOptions` gets a new array ref with the same session. */
+  /**
+   * Angular selectedExamTimetable → selectedCollege / getProcs even when college
+   * is 0 (Exam Admin). Do not gate the load key on collegeId.
+   */
   const roomAllotmentLoadKey = useMemo(() => {
-    if (
-      !selectedCollegeId ||
-      !selectedCourseId ||
-      !selectedExamId ||
-      !selectedExamTimetableId
-    )
+    if (!selectedCourseId || !selectedExamId || !selectedExamTimetableId)
       return "";
     const o = sessionOptions.find(
       (s) => Number(s.id) === Number(selectedExamTimetableId),
     );
     const date = String(o?.examDate ?? "");
-    const sid = Number(o?.sessionId ?? 0) || 0;
-    return `${selectedCollegeId}|${selectedCourseId}|${selectedExamId}|${selectedExamTimetableId}|${date}|${sid}`;
+    const sid =
+      Number(
+        o?.sessionId ??
+          o?.examSessionId ??
+          o?.fk_exam_session_id ??
+          o?.exam_session_id ??
+          0,
+      ) || 0;
+    return `${selectedCollegeId ?? 0}|${selectedCourseId}|${selectedExamId}|${selectedExamTimetableId}|${date}|${sid}`;
   }, [
     selectedCollegeId,
     selectedCourseId,
@@ -639,6 +720,7 @@ export default function SeatingPlanSetupPage() {
       setExamTimetables([]);
       setPreviewRows([]);
       setSessionOptions([]);
+      setShowResults(false);
       if (!selectedCourseId || !selectedExamId) {
         setSelectedExamTimetableId(null);
         return;
@@ -724,12 +806,11 @@ export default function SeatingPlanSetupPage() {
           mergedOpts = Array.from(uniq.values());
         }
         setSessionOptions(mergedOpts);
+        // Angular: user selects Exam Timetable — do not auto-pick the first option.
         if (mergedOpts.length > 0) {
           setSelectedExamTimetableId((prev) => {
             const prevId = Number(prev ?? 0);
-            return mergedOpts.some((o) => o.id === prevId)
-              ? prevId
-              : mergedOpts[0].id;
+            return mergedOpts.some((o) => o.id === prevId) ? prevId : null;
           });
         } else {
           // Extra legacy fallback: derive date/session options directly from allotment SP.
@@ -744,9 +825,7 @@ export default function SeatingPlanSetupPage() {
             setSessionOptions(allotmentOpts);
             setSelectedExamTimetableId((prev) => {
               const prevId = Number(prev ?? 0);
-              return allotmentOpts.some((o) => o.id === prevId)
-                ? prevId
-                : allotmentOpts[0].id;
+              return allotmentOpts.some((o) => o.id === prevId) ? prevId : null;
             });
             return;
           }
@@ -776,9 +855,7 @@ export default function SeatingPlanSetupPage() {
         setSessionOptions(fallbackOpts);
         setSelectedExamTimetableId((prev) => {
           const prevId = Number(prev ?? 0);
-          return fallbackOpts.some((o) => o.id === prevId)
-            ? prevId
-            : (fallbackOpts[0]?.id ?? null);
+          return fallbackOpts.some((o) => o.id === prevId) ? prevId : null;
         });
       }
     }
@@ -791,6 +868,7 @@ export default function SeatingPlanSetupPage() {
     function mapSelectedSessionRows() {
       if (!selectedExamTimetableId) {
         setPreviewRows([]);
+        setShowResults(false);
         return;
       }
       const rows = examTimetables.filter(
@@ -833,28 +911,92 @@ export default function SeatingPlanSetupPage() {
   }, [selectedExamTimetableId, examTimetables]);
 
   useEffect(() => {
-    if (!roomAllotmentLoadKey) return;
+    if (!roomAllotmentLoadKey) {
+      setShowResults(false);
+      return;
+    }
     const ac = new AbortController();
     const { signal } = ac;
     async function loadRoomAllotmentsBySelection() {
-      if (
-        !selectedExamId ||
-        !selectedExamTimetableId ||
-        !selectedCourseId ||
-        !selectedCollegeId
-      ) {
+      // Angular selectedExamTimetable → getProcs + barcode + cover + invigilators
+      // always; ExamRoomAllotment list when exam+timetable are set.
+      if (!selectedExamId || !selectedExamTimetableId || !selectedCourseId) {
         setPreviewRows([]);
+        setShowResults(false);
         return;
       }
       const sessionRow = sessionOptions.find(
         (s) => Number(s.id) === Number(selectedExamTimetableId),
       );
-      // Angular parity: prefer ExamRoomAllotment rows first (already aggregated per room).
-      let rows = await listExamRoomAllotmentsPre(
-        selectedCollegeId,
-        selectedExamId,
-        selectedExamTimetableId,
-      ).catch(() => []);
+      const selectedExamDate = toDateStr(sessionRow?.examDate);
+      const selectedSessionId =
+        Number(
+          sessionRow?.sessionId ??
+            sessionRow?.examSessionId ??
+            sessionRow?.fk_exam_session_id ??
+            sessionRow?.exam_session_id ??
+            0,
+        ) || 0;
+      const procParams = {
+        courseId: selectedCourseId,
+        examId: selectedExamId,
+        examDate: selectedExamDate,
+        sessionId: selectedSessionId,
+      };
+
+      // Fire Angular-parity side loads in parallel (getProcs / barcode / cover / invigilators).
+      void Promise.all([
+        getRoomwiseAllotmentSummary(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setRoomWiseAllocations(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setRoomWiseAllocations([]);
+          }),
+        getGroupwiseAllotmentSummary(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setGroupwiseAllocations(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setGroupwiseAllocations([]);
+          }),
+        getRoomwiseSubjectSummary(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setRoomSubjectAllocations(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setRoomSubjectAllocations([]);
+          }),
+        listRoomwiseOmrStudents(procParams)
+          .then((rows) => {
+            if (!signal.aborted) setStudentAllotmentDetails(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setStudentAllotmentDetails([]);
+          }),
+        listExamStdAttDetails({
+          examId: selectedExamId,
+          courseId: selectedCourseId,
+          examTimetableId: selectedExamTimetableId,
+        }).catch(() => []),
+        listExamInvigilationAllotmentsByTimetable(selectedExamTimetableId)
+          .then((rows) => {
+            if (!signal.aborted) setInvigilatorRows(rows);
+          })
+          .catch(() => {
+            if (!signal.aborted) setInvigilatorRows([]);
+          }),
+      ]);
+
+      // Angular ExamRoomAllotment: examMaster.examId + ExamTimetable.examTimetableId
+      let rows: any[] = [];
+      if (selectedCollegeId) {
+        rows = await listExamRoomAllotmentsPre(
+          selectedCollegeId,
+          selectedExamId,
+          selectedExamTimetableId,
+        ).catch(() => []);
+      }
       if (signal.aborted) return;
       if (!Array.isArray(rows) || rows.length === 0) {
         rows = await listExamRoomAllotmentsDomain(
@@ -863,23 +1005,15 @@ export default function SeatingPlanSetupPage() {
         ).catch(() => []);
       }
       if (signal.aborted) return;
-      // Last fallback only when allotments are absent: student-level SP rows.
       if (!Array.isArray(rows) || rows.length === 0) {
-        const selectedExamDate = toDateStr(sessionRow?.examDate);
-        const selectedSessionId = Number(sessionRow?.sessionId ?? 0) || 0;
-        rows = await fetchRoomwiseOmrStudents({
-          examId: selectedExamId,
-          courseId: selectedCourseId,
-          examDate: selectedExamDate,
-          sessionId: selectedSessionId,
-        }).catch(() => []);
+        rows = await fetchRoomwiseOmrStudents(procParams).catch(() => []);
       }
       if (signal.aborted) return;
-      if (!Array.isArray(rows) || rows.length === 0) {
-        setPreviewRows([]);
-        return;
-      }
-      setPreviewRows(mapAllocationRows(rows));
+      // Angular sets flag=true after the list API returns (even when empty).
+      setPreviewRows(
+        Array.isArray(rows) && rows.length > 0 ? mapAllocationRows(rows) : [],
+      );
+      setShowResults(true);
     }
     void loadRoomAllotmentsBySelection();
     return () => ac.abort();
@@ -1777,6 +1911,7 @@ export default function SeatingPlanSetupPage() {
       }
       return (
         <div
+          data-print-root
           className="text-black"
           style={{
             fontFamily: "Times New Roman, Times, serif",
@@ -2108,6 +2243,7 @@ export default function SeatingPlanSetupPage() {
       }
       return (
         <div
+          data-print-root
           className="text-black"
           style={{
             fontFamily: "Times New Roman, Times, serif",
@@ -2308,7 +2444,7 @@ export default function SeatingPlanSetupPage() {
 
   return (
     <FilteredListPage
-      title="Exam Room Seating Plan"
+      title="Seating Plan Setup"
       notice={
         loadingPrintData ? (
           <div
@@ -2330,157 +2466,146 @@ export default function SeatingPlanSetupPage() {
         ) : null
       }
       filters={
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
-          <div className="space-y-1">
-            <Label>Course</Label>
-            <Select
-              value={
-                selectedCourseId != null ? String(selectedCourseId) : undefined
-              }
-              onValueChange={(v) => handleCourseChange(Number(v))}
-              disabled={loadingFilters}
+        <div className="space-y-2">
+          <GlobalFilterBarRow className="flex-nowrap">
+            <GlobalFilterField
+              label="Course"
+              icon={GraduationCap}
+              className="min-w-[8rem] flex-[0.9]"
             >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue
-                  placeholder={loadingFilters ? "Loading…" : "Select Course"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((c) => (
-                  <SelectItem
-                    key={c.fk_course_id}
-                    value={String(c.fk_course_id)}
-                  >
-                    {c.course_code ?? c.course_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Exam Year</Label>
-            <Select
-              value={
-                selectedAcademicYearId != null
-                  ? String(selectedAcademicYearId)
-                  : undefined
-              }
-              onValueChange={(v) => setSelectedAcademicYearId(Number(v))}
-              disabled={academicYearOptions.length === 0}
+              <Select
+                value={
+                  selectedCourseId != null ? String(selectedCourseId) : null
+                }
+                onChange={(v) => handleCourseChange(Number(v))}
+                options={courses.map((c) => ({
+                  value: String(c.fk_course_id),
+                  label: String(c.course_code ?? c.course_name ?? ""),
+                }))}
+                placeholder={loadingFilters ? "Loading…" : "Select Course"}
+                disabled={loadingFilters}
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Exam Year"
+              icon={CalendarDays}
+              className="min-w-[8rem] flex-[0.9]"
             >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Exam Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYearOptions.map((a) => (
-                  <SelectItem key={a.id} value={String(a.id)}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Exam Type</Label>
-            <Select
-              value={selectedExamType || undefined}
-              onValueChange={(v: "0" | "1") => setSelectedExamType(v)}
+              <Select
+                value={
+                  selectedAcademicYearId != null
+                    ? String(selectedAcademicYearId)
+                    : null
+                }
+                onChange={(v) => {
+                  setSelectedAcademicYearId(Number(v));
+                  // Angular selectedAcademicYear → examTypeId = External (0)
+                  setSelectedExamType("0");
+                  setShowResults(false);
+                  setPreviewRows([]);
+                  setSelectedExamTimetableId(null);
+                }}
+                options={academicYearOptions.map((a) => ({
+                  value: String(a.id),
+                  label: a.label,
+                }))}
+                placeholder="Select Exam Year"
+                disabled={academicYearOptions.length === 0}
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Exam Type"
+              icon={BookOpen}
+              className="min-w-[7rem] flex-[0.8]"
             >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Select Exam Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">External</SelectItem>
-                <SelectItem value="1">Internal</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Exam Master</Label>
-            <Select
-              value={
-                selectedExamId != null ? String(selectedExamId) : undefined
-              }
-              onValueChange={(v) => setSelectedExamId(Number(v))}
-              disabled={
-                !selectedCourseId || !selectedAcademicYearId || loadingFilters
-              }
+              <Select
+                value={selectedExamType || null}
+                onChange={(v) => {
+                  setSelectedExamType(v as "0" | "1");
+                  setShowResults(false);
+                  setPreviewRows([]);
+                  setSelectedExamId(null);
+                  setSelectedExamTimetableId(null);
+                }}
+                options={[
+                  { value: "0", label: "External" },
+                  { value: "1", label: "Internal" },
+                ]}
+                placeholder="Select Exam Type"
+                searchable={false}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Exam Master"
+              icon={ScrollText}
+              className="min-w-[16rem] flex-[2.2]"
             >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue
-                  placeholder={
-                    !selectedAcademicYearId
-                      ? "Select Exam Year first"
-                      : "Select Exam Master"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="p-2 border-b">
-                  <input
-                    className="h-8 w-full rounded-md border border-input bg-card px-2 text-[12px]"
-                    placeholder="Search Exam…"
-                    value={examMasterSearch}
-                    onChange={(e) => setExamMasterSearch(e.target.value)}
-                  />
-                </div>
-                {filteredExamMasters.length === 0 && (
-                  <div className="px-2 py-1.5 text-[12px] text-muted-foreground">
-                    No exam masters found
-                  </div>
-                )}
-                {filteredExamMasters.map((e) => (
-                  <SelectItem
-                    key={e.examId ?? e.id}
-                    value={String(e.examId ?? e.id)}
-                  >
-                    {e.examName ?? "—"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Exam Timetable *</Label>
-            <Select
-              value={
-                selectedExamTimetableId != null
-                  ? String(selectedExamTimetableId)
-                  : undefined
-              }
-              onValueChange={(v) => setSelectedExamTimetableId(Number(v))}
-              disabled={!selectedExamId}
+              <Select
+                value={selectedExamId != null ? String(selectedExamId) : null}
+                onChange={(v) => {
+                  setSelectedExamId(Number(v));
+                  setShowResults(false);
+                  setPreviewRows([]);
+                  setSelectedExamTimetableId(null);
+                }}
+                options={examMasters.map((e) => ({
+                  value: String(e.examId ?? e.id),
+                  label: formatExamMasterOption(e),
+                }))}
+                placeholder={
+                  !selectedAcademicYearId
+                    ? "Select Exam Year first"
+                    : "Select Exam Master"
+                }
+                disabled={
+                  !selectedCourseId || !selectedAcademicYearId || loadingFilters
+                }
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow>
+            <GlobalFilterField
+              label="Exam Timetable *"
+              icon={CalendarDays}
+              className="min-w-[14rem] flex-[1.2]"
             >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue
-                  placeholder={
-                    !selectedExamId
-                      ? "Select Exam Master first"
+              <Select
+                value={
+                  selectedExamTimetableId != null
+                    ? String(selectedExamTimetableId)
+                    : null
+                }
+                onChange={(v) => {
+                  setSelectedExamTimetableId(Number(v));
+                  setShowResults(false);
+                  setPreviewRows([]);
+                }}
+                options={sessionOptions.map((s) => ({
+                  value: String(s.id),
+                  label: `${s.examDate} (${s.session})`,
+                }))}
+                placeholder={
+                  !selectedExamId
+                    ? "Select Exam Master first"
+                    : sessionOptions.length === 0
+                      ? "No timetable found"
                       : "Select Exam Timetable"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {sessionOptions.length === 0 && (
-                  <div className="px-2 py-1.5 text-[12px] text-muted-foreground">
-                    No timetable found
-                  </div>
-                )}
-                {sessionOptions.map((s) => (
-                  <SelectItem key={`session-${s.id}`} value={String(s.id)}>
-                    <span>{s.examDate} </span>
-                    <span className="text-blue-700">({s.session})</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                }
+                disabled={!selectedExamId}
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
         </div>
       }
       filtersCollapsible
       filtersDefaultOpen
-      rowData={selectedExamTimetableId != null ? filteredRows : []}
+      rowData={showResults ? filteredRows : []}
       columnDefs={columnDefs}
+      resultsVisible={showResults}
       pagination
       toolbar={{
         search: false,
@@ -2490,182 +2615,174 @@ export default function SeatingPlanSetupPage() {
         columnPicker: false,
       }}
       toolbarLeading={
-        selectedExamTimetableId != null ? (
-          <div className="flex w-full flex-col gap-3">
-            <SearchInput
-              className="w-full max-w-sm"
-              placeholder="Search…"
-              value={searchText}
-              onChange={setSearchText}
-            />
-            <div className="rounded-lg border border-border/90 bg-muted/40/70 p-3 print-hide">
-              <p className="mb-2 px-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                Print & exports
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {(
-                  [
-                    ["Room Wise Seating Print", "room-wise-seating"],
-                    ["Room Subject Counts Print", "room-subject-counts"],
-                    ["Group Wise Seating Print", "group-wise-seating"],
-                    ["Print Attendance Sheet", "attendance"],
-                    ["Print Stickers", "student"],
-                    ["Group-Wise Stickers", "groupwise-stickers"],
-                    ["Print Invigilator", "invigilator"],
-                    ["Cover Slip", "cover-slip"],
-                    ["Packing Slip", "packing-slip"],
-                  ] as const
-                ).map(([label, mode]) => (
-                  <Button
-                    key={label}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 rounded-md border-border bg-card px-2.5 text-[11px] font-medium text-slate-700 shadow-sm hover:border-input hover:bg-card hover:text-slate-900"
-                    onClick={async () => {
-                      if (selectedCourseId && selectedExamId) {
-                        const session = sessionOptions.find(
-                          (s) => s.id === selectedExamTimetableId,
-                        );
-                        const examDate =
-                          session?.examDate ?? filteredRows[0]?.examDate ?? "";
-                        const sessionId =
-                          (session as any)?.sessionId ??
-                          (session as any)?.examSessionId ??
-                          (session as any)?.fk_exam_session_id ??
-                          (session as any)?.exam_session_id ??
-                          0;
-                        const params = {
-                          courseId: selectedCourseId,
-                          examId: selectedExamId,
-                          examDate,
-                          sessionId,
-                        };
-                        if (mode === "room-wise-seating") {
-                          setLoadingPrintData(true);
-                          const data = await getRoomwiseAllotmentSummary(
-                            params,
-                          ).catch(() => [] as any[]);
-                          setRoomWiseAllocations(data);
-                          setLoadingPrintData(false);
-                        } else if (mode === "room-subject-counts") {
-                          setLoadingPrintData(true);
-                          const data = await getRoomwiseSubjectSummary(
-                            params,
-                          ).catch(() => [] as any[]);
-                          setRoomSubjectAllocations(data);
-                          setLoadingPrintData(false);
-                        } else if (mode === "group-wise-seating") {
-                          setLoadingPrintData(true);
-                          const data = await getGroupwiseAllotmentSummary(
-                            params,
-                          ).catch(() => [] as any[]);
-                          setGroupwiseAllocations(data);
-                          setLoadingPrintData(false);
-                        } else if (
-                          mode === "invigilator" &&
-                          selectedExamTimetableId
-                        ) {
-                          setLoadingPrintData(true);
-                          const data =
-                            await listExamInvigilationAllotmentsByTimetable(
-                              selectedExamTimetableId,
-                            ).catch(() => [] as any[]);
-                          setInvigilatorRows(data);
-                          setLoadingPrintData(false);
-                        } else if (
-                          mode === "student" ||
-                          mode === "groupwise-stickers" ||
-                          mode === "attendance"
-                        ) {
-                          setLoadingPrintData(true);
-                          const data = await listRoomwiseOmrStudents({
-                            examId: selectedExamId,
+        showResults ? (
+          <div className="flex w-full flex-col gap-3 print-hide">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SearchInput
+                className="w-full max-w-sm"
+                placeholder="Search…"
+                value={searchText}
+                onChange={setSearchText}
+              />
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-md px-3 text-[11px] font-medium"
+                  onClick={handleCopyExistingSeating}
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Copy Existing Seating
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-md px-3 text-[11px] font-medium"
+                  onClick={handleAddRoomSeatingPlan}
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Add Room Seating Plan
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-md px-3 text-[11px] font-medium"
+                  onClick={handleAssignSeating}
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Assign Seating
+                </Button>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <div className="rounded-[5px] border-2 border-[#ffcf46] px-2.5 pb-1.5 pt-0.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      ["Room Wise Seating Print", "room-wise-seating"],
+                      ["Room Subject Counts Print", "room-subject-counts"],
+                      ["Group Wise Seating Print", "group-wise-seating"],
+                      ["Print Attendance Sheet", "attendance"],
+                      ["Print Stickers", "student"],
+                      ["Group-Wise Stickers", "groupwise-stickers"],
+                      ["Print Invigilator", "invigilator"],
+                      ["Cover Slip", "cover-slip"],
+                      ["Packing Slip", "packing-slip"],
+                    ] as const
+                  ).map(([label, mode]) => (
+                    <Button
+                      key={label}
+                      type="button"
+                      size="sm"
+                      className="h-8 gap-1.5 rounded-md px-2.5 text-[11px] font-medium"
+                      onClick={async () => {
+                        if (selectedCourseId && selectedExamId) {
+                          const session = sessionOptions.find(
+                            (s) => s.id === selectedExamTimetableId,
+                          );
+                          const examDate =
+                            session?.examDate ??
+                            filteredRows[0]?.examDate ??
+                            "";
+                          const sessionId =
+                            (session as any)?.sessionId ??
+                            (session as any)?.examSessionId ??
+                            (session as any)?.fk_exam_session_id ??
+                            (session as any)?.exam_session_id ??
+                            0;
+                          const params = {
                             courseId: selectedCourseId,
+                            examId: selectedExamId,
                             examDate,
                             sessionId,
-                          }).catch(() => [] as any[]);
-                          setStudentAllotmentDetails(data);
-                          setLoadingPrintData(false);
+                          };
+                          try {
+                            setLoadingPrintData(true);
+                            if (mode === "room-wise-seating") {
+                              setRoomWiseAllocations(
+                                await getRoomwiseAllotmentSummary(params).catch(
+                                  () => [] as any[],
+                                ),
+                              );
+                            } else if (mode === "room-subject-counts") {
+                              setRoomSubjectAllocations(
+                                await getRoomwiseSubjectSummary(params).catch(
+                                  () => [] as any[],
+                                ),
+                              );
+                            } else if (mode === "group-wise-seating") {
+                              setGroupwiseAllocations(
+                                await getGroupwiseAllotmentSummary(
+                                  params,
+                                ).catch(() => [] as any[]),
+                              );
+                            } else if (
+                              mode === "invigilator" &&
+                              selectedExamTimetableId
+                            ) {
+                              setInvigilatorRows(
+                                await listExamInvigilationAllotmentsByTimetable(
+                                  selectedExamTimetableId,
+                                ).catch(() => [] as any[]),
+                              );
+                            } else if (
+                              mode === "student" ||
+                              mode === "groupwise-stickers" ||
+                              mode === "attendance"
+                            ) {
+                              setStudentAllotmentDetails(
+                                await listRoomwiseOmrStudents({
+                                  examId: selectedExamId,
+                                  courseId: selectedCourseId,
+                                  examDate,
+                                  sessionId,
+                                }).catch(() => [] as any[]),
+                              );
+                            }
+                          } finally {
+                            setLoadingPrintData(false);
+                          }
                         }
-                      }
-                      const printDelay =
-                        mode === "attendance" ||
-                        mode === "student" ||
-                        mode === "groupwise-stickers"
-                          ? 1000
-                          : 500;
-                      triggerPrint(mode, printDelay);
-                    }}
-                  >
-                    <Printer
-                      className="h-3 w-3 shrink-0 text-muted-foreground"
-                      aria-hidden
-                    />
-                    {label}
-                  </Button>
-                ))}
+                        setPrintMode(mode);
+                      }}
+                    >
+                      <Printer className="h-3 w-3 shrink-0" aria-hidden />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         ) : undefined
       }
-      toolbarTrailing={
-        selectedExamTimetableId != null ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-              onClick={handleCopyExistingSeating}
-            >
-              <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Copy Existing Seating
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-              onClick={handleAddRoomSeatingPlan}
-            >
-              <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Add Room Seating Plan
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-              onClick={handleAssignSeating}
-            >
-              <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Assign Seating
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 rounded-md border-[hsl(var(--primary))]/35 bg-card px-3 text-[11px] font-medium text-[hsl(var(--primary))] shadow-sm hover:bg-[hsl(var(--primary))]/[0.07] hover:text-[hsl(var(--primary))]"
-              disabled={!selectedExamTimetableId}
-              onClick={async () => {
-                if (!selectedExamTimetableId) return;
-                try {
-                  await popExamInvigilator(selectedExamTimetableId);
-                  toast.success("Invigilators auto-assigned");
-                } catch {
-                  toast.error("Auto-assign invigilators failed");
-                }
-              }}
-            >
-              <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Auto Assign Invigilators
-            </Button>
-          </div>
-        ) : undefined
-      }
+      toolbarTrailing={undefined}
     >
+      {showResults ? (
+        <div className="flex justify-end print-hide">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[12px]"
+            disabled={autoAssignBusy || !selectedExamTimetableId}
+            onClick={async () => {
+              if (!selectedExamTimetableId) return;
+              setAutoAssignBusy(true);
+              try {
+                await popExamInvigilator(selectedExamTimetableId);
+                toast.success("Invigilators auto-assigned");
+              } catch {
+                toast.error("Auto-assign invigilators failed");
+              } finally {
+                setAutoAssignBusy(false);
+              }
+            }}
+          >
+            {autoAssignBusy ? "Assigning…" : "Auto Assign Invigilators"}
+          </Button>
+        </div>
+      ) : null}
+
       <ConfirmDialog
         open={assignSeatingOpen}
         title="Assign Seating Allotment"

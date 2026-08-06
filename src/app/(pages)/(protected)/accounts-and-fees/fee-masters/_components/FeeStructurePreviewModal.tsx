@@ -26,6 +26,8 @@ type ParticularRow = {
 
 type CourseGroupRow = {
   groupCode?: string;
+  isActive?: boolean;
+  checked?: boolean;
 };
 
 /** Angular `ViewPreviewComponent` — confirm before POST to `feestructures`. */
@@ -45,7 +47,10 @@ export function FeeStructurePreviewModal({
   const particulars = (payload?.feeStructureParticularDTOs ?? []).filter(
     (p) => p.isActive !== false,
   ) as ParticularRow[];
-  const groups = (payload?.feeStructureCourseyrDTOs ?? []) as CourseGroupRow[];
+  // Preview lists only active/selected course groups.
+  const groups = (
+    (payload?.feeStructureCourseyrDTOs ?? []) as CourseGroupRow[]
+  ).filter((g) => g.isActive !== false && g.checked !== false);
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>

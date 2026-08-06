@@ -3,10 +3,10 @@ import type { StudentFeeSearchRow } from "@/types/fees-collection";
 import type { FeeReceiptRow } from "@/types/fees-collection";
 import { fetchDetails, getAllRecords, postDetails } from "./crud";
 
-/** Angular bonafied-certificate hardcoded `collegeCertificateId`. */
-export const BONAFIDE_COLLEGE_CERTIFICATE_ID = 106;
+/** Angular typo kept — same code used on generate payload. */
+export const BONAFIDE_CERTIFICATE_CODE = "Bonafied";
 
-/** Angular bonafied-certificate hardcoded `applicationStatusId`. */
+/** Angular bonafied-certificate hardcoded `applicationStatusId` (status, not cert type). */
 export const BONAFIDE_APPLICATION_STATUS_ID = 113;
 
 export type BonafideCertificateIssueRow = {
@@ -26,7 +26,7 @@ export type GenerateBonafideCertificatePayload = {
   collegeId: number;
   courseYearId: number;
   studentId: number;
-  collegeCertificateId: number;
+  certifcateCode: string;
   applicationStatusId: number;
 };
 
@@ -50,7 +50,9 @@ export const searchStudentsForBonafideCertificate =
   searchStudentsForCertificate;
 
 /**
- * Angular `getStudentTcDetails` — `getAllRecords/s_get_fee_certificate_issue` with cert id 106.
+ * Angular `getStudentTcDetails` — `getAllRecords/s_get_fee_certificate_issue`
+ * with `in_certificate_id: 106` (Bonafied).
+ * `certifcateCode` is only for generate (`generateAllStdCertificates`), not this proc.
  */
 export async function getBonafideCertificateIssue(params: {
   collegeId: number;
@@ -65,7 +67,7 @@ export async function getBonafideCertificateIssue(params: {
       in_flag: "tc_certificate",
       in_clg_id: collegeId,
       in_std_id: studentId,
-      in_certificate_id: BONAFIDE_COLLEGE_CERTIFICATE_ID,
+      in_certificate_id: 106,
     });
     const row = data?.result?.[0]?.[0];
     return row ?? null;

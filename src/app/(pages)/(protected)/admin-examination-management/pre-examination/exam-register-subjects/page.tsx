@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { BookOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,20 +11,24 @@ import { Select } from "@/common/components/select";
 import { DataTable } from "@/common/components/table";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { StudentSearchSelect } from "@/common/components/student-search";
+import { FilteredPage } from "@/components/layout";
+import { GlobalFilterBarRow } from "@/common/components/forms";
+import { utcMidnightIso } from "@/common/generic-functions";
 import {
   deactivateRegisteredExamSubject,
-  listExamStdCourseYearSubjects,
+  getStudentExamFeeStructure,
+  listCourseYears,
+  listExamFeeTypes,
   listExamMastersByCourse,
+  listExamStdCourseYearSubjects,
   listRegisteredExamSubjects,
   listStudentSubjects,
   listStudents,
+  resolveExamTypeCategoryId,
   saveRegisteredExamSubjects,
-} from "@/services/pre-examination";
-import { FilteredPage } from "@/components/layout";
-import { GlobalFilterBarRow } from "@/common/components/forms";
-import { listCourseYears } from "@/services/examination";
+} from "@/services";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
 
@@ -167,13 +171,22 @@ const STATUS_CLASS: Record<string, string> = {
   DISCONTINUED: "text-red-600 font-bold",
 };
 
+/** Angular `genericFunctions.moment()` — presentDate (DD-MM-YYYY) or local UTC midnight. */
+function registrationDateIso(): string {
+  const present = globalThis?.localStorage?.getItem("presentDate") ?? "";
+  const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(present.trim());
+  if (m) return `${m[3]}-${m[2]}-${m[1]}T00:00:00Z`;
+  return utcMidnightIso();
+}
+
 /**
  * Angular exam-registration-without-fee:
  * - Exams: ExamMaster by Course.courseId (exclude internal)
- * - Course years: CourseYear by course, ASC, keep semNo <= student's current sem
+ * - Course years: CourseYear by course, ASC sortOrder, keep semNo <= student's current sem
  * - Subjects (same year as student): StudentSubject domain list
  * - Subjects (other year): examstdcourseyrsub
  * - UI section shown only after exam selected (flag)
+ * - Save filters already-registered; info toast when nothing new to add
  */
 export default function ExamRegisterSubjectsPage() {
   const [loading, setLoading] = useState(false);
@@ -186,6 +199,7 @@ export default function ExamRegisterSubjectsPage() {
   const [courseYears, setCourseYears] = useState<AnyRow[]>([]);
   const [subjects, setSubjects] = useState<AnyRow[]>([]);
   const [registeredSubjects, setRegisteredSubjects] = useState<AnyRow[]>([]);
+  const [examFeeTypes, setExamFeeTypes] = useState<AnyRow[]>([]);
   const [checkedSubjects, setCheckedSubjects] = useState<Set<number>>(
     new Set(),
   );
@@ -197,6 +211,13 @@ export default function ExamRegisterSubjectsPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [photoError, setPhotoError] = useState(false);
+
+  // Angular getGeneralDetails() — EXMFEETYP for examtypeCatId on Save
+  useEffect(() => {
+    void listExamFeeTypes()
+      .then((rows) => setExamFeeTypes(Array.isArray(rows) ? rows : []))
+      .catch(() => setExamFeeTypes([]));
+  }, []);
   const [deleteTarget, setDeleteTarget] = useState<AnyRow | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteReasonTouched, setDeleteReasonTouched] = useState(false);
@@ -207,8 +228,11 @@ export default function ExamRegisterSubjectsPage() {
     students.find((s) => num(s.studentId ?? s.id) === num(studentId)) ??
     null;
 
-  const studentCurrentCourseYearId = num(
-    selectedStudent?.courseYearId ?? selectedStudent?.fk_course_year_id,
+  const selectedExam = useMemo(
+    () =>
+      examsList.find((e) => num(e.examId ?? e.fk_exam_id) === num(examId)) ??
+      null,
+    [examsList, examId],
   );
 
   const selectedSubjectRows = useMemo(
@@ -278,31 +302,35 @@ export default function ExamRegisterSubjectsPage() {
     }));
   }
 
-  function applyChecks(list: AnyRow[], registered: AnyRow[]) {
-    const already = new Set(
-      registered
-        .map((r) => subjectIdOf(r) || num(r.fk_subject_id))
-        .filter((x) => x > 0),
-    );
-    // Also match by subjectCode + courseYearId like Angular addExamSubjects
-    const alreadyCodes = new Set(
-      registered.map(
-        (r) =>
-          `${text(r.subjectCode, r.subject_code)}::${num(r.courseYearId ?? r.fk_course_year_id)}`,
-      ),
-    );
+  /** Angular markAll() — select every loaded subject (including already registered). */
+  function markAll(list: AnyRow[]) {
     const next = new Set<number>();
     for (const s of list) {
       const sid = subjectIdOf(s);
-      if (!sid) continue;
-      const codeKey = `${text(s.subjectCode, s.subject_code)}::${num(s.courseYearId)}`;
-      if (already.has(sid) || alreadyCodes.has(codeKey)) continue;
-      next.add(sid);
+      if (sid > 0) next.add(sid);
     }
     setCheckedSubjects(next);
-    setCheckAll(
-      next.size > 0 &&
-        next.size === list.filter((s) => subjectIdOf(s) > 0).length,
+    setCheckAll(next.size > 0);
+  }
+
+  /** Angular unMark() after successful Save. */
+  function unMark() {
+    setCheckedSubjects(new Set());
+    setCheckAll(false);
+  }
+
+  function isAlreadyRegistered(subject: AnyRow, registered: AnyRow[]): boolean {
+    const code = text(
+      subject.subjectCode,
+      subject.subject_code,
+      subject.Subject_code,
+    );
+    const cy = num(subject.courseYearId ?? subject.fk_course_year_id);
+    if (!code) return false;
+    return registered.some(
+      (r) =>
+        text(r.subjectCode, r.subject_code, r.Subject_code) === code &&
+        num(r.courseYearId ?? r.fk_course_year_id) === cy,
     );
   }
 
@@ -313,8 +341,8 @@ export default function ExamRegisterSubjectsPage() {
   async function loadStudentSubjects(
     student: AnyRow,
     cyId: number,
-    _eid: number | null,
-    registered: AnyRow[],
+    eid: number | null,
+    _registered: AnyRow[],
   ) {
     if (!cyId || !student) {
       setSubjects([]);
@@ -330,8 +358,21 @@ export default function ExamRegisterSubjectsPage() {
       const studentDetailId = num(
         student.studentId ?? student.id ?? student.fk_student_id,
       );
+      const courseGroupId = num(
+        student.courseGroupId ?? student.fk_course_group_id,
+      );
       const currentCy = num(student.courseYearId ?? student.fk_course_year_id);
       let rows: AnyRow[] = [];
+
+      // Angular getExamFeeStructure(courseYearId) when exam is set (fee UI commented)
+      if (eid && collegeId && courseGroupId) {
+        void getStudentExamFeeStructure({
+          collegeId,
+          examId: eid,
+          courseGroupId,
+          courseYearId: cyId,
+        }).catch(() => null);
+      }
 
       if (currentCy === cyId) {
         if (collegeId && academicYearId && studentDetailId) {
@@ -361,12 +402,14 @@ export default function ExamRegisterSubjectsPage() {
           "Supple",
         ).map((r) => ({
           ...r,
+          subCredits: r.subCredits ?? r.creditPoints ?? r.credits,
           credits: r.subCredits ?? r.creditPoints ?? r.credits,
         }));
       }
 
       setSubjects(rows);
-      applyChecks(rows, registered);
+      // Angular markAll() — checksubject defaults true; keep already-registered selectable
+      markAll(rows);
     } finally {
       setLoading(false);
     }
@@ -417,10 +460,12 @@ export default function ExamRegisterSubjectsPage() {
         ),
       );
 
-      // Angular course years ASC, trim by student semNo
+      // Angular course years ASC by sortOrder, trim by student semNo
       const yearsRaw = await listCourseYears(cid).catch(() => []);
       const yearsSorted = [...(Array.isArray(yearsRaw) ? yearsRaw : [])].sort(
-        (a, b) => num(a.semNo ?? a.sem_no) - num(b.semNo ?? b.sem_no),
+        (a, b) =>
+          num(a.sortOrder ?? a.sort_order) - num(b.sortOrder ?? b.sort_order) ||
+          num(a.semNo ?? a.sem_no) - num(b.semNo ?? b.sem_no),
       );
       const years = trimCourseYearsBySem(yearsSorted, row);
       setCourseYears(years);
@@ -507,60 +552,105 @@ export default function ExamRegisterSubjectsPage() {
     });
   }
 
+  /** Angular addInternalSubjects() */
   async function onSave() {
-    if (
-      !selectedStudent ||
-      !examId ||
-      checkedSubjects.size === 0 ||
-      !courseYearId
-    )
+    if (!selectedStudent || !examId || !courseYearId || !selectedExam) return;
+
+    const checked = subjects.filter((s) => checkedSubjects.has(subjectIdOf(s)));
+    // Skip subjects already registered for same subjectCode + courseYearId
+    const toAdd: AnyRow[] = [];
+    for (const s of checked) {
+      if (isAlreadyRegistered(s, registeredSubjects)) continue;
+      if (
+        toAdd.some(
+          (x) =>
+            text(x.subjectCode, x.subject_code) ===
+              text(s.subjectCode, s.subject_code) &&
+            num(x.courseYearId) === num(s.courseYearId),
+        )
+      ) {
+        continue;
+      }
+      toAdd.push(s);
+    }
+
+    if (toAdd.length === 0) {
+      // Angular exact spelling
+      toastInfo("Subject alredy added in same course year");
       return;
-    const selected = subjects.filter((s) =>
-      checkedSubjects.has(subjectIdOf(s)),
-    );
-    if (selected.length === 0) return;
+    }
 
-    const isSameYear = courseYearId === studentCurrentCourseYearId;
-    const examTypeCode = isSameYear ? "Regular" : "Supple";
+    let feeTypeCode = "Regular";
+    if (selectedExam.isInternalExam || selectedExam.is_internal_exam) {
+      feeTypeCode = "Internal";
+    } else if (selectedExam.isSupplyExam || selectedExam.is_supply_exam) {
+      feeTypeCode = "Supple";
+    } else if (selectedExam.isRegularExam || selectedExam.is_regular_exam) {
+      feeTypeCode = "Regular";
+    }
+    const examtypeCatId = resolveExamTypeCategoryId(examFeeTypes, feeTypeCode);
 
-    const payload: AnyRow[] = [
-      {
+    // Group by courseYearId (Angular intent; Angular used accidental `=` assignment)
+    const byYear = new Map<number, AnyRow[]>();
+    for (const s of toAdd) {
+      const cy = num(s.courseYearId) || num(courseYearId);
+      const list = byYear.get(cy) ?? [];
+      list.push({
+        ...s,
+        courseYearId: cy,
+        subjectId: subjectIdOf(s),
+        subjectCode: text(s.subjectCode, s.subject_code),
+        subjectName: text(s.subjectName, s.subject_name, s.shortName),
+      });
+      byYear.set(cy, list);
+    }
+
+    const payload: AnyRow[] = [];
+    for (const [cy, details] of byYear) {
+      const existing = registeredSubjects.find(
+        (r) => num(r.courseYearId ?? r.fk_course_year_id) === cy,
+      );
+      const examStdId = existing
+        ? (existing.exexamStdId ??
+          existing.examStdId ??
+          existing.examStudentId ??
+          null)
+        : null;
+      const examFeeAmount = existing ? num(existing.examFeeAmount) : 0;
+      payload.push({
+        feeComments: null,
         collegeId: num(
           selectedStudent.collegeId ?? selectedStudent.fk_college_id,
         ),
         courseGroupId: num(
           selectedStudent.courseGroupId ?? selectedStudent.fk_course_group_id,
         ),
-        courseYearId: num(courseYearId),
+        courseYearId: cy,
+        examFeeAmount,
+        examStdId,
+        examtypeCatId,
         regulationId: num(
           selectedStudent.regulationId ?? selectedStudent.fk_regulation_id,
         ),
         studentId: num(selectedStudent.studentId ?? selectedStudent.id),
-        examId: num(examId),
-        examtypeCatCode: examTypeCode,
         isActive: true,
         isFeePaid: false,
-        examStudentDetailDTOs: selected.map((s) => ({
-          ...s,
-          courseYearId: num(courseYearId),
-          subjectId: subjectIdOf(s),
-          subjectCode: text(s.subjectCode, s.subject_code),
-          subjectName: text(s.subjectName, s.subject_name, s.shortName),
-        })),
-      },
-    ];
+        registrationDate: registrationDateIso(),
+        examId: num(examId),
+        examStudentDetailDTOs: details,
+      });
+    }
 
     setSaving(true);
     try {
-      await saveRegisteredExamSubjects(payload);
-      toastSuccess("Subjects saved successfully");
+      const result = await saveRegisteredExamSubjects(payload);
+      toastSuccess(text(result?.message) || "Subjects saved successfully");
+      unMark();
       const reg = await listRegisteredExamSubjects(
         num(selectedStudent.studentId ?? selectedStudent.id),
         num(examId),
       ).catch(() => []);
-      const registered = Array.isArray(reg) ? reg : [];
-      setRegisteredSubjects(registered);
-      applyChecks(subjects, registered);
+      setRegisteredSubjects(Array.isArray(reg) ? reg : []);
     } catch (e: unknown) {
       toastError(e, "Failed to save subjects");
     } finally {
@@ -614,9 +704,7 @@ export default function ExamRegisterSubjectsPage() {
         num(selectedStudent.studentId ?? selectedStudent.id),
         num(examId),
       ).catch(() => []);
-      const registered = Array.isArray(reg) ? reg : [];
-      setRegisteredSubjects(registered);
-      applyChecks(subjects, registered);
+      setRegisteredSubjects(Array.isArray(reg) ? reg : []);
     } catch (e: unknown) {
       toastError(e, "Failed to delete subject");
     } finally {
@@ -732,8 +820,9 @@ export default function ExamRegisterSubjectsPage() {
     <FilteredPage
       title="Exam Register Subjects Update"
       filters={
-        <GlobalFilterBarRow>
-          <div className="md:col-span-5 space-y-1">
+        <GlobalFilterBarRow className="w-full gap-2 md:flex-nowrap">
+          {/* Angular fxFlex.gt-xs / gt-md: Student 35%, Exam 45% */}
+          <div className="w-full min-w-0 space-y-1 md:w-[35%] md:shrink-0">
             <StudentSearchSelect
               label="Student"
               value={studentId}
@@ -742,9 +831,10 @@ export default function ExamRegisterSubjectsPage() {
               isLoading={studentSearchLoading}
               onSearch={(term) => void onSearchStudents(term)}
               onChange={(id, row) => void onStudentSelect(id, row)}
+              fullWidth
             />
           </div>
-          <div className="md:col-span-7 space-y-1">
+          <div className="w-full min-w-0 space-y-1 md:w-[45%] md:shrink-0">
             <Label>Exam *</Label>
             <Select
               value={examId ? String(examId) : null}
@@ -758,6 +848,7 @@ export default function ExamRegisterSubjectsPage() {
               placeholder="Select Exam"
               searchable
               disabled={!selectedStudent}
+              className="w-full"
             />
           </div>
         </GlobalFilterBarRow>
@@ -875,7 +966,7 @@ export default function ExamRegisterSubjectsPage() {
                 />
               </div>
 
-              <div className="md:col-span-9 min-w-0">
+              <div className="md:col-span-6 min-w-0">
                 <DataTable
                   bordered={false}
                   rowData={subjects}
@@ -907,39 +998,37 @@ export default function ExamRegisterSubjectsPage() {
                 />
               </div>
 
-              {selectedSubjectRows.length > 0 && (
-                <div className="overflow-hidden rounded border md:col-span-3">
-                  <div className="bg-[#C3D9FF] px-2 py-2 text-[14px]">
-                    Selected Subjects : {selectedSubjectRows.length}
-                  </div>
-                  <div className="max-h-[220px] divide-y overflow-auto">
-                    {selectedSubjectRows.map((s, i) => (
-                      <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">
-                        {subjectLabel(s)}
-                      </div>
-                    ))}
-                  </div>
+              <div className="overflow-hidden rounded border md:col-span-2">
+                <div className="bg-[#C3D9FF] px-2 py-2 text-[14px]">
+                  Selected Subjects : {selectedSubjectRows.length}
                 </div>
-              )}
-
-              {selectedSubjectRows.length > 0 && (
-                <div className="flex items-end justify-end md:col-span-1">
-                  <Button
-                    type="button"
-                    className="h-8 px-5 text-[12px]"
-                    disabled={saving}
-                    onClick={() => void onSave()}
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </Button>
+                <div className="max-h-[220px] divide-y overflow-auto">
+                  {selectedSubjectRows.map((s, i) => (
+                    <div key={`sel-${i}`} className="px-2 py-2 text-[12px]">
+                      {subjectLabel(s)}
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
+            {selectedSubjectRows.length > 0 && (
+              <div className="flex items-end justify-end md:col-span-1">
+                <Button
+                  type="button"
+                  className="h-8 px-5 text-[12px]"
+                  disabled={saving}
+                  onClick={() => void onSave()}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
           </div>
           {registeredSubjects.length > 0 && (
             <div className="space-y-2">
               <DataTable
-                title=""
+                title="Existing Exam Subjects"
+                subtitle=""
                 rowData={registeredSubjects}
                 columnDefs={registeredColumnDefs}
                 pagination

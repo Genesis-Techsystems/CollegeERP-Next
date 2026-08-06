@@ -75,6 +75,51 @@ export function isEvaluatorPortalRole(
 }
 
 /**
+ * True when the active login is Offline Internal Evaluator (`OFFLINEEVALUATION`).
+ * Checks roleName, userRole, and userDetails.userRoles (Angular loginUser.userRoles).
+ */
+export function isOfflineInternalEvaluatorRole(
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string } | string> | null,
+): boolean {
+  const target = USER_ROLES.OFFLINE_EVALUATION.toUpperCase();
+  const matches = (raw: string) => {
+    const v = raw.toUpperCase().replace(/[\s_-]+/g, "");
+    return (
+      v === target ||
+      v.includes("OFFLINEINTERNALEVALUATOR") ||
+      v.includes("OFFLINEEVALUATION")
+    );
+  };
+  if (matches(roleName ?? "")) return true;
+  try {
+    if (typeof globalThis.window !== "undefined") {
+      const userRole = globalThis.localStorage.getItem("userRole") ?? "";
+      if (matches(userRole)) return true;
+    }
+  } catch {
+    // ignore
+  }
+  if (!userRoles?.length) {
+    try {
+      if (typeof globalThis.window === "undefined") return false;
+      const raw = globalThis.localStorage.getItem("userDetails");
+      if (!raw) return false;
+      const user = JSON.parse(raw) as {
+        userRoles?: Array<{ roleName?: string } | string>;
+      };
+      userRoles = user.userRoles ?? [];
+    } catch {
+      return false;
+    }
+  }
+  return (userRoles ?? []).some((r) => {
+    const name = typeof r === "string" ? r : String(r?.roleName ?? "");
+    return matches(name);
+  });
+}
+
+/**
  * True for Angular student-portal roles that land on `/student-dashboard`.
  * Parents share studentId resolution but keep the standard `/dashboard`.
  */

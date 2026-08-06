@@ -290,6 +290,19 @@ export type FeeConcessionRow = {
   [key: string]: unknown;
 };
 
+/** Row from `s_fee_discount_summary` (management Discount Report). */
+export type FeeDiscountSummaryRow = Record<string, unknown> & {
+  college_name?: string;
+  district_name?: string;
+  fee_category_name?: string;
+  discount_amount?: number | null;
+  ApproverName?: string;
+  Month?: string | null;
+  Year?: string | number | null;
+  /** Client-only stable AG Grid row id. */
+  __rowKey?: string;
+};
+
 export type EmployeeSearchRow = {
   employeeId: number;
   firstName?: string;

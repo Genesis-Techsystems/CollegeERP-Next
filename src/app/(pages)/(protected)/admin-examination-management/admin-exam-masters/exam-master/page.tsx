@@ -10,7 +10,6 @@ import type {
 } from "ag-grid-community";
 import {
   PlusIcon,
-  Download,
   Pencil,
   Building2,
   Calendar,
@@ -34,6 +33,18 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import ExamMasterModal from "./ExamMasterModal";
 import { StatusBadge } from "@/common/components/data-display";
 import { FilteredListPage } from "@/components/layout";
+
+function filterCode(
+  row: Partial<CollegeWiseFilterRow> | null | undefined,
+  keys: string[],
+): string {
+  if (!row) return "";
+  for (const key of keys) {
+    const value = row[key];
+    if (value != null && String(value).trim() !== "") return String(value);
+  }
+  return "";
+}
 
 export default function ExamMasterPage() {
   const router = useRouter();
@@ -59,6 +70,7 @@ export default function ExamMasterPage() {
     null,
   );
   const [examsList, setExamsList] = useState<ExamMaster[]>([]);
+  const [hasFetched, setHasFetched] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [loadingExams, setLoadingExams] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -66,17 +78,19 @@ export default function ExamMasterPage() {
   const fetchFilterDetails = useCallback(async () => {
     setLoadingFilters(true);
     try {
-      const orgIdFromStorage = Number(
-        globalThis.localStorage?.getItem("organizationId") ?? 0,
-      );
-      const empIdFromStorage = Number(
-        globalThis.localStorage?.getItem("employeeId") ?? 0,
-      );
-      const orgIdFromSession = Number(user?.organizationId ?? 0);
-      const empIdFromSession = Number(user?.employeeId ?? 0);
-
-      const orgId = orgIdFromStorage || orgIdFromSession || 1;
-      const empId = empIdFromStorage || empIdFromSession || 31754;
+      // Angular: in_org_id / in_loginuser_empid from session; in_loginuser_roleid always 0 (no role gate on this page)
+      const orgId =
+        Number(globalThis.localStorage?.getItem("organizationId") ?? 0) ||
+        Number(user?.organizationId ?? 0);
+      const empId =
+        Number(globalThis.localStorage?.getItem("employeeId") ?? 0) ||
+        Number(user?.employeeId ?? 0);
+      if (!orgId || !empId) {
+        setFiltersdata([]);
+        setAcademicData([]);
+        setUniversities([]);
+        return;
+      }
       const { filtersData: filters, academicData: academic } =
         await getCollegeFilters(orgId, empId);
 
@@ -114,6 +128,7 @@ export default function ExamMasterPage() {
     setAcademicYears([]);
     setColleges([]);
     setExamsList([]);
+    setHasFetched(false);
 
     const filtered = filtersRef.filter(
       (r) => r.fk_university_id === universityId,
@@ -147,6 +162,7 @@ export default function ExamMasterPage() {
     setAcademicYears([]);
     setColleges([]);
     setExamsList([]);
+    setHasFetched(false);
 
     const filtered = academicRef.filter(
       (r) => r.fk_university_id === universityId,
@@ -188,10 +204,12 @@ export default function ExamMasterPage() {
     setSelectedAcademicYearId(academicYearId);
     setColleges([]);
     setExamsList([]);
+    setHasFetched(false);
 
     const effectiveMode = modeOverride ?? mode;
     if (effectiveMode === 1) {
-      // For university mode, table loads only when "Get List" is clicked.
+      // Angular selectedAcademicYear (check===1): auto-load exam list
+      void loadExamsByUniversity(universityId, courseId, academicYearId);
     } else {
       const filtered = filtersRef.filter(
         (r) =>
@@ -202,12 +220,14 @@ export default function ExamMasterPage() {
     }
   }
 
-  async function fetchExamsByUniversity(
-    uniId = selectedUniversityId!,
-    courseId = selectedCourseId!,
-    ayId = selectedAcademicYearId!,
+  async function loadExamsByUniversity(
+    uniId: number,
+    courseId: number,
+    ayId: number,
   ) {
+    if (!uniId || !courseId || !ayId) return;
     setLoadingExams(true);
+    setHasFetched(true);
     try {
       const results = await fetchExamsByUniversityService(
         uniId,
@@ -220,12 +240,14 @@ export default function ExamMasterPage() {
     }
   }
 
-  async function fetchExamsByCollege(
-    colId = selectedCollegeId!,
-    courseId = selectedCourseId!,
-    ayId = selectedAcademicYearId!,
+  async function loadExamsByCollege(
+    colId: number,
+    courseId: number,
+    ayId: number,
   ) {
+    if (!colId || !courseId || !ayId) return;
     setLoadingExams(true);
+    setHasFetched(true);
     try {
       const results = await fetchExamsByCollegeService(colId, courseId, ayId);
       setExamsList(results);
@@ -237,22 +259,33 @@ export default function ExamMasterPage() {
   function handleCollegeChange(collegeId: number) {
     setSelectedCollegeId(collegeId);
     setExamsList([]);
-  }
-
-  async function handleGetList() {
-    if (!selectedUniversityId || !selectedCourseId || !selectedAcademicYearId)
-      return;
-    if (mode === 2 && !selectedCollegeId) return;
-
-    if (mode === 1) {
-      await fetchExamsByUniversity(
-        selectedUniversityId,
+    setHasFetched(false);
+    // Angular selectedCollege: auto-load exam list
+    if (selectedCourseId && selectedAcademicYearId) {
+      void loadExamsByCollege(
+        collegeId,
         selectedCourseId,
         selectedAcademicYearId,
       );
-    } else {
-      await fetchExamsByCollege(
-        selectedCollegeId!,
+    }
+  }
+
+  function refreshList() {
+    if (mode === 1) {
+      if (selectedUniversityId && selectedCourseId && selectedAcademicYearId) {
+        void loadExamsByUniversity(
+          selectedUniversityId,
+          selectedCourseId,
+          selectedAcademicYearId,
+        );
+      }
+    } else if (
+      selectedCollegeId &&
+      selectedCourseId &&
+      selectedAcademicYearId
+    ) {
+      void loadExamsByCollege(
+        selectedCollegeId,
         selectedCourseId,
         selectedAcademicYearId,
       );
@@ -266,6 +299,7 @@ export default function ExamMasterPage() {
     setSelectedCollegeId(null);
     setCourses([]);
     setAcademicYears([]);
+    setHasFetched(false);
     setColleges([]);
     setExamsList([]);
 
@@ -301,7 +335,7 @@ export default function ExamMasterPage() {
       },
       {
         field: "examShortName",
-        headerName: "Short Name",
+        headerName: "Exam Short Name",
         minWidth: 110,
         flex: 1,
         tooltipField: "examShortName",
@@ -329,33 +363,33 @@ export default function ExamMasterPage() {
       },
       {
         field: "examMonthYr",
-        headerName: "Month/Year",
-        minWidth: 100,
+        headerName: "Exam Month Year",
+        minWidth: 120,
         flex: 0.7,
         valueFormatter: (p) =>
-          p.value ? format(new Date(p.value), "MM/yyyy") : "—",
+          p.value ? format(new Date(p.value), "MMM, yyyy") : "—",
       },
       {
         field: "fromDate",
         headerName: "From Date",
-        minWidth: 100,
+        minWidth: 110,
         flex: 0.7,
         valueFormatter: (p) =>
-          p.value ? format(new Date(p.value), "dd/MM/yyyy") : "—",
+          p.value ? format(new Date(p.value), "MMM d, yyyy") : "—",
       },
       {
         field: "toDate",
         headerName: "To Date",
-        minWidth: 100,
+        minWidth: 110,
         flex: 0.7,
         valueFormatter: (p) =>
-          p.value ? format(new Date(p.value), "dd/MM/yyyy") : "—",
+          p.value ? format(new Date(p.value), "MMM d, yyyy") : "—",
       },
       {
-        headerName: "Fee Notif.",
-        headerTooltip: "Fee Notification",
-        minWidth: 90,
-        maxWidth: 110,
+        headerName: "Exam Fee Notification Doc",
+        headerTooltip: "Exam Fee Notification Doc",
+        minWidth: 140,
+        maxWidth: 180,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.feeNotificationFilePath ? (
@@ -364,20 +398,19 @@ export default function ExamMasterPage() {
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              aria-label="Download fee notification"
-              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-muted/40 text-slate-700 hover:bg-slate-100"
+              className="text-[hsl(var(--primary))] underline text-[12px]"
             >
-              <Download className="h-4 w-4" />
+              Document
             </a>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground text-[12px]">No Docs</span>
           ),
       },
       {
-        headerName: "Notif.",
-        headerTooltip: "Notification",
-        minWidth: 80,
-        maxWidth: 100,
+        headerName: "Exam Notification Doc",
+        headerTooltip: "Exam Notification Doc",
+        minWidth: 130,
+        maxWidth: 170,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<ExamMaster>) =>
           p.data?.notificationFilePath ? (
@@ -386,18 +419,17 @@ export default function ExamMasterPage() {
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              aria-label="Download notification"
-              className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-muted/40 text-slate-700 hover:bg-slate-100"
+              className="text-[hsl(var(--primary))] underline text-[12px]"
             >
-              <Download className="h-4 w-4" />
+              Document
             </a>
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground text-[12px]">No Docs</span>
           ),
       },
       {
-        headerName: "Labels",
-        headerTooltip: "Exam Labels",
+        headerName: "Exam Label",
+        headerTooltip: "Exam Label",
         minWidth: 150,
         maxWidth: 180,
         flex: 0,
@@ -463,7 +495,7 @@ export default function ExamMasterPage() {
   const onCellClicked = useCallback(
     (event: CellClickedEvent<ExamMaster>) => {
       const header = event.colDef.headerName;
-      if (header === "Labels" || header === "Exam Labels") {
+      if (header === "Exam Label") {
         if (event.data)
           sessionStorage.setItem(
             "examMasterDetails",
@@ -480,6 +512,42 @@ export default function ExamMasterPage() {
     },
     [router],
   );
+
+  const modalTitleContext = useMemo(() => {
+    const uni = universities.find(
+      (u) => u.fk_university_id === selectedUniversityId,
+    );
+    const course = courses.find((c) => c.fk_course_id === selectedCourseId);
+    const ay = academicYears.find(
+      (a) => a.fk_academic_year_id === selectedAcademicYearId,
+    );
+    const college = colleges.find((c) => c.fk_college_id === selectedCollegeId);
+    return {
+      universityCode: filterCode(uni, ["university_code", "universityCode"]),
+      collegeCode:
+        mode === 2 ? filterCode(college, ["college_code", "collegeCode"]) : "",
+      courseCode: filterCode(course, ["course_code", "courseCode"]),
+      academicYear: ay?.academic_year ?? "",
+    };
+  }, [
+    universities,
+    courses,
+    academicYears,
+    colleges,
+    selectedUniversityId,
+    selectedCourseId,
+    selectedAcademicYearId,
+    selectedCollegeId,
+    mode,
+  ]);
+
+  // Angular: Add Exam only inside the list card (*ngIf="flag === true")
+  const canAddExam =
+    hasFetched &&
+    !!selectedUniversityId &&
+    !!selectedCourseId &&
+    !!selectedAcademicYearId &&
+    (mode === 1 || !!selectedCollegeId);
 
   return (
     <FilteredListPage
@@ -511,9 +579,15 @@ export default function ExamMasterPage() {
                 onChange={(v) => v && handleUniversityChange(Number(v))}
                 options={universities.map((u) => ({
                   value: String(u.fk_university_id),
-                  label: u.university_name ?? "",
+                  label: filterCode(u, ["university_code", "universityCode"]),
+                  title: filterCode(u, [
+                    "university_name",
+                    "universityName",
+                    "university_code",
+                    "universityCode",
+                  ]),
                 }))}
-                placeholder="All universities"
+                placeholder="University"
                 disabled={loadingFilters}
                 isLoading={loadingFilters}
               />
@@ -527,14 +601,20 @@ export default function ExamMasterPage() {
                 onChange={(v) => v && handleCourseChange(Number(v))}
                 options={courses.map((c) => ({
                   value: String(c.fk_course_id),
-                  label: c.course_name ?? "",
+                  label: filterCode(c, ["course_code", "courseCode"]),
+                  title: filterCode(c, [
+                    "course_name",
+                    "courseName",
+                    "course_code",
+                    "courseCode",
+                  ]),
                 }))}
-                placeholder="All courses"
+                placeholder="Course"
                 disabled={courses.length === 0}
               />
             </GlobalFilterField>
 
-            <GlobalFilterField label="Academic Year" icon={Calendar}>
+            <GlobalFilterField label="Exam Year" icon={Calendar}>
               <Select
                 value={
                   selectedAcademicYearId != null
@@ -546,7 +626,7 @@ export default function ExamMasterPage() {
                   value: String(ay.fk_academic_year_id),
                   label: ay.academic_year ?? "",
                 }))}
-                placeholder="All academic years"
+                placeholder="Exam Year"
                 disabled={academicYears.length === 0}
               />
             </GlobalFilterField>
@@ -560,58 +640,47 @@ export default function ExamMasterPage() {
                   onChange={(v) => v && handleCollegeChange(Number(v))}
                   options={colleges.map((c) => ({
                     value: String(c.fk_college_id),
-                    label: c.college_name ?? "",
+                    label: filterCode(c, ["college_code", "collegeCode"]),
+                    title: filterCode(c, [
+                      "college_name",
+                      "collegeName",
+                      "college_code",
+                      "collegeCode",
+                    ]),
                   }))}
-                  placeholder="All colleges"
+                  placeholder="College"
                   disabled={colleges.length === 0}
                 />
               </GlobalFilterField>
             )}
-
-            <GlobalFilterField
-              label="Action"
-              className="global-filter-field--shrink global-filter-field--action"
-            >
-              <Button
-                onClick={handleGetList}
-                disabled={
-                  loadingFilters ||
-                  loadingExams ||
-                  !selectedUniversityId ||
-                  !selectedCourseId ||
-                  !selectedAcademicYearId ||
-                  (mode === 2 && !selectedCollegeId)
-                }
-                className="h-[30px] px-3 text-[12px] shrink-0"
-              >
-                Get List
-              </Button>
-            </GlobalFilterField>
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={examsList}
+      rowData={hasFetched ? examsList : []}
       columnDefs={columnDefs}
       loading={loadingExams}
+      resultsVisible={hasFetched}
       onCellClicked={onCellClicked}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: "Search exams…",
-        pdfDocumentTitle: "Create Exam Notification",
+        searchPlaceholder: "Search",
+        exportPdf: false,
       }}
       toolbarTrailing={
-        <Button
-          size="sm"
-          className="h-[30px] px-3 text-[12px]"
-          onClick={() => {
-            setEditingExam(null);
-            setModalOpen(true);
-          }}
-        >
-          <PlusIcon className="mr-1 h-3.5 w-3.5" />
-          Add Exam
-        </Button>
+        canAddExam ? (
+          <Button
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            onClick={() => {
+              setEditingExam(null);
+              setModalOpen(true);
+            }}
+          >
+            <PlusIcon className="mr-1 h-3.5 w-3.5" />
+            Add Exam
+          </Button>
+        ) : null
       }
     >
       <ExamMasterModal
@@ -627,10 +696,8 @@ export default function ExamMasterPage() {
           courseId: selectedCourseId,
           academicYearId: selectedAcademicYearId,
         }}
-        onSaved={() => {
-          if (mode === 1) fetchExamsByUniversity();
-          else if (selectedCollegeId) fetchExamsByCollege();
-        }}
+        titleContext={modalTitleContext}
+        onSaved={refreshList}
       />
     </FilteredListPage>
   );

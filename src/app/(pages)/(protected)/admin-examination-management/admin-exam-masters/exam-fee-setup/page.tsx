@@ -855,6 +855,7 @@ export default function ExamFeeSetupPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={cols}
       loading={loadingList}
+      resultsVisible={hasFetched}
       pagination
       toolbar={{
         search: true,

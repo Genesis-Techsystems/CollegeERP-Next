@@ -3,6 +3,7 @@ import {
   clearProcGetCache,
   domainCreate,
   domainList,
+  domainListRawQuery,
   domainUpdate,
   fetchDetails,
   getAllRecords,
@@ -345,16 +346,28 @@ function unpackAssignmentRows(payload: unknown): AnyRow[] {
   return [];
 }
 
-/** Normalize assignment row keys used by Template dropdown / eye view. */
+/**
+ * Normalize assignment row keys used by Assign Template list / eye / pencil.
+ * Angular classic SP uses `fk_exam_questionpaper_template_id`:
+ * - `null` → show Assign Template
+ * - non-null → eye (+ pencil when question_paper_exists == 0)
+ * Preserve explicit null — do not coerce via Number(null)===0 or -new QP fields.
+ */
 function normalizeTemplateAssignmentRow(row: AnyRow): AnyRow {
-  const templateId = Number(
-    row.fk_exam_questionpaper_template_id ??
+  const classicRaw = row.fk_exam_questionpaper_template_id;
+  let templateId: number | null;
+  if (classicRaw === null || classicRaw === "") {
+    templateId = null;
+  } else if (classicRaw === undefined) {
+    const fallback =
       row.examQuestionPaperTemplateId ??
       row.questionPaperTemplateId ??
-      row.exam_questionpaper_template_id ??
-      row.fk_exam_qp_template_id ??
-      0,
-  );
+      row.exam_questionpaper_template_id;
+    templateId =
+      fallback == null || fallback === "" ? null : Number(fallback) || null;
+  } else {
+    templateId = Number(classicRaw) || null;
+  }
   const templateTitle =
     row.template_title ??
     row.templateTitle ??
@@ -364,8 +377,8 @@ function normalizeTemplateAssignmentRow(row: AnyRow): AnyRow {
     "";
   return {
     ...row,
-    fk_exam_questionpaper_template_id: templateId || null,
-    examQuestionPaperTemplateId: templateId || null,
+    fk_exam_questionpaper_template_id: templateId,
+    examQuestionPaperTemplateId: templateId,
     template_title: templateTitle,
     templateTitle,
   };
@@ -605,58 +618,235 @@ export async function listQuestionTaxonomyLevels(): Promise<AnyRow[]> {
   return domainList<AnyRow>("GeneralDetail", q);
 }
 
+/**
+ * Angular assign-question-template getTemplateList:
+ * TemplateDetails(ExamQuestionpaperTemplate, "examQuestionPaperTemplateId=ASC")
+ * → GET domain/list/ExamQuestionpaperTemplate?query=order(examQuestionPaperTemplateId=ASC)&size=99999
+ * Use raw (unescaped) query — encodeURIComponent breaks Spring `order(...=ASC)`.
+ */
 export async function listQuestionPaperTemplates(): Promise<AnyRow[]> {
-  const entities = [
-    QUESTION_PAPER_API.QP_TEMPLATE,
-    "ExamQuestionpaperTemplate",
-    "ExamQuestionPaperTemplate",
-    "ExamQpTemplate",
-  ].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
-  const queries = [
-    "order(examQuestionPaperTemplateId=ASC)",
-    buildQuery({ isActive: true }),
-  ];
-  for (const entity of entities) {
-    for (const query of queries) {
-      try {
-        const rows = await domainList<AnyRow>(entity, query);
-        if (Array.isArray(rows) && rows.length > 0) return rows;
-      } catch {
-        // try next entity/query
-      }
-    }
+  try {
+    const rows = await domainListRawQuery<AnyRow>(
+      QUESTION_PAPER_API.TEMPLATE,
+      "order(examQuestionPaperTemplateId=ASC)",
+      true,
+    );
+    if (Array.isArray(rows) && rows.length > 0) return rows;
+  } catch {
+    // fall through
+  }
+  try {
+    const rows = await domainListRawQuery<AnyRow>(
+      "ExamQuestionpaperTemplate",
+      "order(examQuestionPaperTemplateId=ASC)",
+      true,
+    );
+    if (Array.isArray(rows) && rows.length > 0) return rows;
+  } catch {
+    // empty
   }
   return [];
 }
 
-export async function createQuestionPaperTemplateAssignment(payload: {
+/** Angular assigntemplate() POST body — field casing must match exactly. */
+export type ExamQpTempAssignCreatePayload = {
   examMasterId: number;
   regulationId: number;
   subjectId: number;
   examQuestionpaperTemplateId: number;
   courseYearId: number;
   isActive: boolean;
-}): Promise<AnyRow> {
-  return domainCreate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, payload);
+};
+
+/** Angular updateTemplate() PUT body. */
+export type ExamQpTempAssignUpdatePayload = ExamQpTempAssignCreatePayload & {
+  examQptempAssignId: number;
+};
+
+function assignTemplateFk(row: AnyRow): number {
+  return Number(
+    row.examQuestionpaperTemplateId ??
+      row.examQpTemplateId ??
+      row.examQuestionPaperTemplateId ??
+      0,
+  );
 }
 
+/**
+ * Resolve the real ExamQPtempAssign row.
+ *
+ * Angular classic updateTemplate() puts SP `fk_exam_questionpaper_template_id`
+ * into `examQptempAssignId`, but that SP column is the **template FK**, not the
+ * assign PK. The working lookup (add-questionpaper-modal-new) is:
+ *   domain/list/ExamQPtempAssign?query=ExamMaster.examId==…&Regulation…&Subject…
+ */
+export async function findExamQpTempAssignRow(params: {
+  examMasterId: number;
+  regulationId: number;
+  subjectId: number;
+  courseYearId?: number;
+  /** Currently assigned template id (SP fk_exam_questionpaper_template_id). */
+  templateId?: number;
+}): Promise<AnyRow | null> {
+  const examMasterId = Number(params.examMasterId) || 0;
+  const subjectId = Number(params.subjectId) || 0;
+  const regulationId = Number(params.regulationId) || 0;
+  const courseYearId = Number(params.courseYearId) || 0;
+  const templateId = Number(params.templateId) || 0;
+  if (!examMasterId || !subjectId) return null;
+
+  const queries: string[] = [];
+  // Angular listDetailsByThreeIds — nested association keys
+  const nested: Record<string, string | number | boolean> = {
+    "ExamMaster.examId": examMasterId,
+    "Subject.subjectId": subjectId,
+  };
+  if (regulationId) nested["Regulation.regulationId"] = regulationId;
+  queries.push(buildQuery(nested));
+
+  // Flat entity fields (some CMS deployments expose these)
+  const flat: Record<string, string | number | boolean> = {
+    examMasterId,
+    subjectId,
+  };
+  if (regulationId) flat.regulationId = regulationId;
+  queries.push(buildQuery(flat));
+
+  if (templateId) {
+    queries.push(
+      buildQuery({
+        examMasterId,
+        subjectId,
+        examQuestionpaperTemplateId: templateId,
+      }),
+    );
+    queries.push(
+      buildQuery({
+        examMasterId,
+        subjectId,
+        examQpTemplateId: templateId,
+      }),
+    );
+  }
+
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+    try {
+      // First query mirrors Angular listDetailsByThreeIds (unescaped query=…)
+      const rows =
+        i === 0
+          ? await domainListRawQuery<AnyRow>(
+              QUESTION_PAPER_API.QP_TEMP_ASSIGN,
+              query,
+            )
+          : await domainList<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, query);
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      let matched = rows.filter((r) => r.isActive !== false);
+      if (!matched.length) matched = rows;
+
+      if (courseYearId) {
+        const byCy = matched.filter(
+          (r) => Number(r.courseYearId ?? 0) === courseYearId,
+        );
+        if (byCy.length) matched = byCy;
+      }
+
+      if (templateId) {
+        const byTpl = matched.filter((r) => {
+          const tpl = assignTemplateFk(r);
+          return (
+            tpl === templateId || Number(r.examQptempAssignId) === templateId
+          );
+        });
+        if (byTpl.length) matched = byTpl;
+      }
+
+      const row = matched[0];
+      if (row && Number(row.examQptempAssignId) > 0) return row;
+    } catch {
+      // try next query shape
+    }
+  }
+  return null;
+}
+
+/**
+ * Angular assigntemplate():
+ * POST domain/create/ExamQPtempAssign
+ * Classic body uses examQuestionpaperTemplateId; -new uses examQpTemplateId.
+ * Send both so either entity mapping accepts the create.
+ */
+export async function createQuestionPaperTemplateAssignment(
+  payload: ExamQpTempAssignCreatePayload,
+): Promise<AnyRow> {
+  const templateId = Number(payload.examQuestionpaperTemplateId);
+  return domainCreate<AnyRow>(QUESTION_PAPER_API.QP_TEMP_ASSIGN, {
+    examMasterId: Number(payload.examMasterId),
+    regulationId: Number(payload.regulationId),
+    subjectId: Number(payload.subjectId),
+    examQuestionpaperTemplateId: templateId,
+    examQpTemplateId: templateId,
+    courseYearId: Number(payload.courseYearId),
+    isActive: payload.isActive !== false,
+  });
+}
+
+/**
+ * Angular updateTemplate():
+ * PUT domain/update/ExamQPtempAssign?query=examQptempAssignId=={id}
+ *
+ * Angular passes SP template FK as the PK (often wrong). We resolve the real
+ * examQptempAssignId via domain list first, then fall back to that Angular value.
+ * Body template FK = newly selected left-list template.
+ *
+ * @param assignmentId - known examQptempAssignId when available, else SP template FK
+ * @param currentTemplateId - SP fk_exam_questionpaper_template_id (helps lookup)
+ */
 export async function updateQuestionPaperTemplateAssignment(
   assignmentId: number,
-  payload: {
-    examQptempAssignId: number;
-    examMasterId: number;
-    regulationId: number;
-    subjectId: number;
-    examQuestionpaperTemplateId: number;
-    courseYearId: number;
-    isActive: boolean;
-  },
+  payload: ExamQpTempAssignUpdatePayload,
+  currentTemplateId?: number,
 ): Promise<AnyRow> {
+  const hintTemplateId =
+    Number(currentTemplateId) ||
+    Number(payload.examQptempAssignId) ||
+    Number(assignmentId) ||
+    0;
+  const resolved = await findExamQpTempAssignRow({
+    examMasterId: Number(payload.examMasterId),
+    regulationId: Number(payload.regulationId),
+    subjectId: Number(payload.subjectId),
+    courseYearId: Number(payload.courseYearId),
+    templateId: hintTemplateId,
+  });
+  const id =
+    Number(resolved?.examQptempAssignId) ||
+    Number(assignmentId) ||
+    Number(payload.examQptempAssignId) ||
+    0;
+  if (!id) {
+    throw new AppError(
+      "API_ERROR",
+      "Could not find existing template assignment to update. Re-open from the list and try again.",
+    );
+  }
+
+  const templateId = Number(payload.examQuestionpaperTemplateId);
   return domainUpdate<AnyRow>(
     QUESTION_PAPER_API.QP_TEMP_ASSIGN,
     "examQptempAssignId",
-    assignmentId,
-    payload,
+    id,
+    {
+      examQptempAssignId: id,
+      examMasterId: Number(payload.examMasterId),
+      regulationId: Number(payload.regulationId),
+      subjectId: Number(payload.subjectId),
+      examQuestionpaperTemplateId: templateId,
+      examQpTemplateId: templateId,
+      courseYearId: Number(payload.courseYearId),
+      isActive: payload.isActive !== false,
+    },
   );
 }
 
@@ -1715,6 +1905,38 @@ export async function getEvaluatorSubjectRolesSubjects(params: {
     groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_sub_regexamstd") ??
     []
   );
+}
+
+/** Angular assign-evaluator-subjectroles getEvaluationCenters() → getExamCenterFiltersUrl */
+export async function listExamEvaluationCenters(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_center_filters",
+    {
+      in_flag: "exam_evaluation_center",
+      in_univ_examcenter_id: 0,
+      in_exam_group_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_academic_year_id: 0,
+      in_exam_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_university_id: 0,
+      in_exam_date: "1900-01-01",
+      in_questionpaper_code: "",
+      in_loginuser_empid: employeeId || 0,
+      in_loginuser_id: 0,
+      in_loginuser_roleid: 0,
+      in_param1: 0,
+      in_param2: "",
+    },
+  );
+  const groups = data?.result ?? [];
+  return Array.isArray(groups[0]) ? groups[0] : [];
 }
 
 /**

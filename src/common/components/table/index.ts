@@ -1,11 +1,21 @@
-export { DataTable } from './DataTable'
-export type { DataTableProps, DataTableToolbarConfig } from './DataTable'
-export { DataTableFooter, PAGE_SIZE_OPTIONS } from './DataTableFooter'
-export type { DataTableFooterProps, DataTablePageSize } from './DataTableFooter'
-export { DataTableToolbar } from './DataTableToolbar'
-export type { DataTableToolbarProps } from './DataTableToolbar'
-export { TableRowActions } from './TableRowActions'
-export type { TableRowActionsProps } from './TableRowActions'
-export { default as Table } from './Table'
-export type { TableColumn, TableProps } from './Table'
-export { TableCard } from './TableCard'
+export { DataTable } from "./DataTable";
+export type { DataTableProps, DataTableToolbarConfig } from "./DataTable";
+export { exportDataTableAsExcel } from "./exportDataTableExcel";
+export type { ExportDataTableExcelOptions } from "./exportDataTableExcel";
+export {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
+export { DataTableFooter, PAGE_SIZE_OPTIONS } from "./DataTableFooter";
+export type {
+  DataTableFooterProps,
+  DataTablePageSize,
+} from "./DataTableFooter";
+export { DataTableToolbar } from "./DataTableToolbar";
+export type { DataTableToolbarProps } from "./DataTableToolbar";
+export { TableRowActions } from "./TableRowActions";
+export type { TableRowActionsProps } from "./TableRowActions";
+export { default as Table } from "./Table";
+export type { TableColumn, TableProps } from "./Table";
+export { TableCard } from "./TableCard";

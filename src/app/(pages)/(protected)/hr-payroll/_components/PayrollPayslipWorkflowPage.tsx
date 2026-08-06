@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Eye, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { FormModal } from "@/common/components/feedback";
 import { FormField } from "@/common/components/forms";
@@ -86,12 +87,86 @@ function normalizeSalaryRows(assignment: AnyRow, group: AnyRow): SalaryRow[] {
   });
 }
 
+function employeeGradeLabel(employee: AnyRow | null): string {
+  if (!employee) return "-";
+  if (employee.empgrade == null && employee.empGrade == null) return "-";
+  const code = String(
+    employee.empGradeCode ?? employee.emp_grade_code ?? "",
+  ).trim();
+  return code || "-";
+}
+
+/** Angular generate header — Employee / Dept / Position / Grade. */
+function EmployeeInfoCard({ employee }: { employee: AnyRow | null }) {
+  return (
+    <div className="space-y-1.5 rounded border border-[#b8d9ee] bg-[#f7fbfe] p-4 text-[13px]">
+      <p>
+        <span className="text-muted-foreground">Employee : </span>
+        <span className="font-medium text-[#1565C0]">
+          {String(employee?.firstName ?? "—")}
+          {employee?.empNumber ? (
+            <>
+              {" "}
+              (
+              <span className="text-foreground">
+                {String(employee.empNumber)}
+              </span>
+              )
+            </>
+          ) : null}
+        </span>
+      </p>
+      <p>
+        <span className="text-muted-foreground">Department : </span>
+        <span className="font-medium text-[#1565C0]">
+          {String(
+            employee?.deptName ??
+              employee?.departmentName ??
+              employee?.departmentCode ??
+              "—",
+          )}
+        </span>
+      </p>
+      <p>
+        <span className="text-muted-foreground">Position : </span>
+        <span className="font-medium text-[#1565C0]">
+          {String(employee?.designationName ?? "—")}
+        </span>
+      </p>
+      <p>
+        <span className="text-muted-foreground">Grade : </span>
+        <span className="font-medium text-[#1565C0]">
+          {employeeGradeLabel(employee)}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function frequencyLabel(...sources: Array<AnyRow | null | undefined>): string {
+  for (const src of sources) {
+    if (!src) continue;
+    const code = String(
+      src.paymentFrequencyCode ?? src.payment_frequency_code ?? "",
+    ).trim();
+    if (code && !/^\d+$/.test(code)) return code;
+    const name = String(
+      src.paymentFrequencyName ?? src.payment_frequency_name ?? "",
+    ).trim();
+    if (name) return name;
+  }
+  return "—";
+}
+
+/** Compact summary used on view-history (same fields as generate employee card). */
 function EmployeeSummary({
   employee,
   group,
+  assignment,
 }: {
   employee: AnyRow | null;
   group: AnyRow | null;
+  assignment?: AnyRow | null;
 }) {
   return (
     <div className="grid gap-x-8 gap-y-2 rounded border border-[#b8d9ee] bg-[#f7fbfe] p-4 text-sm md:grid-cols-3">
@@ -104,21 +179,28 @@ function EmployeeSummary({
       </p>
       <p>
         <span className="text-muted-foreground">Department: </span>
-        <strong>{String(employee?.departmentCode ?? "—")}</strong>
+        <strong>
+          {String(
+            employee?.deptName ??
+              employee?.departmentName ??
+              employee?.departmentCode ??
+              "—",
+          )}
+        </strong>
       </p>
       <p>
-        <span className="text-muted-foreground">Designation: </span>
+        <span className="text-muted-foreground">Position: </span>
         <strong>{String(employee?.designationName ?? "—")}</strong>
       </p>
       <p>
-        <span className="text-muted-foreground">Payroll Group: </span>
-        <strong>{String(group?.payrollGroupName ?? "—")}</strong>
+        <span className="text-muted-foreground">Grade: </span>
+        <strong>{employeeGradeLabel(employee)}</strong>
       </p>
       <p>
-        <span className="text-muted-foreground">Frequency: </span>
+        <span className="text-muted-foreground">Payroll Group: </span>
         <strong>
           {String(
-            group?.paymentFrequencyCode ?? group?.paymentFrequency ?? "—",
+            assignment?.payrollGroupName ?? group?.payrollGroupName ?? "—",
           )}
         </strong>
       </p>
@@ -128,17 +210,23 @@ function EmployeeSummary({
 
 function SalarySection({
   title,
+  amountHeader,
   rows,
   editable,
   onAmountChange,
   onAdd,
+  addLabel,
+  totalLabel,
   total,
 }: {
   title: string;
+  amountHeader: string;
   rows: SalaryRow[];
   editable: boolean;
   onAmountChange?: (id: number, value: number) => void;
   onAdd?: () => void;
+  addLabel?: string;
+  totalLabel?: string;
   total?: number;
 }) {
   return (
@@ -146,22 +234,11 @@ function SalarySection({
       <table className="w-full border-collapse text-[13px]">
         <thead>
           <tr>
-            <th
-              colSpan={2}
-              className="border border-slate-300 bg-[#e8eef7] px-2 py-2 text-left"
-            >
-              <span>{title}</span>
-              {onAdd ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="float-right h-6 px-2"
-                  onClick={onAdd}
-                >
-                  + Add
-                </Button>
-              ) : null}
+            <th className="border border-slate-300 bg-[#c3d9ff] px-2 py-2 text-left font-semibold">
+              {title}
+            </th>
+            <th className="border border-slate-300 bg-[#c3d9ff] px-2 py-2 text-right font-semibold">
+              {amountHeader}
             </th>
           </tr>
         </thead>
@@ -201,20 +278,27 @@ function SalarySection({
                 colSpan={2}
                 className="border border-slate-300 px-2 py-4 text-center text-muted-foreground"
               >
-                No categories
-              </td>
-            </tr>
-          ) : null}
-          {total != null ? (
-            <tr className="font-semibold">
-              <td className="border border-slate-300 px-2 py-2">Total</td>
-              <td className="border border-slate-300 px-2 py-2 text-right">
-                {total.toFixed(2)}
+                —
               </td>
             </tr>
           ) : null}
         </tbody>
       </table>
+      {onAdd && addLabel ? (
+        <button
+          type="button"
+          className="mt-2 cursor-pointer text-[13px] font-medium text-[#1565C0] underline-offset-2 hover:underline"
+          onClick={onAdd}
+        >
+          {addLabel}
+        </button>
+      ) : null}
+      {total != null && totalLabel ? (
+        <div className="mt-3 flex items-center justify-between text-[13px] font-medium">
+          <span>{totalLabel}</span>
+          <span>{total.toFixed(2)} ₹</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -286,14 +370,11 @@ function GeneratePayslip() {
     (sum, row) => sum + amount(row.amount),
     0,
   );
-  const regularDeductions = deductions.reduce(
+  // Angular: Management (M) is displayed but excluded from net pay.
+  const totalDeductions = deductions.reduce(
     (sum, row) => sum + amount(row.amount),
     0,
   );
-  const addedManagementDeductions = management
-    .filter((row) => row._added)
-    .reduce((sum, row) => sum + amount(row.amount), 0);
-  const totalDeductions = regularDeductions + addedManagementDeductions;
   const netPay = totalEarnings - totalDeductions;
 
   const updateAmount = useCallback((id: number, nextAmount: number) => {
@@ -344,6 +425,21 @@ function GeneratePayslip() {
     [addType, categories],
   );
 
+  /** Angular Add modal `selectedPayrollCategory` — toast + clear on pick. */
+  const onPickCategory = (value: string | null) => {
+    const id = Number(value ?? 0);
+    if (!id) {
+      setAddCategoryId(null);
+      return;
+    }
+    if (rows.some((row) => Number(row.payrollCategoryId) === id)) {
+      toastInfo("Already this category exists in payroll group.");
+      setAddCategoryId(null);
+      return;
+    }
+    setAddCategoryId(value);
+  };
+
   const addCategory = () => {
     const id = Number(addCategoryId ?? 0);
     const selected = categories.find((row) => categoryId(row) === id);
@@ -352,7 +448,8 @@ function GeneratePayslip() {
       return;
     }
     if (rows.some((row) => Number(row.payrollCategoryId) === id)) {
-      toastInfo("Payroll category already exists");
+      toastInfo("Already this category exists in payroll group.");
+      setAddCategoryId(null);
       return;
     }
     const selectedCode = String(selected.payrollCategoryCode ?? "");
@@ -396,19 +493,34 @@ function GeneratePayslip() {
   };
 
   const save = async () => {
+    if (isAlreadyExists) {
+      toastInfo(
+        "The payslip has already been generated for this employee for the selected pay period.",
+      );
+      return;
+    }
     if (!assignment || !pendingStatusId) {
       toastInfo("Pending payslip status is unavailable");
       return;
     }
+    if (!payslipMonth) {
+      toastInfo("Payslip Month is required");
+      return;
+    }
     setSaving(true);
     try {
-      const originalRows = rows
+      // Angular generateEmpPayroll(): employeeSalaryStructureDTO =
+      // employeePayroll[0].employeeSalaryStructure (amount edits only).
+      // Modal-added rows are UI-only in Angular and are NOT posted.
+      const structureDto = rows
         .filter((row) => !row._added)
         .map(({ _added: _ignored, ...row }) => row);
       const result = await generateEmployeePayslip({
+        // Angular: payrollGroup[0].collegeId
         collegeId: Number(group?.collegeId ?? collegeId),
         employeeId,
         payrollGroupId,
+        // Angular: employeePayroll[0].grossPay
         grossPay: amount(assignment.grossPay),
         netPay,
         payslipMonth: payslipMonth.toISOString(),
@@ -416,8 +528,9 @@ function GeneratePayslip() {
         paySlipGeneratedByEmployeeId: window.localStorage.getItem("employeeId"),
         payslipStatusCatdetId: pendingStatusId,
         isActive: true,
-        employeeSalaryStructureDTO: originalRows,
+        employeeSalaryStructureDTO: structureDto,
       });
+      // Angular: navigate list with collegeId on both success and soft failure
       if (result.success === false) {
         toastInfo(result.message || "Payslip was not generated");
       } else {
@@ -431,12 +544,22 @@ function GeneratePayslip() {
     }
   };
 
+  const payrollGroupName = String(
+    assignment?.payrollGroupName ?? group?.payrollGroupName ?? "—",
+  );
+  const payrollFrequency = String(
+    assignment?.paymentFrequencyCode ??
+      group?.paymentFrequencyCode ??
+      group?.paymentFrequency ??
+      "—",
+  );
+
   return (
     <PageContainer className="space-y-4">
       <div className="app-card overflow-hidden">
         <div className="border-b border-[#e8c547] px-4 py-3">
           <h1 className="font-semibold text-[hsl(var(--card-title))]">
-            Generate Payslip
+            Generated Employee Payslips
           </h1>
         </div>
         <div className="space-y-5 p-4">
@@ -447,65 +570,122 @@ function GeneratePayslip() {
             </p>
           ) : (
             <>
-              <EmployeeSummary employee={employee} group={group} />
+              <EmployeeInfoCard employee={employee} />
+
+              <div className="space-y-3">
+                <h2 className="border-b pb-1 text-[15px] font-semibold">
+                  Payroll Details
+                </h2>
+                <div className="space-y-1.5 text-[13px]">
+                  <p>
+                    <span className="text-muted-foreground">
+                      Payroll Group :{" "}
+                    </span>
+                    <span className="font-medium text-[#1565C0]">
+                      {payrollGroupName}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">
+                      Payroll Frequency :{" "}
+                    </span>
+                    <span className="font-medium text-[#1565C0]">
+                      {payrollFrequency}
+                    </span>
+                  </p>
+                </div>
+                {!isAlreadyExists ? (
+                  <div className="max-w-xs pt-1">
+                    <FormField label="Payslip Month" required>
+                      <DatePicker
+                        value={payslipMonth}
+                        onChange={(date) => date && setPayslipMonth(date)}
+                        displayFormat="dd/MM/yyyy"
+                      />
+                    </FormField>
+                  </div>
+                ) : null}
+              </div>
+
               {isAlreadyExists ? (
-                <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
-                  A payslip already exists for this employee and month.
+                <p className="text-[13px] font-medium text-red-600">
+                  The payslip has already been generated for this employee for
+                  the selected pay period.
                 </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <h2 className="border-b pb-1 text-[15px] font-semibold">
+                      Payroll categories of this payroll group
+                    </h2>
+                    <p className="text-[12px] text-muted-foreground">
+                      The payroll amounts are calculated based on how each
+                      payroll category is set up. You can edit the amounts if
+                      needed.
+                    </p>
+                    <div className="flex flex-col gap-4 lg:flex-row">
+                      <SalarySection
+                        title="Earnings"
+                        amountHeader="Credited (₹)"
+                        rows={earnings}
+                        editable={false}
+                        total={totalEarnings}
+                        totalLabel="Total Earnings"
+                        addLabel="Add Earning"
+                        onAdd={() => {
+                          setAddType("E");
+                          setAddOpen(true);
+                        }}
+                      />
+                      <SalarySection
+                        title="Deductions"
+                        amountHeader="Deducted (₹)"
+                        rows={deductions}
+                        editable
+                        onAmountChange={updateAmount}
+                        total={totalDeductions}
+                        totalLabel="Total Deductions"
+                        addLabel="Add Deduction"
+                        onAdd={() => {
+                          setAddType("D");
+                          setAddOpen(true);
+                        }}
+                      />
+                      <SalarySection
+                        title="Management Deductions"
+                        amountHeader="Deducted (₹)"
+                        rows={management}
+                        editable
+                        onAmountChange={updateAmount}
+                        addLabel="Add Management Deduction"
+                        onAdd={() => {
+                          setAddType("M");
+                          setAddOpen(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-4 border-t pt-4">
+                    <p className="text-sm">
+                      Net Pay: <strong>₹ {netPay.toFixed(2)}</strong>
+                    </p>
+                    <Button type="button" disabled={saving} onClick={save}>
+                      {saving ? "Generating…" : "Generate"}
+                    </Button>
+                    <Button asChild type="button" variant="outline">
+                      <Link href={backHref}>Back</Link>
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {isAlreadyExists ? (
+                <div className="flex justify-end">
+                  <Button asChild type="button" variant="outline">
+                    <Link href={backHref}>Back</Link>
+                  </Button>
+                </div>
               ) : null}
-              <div className="max-w-xs">
-                <FormField label="Payslip Month" required>
-                  <DatePicker
-                    value={payslipMonth}
-                    onChange={(date) => date && setPayslipMonth(date)}
-                    displayFormat="dd/MM/yyyy"
-                  />
-                </FormField>
-              </div>
-              <div className="flex flex-col gap-4 lg:flex-row">
-                <SalarySection
-                  title="Earnings"
-                  rows={earnings}
-                  editable={false}
-                  total={totalEarnings}
-                  onAdd={() => {
-                    setAddType("E");
-                    setAddOpen(true);
-                  }}
-                />
-                <SalarySection
-                  title="Deductions"
-                  rows={deductions}
-                  editable
-                  onAmountChange={updateAmount}
-                  total={totalDeductions}
-                  onAdd={() => {
-                    setAddType("D");
-                    setAddOpen(true);
-                  }}
-                />
-                <SalarySection
-                  title="Management Deductions"
-                  rows={management}
-                  editable
-                  onAmountChange={updateAmount}
-                  onAdd={() => {
-                    setAddType("M");
-                    setAddOpen(true);
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-end gap-6 border-t pt-4">
-                <p className="text-sm">
-                  Net Pay: <strong>₹ {netPay.toFixed(2)}</strong>
-                </p>
-                <Button type="button" disabled={saving} onClick={save}>
-                  {saving ? "Generating…" : "Generate Payslip"}
-                </Button>
-                <Button asChild type="button" variant="outline">
-                  <Link href={backHref}>Back</Link>
-                </Button>
-              </div>
             </>
           )}
         </div>
@@ -516,18 +696,18 @@ function GeneratePayslip() {
         onClose={() => setAddOpen(false)}
         title={`Add ${addType === "E" ? "Earning" : addType === "D" ? "Deduction" : "Management Deduction"}`}
         onSubmit={addCategory}
-        submitLabel="Add"
+        submitLabel="Save"
       >
         <div className="space-y-4">
           <FormField label="Payroll Category" required>
             <Select
               value={addCategoryId}
-              onChange={setAddCategoryId}
+              onChange={onPickCategory}
               options={categoryOptions}
               placeholder="Select category"
             />
           </FormField>
-          <FormField label="Amount" required>
+          <FormField label="Amount">
             <Input
               type="number"
               value={addAmount}
@@ -560,18 +740,32 @@ function makeHistoryActions(
     });
     return (
       <div className="flex items-center gap-1">
-        <Button asChild size="sm" variant="ghost">
+        <Button
+          asChild
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0 text-[#1565C0]"
+          title="View"
+        >
           <Link
             href={`/hr-payroll/payroll/payslip-for-employees/view-employee-payslip?${query}&Isprint=0`}
+            aria-label="View payslip"
           >
-            View
+            <Eye className="h-4 w-4" />
           </Link>
         </Button>
-        <Button asChild size="sm" variant="ghost">
+        <Button
+          asChild
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0 text-[#1565C0]"
+          title="Print"
+        >
           <Link
             href={`/hr-payroll/payroll/payslip-for-employees/view-employee-payslip?${query}&Isprint=1`}
+            aria-label="Print payslip"
           >
-            Print
+            <Printer className="h-4 w-4" />
           </Link>
         </Button>
       </div>
@@ -633,12 +827,12 @@ function ViewPayslipHistory() {
           const date = new Date(String(params.value ?? ""));
           return Number.isNaN(date.getTime())
             ? String(params.value ?? "—")
-            : format(date, "MMMM yyyy");
+            : format(date, "MMM d, yyyy");
         },
       },
       {
         field: "netPay",
-        headerName: "Net Pay",
+        headerName: "Salary",
         minWidth: 120,
         valueFormatter: (params) => amount(params.value).toFixed(2),
       },
@@ -649,8 +843,11 @@ function ViewPayslipHistory() {
       },
       {
         headerName: "Actions",
-        minWidth: 150,
+        minWidth: 110,
+        width: 110,
         flex: 0,
+        sortable: false,
+        filter: false,
         cellRenderer: makeHistoryActions(
           employeeId,
           empPayrollGroupId,
@@ -662,41 +859,54 @@ function ViewPayslipHistory() {
     [employeeId, empPayrollGroupId, payrollGroupId, collegeId],
   );
 
+  const pageTitle = employee?.firstName
+    ? `Generated Payslips - ${String(employee.firstName)}`
+    : "Generated Payslips";
+
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="border-b border-[#e8c547] px-4 py-3">
-          <h1 className="font-semibold text-[hsl(var(--card-title))]">
-            Employee Payslips
-          </h1>
-        </div>
-        <div className="space-y-4 p-4">
-          <EmployeeSummary employee={employee} group={group} />
-          {assignment?.grossPay != null ? (
-            <p className="text-sm">
-              Gross Pay:{" "}
-              <strong>{amount(assignment.grossPay).toFixed(2)}</strong>
-            </p>
-          ) : null}
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <DataTable
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            paginationPageSize={10}
-            toolbar={{ search: true, searchPlaceholder: "Search" }}
-          />
-          <div className="flex justify-end">
-            <Button asChild variant="outline">
-              <Link
-                href={`/hr-payroll/payroll/payslip-for-employees?collegeId=${collegeId}`}
-              >
-                Back
-              </Link>
-            </Button>
+    <PageContainer>
+      <DataTable
+        title={pageTitle}
+        subtitle=""
+        bordered
+        filtersFooter={
+          <div className="space-y-2">
+            <EmployeeSummary
+              employee={employee}
+              group={group}
+              assignment={assignment}
+            />
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
-        </div>
-      </div>
+        }
+        rowData={rows}
+        columnDefs={columnDefs}
+        loading={loading}
+        pagination
+        paginationPageSize={10}
+        getRowId={(p) =>
+          String(
+            p.data?.empPayslipGenerationId ??
+              `${p.data?.payslipMonth ?? "row"}-${p.data?.netPay ?? ""}`,
+          )
+        }
+        toolbar={{
+          search: false,
+          columnPicker: true,
+          exportExcel: false,
+          exportPdf: false,
+          excelDocumentTitle: pageTitle,
+        }}
+        toolbarTrailing={
+          <Button asChild variant="outline" size="sm" className="h-9">
+            <Link
+              href={`/hr-payroll/payroll/payslip-for-employees?collegeId=${collegeId}`}
+            >
+              Back
+            </Link>
+          </Button>
+        }
+      />
     </PageContainer>
   );
 }

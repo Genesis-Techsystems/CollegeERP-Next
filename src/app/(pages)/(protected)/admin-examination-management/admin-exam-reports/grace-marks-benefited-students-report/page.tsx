@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/common/components/select";
 import { DataTable } from "@/common/components/table";
 import {
@@ -25,10 +24,8 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
-  FileSpreadsheet,
   GraduationCap,
   Layers,
-  Printer,
   RotateCcw,
   School,
 } from "lucide-react";
@@ -158,7 +155,6 @@ export default function GraceMarksBenefitedStudentsReportPage() {
   const [skipAutoSelect, setSkipAutoSelect] = useState(false);
 
   const [groupResults, setGroupResults] = useState<GroupBucket[]>([]);
-  const [searchText, setSearchText] = useState("");
   const [dataDetails, setDataDetails] = useState("");
   const [examLabel, setExamLabel] = useState("");
 
@@ -229,24 +225,6 @@ export default function GraceMarksBenefitedStudentsReportPage() {
       ),
     [restRows, collegeId, courseGroupId],
   );
-
-  const filteredGroups = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return groupResults;
-    return groupResults
-      .map((group) => ({
-        ...group,
-        subjects: group.subjects.filter((s) => {
-          const ht = strFrom(s, [
-            "hallticket_number",
-            "hall_ticketno",
-          ]).toLowerCase();
-          const sub = strFrom(s, ["subject_name", "subject"]).toLowerCase();
-          return ht.includes(q) || sub.includes(q);
-        }),
-      }))
-      .filter((group) => group.subjects.length > 0);
-  }, [groupResults, searchText]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -573,13 +551,12 @@ export default function GraceMarksBenefitedStudentsReportPage() {
     setCourseYearId(0);
     setRestRows([]);
     setExamFeeTypes([]);
-    setSearchText("");
     clearResults();
   }
 
   function handleExportExcel() {
-    if (filteredGroups.length === 0) return;
-    const rowsHtml = filteredGroups
+    if (groupResults.length === 0) return;
+    const rowsHtml = groupResults
       .map((group) => {
         const groupHeader = `<tr><td colspan="6"><b>Course Group : ${group.courseGroup}</b></td></tr>`;
         const head = `<tr><th>S.No</th><th>Hall Ticket No.</th><th>Subject</th><th>After Moderation Marks</th><th>Grace Marks</th><th>Final Marks</th></tr>`;
@@ -598,7 +575,7 @@ export default function GraceMarksBenefitedStudentsReportPage() {
 
   return (
     <FilteredPage
-      title="Grace Marks Benefited Students Data"
+      title="GraceMarks Benefited Students"
       filters={
         <div className="space-y-3">
           <GlobalFilterBarRow>
@@ -786,44 +763,22 @@ export default function GraceMarksBenefitedStudentsReportPage() {
       body={
         groupResults.length > 0 ? (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-foreground">
-                  Grace Marks Benefited Students Data
+            <div className="min-w-0">
+              <p className="font-semibold text-foreground">
+                Grace Marks Benefited Students Data
+              </p>
+              {dataDetails ? (
+                <p className="text-sm font-medium text-blue-700">
+                  {dataDetails}
                 </p>
-                {dataDetails ? (
-                  <p className="text-sm font-medium text-blue-700">
-                    {dataDetails}
-                  </p>
-                ) : null}
-                {examLabel ? (
-                  <p className="text-sm text-muted-foreground">{examLabel}</p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
-                  onClick={handleExportExcel}
-                >
-                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-                  Export Excel
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 text-[12px]"
-                  onClick={() => window.print()}
-                >
-                  <Printer className="mr-1.5 h-3.5 w-3.5" />
-                  Print Report
-                </Button>
-              </div>
+              ) : null}
+              {examLabel ? (
+                <p className="text-sm text-muted-foreground">{examLabel}</p>
+              ) : null}
             </div>
 
             <div className="space-y-5">
-              {filteredGroups.map((group) => (
+              {groupResults.map((group) => (
                 <div key={group.courseGroup} className="space-y-2">
                   <p className="text-sm font-semibold text-[#042956]">
                     Course Group : {group.courseGroup}
@@ -838,6 +793,13 @@ export default function GraceMarksBenefitedStudentsReportPage() {
                     paginationPageSize={25}
                     getRowId={getRowId}
                     height="auto"
+                    toolbar={{
+                      search: true,
+                      columnPicker: true,
+                      exportExcel: true,
+                      exportPdf: true,
+                    }}
+                    onExportExcel={handleExportExcel}
                   />
                 </div>
               ))}

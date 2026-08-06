@@ -11,13 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { format, parseISO } from "date-fns";
 import type {
   ColDef,
@@ -25,6 +18,8 @@ import type {
   ValueFormatterParams,
 } from "ag-grid-community";
 import { StatusBadge } from "@/common/components/data-display";
+import { ActiveStatusField } from "@/common/components/forms";
+import { Select, type SelectOption } from "@/common/components/select";
 import { ListPage } from "@/components/layout";
 import {
   createInvigilatorRemuneration,
@@ -34,6 +29,7 @@ import {
   updateInvigilatorRemuneration,
 } from "@/services/invigilator-remuneration";
 import { Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 type AnyRow = Record<string, any>;
 
@@ -210,6 +206,24 @@ export default function InvigilatorRemunerationPage() {
     setOpen(true);
   }, []);
 
+  const collegeOptions = useMemo<SelectOption[]>(
+    () =>
+      colleges.map((c, i) => ({
+        value: String(c.collegeId ?? c.fk_college_id ?? i),
+        label: String(c.collegeCode ?? c.college_code ?? ""),
+      })),
+    [colleges],
+  );
+
+  const designationOptions = useMemo<SelectOption[]>(
+    () =>
+      designations.map((d, i) => ({
+        value: String(d.generalDetailId ?? i),
+        label: String(d.generalDetailCode ?? ""),
+      })),
+    [designations],
+  );
+
   async function save() {
     const cleanAmount = amount.trim();
     const nextErrors: Record<string, string> = {};
@@ -221,7 +235,7 @@ export default function InvigilatorRemunerationPage() {
     if (Object.keys(nextErrors).length > 0) return;
     if (!fromDate || !toDate) return;
     if (fromDate > toDate) {
-      alert("From date should be less than To date.");
+      toast.error("From date should be less than To date.");
       return;
     }
     const editId = getRemunerationId(editing);
@@ -237,7 +251,7 @@ export default function InvigilatorRemunerationPage() {
 
     let res: AnyRow | null = null;
     if (editing && !editId) {
-      alert(
+      toast.error(
         "Unable to identify selected record for update. Please refresh and try again.",
       );
       return;
@@ -262,9 +276,14 @@ export default function InvigilatorRemunerationPage() {
         err?.response?.data?.message ??
         err?.body?.message ??
         "Unable to save changes. Please verify fields and try again.";
-      alert(msg);
+      toast.error(msg);
       return;
     }
+    toast.success(
+      editId
+        ? "Invigilator remuneration updated successfully."
+        : "Invigilator remuneration added successfully.",
+    );
     closeModal();
     await loadAll();
   }
@@ -326,13 +345,16 @@ export default function InvigilatorRemunerationPage() {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label className="text-[12px]">
-                College <span className="text-red-500">*</span>
-              </Label>
               <Select
-                value={collegeId ? String(collegeId) : undefined}
-                onValueChange={(v) => {
-                  setCollegeId(Number(v));
+                label="College"
+                required
+                searchable
+                placeholder="Select college"
+                options={collegeOptions}
+                value={collegeId ? String(collegeId) : null}
+                error={fieldErrors.collegeId}
+                onChange={(v) => {
+                  setCollegeId(v ? Number(v) : null);
                   if (fieldErrors.collegeId) {
                     setFieldErrors((prev) => {
                       const next = { ...prev };
@@ -341,42 +363,21 @@ export default function InvigilatorRemunerationPage() {
                     });
                   }
                 }}
-              >
-                <SelectTrigger
-                  className="h-8 text-[12px]"
-                  aria-invalid={Boolean(fieldErrors.collegeId)}
-                >
-                  <SelectValue placeholder="Select college" />
-                </SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c, i) => (
-                    <SelectItem
-                      key={`c-${c.collegeId ?? c.fk_college_id ?? i}`}
-                      value={String(c.collegeId ?? c.fk_college_id)}
-                    >
-                      {c.collegeCode ?? c.college_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fieldErrors.collegeId ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.collegeId}
-                </p>
-              ) : null}
+              />
             </div>
             <div className="space-y-1">
-              <Label className="text-[12px]">
-                Invigilator Designation <span className="text-red-500">*</span>
-              </Label>
               <Select
+                label="Invigilator Designation"
+                required
+                searchable
+                placeholder="Select invigilator"
+                options={designationOptions}
                 value={
-                  invgdesignationCatId
-                    ? String(invgdesignationCatId)
-                    : undefined
+                  invgdesignationCatId ? String(invgdesignationCatId) : null
                 }
-                onValueChange={(v) => {
-                  setInvgdesignationCatId(Number(v));
+                error={fieldErrors.invgdesignationCatId}
+                onChange={(v) => {
+                  setInvgdesignationCatId(v ? Number(v) : null);
                   if (fieldErrors.invgdesignationCatId) {
                     setFieldErrors((prev) => {
                       const next = { ...prev };
@@ -385,29 +386,7 @@ export default function InvigilatorRemunerationPage() {
                     });
                   }
                 }}
-              >
-                <SelectTrigger
-                  className="h-8 text-[12px]"
-                  aria-invalid={Boolean(fieldErrors.invgdesignationCatId)}
-                >
-                  <SelectValue placeholder="Select invigilator" />
-                </SelectTrigger>
-                <SelectContent>
-                  {designations.map((d, i) => (
-                    <SelectItem
-                      key={`d-${d.generalDetailId ?? i}`}
-                      value={String(d.generalDetailId)}
-                    >
-                      {d.generalDetailCode}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fieldErrors.invgdesignationCatId ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.invgdesignationCatId}
-                </p>
-              ) : null}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-[12px]">
@@ -455,32 +434,18 @@ export default function InvigilatorRemunerationPage() {
                 onChange={(e) => setToDate(e.target.value)}
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">Status</Label>
-              <Select
-                value={isActive ? "1" : "0"}
-                onValueChange={(v) => setIsActive(v === "1")}
-              >
-                <SelectTrigger className="h-8 text-[12px]">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Active</SelectItem>
-                  <SelectItem value="0">InActive</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="md:col-span-3">
+              <ActiveStatusField
+                isActive={isActive}
+                reason={reason === "active" ? "" : reason}
+                onActiveChange={(v) => {
+                  const active = v === true;
+                  setIsActive(active);
+                  setReason(active ? "active" : "");
+                }}
+                onReasonChange={setReason}
+              />
             </div>
-            {!isActive && (
-              <div className="space-y-1 md:col-span-2">
-                <Label className="text-[12px]">Reason</Label>
-                <Input
-                  className="h-8 text-[12px]"
-                  placeholder="Reason for deactivation"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={closeModal}>

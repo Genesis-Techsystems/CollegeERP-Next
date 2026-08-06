@@ -20,6 +20,7 @@ import { FilteredListPage } from '@/components/layout'
 import { Select, type SelectOption } from '@/common/components/select'
 import { Button } from '@/components/ui/button'
 import { getSecuredValue, setSecuredValue } from '@/common/generic-functions'
+import { useSessionContext } from '@/context/SessionContext'
 import { rowIndexGetter } from '@/lib/utils'
 import { toast } from 'sonner'
 import { toastError } from '@/lib/toast'
@@ -28,6 +29,7 @@ import {
 	getExamCenterBundleByCode,
 	getExamCenterFilterGroups,
 	listExamBundlesByCode,
+	pickEgAyFilterRows,
 	type AnyRow,
 } from '@/services/exam-papers-delivery'
 
@@ -122,6 +124,9 @@ function makePrintActionsRenderer(onPrint: (bundleId: number) => void) {
 }
 
 export default function ExamBundlePrintPage() {
+	const { user, isLoading: sessionLoading } = useSessionContext()
+	const universityId = Number(user?.universityId ?? 0) || 0
+
 	const [form, setForm] = useState<FormState>(EMPTY_FORM)
 	const [egFilterRows, setEgFilterRows] = useState<Row[]>([])
 	const [ecGroupRows, setEcGroupRows] = useState<Row[]>([])
@@ -141,25 +146,28 @@ export default function ExamBundlePrintPage() {
 	}, [])
 
 	// ── eg_filters → academic years + exam groups (Angular getExamGroupDetails) ──
+	// Pass session universityId so Scan Admin (and similar roles) get filter rows;
+	// Admin still works when universityId is 0 (proc uses JWT scope).
 	const loadAcademicYearAndGroups = useCallback(async () => {
 		setLoadingFilters(true)
 		try {
-			const groups = await getExamCenterFilterGroups({ flag: 'eg_filters' })
-			const flat: Row[] = []
-			for (const g of groups) {
-				if (g.length > 0 && txt(g[0].flag) === 'eg_ay_filter') flat.push(...g)
-			}
-			setEgFilterRows(flat)
+			const groups = await getExamCenterFilterGroups({
+				flag: 'eg_filters',
+				universityId,
+			})
+			setEgFilterRows(pickEgAyFilterRows(groups))
 		} catch (e) {
 			toastError(e, 'Failed to load filters')
+			setEgFilterRows([])
 		} finally {
 			setLoadingFilters(false)
 		}
-	}, [])
+	}, [universityId])
 
 	useEffect(() => {
+		if (sessionLoading) return
 		void loadAcademicYearAndGroups()
-	}, [loadAcademicYearAndGroups])
+	}, [sessionLoading, loadAcademicYearAndGroups])
 
 	const academicYears = useMemo(() => dedupeBy(egFilterRows, (r) => num(r.fk_academic_year_id)), [egFilterRows])
 
@@ -205,6 +213,7 @@ export default function ExamBundlePrintPage() {
 					flag: 'eg_ec_filters',
 					academicYearId: Number(form.academicYearId),
 					examGroupId: Number(form.examGroupId),
+					universityId,
 				})
 				if (cancelled) return
 				const flat: Row[] = []
@@ -218,7 +227,7 @@ export default function ExamBundlePrintPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [form.academicYearId, form.examGroupId])
+	}, [form.academicYearId, form.examGroupId, universityId])
 
 	const examCenters = useMemo(() => dedupeBy(ecGroupRows, (r) => num(r.fk_univ_ec_id)), [ecGroupRows])
 
@@ -260,6 +269,7 @@ export default function ExamBundlePrintPage() {
 					examGroupId: Number(form.examGroupId),
 					univExamcenterId: Number(form.examCenterId) || 0,
 					examDate: form.examDate === ALL ? '1900-01-01' : form.examDate,
+					universityId,
 				})
 				if (cancelled) return
 				setQuestionPaperRows(groups[0] ?? [])
@@ -271,7 +281,7 @@ export default function ExamBundlePrintPage() {
 		return () => {
 			cancelled = true
 		}
-	}, [form.academicYearId, form.examGroupId, form.examCenterId, form.examDate])
+	}, [form.academicYearId, form.examGroupId, form.examCenterId, form.examDate, universityId])
 
 	useEffect(() => {
 		if (form.examCenterId === '' || form.examDate === '' || form.questionPaperCode !== '') return
@@ -316,28 +326,13 @@ export default function ExamBundlePrintPage() {
 		[questionPaperRows],
 	)
 
-	// Header line (Angular headerData()).
+	// Exam group code for sticker preview (Angular headerData()).
 	const header = useMemo(() => {
 		const eg = examGroups.find((x) => num(x.fk_univ_exam_group_id) === Number(form.examGroupId))
-		const ec = examCenters.find((x) => num(x.fk_univ_ec_id) === Number(form.examCenterId))
 		return {
 			examGroupCode: txt(eg?.exam_group_code),
-			examCenterCode: txt(ec?.ec_name),
-			examDate: form.examDate,
-			questionPaperCode: form.questionPaperCode,
 		}
-	}, [examGroups, examCenters, form])
-
-	const tableSummaryText = useMemo(() => {
-		const centerLabel =
-			form.examCenterId === ALL
-				? 'All'
-				: examCenterOptions.find((o) => o.value === form.examCenterId)?.label || header.examCenterCode || 'All'
-		const dateLabel = form.examDate === ALL ? 'All' : header.examDate
-		const qp = questionPaperOptions.find((o) => o.value === form.questionPaperCode)?.label
-		const subjectLabel = form.questionPaperCode === ALL ? 'All' : qp || header.questionPaperCode
-		return `${header.examGroupCode || '-'} / ${centerLabel} / ${dateLabel} / ${subjectLabel}`
-	}, [header, form.examCenterId, form.examDate, form.questionPaperCode, examCenterOptions, questionPaperOptions])
+	}, [examGroups, form.examGroupId])
 
 	function onAcademicYearChange(v: string | null) {
 		clearListState()
@@ -524,13 +519,6 @@ export default function ExamBundlePrintPage() {
         searchPlaceholder: 'Search…',
         pdfDocumentTitle: 'Exam Bundles',
       }}
-      toolbarLeading={
-        hasFetched ? (
-          <span className="max-w-[min(100%,40rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]" title={tableSummaryText}>
-            {tableSummaryText}
-          </span>
-        ) : null
-      }
       toolbarTrailing={
         hasFetched && bundles.length > 0 ? (
           <Button

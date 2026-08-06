@@ -82,6 +82,12 @@ type EventsCalendarPanelProps = {
   onAddEvent?: () => void;
   onEventClick?: (event: CollegeEventRow) => void;
   readOnly?: boolean;
+  /** Angular staff-events: "No Events in this month." */
+  sidebarEmptyMessage?: string;
+  /** Render inside parent card — no extra card chrome. */
+  embedded?: boolean;
+  /** Angular staff-events month calendar styling. */
+  variant?: "default" | "staff";
 };
 
 function EventListCard({
@@ -92,13 +98,12 @@ function EventListCard({
   const monthLabel = start ? format(start, "MMM") : "";
   const dayLabel = start ? format(start, "d") : "";
   const dateRange = formatEventDateRange(event);
+  const eventTypeName = event.eventTypeName;
+  const hasEventType =
+    event.eventTypeId != null && String(eventTypeName ?? "").trim() !== "";
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-stretch overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:bg-muted/30"
-    >
+  const inner = (
+    <>
       <div className="flex w-[52px] shrink-0 flex-col overflow-hidden border-r border-border">
         <div className="bg-[hsl(var(--primary))] px-1 py-1 text-center text-[11px] font-semibold text-primary-foreground">
           {monthLabel}
@@ -108,21 +113,44 @@ function EventListCard({
         </div>
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-between px-3 py-2">
-        <p className="truncate text-[13px] font-medium text-foreground">
+        <p className="text-[13px] font-medium text-foreground">
           {event.eventName ?? "Event"}
-          {event.isHoliday ? (
-            <span className="ml-1 font-normal text-amber-600 dark:text-amber-400">
-              (Week Off)
+          {hasEventType ? (
+            <span className="ml-1 text-[15px] font-normal text-[#FF9800]">
+              ({eventTypeName})
             </span>
           ) : null}
         </p>
+        {event.description ? (
+          <span className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">
+            {event.description}
+          </span>
+        ) : null}
         {dateRange ? (
-          <p className="mt-1 text-right text-[11px] text-muted-foreground">
+          <span className="mt-1 text-[11px] text-muted-foreground">
             {dateRange}
-          </p>
+          </span>
         ) : null}
       </div>
-    </button>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-stretch overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:bg-muted/30"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex w-full items-stretch overflow-hidden rounded-md border border-border bg-card text-left">
+      {inner}
+    </div>
   );
 }
 
@@ -135,7 +163,11 @@ export function EventsCalendarPanel({
   onAddEvent,
   onEventClick,
   readOnly = false,
+  sidebarEmptyMessage,
+  embedded = false,
+  variant = "default",
 }: Readonly<EventsCalendarPanelProps>) {
+  const isStaffVariant = variant === "staff";
   const monthStart = startOfMonth(viewMonth);
   const monthEnd = endOfMonth(viewMonth);
   const gridStart = startOfWeek(monthStart);
@@ -150,30 +182,59 @@ export function EventsCalendarPanel({
     }),
   );
 
+  // Angular staff-events sidebar lists full API `events`, not month-filtered.
+  const sidebarEvents =
+    sidebarEmptyMessage != null ? sortEventsByDate(events) : monthEvents;
+
   const isDaySelectable = Boolean(onSelectDate);
 
   return (
-    <div className="overflow-hidden bg-card">
-      <div className="flex items-center justify-between gap-3 border-b border-border bg-background px-3 py-2">
+    <div
+      className={cn(
+        "overflow-hidden",
+        !embedded && "bg-card",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-between gap-3 px-3 py-2",
+          isStaffVariant
+            ? "mx-4 mt-3 rounded-md border border-border/60 bg-background shadow-sm"
+            : "border-b border-border bg-background",
+        )}
+      >
         <div className="flex items-center gap-2">
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 w-8 rounded-full p-0"
+            className={cn(
+              "h-8 w-8 p-0",
+              isStaffVariant && "rounded-full border-0 bg-[#dedede] text-blue-600 shadow-sm hover:bg-[#d0d0d0]",
+            )}
             onClick={() => onViewMonthChange(addMonths(viewMonth, -1))}
             aria-label="Previous month"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="rounded-md bg-[hsl(var(--primary))]/10 px-4 py-1.5 text-sm font-semibold text-[hsl(var(--primary))]">
+          <span
+            className={cn(
+              "text-sm font-semibold",
+              isStaffVariant
+                ? "rounded-md bg-[#c3d9ff] px-5 py-1.5 text-foreground"
+                : "rounded-md bg-[hsl(var(--primary))]/10 px-4 py-1.5 text-[hsl(var(--primary))]",
+            )}
+          >
             {format(viewMonth, "MMMM yyyy")}
           </span>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 w-8 rounded-full p-0"
+            className={cn(
+              "h-8 w-8 p-0",
+              isStaffVariant && "rounded-full border-0 bg-[#dedede] text-blue-600 shadow-sm hover:bg-[#d0d0d0]",
+            )}
             onClick={() => onViewMonthChange(addMonths(viewMonth, 1))}
             aria-label="Next month"
           >
@@ -193,9 +254,23 @@ export function EventsCalendarPanel({
         ) : null}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <div
+        className={cn(
+          "grid grid-cols-1",
+          isStaffVariant
+            ? "lg:grid-cols-[minmax(0,1.85fr)_minmax(240px,1fr)]"
+            : "lg:grid-cols-[minmax(0,1fr)_280px]",
+        )}
+      >
         <div className="min-w-0 border-b border-border lg:border-b-0 lg:border-r">
-          <div className="grid grid-cols-7 border-b border-[hsl(var(--primary))]/20 bg-[hsl(var(--primary))]/10 text-center text-[11px] font-semibold text-[hsl(var(--primary))]">
+          <div
+            className={cn(
+              "grid grid-cols-7 border-b text-center text-[11px] font-semibold",
+              isStaffVariant
+                ? "border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))]"
+                : "border-[hsl(var(--primary))]/20 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]",
+            )}
+          >
             {WEEKDAYS.map((d) => (
               <div
                 key={d}
@@ -234,44 +309,78 @@ export function EventsCalendarPanel({
                       : undefined
                   }
                   className={cn(
-                    "relative min-h-[88px] border-b border-r border-border/70 p-1.5 text-left transition-colors last:border-r-0",
+                    "relative border-b border-r border-border/70 p-1.5 text-left transition-colors last:border-r-0",
+                    isStaffVariant ? "min-h-[96px]" : "min-h-[88px]",
                     !inMonth && "bg-muted/20 text-muted-foreground",
                     inMonth && "bg-background",
-                    isSelected && "bg-[hsl(var(--primary))]/10",
+                    isSelected &&
+                      (isStaffVariant
+                        ? "bg-[hsl(var(--primary))]/20 ring-1 ring-inset ring-[hsl(var(--primary))]/40"
+                        : "bg-[hsl(var(--primary))]/10"),
                     isDaySelectable &&
                       inMonth &&
                       "cursor-pointer hover:bg-muted/30",
                     !isDaySelectable && "cursor-default",
                   )}
                 >
-                  <div className="flex items-start justify-between gap-1">
-                    {dayEvents.length > 0 ? (
-                      <div className="flex flex-col items-center gap-0.5 pt-0.5">
-                        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
-                          {dayEvents.length}
-                        </span>
-                        <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                  {isStaffVariant ? (
+                    <>
+                      <span className="float-right text-[12px] font-medium">
+                        {format(day, "d")}
+                      </span>
+                      <div className="clear-both mt-0.5 space-y-0.5">
+                        {dayEvents.slice(0, 3).map((ev) => (
+                          <span
+                            key={String(ev.eventId ?? ev.eventName)}
+                            className="block truncate rounded bg-[hsl(var(--primary))]/15 px-1 py-0.5 text-[10px] leading-tight text-[hsl(var(--primary))]"
+                          >
+                            {ev.eventName ?? "Event"}
+                          </span>
+                        ))}
+                        {dayEvents.length > 3 ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            +{dayEvents.length - 3} more
+                          </span>
+                        ) : null}
                       </div>
-                    ) : (
-                      <span className="w-4 shrink-0" aria-hidden />
-                    )}
-                    <span className="text-[12px] font-medium">
-                      {format(day, "d")}
-                    </span>
-                  </div>
+                    </>
+                  ) : (
+                    <div className="flex items-start justify-between gap-1">
+                      {dayEvents.length > 0 ? (
+                        <div className="flex flex-col items-center gap-0.5 pt-0.5">
+                          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
+                            {dayEvents.length}
+                          </span>
+                          <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                        </div>
+                      ) : (
+                        <span className="w-4 shrink-0" aria-hidden />
+                      )}
+                      <span className="text-[12px] font-medium">
+                        {format(day, "d")}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-        <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto p-3 lg:max-h-none">
-          {monthEvents.length === 0 ? (
-            <p className="py-6 text-center text-[13px] text-muted-foreground">
-              No events this month
+        <div className="flex flex-col gap-2 overflow-y-auto p-3 lg:max-h-none">
+          {sidebarEvents.length === 0 ? (
+            <p
+              className={cn(
+                "py-2 text-[15px] font-medium",
+                sidebarEmptyMessage
+                  ? "text-blue-600"
+                  : "py-6 text-center text-[13px] text-muted-foreground",
+              )}
+            >
+              {sidebarEmptyMessage ?? "No events this month"}
             </p>
           ) : (
-            monthEvents.map((ev) => (
+            sidebarEvents.map((ev) => (
               <EventListCard
                 key={String(ev.eventId ?? `${ev.eventName}-${eventDayKey(ev)}`)}
                 event={ev}

@@ -684,7 +684,7 @@ export default function ExamCenterSubjectAttendancePage() {
     <FilteredPage
       title={
         listReady && headerSubtitle
-          ? `ExamCenter Subject Attendance`
+          ? `Exam Center Subject Attendance`
           : "Exam Center Subject Attendance"
       }
       filters={filters}

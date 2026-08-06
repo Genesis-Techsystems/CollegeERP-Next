@@ -72,6 +72,10 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (key.includes("staff") && key.includes("notmarked")) {
     return `${ATTENDANCE_MGMT_BASE}/staff-attendance-not-markedlist`;
   }
+  // Angular Academics menu label (staff-classes/attendance-update).
+  if (key.includes("attendanceupdate")) {
+    return `${ATTENDANCE_MGMT_BASE}/mark-attendance`;
+  }
   if (
     key.includes("markattendance") ||
     (key.includes("mark") && key.includes("attendance"))
@@ -168,6 +172,9 @@ export function mapStaffClassesLabelToRoute(label?: string): string | null {
     (key.includes("my") && key.includes("timetable"))
   ) {
     return `${STAFF_CLASSES_BASE}/my-timetable`;
+  }
+  if (key === "assignments" || key === "assignment") {
+    return `${STAFF_CLASSES_BASE}/assignments`;
   }
   // Bare "Class Diary" only — do not steal "Staff Class Diary" / "Student Class Diary".
   if (
@@ -619,8 +626,24 @@ export function mapNotificationsAnnouncementsNavRoute(
     }
   }
 
-  if (hrefLower.includes("principal-communications/notifications")) {
-    return `${NOTIFICATIONS_ANNOUNCEMENTS_BASE}/employee-inbox`;
+  // Angular Communications → Notifications
+  // `#/principal-communications/announcements` and
+  // `#/principal-communications/notifications/send-notifications`
+  // both load EmployeeNotificationsAndAnnouncementsModule — keep Angular URLs.
+  if (
+    hrefLower.includes("principal-communications/announcements") ||
+    hrefLower.includes("principal-communications/notifications")
+  ) {
+    if (hrefLower.includes("add-notification")) {
+      if (hrefLower.includes("announcements")) {
+        return "/principal-communications/announcements/add-notification";
+      }
+      return "/principal-communications/notifications/send-notifications/add-notification";
+    }
+    if (hrefLower.includes("announcements")) {
+      return "/principal-communications/announcements";
+    }
+    return "/principal-communications/notifications/send-notifications";
   }
 
   return null;
@@ -753,6 +776,9 @@ const DIGITAL_LIBRARY_SLUGS: Record<string, string> = {
   viewcoursecontent: "view-course-content",
   "upload-course-content": "upload-course-content",
   uploadcoursecontent: "upload-course-content",
+  // Angular staff portal uses "Upload Program Content" label → same route
+  "upload-program-content": "upload-course-content",
+  uploadprogramcontent: "upload-course-content",
 };
 
 /** Paths that contain `library/` but are Digital Library / knowledge-store, not book Library. */
@@ -780,7 +806,12 @@ export function mapDigitalLibraryLabelToRoute(label?: string): string | null {
   if (key.includes("viewcoursecontent") || key.includes("viewcourse")) {
     return `${DIGITAL_LIBRARY_BASE}/view-course-content`;
   }
-  if (key.includes("uploadcoursecontent") || key.includes("uploadcourse")) {
+  if (
+    key.includes("uploadcoursecontent") ||
+    key.includes("uploadcourse") ||
+    key.includes("uploadprogramcontent") ||
+    key.includes("uploadprogram")
+  ) {
     return `${DIGITAL_LIBRARY_BASE}/upload-course-content`;
   }
   return null;
@@ -809,6 +840,27 @@ export function mapDigitalLibraryNavRoute(
     mapModuleTail(
       hrefRaw,
       "knowledge-store/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "staff-digital-library/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "student-digital-library/",
+      DIGITAL_LIBRARY_BASE,
+      DIGITAL_LIBRARY_SLUGS,
+      "manage-course-content",
+    ) ??
+    mapModuleTail(
+      hrefRaw,
+      "employee-digital-library/",
       DIGITAL_LIBRARY_BASE,
       DIGITAL_LIBRARY_SLUGS,
       "manage-course-content",

@@ -1,52 +1,63 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColDef } from 'ag-grid-community'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Label } from '@/components/ui/label'
-import { Select } from '@/common/components/select'
-import { toastError, toastSuccess } from '@/lib/toast'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef } from "ag-grid-community";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/common/components/select";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   approveEvaluationAssignments,
   getEvaluationApprovalsFilters,
   listEvaluationApprovals,
-} from '@/services/evaluation-process'
-import { GENERALCONSTANTS } from '@/common/general-constants'
+} from "@/services/evaluation-process";
+import { GENERALCONSTANTS } from "@/common/general-constants";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
+  if (!row) return 0;
   for (const k of keys) {
-    const n = Number(row[k])
-    if (n > 0) return n
+    const n = Number(row[k]);
+    if (n > 0) return n;
   }
-  return 0
-}
+  return 0;
+};
 const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
-}
+  return "";
+};
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>()
+  const seen = new Set<string | number>();
   return rows.filter((r) => {
-    const key = keyFn(r)
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
+    const key = keyFn(r);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
-function makeSelectionRenderer(selectedIds: number[], toggleOne: (id: number, checked: boolean) => void) {
+function makeSelectionRenderer(
+  selectedIds: number[],
+  toggleOne: (id: number, checked: boolean) => void,
+) {
   return (p: { data?: AnyRow }) => {
-    const row = p.data
-    if (!row || pickText(row, ['evaluationstatus', 'evaluationStatus']) !== 'Evaluated') return null
-    const rowId = pickNum(row, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])
+    const row = p.data;
+    if (
+      !row ||
+      pickText(row, ["evaluationstatus", "evaluationStatus"]) !== "Evaluated"
+    )
+      return null;
+    const rowId = pickNum(row, [
+      "pk_exam_evaluationassignment_id",
+      "examEvaluationAssignmentId",
+      "id",
+    ]);
     return (
       <input
         type="checkbox"
@@ -54,21 +65,33 @@ function makeSelectionRenderer(selectedIds: number[], toggleOne: (id: number, ch
         checked={selectedIds.includes(rowId)}
         onChange={(e) => toggleOne(rowId, e.target.checked)}
       />
-    )
-  }
+    );
+  };
 }
 
 function evaluationStatusRenderer(p: { value?: string }) {
-  const value = p.value ?? ''
-  if (value === 'Finalised') {
-    return <Badge className="bg-slate-100 text-slate-700 border border-border">Finalised</Badge>
+  const value = p.value ?? "";
+  if (value === "Finalised") {
+    return (
+      <Badge className="bg-slate-100 text-slate-700 border border-border">
+        Finalised
+      </Badge>
+    );
   }
-  return <Badge className="bg-amber-50 text-amber-700 border border-amber-200">Evaluated</Badge>
+  return (
+    <Badge className="bg-amber-50 text-amber-700 border border-amber-200">
+      Evaluated
+    </Badge>
+  );
 }
 
-function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Promise<void>) {
+function makeActionsRenderer(
+  loading: boolean,
+  approveOne: (row: AnyRow) => Promise<void>,
+) {
   return (p: { data?: AnyRow }) =>
-    pickText(p.data, ['evaluationstatus', 'evaluationStatus']) === 'Finalised' ? (
+    pickText(p.data, ["evaluationstatus", "evaluationStatus"]) ===
+    "Finalised" ? (
       <span className="text-[12px] text-slate-600">Finalised</span>
     ) : (
       <button
@@ -79,115 +102,152 @@ function makeActionsRenderer(loading: boolean, approveOne: (row: AnyRow) => Prom
       >
         Approve
       </button>
-    )
+    );
 }
 
 export default function EvaluationApprovalsPage() {
-  const [loading, setLoading] = useState(false)
-  const [hasFetched, setHasFetched] = useState(false)
-  const [filters, setFilters] = useState<AnyRow[]>([])
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
-  const [evaluatorProfileId, setEvaluatorProfileId] = useState<number | null>(null)
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
-  const profileId = Number(globalThis?.localStorage?.getItem('examEvaluatorProfileId') ?? 0)
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [filters, setFilters] = useState<AnyRow[]>([]);
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [examId, setExamId] = useState<number | null>(null);
+  const [evaluatorProfileId, setEvaluatorProfileId] = useState<number | null>(
+    null,
+  );
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
+  const organizationId = Number(
+    globalThis?.localStorage?.getItem("organizationId") ?? 0,
+  );
+  const profileId = Number(
+    globalThis?.localStorage?.getItem("examEvaluatorProfileId") ?? 0,
+  );
   // "Finalised" evaluation-status id, from the shared status list (single source of truth,
   // already used for eval-status colouring). Previously read from localStorage['Finalized'],
   // a key that is never written anywhere → approve wrote evaluationStatusCatDetId: 0 (invalid)
   // while the UI toasted success.
   const finalizedCatDetId =
-    GENERALCONSTANTS.statusColors.find((s) => s.status === 'Finalised')?.id ?? 0
+    GENERALCONSTANTS.statusColors.find((s) => s.status === "Finalised")?.id ??
+    0;
 
   const courses = useMemo(
-    () => dedupeBy(filters, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
+    () => dedupeBy(filters, (r) => pickNum(r, ["fk_course_id", "courseId"])),
     [filters],
-  )
+  );
   const exams = useMemo(
     () =>
       dedupeBy(
-        filters.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
-        (r) => pickNum(r, ['fk_exam_id', 'examId']),
+        filters.filter(
+          (r) => pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId),
+        ),
+        (r) => pickNum(r, ["fk_exam_id", "examId"]),
       ),
     [filters, courseId],
-  )
+  );
   const evaluators = useMemo(
     () =>
       dedupeBy(
         filters.filter(
           (r) =>
-            pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
-            pickNum(r, ['fk_exam_id', 'examId']) === Number(examId),
+            pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId) &&
+            pickNum(r, ["fk_exam_id", "examId"]) === Number(examId),
         ),
-        (r) => pickNum(r, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']),
+        (r) =>
+          pickNum(r, [
+            "fk_exam_evaluator_profile_id",
+            "examEvaluatorProfileId",
+          ]),
       ),
     [filters, courseId, examId],
-  )
+  );
 
   const evaluatableRows = useMemo(
     () =>
       rows
-        .filter((r) => pickText(r, ['evaluationstatus', 'evaluationStatus']) === 'Evaluated')
-        .map((r) => pickNum(r, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])),
+        .filter(
+          (r) =>
+            pickText(r, ["evaluationstatus", "evaluationStatus"]) ===
+            "Evaluated",
+        )
+        .map((r) =>
+          pickNum(r, [
+            "pk_exam_evaluationassignment_id",
+            "examEvaluationAssignmentId",
+            "id",
+          ]),
+        ),
     [rows],
-  )
+  );
 
   const allEvaluatedSelected =
-    evaluatableRows.length > 0 && evaluatableRows.every((id) => selectedIds.includes(id))
+    evaluatableRows.length > 0 &&
+    evaluatableRows.every((id) => selectedIds.includes(id));
 
   function toggleOne(id: number, checked: boolean) {
-    setSelectedIds((prev) => (checked ? [...new Set([...prev, id])] : prev.filter((v) => v !== id)))
+    setSelectedIds((prev) =>
+      checked ? [...new Set([...prev, id])] : prev.filter((v) => v !== id),
+    );
   }
 
   function toggleAll(checked: boolean) {
-    setSelectedIds(checked ? evaluatableRows : [])
+    setSelectedIds(checked ? evaluatableRows : []);
   }
 
   function secondsToTime(total: number) {
-    const h = String(Math.floor(total / 3600)).padStart(2, '0')
-    const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0')
-    const s = String(total % 60).padStart(2, '0')
-    return `${h}:${m}:${s}`
+    const h = String(Math.floor(total / 3600)).padStart(2, "0");
+    const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+    const s = String(total % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
   }
 
   useEffect(() => {
     async function init() {
-      setLoading(true)
+      setLoading(true);
       try {
-        const list = await getEvaluationApprovalsFilters(employeeId, organizationId).catch(() => [])
-        const rows = Array.isArray(list) ? list : []
-        setFilters(rows)
-        if (rows[0]) setCourseId(pickNum(rows[0], ['fk_course_id', 'courseId']))
+        const list = await getEvaluationApprovalsFilters(
+          employeeId,
+          organizationId,
+        ).catch(() => []);
+        const rows = Array.isArray(list) ? list : [];
+        setFilters(rows);
+        if (rows[0])
+          setCourseId(pickNum(rows[0], ["fk_course_id", "courseId"]));
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    void init()
-  }, [employeeId, organizationId])
+    void init();
+  }, [employeeId, organizationId]);
 
   useEffect(() => {
-    if (exams[0]) setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
-  }, [exams])
+    if (exams[0]) setExamId(pickNum(exams[0], ["fk_exam_id", "examId"]));
+  }, [exams]);
   useEffect(() => {
     if (evaluators[0]) {
-      setEvaluatorProfileId(pickNum(evaluators[0], ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId']))
+      setEvaluatorProfileId(
+        pickNum(evaluators[0], [
+          "fk_exam_evaluator_profile_id",
+          "examEvaluatorProfileId",
+        ]),
+      );
     }
-  }, [evaluators])
+  }, [evaluators]);
 
   useEffect(() => {
-    setRows([])
-    setHasFetched(false)
-    setSelectedIds([])
-  }, [courseId, examId, evaluatorProfileId])
+    setRows([]);
+    setHasFetched(false);
+    setSelectedIds([]);
+  }, [courseId, examId, evaluatorProfileId]);
 
   async function getList() {
     if (!courseId || !examId || !evaluatorProfileId) {
-      toastError('Please select Course, Exam and Evaluator.')
-      return
+      toastError("Please select Course, Exam and Evaluator.");
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       const list = await listEvaluationApprovals({
         employeeId,
@@ -195,52 +255,66 @@ export default function EvaluationApprovalsPage() {
         courseId,
         examId,
         evaluatorProfileId,
-      }).catch(() => [])
-      setRows(Array.isArray(list) ? list : [])
-      setHasFetched(true)
+      }).catch(() => []);
+      setRows(Array.isArray(list) ? list : []);
+      setHasFetched(true);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function approveSelected() {
-    if (selectedIds.length === 0) return
+    if (selectedIds.length === 0) return;
     const payload = rows
       .filter((r) =>
-        selectedIds.includes(pickNum(r, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])),
+        selectedIds.includes(
+          pickNum(r, [
+            "pk_exam_evaluationassignment_id",
+            "examEvaluationAssignmentId",
+            "id",
+          ]),
+        ),
       )
       .map((r) => ({
         evaluationStatusCatDetId: finalizedCatDetId || 0,
-        examEvaluationAssignmentId: pickNum(r, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id']),
+        examEvaluationAssignmentId: pickNum(r, [
+          "pk_exam_evaluationassignment_id",
+          "examEvaluationAssignmentId",
+          "id",
+        ]),
         isActive: true,
         evaluationStatusByProfileId: profileId || evaluatorProfileId || 0,
       }))
-      .filter((r) => r.examEvaluationAssignmentId > 0)
+      .filter((r) => r.examEvaluationAssignmentId > 0);
 
     if (payload.length === 0) {
-      toastError('No valid records selected for approval.')
-      return
+      toastError("No valid records selected for approval.");
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
-      await approveEvaluationAssignments(payload)
-      toastSuccess('Approvals updated successfully.')
-      setSelectedIds([])
-      await getList()
+      await approveEvaluationAssignments(payload);
+      toastSuccess("Approvals updated successfully.");
+      setSelectedIds([]);
+      await getList();
     } catch (error: any) {
-      toastError(error?.message ?? 'Failed to approve selected rows.')
+      toastError(error?.message ?? "Failed to approve selected rows.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function approveOne(row: AnyRow) {
-    const rowId = pickNum(row, ['pk_exam_evaluationassignment_id', 'examEvaluationAssignmentId', 'id'])
+    const rowId = pickNum(row, [
+      "pk_exam_evaluationassignment_id",
+      "examEvaluationAssignmentId",
+      "id",
+    ]);
     if (rowId <= 0) {
-      toastError('Unable to approve this row.')
-      return
+      toastError("Unable to approve this row.");
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       await approveEvaluationAssignments([
         {
@@ -249,63 +323,102 @@ export default function EvaluationApprovalsPage() {
           isActive: true,
           evaluationStatusByProfileId: profileId || evaluatorProfileId || 0,
         },
-      ])
-      toastSuccess('Row approved successfully.')
-      setSelectedIds((prev) => prev.filter((id) => id !== rowId))
-      await getList()
+      ]);
+      toastSuccess("Row approved successfully.");
+      setSelectedIds((prev) => prev.filter((id) => id !== rowId));
+      await getList();
     } catch (error: any) {
-      toastError(error?.message ?? 'Failed to approve row.')
+      toastError(error?.message ?? "Failed to approve row.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   const cols = useMemo<ColDef[]>(
     () => [
       {
-        headerName: '',
+        headerName: "",
         width: 70,
         cellRenderer: makeSelectionRenderer(selectedIds, toggleOne),
       },
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 80 },
-      { field: 'omrSerialNo', headerName: 'Omr Serial No', minWidth: 130, valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? '-' },
-      { field: 'evaluatedTotalMarks', headerName: 'Evaluated Total Marks', minWidth: 150, valueGetter: (p) => p.data?.evaluated_totalmarks ?? p.data?.evaluatedTotalMarks ?? '-' },
-      { field: 'answerSheetCheckDate', headerName: 'Answer Sheet Check Date', minWidth: 160, valueGetter: (p) => p.data?.answersheetcheckdate ?? p.data?.answerSheetCheckDate ?? '-' },
       {
-        field: 'evaluationTimeSec',
-        headerName: 'Evaluation Time',
+        headerName: "SI.No",
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 80,
+      },
+      {
+        field: "omrSerialNo",
+        headerName: "Omr Serial No",
         minWidth: 130,
-        valueGetter: (p) => p.data?.evaluationtime_sec ?? p.data?.evaluationTimeSec ?? 0,
+        valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? "-",
+      },
+      {
+        field: "evaluatedTotalMarks",
+        headerName: "Evaluated Total Marks",
+        minWidth: 150,
+        valueGetter: (p) =>
+          p.data?.evaluated_totalmarks ?? p.data?.evaluatedTotalMarks ?? "-",
+      },
+      {
+        field: "answerSheetCheckDate",
+        headerName: "Answer Sheet Check Date",
+        minWidth: 160,
+        valueGetter: (p) =>
+          p.data?.answersheetcheckdate ?? p.data?.answerSheetCheckDate ?? "-",
+      },
+      {
+        field: "evaluationTimeSec",
+        headerName: "Evaluation Time",
+        minWidth: 130,
+        valueGetter: (p) =>
+          p.data?.evaluationtime_sec ?? p.data?.evaluationTimeSec ?? 0,
         valueFormatter: (p) => secondsToTime(Number(p.value ?? 0)),
       },
       {
-        field: 'evaluationStatus',
-        headerName: 'Evaluation Status',
+        field: "evaluationStatus",
+        headerName: "Evaluation Status",
         minWidth: 130,
         cellRenderer: evaluationStatusRenderer,
-        valueGetter: (p) => p.data?.evaluationstatus ?? p.data?.evaluationStatus ?? '',
+        valueGetter: (p) =>
+          p.data?.evaluationstatus ?? p.data?.evaluationStatus ?? "",
       },
-      { field: 'evaluatedAnswerPaperPath', headerName: 'Evaluated Answer Sheets', minWidth: 160, valueGetter: (p) => p.data?.evaluated_answerpaper_path ?? p.data?.evaluatedAnswerPaperPath ?? '-' },
       {
-        headerName: 'Actions',
+        field: "evaluatedAnswerPaperPath",
+        headerName: "Evaluated Answer Sheets",
+        minWidth: 160,
+        valueGetter: (p) =>
+          p.data?.evaluated_answerpaper_path ??
+          p.data?.evaluatedAnswerPaperPath ??
+          "-",
+      },
+      {
+        headerName: "Actions",
         minWidth: 120,
         cellRenderer: makeActionsRenderer(loading, approveOne),
       },
     ],
     [selectedIds, loading],
-  )
+  );
 
   return (
     <FilteredListPage
       title="Moderator Approvals"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-3">
             <Label className="text-[12px] text-muted-foreground">Course</Label>
             <Select
               value={courseId ? String(courseId) : null}
               onChange={(v) => setCourseId(v ? Number(v) : 0)}
-              options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) }))}
+              options={courses.map((c) => ({
+                value: String(pickNum(c, ["fk_course_id", "courseId"])),
+                label: pickText(c, [
+                  "course_code",
+                  "courseCode",
+                  "course_name",
+                  "courseName",
+                ]),
+              }))}
               placeholder="Course"
             />
           </div>
@@ -314,56 +427,87 @@ export default function EvaluationApprovalsPage() {
             <Select
               value={examId ? String(examId) : null}
               onChange={(v) => setExamId(v ? Number(v) : 0)}
-              options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) }))}
+              options={exams.map((e) => ({
+                value: String(pickNum(e, ["fk_exam_id", "examId"])),
+                label: pickText(e, ["exam_name", "examName"]),
+              }))}
               placeholder="Exam"
             />
           </div>
           <div className="md:col-span-3">
-            <Label className="text-[12px] text-muted-foreground">Evaluators</Label>
+            <Label className="text-[12px] text-muted-foreground">
+              Evaluators
+            </Label>
             <Select
               value={evaluatorProfileId ? String(evaluatorProfileId) : null}
               onChange={(v) => setEvaluatorProfileId(v ? Number(v) : 0)}
-              options={evaluators.map((e) => ({ value: String(pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])), label: pickText(e, ['evaluator_name', 'evaluatorName']) || `Evaluator ${pickNum(e, ['fk_exam_evaluator_profile_id', 'examEvaluatorProfileId'])}` }))}
+              options={evaluators.map((e) => ({
+                value: String(
+                  pickNum(e, [
+                    "fk_exam_evaluator_profile_id",
+                    "examEvaluatorProfileId",
+                  ]),
+                ),
+                label:
+                  pickText(e, ["evaluator_name", "evaluatorName"]) ||
+                  `Evaluator ${pickNum(e, ["fk_exam_evaluator_profile_id", "examEvaluatorProfileId"])}`,
+              }))}
               placeholder="Evaluator"
             />
           </div>
           <div className="md:col-span-1">
-            <Button className="h-8 px-3 text-[12px] w-full" onClick={getList} disabled={loading}>
+            <Button
+              className="h-8 px-3 text-[12px] w-full"
+              onClick={getList}
+              disabled={loading}
+            >
               Get List
             </Button>
           </div>
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
       columnDefs={cols}
       pagination
       loading={loading}
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Evaluation Approvals',
-      }}
-      toolbarTrailing={(
-        <>
-          <label
-            className={`inline-flex items-center gap-2 text-[12px] shrink-0 ${
-              allEvaluatedSelected ? 'text-[hsl(var(--primary))]' : ''
-            }`}
-          >
-            <input
-              type="checkbox"
-              className="h-3 w-3 accent-[hsl(var(--primary))]"
-              checked={allEvaluatedSelected}
-              disabled={evaluatableRows.length === 0}
-              onChange={(e) => toggleAll(e.target.checked)}
-            />
-            <span>All</span>
-          </label>
-          <Button type="button" size="sm" disabled={selectedIds.length === 0 || loading} onClick={() => void approveSelected()}>
-            Approve
-          </Button>
-        </>
-      )}
+      hideEmptyGrid
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              pdfDocumentTitle: "Evaluation Approvals",
+            }
+          : false
+      }
+      toolbarTrailing={
+        hasFetched && rows.length > 0 ? (
+          <>
+            <label
+              className={`inline-flex shrink-0 items-center gap-2 text-[12px] ${
+                allEvaluatedSelected ? "text-[hsl(var(--primary))]" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="h-3 w-3 accent-[hsl(var(--primary))]"
+                checked={allEvaluatedSelected}
+                disabled={evaluatableRows.length === 0}
+                onChange={(e) => toggleAll(e.target.checked)}
+              />
+              <span>All</span>
+            </label>
+            <Button
+              type="button"
+              size="sm"
+              disabled={selectedIds.length === 0 || loading}
+              onClick={() => void approveSelected()}
+            >
+              Approve
+            </Button>
+          </>
+        ) : undefined
+      }
     />
-  )
+  );
 }

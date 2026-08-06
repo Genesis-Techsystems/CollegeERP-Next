@@ -31,6 +31,8 @@ export const ADMIN_EXAM_REPORTS_DB_SLUG_ALIASES: Record<string, string> = {
   "lab-external-remuneration-report": "lab-remuneration-report",
   "invigilator-remuneration-report": "invigilators-remuneration-report",
   "invigilators-remuneration": "invigilators-remuneration-report",
+  "ou-result-report": "ou-result-sheet",
+  "ou-result-sheet-report": "ou-result-sheet",
 };
 
 export function resolveExamReportDbSlug(slug: string): string {
@@ -449,6 +451,17 @@ export function resolveExaminationReportHref(
       labelLower.includes("report"))
   ) {
     return `${ADMIN_EXAM_REPORTS}/invigilators-remuneration-report`;
+  }
+
+  if (
+    hrefLower.includes("ou-result-sheet") ||
+    hrefLower.includes("ou-result-report") ||
+    hrefLower.includes("ou_result") ||
+    (labelLower.includes("ou result") && labelLower.includes("report")) ||
+    labelLower === "ou result report" ||
+    labelLower === "ou result sheet"
+  ) {
+    return `${ADMIN_EXAM_REPORTS}/ou-result-sheet`;
   }
 
   if (

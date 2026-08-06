@@ -178,6 +178,17 @@ export function InternalIndentForm({
 
   const removeLine = useCallback((key: string) => {
     setLines((prev) => {
+      const target = prev.find((l) => l.key === key);
+      if (!target) return prev;
+      // Existing DB row → soft-delete (Angular deleteItemRow: isActive = false)
+      if (target.interIndItemId) {
+        const next = prev.map((l) =>
+          l.key === key ? { ...l, isActive: false } : l,
+        );
+        const hasVisible = next.some((l) => l.isActive !== false);
+        return hasVisible ? next : [...next, newLine()];
+      }
+      // Unsaved row → drop from list
       const next = prev.filter((l) => l.key !== key);
       return next.length > 0 ? next : [newLine()];
     });
@@ -204,25 +215,50 @@ export function InternalIndentForm({
 
       if (isEdit) {
         /**
-         * Angular `editOrder`: only items whose itemId still matches an original
-         * list item get `interIndItemId`; soft-deleted originals are not sent.
+         * Keep active lines + send removed existing rows with isActive:false
+         * (otherwise backend keeps them and they reappear on reopen).
          */
         const updateItems: Record<string, unknown>[] = [];
-        for (const orig of existingItems) {
-          const match = lines.find(
-            (l) =>
-              l.isActive !== false &&
-              l.itemId != null &&
-              Number(l.itemId) === Number(orig.itemId),
-          );
-          if (match && orig.interIndItemId) {
+        const seenOrigIds = new Set<number>();
+
+        for (const line of lines) {
+          if (line.isActive === false && line.interIndItemId) {
+            seenOrigIds.add(Number(line.interIndItemId));
             updateItems.push({
-              interIndItemId: orig.interIndItemId,
-              itemId: Number(match.itemId),
-              indentQuantity: Number(match.indentQuantity) || 0,
+              interIndItemId: line.interIndItemId,
+              itemId: Number(line.itemId) || 0,
+              indentQuantity: Number(line.indentQuantity) || 0,
               storeId: sid,
+              isActive: false,
             });
+            continue;
           }
+          if (line.isActive === false || !line.itemId) continue;
+          if (line.interIndItemId) {
+            seenOrigIds.add(Number(line.interIndItemId));
+          }
+          updateItems.push({
+            ...(line.interIndItemId
+              ? { interIndItemId: line.interIndItemId }
+              : {}),
+            itemId: Number(line.itemId),
+            indentQuantity: Number(line.indentQuantity) || 0,
+            storeId: sid,
+            isActive: true,
+          });
+        }
+
+        // Any original row missing from lines (hard-removed) → deactivate
+        for (const orig of existingItems) {
+          const id = Number(orig.interIndItemId ?? 0);
+          if (!id || seenOrigIds.has(id)) continue;
+          updateItems.push({
+            interIndItemId: id,
+            itemId: Number(orig.itemId) || 0,
+            indentQuantity: Number(orig.indentQuantity) || 0,
+            storeId: sid,
+            isActive: false,
+          });
         }
 
         await updateInvInternalIndent({

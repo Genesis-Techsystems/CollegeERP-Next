@@ -100,6 +100,112 @@ function examReportsModuleBreadcrumb(
   ];
 }
 
+/**
+ * Fee report pages live under Reports → Fee Reports in the menu even though
+ * App Router paths are under `/accounts-and-fees/fee-reports/…`.
+ * Breadcrumb: Reports > Fee Reports > {page}.
+ */
+function feeReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+
+  const leaf =
+    /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/daywise-fee-report$/i.test(
+      path,
+    )
+      ? "Day Wise Receipts"
+      : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/due-list$/i.test(
+            path,
+          )
+        ? "Due List"
+        : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/fee-ledger$/i.test(
+              path,
+            )
+          ? "Fee Ledger"
+          : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/bus-fee-collections$/i.test(
+                path,
+              )
+            ? "Bus Fee Report"
+            : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/mgt-fee-collections$/i.test(
+                  path,
+                )
+              ? "Management Fee Reports"
+              : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/library-fee-collections$/i.test(
+                    path,
+                  )
+                ? "Library Fee Report"
+                : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/scholarship-due-list$/i.test(
+                      path,
+                    )
+                  ? "Scholarship Report"
+                  : null;
+
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "fee reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Fee Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Student report pages under Reports → Student Reports.
+ */
+function studentReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+
+  const leaf =
+    /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-application-report$/i.test(
+      path,
+    )
+      ? "Day Wise Application Report"
+      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-caste-wise-gender-count(?:-report)?$/i.test(
+            path,
+          )
+        ? "Student Caste Wise Gender Count Report"
+        : null;
+
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "student reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Student Reports" },
+    { label: leaf },
+  ];
+}
+
+/** Angular Report Catalog (`report-catalyst`). */
+function reportCatalogBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/\/report-catalyst$/i.test(path)) return items;
+  return [{ label: "Home", href: "/dashboard" }, { label: "Report Catalog" }];
+}
+
 const FEE_PAYMENT_HREF =
   "/accounts-and-fees/fees-collection/payment/fee-payment";
 const FEE_RECEIPTS_HREF = "/accounts-and-fees/fees-collection/fee-receipts";
@@ -198,6 +304,34 @@ function accountsFeesPaymentBreadcrumb(
     ];
   }
 
+  // Angular: Home → Accounts and Fees → Fee Collection → Bus Fee Payment
+  if (
+    /\/accounts-and-fees\/fees-collection\/bus-payment\/(bus-fee-payment|bus-fee)$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection" },
+      { label: "Bus Fee Payment" },
+    ];
+  }
+
+  // Angular: Home → Accounts and Fees → Fee Collection → Library Fee Payment
+  if (
+    /\/accounts-and-fees\/fees-collection\/library-payment\/(library-fee-payment|library-fee)$/i.test(
+      path,
+    )
+  ) {
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Collection" },
+      { label: "Library Fee Payment" },
+    ];
+  }
+
   return items;
 }
 
@@ -218,6 +352,303 @@ function assignRegulationToStudentsBreadcrumb(
   }
 
   return items.filter((item) => !/subject\s*mapping/i.test(item.label));
+}
+
+function hostelRoomsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/hostel\/rooms$/i.test(path)) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Hostel", href: "/hostel/hostel-details" },
+    { label: "Hostel", href: "/hostel/hostel-details" },
+    { label: "Hostel Rooms" },
+  ];
+}
+
+/**
+ * Angular exam-scan-profile/profile-details crumbs:
+ * Home → Examination Management → Exam Papers Delivery Process → Profile Details → Edit/Add Scan Profile Details
+ */
+function examScanProfileDetailsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/\/admin-examination-management\/exam-papers-delivery-process\/exam-scan-profile\/profile-details$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+
+  const lastLabel =
+    items[items.length - 1]?.label ?? "Edit Scan Profile Details";
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Examination Management" },
+    {
+      label: "Exam Papers Delivery Process",
+      href: "/admin-examination-management/exam-papers-delivery-process",
+    },
+    {
+      label: "Profile Details",
+      href: "/admin-examination-management/exam-papers-delivery-process/exam-scan-profile",
+    },
+    { label: lastLabel },
+  ];
+}
+
+/**
+ * Angular unit-topic bulk uploads:
+ * Home → Admin → Bulk Uploads → Unit Topic Bulk Upload
+ * (both `subject-unit-topic-upload` and `unit-topic-bulk-upload`)
+ */
+function unitTopicBulkUploadBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin\/bulk-uploads\/(subject-unit-topic-upload|unit-topic-bulk-upload)$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Admin", href: "/admin" },
+    { label: "Bulk Uploads" },
+    { label: "Unit Topic Bulk Upload" },
+  ];
+}
+
+/**
+ * Angular staff-classes breadcrumb parity (exact trails from Angular UI):
+ *   My Classes        → Home → My Classes
+ *   My Timetable      → Home → My Timetable
+ *   Assignments       → Home → Classes → Assignments
+ *   Class Diary       → Home → Class Diary
+ *   Attendance Update → Home → Academics → Attendance Management
+ *
+ * App Router paths use `/staff-classes/...` (and attendance-update remaps to
+ * `/attendance-management/mark-attendance`), so URL/nav fallbacks must not
+ * invent "Staff Classes" / "Mark Attendance" crumbs.
+ */
+const STAFF_ACADEMICS_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
+  "/staff-classes/my-classes": [{ label: "My Classes" }],
+  "/staff-classes/my-timetable": [{ label: "My Timetable" }],
+  "/staff-classes/assignments": [
+    { label: "Classes" },
+    { label: "Assignments" },
+  ],
+  "/staff-classes/class-dairy": [{ label: "Class Diary" }],
+  "/staff-classes/attendance-update": [
+    { label: "Academics" },
+    { label: "Attendance Management" },
+  ],
+  // Angular staff-classes/attendance-update → App Router remap
+  "/attendance-management/mark-attendance": [
+    { label: "Academics" },
+    { label: "Attendance Management" },
+  ],
+};
+
+const STAFF_ACADEMICS_NESTED: {
+  prefix: string;
+  parentCrumbs: BreadcrumbItem[];
+  leaves: Record<string, string>;
+}[] = [
+  {
+    prefix: "/staff-classes/my-classes/",
+    parentCrumbs: [{ label: "My Classes", href: "/staff-classes/my-classes" }],
+    leaves: {
+      "students-list": "Students List",
+      "course-year-subjects": "Course Year Subjects",
+      "course-year-timetable": "Course Year Timetable",
+      "mark-attendance": "Mark Attendance",
+      "View-attendance": "View Attendance",
+      "view-attendance": "View Attendance",
+    },
+  },
+  {
+    prefix: "/staff-classes/class-dairy/",
+    parentCrumbs: [
+      { label: "Class Diary", href: "/staff-classes/class-dairy" },
+    ],
+    leaves: {
+      "add-notes": "Add Class Notes",
+      "edit-notes": "Edit Class Notes",
+    },
+  },
+  {
+    prefix: "/staff-classes/assignments/",
+    parentCrumbs: [
+      { label: "Classes" },
+      { label: "Assignments", href: "/staff-classes/assignments" },
+    ],
+    leaves: {
+      "view-submissions": "View Submissions",
+    },
+  },
+  {
+    prefix: "/attendance-management/mark-attendance/",
+    parentCrumbs: [
+      { label: "Academics" },
+      {
+        label: "Attendance Management",
+        href: "/attendance-management/mark-attendance",
+      },
+    ],
+    leaves: {
+      "mark-attendance": "Update Attendance",
+      "view-attendance": "View Attendance",
+    },
+  },
+];
+
+function staffAcademicsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  const leafTrail = STAFF_ACADEMICS_BREADCRUMBS[path];
+  if (leafTrail) {
+    return [home, ...leafTrail];
+  }
+
+  for (const nest of STAFF_ACADEMICS_NESTED) {
+    if (!path.startsWith(nest.prefix)) continue;
+    const rest = path.slice(nest.prefix.length);
+    const leafKey = Object.keys(nest.leaves).find(
+      (key) => rest === key || rest.startsWith(`${key}/`),
+    );
+    const nestedLabel =
+      (leafKey ? nest.leaves[leafKey] : undefined) ??
+      segmentToLabel(rest.split("/")[0] ?? rest);
+    return [home, ...nest.parentCrumbs, { label: nestedLabel }];
+  }
+
+  // Other /staff-classes/* paths: drop raw "Staff Classes" folder crumb and
+  // fix Angular URL typo "Class Dairy" → "Class Diary".
+  if (!path.startsWith("/staff-classes/")) return items;
+
+  return items
+    .filter((item, index) => {
+      if (index === 0) return true;
+      return !/^staff\s*classes$/i.test(item.label);
+    })
+    .map((item) =>
+      /^class\s*dairy$/i.test(item.label)
+        ? { ...item, label: "Class Diary" }
+        : item,
+    );
+}
+
+/**
+ * Angular `principal-my-approvals/leave-application` breadcrumb:
+ *   Home → Leave Management → Leave Requests
+ */
+function leaveRequestsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (path !== "/principal-my-approvals/leave-applications") return items;
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  return [home, { label: "Leave Management" }, { label: "Leave Requests" }];
+}
+
+/**
+ * Angular emp-notifications breadcrumb:
+ *   Home → Communication → Notifications
+ * Routes: `#/principal-communications/announcements` and
+ * `#/principal-communications/notifications/send-notifications`
+ */
+function principalCommunicationsNotificationsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const isList =
+    path === "/principal-communications/announcements" ||
+    path === "/principal-communications/notifications/send-notifications" ||
+    path === "/principal-communications/notifications";
+  const isAdd =
+    path === "/principal-communications/announcements/add-notification" ||
+    path.endsWith(
+      "/principal-communications/notifications/send-notifications/add-notification",
+    ) ||
+    (path.startsWith("/principal-communications/notifications/") &&
+      path.endsWith("/add-notification"));
+
+  if (!isList && !isAdd) return items;
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  if (isAdd) {
+    return [
+      home,
+      { label: "Communication" },
+      {
+        label: "Notifications",
+        href: path.includes("announcements")
+          ? "/principal-communications/announcements"
+          : "/principal-communications/notifications/send-notifications",
+      },
+      { label: "Send Notification" },
+    ];
+  }
+
+  return [home, { label: "Communication" }, { label: "Notifications" }];
+}
+
+/**
+ * Angular principal-communications email breadcrumb:
+ *   Home → Communications → Send Email
+ * Routes: `#/principal-communications/email/send-emails` and
+ * `/email-sms/principal-to-dept-email`
+ */
+function principalCommunicationsSendEmailBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const isSendEmail =
+    path === "/principal-communications/email/send-emails" ||
+    path === "/principal-communications/email" ||
+    path === "/email-sms/principal-to-dept-email";
+
+  if (!isSendEmail) return items;
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  return [home, { label: "Communications" }, { label: "Send Email" }];
 }
 
 /**
@@ -279,9 +710,14 @@ export function useBreadcrumb(
       currentPath += "/" + segment;
       const isLast = index === segments.length - 1;
 
+      // Avoid linking module folder roots with no `page.tsx` (Next prefetch 404).
+      // Leaf page keeps no href; real intermediate pages can still be linked when
+      // they exist under nav metadata (preferred path above).
+      const isExamMgmtRoot = currentPath === "/admin-examination-management";
+
       items.push({
         label: segmentToLabel(segment),
-        href: isLast ? undefined : currentPath,
+        href: isLast || isExamMgmtRoot ? undefined : currentPath,
       });
 
       // Admin module: insert a submodule label for fallback breadcrumbs when
@@ -294,9 +730,19 @@ export function useBreadcrumb(
   }
 
   items = examReportsModuleBreadcrumb(pathname, items);
+  items = feeReportsMenuBreadcrumb(pathname, items);
+  items = studentReportsMenuBreadcrumb(pathname, items);
+  items = reportCatalogBreadcrumb(pathname, items);
   items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);
   items = assignRegulationToStudentsBreadcrumb(pathname, items);
+  items = hostelRoomsBreadcrumb(pathname, items);
+  items = examScanProfileDetailsBreadcrumb(pathname, items);
+  items = unitTopicBulkUploadBreadcrumb(pathname, items);
+  items = staffAcademicsBreadcrumb(pathname, items);
+  items = leaveRequestsBreadcrumb(pathname, items);
+  items = principalCommunicationsNotificationsBreadcrumb(pathname, items);
+  items = principalCommunicationsSendEmailBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).
   if (items[0]?.label === "Home") {

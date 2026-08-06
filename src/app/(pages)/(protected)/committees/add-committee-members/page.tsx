@@ -124,6 +124,8 @@ export default function AddCommitteeMembersPage() {
     if (id > 0) setAppliedCommitteeId(id)
   }
 
+  const showTable = appliedCommitteeId > 0
+
   return (
     <FilteredListPage
       title="Committee Members"
@@ -149,25 +151,31 @@ export default function AddCommitteeMembersPage() {
           </Button>
         </div>
       )}
-      rowData={appliedCommitteeId > 0 ? data : []}
-      columnDefs={columnDefs}
+      rowData={showTable ? data : undefined}
+      columnDefs={showTable ? columnDefs : undefined}
       loading={isLoading}
-      pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search',
-        pdfDocumentTitle: 'Committee Members',
-      }}
-      toolbarTrailing={(
-        <Button
-          size="sm"
-          disabled={appliedCommitteeId <= 0}
-          onClick={() => { setEditData(null); setModalOpen(true) }}
-        >
-          <PlusIcon className="h-4 w-4 mr-1" />
-          Add Committee Member
-        </Button>
-      )}
+      pagination={showTable}
+      toolbar={
+        showTable
+          ? {
+              search: true,
+              searchPlaceholder: 'Search',
+              pdfDocumentTitle: 'Committee Members',
+            }
+          : undefined
+      }
+      toolbarTrailing={
+        showTable ? (
+          <Button
+            size="sm"
+            onClick={() => { setEditData(null); setModalOpen(true) }}
+          >
+            <PlusIcon className="h-4 w-4 mr-1" />
+            Add Committee Member
+          </Button>
+        ) : undefined
+      }
+      body={showTable ? undefined : null}
     >
       <CommitteeMemberModal
         open={modalOpen}

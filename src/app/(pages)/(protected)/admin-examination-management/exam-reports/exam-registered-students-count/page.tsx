@@ -15,10 +15,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
-import {
-  buildHtmlTable,
-  exportHtmlTableAsExcel,
-} from "../../_lib/export-html-table";
+import { exportHtmlTableAsExcel } from "../../_lib/export-html-table";
 import {
   getExamRegisteredStudentsCountList,
   getExamRegistrationReportBaseFilters,
@@ -102,22 +99,55 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   }));
 }
 
-function printReport(rows: AnyRow[], subtitle: string) {
+function getGrandTotal(rows: AnyRow[]): number {
+  return rows.reduce(
+    (sum, row) => sum + Number(row.students_registered_for_exam || 0),
+    0,
+  );
+}
+
+/** Angular `exam-student-registration-tt-report` table + Grand Total footer. */
+function buildCountTableHtml(rows: AnyRow[]): string {
+  const exportRows = toExportRows(rows);
+  const head = EXPORT_COLS.map(
+    (c) => `<th class="table-th">${escapeHtml(c.header)}</th>`,
+  ).join("");
+  const body = exportRows
+    .map(
+      (row) =>
+        `<tr>${EXPORT_COLS.map(
+          (c) =>
+            `<td class="table-td">${escapeHtml(String(row[c.key] ?? ""))}</td>`,
+        ).join("")}</tr>`,
+    )
+    .join("");
+  const total = getGrandTotal(rows);
+  return `<table class="mar" border="1" cellspacing="0" cellpadding="4">
+<thead><tr>${head}</tr></thead>
+<tbody>${body}</tbody>
+<tfoot>
+  <tr>
+    <td class="table-td" colspan="6" style="text-align:right;font-weight:bold">Grand Total</td>
+    <td class="table-td" style="font-weight:bold">${total}</td>
+  </tr>
+</tfoot>
+</table>`;
+}
+
+function printReport(rows: AnyRow[]) {
   if (!rows.length) return;
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Registered Students Count</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
+@page { size: A4 portrait; margin: 10mm; }
 body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
+.collegeName { text-align: center; font-size: 18px; font-weight: 600; margin: 8px 0 12px; }
+table.mar { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th.table-th, td.table-td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
+th.table-th { background: #C3D9FF; font-weight: 550; }
 </style></head>
 <body>
-  <p class="title">Exam Registered Students Count</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
+  <p class="collegeName">Exam Registered Students Count</p>
+  ${buildCountTableHtml(rows)}
 </body></html>`;
 
   const frame = document.createElement("iframe");
@@ -213,51 +243,14 @@ export default function ExamRegisteredStudentsCountPage() {
         ? restRows.filter((r) => num(r.fk_course_group_id) === groupNum)
         : restRows;
     const list = dedupeBy(filtered, (r) => num(r.fk_course_year_id));
-    return [...list].sort((a, b) => num(a.cy_sort_order) - num(b.cy_sort_order));
+    return [...list].sort(
+      (a, b) => num(a.cy_sort_order) - num(b.cy_sort_order),
+    );
   }, [restRows, courseGroupId]);
   const regulations = useMemo(
     () => dedupeBy(restRows, (r) => num(r.fk_regulation_id)),
     [restRows],
   );
-
-  const reportSubtitle = useMemo(() => {
-    const parts = [
-      txt(
-        courses.find((c) => num(c.fk_course_id) === Number(courseId))
-          ?.course_code,
-      ),
-      txt(
-        academicYears.find(
-          (y) => num(y.fk_academic_year_id) === Number(academicYearId),
-        )?.academic_year,
-      ),
-      txt(selectedExam?.exam_name),
-      Number(regulationId)
-        ? txt(
-            regulations.find(
-              (r) => num(r.fk_regulation_id) === Number(regulationId),
-            )?.regulation_code,
-          )
-        : "",
-      Number(subjectId)
-        ? txt(
-            subjects.find((s) => num(s.fk_subject_id) === Number(subjectId))
-              ?.subject_code,
-          )
-        : "",
-    ].filter(Boolean);
-    return parts.join(" / ");
-  }, [
-    courses,
-    academicYears,
-    selectedExam,
-    regulations,
-    subjects,
-    courseId,
-    academicYearId,
-    regulationId,
-    subjectId,
-  ]);
 
   function clearResults() {
     setRows([]);
@@ -490,8 +483,8 @@ export default function ExamRegisteredStudentsCountPage() {
     }
     exportHtmlTableAsExcel(
       "Exam Registered Students Count",
-      buildHtmlTable([...EXPORT_COLS], toExportRows(rows)),
-      `<strong>Exam Registered Students Count - ${escapeHtml(reportSubtitle)}</strong>`,
+      buildCountTableHtml(rows),
+      `<strong>Exam Registered Students Count</strong>`,
     );
   }
 
@@ -719,11 +712,7 @@ export default function ExamRegisteredStudentsCountPage() {
 
   return (
     <FilteredListPage
-      title={
-        rows.length > 0
-          ? `Exam Registered Students Count - ${reportSubtitle}`
-          : "Exam Registered Students Count"
-      }
+      title="Exam Registered Students Count"
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
@@ -743,7 +732,7 @@ export default function ExamRegisteredStudentsCountPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows, reportSubtitle)}
+              onClick={() => printReport(rows)}
             >
               Print Report
             </Button>

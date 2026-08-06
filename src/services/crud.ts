@@ -163,9 +163,9 @@ class CrudService {
           const queryPart = query ? ` (query: ${query})` : "";
           throw new AppError(
             "API_ERROR",
-            body.message
-              ? `Failed to list ${entity}${queryPart}: ${body.message}`
-              : `Failed to list ${entity}${queryPart}`,
+            // Prefer backend message (Angular snotify shows result.message as-is).
+            body.message?.trim() || `Failed to list ${entity}${queryPart}`,
+            body,
           );
         }
 

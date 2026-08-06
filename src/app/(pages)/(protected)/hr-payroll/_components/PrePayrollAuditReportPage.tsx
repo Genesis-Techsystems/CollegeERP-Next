@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { PayrollStaffReportPage } from './PayrollStaffReportPage'
+import { PayrollStaffReportPage } from "./PayrollStaffReportPage";
 
 export function PrePayrollAuditReportPage() {
   return (
@@ -8,7 +8,7 @@ export function PrePayrollAuditReportPage() {
       title="Pre Payroll Audit Report"
       reportFlag="payroll_audit"
       usePeriod={false}
-      exportFileName="Pre_Payroll_Audit_Report"
+      exportFileName="Pre Payroll Audit Report"
     />
-  )
+  );
 }

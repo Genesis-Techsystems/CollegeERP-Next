@@ -7,157 +7,157 @@
  * All calls route through /api/proxy/ — never call Spring Boot directly.
  */
 
-import { crud, domainUpdate, putDetails, uploadFile } from '@/services/crud'
-import { EXAM_EVAL_API } from '@/config/constants/api'
-import { parseApiError } from '@/lib/errors'
-import { txt } from '@/common/utils/data-helpers'
+import { crud, domainUpdate, putDetails, uploadFile } from "@/services/crud";
+import { EXAM_EVAL_API } from "@/config/constants/api";
+import { parseApiError } from "@/lib/errors";
+import { txt } from "@/common/utils/data-helpers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface EvaluatorDetail {
-  examEvaluatorProfileDetId: number
-  examEvaluatorProfileId: number
-  validityStartDate: string
-  validityEndDate: string
-  noOfStudentsAssigned: number | null
-  noOfEvaluationsCompleted: number | null
-  evaluationsPending: number | null
-  courseName: string
-  subjectName: string
-  subjectCode: string
-  examSubjectId?: number
+  examEvaluatorProfileDetId: number;
+  examEvaluatorProfileId: number;
+  validityStartDate: string;
+  validityEndDate: string;
+  noOfStudentsAssigned: number | null;
+  noOfEvaluationsCompleted: number | null;
+  evaluationsPending: number | null;
+  courseName: string;
+  subjectName: string;
+  subjectCode: string;
+  examSubjectId?: number;
 }
 
 export interface StudentAnswerPaper {
-  examEvaluationAssignmentId: number
-  studentAnswerPaperId: number
-  studentAnswerPath: string | null
-  omrSerialNo: string
-  evaluatedTotalMarks: number | null
-  answerSheetCheckDate: string | null
-  evaluatedAnswerPaperPath: string | null
+  examEvaluationAssignmentId: number;
+  studentAnswerPaperId: number;
+  studentAnswerPath: string | null;
+  omrSerialNo: string;
+  evaluatedTotalMarks: number | null;
+  answerSheetCheckDate: string | null;
+  evaluatedAnswerPaperPath: string | null;
   /** Numeric status code: 626=New, 627=Assigned, 628=InProgress, 629=Evaluated, 631=Finalized, 632=Reject */
-  evaluationStatusCatDetId: number
+  evaluationStatusCatDetId: number;
   /** String status code: 'New', 'Assigned', 'InProgress', 'Evaluated', 'Finalised', 'Reject' */
-  evaluationStatusCatDetCode: string
+  evaluationStatusCatDetCode: string;
   /** PDF page range restriction, e.g. "0,1" — from GeneralSettings EVALPDFSTARTEND */
-  settingValue?: string
+  settingValue?: string;
 }
 
 export interface QuestionMark {
-  questionPaperMarksId: number
+  questionPaperMarksId: number;
   /** Question number label, e.g. "1", "2a" */
-  qno: string
+  qno: string;
   /** Question code for grouping/colour */
-  qvalue: string
-  calculated_total_marks: number
-  question: string
+  qvalue: string;
+  calculated_total_marks: number;
+  question: string;
   /** Saved StudentEvaluationPage id — 0 if not yet saved */
-  studentEvaluationPageId: number
-  isNotAnswered: boolean
+  studentEvaluationPageId: number;
+  isNotAnswered: boolean;
   /** Max marks for this question */
-  questionMarks: number
+  questionMarks: number;
   /** PART level: 1=A, 2=B, 3=C etc. */
-  level1No: number
-  groupNo: number
+  level1No: number;
+  groupNo: number;
   /** Marks awarded by evaluator; null = not yet marked */
-  answeredMarks: number | null
-  color: string
-  rgb_color?: string
+  answeredMarks: number | null;
+  color: string;
+  rgb_color?: string;
   /** 1 = not yet evaluated, 0 = evaluated */
-  no_action_yet: number
-  isCheckedForNotAnswered?: boolean
-  error_message?: string
+  no_action_yet: number;
+  isCheckedForNotAnswered?: boolean;
+  error_message?: string;
   /**
    * Saved mark-stamp position for restoration on page reload.
    * Coordinates are in BASE_SCALE (1.5) canvas pixel space, matching Angular.
    * Null when the question has no saved stamp (e.g. Not Answered, or never placed).
    */
-  mbtn_x: number | null
-  mbtn_y: number | null
-  mbtn_pageNum: number | null
+  mbtn_x: number | null;
+  mbtn_y: number | null;
+  mbtn_pageNum: number | null;
 }
 
 export interface EvalAssignmentDetail {
-  examEvaluationAssignmentId: number
-  evaluationStatusCatDetId: number
-  omrSerialNo: string
-  evaluationEndDate: string | null
-  evaluationStartDate: string | null
-  evaluatedTotalMarks: number | null
-  examEvaluatorProfileDetId: number
-  evaluationTime: number | null
-  studentanswerPath?: string
+  examEvaluationAssignmentId: number;
+  evaluationStatusCatDetId: number;
+  omrSerialNo: string;
+  evaluationEndDate: string | null;
+  evaluationStartDate: string | null;
+  evaluatedTotalMarks: number | null;
+  examEvaluatorProfileDetId: number;
+  evaluationTime: number | null;
+  studentanswerPath?: string;
   /** MinIO-relative path to the question paper PDF (for "View Question" button). */
-  questionPaperPath?: string
+  questionPaperPath?: string;
   /** MinIO-relative path to the model/sample answer sheet PDF. */
-  modelAnswerPaperPath?: string
+  modelAnswerPaperPath?: string;
   /** Maximum marks for the question paper — from questionpaper_total_marks */
-  qpTotalMarks?: number
+  qpTotalMarks?: number;
 }
 
 export interface ExamQuestionPaper {
-  pk_exam_questionpaper_id: number
-  questionpaper_title: string
-  questionpaper_code: string
-  setnumber: number
-  totalquestions: number
-  totalmarks: number
-  passmarks: number
-  PrepareByEmp?: string
-  questionPaperPath?: string
-  modelAnswerSheetPath?: string
-  fk_exam_questionpaper_template_id?: number
-  isActive: boolean
-  subject_code?: string
-  subject_name?: string
-  exam_name?: string
-  fk_subject_id?: number
-  fk_exam_id?: number
-  fk_regulation_id?: number
-  fk_course_id?: number
+  pk_exam_questionpaper_id: number;
+  questionpaper_title: string;
+  questionpaper_code: string;
+  setnumber: number;
+  totalquestions: number;
+  totalmarks: number;
+  passmarks: number;
+  PrepareByEmp?: string;
+  questionPaperPath?: string;
+  modelAnswerSheetPath?: string;
+  fk_exam_questionpaper_template_id?: number;
+  isActive: boolean;
+  subject_code?: string;
+  subject_name?: string;
+  exam_name?: string;
+  fk_subject_id?: number;
+  fk_exam_id?: number;
+  fk_regulation_id?: number;
+  fk_course_id?: number;
 }
 
 export interface EvalTemplate {
-  examQpTemplateId: number
-  templateTitle: string
-  totalmarks: number
-  templateDescription?: string
-  templateStatusId?: number
-  isActive: boolean
+  examQpTemplateId: number;
+  templateTitle: string;
+  totalmarks: number;
+  templateDescription?: string;
+  templateStatusId?: number;
+  isActive: boolean;
 }
 
 // ─── Evaluator Dashboard ──────────────────────────────────────────────────────
 
 /** Raw row shape returned by exam_evaluator_profileDetails array */
 interface RawEvalProfileDet {
-  examEvaluatorProfileDetId: number
-  examEvaluatorProfileId?: number
-  subjectCode: string
-  noOfStudentsAssigned: number | null
-  noOfEvaluationsCompleted: number | null
-  validityStartDate: string | null
-  validityEndDate: string | null
+  examEvaluatorProfileDetId: number;
+  examEvaluatorProfileId?: number;
+  subjectCode: string;
+  noOfStudentsAssigned: number | null;
+  noOfEvaluationsCompleted: number | null;
+  validityStartDate: string | null;
+  validityEndDate: string | null;
 }
 
 /** Raw row shape returned by subject_details array */
 interface RawSubjectDetail {
-  subjectCode: string
-  subjectName: string
-  courseName: string
+  subjectCode: string;
+  subjectName: string;
+  courseName: string;
 }
 
 /** Raw top-level profile returned by exam_evaluatorProfiles_details */
 interface RawEvalProfile {
-  examEvaluatorProfileId: number
+  examEvaluatorProfileId: number;
 }
 
 /** Raw data envelope from the getevaluatordetails endpoint */
 interface RawEvaluatorDashboard {
-  exam_evaluator_profileDetails: RawEvalProfileDet[]
-  subject_details: RawSubjectDetail[]
+  exam_evaluator_profileDetails: RawEvalProfileDet[];
+  subject_details: RawSubjectDetail[];
   /** May be a single object or array of one */
-  exam_evaluatorProfiles_details: RawEvalProfile | RawEvalProfile[]
+  exam_evaluatorProfiles_details: RawEvalProfile | RawEvalProfile[];
 }
 
 /**
@@ -166,46 +166,55 @@ interface RawEvaluatorDashboard {
  *
  * Angular reference: evaluation-dashboard.component.ts getEvaluatorDetails()
  */
-export async function getEvaluatorDashboard(userId: number | string): Promise<EvaluatorDetail[]> {
-  const raw = await crud.fetchDetails<RawEvaluatorDashboard>(EXAM_EVAL_API.GET_EVALUATOR_DETAILS, {
-    userId: String(userId),
-  })
+export async function getEvaluatorDashboard(
+  userId: number | string,
+): Promise<EvaluatorDetail[]> {
+  const raw = await crud.fetchDetails<RawEvaluatorDashboard>(
+    EXAM_EVAL_API.GET_EVALUATOR_DETAILS,
+    {
+      userId: String(userId),
+    },
+  );
 
-  const profileDets: RawEvalProfileDet[] = Array.isArray(raw?.exam_evaluator_profileDetails)
+  const profileDets: RawEvalProfileDet[] = Array.isArray(
+    raw?.exam_evaluator_profileDetails,
+  )
     ? raw.exam_evaluator_profileDetails
-    : []
+    : [];
   const subjects: RawSubjectDetail[] = Array.isArray(raw?.subject_details)
     ? raw.subject_details
-    : []
-  const profileRaw = raw?.exam_evaluatorProfiles_details
+    : [];
+  const profileRaw = raw?.exam_evaluatorProfiles_details;
   const profile: RawEvalProfile | null = profileRaw
     ? Array.isArray(profileRaw)
       ? (profileRaw[0] ?? null)
       : profileRaw
-    : null
+    : null;
 
-  const result: EvaluatorDetail[] = []
+  const result: EvaluatorDetail[] = [];
 
   for (const subject of subjects) {
     // Find all profile-detail rows for this subject
-    const matching = profileDets.filter((x) => x.subjectCode === subject.subjectCode)
+    const matching = profileDets.filter(
+      (x) => x.subjectCode === subject.subjectCode,
+    );
 
-    let examEvaluatorProfileDetId = 0
-    let sa = 0
-    let ec = 0
-    let validityStartDate = ''
-    let validityEndDate = ''
+    let examEvaluatorProfileDetId = 0;
+    let sa = 0;
+    let ec = 0;
+    let validityStartDate = "";
+    let validityEndDate = "";
 
     for (const row of matching) {
-      examEvaluatorProfileDetId = row.examEvaluatorProfileDetId
-      sa += row.noOfStudentsAssigned ?? 0
-      ec += row.noOfEvaluationsCompleted ?? 0
-      validityStartDate = row.validityStartDate ?? ''
-      validityEndDate = row.validityEndDate ?? ''
+      examEvaluatorProfileDetId = row.examEvaluatorProfileDetId;
+      sa += row.noOfStudentsAssigned ?? 0;
+      ec += row.noOfEvaluationsCompleted ?? 0;
+      validityStartDate = row.validityStartDate ?? "";
+      validityEndDate = row.validityEndDate ?? "";
     }
 
     // Angular skips subjects where total assigned === 0
-    if (sa === 0) continue
+    if (sa === 0) continue;
 
     result.push({
       examEvaluatorProfileDetId,
@@ -218,10 +227,10 @@ export async function getEvaluatorDashboard(userId: number | string): Promise<Ev
       courseName: subject.courseName,
       subjectName: subject.subjectName,
       subjectCode: subject.subjectCode,
-    })
+    });
   }
 
-  return result
+  return result;
 }
 
 // ─── Assigned Answer Papers ───────────────────────────────────────────────────
@@ -229,18 +238,18 @@ export async function getEvaluatorDashboard(userId: number | string): Promise<Ev
 /** Raw row returned by the getstudentanswerpapers endpoint */
 interface RawAnswerPaperRow {
   exam_evauation_assignment_details: {
-    examEvaluationAssignmentId: number
-    studentAnswerPaperId: number
-    evaluatedTotalMarks: number | null
-    answerSheetCheckDate: string | null
-    evaluatedAnswerPaperPath: string | null
-    evaluationStatusCatDetId: number
-    evaluationStatusCatDetCode: string
-  }
+    examEvaluationAssignmentId: number;
+    studentAnswerPaperId: number;
+    evaluatedTotalMarks: number | null;
+    answerSheetCheckDate: string | null;
+    evaluatedAnswerPaperPath: string | null;
+    evaluationStatusCatDetId: number;
+    evaluationStatusCatDetCode: string;
+  };
   exam_std_answer_paper_details: {
-    studentAnswerPath: string | null
-    omrSerialNo: string
-  }
+    studentAnswerPath: string | null;
+    omrSerialNo: string;
+  };
 }
 
 /**
@@ -259,24 +268,24 @@ export async function getStudentAnswerPapers(
   const raw = await crud.fetchDetails<RawAnswerPaperRow[]>(
     EXAM_EVAL_API.GET_STUDENT_ANSWER_PAPERS,
     { examEvaluatorProfileId, examEvaluatorProfileDetId },
-  )
-  if (!Array.isArray(raw)) return []
+  );
+  if (!Array.isArray(raw)) return [];
 
-  const result: StudentAnswerPaper[] = []
+  const result: StudentAnswerPaper[] = [];
 
   for (const row of raw) {
-    const asgn = row?.exam_evauation_assignment_details
-    const paper = row?.exam_std_answer_paper_details
-    if (!asgn || !paper) continue
+    const asgn = row?.exam_evauation_assignment_details;
+    const paper = row?.exam_std_answer_paper_details;
+    if (!asgn || !paper) continue;
 
-    let statusId = asgn.evaluationStatusCatDetId
-    const statusCode = asgn.evaluationStatusCatDetCode
+    let statusId = asgn.evaluationStatusCatDetId;
+    const statusCode = asgn.evaluationStatusCatDetCode;
 
     // Angular flags rows with missing PDF path with the sentinel 'Path'
     // so they show a distinct state — we preserve the original statusId here
     // and let the page decide how to handle null studentAnswerPath.
     if (paper.studentAnswerPath == null) {
-      statusId = asgn.evaluationStatusCatDetId
+      statusId = asgn.evaluationStatusCatDetId;
     }
 
     result.push({
@@ -290,13 +299,15 @@ export async function getStudentAnswerPapers(
       evaluationStatusCatDetId: statusId,
       evaluationStatusCatDetCode: statusCode,
       settingValue,
-    })
+    });
   }
 
   // Sort ascending by status code (same as Angular)
-  result.sort((a, b) => a.evaluationStatusCatDetId - b.evaluationStatusCatDetId)
+  result.sort(
+    (a, b) => a.evaluationStatusCatDetId - b.evaluationStatusCatDetId,
+  );
 
-  return result
+  return result;
 }
 
 // ─── Answer Paper PDF (base64) ────────────────────────────────────────────────
@@ -306,7 +317,9 @@ export async function getStudentAnswerPapers(
  * Angular: getBase64String(sheetDataUrl, '', { studentAnswerPaperId })
  * Returns a base64-encoded PDF string.
  */
-export async function getAnswerPaperBase64(studentAnswerPaperId: number): Promise<string> {
+export async function getAnswerPaperBase64(
+  studentAnswerPaperId: number,
+): Promise<string> {
   // Angular: getBase64String(sheetDataUrl, '', [{ paramName: 'id=', paramValue: studentAnswerPaperId }])
   // URL format: /sheetData?id={studentAnswerPaperId}
   //
@@ -314,39 +327,39 @@ export async function getAnswerPaperBase64(studentAnswerPaperId: number): Promis
   // NOT a standard ApiResponse<T>. crud.fetchDetails() calls res.json() which would fail.
   const res = await fetch(
     `/api/proxy/${EXAM_EVAL_API.SHEET_DATA}?id=${studentAnswerPaperId}`,
-  )
+  );
   if (!res.ok) {
-    const body = await res.json().catch(() => null)
-    throw parseApiError(res, body)
+    const body = await res.json().catch(() => null);
+    throw parseApiError(res, body);
   }
   // Backend returns JSON as text: { success: true, message: "<base64>" }
   // Angular: getBase64String uses responseType:'text', then JSON.parse(res).message
-  const text = await res.text()
-  let base64: string
+  const text = await res.text();
+  let base64: string;
   try {
-    const parsed = JSON.parse(text) as { success?: boolean; message?: string }
-    base64 = parsed.message ?? ''
+    const parsed = JSON.parse(text) as { success?: boolean; message?: string };
+    base64 = parsed.message ?? "";
   } catch {
     // Fallback: treat the whole response as raw base64
-    base64 = text
+    base64 = text;
   }
 
   // Strip whitespace and any data URL prefix (mirrors Angular's loadPDF logic)
-  base64 = base64.replace(/\s/g, '')
-  const dataUrlPrefix = 'data:application/pdf;base64,'
+  base64 = base64.replace(/\s/g, "");
+  const dataUrlPrefix = "data:application/pdf;base64,";
   if (base64.startsWith(dataUrlPrefix)) {
-    base64 = base64.slice(dataUrlPrefix.length)
+    base64 = base64.slice(dataUrlPrefix.length);
   }
 
   // Normalize URL-safe base64 to standard base64 (atob requires standard)
-  base64 = base64.replace(/-/g, '+').replace(/_/g, '/')
+  base64 = base64.replace(/-/g, "+").replace(/_/g, "/");
 
   // Pad to a multiple of 4
-  const pad = base64.length % 4
-  if (pad === 2) base64 += '=='
-  else if (pad === 3) base64 += '='
+  const pad = base64.length % 4;
+  if (pad === 2) base64 += "==";
+  else if (pad === 3) base64 += "=";
 
-  return base64
+  return base64;
 }
 
 // ─── Evaluation Settings ──────────────────────────────────────────────────────
@@ -355,12 +368,14 @@ export async function getAnswerPaperBase64(studentAnswerPaperId: number): Promis
  * Fetches a GeneralSettings value by code (e.g. 'EVALPDFSTARTEND', 'MarksIntervals').
  * Returns the first matching setting's value, or null if not found.
  */
-export async function getEvalSetting(settingCode: string): Promise<string | null> {
+export async function getEvalSetting(
+  settingCode: string,
+): Promise<string | null> {
   const rows = await crud.list<{ settingValue: string; settingCode: string }>(
-    'GeneralSettings',
+    "GeneralSettings",
     `settingCode==${settingCode}.and.isActive==true`,
-  )
-  return rows[0]?.settingValue ?? null
+  );
+  return rows[0]?.settingValue ?? null;
 }
 
 // ─── Question Paper Draft Marks (Procedure) ───────────────────────────────────
@@ -369,56 +384,63 @@ export async function getEvalSetting(settingCode: string): Promise<string | null
 // Angular field names are snake_case — must be mapped to camelCase interface
 
 interface RawQpMark {
-  pk_questionpaper_marks_id: number
-  questionnumber: string
-  questioncode: string
-  calculated_total_marks: number | null
-  question: string
-  max_question_marks: number
-  lvl: number
-  grp: number
-  evaluated_marks: number | null
-  rgb_color: string | null
-  error_message: string | null
-  no_action_yet: number
-  mbtn_pk_std_evaluationpage_id: number | null
-  isnotans_pk_std_evaluationpage_id: number | null
+  pk_questionpaper_marks_id: number;
+  questionnumber: string;
+  questioncode: string;
+  calculated_total_marks: number | null;
+  question: string;
+  max_question_marks: number;
+  lvl: number;
+  grp: number;
+  evaluated_marks: number | null;
+  rgb_color: string | null;
+  error_message: string | null;
+  no_action_yet: number;
+  mbtn_pk_std_evaluationpage_id: number | null;
+  isnotans_pk_std_evaluationpage_id: number | null;
   // Marks-button annotation position (for stamp restoration on reload)
-  mbtn_x_axis: number | null
-  mbtn_y_axis: number | null
-  mbtn_pagenumber: number | null
-  mbtn_iconvalue: number | null
+  mbtn_x_axis: number | null;
+  mbtn_y_axis: number | null;
+  mbtn_pagenumber: number | null;
+  mbtn_iconvalue: number | null;
 }
 
 interface RawAssignDetail {
-  fk_evaluationstatus_catdet_id: number
-  omr_serial_no: string
-  evaluation_enddate: string | null
-  evaluationtime_sec: number | null
-  studentanswer_path: string | null
-  questionpaper_path?: string | null
-  modelanswersheet_path?: string | null
-  questionpaper_total_marks?: number
+  fk_evaluationstatus_catdet_id: number;
+  omr_serial_no: string;
+  evaluation_enddate: string | null;
+  evaluationtime_sec: number | null;
+  studentanswer_path: string | null;
+  questionpaper_path?: string | null;
+  modelanswersheet_path?: string | null;
+  questionpaper_total_marks?: number;
 }
 
 function mapRawQuestion(x: RawQpMark, assignmentId: number): QuestionMark {
-  const hasMarks = x.mbtn_pk_std_evaluationpage_id != null
-  const isNotAnswered = x.isnotans_pk_std_evaluationpage_id != null
+  const hasMarks = x.mbtn_pk_std_evaluationpage_id != null;
+  const isNotAnswered = x.isnotans_pk_std_evaluationpage_id != null;
   return {
     questionPaperMarksId: x.pk_questionpaper_marks_id,
     qno: x.questionnumber,
     qvalue: x.questioncode,
     calculated_total_marks: x.calculated_total_marks ?? 0,
     question: x.question,
-    studentEvaluationPageId: x.mbtn_pk_std_evaluationpage_id ?? x.isnotans_pk_std_evaluationpage_id ?? 0,
+    studentEvaluationPageId:
+      x.mbtn_pk_std_evaluationpage_id ??
+      x.isnotans_pk_std_evaluationpage_id ??
+      0,
     isNotAnswered,
     questionMarks: x.max_question_marks,
     level1No: x.lvl,
     groupNo: x.grp,
     // Angular: answeredMarks set from x.evaluated_marks when marks exist, else 0/null
-    answeredMarks: hasMarks ? (x.evaluated_marks ?? 0) : (isNotAnswered ? 0 : null),
+    answeredMarks: hasMarks
+      ? (x.evaluated_marks ?? 0)
+      : isNotAnswered
+        ? 0
+        : null,
     // Angular: '#009688' default teal, '#96b9b5' once marked
-    color: (hasMarks || isNotAnswered) ? '#96b9b5' : '#009688',
+    color: hasMarks || isNotAnswered ? "#96b9b5" : "#009688",
     rgb_color: x.rgb_color ?? undefined,
     no_action_yet: x.no_action_yet,
     isCheckedForNotAnswered: false,
@@ -427,10 +449,13 @@ function mapRawQuestion(x: RawQpMark, assignmentId: number): QuestionMark {
     mbtn_x: x.mbtn_x_axis ?? null,
     mbtn_y: x.mbtn_y_axis ?? null,
     mbtn_pageNum: x.mbtn_pagenumber ?? null,
-  }
+  };
 }
 
-function mapRawAssignment(x: RawAssignDetail, assignmentId: number): EvalAssignmentDetail {
+function mapRawAssignment(
+  x: RawAssignDetail,
+  assignmentId: number,
+): EvalAssignmentDetail {
   return {
     examEvaluationAssignmentId: assignmentId,
     evaluationStatusCatDetId: x.fk_evaluationstatus_catdet_id,
@@ -444,7 +469,7 @@ function mapRawAssignment(x: RawAssignDetail, assignmentId: number): EvalAssignm
     questionPaperPath: x.questionpaper_path ?? undefined,
     modelAnswerPaperPath: x.modelanswersheet_path ?? undefined,
     qpTotalMarks: x.questionpaper_total_marks,
-  }
+  };
 }
 
 /**
@@ -458,40 +483,47 @@ function mapRawAssignment(x: RawAssignDetail, assignmentId: number): EvalAssignm
  *   [1] → EvalAssignmentDetail[] (assignment header)
  */
 export async function getExamQpDraftMarks(params: {
-  examEvaluationAssignmentId: number
-  orgId?: number
+  examEvaluationAssignmentId: number;
+  orgId?: number;
 }): Promise<[QuestionMark[], EvalAssignmentDetail[]]> {
   // Angular URL: getAllRecords/s_get_examquestionpaper_details  (NO _new suffix)
   // "_new" is the in_flag value. All params from PROCCONSTANTS must be sent with defaults.
-  const raw = await crud.getAllRecords<{ result: unknown[][] }>('s_get_examquestionpaper_details', {
-    in_flag: 'list_exam_questionpaper_draftmarks_new',
-    in_orgid: params.orgId ?? 0,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
-    in_exam_questionpaper_template_id: 0,
-    in_exam_questionpaper_id: 0,
-    in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
-    in_emp_id: 0,
-    in_questionpaper_id: 0,
-    in_evaluator_role_id: 0,
-    in_exam_evaluationassignment_id: params.examEvaluationAssignmentId,
-    in_exam_id: 0,
-    in_course_year_id: 0,
-    in_regulation_id: 0,
-    in_subject_id: 0,
-  })
+  const raw = await crud.getAllRecords<{ result: unknown[][] }>(
+    "s_get_examquestionpaper_details",
+    {
+      in_flag: "list_exam_questionpaper_draftmarks_new",
+      in_orgid: params.orgId ?? 0,
+      in_fdate: "1990-01-01",
+      in_tdate: "1990-01-01",
+      in_exam_questionpaper_template_id: 0,
+      in_exam_questionpaper_id: 0,
+      in_evalutor_profileid: 0,
+      in_exam_date: "1990-01-01",
+      in_emp_id: 0,
+      in_questionpaper_id: 0,
+      in_evaluator_role_id: 0,
+      in_exam_evaluationassignment_id: params.examEvaluationAssignmentId,
+      in_exam_id: 0,
+      in_course_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+    },
+  );
 
   // body.data for proc calls is { result: [[...], [...]] }
   // Angular: res.data.result[0] = questions, res.data.result[1][0] = assignment header
-  const sets: unknown[][] = raw?.result ?? []
-  const rawQuestions = (sets[0] ?? []) as RawQpMark[]
-  const rawDetails = (sets[1] ?? []) as RawAssignDetail[]
+  const sets: unknown[][] = raw?.result ?? [];
+  const rawQuestions = (sets[0] ?? []) as RawQpMark[];
+  const rawDetails = (sets[1] ?? []) as RawAssignDetail[];
 
-  const questions = rawQuestions.map((x) => mapRawQuestion(x, params.examEvaluationAssignmentId))
-  const details = rawDetails.map((x) => mapRawAssignment(x, params.examEvaluationAssignmentId))
+  const questions = rawQuestions.map((x) =>
+    mapRawQuestion(x, params.examEvaluationAssignmentId),
+  );
+  const details = rawDetails.map((x) =>
+    mapRawAssignment(x, params.examEvaluationAssignmentId),
+  );
 
-  return [questions, details]
+  return [questions, details];
 }
 
 // ─── Update Evaluation Assignment Start Date ──────────────────────────────────
@@ -508,7 +540,7 @@ export async function updateEvalAssignmentStartDate(
     EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS_START_DATE,
     { evaluationStartDate },
     { examEvaluationAssignmentId },
-  )
+  );
 }
 
 // ─── Update Evaluation Assignment (save/submit) ───────────────────────────────
@@ -520,17 +552,15 @@ export async function updateEvalAssignmentStartDate(
 export async function updateEvalAssignment(
   examEvaluationAssignmentId: number,
   data: {
-    evaluationStatusCatDetId?: number
-    evaluatedTotalMarks?: number
-    evaluationTime?: number
-    evaluatedAnswerPaperPath?: string
+    evaluationStatusCatDetId?: number;
+    evaluatedTotalMarks?: number;
+    evaluationTime?: number;
+    evaluatedAnswerPaperPath?: string;
   },
 ): Promise<void> {
-  await putDetails(
-    EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS,
-    data,
-    { examEvaluationAssignmentId },
-  )
+  await putDetails(EXAM_EVAL_API.UPDATE_EVAL_ASSIGNMENTS, data, {
+    examEvaluationAssignmentId,
+  });
 }
 
 // ─── Save Student Evaluation Pages (annotations) ─────────────────────────────
@@ -547,58 +577,60 @@ export async function updateEvalAssignment(
  * - NotAnsweredPayload → questions flagged Not Answered (Angular :1074-1097)
  */
 export interface MarkStampPayload {
-  isActive: true
-  questionPaperMarksId: number
-  iconId: 2
-  iconValue: number
-  iconType: 'marksBtn'
-  pageNumber: number
-  x_Axis: number
-  y_Axis: number
-  marks: number
-  examEvaluationAssignmentId: number
-  studentAnswerPaper: null
-  studentEvaluationPagePath: null
-  isBlankPage: false
-  isViewed: true
-  isNotAnswered: false
-  comments: null
+  isActive: true;
+  questionPaperMarksId: number;
+  iconId: 2;
+  iconValue: number;
+  iconType: "marksBtn";
+  pageNumber: number;
+  x_Axis: number;
+  y_Axis: number;
+  marks: number;
+  examEvaluationAssignmentId: number;
+  studentAnswerPaper: null;
+  studentEvaluationPagePath: null;
+  isBlankPage: false;
+  isViewed: true;
+  isNotAnswered: false;
+  comments: null;
 }
 
 export interface NotAnsweredPayload {
-  questionPaperMarksId: number
-  qno: string
-  qvalue: string
-  calculated_total_marks: number
-  question: string
-  studentEvaluationPageId: number
-  isNotAnswered: true
-  questionMarks: number
-  level1No: number
-  groupNo: number
-  answeredMarks: number | null
-  color: string
-  error_message: string | null
-  rgb_color: string | null
-  isCheckedForNotAnswered: boolean
-  no_action_yet: number
-  pageNumber: null
-  x_Axis: null
-  y_Axis: null
-  isActive: true
-  marks: null
-  examEvaluationAssignmentId: number
-  studentAnswerPaper: null
-  studentEvaluationPagePath: null
-  isBlankPage: false
-  isViewed: true
-  comments: null
+  questionPaperMarksId: number;
+  qno: string;
+  qvalue: string;
+  calculated_total_marks: number;
+  question: string;
+  studentEvaluationPageId: number;
+  isNotAnswered: true;
+  questionMarks: number;
+  level1No: number;
+  groupNo: number;
+  answeredMarks: number | null;
+  color: string;
+  error_message: string | null;
+  rgb_color: string | null;
+  isCheckedForNotAnswered: boolean;
+  no_action_yet: number;
+  pageNumber: null;
+  x_Axis: null;
+  y_Axis: null;
+  isActive: true;
+  marks: null;
+  examEvaluationAssignmentId: number;
+  studentAnswerPaper: null;
+  studentEvaluationPagePath: null;
+  isBlankPage: false;
+  isViewed: true;
+  comments: null;
 }
 
-export type EvalPagePayload = MarkStampPayload | NotAnsweredPayload
+export type EvalPagePayload = MarkStampPayload | NotAnsweredPayload;
 
-export async function saveStudentEvalPages(pages: EvalPagePayload[]): Promise<void> {
-  await crud.postDetails(EXAM_EVAL_API.ADD_STUDENT_EVAL_PAGES, pages)
+export async function saveStudentEvalPages(
+  pages: EvalPagePayload[],
+): Promise<void> {
+  await crud.postDetails(EXAM_EVAL_API.ADD_STUDENT_EVAL_PAGES, pages);
 }
 
 // ─── Add Final Evaluation Papers ──────────────────────────────────────────────
@@ -608,12 +640,12 @@ export async function saveStudentEvalPages(pages: EvalPagePayload[]): Promise<vo
  * Angular: postDetailsByRequest(addfinalevaluationpapersUrl, ...)
  */
 export async function addFinalEvalPapers(data: {
-  examEvaluationAssignmentId: number
-  studentAnswerPaperId: number
-  evaluatedTotalMarks: number
-  examEvaluatorProfileDetId?: number
+  examEvaluationAssignmentId: number;
+  studentAnswerPaperId: number;
+  evaluatedTotalMarks: number;
+  examEvaluatorProfileDetId?: number;
 }): Promise<void> {
-  await crud.postDetails('addfinalevaluationpapers', data)
+  await crud.postDetails("addfinalevaluationpapers", data);
 }
 
 // ─── Update Evaluations Completed Count ──────────────────────────────────────
@@ -622,8 +654,12 @@ export async function addFinalEvalPapers(data: {
  * Increments the completed count for an evaluator profile detail.
  * Angular: UpdateDetailsByPayload(updateEvaluationsCompletedCountUrl, PUT, payload)
  */
-export async function updateEvalsCompletedCount(examEvaluatorProfileDetId: number): Promise<void> {
-  await putDetails(EXAM_EVAL_API.UPDATE_EVALS_COMPLETED_COUNT, { examEvaluatorProfileDetId })
+export async function updateEvalsCompletedCount(
+  examEvaluatorProfileDetId: number,
+): Promise<void> {
+  await putDetails(EXAM_EVAL_API.UPDATE_EVALS_COMPLETED_COUNT, {
+    examEvaluatorProfileDetId,
+  });
 }
 
 // ─── Save Final Evaluated PDF (multipart upload) ─────────────────────────────
@@ -638,12 +674,15 @@ export async function saveFinalEvalPdf(
   file: File | Blob,
   filename: string,
 ): Promise<void> {
-  const formData = new FormData()
+  const formData = new FormData();
   // Angular sends a File; Blob is accepted if a filename is supplied.
-  if (file instanceof File) formData.append('file', file)
-  else formData.append('file', file, filename)
-  formData.append('examEvaluationAssignmentId', String(examEvaluationAssignmentId))
-  await uploadFile(EXAM_EVAL_API.SAVE_FINAL_EVAL_PDF, formData)
+  if (file instanceof File) formData.append("file", file);
+  else formData.append("file", file, filename);
+  formData.append(
+    "examEvaluationAssignmentId",
+    String(examEvaluationAssignmentId),
+  );
+  await uploadFile(EXAM_EVAL_API.SAVE_FINAL_EVAL_PDF, formData);
 }
 
 // ─── Finalize Evaluation Marks (Proc) ────────────────────────────────────────
@@ -656,11 +695,13 @@ export async function saveFinalEvalPdf(
  * Called as Step 3 of finishPaper() — after saving the annotated PDF.
  * Calculates totals, sets final status, etc. on the server.
  */
-export async function finalizeEvalMarks(examEvaluationAssignmentId: number): Promise<void> {
-  await crud.getAllRecords('s_pop_exam_questionpaper_details', {
-    in_flag: 'exam_questionpaper_finalmarks_update',
+export async function finalizeEvalMarks(
+  examEvaluationAssignmentId: number,
+): Promise<void> {
+  await crud.getAllRecords("s_pop_exam_questionpaper_details", {
+    in_flag: "exam_questionpaper_finalmarks_update",
     in_exam_evaluationassignment_id: examEvaluationAssignmentId,
-  })
+  });
 }
 
 // ─── Reject / UFM (Domain Update) ────────────────────────────────────────────
@@ -676,21 +717,26 @@ export async function finalizeEvalMarks(examEvaluationAssignmentId: number): Pro
 export async function rejectEvalAssignment(
   examEvaluationAssignmentId: number,
   data: {
-    evaluationStatusCatDetId: number
-    omrSerialNo?: string
-    evaluationTime: number
-    evaluatedTotalMarks?: number | null
-    answerSheetCheckDate: string
-    evaluationStartDate?: string | null
-    evaluationEndDate: string
-    isUfm: false
-    ufmReason: ''
-    evaluatedAnswerPaperPath?: null
-    isActive: true
-    reason: string
+    evaluationStatusCatDetId: number;
+    omrSerialNo?: string;
+    evaluationTime: number;
+    evaluatedTotalMarks?: number | null;
+    answerSheetCheckDate: string;
+    evaluationStartDate?: string | null;
+    evaluationEndDate: string;
+    isUfm: false;
+    ufmReason: "";
+    evaluatedAnswerPaperPath?: null;
+    isActive: true;
+    reason: string;
   },
 ): Promise<void> {
-  await domainUpdate('ExamEvaluationAssignments', 'examEvaluationAssignmentId', examEvaluationAssignmentId, data)
+  await domainUpdate(
+    "ExamEvaluationAssignments",
+    "examEvaluationAssignmentId",
+    examEvaluationAssignmentId,
+    data,
+  );
 }
 
 /**
@@ -703,21 +749,26 @@ export async function rejectEvalAssignment(
 export async function ufmEvalAssignment(
   examEvaluationAssignmentId: number,
   data: {
-    evaluationStatusCatDetId: number
-    omrSerialNo?: string
-    evaluationTime: number
-    evaluatedTotalMarks?: number | null
-    answerSheetCheckDate: string
-    evaluationStartDate?: string | null
-    evaluationEndDate: string
-    isUfm: true
-    ufmReason: string
-    evaluatedAnswerPaperPath?: null
-    isActive: true
-    reason: string
+    evaluationStatusCatDetId: number;
+    omrSerialNo?: string;
+    evaluationTime: number;
+    evaluatedTotalMarks?: number | null;
+    answerSheetCheckDate: string;
+    evaluationStartDate?: string | null;
+    evaluationEndDate: string;
+    isUfm: true;
+    ufmReason: string;
+    evaluatedAnswerPaperPath?: null;
+    isActive: true;
+    reason: string;
   },
 ): Promise<void> {
-  await domainUpdate('ExamEvaluationAssignments', 'examEvaluationAssignmentId', examEvaluationAssignmentId, data)
+  await domainUpdate(
+    "ExamEvaluationAssignments",
+    "examEvaluationAssignmentId",
+    examEvaluationAssignmentId,
+    data,
+  );
 }
 
 // ─── Delete Evaluation Mark (Proc) ────────────────────────────────────────────
@@ -730,11 +781,11 @@ export async function deleteEvalMark(
   examEvaluationAssignmentId: number,
   questionPaperMarksId: number,
 ): Promise<void> {
-  await crud.getAllRecords('s_pop_exam_questionpaper_details', {
-    in_flag: 'delete_question',
+  await crud.getAllRecords("s_pop_exam_questionpaper_details", {
+    in_flag: "delete_question",
     in_exam_evaluationassignment_id: examEvaluationAssignmentId,
     in_questionpaper_marks_id: questionPaperMarksId,
-  })
+  });
 }
 
 // ─── Admin: Exam Filters for Question Paper Management ────────────────────────
@@ -744,33 +795,36 @@ export async function deleteEvalMark(
  * Angular: dataFromProc(getExamFiltersBycodeUrl, ..., { in_flag: 'univ_exam_inep_filters' })
  */
 export async function getExamFiltersForQp(params: {
-  universityId?: number
-  courseId?: number
-  examId?: number
-  regulationId?: number
-  subjectId?: number
-  employeeId?: number
-  roleId?: number
+  universityId?: number;
+  courseId?: number;
+  examId?: number;
+  regulationId?: number;
+  subjectId?: number;
+  employeeId?: number;
+  roleId?: number;
 }): Promise<unknown[][]> {
-  const raw = await crud.getAllRecords<{ result: unknown[][] }>('s_get_exam_filters_bycode', {
-    in_flag: 'univ_exam_inep_filters',
-    in_flag_type: 'QUESTION_SETTER',
-    in_university_id: params.universityId ?? 0,
-    in_course_id: params.courseId ?? 0,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_exam_id: params.examId ?? 0,
-    in_academic_year_id: 0,
-    in_regulation_id: params.regulationId ?? 0,
-    in_subject_id: params.subjectId ?? 0,
-    in_loginuser_empid: params.employeeId ?? 0,
-    in_loginuser_roleid: params.roleId ?? 0,
-    in_sub_flag_type: 'ALL',
-    in_param1: 0,
-    in_param2: 'REGSUP',
-  })
+  const raw = await crud.getAllRecords<{ result: unknown[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_inep_filters",
+      in_flag_type: "QUESTION_SETTER",
+      in_university_id: params.universityId ?? 0,
+      in_course_id: params.courseId ?? 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId ?? 0,
+      in_academic_year_id: 0,
+      in_regulation_id: params.regulationId ?? 0,
+      in_subject_id: params.subjectId ?? 0,
+      in_loginuser_empid: params.employeeId ?? 0,
+      in_loginuser_roleid: params.roleId ?? 0,
+      in_sub_flag_type: "ALL",
+      in_param1: 0,
+      in_param2: "REGSUP",
+    },
+  );
   // body.data for proc calls is { result: [[...], [...]] }
-  return raw?.result ?? []
+  return raw?.result ?? [];
 }
 
 // ─── Admin: Get Question Paper List ──────────────────────────────────────────
@@ -780,16 +834,16 @@ export async function getExamFiltersForQp(params: {
  * Angular: dataFromProc(getExamEvaluationCodesUrl, ..., { in_flag: 'list_questionpaper_list' })
  */
 export async function getQuestionPaperList(params: {
-  examId: number
-  subjectId: number
-  regulationId?: number
-  courseId?: number
-  courseYearId?: number
+  examId: number;
+  subjectId: number;
+  regulationId?: number;
+  courseId?: number;
+  courseYearId?: number;
 }): Promise<ExamQuestionPaper[]> {
   const raw = await crud.getAllRecords<{ result: unknown[][] }>(
-    's_get_examquestionpaper_details',
+    "s_get_examquestionpaper_details",
     {
-      in_flag: 'list_questionpaper_list',
+      in_flag: "list_questionpaper_list",
       in_orgid: 0,
       in_exam_id: params.examId,
       in_subject_id: params.subjectId,
@@ -798,25 +852,25 @@ export async function getQuestionPaperList(params: {
       in_course_year_id: params.courseYearId ?? 0,
       in_exam_questionpaper_template_id: 0,
       in_exam_questionpaper_id: 0,
-      in_fdate: '1990-01-01',
-      in_tdate: '1990-01-01',
-      in_exam_month_yr: '',
-      in_course_code: '',
-      in_course_year_code: '',
-      in_subject_code: '',
+      in_fdate: "1990-01-01",
+      in_tdate: "1990-01-01",
+      in_exam_month_yr: "",
+      in_course_code: "",
+      in_course_year_code: "",
+      in_subject_code: "",
       in_evalutor_profileid: 0,
-      in_exam_date: '1990-01-01',
-      in_regulation_code: '',
+      in_exam_date: "1990-01-01",
+      in_regulation_code: "",
       in_emp_id: 0,
       in_questionpaper_id: 0,
       in_evaluator_role_id: 0,
     },
-  )
+  );
   // body.data for proc calls is { result: [[...], [...]] }
   // Angular does: result.data.result[0] for the first (and only) result set
-  const first = (raw?.result ?? [])[0]
-  if (!Array.isArray(first)) return []
-  return first as ExamQuestionPaper[]
+  const first = (raw?.result ?? [])[0];
+  if (!Array.isArray(first)) return [];
+  return first as ExamQuestionPaper[];
 }
 
 // ─── Admin: Evaluation Templates ─────────────────────────────────────────────
@@ -825,11 +879,13 @@ export async function getQuestionPaperList(params: {
  * Fetches active evaluation templates for a university.
  * Angular: getDetailsByRequest(examQpTemplateUrl, 'list', { query: `Universities.universityId==${id}` })
  */
-export async function getEvalTemplates(universityId: number): Promise<EvalTemplate[]> {
+export async function getEvalTemplates(
+  universityId: number,
+): Promise<EvalTemplate[]> {
   return crud.list<EvalTemplate>(
-    'ExamQpTemplate',
+    "ExamQpTemplate",
     `Universities.universityId==${universityId}.and.isActive==true`,
-  )
+  );
 }
 
 // ─── College/University Filters ───────────────────────────────────────────────
@@ -839,29 +895,32 @@ export async function getEvalTemplates(universityId: number): Promise<EvalTempla
  * Angular: dataFromProc(collegeWiseDetailsUrl, ..., { in_flag: 'clg_filters' })
  */
 export async function getCollegeFilters(params: {
-  orgId?: number
-  employeeId?: number
-  roleId?: number
+  orgId?: number;
+  employeeId?: number;
+  roleId?: number;
 }): Promise<unknown[][]> {
-  const raw = await crud.getAllRecords<{ result: unknown[][] }>('s_get_collegewisedetails_bycode', {
-    in_flag: 'clg_filters',
-    in_org_id: params.orgId ?? 0,
-    in_college_id: 0,
-    in_course_id: 0,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_group_section_id: 0,
-    in_academic_year_id: 0,
-    in_dept_id: 0,
-    in_isadmin: 0,
-    in_loginuser_empid: params.employeeId ?? 0,
-    in_loginuser_roleid: params.roleId ?? 0,
-    in_subject: '',
-    in_employee: '',
-    in_gm_codes: '',
-  })
+  const raw = await crud.getAllRecords<{ result: unknown[][] }>(
+    "s_get_collegewisedetails_bycode",
+    {
+      in_flag: "clg_filters",
+      in_org_id: params.orgId ?? 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_group_section_id: 0,
+      in_academic_year_id: 0,
+      in_dept_id: 0,
+      in_isadmin: 0,
+      in_loginuser_empid: params.employeeId ?? 0,
+      in_loginuser_roleid: params.roleId ?? 0,
+      in_subject: "",
+      in_employee: "",
+      in_gm_codes: "",
+    },
+  );
   // body.data for proc calls is { result: [[...], [...]] }
-  return raw?.result ?? []
+  return raw?.result ?? [];
 }
 
 // ─── Status code helpers ──────────────────────────────────────────────────────
@@ -875,49 +934,55 @@ export const EVAL_STATUS = {
   FINALIZED: 631,
   REJECTED: 632,
   UFM: 633,
-} as const
+} as const;
 
-export type EvalStatusCode = (typeof EVAL_STATUS)[keyof typeof EVAL_STATUS]
+export type EvalStatusCode = (typeof EVAL_STATUS)[keyof typeof EVAL_STATUS];
 
 /** Human-readable label for a status code */
 export function evalStatusLabel(code: number): string {
   switch (code) {
     case EVAL_STATUS.NEW:
-      return 'New'
+      return "New";
     case EVAL_STATUS.ASSIGNED:
-      return 'Assigned'
+      return "Assigned";
     case EVAL_STATUS.IN_PROGRESS:
-      return 'In Progress'
+      return "In Progress";
     case EVAL_STATUS.EVALUATED:
-      return 'Evaluated'
+      return "Evaluated";
     case EVAL_STATUS.FINALIZED:
-      return 'Finalised'
+      return "Finalised";
     case EVAL_STATUS.REJECTED:
-      return 'Rejected'
+      return "Rejected";
     case EVAL_STATUS.UFM:
-      return 'UFM'
+      return "UFM";
     default:
-      return 'Unknown'
+      return "Unknown";
   }
 }
 
 /** Returns true if the assignment is in a locked state (no further edits allowed) */
 export function isEvalLocked(statusCode: number): boolean {
-  const locked: number[] = [EVAL_STATUS.EVALUATED, EVAL_STATUS.FINALIZED, EVAL_STATUS.REJECTED]
-  return locked.includes(statusCode)
+  const locked: number[] = [
+    EVAL_STATUS.EVALUATED,
+    EVAL_STATUS.FINALIZED,
+    EVAL_STATUS.REJECTED,
+  ];
+  return locked.includes(statusCode);
 }
 
 // ─── Admin Evaluator Assignment (Evaluation Process) ──────────────────────────
 
-type ProcRows = Record<string, unknown>[]
+type ProcRows = Record<string, unknown>[];
 
-export async function getRegSupBaseFilters(employeeId: number): Promise<ProcRows> {
+export async function getRegSupBaseFilters(
+  employeeId: number,
+): Promise<ProcRows> {
   // Angular re-evaluation-multi-assign / multi-evaluator-assign getFiltersData():
   // pick the result group whose first row has flag === 'univ_exam_filters'.
   const data = await crud
-    .getAllRecords<{ result: ProcRows[] }>('s_get_exam_filters_bycode', {
-      in_flag: 'univ_exam_filters',
-      in_flag_type: 'REGSUP',
+    .getAllRecords<{ result: ProcRows[] }>("s_get_exam_filters_bycode", {
+      in_flag: "univ_exam_filters",
+      in_flag_type: "REGSUP",
       in_university_id: 0,
       in_univ_examcenter_id: 0,
       in_college_id: 0,
@@ -928,98 +993,114 @@ export async function getRegSupBaseFilters(employeeId: number): Promise<ProcRows
       in_academic_year_id: 0,
       in_regulation_id: 0,
       in_subject_id: 0,
-      in_sub_flag_type: '',
+      in_sub_flag_type: "",
       in_param1: 0,
       in_param2: 0,
       in_loginuser_roleid: 0,
       in_loginuser_empid: employeeId || 0,
     })
-    .catch(() => ({ result: [] }))
+    .catch(() => ({ result: [] }));
 
-  return (data?.result ?? []).find((g) => txt(g?.[0]?.flag) === 'univ_exam_filters') ?? []
+  return (
+    (data?.result ?? []).find(
+      (g) => txt(g?.[0]?.flag) === "univ_exam_filters",
+    ) ?? []
+  );
 }
 
 export async function getRegSupRestFilters(params: {
-  courseId: number
-  academicYearId: number
-  examId: number
-  employeeId: number
+  courseId: number;
+  academicYearId: number;
+  examId: number;
+  employeeId: number;
 }): Promise<ProcRows> {
-  const data = await crud.getAllRecords<{ result: ProcRows[] }>('s_get_exam_filters_bycode', {
-    in_flag: 'univ_exam_rest_in_regexamstd',
-    in_flag_type: 'REGSUP',
-    in_university_id: 0,
-    in_univ_examcenter_id: 0,
-    in_college_id: 0,
-    in_course_id: params.courseId,
-    in_course_group_id: 0,
-    in_course_year_id: 0,
-    in_exam_id: params.examId,
-    in_academic_year_id: params.academicYearId,
-    in_regulation_id: 0,
-    in_subject_id: 0,
-    in_sub_flag_type: '',
-    in_param1: 0,
-    in_param2: 0,
-    in_loginuser_roleid: 0,
-    in_loginuser_empid: params.employeeId,
-  }).catch(() => ({ result: [] }))
+  const data = await crud
+    .getAllRecords<{ result: ProcRows[] }>("s_get_exam_filters_bycode", {
+      in_flag: "univ_exam_rest_in_regexamstd",
+      in_flag_type: "REGSUP",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId,
+    })
+    .catch(() => ({ result: [] }));
 
-  return (data?.result ?? []).find((g) => txt(g?.[0]?.flag) === 'univ_exam_rest_filters') ?? []
+  return (
+    (data?.result ?? []).find(
+      (g) => txt(g?.[0]?.flag) === "univ_exam_rest_filters",
+    ) ?? []
+  );
 }
 
 export async function getRegSupSubjectFilters(params: {
-  courseId: number
-  academicYearId: number
-  examId: number
-  courseYearId: number
-  regulationId: number
-  employeeId: number
+  courseId: number;
+  academicYearId: number;
+  examId: number;
+  courseYearId: number;
+  regulationId: number;
+  employeeId: number;
 }): Promise<ProcRows> {
-  const data = await crud.getAllRecords<{ result: ProcRows[] }>('s_get_exam_filters_bycode', {
-    in_flag: 'univ_exam_subject_regexamstd',
-    in_flag_type: 'REGSUP',
-    in_university_id: 0,
-    in_univ_examcenter_id: 0,
-    in_college_id: 0,
-    in_course_id: params.courseId,
-    in_course_group_id: 0,
-    in_course_year_id: params.courseYearId,
-    in_exam_id: params.examId,
-    in_academic_year_id: params.academicYearId,
-    in_regulation_id: params.regulationId,
-    in_sub_flag_type: 'NoLAB',
-    in_subject_id: 0,
-    in_param1: 0,
-    in_param2: 0,
-    in_loginuser_roleid: 0,
-    in_loginuser_empid: params.employeeId,
-  }).catch(() => ({ result: [] }))
+  const data = await crud
+    .getAllRecords<{ result: ProcRows[] }>("s_get_exam_filters_bycode", {
+      in_flag: "univ_exam_subject_regexamstd",
+      in_flag_type: "REGSUP",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: params.courseYearId,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: params.regulationId,
+      in_sub_flag_type: "NoLAB",
+      in_subject_id: 0,
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId,
+    })
+    .catch(() => ({ result: [] }));
 
-  return (data?.result ?? []).find((g) => txt(g?.[0]?.flag) === 'univ_exam_sub_regexamstd') ?? []
+  return (
+    (data?.result ?? []).find(
+      (g) => txt(g?.[0]?.flag) === "univ_exam_sub_regexamstd",
+    ) ?? []
+  );
 }
 
 export async function getEvaluatorAssignmentBundle(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
 }): Promise<{ evaluators: ProcRows; students: ProcRows }> {
   const common = {
     in_orgid: params.organizationId || 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
     in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
+    in_exam_date: "1990-01-01",
     in_emp_id: 0,
     in_questionpaper_id: 0,
     in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
+    in_academic_year: "",
+    in_exam_short_name: "",
     in_affiliatedto_catdet_id: 0,
     in_exam_id: params.examId,
     in_course_year_id: params.courseYearId,
@@ -1028,53 +1109,57 @@ export async function getEvaluatorAssignmentBundle(params: {
     in_course_id: params.courseId,
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId,
-  }
+  };
 
   const [evalData, stdData] = await Promise.all([
     crud
-      .getAllRecords<{ result: ProcRows[] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluatorassignment_list',
+      .getAllRecords<{ result: ProcRows[] }>("s_get_examevaluation_bycodes", {
+        in_flag: "list_evaluatorassignment_list",
         ...common,
       })
       .catch(() => ({ result: [] })),
     crud
-      .getAllRecords<{ result: ProcRows[] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluationstudent_list',
+      .getAllRecords<{ result: ProcRows[] }>("s_get_examevaluation_bycodes", {
+        in_flag: "list_evaluationstudent_list",
         ...common,
       })
       .catch(() => ({ result: [] })),
-  ])
+  ]);
 
   return {
     evaluators: Array.isArray(evalData?.result?.[0]) ? evalData.result[0] : [],
     students: Array.isArray(stdData?.result?.[0]) ? stdData.result[0] : [],
-  }
+  };
 }
 
 export async function getEvaluatorAssignmentBundleByFlag(
   params: {
-    organizationId: number
-    examId: number
-    courseYearId: number
-    subjectId: number
-    regulationId: number
-    courseId: number
-    academicYearId: number
-    employeeId: number
+    organizationId: number;
+    examId: number;
+    courseYearId: number;
+    subjectId: number;
+    regulationId: number;
+    courseId: number;
+    academicYearId: number;
+    employeeId: number;
   },
   evaluatorListFlag: string,
-): Promise<{ evaluators: ProcRows; summary: ProcRows; evaluatorStudents: ProcRows }> {
+): Promise<{
+  evaluators: ProcRows;
+  summary: ProcRows;
+  evaluatorStudents: ProcRows;
+}> {
   const common = {
     in_orgid: params.organizationId || 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
     in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
+    in_exam_date: "1990-01-01",
     in_emp_id: 0,
     in_questionpaper_id: 0,
     in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
+    in_academic_year: "",
+    in_exam_short_name: "",
     in_affiliatedto_catdet_id: 0,
     in_exam_id: params.examId,
     in_course_year_id: params.courseYearId,
@@ -1083,31 +1168,31 @@ export async function getEvaluatorAssignmentBundleByFlag(
     in_course_id: params.courseId,
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId,
-  }
+  };
 
   const data = await crud
-    .getAllRecords<{ result: ProcRows[] }>('s_get_examevaluation_bycodes', {
+    .getAllRecords<{ result: ProcRows[] }>("s_get_examevaluation_bycodes", {
       in_flag: evaluatorListFlag,
       ...common,
     })
-    .catch(() => ({ result: [] }))
+    .catch(() => ({ result: [] }));
 
-  const sets = data?.result ?? []
-  const evaluators = Array.isArray(sets[0]) ? sets[0] : []
-  const summary = Array.isArray(sets[1]) ? sets[1] : []
+  const sets = data?.result ?? [];
+  const evaluators = Array.isArray(sets[0]) ? sets[0] : [];
+  const summary = Array.isArray(sets[1]) ? sets[1] : [];
   // Prefer result[2] (Angular); if empty, use any group that carries OMR serials.
-  let evaluatorStudents = Array.isArray(sets[2]) ? sets[2] : []
+  let evaluatorStudents = Array.isArray(sets[2]) ? sets[2] : [];
   if (evaluatorStudents.length === 0) {
     for (const group of sets) {
-      if (!Array.isArray(group) || group.length === 0) continue
-      const sample = group[0] ?? {}
+      if (!Array.isArray(group) || group.length === 0) continue;
+      const sample = group[0] ?? {};
       if (
         sample.omr_serial_no != null ||
         sample.omrSerialNo != null ||
         sample.pk_exam_evaluationassignment_id != null
       ) {
-        evaluatorStudents = group
-        break
+        evaluatorStudents = group;
+        break;
       }
     }
   }
@@ -1115,308 +1200,353 @@ export async function getEvaluatorAssignmentBundleByFlag(
     evaluators,
     summary,
     evaluatorStudents,
-  }
+  };
 }
 
 export async function runPopStudentAssignment(params: {
-  examId: number
-  subjectId: number
-  courseYearId: number
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
-    in_flag: 'popstudentassignment',
-    in_profileids: '',
-    in_exam_evaluationassignment_ids: '',
-    in_omr_serial_nos: '',
-    in_timetable_det_ids: '',
+  await crud.getAllRecords("s_get_examevaluation_bycodes", {
+    in_flag: "popstudentassignment",
+    in_profileids: "",
+    in_exam_evaluationassignment_ids: "",
+    in_omr_serial_nos: "",
+    in_timetable_det_ids: "",
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  })
+  });
 }
 
 export async function assignEvaluatorProfiles(params: {
-  profileIds: number[]
-  examId: number
-  subjectId: number
-  courseYearId: number
+  profileIds: number[];
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
-    in_flag: 'evaluatorassignment',
-    in_profileids: params.profileIds.join(','),
-    in_exam_evaluationassignment_ids: '',
-    in_omr_serial_nos: '',
-    in_timetable_det_ids: '',
+  await crud.getAllRecords("s_get_examevaluation_bycodes", {
+    in_flag: "evaluatorassignment",
+    in_profileids: params.profileIds.join(","),
+    in_exam_evaluationassignment_ids: "",
+    in_omr_serial_nos: "",
+    in_timetable_det_ids: "",
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  })
+  });
 }
 
-export async function assignNextEval(examEvaluatorProfileDetId: number): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
-    in_flag: 'assign_next_eval',
+export async function assignNextEval(
+  examEvaluatorProfileDetId: number,
+): Promise<void> {
+  await crud.getAllRecords("s_get_examevaluation_bycodes", {
+    in_flag: "assign_next_eval",
     in_profileids: examEvaluatorProfileDetId,
-    in_exam_evaluationassignment_ids: '',
-    in_omr_serial_nos: '',
-    in_timetable_det_ids: '',
+    in_exam_evaluationassignment_ids: "",
+    in_omr_serial_nos: "",
+    in_timetable_det_ids: "",
     in_exam_id: 0,
     in_subject_id: 0,
     in_course_year_id: 0,
-  })
+  });
 }
 
 export async function updateManualEvaluationAssignment(params: {
-  profileId: number
-  examEvaluationAssignmentIdsCsv: string
-  timetableDetIds: string
-  examId: number
-  subjectId: number
-  courseYearId: number
+  profileId: number;
+  examEvaluationAssignmentIdsCsv: string;
+  timetableDetIds: string;
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
-    in_flag: 'UpdateEvaluationAssignment',
+  await crud.getAllRecords("s_get_examevaluation_bycodes", {
+    in_flag: "UpdateEvaluationAssignment",
     in_profileids: params.profileId,
-    in_omr_serial_nos: '',
+    in_omr_serial_nos: "",
     in_exam_evaluationassignment_ids: params.examEvaluationAssignmentIdsCsv,
     in_timetable_det_ids: params.timetableDetIds,
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  })
+  });
 }
 
 export async function reassignEvaluationAssignment(params: {
-  profileId: number
-  examEvaluationAssignmentIdsCsv: string
-  timetableDetIds: string
-  examId: number
-  subjectId: number
-  courseYearId: number
+  profileId: number;
+  examEvaluationAssignmentIdsCsv: string;
+  timetableDetIds: string;
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
   const payload = {
-    in_flag: 'reassignEvaluationAssignment',
+    in_flag: "reassignEvaluationAssignment",
     in_profileids: params.profileId,
     in_exam_evaluationassignment_ids: params.examEvaluationAssignmentIdsCsv,
-    in_omr_serial_nos: '',
+    in_omr_serial_nos: "",
     in_timetable_det_ids: params.timetableDetIds,
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  }
+  };
   // Angular evaluatorassignmentUrl = s_pop_exam_evaluatorassignment (the assign
   // proc), NOT a read proc.
-  await crud.getAllRecords('s_pop_exam_evaluatorassignment', payload)
+  await crud.getAllRecords("s_pop_exam_evaluatorassignment", payload);
 }
 
 export async function updateReevaluationCount(params: {
-  examId: number
-  subjectId: number
-  courseYearId: number
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
   const payload = {
-    in_flag: 'reevaluation_count_update',
-    in_profileids: '',
-    in_exam_evaluationassignment_ids: '',
-    in_omr_serial_nos: '',
-    in_timetable_det_ids: '',
+    in_flag: "reevaluation_count_update",
+    in_profileids: "",
+    in_exam_evaluationassignment_ids: "",
+    in_omr_serial_nos: "",
+    in_timetable_det_ids: "",
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  }
+  };
   // Same assign proc as the re-assign call (flag reevaluation_count_update).
-  await crud.getAllRecords('s_pop_exam_evaluatorassignment', payload)
+  await crud.getAllRecords("s_pop_exam_evaluatorassignment", payload);
 }
 
-export async function getModeratorEvaluatorProfiles(): Promise<Record<string, unknown>[]> {
-  return crud.list<Record<string, unknown>>('ExamEvaluatorProfiles', 'role.roleId==64')
+/** Angular `CONSTANTS.ModeratorRole` = 67 on ExamEvaluatorProfiles. */
+const MODERATOR_ROLE_ID = 67;
+
+export async function getModeratorEvaluatorProfiles(): Promise<
+  Record<string, unknown>[]
+> {
+  // Angular listDetailsById(ExamEvaluatorsProfileUrl, ModeratorRole, 'role.roleId'):
+  //   domain/list/ExamEvaluatorProfiles?size=99999&query=role.roleId==67
+  // Use listRawQuery (unescaped ==) — same URL shape as Angular HttpClient.
+  // encodeURIComponent on nested role.roleId queries can yield Spring "Internal Server error".
+  return crud.listRawQuery<Record<string, unknown>>(
+    "ExamEvaluatorProfiles",
+    `role.roleId==${MODERATOR_ROLE_ID}`,
+  );
 }
 
 export async function listModeratorEvaluationMapping(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
-  moderatorProfileId: number
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
+  moderatorProfileId: number;
 }): Promise<Record<string, unknown>[]> {
-  const data = await crud.getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-    in_flag: 'list_moderator_evaluation_mapping',
-    in_orgid: params.organizationId || 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
-    in_evalutor_profileid: params.moderatorProfileId,
-    in_exam_date: '1990-01-01',
-    in_emp_id: 0,
-    in_questionpaper_id: 0,
-    in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
-    in_affiliatedto_catdet_id: 0,
-    in_exam_id: params.examId,
-    in_course_year_id: params.courseYearId,
-    in_subject_id: params.subjectId,
-    in_regulation_id: params.regulationId,
-    in_course_id: params.courseId,
-    in_academic_year_id: params.academicYearId,
-    in_loginuser_empid: params.employeeId,
-  }).catch(() => ({ result: [] }))
-  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+  const data = await crud
+    .getAllRecords<{ result: Record<string, unknown>[][] }>(
+      "s_get_examevaluation_bycodes",
+      {
+        in_flag: "list_moderator_evaluation_mapping",
+        in_orgid: params.organizationId || 1,
+        in_fdate: "1990-01-01",
+        in_tdate: "1990-01-01",
+        in_evalutor_profileid: params.moderatorProfileId,
+        in_exam_date: "1990-01-01",
+        in_emp_id: 0,
+        in_questionpaper_id: 0,
+        in_evaluator_role_id: 0,
+        in_academic_year: "",
+        in_exam_short_name: "",
+        in_affiliatedto_catdet_id: 0,
+        in_exam_id: params.examId,
+        in_course_year_id: params.courseYearId,
+        in_subject_id: params.subjectId,
+        in_regulation_id: params.regulationId,
+        in_course_id: params.courseId,
+        in_academic_year_id: params.academicYearId,
+        in_loginuser_empid: params.employeeId,
+      },
+    )
+    .catch(() => ({ result: [] }));
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : [];
 }
 
-export async function addMultipleEvaluators(payload: unknown): Promise<unknown> {
-  return crud.postDetails(EXAM_EVAL_API.ADD_MULTIPLE_EVALUATORS, payload)
+export async function addMultipleEvaluators(
+  payload: unknown,
+): Promise<unknown> {
+  return crud.postDetails(EXAM_EVAL_API.ADD_MULTIPLE_EVALUATORS, payload);
 }
 
 export async function getEvaluatedMarksReport(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
-  isReevaluation: boolean
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
+  isReevaluation: boolean;
 }): Promise<Record<string, unknown>[]> {
-  const flag = params.isReevaluation ? 'list_reevaluationApprovalstudent_list' : 'list_evaluationApprovalstudent_list'
-  const data = await crud.getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-    in_flag: flag,
-    in_orgid: params.organizationId || 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
-    in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
-    in_emp_id: 0,
-    in_questionpaper_id: 0,
-    in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
-    in_affiliatedto_catdet_id: 0,
-    in_exam_id: params.examId,
-    in_course_year_id: params.courseYearId,
-    in_subject_id: params.subjectId,
-    in_regulation_id: params.regulationId,
-    in_course_id: params.courseId,
-    in_academic_year_id: params.academicYearId,
-    in_loginuser_empid: params.employeeId,
-  }).catch(() => ({ result: [] }))
-  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+  const flag = params.isReevaluation
+    ? "list_reevaluationApprovalstudent_list"
+    : "list_evaluationApprovalstudent_list";
+  const data = await crud
+    .getAllRecords<{ result: Record<string, unknown>[][] }>(
+      "s_get_examevaluation_bycodes",
+      {
+        in_flag: flag,
+        in_orgid: params.organizationId || 1,
+        in_fdate: "1990-01-01",
+        in_tdate: "1990-01-01",
+        in_evalutor_profileid: 0,
+        in_exam_date: "1990-01-01",
+        in_emp_id: 0,
+        in_questionpaper_id: 0,
+        in_evaluator_role_id: 0,
+        in_academic_year: "",
+        in_exam_short_name: "",
+        in_affiliatedto_catdet_id: 0,
+        in_exam_id: params.examId,
+        in_course_year_id: params.courseYearId,
+        in_subject_id: params.subjectId,
+        in_regulation_id: params.regulationId,
+        in_course_id: params.courseId,
+        in_academic_year_id: params.academicYearId,
+        in_loginuser_empid: params.employeeId,
+      },
+    )
+    .catch(() => ({ result: [] }));
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : [];
 }
 
 export async function getReEvaluatorMasterList(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
-  isReevaluation: boolean
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
+  isReevaluation: boolean;
 }): Promise<Record<string, unknown>[]> {
-  const flag = params.isReevaluation ? 'get_masterlistfor_reevaluation_validator' : 'get_masterlistfor_evaluation_validator'
+  const flag = params.isReevaluation
+    ? "get_masterlistfor_reevaluation_validator"
+    : "get_masterlistfor_evaluation_validator";
   const data = await crud
-    .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-      in_flag: flag,
-      in_orgid: params.organizationId || 1,
-      in_fdate: '1990-01-01',
-      in_tdate: '1990-01-01',
-      in_evalutor_profileid: 0,
-      in_exam_date: '1990-01-01',
-      in_emp_id: 0,
-      in_questionpaper_id: 0,
-      in_evaluator_role_id: 0,
-      in_academic_year: '',
-      in_exam_short_name: '',
-      in_affiliatedto_catdet_id: 0,
-      in_exam_id: params.examId,
-      in_course_year_id: params.courseYearId,
-      in_subject_id: params.subjectId,
-      in_regulation_id: params.regulationId,
-      in_course_id: params.courseId,
-      in_academic_year_id: params.academicYearId,
-      in_loginuser_empid: params.employeeId,
-    })
-    .catch(() => ({ result: [] }))
-  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+    .getAllRecords<{ result: Record<string, unknown>[][] }>(
+      "s_get_examevaluation_bycodes",
+      {
+        in_flag: flag,
+        in_orgid: params.organizationId || 1,
+        in_fdate: "1990-01-01",
+        in_tdate: "1990-01-01",
+        in_evalutor_profileid: 0,
+        in_exam_date: "1990-01-01",
+        in_emp_id: 0,
+        in_questionpaper_id: 0,
+        in_evaluator_role_id: 0,
+        in_academic_year: "",
+        in_exam_short_name: "",
+        in_affiliatedto_catdet_id: 0,
+        in_exam_id: params.examId,
+        in_course_year_id: params.courseYearId,
+        in_subject_id: params.subjectId,
+        in_regulation_id: params.regulationId,
+        in_course_id: params.courseId,
+        in_academic_year_id: params.academicYearId,
+        in_loginuser_empid: params.employeeId,
+      },
+    )
+    .catch(() => ({ result: [] }));
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : [];
 }
 
 export async function getReEvaluatorDetailList(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
-  isReevaluation: boolean
-}): Promise<{ evaluationValidator: Record<string, unknown>[]; evaluatorList: Record<string, unknown>[] }> {
-  const flag = params.isReevaluation ? 'get_listfor_reevaluation_validator' : 'get_listfor_evaluation_validator'
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
+  isReevaluation: boolean;
+}): Promise<{
+  evaluationValidator: Record<string, unknown>[];
+  evaluatorList: Record<string, unknown>[];
+}> {
+  const flag = params.isReevaluation
+    ? "get_listfor_reevaluation_validator"
+    : "get_listfor_evaluation_validator";
   const data = await crud
-    .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-      in_flag: flag,
-      in_orgid: params.organizationId || 1,
-      in_fdate: '1990-01-01',
-      in_tdate: '1990-01-01',
-      in_evalutor_profileid: 0,
-      in_exam_date: '1990-01-01',
-      in_emp_id: 0,
-      in_questionpaper_id: 0,
-      in_evaluator_role_id: 0,
-      in_academic_year: '',
-      in_exam_short_name: '',
-      in_affiliatedto_catdet_id: 0,
-      in_exam_id: params.examId,
-      in_course_year_id: params.courseYearId,
-      in_subject_id: params.subjectId,
-      in_regulation_id: params.regulationId,
-      in_course_id: params.courseId,
-      in_academic_year_id: params.academicYearId,
-      in_loginuser_empid: params.employeeId,
-    })
-    .catch(() => ({ result: [] }))
+    .getAllRecords<{ result: Record<string, unknown>[][] }>(
+      "s_get_examevaluation_bycodes",
+      {
+        in_flag: flag,
+        in_orgid: params.organizationId || 1,
+        in_fdate: "1990-01-01",
+        in_tdate: "1990-01-01",
+        in_evalutor_profileid: 0,
+        in_exam_date: "1990-01-01",
+        in_emp_id: 0,
+        in_questionpaper_id: 0,
+        in_evaluator_role_id: 0,
+        in_academic_year: "",
+        in_exam_short_name: "",
+        in_affiliatedto_catdet_id: 0,
+        in_exam_id: params.examId,
+        in_course_year_id: params.courseYearId,
+        in_subject_id: params.subjectId,
+        in_regulation_id: params.regulationId,
+        in_course_id: params.courseId,
+        in_academic_year_id: params.academicYearId,
+        in_loginuser_empid: params.employeeId,
+      },
+    )
+    .catch(() => ({ result: [] }));
 
-  const sets = data?.result ?? []
-  const evaluationValidator = sets.find((rows) => txt(rows?.[0]?.flag) === 'evaluation_validator') ?? []
-  const evaluatorList = sets.find((rows) => txt(rows?.[0]?.flag) === 'evaluator_list') ?? []
-  return { evaluationValidator, evaluatorList }
+  const sets = data?.result ?? [];
+  const evaluationValidator =
+    sets.find((rows) => txt(rows?.[0]?.flag) === "evaluation_validator") ?? [];
+  const evaluatorList =
+    sets.find((rows) => txt(rows?.[0]?.flag) === "evaluator_list") ?? [];
+  return { evaluationValidator, evaluatorList };
 }
 
-export async function addMultipleEvaluationAssignments(payload: unknown): Promise<unknown> {
-  return crud.postDetails(EXAM_EVAL_API.ADD_MULTIPLE_EVAL_ASSIGNMENTS, payload)
+export async function addMultipleEvaluationAssignments(
+  payload: unknown,
+): Promise<unknown> {
+  return crud.postDetails(EXAM_EVAL_API.ADD_MULTIPLE_EVAL_ASSIGNMENTS, payload);
 }
 
 export async function getMultiEvaluatorAssignBundle(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
 }): Promise<{
-  evaluators: Record<string, unknown>[]
-  summary: Record<string, unknown>[]
-  evaluatorOmrRows: Record<string, unknown>[]
-  students: Record<string, unknown>[]
+  evaluators: Record<string, unknown>[];
+  summary: Record<string, unknown>[];
+  evaluatorOmrRows: Record<string, unknown>[];
+  students: Record<string, unknown>[];
 }> {
   const common = {
     in_orgid: params.organizationId || 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
     in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
+    in_exam_date: "1990-01-01",
     in_emp_id: 0,
     in_questionpaper_id: 0,
     in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
+    in_academic_year: "",
+    in_exam_short_name: "",
     in_affiliatedto_catdet_id: 0,
     in_exam_id: params.examId,
     in_course_year_id: params.courseYearId,
@@ -1425,97 +1555,104 @@ export async function getMultiEvaluatorAssignBundle(params: {
     in_course_id: params.courseId,
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId,
-  }
+  };
   const [evalData, stdData] = await Promise.all([
     crud
-      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluatorassignment_list',
-        ...common,
-        in_evaluator_role_id: 64,
-      })
+      .getAllRecords<{ result: Record<string, unknown>[][] }>(
+        "s_get_examevaluation_bycodes",
+        {
+          in_flag: "list_evaluatorassignment_list",
+          ...common,
+          in_evaluator_role_id: 64,
+        },
+      )
       .catch(() => ({ result: [] })),
     crud
-      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluationstudent_list',
-        ...common,
-        in_evaluator_role_id: 0,
-      })
+      .getAllRecords<{ result: Record<string, unknown>[][] }>(
+        "s_get_examevaluation_bycodes",
+        {
+          in_flag: "list_evaluationstudent_list",
+          ...common,
+          in_evaluator_role_id: 0,
+        },
+      )
       .catch(() => ({ result: [] })),
-  ])
+  ]);
   return {
     evaluators: Array.isArray(evalData?.result?.[0]) ? evalData.result[0] : [],
     // Angular: StudentEvaluationAssignment summary = result[1] of the
     // list_evaluatorassignment_list (evaluator) call — NOT the student call.
     summary: Array.isArray(evalData?.result?.[1]) ? evalData.result[1] : [],
-    evaluatorOmrRows: Array.isArray(evalData?.result?.[2]) ? evalData.result[2] : [],
+    evaluatorOmrRows: Array.isArray(evalData?.result?.[2])
+      ? evalData.result[2]
+      : [],
     students: Array.isArray(stdData?.result?.[0]) ? stdData.result[0] : [],
-  }
+  };
 }
 
 export async function assignMultipleUpdateEvaluationAssignment(params: {
   /** pk_examevaluator_profiledet_id — Angular Formdata.examEvaluatorProfileId */
-  profileId: number
-  omrSerialNosCsv: string
-  examId: number
-  subjectId: number
-  courseYearId: number
+  profileId: number;
+  omrSerialNosCsv: string;
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
   // Multi-evaluator-assign page only: Assign runs s_pop_exam_evaluatorassignment
   // (not the shared s_get_examevaluation_bycodes). Same flag + params.
-  await crud.getAllRecords('s_pop_exam_evaluatorassignment', {
-    in_flag: 'MultipleUpdateEvaluationAssignment',
+  await crud.getAllRecords("s_pop_exam_evaluatorassignment", {
+    in_flag: "MultipleUpdateEvaluationAssignment",
     in_profileids: params.profileId,
-    in_exam_evaluationassignment_ids: '',
+    in_exam_evaluationassignment_ids: "",
     in_omr_serial_nos: params.omrSerialNosCsv,
-    in_timetable_det_ids: '',
+    in_timetable_det_ids: "",
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  })
+  });
 }
 
 async function getExamEvaluationByCodesOrEmpty(
   params: Record<string, string | number>,
 ): Promise<Record<string, unknown>[][]> {
   try {
-    const data = await crud.getAllRecords<{ result: Record<string, unknown>[][] }>(
-      's_get_examevaluation_bycodes',
-      params,
-    )
-    return data?.result ?? []
+    const data = await crud.getAllRecords<{
+      result: Record<string, unknown>[][];
+    }>("s_get_examevaluation_bycodes", params);
+    return data?.result ?? [];
   } catch (error: unknown) {
-    const msg = String((error as { message?: string })?.message ?? '')
-    if (msg.toLowerCase().includes('no records')) return []
-    throw error
+    const msg = String((error as { message?: string })?.message ?? "");
+    if (msg.toLowerCase().includes("no records")) return [];
+    throw error;
   }
 }
 
 export async function getReevaluationMultiAssignBundle(params: {
-  organizationId: number
-  examId: number
-  courseYearId: number
-  subjectId: number
-  regulationId: number
-  courseId: number
-  academicYearId: number
-  employeeId: number
+  organizationId: number;
+  examId: number;
+  courseYearId: number;
+  subjectId: number;
+  regulationId: number;
+  courseId: number;
+  academicYearId: number;
+  employeeId: number;
 }): Promise<{
-  evaluators: Record<string, unknown>[]
-  summary: Record<string, unknown>[]
-  evaluatorOmrRows: Record<string, unknown>[]
-  students: Record<string, unknown>[]
+  evaluators: Record<string, unknown>[];
+  summary: Record<string, unknown>[];
+  evaluatorOmrRows: Record<string, unknown>[];
+  students: Record<string, unknown>[];
 }> {
   const common = {
     in_orgid: params.organizationId || 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
     in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
+    in_exam_date: "1990-01-01",
     in_emp_id: 0,
     in_questionpaper_id: 0,
     in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
+    in_academic_year: "",
+    in_exam_short_name: "",
     in_affiliatedto_catdet_id: 0,
     in_exam_id: params.examId,
     in_course_year_id: params.courseYearId,
@@ -1524,19 +1661,19 @@ export async function getReevaluationMultiAssignBundle(params: {
     in_course_id: params.courseId,
     in_academic_year_id: params.academicYearId,
     in_loginuser_empid: params.employeeId,
-  }
+  };
 
   // Angular getstudentList() then getEvaluationList() — same proc params, sequential order.
   const stdSets = await getExamEvaluationByCodesOrEmpty({
-    in_flag: 'list_evaluationstudent_list_revision',
+    in_flag: "list_evaluationstudent_list_revision",
     ...common,
     in_evaluator_role_id: 0,
-  })
+  });
   const evalSets = await getExamEvaluationByCodesOrEmpty({
-    in_flag: 'list_evaluatorassignment_list_reevaluation',
+    in_flag: "list_evaluatorassignment_list_reevaluation",
     ...common,
     in_evaluator_role_id: 64,
-  })
+  });
 
   // Angular: student call → result[0]; evaluator call → result[0]/[1]/[2].
   return {
@@ -1544,149 +1681,156 @@ export async function getReevaluationMultiAssignBundle(params: {
     summary: Array.isArray(evalSets[1]) ? evalSets[1] : [],
     evaluatorOmrRows: Array.isArray(evalSets[2]) ? evalSets[2] : [],
     students: Array.isArray(stdSets[0]) ? stdSets[0] : [],
-  }
+  };
 }
 
 export async function assignMultipleUpdateEvaluationAssignmentRevision(params: {
-  profileId: number
-  omrSerialNosCsv: string
-  examId: number
-  subjectId: number
-  courseYearId: number
+  profileId: number;
+  omrSerialNosCsv: string;
+  examId: number;
+  subjectId: number;
+  courseYearId: number;
 }): Promise<void> {
   // Angular evaluatorassignmentUrl = s_pop_exam_evaluatorassignment (the assign
   // proc), NOT the read proc s_get_examevaluation_bycodes.
-  await crud.getAllRecords('s_pop_exam_evaluatorassignment', {
-    in_flag: 'MultipleUpdateEvaluationAssignment_revision',
+  await crud.getAllRecords("s_pop_exam_evaluatorassignment", {
+    in_flag: "MultipleUpdateEvaluationAssignment_revision",
     in_profileids: params.profileId,
-    in_exam_evaluationassignment_ids: '',
+    in_exam_evaluationassignment_ids: "",
     in_omr_serial_nos: params.omrSerialNosCsv,
-    in_timetable_det_ids: '',
+    in_timetable_det_ids: "",
     in_exam_id: params.examId,
     in_subject_id: params.subjectId,
     in_course_year_id: params.courseYearId,
-  })
+  });
 }
 
-export async function getReevaluationAssignSubjects(employeeId: number): Promise<Record<string, unknown>[]> {
+export async function getReevaluationAssignSubjects(
+  employeeId: number,
+): Promise<Record<string, unknown>[]> {
   // Mirrors Angular re-evaluation-assign getList(): s_get_examevaluation_bycodes,
   // flag list_exam_subjects, in_orgid 1, in_affiliatedto_catdet_id 1, login empid.
   // NOTE: do NOT swallow errors here — a silent catch made auth/500 failures
   // look like "empty dropdowns" with no clue why.
-  const data = await crud.getAllRecords<{ result: Record<string, unknown>[][] }>(
-    's_get_examevaluation_bycodes',
-    {
-      in_flag: 'list_exam_subjects',
-      in_orgid: 1,
-      in_fdate: '1990-01-01',
-      in_tdate: '1990-01-01',
-      in_exam_month_yr: '',
-      in_course_code: '',
-      in_course_year_code: '',
-      in_subject_code: '',
-      in_evalutor_profileid: 0,
-      in_exam_date: '1990-01-01',
-      in_regulation_code: '',
-      in_emp_id: 0,
-      in_questionpaper_id: 0,
-      in_evaluator_role_id: 0,
-      in_academic_year: '',
-      in_exam_short_name: '',
-      in_affiliatedto_catdet_id: 1,
-      in_loginuser_empid: employeeId || 0,
-    },
-  )
-  return Array.isArray(data?.result?.[0]) ? data.result[0] : []
+  const data = await crud.getAllRecords<{
+    result: Record<string, unknown>[][];
+  }>("s_get_examevaluation_bycodes", {
+    in_flag: "list_exam_subjects",
+    in_orgid: 1,
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
+    in_exam_month_yr: "",
+    in_course_code: "",
+    in_course_year_code: "",
+    in_subject_code: "",
+    in_evalutor_profileid: 0,
+    in_exam_date: "1990-01-01",
+    in_regulation_code: "",
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: "",
+    in_exam_short_name: "",
+    in_affiliatedto_catdet_id: 1,
+    in_loginuser_empid: employeeId || 0,
+  });
+  return Array.isArray(data?.result?.[0]) ? data.result[0] : [];
 }
 
 export async function getReevaluationAssignBundleByCodes(params: {
-  employeeId: number
-  courseCode: string
-  examMonthYear: string
-  courseYearCode: string
-  subjectCode: string
+  employeeId: number;
+  courseCode: string;
+  examMonthYear: string;
+  courseYearCode: string;
+  subjectCode: string;
 }): Promise<{
-  evaluators: Record<string, unknown>[]
-  summary: Record<string, unknown>[]
-  students: Record<string, unknown>[]
+  evaluators: Record<string, unknown>[];
+  summary: Record<string, unknown>[];
+  students: Record<string, unknown>[];
 }> {
   const common = {
     in_orgid: 1,
-    in_fdate: '1990-01-01',
-    in_tdate: '1990-01-01',
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
     in_exam_month_yr: params.examMonthYear,
     in_course_code: params.courseCode,
     in_course_year_code: params.courseYearCode,
     in_subject_code: params.subjectCode,
     in_evalutor_profileid: 0,
-    in_exam_date: '1990-01-01',
-    in_regulation_code: '',
+    in_exam_date: "1990-01-01",
+    in_regulation_code: "",
     in_emp_id: 0,
     in_questionpaper_id: 0,
     in_evaluator_role_id: 0,
-    in_academic_year: '',
-    in_exam_short_name: '',
+    in_academic_year: "",
+    in_exam_short_name: "",
     in_affiliatedto_catdet_id: 1,
     in_loginuser_empid: params.employeeId || 0,
-  }
+  };
 
   const [evalData, stdData] = await Promise.all([
     crud
-      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluatorassignment_list_reevaluation',
-        ...common,
-        in_evaluator_role_id: 64,
-      })
+      .getAllRecords<{ result: Record<string, unknown>[][] }>(
+        "s_get_examevaluation_bycodes",
+        {
+          in_flag: "list_evaluatorassignment_list_reevaluation",
+          ...common,
+          in_evaluator_role_id: 64,
+        },
+      )
       .catch(() => ({ result: [] })),
     crud
-      .getAllRecords<{ result: Record<string, unknown>[][] }>('s_get_examevaluation_bycodes', {
-        in_flag: 'list_evaluationstudent_list_revision',
-        ...common,
-      })
+      .getAllRecords<{ result: Record<string, unknown>[][] }>(
+        "s_get_examevaluation_bycodes",
+        {
+          in_flag: "list_evaluationstudent_list_revision",
+          ...common,
+        },
+      )
       .catch(() => ({ result: [] })),
-  ])
+  ]);
 
   return {
     evaluators: Array.isArray(evalData?.result?.[0]) ? evalData.result[0] : [],
     summary: Array.isArray(evalData?.result?.[1]) ? evalData.result[1] : [],
     students: Array.isArray(stdData?.result?.[0]) ? stdData.result[0] : [],
-  }
+  };
 }
 
 export async function runReevaluationAssignmentPopByCodes(params: {
-  subjectCode: string
-  courseYearCode: string
+  subjectCode: string;
+  courseYearCode: string;
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
-    in_flag: 're_evaluation_assignment_pop',
-    in_profileids: '',
-    in_exam_evaluationassignment_ids: '',
-    in_omr_serial_nos: '',
-    in_timetable_det_ids: '',
+  await crud.getAllRecords("s_get_examevaluation_bycodes", {
+    in_flag: "re_evaluation_assignment_pop",
+    in_profileids: "",
+    in_exam_evaluationassignment_ids: "",
+    in_omr_serial_nos: "",
+    in_timetable_det_ids: "",
     in_exam_id: 0,
     in_subject_id: params.subjectCode,
     in_course_year_id: params.courseYearCode,
-  })
+  });
 }
 
 export async function assignReevaluationByCodes(params: {
-  profileId: number
-  subjectCode: string
-  examMonthYear: string
-  courseCode: string
-  courseYearCode: string
-  assignmentIdsCsv: string
-  timetableDetIds: string
+  profileId: number;
+  subjectCode: string;
+  examMonthYear: string;
+  courseCode: string;
+  courseYearCode: string;
+  assignmentIdsCsv: string;
+  timetableDetIds: string;
 }): Promise<void> {
-  await crud.getAllRecords('s_get_examevaluation_bycodes', {
-    in_flag: 'UpdateEvaluationAssignment',
+  await crud.getAllRecords("s_get_examevaluation_bycodes", {
+    in_flag: "UpdateEvaluationAssignment",
     in_profileids: params.profileId,
     in_subject_code: params.subjectCode,
     in_exam_month_yr: params.examMonthYear,
     in_coursecode: params.courseCode,
-    in_coursegroup: '',
+    in_coursegroup: "",
     in_courseyear: params.courseYearCode,
     in_exam_evaluationassignment_ids: params.assignmentIdsCsv,
     in_timetable_det_ids: params.timetableDetIds,
-  })
+  });
 }

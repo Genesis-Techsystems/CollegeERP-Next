@@ -81,6 +81,12 @@ export async function GET() {
     await session.save();
   }
 
+  // Older sessions may omit isDeptAdmin (Angular isDeprtAdmin).
+  if (typeof session.user.isDeptAdmin !== "boolean") {
+    session.user.isDeptAdmin = rn === "DEPTADMIN";
+    await session.save();
+  }
+
   // Return session user only — modules/pages are never included (nav tree built server-side)
   return NextResponse.json({ user: session.user });
 }

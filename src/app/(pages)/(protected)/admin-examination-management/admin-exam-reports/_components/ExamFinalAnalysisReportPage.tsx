@@ -6,17 +6,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
-import { ChevronDown, Filter, Printer, RefreshCw } from "lucide-react";
-import { FilteredListPage, PageContainer } from "@/components/layout";
+import { Printer, RefreshCw } from "lucide-react";
+import { FilteredListPage } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
-import { DataTableToolbar } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
-import { cn } from "@/lib/utils";
+import { rowIndexGetter } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
 import {
@@ -88,6 +87,14 @@ function dash(v: unknown): string {
   return !s || s === "null" ? "—" : s;
 }
 
+function exportHtmlTable(filename: string, title: string, bodyHtml: string) {
+  const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Worksheet</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>${title}${bodyHtml}</table></body></html>`;
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = `data:application/vnd.ms-excel;base64,${window.btoa(unescape(encodeURIComponent(template)))}`;
+  link.click();
+}
+
 function headerLabel(key: string): string {
   if (key === "Pass_percentage" || key === "Passed_percent") return "Pass %";
   return key.replace(/_/g, " ");
@@ -112,12 +119,11 @@ function flagForKind(
 }
 
 function buildGradewiseCols(firstRow: Row): ColDef<Row>[] {
-  const keys = Object.keys(firstRow);
-  keys.splice(0, 2);
+  const keys = gradewiseDataKeys(firstRow);
   return [
     {
       headerName: "S.No",
-      valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+      valueGetter: rowIndexGetter,
       width: 70,
       flex: 0,
     },
@@ -130,6 +136,13 @@ function buildGradewiseCols(firstRow: Row): ColDef<Row>[] {
       }),
     ),
   ];
+}
+
+/** Angular: Object.keys(row); splice(0,1); splice(1,1) → drop keys at index 0 and 2. */
+function gradewiseDataKeys(firstRow: Row): string[] {
+  const keys = Object.keys(firstRow);
+  if (keys.length <= 2) return keys;
+  return keys.filter((_, i) => i !== 0 && i !== 2);
 }
 
 const resultSheetsCols: ColDef<Row>[] = [
@@ -182,6 +195,114 @@ const resultSheetsCols: ColDef<Row>[] = [
     minWidth: 160,
     flex: 1,
     valueGetter: (p) => dash(p.data?.exam_label_name ?? p.data?.exam_name),
+  },
+];
+
+const FINAL_ANALYSIS_GROUP_HEADER = "app-table-header-group";
+
+const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
+  {
+    headerName: "SL.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  },
+  {
+    headerName: "Course",
+    minWidth: 120,
+    flex: 1,
+    valueGetter: (p) => dash(p.data?.course_name),
+  },
+  {
+    headerName: "Course Group",
+    minWidth: 110,
+    flex: 0.8,
+    cellClass: "text-center",
+    valueGetter: (p) => dash(p.data?.course_group),
+  },
+  {
+    headerName: "Course Year",
+    minWidth: 130,
+    flex: 1,
+    valueGetter: (p) => dash(p.data?.course_year),
+  },
+  {
+    headerName: "Appeared",
+    headerClass: FINAL_ANALYSIS_GROUP_HEADER,
+    marryChildren: true,
+    children: [
+      {
+        headerName: "Count",
+        minWidth: 90,
+        flex: 0.6,
+        cellClass: "text-center",
+        valueGetter: (p) => dash(p.data?.Appeared ?? p.data?.appeared),
+      },
+    ],
+  },
+  {
+    headerName: "Passed",
+    headerClass: FINAL_ANALYSIS_GROUP_HEADER,
+    marryChildren: true,
+    children: [
+      {
+        headerName: "Count",
+        minWidth: 90,
+        flex: 0.6,
+        cellClass: "text-center",
+        valueGetter: (p) => dash(p.data?.passed),
+      },
+      {
+        headerName: "%",
+        minWidth: 70,
+        flex: 0.5,
+        cellClass: "text-center",
+        valueGetter: (p) =>
+          dash(p.data?.Pass_percentage ?? p.data?.Passed_percent),
+      },
+    ],
+  },
+  {
+    headerName: "Promoted",
+    headerClass: FINAL_ANALYSIS_GROUP_HEADER,
+    marryChildren: true,
+    children: [
+      {
+        headerName: "Count",
+        minWidth: 90,
+        flex: 0.6,
+        cellClass: "text-center",
+        valueGetter: (p) => dash(p.data?.Promoted),
+      },
+      {
+        headerName: "%",
+        minWidth: 70,
+        flex: 0.5,
+        cellClass: "text-center",
+        valueGetter: (p) => dash(p.data?.Promoted_Percentage),
+      },
+    ],
+  },
+  {
+    headerName: "Detained",
+    headerClass: FINAL_ANALYSIS_GROUP_HEADER,
+    marryChildren: true,
+    children: [
+      {
+        headerName: "Count",
+        minWidth: 90,
+        flex: 0.6,
+        cellClass: "text-center",
+        valueGetter: (p) => dash(p.data?.Detained),
+      },
+      {
+        headerName: "%",
+        minWidth: 70,
+        flex: 0.5,
+        cellClass: "text-center",
+        valueGetter: (p) => dash(p.data?.Detained_Percentage),
+      },
+    ],
   },
 ];
 
@@ -270,6 +391,128 @@ function printHtmlInIframe(html: string): void {
   } else {
     iframe.onload = () => setTimeout(printFrame, 250);
   }
+}
+
+function exportFinalAnalysisExcel(args: {
+  title: string;
+  subtitle: string;
+  rows: Row[];
+}): void {
+  if (!args.rows.length) return;
+
+  const head = `<thead>
+    <tr>
+      <th rowspan="2">SL.No</th>
+      <th rowspan="2">Course</th>
+      <th rowspan="2">Course Group</th>
+      <th rowspan="2">Course Year</th>
+      <th>Appeared</th>
+      <th colspan="2">Passed</th>
+      <th colspan="2">Promoted</th>
+      <th colspan="2">Detained</th>
+    </tr>
+    <tr>
+      <th>Count</th>
+      <th>Count</th>
+      <th>%</th>
+      <th>Count</th>
+      <th>%</th>
+      <th>Count</th>
+      <th>%</th>
+    </tr>
+  </thead>`;
+
+  const body = args.rows
+    .map(
+      (r, i) => `<tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(dash(r.course_name))}</td>
+        <td>${escapeHtml(dash(r.course_group))}</td>
+        <td>${escapeHtml(dash(r.course_year))}</td>
+        <td>${escapeHtml(dash(r.Appeared ?? r.appeared))}</td>
+        <td>${escapeHtml(dash(r.passed))}</td>
+        <td>${escapeHtml(dash(r.Pass_percentage ?? r.Passed_percent))}</td>
+        <td>${escapeHtml(dash(r.Promoted))}</td>
+        <td>${escapeHtml(dash(r.Promoted_Percentage))}</td>
+        <td>${escapeHtml(dash(r.Detained))}</td>
+        <td>${escapeHtml(dash(r.Detained_Percentage))}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const titleRow = `<tr><th colspan="11" style="text-align:center;font-size:18px;font-weight:bold;background:#f2f2f2;">${escapeHtml(args.title)}${args.subtitle ? ` (${escapeHtml(args.subtitle)})` : ""}</th></tr>`;
+  exportHtmlTable(
+    "Final Result Analysis.xls",
+    titleRow,
+    `${head}<tbody>${body}</tbody>`,
+  );
+}
+
+function exportGradewiseExcel(args: {
+  title: string;
+  subtitle: string;
+  rows: Row[];
+}): void {
+  if (!args.rows.length) return;
+
+  const keys = gradewiseDataKeys(args.rows[0]);
+  const head = `<thead><tr><th>S.No</th>${keys
+    .map((k) => `<th>${escapeHtml(headerLabel(k))}</th>`)
+    .join("")}</tr></thead>`;
+  const body = args.rows
+    .map(
+      (r, i) =>
+        `<tr><td>${i + 1}</td>${keys.map((k) => `<td>${escapeHtml(dash(r[k]))}</td>`).join("")}</tr>`,
+    )
+    .join("");
+
+  const titleRow = `<tr><th colspan="${keys.length + 1}" style="text-align:center;font-size:18px;font-weight:bold;background:#f2f2f2;">${escapeHtml(args.title)}${args.subtitle ? ` (${escapeHtml(args.subtitle)})` : ""}</th></tr>`;
+  exportHtmlTable(
+    "Subject & GradeWise Report.xls",
+    titleRow,
+    `${head}<tbody>${body}</tbody>`,
+  );
+}
+
+function printGradewiseReport(args: {
+  collegeName: string;
+  title: string;
+  examLabel: string;
+  courseGroup: string;
+  rows: Row[];
+}): void {
+  if (!args.rows.length) return;
+
+  const keys = gradewiseDataKeys(args.rows[0]);
+  const head = `<thead><tr><th>S.No</th>${keys
+    .map((k) => `<th>${escapeHtml(headerLabel(k))}</th>`)
+    .join("")}</tr></thead>`;
+  const body = args.rows
+    .map(
+      (r, i) =>
+        `<tr><td>${i + 1}</td>${keys.map((k) => `<td>${escapeHtml(dash(r[k]))}</td>`).join("")}</tr>`,
+    )
+    .join("");
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(args.title)}</title>
+<style>
+@page { size: A4 landscape; margin: 10mm; }
+body { font: 11px/1.35 "Times New Roman", Times, serif; color: #000; margin: 0; }
+.college { font-size: 16px; font-weight: 700; text-align: center; margin: 0 0 4px; }
+.title { font-size: 14px; font-weight: 700; text-align: center; margin: 0 0 4px; }
+.meta { text-align: center; margin: 0 0 8px; color: #222; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #000; padding: 4px 5px; text-align: center; }
+th { font-weight: 700; background: #f2f2f2; }
+</style></head><body>
+${args.collegeName ? `<p class="college">${escapeHtml(args.collegeName)}</p>` : ""}
+<p class="title">${escapeHtml(args.title)}</p>
+${args.examLabel ? `<p class="meta">${escapeHtml(args.examLabel)}</p>` : ""}
+${args.courseGroup ? `<p class="meta">Course Group : ${escapeHtml(args.courseGroup)}</p>` : ""}
+<table>${head}<tbody>${body}</tbody></table>
+</body></html>`;
+
+  printHtmlInIframe(html);
 }
 
 function printFinalAnalysisReport(args: {
@@ -560,8 +803,6 @@ export function ExamFinalAnalysisReportPage({
   const [courseGroupId, setCourseGroupId] = useState("");
   const [courseYearId, setCourseYearId] = useState("");
   const [isReevaluation, setIsReevaluation] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const collegeLogo = useCollegeLogo(Number(collegeId) || null);
 
   useEffect(() => {
@@ -754,39 +995,57 @@ export function ExamFinalAnalysisReportPage({
     }
   }
 
-  // Final analysis uses an HTML table (not AG Grid), so these defs are for other kinds only.
-  const columnDefs = useMemo<ColDef<Row>[]>(() => {
-    if (kind === "final-analysis") return [];
+  const columnDefs = useMemo<(ColDef<Row> | ColGroupDef<Row>)[]>(() => {
+    if (kind === "final-analysis") return finalAnalysisColumnDefs;
     if (kind === "gradewise" && rows.length > 0)
       return buildGradewiseCols(rows[0]);
     if (kind === "result-sheets") return resultSheetsCols;
     return groupSubjectwiseCols;
   }, [kind, rows]);
 
-  const filteredFinalRows = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [
-        r.course_name,
-        r.course_group,
-        r.course_year,
-        r.Appeared,
-        r.appeared,
-        r.passed,
-        r.Promoted,
-        r.Detained,
-      ]
-        .map((v) => String(v ?? "").toLowerCase())
-        .some((v) => v.includes(q)),
-    );
-  }, [rows, searchText]);
-
   const getRowId = useCallback(
-    (p: { data?: Row; node?: { rowIndex?: number | null } }) =>
-      `row-${p.node?.rowIndex ?? 0}-${txt(p.data?.hallticket_number)}-${txt(p.data?.SUBJECT)}-${txt(p.data?.course_group)}`,
-    [],
+    (p: { data?: Row }) => {
+      if (kind === "final-analysis") {
+        return `${txt(p.data?.course_group)}-${txt(p.data?.course_year)}-${txt(p.data?.course_name)}`;
+      }
+      if (kind === "gradewise") {
+        const keys = gradewiseDataKeys(p.data ?? {});
+        return `gradewise-${keys.map((k) => txt(p.data?.[k])).join("-")}`;
+      }
+      return `${txt(p.data?.hallticket_number)}-${txt(p.data?.SUBJECT)}-${txt(p.data?.course_group)}`;
+    },
+    [kind],
   );
+
+  const handleExportExcel = useCallback(() => {
+    if (rows.length === 0) return;
+
+    const college =
+      colleges.find((r) => num(r.fk_college_id) === Number(collegeId)) ?? null;
+    const collegeCode =
+      txt(college?.college_code) || txt(rows[0]?.college_code) || "";
+    const exam =
+      txt(rows[0]?.exam_label_name) ||
+      txt(exams.find((r) => num(r.fk_exam_id) === Number(examId))?.exam_name) ||
+      "";
+
+    if (kind === "final-analysis") {
+      exportFinalAnalysisExcel({
+        title: "Result Analysis Report",
+        subtitle: [collegeCode, exam].filter(Boolean).join(" / "),
+        rows,
+      });
+      return;
+    }
+
+    if (kind === "gradewise") {
+      exportGradewiseExcel({
+        title: "Subject & GradeWise Result Analysis",
+        subtitle: [collegeCode, exam].filter(Boolean).join(" / "),
+        rows,
+      });
+    }
+  }, [kind, rows, colleges, collegeId, exams, examId]);
 
   const filterFields = (
     <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
@@ -922,7 +1181,6 @@ export function ExamFinalAnalysisReportPage({
             setRows([]);
             setHasFetched(false);
             setIsReevaluation(false);
-            setSearchText("");
             const c = courses[0];
             if (c) setCourseId(String(num(c.fk_course_id)));
           }}
@@ -933,202 +1191,6 @@ export function ExamFinalAnalysisReportPage({
     </div>
   );
 
-  if (kind === "final-analysis") {
-    const th =
-      "border border-slate-300 bg-slate-100 px-2 py-2 text-center text-[12px] font-semibold text-slate-800";
-    const thSub =
-      "border border-slate-300 bg-slate-50 px-2 py-1.5 text-center text-[12px] font-medium text-slate-700";
-    const td = "border border-slate-200 px-2 py-2 text-[13px] text-slate-800";
-    const tdNum = `${td} text-center tabular-nums`;
-
-    return (
-      <PageContainer className="space-y-4">
-        {/* Same shell as FilteredListPage / DataTable — title + collapsible filters + toolbar */}
-        <div className="app-data-table app-data-table-card flex flex-col">
-          <div
-            className={cn(
-              "app-data-table-heading px-5",
-              filtersOpen ? "pt-5 pb-0" : "pt-5 pb-3",
-            )}
-          >
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-2 text-left"
-              onClick={() => setFiltersOpen((o) => !o)}
-              aria-expanded={filtersOpen}
-              aria-label="Toggle filters"
-            >
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                {title}
-              </h2>
-              <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
-                <Filter className="h-3.5 w-3.5" aria-hidden />
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 transition-transform duration-300",
-                    filtersOpen && "rotate-180",
-                  )}
-                  aria-hidden
-                />
-              </span>
-            </button>
-          </div>
-
-          <div
-            className={cn(
-              "grid transition-[grid-template-rows] duration-300 ease-in-out",
-              filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-            )}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <div className="global-filter-bar__inner px-5 pb-1 [&_.global-filter-bar__inner]:!pt-0">
-                {filterFields}
-              </div>
-            </div>
-          </div>
-
-          {hasFetched ? (
-            <>
-              <div className="app-data-table-toolbar-wrap bg-card px-5 pb-3 pt-2">
-                <DataTableToolbar
-                  searchEnabled
-                  searchQuery={searchText}
-                  onSearchChange={setSearchText}
-                  searchPlaceholder="Search…"
-                  rowCount={filteredFinalRows.length}
-                  columnPickerEnabled={false}
-                  exportExcelEnabled={false}
-                  exportPdfEnabled={false}
-                  onExportExcel={() => {}}
-                  onExportPdf={() => {}}
-                  lockColumnIds={[]}
-                  getColumns={() => null}
-                  applyColumnVisible={() => {}}
-                  endActions={
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-9 text-[12px]"
-                      onClick={() => {
-                        const college =
-                          colleges.find(
-                            (r) => num(r.fk_college_id) === Number(collegeId),
-                          ) ?? null;
-                        const course =
-                          courses.find(
-                            (r) => num(r.fk_course_id) === Number(courseId),
-                          ) ?? null;
-
-                        printFinalAnalysisReport({
-                          collegeName:
-                            txt(college?.college_name) ||
-                            txt(rows[0]?.college_name) ||
-                            txt(college?.college_code) ||
-                            "",
-                          courseLabel:
-                            txt(course?.course_code) ||
-                            txt(filteredFinalRows[0]?.course_name) ||
-                            "",
-                          title,
-                          logoUrl: collegeLogo,
-                          rows: filteredFinalRows,
-                        });
-                      }}
-                    >
-                      <Printer className="mr-1.5 h-3.5 w-3.5" />
-                      Print Report
-                    </Button>
-                  }
-                />
-              </div>
-
-              <div className="overflow-x-auto px-5 pb-5">
-                {loading ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    Loading…
-                  </p>
-                ) : filteredFinalRows.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
-                    No Records Found.
-                  </p>
-                ) : (
-                  <table className="w-full min-w-[900px] border-collapse">
-                    <thead>
-                      <tr>
-                        <th rowSpan={2} className={th}>
-                          SL.No
-                        </th>
-                        <th rowSpan={2} className={th}>
-                          Course
-                        </th>
-                        <th rowSpan={2} className={th}>
-                          Course Group
-                        </th>
-                        <th rowSpan={2} className={th}>
-                          Course Year
-                        </th>
-                        <th colSpan={1} className={th}>
-                          Appeared
-                        </th>
-                        <th colSpan={2} className={th}>
-                          Passed
-                        </th>
-                        <th colSpan={2} className={th}>
-                          Promoted
-                        </th>
-                        <th colSpan={2} className={th}>
-                          Detained
-                        </th>
-                      </tr>
-                      <tr>
-                        <th className={thSub}>Count</th>
-                        <th className={thSub}>Count</th>
-                        <th className={thSub}>%</th>
-                        <th className={thSub}>Count</th>
-                        <th className={thSub}>%</th>
-                        <th className={thSub}>Count</th>
-                        <th className={thSub}>%</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredFinalRows.map((r, i) => (
-                        <tr
-                          key={`fa-${i}-${txt(r.course_group)}-${txt(r.course_year)}`}
-                        >
-                          <td className={tdNum}>{i + 1}</td>
-                          <td className={td}>{dash(r.course_name)}</td>
-                          <td className={`${td} text-center`}>
-                            {dash(r.course_group)}
-                          </td>
-                          <td className={td}>{dash(r.course_year)}</td>
-                          <td className={tdNum}>
-                            {dash(r.Appeared ?? r.appeared)}
-                          </td>
-                          <td className={tdNum}>{dash(r.passed)}</td>
-                          <td className={tdNum}>
-                            {dash(r.Pass_percentage ?? r.Passed_percent)}
-                          </td>
-                          <td className={tdNum}>{dash(r.Promoted)}</td>
-                          <td className={tdNum}>
-                            {dash(r.Promoted_Percentage)}
-                          </td>
-                          <td className={tdNum}>{dash(r.Detained)}</td>
-                          <td className={tdNum}>
-                            {dash(r.Detained_Percentage)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </>
-          ) : null}
-        </div>
-      </PageContainer>
-    );
-  }
-
   return (
     <FilteredListPage
       title={title}
@@ -1137,8 +1199,20 @@ export function ExamFinalAnalysisReportPage({
       columnDefs={columnDefs}
       loading={loading}
       pagination
+      paginationPageSize={kind === "final-analysis" ? 10 : 25}
       getRowId={getRowId}
-      toolbar={{ search: true, searchPlaceholder: "Search…", exportPdf: false }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search…",
+        exportPdf: false,
+        exportExcel:
+          kind === "final-analysis" || kind === "gradewise" ? true : undefined,
+      }}
+      onExportExcel={
+        kind === "final-analysis" || kind === "gradewise"
+          ? handleExportExcel
+          : undefined
+      }
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
           <Button
@@ -1146,6 +1220,59 @@ export function ExamFinalAnalysisReportPage({
             size="sm"
             className="h-9 text-[12px]"
             onClick={() => {
+              if (kind === "final-analysis") {
+                const college =
+                  colleges.find(
+                    (r) => num(r.fk_college_id) === Number(collegeId),
+                  ) ?? null;
+                const course =
+                  courses.find(
+                    (r) => num(r.fk_course_id) === Number(courseId),
+                  ) ?? null;
+
+                printFinalAnalysisReport({
+                  collegeName:
+                    txt(college?.college_name) ||
+                    txt(rows[0]?.college_name) ||
+                    txt(college?.college_code) ||
+                    "",
+                  courseLabel:
+                    txt(course?.course_code) || txt(rows[0]?.course_name) || "",
+                  title,
+                  logoUrl: collegeLogo,
+                  rows,
+                });
+                return;
+              }
+              if (kind === "gradewise") {
+                const college =
+                  colleges.find(
+                    (r) => num(r.fk_college_id) === Number(collegeId),
+                  ) ?? null;
+                const group =
+                  courseGroups.find(
+                    (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+                  ) ?? null;
+                const examRow =
+                  exams.find((r) => num(r.fk_exam_id) === Number(examId)) ??
+                  null;
+                printGradewiseReport({
+                  collegeName:
+                    txt(college?.college_name) ||
+                    txt(college?.college_code) ||
+                    txt(rows[0]?.college_name) ||
+                    "",
+                  title: "Subject & GradeWise Result Analysis",
+                  examLabel:
+                    txt(rows[0]?.exam_label_name) ||
+                    (examRow ? examMasterLabel(examRow) : "") ||
+                    "",
+                  courseGroup:
+                    txt(group?.group_code) || txt(rows[0]?.course_group) || "",
+                  rows,
+                });
+                return;
+              }
               if (kind === "group-subjectwise") {
                 const college =
                   colleges.find(

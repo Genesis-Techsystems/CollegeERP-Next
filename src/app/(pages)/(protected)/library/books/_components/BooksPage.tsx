@@ -84,19 +84,19 @@ function makeActionsRenderer(
     if (searchMode === "book") qs.set("check", "1");
     if (searchMode === "all") qs.set("check", "2");
     return (
-      <div className="flex min-h-[3rem] flex-wrap items-center gap-x-2 gap-y-1 py-2 text-[12px] leading-snug">
+      <div className="flex items-center gap-2 whitespace-nowrap py-1 text-[12px]">
         <Link
           href={`/library/add-more-books?${qs}`}
-          className="shrink-0 whitespace-nowrap text-primary hover:underline"
+          className="text-primary hover:underline"
         >
           Add More Books
         </Link>
-        <span className="shrink-0 text-muted-foreground" aria-hidden>
+        <span className="text-muted-foreground" aria-hidden>
           |
         </span>
         <Link
           href={`/library/book-details?${qs}`}
-          className="shrink-0 whitespace-nowrap text-primary hover:underline"
+          className="text-primary hover:underline"
         >
           Book Details
         </Link>
@@ -393,8 +393,12 @@ export function BooksPage() {
   async function handleGenerateBarcode() {
     setGeneratingBarcode(true);
     try {
-      await generateBooksBarcode();
-      toastSuccess("Book barcodes generated");
+      const result = await generateBooksBarcode();
+      if (!result.success) {
+        toastError(result.message);
+        return;
+      }
+      toastSuccess(result.message);
     } catch (e) {
       toastError(e, "Could not generate book barcodes");
     } finally {
@@ -437,11 +441,9 @@ export function BooksPage() {
       },
       {
         headerName: "Actions",
-        minWidth: 220,
-        width: 220,
+        minWidth: 260,
+        width: 260,
         flex: 0,
-        autoHeight: true,
-        wrapText: true,
         sortable: false,
         cellRenderer: makeActionsRenderer(
           collegeId,
@@ -456,6 +458,8 @@ export function BooksPage() {
   );
 
   const tableLoading = searchMode === "all" ? loadingCategoryBooks : false;
+  const resultsVisible =
+    searchMode === "book" ? selectedBookId != null : filtersReady;
 
   return (
     <FilteredListPage
@@ -547,6 +551,14 @@ export function BooksPage() {
               />
             ) : null}
           </div>
+          <div className="flex justify-end">
+            <Button asChild size="sm" className="h-[30px] px-3 text-[12px]">
+              <Link href="/library/add-books">
+                <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+                Add Books
+              </Link>
+            </Button>
+          </div>
         </div>
       }
       filtersCollapsible
@@ -554,6 +566,7 @@ export function BooksPage() {
       rowData={tableRows}
       columnDefs={columnDefs}
       loading={tableLoading}
+      resultsVisible={resultsVisible}
       pagination
       height="auto"
       toolbar={{
@@ -562,24 +575,16 @@ export function BooksPage() {
         pdfDocumentTitle: "Books",
       }}
       toolbarTrailing={
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-[30px] px-3 text-[12px]"
-            disabled={generatingBarcode || tableRows.length === 0}
-            onClick={() => void handleGenerateBarcode()}
-          >
-            Generate Book BarCode
-          </Button>
-          <Button asChild size="sm" className="h-[30px] px-3 text-[12px]">
-            <Link href="/library/add-books">
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              Add Books
-            </Link>
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-[30px] px-3 text-[12px]"
+          disabled={generatingBarcode || tableRows.length === 0}
+          onClick={() => void handleGenerateBarcode()}
+        >
+          Generate Book BarCode
+        </Button>
       }
     >
       <EditBookModal

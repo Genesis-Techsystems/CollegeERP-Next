@@ -6,6 +6,7 @@ import { Select } from "@/common/components/select";
 import { toDateStr } from "@/common/generic-functions";
 import {
   autoAssignInvigilators,
+  flattenExamRoomAllotmentRow,
   getUnivExamFiltersRegSup,
   listAcademicYearsByUniversity,
   listActiveColleges,
@@ -15,12 +16,13 @@ import {
   listExamRoomAllotments,
   listExamTimetablesByExam,
   listInvigilatorDesignations,
-} from "@/services/pre-examination";
+} from "@/services";
 import { FilteredPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   InvigilatorAllotmentModal,
   type InvigilatorModalContext,
@@ -53,6 +55,63 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
     return true;
   });
 };
+
+const ROOM_ID_KEYS = [
+  "roomId",
+  "fk_room_id",
+  "fkRoomId",
+  "pk_room_id",
+] as const;
+
+function resolveRoomId(row: AnyRow | null | undefined): number {
+  if (!row) return 0;
+  const top = pickNum(row, [...ROOM_ID_KEYS]);
+  if (top > 0) return top;
+  const nested = row.room ?? row.Room;
+  return pickNum(nested, [...ROOM_ID_KEYS]);
+}
+
+/**
+ * Angular `SelectedTimetabelEmployees` — attach invigilations to room tiles,
+ * and push invigilation-only rooms (examRoomAllotmentId null) into the list.
+ */
+function mergeRoomsWithInvigilations(
+  roomAllotments: AnyRow[],
+  invigilations: AnyRow[],
+): AnyRow[] {
+  const rooms: AnyRow[] = roomAllotments.map((r) => {
+    const flat = flattenExamRoomAllotmentRow(r);
+    return {
+      ...flat,
+      examInvigilationAllotmentsList: [] as AnyRow[],
+    };
+  });
+
+  for (const inv of invigilations) {
+    const roomId = resolveRoomId(inv);
+    if (!roomId) continue;
+    const existing = rooms.find((r) => resolveRoomId(r) === roomId);
+    if (existing) {
+      const list = Array.isArray(existing.examInvigilationAllotmentsList)
+        ? existing.examInvigilationAllotmentsList
+        : [];
+      list.push(inv);
+      existing.examInvigilationAllotmentsList = list;
+    } else {
+      rooms.push({
+        roomId,
+        roomName: pickText(inv, ["roomName", "room_name"]),
+        roomCode: pickText(inv, ["roomCode", "room_code"]),
+        buildingCode: pickText(inv, ["buildingCode", "building_code"]),
+        blockCode: pickText(inv, ["blockCode", "block_code"]),
+        floorNo: inv.floorNo ?? inv.floor_no ?? "",
+        examRoomAllotmentId: null,
+        examInvigilationAllotmentsList: [inv],
+      });
+    }
+  }
+  return rooms;
+}
 
 /** Angular invigilator-allotment.component — hover “Employee Details” tooltip. */
 function EmployeeDetailsTooltip({
@@ -141,12 +200,13 @@ export default function InvigilatorAllotmentPage() {
   const [examTimetableId, setExamTimetableId] = useState<number | null>(null);
 
   const [rooms, setRooms] = useState<AnyRow[]>([]);
-  const [invigilations, setInvigilations] = useState<AnyRow[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalRoom, setModalRoom] = useState<InvigilatorModalRoom | null>(null);
+  const [modalInitialRows, setModalInitialRows] = useState<AnyRow[]>([]);
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [employeeId, setEmployeeId] = useState<number>(0);
   const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   useEffect(() => {
     async function loadBase() {
@@ -182,7 +242,6 @@ export default function InvigilatorAllotmentPage() {
       setExams([]);
       setExamTimetables([]);
       setRooms([]);
-      setInvigilations([]);
       setAcademicYearId(null);
       setCourseId(null);
       setExamId(null);
@@ -269,7 +328,6 @@ export default function InvigilatorAllotmentPage() {
       setExams([]);
       setExamTimetables([]);
       setRooms([]);
-      setInvigilations([]);
       setExamId(null);
       setExamTimetableId(null);
       if (!courseId || !academicYearId) return;
@@ -303,7 +361,6 @@ export default function InvigilatorAllotmentPage() {
     async function onExam() {
       setExamTimetables([]);
       setRooms([]);
-      setInvigilations([]);
       setExamTimetableId(null);
       setModalOpen(false);
       setModalRoom(null);
@@ -352,13 +409,10 @@ export default function InvigilatorAllotmentPage() {
     onExam();
   }, [examId, filterRows]);
 
-  useEffect(() => {
-    async function onTimetable() {
-      setRooms([]);
-      setInvigilations([]);
-      setModalOpen(false);
-      setModalRoom(null);
-      if (!examTimetableId || !collegeId || !examId) return;
+  async function refreshAllotments() {
+    if (!examTimetableId || !collegeId || !examId) return;
+    setLoadingRooms(true);
+    try {
       const [ra, ia] = await Promise.all([
         listExamRoomAllotments(collegeId, examId, examTimetableId).catch(
           () => [],
@@ -367,23 +421,28 @@ export default function InvigilatorAllotmentPage() {
           () => [],
         ),
       ]);
-      setRooms(Array.isArray(ra) ? ra : []);
-      setInvigilations(Array.isArray(ia) ? ia : []);
+      setRooms(
+        mergeRoomsWithInvigilations(
+          Array.isArray(ra) ? ra : [],
+          Array.isArray(ia) ? ia : [],
+        ),
+      );
+    } finally {
+      setLoadingRooms(false);
     }
-    onTimetable();
-  }, [examTimetableId, collegeId, examId]);
+  }
 
-  const byRoom = useMemo(() => {
-    const map = new Map<number, AnyRow[]>();
-    for (const i of invigilations) {
-      const id = Number(i.roomId ?? i.room?.roomId ?? 0);
-      if (!id) continue;
-      const arr = map.get(id) ?? [];
-      arr.push(i);
-      map.set(id, arr);
+  useEffect(() => {
+    setModalOpen(false);
+    setModalRoom(null);
+    setModalInitialRows([]);
+    if (!examTimetableId || !collegeId || !examId) {
+      setRooms([]);
+      return;
     }
-    return map;
-  }, [invigilations]);
+    void refreshAllotments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on filter triad only
+  }, [examTimetableId, collegeId, examId]);
 
   const selectedCollege = colleges.find(
     (c) =>
@@ -411,10 +470,6 @@ export default function InvigilatorAllotmentPage() {
         "fk_academicYearId",
       ]) === Number(academicYearId),
   );
-  const modalInitialRows = useMemo(() => {
-    if (!modalRoom?.roomId) return [];
-    return byRoom.get(Number(modalRoom.roomId)) ?? [];
-  }, [byRoom, modalRoom]);
   const modalContext = useMemo<InvigilatorModalContext | null>(() => {
     if (!collegeId || !examTimetableId) return null;
     return {
@@ -439,12 +494,18 @@ export default function InvigilatorAllotmentPage() {
     selectedTimetable,
   ]);
   const observer = useMemo(() => {
-    const all = invigilations.filter(
-      (x) =>
-        String(x.invgdesignationCatCode ?? "").toUpperCase() === "OBSERVER",
-    );
-    return all[0] ?? null;
-  }, [invigilations]);
+    for (const room of rooms) {
+      const list = Array.isArray(room.examInvigilationAllotmentsList)
+        ? room.examInvigilationAllotmentsList
+        : [];
+      const found = list.find(
+        (x: AnyRow) =>
+          String(x.invgdesignationCatCode ?? "").toUpperCase() === "OBSERVER",
+      );
+      if (found) return found;
+    }
+    return null;
+  }, [rooms]);
   const colorByDesignationId = useMemo(() => {
     const colors = [
       "#03A9F4",
@@ -463,309 +524,333 @@ export default function InvigilatorAllotmentPage() {
   }, [invigDesgs]);
 
   function openRoomModal(room: AnyRow) {
-    const roomId = Number(room.roomId ?? 0);
-    if (!roomId) return;
+    const flat = flattenExamRoomAllotmentRow(room);
+    const roomId = resolveRoomId(flat);
+    if (!roomId) {
+      toastError(
+        "Room id is missing for this allotment. Cannot open invigilator form.",
+      );
+      return;
+    }
+    const list = Array.isArray(room.examInvigilationAllotmentsList)
+      ? room.examInvigilationAllotmentsList
+      : [];
     setModalRoom({
       roomId,
-      roomName: pickText(room, ["roomName", "room_name"]),
-      roomCode: pickText(room, ["roomCode", "room_code"]),
-      buildingCode: pickText(room, ["buildingCode", "building_code"]),
-      blockCode: pickText(room, ["blockCode", "block_code"]),
-      floorNo: room.floorNo ?? room.floor_no,
+      roomName: pickText(flat, ["roomName", "room_name"]),
+      roomCode: pickText(flat, ["roomCode", "room_code"]),
+      buildingCode: pickText(flat, ["buildingCode", "building_code"]),
+      blockCode: pickText(flat, ["blockCode", "block_code"]),
+      floorNo: flat.floorNo ?? flat.floor_no,
     });
+    setModalInitialRows(
+      list.map((r: AnyRow) => ({
+        ...r,
+        dataDetails: "oldRoom",
+        examTimeTableId: Number(examTimetableId),
+        examTimetableId: Number(examTimetableId),
+        collegeId: Number(collegeId),
+        roomId,
+      })),
+    );
     setModalOpen(true);
   }
 
-  async function refreshAllotments() {
-    if (!examTimetableId || !collegeId || !examId) return;
-    const [ra, ia] = await Promise.all([
-      listExamRoomAllotments(collegeId, examId, examTimetableId).catch(
-        () => [],
-      ),
-      listExamInvigilationAllotments(examTimetableId, collegeId).catch(
-        () => [],
-      ),
-    ]);
-    setRooms(Array.isArray(ra) ? ra : []);
-    setInvigilations(Array.isArray(ia) ? ia : []);
-  }
-
   async function onAutoAssign() {
-    if (!examTimetableId) return;
+    if (!examTimetableId || !examId) return;
     setAutoAssigning(true);
     try {
-      await autoAssignInvigilators(examTimetableId);
+      // Angular autoAssign(): snotify success with result.message for both
+      // success:true and success:false (e.g. "No Records(s) found.").
+      const result = await autoAssignInvigilators({
+        examTimetableId,
+        examId,
+        userId: employeeId,
+      });
       await refreshAllotments();
-      alert("Invigilators auto-assigned successfully");
-    } catch (e: any) {
-      alert(e?.message ?? "Auto assign failed");
+      const msg = String(result?.message ?? "").trim();
+      toastSuccess(msg || "Invigilators auto-assigned successfully");
+    } catch (e: unknown) {
+      toastError(e, "Auto assign failed");
     } finally {
       setAutoAssigning(false);
     }
   }
 
+  const filters = (
+    <GlobalFilterBarRow>
+      <GlobalFilterField label="College">
+        <Select
+          value={collegeId ? String(collegeId) : null}
+          onChange={(v) => setCollegeId(v ? Number(v) : null)}
+          options={colleges.map((c, i) => {
+            const id = pickNum(c, [
+              "collegeId",
+              "fk_college_id",
+              "fk_collegeId",
+            ]);
+            return {
+              value: String(id || i),
+              label:
+                pickText(c, [
+                  "collegeCode",
+                  "college_code",
+                  "collegeName",
+                  "college_name",
+                ]) || "-",
+            };
+          })}
+          placeholder="College"
+        />
+      </GlobalFilterField>
+      <GlobalFilterField label="Exam Year">
+        <Select
+          value={academicYearId ? String(academicYearId) : null}
+          onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+          options={academicYears.map((a, i) => {
+            const id = pickNum(a, [
+              "academicYearId",
+              "fk_academic_year_id",
+              "fk_academicYearId",
+            ]);
+            return {
+              value: String(id || i),
+              label: pickText(a, ["academicYear", "academic_year"]) || "-",
+            };
+          })}
+          placeholder="Exam Year"
+        />
+      </GlobalFilterField>
+      <GlobalFilterField label="Course">
+        <Select
+          value={courseId ? String(courseId) : null}
+          onChange={(v) => setCourseId(v ? Number(v) : null)}
+          options={courses.map((c, i) => {
+            const id = pickNum(c, ["courseId", "fk_course_id", "fk_courseId"]);
+            return {
+              value: String(id || i),
+              label:
+                pickText(c, [
+                  "courseCode",
+                  "course_code",
+                  "courseName",
+                  "course_name",
+                ]) || "-",
+            };
+          })}
+          placeholder="Course"
+        />
+      </GlobalFilterField>
+      <GlobalFilterField label="Exam">
+        <Select
+          value={examId ? String(examId) : null}
+          onChange={(v) => setExamId(v ? Number(v) : null)}
+          options={exams.map((e, i) => {
+            const id = pickNum(e, ["examId", "fk_exam_id", "fk_examId"]);
+            return {
+              value: String(id || i),
+              label: pickText(e, ["examName", "exam_name"]) || "-",
+            };
+          })}
+          placeholder="Exam"
+          searchable
+        />
+      </GlobalFilterField>
+      <GlobalFilterField label="Exam Timetable">
+        <Select
+          value={examTimetableId ? String(examTimetableId) : null}
+          onChange={(v) => setExamTimetableId(v ? Number(v) : null)}
+          options={examTimetables.map((t, i) => {
+            const id = pickNum(t, ["examTimetableId", "exam_timetable_id"]);
+            return {
+              value: String(id || i),
+              label: `${toDateStr(t.examDate)} (${pickText(t, ["examSessionName", "exam_session_name"]) || "-"})`,
+            };
+          })}
+          placeholder="Exam Timetable"
+        />
+      </GlobalFilterField>
+    </GlobalFilterBarRow>
+  );
+
+  const body = examTimetableId ? (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[13px] font-semibold tracking-tight">
+          Exam Allocated Rooms List (
+          {pickText(selectedCollege, ["collegeCode", "college_code"]) || "-"} /{" "}
+          {pickText(selectedCourse, ["courseCode", "course_code"]) || "-"} /{" "}
+          {pickText(selectedExam, ["examName", "exam_name"]) || "-"} /{" "}
+          {toDateStr(selectedTimetable?.examDate) || "-"})
+        </div>
+        <Button
+          className="h-8 text-[12px]"
+          onClick={onAutoAssign}
+          disabled={autoAssigning || loadingRooms}
+        >
+          {autoAssigning ? "Assigning..." : "Auto Assign Invigilators"}
+        </Button>
+      </div>
+
+      <div className="text-[12px]">
+        <span className="font-medium text-blue-700">
+          INVIGILATOR DESIGNATIONS:
+        </span>{" "}
+        {invigDesgs.map((d) => d.generalDetailCode).join(", ") || "-"}
+      </div>
+
+      <div className="rounded border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-[12px]">
+        <span className="font-semibold text-fuchsia-700">OBSERVER:</span>{" "}
+        {observer
+          ? `${observer.invigilatorEmpName ?? "-"} (${observer.invigilatorEmpNumber ?? "-"})`
+          : "currently no observer"}
+      </div>
+
+      {loadingRooms ? (
+        <div className="py-8 text-center text-[12px] text-muted-foreground">
+          Loading rooms…
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 overflow-visible md:grid-cols-3">
+          {rooms.map((r, i) => {
+            const roomId = resolveRoomId(r);
+            const list: AnyRow[] = Array.isArray(
+              r.examInvigilationAllotmentsList,
+            )
+              ? r.examInvigilationAllotmentsList
+              : [];
+            const invigilators = list.filter(
+              (x) =>
+                String(x.invgdesignationCatCode ?? "").toUpperCase() ===
+                "INVIGILATOR",
+            );
+            const roomTitle =
+              pickText(r, ["roomName", "room_name", "roomCode", "room_code"]) ||
+              "-";
+            return (
+              <div
+                key={`room-${roomId || i}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => openRoomModal(r)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openRoomModal(r);
+                  }
+                }}
+                className="cursor-pointer overflow-visible rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
+              >
+                <div className="font-semibold text-[13px]">{roomTitle}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {[r.buildingCode, r.blockCode, r.floorNo]
+                    .filter((x) => x != null && String(x).trim() !== "")
+                    .join(" / ")}
+                </div>
+                <div className="mt-2 space-y-1 text-[12px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium text-slate-600">
+                      INVIGILATOR
+                    </span>
+                    <button
+                      type="button"
+                      className="text-[11px] text-blue-700 underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openRoomModal(r);
+                      }}
+                    >
+                      + Add
+                    </button>
+                  </div>
+                  {invigilators.map((x, idx) => (
+                    <EmployeeDetailsTooltip
+                      key={`inv-${roomId}-${idx}`}
+                      name={pickText(x, [
+                        "invigilatorEmpName",
+                        "employeeName",
+                        "firstName",
+                      ])}
+                      empNumber={pickText(x, [
+                        "invigilatorEmpNumber",
+                        "empNumber",
+                        "employeeCode",
+                      ])}
+                      dept={pickText(x, [
+                        "empDeptName",
+                        "departmentName",
+                        "deptName",
+                      ])}
+                      mobile={pickText(x, [
+                        "mobile",
+                        "mobileNumber",
+                        "mobileNo",
+                      ])}
+                    >
+                      <div
+                        className="rounded border px-2 py-1"
+                        style={{
+                          backgroundColor: `${colorByDesignationId.get(Number(x.invgdesignationCatId ?? 0)) ?? "#E2E8F0"}22`,
+                          borderColor:
+                            colorByDesignationId.get(
+                              Number(x.invgdesignationCatId ?? 0),
+                            ) ?? "#CBD5E1",
+                        }}
+                      >
+                        {x.invigilatorEmpName}{" "}
+                        <span className="text-muted-foreground">
+                          ({x.invigilatorEmpNumber})
+                        </span>
+                      </div>
+                    </EmployeeDetailsTooltip>
+                  ))}
+                  {invigilators.length === 0 && (
+                    <div className="text-muted-foreground">
+                      No invigilator allocated
+                    </div>
+                  )}
+                </div>
+                {r.examRoomAllotmentId == null && (
+                  <div className="mt-2 text-[11px] text-amber-700">
+                    This room not allocated to timetable
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {rooms.length === 0 && (
+            <div className="col-span-full text-[12px] text-muted-foreground">
+              No allocated rooms found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div className="py-6 text-center text-[13px] text-muted-foreground">
+      Select College, Exam Year, Course, Exam and Exam Timetable to view rooms.
+    </div>
+  );
+
   return (
     <FilteredPage
       title="Exam Invigilator Allotment"
-      filters={
-        <GlobalFilterBarRow>
-          <GlobalFilterField label="College">
-            <Select
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : 0)}
-              options={colleges.map((c, i) => {
-                const id = pickNum(c, [
-                  "collegeId",
-                  "fk_college_id",
-                  "fk_collegeId",
-                ]);
-                return {
-                  value: String(id || i),
-                  label:
-                    pickText(c, [
-                      "collegeCode",
-                      "college_code",
-                      "collegeName",
-                      "college_name",
-                    ]) || "-",
-                };
-              })}
-              placeholder="College"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Year">
-            <Select
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-              options={academicYears.map((a, i) => {
-                const id = pickNum(a, [
-                  "academicYearId",
-                  "fk_academic_year_id",
-                  "fk_academicYearId",
-                ]);
-                return {
-                  value: String(id || i),
-                  label: pickText(a, ["academicYear", "academic_year"]) || "-",
-                };
-              })}
-              placeholder="Exam Year"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Course">
-            <Select
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : 0)}
-              options={courses.map((c, i) => {
-                const id = pickNum(c, [
-                  "courseId",
-                  "fk_course_id",
-                  "fk_courseId",
-                ]);
-                return {
-                  value: String(id || i),
-                  label:
-                    pickText(c, [
-                      "courseCode",
-                      "course_code",
-                      "courseName",
-                      "course_name",
-                    ]) || "-",
-                };
-              })}
-              placeholder="Course"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam">
-            <Select
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : 0)}
-              options={exams.map((e, i) => {
-                const id = pickNum(e, ["examId", "fk_exam_id", "fk_examId"]);
-                return {
-                  value: String(id || i),
-                  label: pickText(e, ["examName", "exam_name"]) || "-",
-                };
-              })}
-              placeholder="Exam"
-            />
-          </GlobalFilterField>
-          <GlobalFilterField label="Exam Timetable">
-            <Select
-              value={examTimetableId ? String(examTimetableId) : null}
-              onChange={(v) => setExamTimetableId(v ? Number(v) : 0)}
-              options={examTimetables.map((t, i) => {
-                const id = pickNum(t, ["examTimetableId", "exam_timetable_id"]);
-                return {
-                  value: String(id || i),
-                  label: `${toDateStr(t.examDate)} (${pickText(t, ["examSessionName", "exam_session_name"]) || "-"})`,
-                };
-              })}
-              placeholder="Exam Timetable"
-            />
-          </GlobalFilterField>
-        </GlobalFilterBarRow>
-      }
+      filters={filters}
+      body={body}
     >
-      {examTimetableId && (
-        <>
-          <div className="app-card p-3 flex items-center justify-between">
-            <div className="text-[12px]">
-              Exam Allocated Rooms List ({selectedCollege?.collegeCode ?? ""} /{" "}
-              {selectedCourse?.courseCode ?? ""} /{" "}
-              {selectedExam?.examName ?? ""} /{" "}
-              {toDateStr(selectedTimetable?.examDate)})
-            </div>
-            <Button
-              className="h-8 text-[12px]"
-              onClick={onAutoAssign}
-              disabled={autoAssigning}
-            >
-              {autoAssigning ? "Assigning..." : "Auto Assign Invigilators"}
-            </Button>
-          </div>
-
-          <div className="app-card p-4">
-            <div className="text-[12px] mb-3">
-              <span className="text-blue-700 font-medium">
-                INVIGILATOR DESIGNATIONS:
-              </span>{" "}
-              {invigDesgs.map((d) => d.generalDetailCode).join(", ")}
-            </div>
-            <div className="mb-4 rounded border border-fuchsia-200 bg-fuchsia-50 px-3 py-2 text-[12px]">
-              <span className="font-semibold text-fuchsia-700">OBSERVER:</span>{" "}
-              {observer
-                ? `${observer.invigilatorEmpName ?? "-"} (${observer.invigilatorEmpNumber ?? "-"})`
-                : "currently no observer"}
-            </div>
-            <div className="grid grid-cols-1 gap-3 overflow-visible md:grid-cols-3">
-              {rooms.map((r, i) => {
-                const roomId = Number(r.roomId ?? 0);
-                const list = byRoom.get(roomId) ?? [];
-                return (
-                  <div
-                    key={`room-${roomId || i}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => openRoomModal(r)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openRoomModal(r);
-                      }
-                    }}
-                    className="cursor-pointer overflow-visible rounded-md border p-3 text-left transition-colors hover:bg-muted/40"
-                  >
-                    <div className="font-semibold text-[13px]">
-                      {r.roomName ?? r.roomCode ?? "-"}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {r.buildingCode ?? ""}{" "}
-                      {r.blockCode ? ` / ${r.blockCode}` : ""}{" "}
-                      {r.floorNo ? ` / ${r.floorNo}` : ""}
-                    </div>
-                    <div className="mt-2 space-y-1 text-[12px]">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-slate-600">
-                          INVIGILATOR
-                        </span>
-                        <button
-                          type="button"
-                          className="text-[11px] text-blue-700 underline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openRoomModal(r);
-                          }}
-                        >
-                          + Add
-                        </button>
-                      </div>
-                      {list
-                        .filter(
-                          (x) =>
-                            String(x.invgdesignationCatCode).toUpperCase() ===
-                            "INVIGILATOR",
-                        )
-                        .map((x, idx) => (
-                          <EmployeeDetailsTooltip
-                            key={`inv-${idx}`}
-                            name={pickText(x, [
-                              "invigilatorEmpName",
-                              "employeeName",
-                              "firstName",
-                            ])}
-                            empNumber={pickText(x, [
-                              "invigilatorEmpNumber",
-                              "empNumber",
-                              "employeeCode",
-                            ])}
-                            dept={pickText(x, [
-                              "empDeptName",
-                              "departmentName",
-                              "deptName",
-                            ])}
-                            mobile={pickText(x, [
-                              "mobile",
-                              "mobileNumber",
-                              "mobileNo",
-                            ])}
-                          >
-                            <div
-                              className="rounded border px-2 py-1"
-                              style={{
-                                backgroundColor: `${colorByDesignationId.get(Number(x.invgdesignationCatId ?? 0)) ?? "#E2E8F0"}22`,
-                                borderColor:
-                                  colorByDesignationId.get(
-                                    Number(x.invgdesignationCatId ?? 0),
-                                  ) ?? "#CBD5E1",
-                              }}
-                            >
-                              {x.invigilatorEmpName}{" "}
-                              <span className="text-muted-foreground">
-                                ({x.invigilatorEmpNumber})
-                              </span>
-                            </div>
-                          </EmployeeDetailsTooltip>
-                        ))}
-                      {list.filter(
-                        (x) =>
-                          String(x.invgdesignationCatCode).toUpperCase() ===
-                          "INVIGILATOR",
-                      ).length === 0 && (
-                        <div className="text-muted-foreground">
-                          No invigilator allocated
-                        </div>
-                      )}
-                    </div>
-                    {r.examRoomAllotmentId == null && (
-                      <div className="mt-2 text-[11px] text-amber-700">
-                        This room not allocated to timetable
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {rooms.length === 0 && (
-                <div className="text-[12px] text-muted-foreground">
-                  No allocated rooms found
-                </div>
-              )}
-            </div>
-          </div>
-
-          <InvigilatorAllotmentModal
-            open={modalOpen}
-            onClose={() => {
-              setModalOpen(false);
-              setModalRoom(null);
-            }}
-            context={modalContext}
-            room={modalRoom}
-            initialRows={modalInitialRows}
-            invigDesgs={invigDesgs}
-            onSaved={refreshAllotments}
-          />
-        </>
-      )}
+      <InvigilatorAllotmentModal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setModalRoom(null);
+          setModalInitialRows([]);
+        }}
+        context={modalContext}
+        room={modalRoom}
+        initialRows={modalInitialRows}
+        invigDesgs={invigDesgs}
+        onSaved={refreshAllotments}
+      />
     </FilteredPage>
   );
 }

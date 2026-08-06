@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NoticeAlert } from "@/common/components/feedback";
 import { useSessionContext } from "@/context/SessionContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +23,7 @@ import {
   listRegulations,
   updateExamGrade,
 } from "@/services/examination";
-import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 
@@ -83,10 +82,6 @@ export default function GradeSetupPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
   const [formErrors, setFormErrors] = useState<{
     gradeName?: string;
     gradeCode?: string;
@@ -189,7 +184,6 @@ export default function GradeSetupPage() {
   }
 
   const openAdd = useCallback(() => {
-    setNotice(null);
     setFormErrors({});
     setEditing(null);
     setForm({
@@ -208,7 +202,6 @@ export default function GradeSetupPage() {
   }, []);
 
   const openEdit = useCallback((row: any) => {
-    setNotice(null);
     setFormErrors({});
     setEditing(row);
     setForm({
@@ -254,7 +247,6 @@ export default function GradeSetupPage() {
     if (Object.keys(nextErrors).length > 0) return;
 
     setSaving(true);
-    setNotice(null);
     try {
       const payload: Record<string, unknown> = {
         gradeCode: form.gradeCode,
@@ -270,6 +262,7 @@ export default function GradeSetupPage() {
           form.toPercentage === "" ? null : Number(form.toPercentage),
         creditPoints:
           form.creditPoints === "" ? null : Number(form.creditPoints),
+        isForDisabled,
       };
 
       const id = editing?.examGradesId ?? editing?.examGradeId ?? editing?.id;
@@ -284,18 +277,16 @@ export default function GradeSetupPage() {
           universityId: selectedUniversityId,
           courseId: selectedCourseId,
           regulationId: selectedRegulationId,
-          isForDisabled,
         });
       }
 
-      setNotice({
-        type: "success",
-        message: `Exam grade ${id != null ? "updated" : "created"} successfully.`,
-      });
+      toastSuccess(
+        `Exam grade ${id != null ? "updated" : "created"} successfully.`,
+      );
       closeModal();
       await handleGetList();
     } catch (error: unknown) {
-      setNotice({ type: "error", message: getErrorMessage(error) });
+      toastError(error);
     } finally {
       setSaving(false);
     }
@@ -403,26 +394,6 @@ export default function GradeSetupPage() {
   return (
     <FilteredListPage
       title="Grade Setup"
-      notice={
-        notice ? (
-          <NoticeAlert
-            type={notice.type}
-            title={notice.message}
-            showIcon
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-[12px]"
-                onClick={() => setNotice(null)}
-              >
-                Close
-              </Button>
-            }
-          />
-        ) : null
-      }
       filters={
         <CollegeFilterPanel
           shell="bare"
@@ -449,7 +420,7 @@ export default function GradeSetupPage() {
         >
           <Button
             onClick={handleGetList}
-            disabled={!selectedCourseId || !selectedRegulationId || loadingList}
+            disabled={loadingList}
             className="h-[30px] px-3 text-[12px] shrink-0"
           >
             Get List
@@ -459,6 +430,7 @@ export default function GradeSetupPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      resultsVisible={hasFetched}
       pagination
       paginationPageSize={10}
       toolbar={{

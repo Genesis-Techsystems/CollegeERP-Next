@@ -23,6 +23,7 @@ import type {
   StudentFeeSearchRow,
   StudentFeeStructureRow,
 } from "@/types/fees-collection";
+import { resolveCategoryPayHref } from "../_lib/pay-fees-mode";
 import { buildPayFeesSearchParams } from "../_lib/pay-fees-params";
 import { FeeDetailsModal, type FeeDetailsModalTarget } from "./FeeDetailsModal";
 import { FeeStudentProfileCard } from "./FeeStudentProfileCard";
@@ -77,6 +78,27 @@ function amtValue(v: unknown): string {
   if (v == null || v === "") return "0";
   const n = Number(v);
   return Number.isFinite(n) ? String(n) : String(v);
+}
+
+function structureRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
+  const row = p.data;
+  if (!row) return null;
+  // Angular: isActive from feeStudentDataDTO
+  const active = Boolean(row.isActive ?? row.feeStudentDataDTO?.isActive);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      <span>{row.structureName ?? "—"}</span>
+      <span
+        className={
+          active
+            ? "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-50"
+            : "rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 bg-slate-100"
+        }
+      >
+        {active ? "Active" : "In Active"}
+      </span>
+    </span>
+  );
 }
 
 function makePayRenderer(
@@ -240,9 +262,7 @@ export function StudentCategoryFeeList({
     (row: StudentFeeStructureRow) => {
       if (!selectedStudent) return;
       const params = buildPayFeesSearchParams(selectedStudent, row, payPage);
-      router.push(
-        `/accounts-and-fees/fees-collection/payment/pay-fees?${params}`,
-      );
+      router.push(resolveCategoryPayHref(payPage, params));
     },
     [selectedStudent, payPage, router],
   );
@@ -319,7 +339,11 @@ export function StudentCategoryFeeList({
 
     return [
       { headerName: "SI.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
-      { field: "structureName", headerName: "Structure", minWidth: 160 },
+      {
+        headerName: "Structure",
+        minWidth: 200,
+        cellRenderer: structureRenderer,
+      },
       {
         headerName: "Course",
         minWidth: 180,
@@ -365,20 +389,22 @@ export function StudentCategoryFeeList({
   );
 
   if (useFilteredShell) {
+    const showTable = Boolean(selectedStudent && studentNum > 0);
     return (
       <FilteredListPage
         title={title}
         filters={
           <div className="space-y-4">
             {studentFilter}
-            {selectedStudent && studentNum > 0 ? (
-              <FeeStudentProfileCard student={selectedStudent} />
+            {showTable ? (
+              <FeeStudentProfileCard student={selectedStudent!} />
             ) : null}
           </div>
         }
-        columnDefs={columnDefs}
-        rowData={selectedStudent && studentNum > 0 ? feeRows : []}
-        loading={isLoading && studentNum > 0}
+        columnDefs={showTable ? columnDefs : undefined}
+        body={showTable ? undefined : null}
+        rowData={showTable ? feeRows : []}
+        loading={showTable && isLoading}
         height="auto"
         pagination
         toolbar={{

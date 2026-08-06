@@ -2,19 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { format, isValid, parseISO } from "date-fns";
 import { GraduationCap } from "lucide-react";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select as CommonSelect } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   getExternalAttendanceFilters,
   getExternalAttendanceRestFilters,
@@ -27,6 +22,56 @@ import {
 import { toastError, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
+
+function ymdToDate(ymd: string): Date | null {
+  if (!ymd) return null;
+  try {
+    const d = parseISO(String(ymd).slice(0, 10));
+    return isValid(d) ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Angular `date:'MMM d, y'` */
+function formatExamDateLabel(raw: unknown): string {
+  if (!raw) return "";
+  try {
+    const d = parseISO(String(raw).slice(0, 10));
+    return isValid(d) ? format(d, "MMM d, yyyy") : String(raw).slice(0, 10);
+  } catch {
+    return String(raw).slice(0, 10);
+  }
+}
+
+/** Angular exam mat-option: name (from - to) + (Regular)/(Supple) badges */
+function formatExamLabel(row: AnyRow): string {
+  const name = String(row.exam_name ?? row.examName ?? "Exam");
+  const from = formatExamDateLabel(row.from_date ?? row.fromDate);
+  const to = formatExamDateLabel(row.to_date ?? row.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const badges: string[] = [];
+  if (row.is_internal_exam) badges.push("Internal");
+  if (row.is_regular_exam) badges.push("Regular");
+  if (row.is_supply_exam) badges.push("Supple");
+  const badgeText = badges.length ? ` (${badges.join(", ")})` : "";
+  return `${name}${range}${badgeText}`;
+}
+
+/** Angular subject mat-option label */
+function formatSubjectLabel(row: AnyRow): string {
+  const name = String(row.subject_name ?? row.subjectName ?? "");
+  const code = String(row.subject_code ?? row.subjectCode ?? "");
+  const reg = String(row.regulation_code ?? row.regulationCode ?? "");
+  const examType = String(
+    row.ttd_exam_type ?? row.ttdExamType ?? row.exam_type ?? "",
+  );
+  let label = name;
+  if (code) label += ` - ${code}`;
+  if (reg) label += ` (${reg})`;
+  if (examType) label += ` (${examType})`;
+  return label || code || "Subject";
+}
 
 type AttendanceRow = {
   examStdDetId: number;
@@ -56,6 +101,7 @@ function MarkRenderer(params: MarkRendererParams) {
   return (
     <label className="inline-flex items-center gap-2 text-[12px]">
       <Checkbox
+        className="h-4 w-4 shrink-0"
         checked={Boolean(params.data?.isPresent)}
         onCheckedChange={(v) =>
           params.data &&
@@ -70,6 +116,7 @@ function MarkRenderer(params: MarkRendererParams) {
 function UfmRenderer(params: UfmRendererParams) {
   return (
     <Checkbox
+      className="h-4 w-4 shrink-0"
       checked={Boolean(params.data?.isufm)}
       onCheckedChange={(v) =>
         params.data && params.onToggleUfm(params.data.examStdDetId, Boolean(v))
@@ -114,6 +161,9 @@ export default function ExternalExamAttendanceMarkingPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  // Angular: localStorage roleName — ADMIN sees published exams; others hide them.
+  const roleName = String(globalThis?.localStorage?.getItem("roleName") ?? "");
+  const isAdmin = roleName.toUpperCase() === "ADMIN";
 
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
@@ -152,18 +202,25 @@ export default function ExternalExamAttendanceMarkingPage() {
       ),
     [allFilters, courseId],
   );
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        allFilters.filter(
-          (x) =>
-            Number(x.fk_course_id) === Number(courseId) &&
-            Number(x.fk_academic_year_id) === Number(academicYearId),
-        ),
-        "fk_exam_id",
+  const exams = useMemo(() => {
+    let list = dedupeBy(
+      allFilters.filter(
+        (x) =>
+          Number(x.fk_course_id) === Number(courseId) &&
+          Number(x.fk_academic_year_id) === Number(academicYearId),
       ),
-    [allFilters, courseId, academicYearId],
-  );
+      "fk_exam_id",
+    );
+    // Angular selectedAcademicYear:
+    //   if (roleName == 'ADMIN') keep all; else filter is_published == false
+    // Offline Internal Evaluator is non-ADMIN → only unpublished exams.
+    if (!isAdmin) {
+      list = list.filter(
+        (x) => x.is_published == false || x.isPublished == false,
+      );
+    }
+    return list;
+  }, [allFilters, courseId, academicYearId, isAdmin]);
   const regulations = useMemo(
     () => dedupeBy(subjectRows, "fk_regulation_id"),
     [subjectRows],
@@ -215,6 +272,7 @@ export default function ExternalExamAttendanceMarkingPage() {
     async function loadInitial() {
       setLoadingFilters(true);
       try {
+        // Angular: filters by emp id + Room?isActive==true for all roles
         const [filters, roomsData] = await Promise.all([
           getExternalAttendanceFilters(employeeId).catch(() => []),
           listActiveRooms().catch(() => []),
@@ -275,22 +333,140 @@ export default function ExternalExamAttendanceMarkingPage() {
     if (academicYears[0]?.fk_academic_year_id)
       setAcademicYearId(Number(academicYears[0].fk_academic_year_id));
   }, [academicYears]);
+  // Angular: auto-select first exam only when list has rows; otherwise leave empty
+  // (non-ADMIN unpublished filter often leaves Exam blank — do not keep a stale id).
   useEffect(() => {
-    if (exams[0]?.fk_exam_id) setExamId(Number(exams[0].fk_exam_id));
+    const firstId = Number(exams[0]?.fk_exam_id ?? 0);
+    if (firstId > 0) {
+      setExamId((prev) => {
+        if (exams.some((x) => Number(x.fk_exam_id) === Number(prev))) {
+          return prev;
+        }
+        return firstId;
+      });
+      return;
+    }
+    setExamId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+    setRestRows([]);
+    setExamDate("");
+    setCourseGroupId(0);
+    setCourseYearId(0);
+    setHasFetched(false);
+    setRows([]);
   }, [exams]);
   useEffect(() => {
     if (regulations[0]?.fk_regulation_id)
       setRegulationId(Number(regulations[0].fk_regulation_id));
+    else if (regulations.length === 0) setRegulationId(null);
   }, [regulations]);
   useEffect(() => {
     if (subjects[0]?.fk_subject_id)
       setSubjectId(Number(subjects[0].fk_subject_id));
+    else if (subjects.length === 0) {
+      setSubjectId(null);
+      setExamDate("");
+    }
   }, [subjects]);
+
+  const selectedSubject = useMemo(
+    () =>
+      subjects.find((x) => Number(x.fk_subject_id) === Number(subjectId)) ??
+      null,
+    [subjects, subjectId],
+  );
+
   useEffect(() => {
-    const first = subjects[0];
-    const nextDate = String(first?.exam_date ?? "").slice(0, 10);
+    const nextDate = String(
+      selectedSubject?.exam_date ?? selectedSubject?.examDate ?? "",
+    ).slice(0, 10);
     setExamDate(nextDate || "");
-  }, [subjects]);
+  }, [selectedSubject]);
+
+  const courseOptions = useMemo(
+    () =>
+      courses.map((x) => ({
+        value: String(x.fk_course_id),
+        label: String(x.course_code ?? "-"),
+      })),
+    [courses],
+  );
+  const academicYearOptions = useMemo(
+    () =>
+      academicYears.map((x) => ({
+        value: String(x.fk_academic_year_id),
+        label: String(x.academic_year ?? "-"),
+      })),
+    [academicYears],
+  );
+  const examOptions = useMemo(
+    () =>
+      exams.map((x) => ({
+        value: String(x.fk_exam_id),
+        label: formatExamLabel(x),
+      })),
+    [exams],
+  );
+  const regulationOptions = useMemo(
+    () =>
+      regulations.map((x) => ({
+        value: String(x.fk_regulation_id),
+        label: String(x.regulation_code ?? "-"),
+      })),
+    [regulations],
+  );
+  const subjectOptions = useMemo(
+    () =>
+      subjects.map((x) => ({
+        value: String(x.fk_subject_id),
+        label: formatSubjectLabel(x),
+      })),
+    [subjects],
+  );
+  const courseGroupOptions = useMemo(
+    () =>
+      courseGroups.map((x) => ({
+        value: String(x),
+        label:
+          x === 0
+            ? "All"
+            : String(
+                restRows.find((r) => Number(r.fk_course_group_id) === x)
+                  ?.group_code ?? `Group ${x}`,
+              ),
+      })),
+    [courseGroups, restRows],
+  );
+  const courseYearOptions = useMemo(
+    () =>
+      courseYears.map((x) => ({
+        value: String(x),
+        label:
+          x === 0
+            ? "All"
+            : String(
+                restRows.find((r) => Number(r.fk_course_year_id) === x)
+                  ?.course_year_code ?? `Year ${x}`,
+              ),
+      })),
+    [courseYears, restRows],
+  );
+  const roomOptions = useMemo(
+    () =>
+      rooms.map((x) => ({
+        value: String(x),
+        label:
+          x === 0
+            ? "All"
+            : String(
+                roomRows.find((r) => Number(r.roomId) === x)?.roomCode ??
+                  `Room ${x}`,
+              ),
+      })),
+    [rooms, roomRows],
+  );
 
   const absentees = useMemo(() => rows.filter((r) => !r.isPresent), [rows]);
   const allPresent = useMemo(
@@ -300,6 +476,18 @@ export default function ExternalExamAttendanceMarkingPage() {
   const selectedExam = useMemo(
     () => exams.find((x) => Number(x.fk_exam_id) === Number(examId)),
     [exams, examId],
+  );
+  const examMinDate = useMemo(
+    () =>
+      ymdToDate(
+        String(selectedExam?.from_date ?? selectedExam?.fromDate ?? ""),
+      ),
+    [selectedExam],
+  );
+  const examMaxDate = useMemo(
+    () =>
+      ymdToDate(String(selectedExam?.to_date ?? selectedExam?.toDate ?? "")),
+    [selectedExam],
   );
   const selectedCourse = useMemo(
     () => courses.find((x) => Number(x.fk_course_id) === Number(courseId)),
@@ -494,180 +682,100 @@ export default function ExternalExamAttendanceMarkingPage() {
       filters={
         <div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
           <div className="space-y-1 md:col-span-2">
-            <Label>Course</Label>
-            <Select
-              value={courseId ? String(courseId) : undefined}
-              onValueChange={(v) => setCourseId(Number(v))}
+            <CommonSelect
+              label="Course"
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courseOptions}
+              placeholder={loadingFilters ? "Loading…" : "Course"}
               disabled={loadingFilters}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Course" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((x) => (
-                  <SelectItem
-                    key={x.fk_course_id}
-                    value={String(x.fk_course_id)}
-                  >
-                    {x.course_code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Year</Label>
-            <Select
-              value={academicYearId ? String(academicYearId) : undefined}
-              onValueChange={(v) => setAcademicYearId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Exam Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {academicYears.map((x) => (
-                  <SelectItem
-                    key={x.fk_academic_year_id}
-                    value={String(x.fk_academic_year_id)}
-                  >
-                    {x.academic_year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam</Label>
-            <Select
-              value={examId ? String(examId) : undefined}
-              onValueChange={(v) => setExamId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Exam" />
-              </SelectTrigger>
-              <SelectContent>
-                {exams.map((x) => (
-                  <SelectItem key={x.fk_exam_id} value={String(x.fk_exam_id)}>
-                    {x.exam_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Regulation</Label>
-            <Select
-              value={regulationId ? String(regulationId) : undefined}
-              onValueChange={(v) => setRegulationId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Regulation" />
-              </SelectTrigger>
-              <SelectContent>
-                {regulations.map((x) => (
-                  <SelectItem
-                    key={x.fk_regulation_id}
-                    value={String(x.fk_regulation_id)}
-                  >
-                    {x.regulation_code}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-5">
-            <Label>Subject</Label>
-            <Select
-              value={subjectId ? String(subjectId) : undefined}
-              onValueChange={(v) => setSubjectId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Subject" />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects.map((x) => (
-                  <SelectItem
-                    key={x.fk_subject_id}
-                    value={String(x.fk_subject_id)}
-                  >
-                    {x.subject_name} ({x.subject_code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group</Label>
-            <Select
-              value={courseGroupId === null ? "0" : String(courseGroupId)}
-              onValueChange={(v) => setCourseGroupId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Course Group" />
-              </SelectTrigger>
-              <SelectContent>
-                {courseGroups.map((x) => (
-                  <SelectItem key={`cg-${x}`} value={String(x)}>
-                    {x === 0
-                      ? "All"
-                      : (restRows.find(
-                          (r) => Number(r.fk_course_group_id) === x,
-                        )?.group_code ?? `Group ${x}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Year</Label>
-            <Select
-              value={courseYearId === null ? "0" : String(courseYearId)}
-              onValueChange={(v) => setCourseYearId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Course Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {courseYears.map((x) => (
-                  <SelectItem key={`cy-${x}`} value={String(x)}>
-                    {x === 0
-                      ? "All"
-                      : (restRows.find((r) => Number(r.fk_course_year_id) === x)
-                          ?.course_year_code ?? `Year ${x}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Date</Label>
-            <Input
-              className="h-8 text-[12px]"
-              type="date"
-              value={examDate}
-              onChange={(e) => setExamDate(e.target.value)}
+              searchable
             />
           </div>
           <div className="space-y-1 md:col-span-2">
-            <Label>Room</Label>
-            <Select
+            <CommonSelect
+              label="Exam Year"
+              value={academicYearId ? String(academicYearId) : null}
+              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              options={academicYearOptions}
+              placeholder="Exam Year"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-6">
+            <CommonSelect
+              label="Exam"
+              value={examId ? String(examId) : null}
+              onChange={(v) => setExamId(v ? Number(v) : null)}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+              wrapOptionLabels
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <CommonSelect
+              label="Regulation"
+              value={regulationId ? String(regulationId) : null}
+              onChange={(v) => setRegulationId(v ? Number(v) : null)}
+              options={regulationOptions}
+              placeholder="Regulation"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-5">
+            <CommonSelect
+              label="Subject"
+              value={subjectId ? String(subjectId) : null}
+              onChange={(v) => setSubjectId(v ? Number(v) : null)}
+              options={subjectOptions}
+              placeholder="Subject"
+              searchable
+              wrapOptionLabels
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <CommonSelect
+              label="Course Group"
+              value={courseGroupId === null ? "0" : String(courseGroupId)}
+              onChange={(v) => setCourseGroupId(Number(v ?? 0))}
+              options={courseGroupOptions}
+              placeholder="Course Group"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <CommonSelect
+              label="Course Year"
+              value={courseYearId === null ? "0" : String(courseYearId)}
+              onChange={(v) => setCourseYearId(Number(v ?? 0))}
+              options={courseYearOptions}
+              placeholder="Course Year"
+              searchable
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <DatePicker
+              label="Exam Date"
+              placeholder="dd/MM/yyyy"
+              displayFormat="dd/MM/yyyy"
+              value={ymdToDate(examDate)}
+              onChange={() => {}}
+              minDate={examMinDate ?? undefined}
+              maxDate={examMaxDate ?? undefined}
+              clearable={false}
+              disabled
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <CommonSelect
+              label="Room"
               value={roomId === null ? "0" : String(roomId)}
-              onValueChange={(v) => setRoomId(Number(v))}
-            >
-              <SelectTrigger className="h-8 text-[12px]">
-                <SelectValue placeholder="Room" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map((x) => (
-                  <SelectItem key={`room-${x}`} value={String(x)}>
-                    {x === 0
-                      ? "All"
-                      : (roomRows.find((r) => Number(r.roomId) === x)
-                          ?.roomCode ?? `Room ${x}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(v) => setRoomId(Number(v ?? 0))}
+              options={roomOptions}
+              placeholder="Room"
+              searchable
+            />
           </div>
           <div className="md:col-span-1">
             <Button
@@ -712,25 +820,33 @@ export default function ExternalExamAttendanceMarkingPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      hideEmptyGrid
       fitColumnsToWidth={false}
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "External Exam Attendance",
-      }}
-      toolbarTrailing={
-        <label className="inline-flex items-center gap-2 text-[12px] shrink-0">
-          <Checkbox
-            checked={allPresent}
-            onCheckedChange={(v) =>
-              setRows((prev) =>
-                prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
-              )
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              pdfDocumentTitle: "External Exam Attendance",
             }
-          />
-          <span>{allPresent ? "UnMark All" : "Mark All"}</span>
-        </label>
+          : false
+      }
+      toolbarTrailing={
+        hasFetched && rows.length > 0 ? (
+          <label className="inline-flex shrink-0 items-center gap-2 text-[12px]">
+            <Checkbox
+              className="h-4 w-4 shrink-0"
+              checked={allPresent}
+              onCheckedChange={(v) =>
+                setRows((prev) =>
+                  prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
+                )
+              }
+            />
+            <span>{allPresent ? "UnMark All" : "Mark All"}</span>
+          </label>
+        ) : undefined
       }
       rightRail={
         hasFetched ? (
@@ -758,7 +874,23 @@ export default function ExternalExamAttendanceMarkingPage() {
                 )}
               </div>
             </div>
-            <div className="flex justify-center">
+            {/* Same placement as Internal Exam Attendance Marking right rail */}
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                className="h-8 px-5 text-[12px]"
+                variant="outline"
+                onClick={onUploadAttendanceClick}
+                disabled={uploadingAttendance || rows.length === 0}
+              >
+                {uploadingAttendance ? "Uploading..." : "Upload Attendance"}
+              </Button>
+              <input
+                ref={attendanceFileInputRef}
+                type="file"
+                className="hidden"
+                accept=".png,.jpg,.jpeg,.pdf,.doc,.docx,.xls,.xlsx"
+                onChange={onAttendanceFileChange}
+              />
               <Button
                 className="h-8 px-5 text-[12px]"
                 onClick={onSave}
@@ -766,13 +898,12 @@ export default function ExternalExamAttendanceMarkingPage() {
               >
                 {saving ? "Saving..." : "Save Attendance"}
               </Button>
+              {selectedAttendanceFileName ? (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  Selected file: {selectedAttendanceFileName}
+                </p>
+              ) : null}
             </div>
-
-            {selectedAttendanceFileName ? (
-              <p className="text-center text-[11px] text-muted-foreground">
-                Selected file: {selectedAttendanceFileName}
-              </p>
-            ) : null}
           </div>
         ) : null
       }

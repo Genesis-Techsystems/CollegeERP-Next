@@ -62,10 +62,11 @@ export const USER_MANAGEMENT_API = {
    */
   STUDENT_SEARCH: "cms/studentsearch",
   /**
-   * POST CMS student **User** create (Spring: `/cms/api/createuser`).
-   * Proxied as `/api/proxy/cms/api/createuser`.
+   * POST create user (Angular `createuserUrl` / `addMasterDetails('api/createuser', …)`).
+   * Upstream: `{SPRING_API_URL}/api/createuser` → `/cms/api/createuser`.
+   * Proxied as `/api/proxy/api/createuser`.
    */
-  CREATE_USER_CMS: "cms/api/createuser",
+  CREATE_USER_CMS: "api/createuser",
   /** Angular `roleCrudUrl` */
   ROLE: "Role",
   /** Angular `rolePrivilegeCrudUrl` */
@@ -328,6 +329,8 @@ export const EXAM_API = {
   EXAM_SUBJECT_STUDENTS: "examsubjectstudents",
   /** Angular `registeredStudentForExamUrl` */
   REGISTERED_STUDENT_FOR_EXAM: "registeredstudentforexam",
+  /** Angular `examStudentPostUrl` / `examstudentUrl` */
+  EXAM_STUDENT_POST: "examstudent",
   /** Angular `examroomtudentdetailsUrl` */
   EXAMROOMTUDENTDETAILS: "examroomstudentdetails",
   /** Angular `exammarksdownloadUrl` */
@@ -715,8 +718,8 @@ export const STUDENT_API = {
   SEND_STUDENT_MAILS: "sendStudentMails",
   /** Angular `batchWiseStudentsUrl` */
   BATCH_WISE_STUDENTS: "batchwisestudents",
-  /** Angular `batchwiseStudentsElectiveUrl` */
-  BATCHWISE_STUDENTS_ELECTIVE: "batchwisestudentselective",
+  /** Angular `batchWiseStudentsElective` (PUT modify elective batches) */
+  BATCHWISE_STUDENTS_ELECTIVE: "batchWiseStudentsElective",
   /** Angular `batchWiseStudentUrl` */
   BATCH_WISE_STUDENT: "BatchwiseStudent",
   /** Angular `batchwiseStudentSecUrl` */
@@ -776,6 +779,12 @@ export const EMPLOYEE_API = {
   GET_NEW_EMPLOYEE_LIST: "getAllRecords/s_get_new_employee_list",
   /** CRUD: EmployeeDetail — staff list (HR employee list) */
   EMPLOYEE_DETAIL: "EmployeeDetail",
+  /**
+   * Angular `EmployeeDetailUrl` — HOD Faculty Details list filter endpoint.
+   * GET `employeeDetail?employeeDepartmentId=&collegeId=&employeeStatusId=`
+   * (or college + status only for Principal).
+   */
+  EMPLOYEE_DETAIL_FILTER: "employeeDetail",
   /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV`, optional `collegeId`). */
   EMPLOYEE_SEARCH: "cms/employeesearch",
   /** GET: employee details by user id — `employeedetailsbyid?userId=` */
@@ -917,6 +926,9 @@ export const FEE_API = {
   FEE_MANAGEMENT_SAVE: "feeManagmentStdDetail",
   /** GET: fee due list for pay-link / notifications. */
   FEE_DUE_LIST: "getAllRecords/s_fee_due_list",
+  /** Angular `feeDueListScholarshipHoldUrl` — Fee Due List report. */
+  FEE_DUE_LIST_SCHOLARSHIP_HOLD:
+    "getAllRecords/s_fee_due_list_scholarship_hold",
   /** GET: employee typeahead (`cms/employeesearch?q=&empStatus=ACTV` — Angular base URL includes `/cms`). */
   EMPLOYEE_SEARCH: "cms/employeesearch",
   /** GET: transport allocation by employee. */
@@ -939,6 +951,12 @@ export const FEE_API = {
   /** GET: online payments comparative report */
   ONLINE_PAYMENTS_COMPARATIVE:
     "getAllRecords/s_get_online_payments_comparative_report",
+  /** Angular `getFeeCollectionReportUrl` */
+  FEE_COLLECTION_REPORT: "getAllRecords/s_get_fee_collection_report",
+  /** Angular `getFeeParticularWiseReportUrl` */
+  FEE_PARTICULAR_WISE_REPORT: "getAllRecords/s_get_fee_particular_wise_report",
+  /** Angular `getFeeDueListReportUrl` */
+  FEE_DUE_LIST_REPORT: "getAllRecords/s_get_fee_due_list_report",
   /** GET: fee transport collection */
   FEE_TRANSPORT_COLLECTION: "getAllRecords/s_rep_fee_transport_collection",
   /** GET: fee transport collection download */
@@ -997,6 +1015,11 @@ export const FEE_API = {
   FEE_LEDGER_2: "feeLedgerDownload",
   /** Angular `dayWiseReceiptsNewReportUrl` */
   DAY_WISE_RECEIPTS_NEW_REPORT: "daywisereceiptsNewReport",
+  /**
+   * Angular `dayWiseFeeCollectionUrl` —
+   * `getAllRecords/daywise_fee_collection` (Day Wise / Monthly Fee Report).
+   */
+  DAY_WISE_FEE_COLLECTION: "getAllRecords/daywise_fee_collection",
   /** Angular `feeStudentWiseParticularsCrudUrl` */
   FEE_STUDENT_WISE_PARTICULARS_2: "feestudentwiseparticulars",
   /** Angular `feeStudentDataParticularCrudUrl` */
@@ -1088,6 +1111,8 @@ export const SCHOLARSHIP_API = {
   SCHOLARSHIP_STD_PRECEDINGS: "scholarshipStdPrecedings",
   /** Angular `scholarshipStdPrecedingsDownloadUrl` */
   SCHOLARSHIP_STD_PRECEDINGS_2: "scholarshipStdPrecedingsDownload",
+  /** Angular `scholarshipDueListUrl` */
+  SCHOLARSHIP_DUE_LIST: "getAllRecords/s_rep_scholarship_duelist",
   /** Angular `scholarshipduelistDownloadUrl` */
   SCHOLARSHIPDUELIST: "scholarshipduelistDownload",
   /** Angular `addFeeStudentwiseScholorshiUrl` */
@@ -1636,8 +1661,8 @@ export const SUBJECT_API = {
   UPLOAD_SUBJECT_UNITS_AND_TOPICS: "uploadSubjectUnitsAndTopics",
   /** POST: import subject bulk details */
   IMPORT_SUBJECT_DETAILS: "importSubjectDetails",
-  /** POST: process staged subject bulk details */
-  PROCESS_STG_SUBJECT_DETAILS: "processStgsubjectDetails",
+  /** POST: process staged subject bulk details (Angular `processStgSubjectDetailsUrl`) */
+  PROCESS_STG_SUBJECT_DETAILS: "processStgSubjectDetails",
   /** Angular `subjectCrudUrl` */
   SUBJECT: "Subject",
   /** Angular `addSubjectAndUploadFileUrl` */
@@ -1746,6 +1771,8 @@ export const DASHBOARD_API = {
   FINANCE_REPORT: "getAllRecords/s_rep_finance",
   /** GET: income expense summary */
   INCOME_EXPENSE_SUMMARY: "getAllRecords/s_get_income_expense_summary",
+  /** GET: school-wise salaries — Angular `salarySummaryUrl` */
+  SCHOOL_WISE_SALARIES: "getAllRecords/s_school_wise_salaries",
   /** GET: expense summary */
   EXPENSE_SUMMARY: "getAllRecords/s_get_expense_summary",
   /** GET: inventory stock summary */
@@ -1888,6 +1915,10 @@ export const ADMISSION_API = {
   UNIV_STUDENT_APPLICATION: "univStudentApplication",
   /** Angular `studentApplicationUrl` */
   STUDENT_APPLICATION: "StudentApplication",
+  /** Angular `getStudentsReports` */
+  GET_STUDENTS_REPORTS: "getAllRecords/s_get_student_reports",
+  /** Angular `studentsReportsDownloadUrl` */
+  STUDENTS_REPORTS_DOWNLOAD: "getAllRecordsDownload/s_get_student_reports",
   /** Angular `univStdApplicationFormSearchUrl` */
   UNIV_STD_APPLICATION_FORM_SEARCH: "univStdApplicationFormSearch",
   /** Angular `getUnivStdApplicationsAndEducationDetailsUrl` */
@@ -1997,6 +2028,12 @@ export const UNIV_EXAM_CENTER_API = {
   EC_PROFILES: "UnivEcProfiles",
   /** CRUD: ExamScanProfiles */
   EXAM_SCAN_PROFILES: "ExamScanProfiles",
+  /** CRUD: ExamScanProfileDetails (Angular `ExamScanProfileDetails`) */
+  EXAM_SCAN_PROFILE_DETAILS_ENTITY: "ExamScanProfileDetails",
+  /** POST: Angular `ExamScanProfileDetailsUrl` → saveExamScanProfileDetails */
+  SAVE_EXAM_SCAN_PROFILE_DETAILS: "saveExamScanProfileDetails",
+  /** GET: Angular `getPoPScanProfileEmployeesUrl` → s_pop_scan_profile_employees */
+  POP_SCAN_PROFILE_EMPLOYEES: "s_pop_scan_profile_employees",
   /** CRUD: ExamScanBundles */
   EXAM_SCAN_BUNDLES: "ExamScanBundles",
   /** CRUD: ExamScanBundleDetails */
@@ -2233,6 +2270,8 @@ export const EVENTS_API = {
   NOTIFICATIONS: "notifications",
   /** Angular `notificationbyaudienceUrl` */
   NOTIFICATIONBYAUDIENCE: "notificationbyaudience",
+  /** Angular `notificationUploadUrl` */
+  NOTIFICATION_UPLOAD: "notificationupload",
   /** Angular `eventCrudUrl` */
   EVENT: "Event",
 } as const;
@@ -2360,6 +2399,8 @@ export const MISC_REPORT_API = {
   GET_PARENT_APPOINTMENT: "getAllRecords/s_get_parent_appointment_details",
   /** GET: student co-curricular activities report */
   GET_STD_CC_ACTIVITIES: "getAllRecords/s_get_std_ccactivities_report",
+  /** Angular `studentSubjectReportUrl` */
+  STUDENT_SUBJECT_REPORT: "getAllRecords/s_get_std_sub_report",
   /** POST: upload to temp table */
   UPLOAD_TEMP_TABLE: "upload",
 } as const;
@@ -2422,6 +2463,26 @@ export const FEEDBACK_API = {
   SURVEY_FEEDBACK_DETAIL: "SurveyFeedbackDetail",
   /** Angular `surveyfeedbackEmpUrl` */
   SURVEYFEEDBACK_EMP: "surveyfeedbackEmp",
+  /**
+   * Angular `studentFeedbackSummaryReportUrl`
+   * → `getAllRecords/s_feedback_summary_report_backup`
+   */
+  STUDENT_FEEDBACK_SUMMARY_REPORT: "s_feedback_summary_report_backup",
+  /**
+   * Angular `feedbackSummaryReportUrl`
+   * → `getAllRecords/s_get_feedback_report`
+   */
+  FEEDBACK_SUMMARY_REPORT: "s_get_feedback_report",
+  /**
+   * Angular `feedbackSuggestionReportUrl`
+   * → `getAllRecords/s_feedback_suggestion_report`
+   */
+  FEEDBACK_SUGGESTION_REPORT: "s_feedback_suggestion_report",
+  /**
+   * Angular `getFeedbackStatusUrl`
+   * → `getAllRecords/s_get_feedback_status`
+   */
+  FEEDBACK_STATUS_REPORT: "s_get_feedback_status",
 } as const;
 
 // ─── Campus Maintenance ───────────────────────────────────────────────

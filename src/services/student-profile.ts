@@ -4,26 +4,21 @@ import {
   EXAM_API,
   FEE_API,
   MISC_REPORT_API,
+  STUDENT_API,
 } from "@/config/constants/api";
 import {
   buildQuery,
   domainList,
   fetchDetails,
-  fetchDetailsById,
   getAllRecords,
 } from "@/services/crud";
 import { listCourseYearsByCourse } from "@/services/admin/college-courses-groups";
-import { listCounselorMappingsForStudent } from "@/services/mentorship";
-import {
-  listAcademicBatchesOfStudent,
-  listStudentSubjectsForStudentSemester,
-} from "@/services/student-information";
+import { listAcademicBatchesOfStudent } from "@/services/student-information";
 import {
   fetchFeeLedgerRows,
   unwrapFeeLedgerRows,
 } from "@/services/student-fee";
 import {
-  fetchStudentTimetableRows,
   fetchWeeklyTimetableReportRows,
   normalizeTimetableRows,
 } from "@/services/student-timetable";
@@ -311,27 +306,21 @@ function semesterLabelMatches(row: AnyRow, semesterLabel: string): boolean {
   return code === semesterLabel || name === semesterLabel;
 }
 
+/**
+ * Angular `crudService.listByIds(url, studentId, 'studentId')`
+ * → GET `{url}?studentId={id}` (exact path casing; no path-segment / alternate fan-out).
+ */
 async function fetchBatchwiseByStudentId(
-  paths: string[],
+  path: string,
   studentId: number,
 ): Promise<AnyRow[]> {
-  if (!studentId) return [];
-  for (const path of paths) {
-    try {
-      const data = await fetchDetails<unknown>(path, { studentId });
-      const rows = flattenRecordRows(data);
-      if (rows.length > 0) return rows;
-    } catch {
-      try {
-        const data = await fetchDetailsById<unknown>(path, studentId);
-        const rows = flattenRecordRows(data);
-        if (rows.length > 0) return rows;
-      } catch {
-        // try next path
-      }
-    }
+  if (!studentId || !path) return [];
+  try {
+    const data = await fetchDetails<unknown>(path, { studentId });
+    return flattenRecordRows(data);
+  } catch {
+    return [];
   }
-  return [];
 }
 
 function semesterLabel(cy: AnyRow): string {
@@ -368,113 +357,32 @@ async function fetchSubjectsForSemester(
   student: AnyRow,
   ctx: StudentProfileContext,
   courseYearId: number,
-  academicYearId: number,
+  _academicYearId: number,
 ): Promise<AnyRow[]> {
-  if (!ctx.studentId || !courseYearId) return [];
+  if (!ctx.studentId || !courseYearId || !ctx.collegeId) return [];
 
   const regulationId = resolveRegulationId(student);
+  if (!regulationId) return [];
+
   const finalize = (rows: AnyRow[]) =>
     dedupeRows(stampCourseYearId(rows, courseYearId), subjectDedupeKey);
 
-  // Angular curriculum: domain/list/StudentSubject by college + student + courseYear + regulation
-  if (ctx.collegeId && regulationId) {
-    const angularQueries = [
-      buildQuery({
-        "college.collegeId": ctx.collegeId,
-        "studentDetail.studentId": ctx.studentId,
-        "courseYear.courseYearId": courseYearId,
-        "Regulation.regulationId": regulationId,
-        isActive: true,
-      }),
-      buildQuery({
-        "College.collegeId": ctx.collegeId,
-        "StudentDetail.studentId": ctx.studentId,
-        "CourseYear.courseYearId": courseYearId,
-        "Regulation.regulationId": regulationId,
-        isActive: true,
-      }),
-    ];
-    for (const q of angularQueries) {
-      try {
-        const rows = await domainList<AnyRow>("StudentSubject", q);
-        if (rows.length > 0) return finalize(rows);
-      } catch {
-        // try next query shape
-      }
-    }
-  }
-
-  if (ctx.collegeId && regulationId) {
-    try {
-      const data = await fetchDetails<unknown>("studentsubjects", {
-        collegeId: ctx.collegeId,
-        studentId: ctx.studentId,
-        courseYearId,
-        regulationId,
-      });
-      const rows = flattenRecordRows(data);
-      if (rows.length > 0) return finalize(rows);
-    } catch {
-      // fallback below
-    }
-  }
-
-  if (ctx.collegeId) {
-    const domainRows = await listStudentSubjectsForStudentSemester({
-      collegeId: ctx.collegeId,
-      studentId: ctx.studentId,
-      courseYearId,
-      academicYearId: academicYearId || undefined,
+  // Angular curriculum `listDetailsByFiveIds(StudentSubject, …)`:
+  // college.collegeId + studentDetail.studentId + courseYear.courseYearId +
+  // Regulation.regulationId + isActive (exact key casing).
+  try {
+    const q = buildQuery({
+      "college.collegeId": ctx.collegeId,
+      "studentDetail.studentId": ctx.studentId,
+      "courseYear.courseYearId": courseYearId,
+      "Regulation.regulationId": regulationId,
+      isActive: true,
     });
-    if (domainRows.length > 0) return finalize(domainRows);
+    const rows = await domainList<AnyRow>(STUDENT_API.STUDENT_SUBJECT, q);
+    return finalize(rows);
+  } catch {
+    return [];
   }
-
-  const courseId = num(student, [
-    "courseId",
-    "fk_course_id",
-    "course.courseId",
-    "Course.courseId",
-  ]);
-  const paramSets: Record<string, string | number>[] = [
-    { studentId: ctx.studentId, courseYearId },
-    { studentId: ctx.studentId, collegeId: ctx.collegeId, courseYearId },
-  ];
-  if (academicYearId) {
-    paramSets.push({
-      studentId: ctx.studentId,
-      collegeId: ctx.collegeId,
-      academicYearId,
-      courseYearId,
-    });
-  }
-  if (courseId) {
-    paramSets.push({
-      studentId: ctx.studentId,
-      collegeId: ctx.collegeId,
-      courseId,
-      courseYearId,
-    });
-    if (academicYearId) {
-      paramSets.push({
-        studentId: ctx.studentId,
-        collegeId: ctx.collegeId,
-        academicYearId,
-        courseId,
-        courseYearId,
-      });
-    }
-  }
-  for (const p of paramSets) {
-    try {
-      const data = await fetchDetails<unknown>("studentsubjects", p);
-      const rows = flattenRecordRows(data);
-      if (rows.length > 0) return finalize(rows);
-    } catch {
-      // try next
-    }
-  }
-
-  return [];
 }
 
 async function fetchAllStudentSubjects(
@@ -544,12 +452,7 @@ async function fetchElectivesForSemester(
   if (!ctx.studentId || !semesterLabel) return [];
 
   const rows = await fetchBatchwiseByStudentId(
-    [
-      "batchwiseelectives",
-      "batchwiseelective",
-      "batchwisestudentelectives",
-      "batchwisestudent/electives",
-    ],
+    STUDENT_API.BATCHWISE_ELECTIVE,
     ctx.studentId,
   );
   const match = rows.filter((r) => semesterLabelMatches(r, semesterLabel));
@@ -564,12 +467,7 @@ async function fetchLabBatchesForSemester(
   if (!ctx.studentId || !semesterLabel) return [];
 
   const rows = await fetchBatchwiseByStudentId(
-    [
-      "batchwisestudentsec",
-      "batchwisestudentsection",
-      "batchwisestudentsections",
-      "batchwisestudent/sec",
-    ],
+    STUDENT_API.BATCHWISE_STUDENT_SEC,
     ctx.studentId,
   );
   const match = rows.filter((r) => semesterLabelMatches(r, semesterLabel));
@@ -814,35 +712,7 @@ async function loadTimetable(
     if (rows.length > 0) return rows;
   }
 
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "timetable",
-      "timeTable",
-      "timeTableList",
-      "timetableList",
-      "sectionTimetable",
-      "timetableCurr",
-      "timetablescurr",
-      "studentTimetable",
-      "studentTimeTableList",
-      "sectionTimeTableList",
-      "timeTableDTOList",
-    ],
-    [/timetable/i, /timeTable/i],
-  );
-  const fromDetail = normalizeTimetableRows(nested);
-  if (fromDetail.length > 0) return fromDetail;
-
-  return fetchStudentTimetableRows({
-    studentId: ctx.studentId,
-    collegeId: ctx.collegeId,
-    academicYearId: ctx.academicYearId,
-    groupSectionId: ctx.groupSectionId,
-    courseGroupId: ctx.courseGroupId,
-    courseYearId: ctx.courseYearId,
-    check: 1,
-  });
+  return [];
 }
 
 async function loadAttendance(
@@ -975,101 +845,26 @@ function flattenCounselorActivities(rows: AnyRow[]): AnyRow[] {
   return out;
 }
 
-function mappingHasActivities(row: AnyRow): boolean {
-  const acts = row.counselorActivityDTOs ?? row.counselorActivities;
-  return Array.isArray(acts) && acts.length > 0;
-}
-
-function counselorMappingId(row: AnyRow): number {
-  return num(row, [
-    "counselorId",
-    "counselor_id",
-    "counselorMappingId",
-    "counselor_mapping_id",
-  ]);
-}
-
-/** Counselor mappings with nested activities (Angular student-counselor-meetings). */
+/**
+ * Angular student-counselor-meetings:
+ * `listDetailsByTwoIdsWithSort(CounselorMapping, studentId, 'true', 'desc',
+ *   'studentDetail.studentId', 'isActive', 'createdDt')`
+ */
 export async function loadStudentCounselorMappings(
   student: AnyRow,
 ): Promise<AnyRow[]> {
   const ctx = getStudentProfileContext(student);
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "counselorMeetings",
-      "counselorMeetingList",
-      "counselorDetails",
-      "stdCounselorList",
-      "counselorMeetingDetails",
-      "mappedCounselorList",
-      "counselorMappings",
-    ],
-    [/counselor/i],
-  );
+  if (!ctx.studentId) return [];
 
-  const mappings = nested.filter(mappingHasActivities);
-  if (mappings.length > 0) return mappings;
-
-  if (nested.length > 0) {
-    return [
-      {
-        counselorId: counselorMappingId(nested[0]) || 1,
-        empFirstName: text(nested[0], [
-          "empFirstName",
-          "employeeName",
-          "counselorName",
-        ]),
-        counselorActivityDTOs: nested,
-      },
-    ];
+  try {
+    const q = buildQuery(
+      { "studentDetail.studentId": ctx.studentId, isActive: true },
+      { field: "createdDt", direction: "DESC" },
+    );
+    return await domainList<AnyRow>("CounselorMapping", q);
+  } catch {
+    return [];
   }
-
-  if (ctx.studentId) {
-    try {
-      const q = buildQuery(
-        { "studentDetail.studentId": ctx.studentId, isActive: true },
-        { field: "createdDt", direction: "DESC" },
-      );
-      const rows = await domainList<AnyRow>("CounselorMapping", q);
-      if (rows.length > 0) return rows;
-    } catch {
-      // fall through
-    }
-  }
-
-  if (ctx.collegeId && ctx.studentId) {
-    try {
-      const rows = await listCounselorMappingsForStudent(
-        ctx.collegeId,
-        ctx.studentId,
-      );
-      if (rows.length > 0) return rows as AnyRow[];
-    } catch {
-      // fall through
-    }
-  }
-
-  const paramSets: Record<string, string | number>[] = [
-    { studentId: ctx.studentId, collegeId: ctx.collegeId },
-    { studentDetailId: ctx.studentId, collegeId: ctx.collegeId },
-    { studentId: ctx.studentId },
-    { studentDetailId: ctx.studentId },
-    { StudentId: ctx.studentId },
-  ];
-  for (const p of paramSets) {
-    try {
-      const data = await fetchDetails<unknown>(
-        DASHBOARD_API.MAPPED_COUNSELOR_STUDENTS,
-        p,
-      );
-      const rows = flattenRecordRows(data);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next
-    }
-  }
-  return [];
 }
 
 async function loadCounselor(

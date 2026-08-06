@@ -1327,6 +1327,7 @@ export default function SecureExamMarksEntryPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
+      hideEmptyGrid
       getRowId={(p) =>
         String(
           p.data.studentId ??
@@ -1336,15 +1337,21 @@ export default function SecureExamMarksEntryPage() {
         )
       }
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Secure Exam Marks Entry",
-      }}
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search…",
+              pdfDocumentTitle: "Secure Exam Marks Entry",
+            }
+          : false
+      }
       toolbarTrailing={
-        <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-          Max Marks : <span className="font-semibold">{maxMarks || "-"}</span>
-        </div>
+        hasFetched && rows.length > 0 ? (
+          <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
+            Max Marks : <span className="font-semibold">{maxMarks || "-"}</span>
+          </div>
+        ) : undefined
       }
     >
       {hasFetched && (

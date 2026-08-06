@@ -8,8 +8,6 @@ import { Select } from '@/common/components/select'
 import { SearchInput } from '@/common/components/search'
 import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
 import { toastError, toastSuccess } from '@/lib/toast'
 import { getErrorMessage } from '@/lib/errors'
@@ -213,113 +211,118 @@ export default function SendSmsToStaffAttendancePage() {
   return (
     <FilteredPage
       title="Send SMS to Staff (attendance)"
-      notice={(
-        <RadioGroup
-          value={mode}
-          onValueChange={(v) => setMode(v as '1' | '2')}
-          className="flex flex-row flex-wrap gap-4"
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="1" id="mode-all" />
-            <Label htmlFor="mode-all" className="cursor-pointer font-normal text-sm">
-              All employees
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="2" id="mode-dept" />
-            <Label htmlFor="mode-dept" className="cursor-pointer font-normal text-sm">
-              Search by department
-            </Label>
-          </div>
-        </RadioGroup>
-      )}
       filters={(
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          {mode === '1' ? (
-            <Select
-              label="College *"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={collegeOptions}
-              searchable
-              className="md:col-span-3"
-            />
-          ) : (
-            <Select
-              label="Department *"
-              value={departmentId ? String(departmentId) : null}
-              onChange={(v) => setDepartmentId(v ? Number(v) : null)}
-              options={departmentOptions}
-              searchable
-              className="md:col-span-4"
-            />
-          )}
-          <DatePicker label="Date *" value={day} onChange={setDay} className="md:col-span-2" clearable={false} />
-          <div className="md:col-span-3">
-            <Button type="button" onClick={() => void loadStaff()} disabled={loading}>
-              {loading ? 'Loading…' : 'Get Staff'}
-            </Button>
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-6 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="sms-staff-attendance-mode"
+                checked={mode === '1'}
+                onChange={() => setMode('1')}
+                className="accent-primary"
+              />
+              All employees
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="sms-staff-attendance-mode"
+                checked={mode === '2'}
+                onChange={() => setMode('2')}
+                className="accent-primary"
+              />
+              Search by department
+            </label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            {mode === '1' ? (
+              <Select
+                label="College *"
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={collegeOptions}
+                searchable
+                className="md:col-span-3"
+              />
+            ) : (
+              <Select
+                label="Department *"
+                value={departmentId ? String(departmentId) : null}
+                onChange={(v) => setDepartmentId(v ? Number(v) : null)}
+                options={departmentOptions}
+                searchable
+                className="md:col-span-4"
+              />
+            )}
+            <DatePicker label="Date *" value={day} onChange={setDay} className="md:col-span-2" clearable={false} />
+            <div className="md:col-span-3">
+              <Button type="button" onClick={() => void loadStaff()} disabled={loading}>
+                {loading ? 'Loading…' : 'Get Staff'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
-    >
-      {staff.length > 0 ? (
-        <div className="app-card p-4 space-y-4">
-          <SearchInput
-            value={tableSearch}
-            onChange={setTableSearch}
-            placeholder="Search faculty, subject, mobile…"
-            className="max-w-md"
-          />
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="p-2 text-left font-medium w-14">SI.No</th>
-                  <th className="p-2 text-left font-medium">Faculty</th>
-                  <th className="p-2 text-left font-medium">Course year</th>
-                  <th className="p-2 text-left font-medium">Subject</th>
-                  <th className="p-2 text-left font-medium">Subject type</th>
-                  <th className="p-2 text-left font-medium">Batch</th>
-                  <th className="p-2 text-left font-medium">Time</th>
-                  <th className="p-2 text-left font-medium">Mobile</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStaff.map((row) => {
-                  const i = staff.indexOf(row)
-                  const isProxy = n(row.is_Proxy) === 1
-                  return (
-                    <tr key={`${String(row.pk_emp_id ?? row.faculty)}-${i}`} className="border-t">
-                      <td className="p-2 tabular-nums text-muted-foreground">{i + 1}</td>
-                      <td className={cn('p-2', isProxy && 'text-amber-700 font-medium')}>
-                        {s(row.faculty)}
-                        {row.emp_number != null && row.emp_number !== '' ? (
-                          <span className="text-blue-600 font-medium"> ({s(row.emp_number)})</span>
-                        ) : null}
-                      </td>
-                      <td className="p-2">{s(row.SEC_Display_Name)}</td>
-                      <td className="p-2">{s(row.subject_name)}</td>
-                      <td className="p-2">{s(row.subject_type)}</td>
-                      <td className="p-2">{row.batch_name != null ? s(row.batch_name) : '—'}</td>
-                      <td className="p-2 tabular-nums">
-                        {s(row.Starttime)} – {s(row.Endtime)}
-                      </td>
-                      <td className="p-2 tabular-nums">{s(row.mobile)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      body={
+        staff.length > 0 ? (
+          <div className="space-y-4">
+            <SearchInput
+              value={tableSearch}
+              onChange={setTableSearch}
+              placeholder="Search faculty, subject, mobile…"
+              className="max-w-md"
+            />
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="p-2 text-left font-medium w-14">SI.No</th>
+                    <th className="p-2 text-left font-medium">Faculty</th>
+                    <th className="p-2 text-left font-medium">Course year</th>
+                    <th className="p-2 text-left font-medium">Subject</th>
+                    <th className="p-2 text-left font-medium">Subject type</th>
+                    <th className="p-2 text-left font-medium">Batch</th>
+                    <th className="p-2 text-left font-medium">Time</th>
+                    <th className="p-2 text-left font-medium">Mobile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStaff.map((row) => {
+                    const i = staff.indexOf(row)
+                    const isProxy = n(row.is_Proxy) === 1
+                    return (
+                      <tr key={`${String(row.pk_emp_id ?? row.faculty)}-${i}`} className="border-t">
+                        <td className="p-2 tabular-nums text-muted-foreground">{i + 1}</td>
+                        <td className={cn('p-2', isProxy && 'text-amber-700 font-medium')}>
+                          {s(row.faculty)}
+                          {row.emp_number != null && row.emp_number !== '' ? (
+                            <span className="text-blue-600 font-medium"> ({s(row.emp_number)})</span>
+                          ) : null}
+                        </td>
+                        <td className="p-2">{s(row.SEC_Display_Name)}</td>
+                        <td className="p-2">{s(row.subject_name)}</td>
+                        <td className="p-2">{s(row.subject_type)}</td>
+                        <td className="p-2">{row.batch_name != null ? s(row.batch_name) : '—'}</td>
+                        <td className="p-2 tabular-nums">
+                          {s(row.Starttime)} – {s(row.Endtime)}
+                        </td>
+                        <td className="p-2 tabular-nums">{s(row.mobile)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => void sendEmailAndSms()} disabled={sending}>
+                <Send className="h-4 w-4 mr-1.5" />
+                {sending ? 'Sending…' : 'Send Email & SMS'}
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end">
-            <Button type="button" onClick={() => void sendEmailAndSms()} disabled={sending}>
-              <Send className="h-4 w-4 mr-1.5" />
-              {sending ? 'Sending…' : 'Send Email & SMS'}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </FilteredPage>
+        ) : null
+      }
+    />
   )
 }

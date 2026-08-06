@@ -99,10 +99,14 @@ export default function BooksBarcodePage() {
     async (accessionNumber?: string) => {
       setGenerating(true);
       try {
-        await generateBooksBarcode(
+        const result = await generateBooksBarcode(
           accessionNumber ? [accessionNumber] : undefined,
         );
-        toastSuccess("Book barcodes generated");
+        if (!result.success) {
+          toastError(result.message);
+          return;
+        }
+        toastSuccess(result.message);
         await queryClient.invalidateQueries({
           queryKey: QK.library.booksWithoutBarcode(),
         });
@@ -138,25 +142,31 @@ export default function BooksBarcodePage() {
     [generating, handleGenerateBarcode],
   );
 
+  const generateAllButton = (
+    <Button
+      type="button"
+      size="sm"
+      className="h-8 px-3 text-[12px]"
+      disabled={generating}
+      onClick={() => void handleGenerateBarcode()}
+    >
+      Generate Barcode
+    </Button>
+  );
+
   return (
     <LibraryGridPage
       title="Books Barcode"
       queryKey={QK.library.booksWithoutBarcode()}
       queryFn={listBooksWithoutGeneratedBarcodes}
       columns={columns}
-      searchPlaceholder="Search by barcode or title…"
+      searchPlaceholder="Search"
       showHeaderCard={false}
-      toolbarTrailing={
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 px-3 text-[12px]"
-          disabled={generating}
-          onClick={() => void handleGenerateBarcode()}
-        >
-          Generate Barcode
-        </Button>
-      }
+      tableTitle="Books Barcode"
+      subtitle=""
+      alwaysShowTable
+      toolbarTrailing={generateAllButton}
+      tableFooter={generateAllButton}
     />
   );
 }

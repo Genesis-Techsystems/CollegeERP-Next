@@ -1,8 +1,15 @@
 "use client";
 
+/**
+ * Verify Exam Marks — Result Processing Angular parity
+ * Filters: College * / Exam * / Course Group * (All) / Subject (All)
+ * Angular: result-processing/verify-exam-marks
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
+import { format } from "date-fns";
 import { RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import {
@@ -24,8 +31,6 @@ import {
 import {
   getVerifyExamMarksFilters,
   getVerifyExamMarksReport,
-  getVerifyExamMarksRestFilters,
-  getVerifyExamMarksSubjects,
   type VerifyExamMarksMode,
 } from "@/services";
 
@@ -39,7 +44,6 @@ const TOOLBAR = {
   columnPicker: false,
   exportPdf: false,
   exportExcel: false,
-  columnFilters: false,
 } as const;
 
 const PANEL_TITLE: Record<VerifyExamMarksMode, string> = {
@@ -57,10 +61,9 @@ const REPORT_TITLE: Record<VerifyExamMarksMode, string> = {
 };
 
 /**
- * Angular External Marks Status (`displayedColumns`):
+ * Angular External `displayedColumns`:
  * id, course_name, course_group, academic_year, course_year, subject_name,
  * Student_registered, ext_is_present, ext_marks_entered
- * (no evaluation columns)
  */
 const EXTERNAL_COLS: { header: string; keys: string[] }[] = [
   { header: "Course Code", keys: ["Course_Code", "course_name"] },
@@ -80,8 +83,8 @@ const EXTERNAL_COLS: { header: string; keys: string[] }[] = [
 ];
 
 /**
- * Angular External Evaluation Status (`EvalautiondisplayedColumns`):
- * same as External through Ext Present, then 1/2/3 evaluation assigned/evaluated
+ * Angular Evaluation `EvalautiondisplayedColumns`:
+ * same through Ext Present, then 1/2/3 evaluation assigned/evaluated
  * (no Ext Marks Entered)
  */
 const EVALUATION_COLS: { header: string; keys: string[] }[] = [
@@ -103,14 +106,23 @@ const EVALUATION_COLS: { header: string; keys: string[] }[] = [
   { header: "Three Evaluation Evaluated", keys: ["3_evaluation_evaluated"] },
 ];
 
+/** Angular date pipe `MMM d, y` for exam dropdown labels. */
+function formatExamDate(value: unknown): string {
+  const raw = txt(value);
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw.slice(0, 10);
+  return format(d, "MMM d, yyyy");
+}
+
 function formatExamLabel(exam: AnyRow): string {
   const name = txt(exam.exam_name);
-  const from = txt(exam.from_date).slice(0, 10);
-  const to = txt(exam.to_date).slice(0, 10);
+  const from = formatExamDate(exam.from_date);
+  const to = formatExamDate(exam.to_date);
   const bits: string[] = [];
-  if (exam.is_internal_exam) bits.push("Internal");
-  if (exam.is_regular_exam) bits.push("Regular");
-  if (exam.is_supply_exam) bits.push("Supple");
+  if (num(exam.is_internal_exam)) bits.push("Internal");
+  if (num(exam.is_regular_exam)) bits.push("Regular");
+  if (num(exam.is_supply_exam)) bits.push("Supple");
   const range = from && to ? ` (${from} - ${to})` : "";
   const tags = bits.length ? bits.map((b) => `(${b})`).join("") : "";
   return `${name}${range}${tags}`;
@@ -131,17 +143,12 @@ function cellValue(row: AnyRow, keys: string[]): string {
   return "";
 }
 
-/**
- * Angular Internal (check===1) + All (check===4):
- *   AlldisplayedColumns = Object.keys(firstRow); splice(0, 1);
- * Headers = raw API field names (college removed as first key).
- * Union extra keys from later rows so sparse first rows still expose columns.
- */
+/** Angular Internal / All: Object.keys(firstRow); splice(0, 1). */
 function angularDynamicKeys(rows: AnyRow[]): string[] {
   if (!rows.length) return [];
   const firstKeys = Object.keys(rows[0]).filter((k) => k !== "__rid");
   if (!firstKeys.length) return [];
-  const skip = firstKeys[0]; // Angular splice(0, 1) — usually "college"
+  const skip = firstKeys[0];
   const ordered: string[] = firstKeys.filter((k) => k !== skip);
   const seen = new Set(ordered);
   for (const row of rows.slice(1)) {
@@ -171,21 +178,72 @@ function printReport(
   columns: { key: string; header: string }[],
   rows: Record<string, unknown>[],
 ) {
-  if (!rows.length) return;
+  if (!rows.length || !columns.length) return;
+
+  const colCount = columns.length;
+  const thFont =
+    colCount >= 22 ? 4.5 : colCount >= 16 ? 5.5 : colCount >= 12 ? 6.5 : 8;
+  const tdFont = Math.max(4, thFont - 0.5);
+  const pad =
+    colCount >= 16 ? "1px 2px" : colCount >= 12 ? "2px 3px" : "3px 4px";
+
+  const head = columns.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
+  const body = rows
+    .map(
+      (row) =>
+        `<tr>${columns
+          .map((c) => `<td>${escapeHtml(String(row[c.key] ?? ""))}</td>`)
+          .join("")}</tr>`,
+    )
+    .join("");
+
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
+@page { size: A4 landscape; margin: 5mm; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  color: #000;
+  font-family: Arial, sans-serif;
+}
+.title, .sub { text-align: center; margin: 2px 0 4px; }
+.title { font-size: 13px; font-weight: 700; }
+.sub { font-size: 10px; }
+table.report {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 6px;
+}
+table.report th,
+table.report td {
+  border: 1px solid #000;
+  padding: ${pad};
+  vertical-align: top;
+  text-align: left;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+table.report th {
+  background: #f2f2f2;
+  font-size: ${thFont}px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+table.report td {
+  font-size: ${tdFont}px;
+  line-height: 1.2;
+}
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 </style></head>
 <body>
   <p class="title">${escapeHtml(title)}</p>
   <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable(columns, rows)}
+  <table class="report"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
 </body></html>`;
 
   const frame = document.createElement("iframe");
@@ -194,18 +252,20 @@ th { background: #f2f2f2; }
     "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
   document.body.appendChild(frame);
   const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
+  const fwin = frame.contentWindow;
+  if (!fdoc || !fwin) {
     frame.remove();
     return;
   }
   fdoc.open();
   fdoc.write(html);
   fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
+  const cleanup = () => frame.remove();
+  fwin.addEventListener("afterprint", cleanup);
   setTimeout(() => {
-    win.focus();
-    win.print();
+    fwin.focus();
+    fwin.print();
+    setTimeout(cleanup, 60_000);
   }, 50);
 }
 
@@ -215,84 +275,77 @@ export default function VerifyExamMarksPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [mode, setMode] = useState<VerifyExamMarksMode>("internal");
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
-  const [restRows, setRestRows] = useState<AnyRow[]>([]);
-  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
 
-  const [courseId, setCourseId] = useState("");
-  const [academicYearId, setAcademicYearId] = useState("");
+  const [collegeId, setCollegeId] = useState("");
   const [examId, setExamId] = useState("");
-  const [courseGroupId, setCourseGroupId] = useState("");
-  const [courseYearId, setCourseYearId] = useState("");
-  const [regulationId, setRegulationId] = useState("");
-  const [subjectId, setSubjectId] = useState("");
+  /** Angular defaults courseGroupId / subjectId to 0 (= All). */
+  const [courseGroupId, setCourseGroupId] = useState("0");
+  const [subjectId, setSubjectId] = useState("0");
 
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
-
-  const courses = useMemo(
-    () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
-    [baseRows],
+  const organizationId = Number(
+    globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
 
-  const academicYears = useMemo(() => {
-    const cid = Number(courseId);
-    const list = baseRows.filter((r) => num(r.fk_course_id) === cid);
-    const unique = dedupeBy(list, (r) => num(r.fk_academic_year_id));
-    const current = [...unique].sort(
-      (a, b) => num(b.is_curr_ay) - num(a.is_curr_ay),
+  // Angular: dedupe colleges, sort by clg_sort_order.
+  const colleges = useMemo(() => {
+    const list = dedupeBy(baseRows, (r) => num(r.fk_college_id));
+    return [...list].sort(
+      (a, b) => num(a.clg_sort_order) - num(b.clg_sort_order),
     );
-    return [...current].sort(
-      (a, b) =>
-        parseInt(txt(b.academic_year), 10) - parseInt(txt(a.academic_year), 10),
-    );
-  }, [baseRows, courseId]);
+  }, [baseRows]);
 
+  // Angular selectedCollege: non-internal exams for college.
   const exams = useMemo(() => {
-    const cid = Number(courseId);
-    const ay = Number(academicYearId);
-    // Angular: filter out internal exams
+    if (!collegeId) return [];
     return dedupeBy(
       baseRows.filter(
         (r) =>
-          num(r.fk_course_id) === cid &&
-          num(r.fk_academic_year_id) === ay &&
-          !r.is_internal_exam,
+          num(r.fk_college_id) === Number(collegeId) &&
+          !num(r.is_internal_exam),
       ),
       (r) => num(r.fk_exam_id),
     );
-  }, [baseRows, courseId, academicYearId]);
+  }, [baseRows, collegeId]);
 
-  const courseGroups = useMemo(
-    () => dedupeBy(restRows, (r) => num(r.fk_course_group_id)),
-    [restRows],
-  );
-
-  const courseYears = useMemo(() => {
-    const gid = Number(courseGroupId);
+  // Angular selectedExam: groups for college + exam.
+  const courseGroups = useMemo(() => {
+    if (!collegeId || !examId) return [];
     return dedupeBy(
-      restRows.filter((r) => num(r.fk_course_group_id) === gid),
-      (r) => num(r.fk_course_year_id),
-    );
-  }, [restRows, courseGroupId]);
-
-  const regulations = useMemo(() => {
-    const gid = Number(courseGroupId);
-    const yid = Number(courseYearId);
-    return dedupeBy(
-      restRows.filter(
+      baseRows.filter(
         (r) =>
-          num(r.fk_course_group_id) === gid && num(r.fk_course_year_id) === yid,
+          num(r.fk_college_id) === Number(collegeId) &&
+          num(r.fk_exam_id) === Number(examId) &&
+          num(r.fk_course_group_id) > 0,
       ),
-      (r) => num(r.fk_regulation_id),
+      (r) => num(r.fk_course_group_id),
     );
-  }, [restRows, courseGroupId, courseYearId]);
+  }, [baseRows, collegeId, examId]);
 
-  const subjects = useMemo(
-    () => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)),
-    [subjectRows],
-  );
+  // Angular selectedExam / selectedCourseGroup: subjects for college + exam (+ group if not All).
+  const subjects = useMemo(() => {
+    if (!collegeId || !examId) return [];
+    const gid = Number(courseGroupId);
+    return dedupeBy(
+      baseRows.filter((r) => {
+        if (num(r.fk_college_id) !== Number(collegeId)) return false;
+        if (num(r.fk_exam_id) !== Number(examId)) return false;
+        if (gid !== 0 && num(r.fk_course_group_id) !== gid) return false;
+        return num(r.fk_subject_id) > 0;
+      }),
+      (r) => num(r.fk_subject_id),
+    );
+  }, [baseRows, collegeId, examId, courseGroupId]);
+
+  const collegeCode = useMemo(() => {
+    const row = colleges.find(
+      (c) => num(c.fk_college_id) === Number(collegeId),
+    );
+    return txt(row?.college_code);
+  }, [colleges, collegeId]);
 
   const examName = useMemo(() => {
     const row = exams.find((e) => num(e.fk_exam_id) === Number(examId));
@@ -315,13 +368,6 @@ export default function VerifyExamMarksPage() {
     return txt(row?.subject_code);
   }, [subjects, subjectId]);
 
-  const collegeCode = useMemo(() => {
-    const row = restRows.find(
-      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
-    );
-    return txt(row?.college_code);
-  }, [restRows, courseGroupId]);
-
   const reportSubtitle = [
     collegeCode,
     examName,
@@ -331,168 +377,64 @@ export default function VerifyExamMarksPage() {
     .filter(Boolean)
     .join(" / ");
 
-  async function loadBase() {
-    setLoadingFilters(true);
-    try {
-      const list = await getVerifyExamMarksFilters({ employeeId });
-      setBaseRows(list);
-      const first = dedupeBy(list, (r) => num(r.fk_course_id))[0];
-      if (first) setCourseId(String(num(first.fk_course_id)));
-      else setCourseId("");
-    } catch (e) {
-      toastError(e, "Failed to load filters");
-      setBaseRows([]);
-    } finally {
-      setLoadingFilters(false);
-    }
-  }
-
   useEffect(() => {
+    let cancelled = false;
+    async function loadBase() {
+      setLoadingFilters(true);
+      try {
+        const list = await getVerifyExamMarksFilters({
+          organizationId,
+          employeeId,
+        });
+        if (cancelled) return;
+        setBaseRows(list);
+        const sorted = [...dedupeBy(list, (r) => num(r.fk_college_id))].sort(
+          (a, b) => num(a.clg_sort_order) - num(b.clg_sort_order),
+        );
+        // Angular getFiltersList → auto-select first college → selectedCollege
+        setCollegeId(sorted[0] ? String(num(sorted[0].fk_college_id)) : "");
+      } catch (e) {
+        if (cancelled) return;
+        toastError(e, "Failed to load filters");
+        setBaseRows([]);
+        setCollegeId("");
+      } finally {
+        if (!cancelled) setLoadingFilters(false);
+      }
+    }
     void loadBase();
-  }, [employeeId]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, organizationId]);
 
+  // Angular selectedCollege → auto-pick first non-internal exam; reset group/subject to All.
   useEffect(() => {
-    setAcademicYearId("");
-    setExamId("");
-    setCourseGroupId("");
-    setCourseYearId("");
-    setRegulationId("");
-    setSubjectId("");
-    setRestRows([]);
-    setSubjectRows([]);
     setRows([]);
-    if (!courseId || !academicYears.length) return;
-    // Prefer current AY (Angular), else first after sort
-    const current = academicYears.find((y) => num(y.is_curr_ay) > 0);
-    const pick = current ?? academicYears[0];
-    setAcademicYearId(String(num(pick.fk_academic_year_id)));
-  }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setExamId("");
-    setCourseGroupId("");
-    setCourseYearId("");
-    setRegulationId("");
-    setSubjectId("");
-    setRestRows([]);
-    setSubjectRows([]);
-    setRows([]);
-    if (!academicYearId || !exams.length) return;
+    setCourseGroupId("0");
+    setSubjectId("0");
+    if (!exams.length) {
+      setExamId("");
+      return;
+    }
     setExamId(String(num(exams[0].fk_exam_id)));
-  }, [academicYearId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exams]);
 
+  // Angular selectedExam → reset group/subject to All (0).
+  // Runs when user changes exam (exams-effect already resets on college change).
   useEffect(() => {
-    async function loadRest() {
-      setCourseGroupId("");
-      setCourseYearId("");
-      setRegulationId("");
-      setSubjectId("");
-      setSubjectRows([]);
-      setRows([]);
-      if (!courseId || !academicYearId || !examId) {
-        setRestRows([]);
-        return;
-      }
-      setLoadingFilters(true);
-      try {
-        const list = await getVerifyExamMarksRestFilters({
-          mode,
-          courseId: Number(courseId),
-          academicYearId: Number(academicYearId),
-          examId: Number(examId),
-          employeeId,
-        });
-        setRestRows(list);
-        const first = dedupeBy(list, (r) => num(r.fk_course_group_id))[0];
-        if (first) setCourseGroupId(String(num(first.fk_course_group_id)));
-      } catch (e) {
-        toastError(e, "Failed to load course groups");
-        setRestRows([]);
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void loadRest();
-  }, [courseId, academicYearId, examId, mode, employeeId]);
-
-  useEffect(() => {
-    setCourseYearId("");
-    setRegulationId("");
-    setSubjectId("");
-    setSubjectRows([]);
     setRows([]);
-    if (!courseGroupId || !courseYears.length) return;
-    setCourseYearId(String(num(courseYears[0].fk_course_year_id)));
-  }, [courseGroupId, restRows]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setRegulationId("");
-    setSubjectId("");
-    setSubjectRows([]);
-    setRows([]);
-    if (!courseYearId || !regulations.length) return;
-    setRegulationId(String(num(regulations[0].fk_regulation_id)));
-  }, [courseYearId, restRows, courseGroupId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    async function loadSubjects() {
-      setSubjectId("");
-      setRows([]);
-      if (
-        !courseId ||
-        !academicYearId ||
-        !examId ||
-        !courseGroupId ||
-        !courseYearId ||
-        regulationId === ""
-      ) {
-        setSubjectRows([]);
-        return;
-      }
-      setLoadingFilters(true);
-      try {
-        const list = await getVerifyExamMarksSubjects({
-          mode,
-          courseId: Number(courseId),
-          courseGroupId: Number(courseGroupId),
-          courseYearId: Number(courseYearId),
-          examId: Number(examId),
-          academicYearId: Number(academicYearId),
-          regulationId: Number(regulationId),
-          employeeId,
-        });
-        setSubjectRows(list);
-      } catch (e) {
-        toastError(e, "Failed to load subjects");
-        setSubjectRows([]);
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void loadSubjects();
-  }, [
-    courseId,
-    academicYearId,
-    examId,
-    courseGroupId,
-    courseYearId,
-    regulationId,
-    mode,
-    employeeId,
-  ]);
+    setCourseGroupId("0");
+    setSubjectId("0");
+  }, [examId]);
 
   function clearResults() {
     setRows([]);
   }
 
   async function onGetList() {
-    if (
-      !courseId ||
-      !academicYearId ||
-      !examId ||
-      !courseGroupId ||
-      !courseYearId
-    ) {
+    // Angular feeFormGroup.valid: collegeId + examId required.
+    if (!collegeId || !examId) {
       toastInfo("Please Select Valid Filters");
       return;
     }
@@ -501,15 +443,10 @@ export default function VerifyExamMarksPage() {
       const list = await getVerifyExamMarksReport({
         mode,
         examId: Number(examId),
-        courseId: Number(courseId),
-        courseGroupId: Number(courseGroupId),
-        courseYearId: Number(courseYearId),
-        academicYearId: Number(academicYearId),
-        regulationId: Number(regulationId || 0),
+        collegeId: Number(collegeId),
+        courseGroupId: Number(courseGroupId || 0),
         subjectId: Number(subjectId || 0),
       });
-      // Stamp unique ids — many subject rows share Course_Code/subject_code;
-      // duplicate getRowId values make AG Grid show only one row.
       setRows(list.map((row, i) => ({ ...row, __rid: i })));
       if (!list.length) toastSuccess("No Records Found.");
     } catch (e) {
@@ -521,18 +458,12 @@ export default function VerifyExamMarksPage() {
   }
 
   function onReset() {
-    // Angular reset: clear exam / group / subject + table
+    // Angular reset(): college '', exam '', group 0, subject 0, clear table.
+    setCollegeId("");
     setExamId("");
-    setCourseGroupId("");
-    setCourseYearId("");
-    setRegulationId("");
-    setSubjectId("");
-    setRestRows([]);
-    setSubjectRows([]);
+    setCourseGroupId("0");
+    setSubjectId("0");
     clearResults();
-    if (academicYearId && exams.length) {
-      setExamId(String(num(exams[0].fk_exam_id)));
-    }
   }
 
   function onBack() {
@@ -543,6 +474,20 @@ export default function VerifyExamMarksPage() {
     }
     // Angular goBack() → location.back()
     router.back();
+  }
+
+  function onModeChange(value: string) {
+    setMode(value as VerifyExamMarksMode);
+    clearResults();
+    // Angular clear() → selectedCollege(collegeId) re-runs cascade.
+    if (!collegeId) return;
+    setCourseGroupId("0");
+    setSubjectId("0");
+    if (exams.length) {
+      setExamId(String(num(exams[0].fk_exam_id)));
+    } else {
+      setExamId("");
+    }
   }
 
   const exportColumns = useMemo(() => {
@@ -599,7 +544,6 @@ export default function VerifyExamMarksPage() {
   }
 
   const columnDefs = useMemo((): ColDef<AnyRow>[] => {
-    // Angular External / Evaluation: fixed matColumnDef list + SI No.
     if (mode === "external" || mode === "evaluation") {
       const cols = mode === "external" ? EXTERNAL_COLS : EVALUATION_COLS;
       return [
@@ -619,7 +563,6 @@ export default function VerifyExamMarksPage() {
         ),
       ];
     }
-    // Angular Internal / All: Object.keys(firstRow); splice(0, 1) — no SI No.
     const keys = angularDynamicKeys(rows);
     return keys.map(
       (key): ColDef<AnyRow> => ({
@@ -637,10 +580,7 @@ export default function VerifyExamMarksPage() {
       <div className="mb-3 px-0">
         <RadioGroup
           value={mode}
-          onValueChange={(value) => {
-            setMode(value as VerifyExamMarksMode);
-            clearResults();
-          }}
+          onValueChange={onModeChange}
           className="flex flex-wrap items-center gap-6"
         >
           <label className="flex items-center gap-2 text-[12px]">
@@ -663,28 +603,16 @@ export default function VerifyExamMarksPage() {
       </div>
 
       <GlobalFilterBarRow>
-        <GlobalFilterField label="Course *">
+        <GlobalFilterField label="College *">
           <Select
-            options={courses.map((c) => ({
-              value: String(num(c.fk_course_id)),
-              label: txt(c.course_code),
+            options={colleges.map((c) => ({
+              value: String(num(c.fk_college_id)),
+              label: txt(c.college_code),
             }))}
-            value={courseId || null}
-            onChange={(v) => setCourseId(v ?? "")}
+            value={collegeId || null}
+            onChange={(v) => setCollegeId(v ?? "")}
             disabled={loadingFilters}
-            placeholder="Course"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Academic Year *">
-          <Select
-            options={academicYears.map((y) => ({
-              value: String(num(y.fk_academic_year_id)),
-              label: txt(y.academic_year),
-            }))}
-            value={academicYearId || null}
-            onChange={(v) => setAcademicYearId(v ?? "")}
-            disabled={loadingFilters || !courseId}
-            placeholder="Academic Year"
+            placeholder="College"
           />
         </GlobalFilterField>
         <GlobalFilterField label="Exam *" className="min-w-[280px] flex-[2]">
@@ -695,23 +623,24 @@ export default function VerifyExamMarksPage() {
             }))}
             value={examId || null}
             onChange={(v) => setExamId(v ?? "")}
-            disabled={loadingFilters || !academicYearId}
+            disabled={loadingFilters || !collegeId}
             placeholder="Exam"
             searchable
           />
         </GlobalFilterField>
-      </GlobalFilterBarRow>
-
-      <GlobalFilterBarRow>
         <GlobalFilterField label="Course Group *">
           <Select
-            options={courseGroups.map((g) => ({
-              value: String(num(g.fk_course_group_id)),
-              label: txt(g.group_code),
-            }))}
-            value={courseGroupId || null}
+            options={[
+              { value: "0", label: "All" },
+              ...courseGroups.map((g) => ({
+                value: String(num(g.fk_course_group_id)),
+                label: txt(g.group_code),
+              })),
+            ]}
+            value={courseGroupId || "0"}
             onChange={(v) => {
-              setCourseGroupId(v ?? "");
+              setCourseGroupId(v ?? "0");
+              setSubjectId("0");
               clearResults();
             }}
             disabled={loadingFilters || !examId}
@@ -719,51 +648,23 @@ export default function VerifyExamMarksPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Course Year *">
-          <Select
-            options={courseYears.map((y) => ({
-              value: String(num(y.fk_course_year_id)),
-              label: txt(y.course_year_code),
-            }))}
-            value={courseYearId || null}
-            onChange={(v) => {
-              setCourseYearId(v ?? "");
-              clearResults();
-            }}
-            disabled={loadingFilters || !courseGroupId}
-            placeholder="Course Year"
-          />
-        </GlobalFilterField>
-        <GlobalFilterField label="Regulation">
-          <Select
-            options={regulations.map((r) => ({
-              value: String(num(r.fk_regulation_id)),
-              label: txt(r.regulation_code),
-            }))}
-            value={regulationId || null}
-            onChange={(v) => {
-              setRegulationId(v ?? "");
-              clearResults();
-            }}
-            disabled={loadingFilters || !courseYearId}
-            placeholder="Regulation"
-          />
-        </GlobalFilterField>
         <GlobalFilterField label="Subject" className="min-w-[200px] flex-[2]">
           <Select
-            options={subjects.map((s) => ({
-              value: String(num(s.fk_subject_id)),
-              label: `${txt(s.subject_name)} - ${txt(s.subject_code)}`,
-            }))}
-            value={subjectId || null}
+            options={[
+              { value: "0", label: "All" },
+              ...subjects.map((s) => ({
+                value: String(num(s.fk_subject_id)),
+                label: `${txt(s.subject_name)} - ${txt(s.subject_code)}`,
+              })),
+            ]}
+            value={subjectId || "0"}
             onChange={(v) => {
-              setSubjectId(v ?? "");
+              setSubjectId(v ?? "0");
               clearResults();
             }}
-            disabled={loadingFilters || regulationId === ""}
+            disabled={loadingFilters || !examId}
             placeholder="Subject"
             searchable
-            clearable
           />
         </GlobalFilterField>
         <GlobalFilterField
@@ -781,9 +682,9 @@ export default function VerifyExamMarksPage() {
             </Button>
             <Button
               type="button"
-              variant="secondary"
+              variant="outline"
               onClick={onBack}
-              className="h-[30px] px-3 text-[12px] bg-amber-400 text-black hover:bg-amber-500"
+              className="h-[30px] px-3 text-[12px]"
             >
               Back
             </Button>
@@ -817,9 +718,10 @@ export default function VerifyExamMarksPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      hideEmptyGrid
       pagination
       fitColumnsToWidth={false}
-      toolbar={TOOLBAR}
+      toolbar={rows.length > 0 ? TOOLBAR : false}
       toolbarTrailing={
         rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">

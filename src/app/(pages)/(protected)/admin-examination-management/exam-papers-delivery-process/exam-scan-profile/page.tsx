@@ -1,101 +1,107 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Pencil, Plus } from 'lucide-react'
-import { ListPage } from '@/components/layout'
-import { Select, type SelectOption } from '@/common/components/select'
-import { FormModal } from '@/common/components/feedback'
-import { StatusBadge } from '@/common/components/data-display'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { GM_CODES } from '@/config/constants/ui'
-import { rowIndexGetter } from '@/lib/utils'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { getGeneralDetails } from '@/services/exam-master'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Pencil, Plus } from "lucide-react";
+import { ListPage } from "@/components/layout";
+import { Select, type SelectOption } from "@/common/components/select";
+import { FormModal } from "@/common/components/feedback";
+import { StatusBadge } from "@/common/components/data-display";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { GM_CODES } from "@/config/constants/ui";
+import { rowIndexGetter } from "@/lib/utils";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { getGeneralDetails } from "@/services/exam-master";
 import {
   createUnivEcProfile,
-  listAllActiveUnivEcProfiles,
+  listAllUnivEcProfiles,
   pickUnivEcProfileId,
   updateUnivEcProfile,
   type AnyRow,
-} from '@/services/exam-papers-delivery'
+} from "@/services/exam-papers-delivery";
 
-type Row = AnyRow
+const PROFILE_DETAILS_PATH =
+  "/admin-examination-management/exam-papers-delivery-process/exam-scan-profile/profile-details";
+const SCAN_PROFILE_CONTEXT_KEY = "examScanProfileContext";
+
+type Row = AnyRow;
 
 type ScanProfileForm = {
-  titleCatdetId: string
-  name: string
-  phone: string
-  alternatePhoneNumber: string
-  email: string
-  aadharCard: string
-  panCard: string
-  startDate: string
-  endDate: string
-  isActive: boolean
-}
+  titleCatdetId: string;
+  name: string;
+  phone: string;
+  alternatePhoneNumber: string;
+  email: string;
+  aadharCard: string;
+  panCard: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+};
 
 function txt(v: unknown): string {
-  if (typeof v === 'string') return v
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
-  return ''
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return "";
 }
 
 function getByPath(row: Row, path: string): unknown {
-  return path.split('.').reduce<unknown>((acc, key) => {
-    if (acc && typeof acc === 'object') return (acc as Record<string, unknown>)[key]
-    return undefined
-  }, row)
+  return path.split(".").reduce<unknown>((acc, key) => {
+    if (acc && typeof acc === "object")
+      return (acc as Record<string, unknown>)[key];
+    return undefined;
+  }, row);
 }
 
 function pickText(row: Row, keys: string[]): string {
   for (const key of keys) {
-    const value = key.includes('.') ? getByPath(row, key) : row[key]
-    if (value != null && String(value).trim() !== '') return txt(value)
+    const value = key.includes(".") ? getByPath(row, key) : row[key];
+    if (value != null && String(value).trim() !== "") return txt(value);
   }
-  return ''
+  return "";
 }
 
 function pickName(row: Row): string {
   const direct = pickText(row, [
-    'scanProfileName',
-    'scan_profile_name',
-    'name',
-    'Name',
-    'fullName',
-    'profileName',
-    'profile_name',
-    'evaluatorName',
-    'evaluator_name',
-    'examEvaluatorProfilesName',
-    'exam_evaluator_profiles_name',
-    'examEvaluatorProfileName',
-    'employeeName',
-    'employee.name',
-    'employee.firstName',
-    'employee.first_name',
-    'staffName',
-    'staff.name',
-    'staff.firstName',
-  ])
-  if (direct) return direct
+    "scanProfileName",
+    "scan_profile_name",
+    "name",
+    "Name",
+    "fullName",
+    "profileName",
+    "profile_name",
+    "evaluatorName",
+    "evaluator_name",
+    "examEvaluatorProfilesName",
+    "exam_evaluator_profiles_name",
+    "examEvaluatorProfileName",
+    "employeeName",
+    "employee.name",
+    "employee.firstName",
+    "employee.first_name",
+    "staffName",
+    "staff.name",
+    "staff.firstName",
+  ]);
+  if (direct) return direct;
 
-  const firstName = pickText(row, ['firstName', 'first_name'])
-  const middleName = pickText(row, ['middleName', 'middle_name'])
-  const lastName = pickText(row, ['lastName', 'last_name'])
-  return [firstName, middleName, lastName].filter(Boolean).join(' ').trim()
+  const firstName = pickText(row, ["firstName", "first_name"]);
+  const middleName = pickText(row, ["middleName", "middle_name"]);
+  const lastName = pickText(row, ["lastName", "last_name"]);
+  return [firstName, middleName, lastName].filter(Boolean).join(" ").trim();
 }
 
 function statusRenderer(p: ICellRendererParams<Row>) {
-  return <StatusBadge status={Boolean(p.data?.isActive)} />
+  return <StatusBadge status={Boolean(p.data?.isActive)} />;
 }
 
 function makeActionRenderer(onEdit: (row: Row) => void) {
   return (p: ICellRendererParams<Row>) => {
-    const row = p.data
-    if (!row) return null
+    const row = p.data;
+    if (!row) return null;
     return (
       <Button
         type="button"
@@ -106,14 +112,14 @@ function makeActionRenderer(onEdit: (row: Row) => void) {
       >
         <Pencil className="h-4 w-4" />
       </Button>
-    )
-  }
+    );
+  };
 }
 
 function makeDetailsRenderer(onDetails: (row: Row) => void) {
   return (p: ICellRendererParams<Row>) => {
-    const row = p.data
-    if (!row) return null
+    const row = p.data;
+    if (!row) return null;
     return (
       <button
         type="button"
@@ -122,106 +128,161 @@ function makeDetailsRenderer(onDetails: (row: Row) => void) {
       >
         Profile Details
       </button>
-    )
-  }
+    );
+  };
 }
 
 const EMPTY_FORM: ScanProfileForm = {
-  titleCatdetId: '',
-  name: '',
-  phone: '',
-  alternatePhoneNumber: '',
-  email: '',
-  aadharCard: '',
-  panCard: '',
+  titleCatdetId: "",
+  name: "",
+  phone: "",
+  alternatePhoneNumber: "",
+  email: "",
+  aadharCard: "",
+  panCard: "",
   startDate: new Date().toISOString().slice(0, 10),
-  endDate: '',
+  endDate: "",
   isActive: true,
-}
+};
 
 export default function ExamScanProfilePage() {
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [rows, setRows] = useState<Row[]>([])
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [rows, setRows] = useState<Row[]>([]);
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Row | null>(null)
-  const [form, setForm] = useState<ScanProfileForm>(EMPTY_FORM)
-  const [titleOptions, setTitleOptions] = useState<SelectOption[]>([])
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [form, setForm] = useState<ScanProfileForm>(EMPTY_FORM);
+  const [titleOptions, setTitleOptions] = useState<SelectOption[]>([]);
 
   const loadData = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const list = await listAllActiveUnivEcProfiles()
-      setRows(Array.isArray(list) ? list : [])
+      const list = await listAllUnivEcProfiles();
+      setRows(Array.isArray(list) ? list : []);
     } catch (e) {
-      toastError(e, 'Failed to load exam scan profiles')
-      setRows([])
+      toastError(e, "Failed to load exam scan profiles");
+      setRows([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    void loadData()
-  }, [loadData])
+    void loadData();
+  }, [loadData]);
 
   useEffect(() => {
-    let mounted = true
+    let mounted = true;
     void (async () => {
       try {
-        const rows = await getGeneralDetails(GM_CODES.TITLE)
-        if (!mounted) return
+        const rows = await getGeneralDetails(GM_CODES.TITLE);
+        if (!mounted) return;
         setTitleOptions(
           (rows ?? []).map((r) => ({
-            value: String(r.generalDetailId ?? ''),
-            label: String(r.generalDetailDisplayName ?? r.generalDetailCode ?? r.generalDetailId),
+            value: String(r.generalDetailId ?? ""),
+            label: String(
+              r.generalDetailDisplayName ??
+                r.generalDetailCode ??
+                r.generalDetailId,
+            ),
           })),
-        )
+        );
       } catch {
-        if (mounted) setTitleOptions([])
+        if (mounted) setTitleOptions([]);
       }
-    })()
+    })();
     return () => {
-      mounted = false
-    }
-  }, [])
+      mounted = false;
+    };
+  }, []);
 
-  const onDetails = useCallback((row: Row) => {
-    const name = pickName(row)
-    toastSuccess(`Profile details view for "${name || 'record'}" will be added next.`)
-  }, [])
+  const onDetails = useCallback(
+    (row: Row) => {
+      // Angular viewSubjects(row): stash row on parameterService then navigate
+      // to exam-scan-profile/profile-details.
+      const profileId = pickUnivEcProfileId(row);
+      if (profileId <= 0) {
+        toastError("Invalid exam scan profile.");
+        return;
+      }
+      try {
+        globalThis?.localStorage?.setItem(
+          SCAN_PROFILE_CONTEXT_KEY,
+          JSON.stringify(row),
+        );
+      } catch {
+        /* ignore quota / private mode */
+      }
+      router.push(`${PROFILE_DETAILS_PATH}?examScanProfileId=${profileId}`);
+    },
+    [router],
+  );
 
   const onEdit = useCallback((row: Row) => {
-    setEditing(row)
+    setEditing(row);
     setForm({
-      titleCatdetId: pickText(row, ['titleCatdetId', 'titleId', 'titleCatDetId']),
+      titleCatdetId: pickText(row, [
+        "titleCatdetId",
+        "titleId",
+        "titleCatDetId",
+      ]),
       name: pickName(row),
-      phone: pickText(row, ['phone', 'phoneNumber', 'mobileNo', 'mobileNumber', 'contactNo']),
-      alternatePhoneNumber: pickText(row, ['alternatePhoneNumber', 'alternatephoneNumber', 'altPhoneNumber']),
-      email: pickText(row, ['email', 'emailId', 'mailId']),
-      aadharCard: pickText(row, ['aadharCard', 'aadhaarCard', 'aadharNo', 'aadhaarNo', 'aadhar']),
-      panCard: pickText(row, ['panCard', 'panNo', 'panCardNo', 'pancardNo', 'pan_number', 'pan_card_no']),
-      startDate: pickText(row, ['startDate', 'profileValidFromDate', 'createdDt']).slice(0, 10),
-      endDate: pickText(row, ['endDate', 'profileValidToDate']).slice(0, 10),
+      phone: pickText(row, [
+        "phone",
+        "phoneNumber",
+        "mobileNo",
+        "mobileNumber",
+        "contactNo",
+      ]),
+      alternatePhoneNumber: pickText(row, [
+        "alternatePhoneNumber",
+        "alternatephoneNumber",
+        "altPhoneNumber",
+      ]),
+      email: pickText(row, ["email", "emailId", "mailId"]),
+      aadharCard: pickText(row, [
+        "aadharCard",
+        "aadhaarCard",
+        "aadharNo",
+        "aadhaarNo",
+        "aadhar",
+      ]),
+      panCard: pickText(row, [
+        "panCard",
+        "panNo",
+        "panCardNo",
+        "pancardNo",
+        "pan_number",
+        "pan_card_no",
+      ]),
+      startDate: pickText(row, [
+        "startDate",
+        "profileValidFromDate",
+        "createdDt",
+      ]).slice(0, 10),
+      endDate: pickText(row, ["endDate", "profileValidToDate"]).slice(0, 10),
       isActive: row.isActive === true,
-    })
-    setModalOpen(true)
-  }, [])
+    });
+    setModalOpen(true);
+  }, []);
 
   function openCreateModal() {
-    setEditing(null)
-    setForm(EMPTY_FORM)
-    setModalOpen(true)
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setModalOpen(true);
   }
 
   async function onSave(e: { preventDefault: () => void }) {
-    e.preventDefault()
-    if (!form.titleCatdetId) return toastError('Title is required.')
-    if (!form.name.trim()) return toastError('Name is required.')
+    e.preventDefault();
+    if (!form.titleCatdetId) return toastError("Title is required.");
+    if (!form.name.trim()) return toastError("Name is required.");
 
-    const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-    const nowIso = new Date().toISOString()
+    const employeeId = Number(
+      globalThis?.localStorage?.getItem("employeeId") ?? 0,
+    );
+    const nowIso = new Date().toISOString();
     const payload: Record<string, unknown> = {
       titleCatdetId: Number(form.titleCatdetId),
       userId: null,
@@ -232,73 +293,94 @@ export default function ExamScanProfilePage() {
       aadhaarNo: form.aadharCard.trim(),
       panCardNo: form.panCard.trim(),
       isActive: form.isActive,
-      reason: '',
+      reason: "",
       profileValidFromDate: form.startDate || null,
       profileValidToDate: form.endDate || null,
       createdDt: nowIso,
       updatedDt: nowIso,
       createdUser: employeeId || null,
       updatedUser: employeeId || null,
-    }
+    };
 
-    setSaving(true)
+    setSaving(true);
     try {
-      const id = pickUnivEcProfileId(editing ?? {})
+      const id = pickUnivEcProfileId(editing ?? {});
       if (id > 0) {
-        await updateUnivEcProfile(id, { ...payload, examScanProfileId: id })
-        toastSuccess('Exam scan profile updated.')
+        await updateUnivEcProfile(id, { ...payload, examScanProfileId: id });
+        toastSuccess("Exam scan profile updated.");
       } else {
-        await createUnivEcProfile(payload)
-        toastSuccess('Exam scan profile created.')
+        await createUnivEcProfile(payload);
+        toastSuccess("Exam scan profile created.");
       }
-      setModalOpen(false)
-      await loadData()
+      setModalOpen(false);
+      await loadData();
     } catch (e) {
-      toastError(e, 'Save failed')
+      toastError(e, "Save failed");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   const columnDefs = useMemo<ColDef<Row>[]>(
     () => [
-      { headerName: 'No.', valueGetter: rowIndexGetter, width: 70, flex: 0 },
+      { headerName: "No.", valueGetter: rowIndexGetter, width: 70, flex: 0 },
       {
-        headerName: 'Name',
+        headerName: "Name",
         minWidth: 180,
         valueGetter: (p) => pickName(p.data ?? {}),
       },
       {
-        headerName: 'Phone',
+        headerName: "Phone",
         minWidth: 120,
         valueGetter: (p) =>
-          pickText(p.data ?? {}, ['phone', 'phoneNumber', 'mobileNo', 'mobileNumber', 'contactNo', 'mobile']),
+          pickText(p.data ?? {}, [
+            "phone",
+            "phoneNumber",
+            "mobileNo",
+            "mobileNumber",
+            "contactNo",
+            "mobile",
+          ]),
       },
       {
-        headerName: 'Email',
+        headerName: "Email",
         minWidth: 220,
-        valueGetter: (p) => pickText(p.data ?? {}, ['email', 'emailId', 'mailId']),
+        valueGetter: (p) =>
+          pickText(p.data ?? {}, ["email", "emailId", "mailId"]),
       },
       {
-        headerName: 'Aadhar Card',
+        headerName: "Aadhar Card",
         minWidth: 140,
         valueGetter: (p) =>
-          pickText(p.data ?? {}, ['aadharCard', 'aadhaarCard', 'aadharNo', 'aadhaarNo', 'aadhar']),
+          pickText(p.data ?? {}, [
+            "aadharCard",
+            "aadhaarCard",
+            "aadharNo",
+            "aadhaarNo",
+            "aadhar",
+          ]),
       },
       {
-        headerName: 'Pan Card',
+        headerName: "Pan Card",
         minWidth: 120,
         valueGetter: (p) =>
-          pickText(p.data ?? {}, ['panCard', 'panNo', 'panCardNo', 'pancardNo', 'pan_number', 'pan_card_no']),
+          pickText(p.data ?? {}, [
+            "panCard",
+            "panNo",
+            "panCardNo",
+            "pancardNo",
+            "pan_number",
+            "pan_card_no",
+          ]),
       },
       {
-        headerName: 'Details',
+        headerName: "Details",
         minWidth: 120,
         cellRenderer: makeDetailsRenderer(onDetails),
       },
-      { headerName: 'Status', minWidth: 100, cellRenderer: statusRenderer },
+      { headerName: "Status", minWidth: 100, cellRenderer: statusRenderer },
       {
-        headerName: 'Actions',
+        headerName: "Actions",
         minWidth: 80,
         width: 80,
         flex: 0,
@@ -306,7 +388,7 @@ export default function ExamScanProfilePage() {
       },
     ],
     [onDetails, onEdit],
-  )
+  );
 
   return (
     <ListPage
@@ -317,20 +399,24 @@ export default function ExamScanProfilePage() {
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Exam Scan Profile',
+        searchPlaceholder: "Search…",
+        pdfDocumentTitle: "Exam Scan Profile",
       }}
-      toolbarTrailing={(
-        <Button type="button" className="h-[30px] px-3 text-[12px]" onClick={openCreateModal}>
+      toolbarTrailing={
+        <Button
+          type="button"
+          className="h-[30px] px-3 text-[12px]"
+          onClick={openCreateModal}
+        >
           <Plus className="h-3.5 w-3.5 mr-1" />
           Create Scan Profile
         </Button>
-      )}
+      }
     >
       <FormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Exam Scan Profile' : 'Create Exam Scan Profile'}
+        title={editing ? "Edit Exam Scan Profile" : "Create Exam Scan Profile"}
         onSubmit={onSave}
         isSubmitting={saving}
         size="lg"
@@ -346,60 +432,97 @@ export default function ExamScanProfilePage() {
             <Select
               options={titleOptions}
               value={form.titleCatdetId}
-              onChange={(v) => setForm((f) => ({ ...f, titleCatdetId: v ?? '' }))}
+              onChange={(v) =>
+                setForm((f) => ({ ...f, titleCatdetId: v ?? "" }))
+              }
               placeholder="Select title"
             />
           </div>
           <div className="space-y-1">
             <Label>Name *</Label>
-            <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <Input
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            />
           </div>
           <div className="space-y-1">
             <Label>Email *</Label>
-            <Input value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+            <Input
+              value={form.email}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, email: e.target.value }))
+              }
+            />
           </div>
           <div className="space-y-1">
             <Label>Phone Number *</Label>
-            <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            <Input
+              value={form.phone}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, phone: e.target.value }))
+              }
+            />
           </div>
           <div className="space-y-1">
             <Label>Alternate Phone *</Label>
             <Input
               value={form.alternatePhoneNumber}
-              onChange={(e) => setForm((f) => ({ ...f, alternatePhoneNumber: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, alternatePhoneNumber: e.target.value }))
+              }
             />
           </div>
           <div className="space-y-1">
             <Label>Aadhar *</Label>
             <Input
               value={form.aadharCard}
-              onChange={(e) => setForm((f) => ({ ...f, aadharCard: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, aadharCard: e.target.value }))
+              }
             />
           </div>
           <div className="space-y-1">
             <Label>Pan Card No. *</Label>
-            <Input value={form.panCard} onChange={(e) => setForm((f) => ({ ...f, panCard: e.target.value }))} />
+            <Input
+              value={form.panCard}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, panCard: e.target.value }))
+              }
+            />
           </div>
           <div className="space-y-1">
             <Label>Start Date</Label>
-            <Input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} />
+            <Input
+              type="date"
+              value={form.startDate}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, startDate: e.target.value }))
+              }
+            />
           </div>
           <div className="space-y-1">
             <Label>End Date</Label>
-            <Input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} />
+            <Input
+              type="date"
+              value={form.endDate}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, endDate: e.target.value }))
+              }
+            />
           </div>
           <div className="flex items-center gap-2 text-sm font-medium md:col-span-3 mt-2">
             <input
               id="scanProfileIsActive"
               type="checkbox"
               checked={form.isActive}
-              onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, isActive: e.target.checked }))
+              }
             />
             <Label htmlFor="scanProfileIsActive">Active</Label>
           </div>
         </div>
       </FormModal>
     </ListPage>
-  )
+  );
 }
-

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -47,8 +53,31 @@ function formatDt(value: unknown): string {
   }
 }
 
+/** Angular `new Date(value)` then JSON-serialized (Invalid Date → null). */
+function toApiDate(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+/** Angular `isEmptyObject` — true only for `{}` (null/undefined are treated as non-empty). */
 function isEmptyObject(obj: unknown): boolean {
-  return !obj || (typeof obj === "object" && Object.keys(obj as object).length === 0);
+  return Boolean(
+    obj && typeof obj === "object" && Object.keys(obj as object).length === 0,
+  );
+}
+
+const SAMPLE_XL_HREF = "/assets/docs/sampleScholarshipStg.xlsx";
+
+/** Angular `FileSaver.saveAs('assets/docs/sampleScholarshipStg.xlsx')`. */
+function downloadSampleXl() {
+  const link = document.createElement("a");
+  link.href = SAMPLE_XL_HREF;
+  link.download = "sampleScholarshipStg.xlsx";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function studentNameRenderer(p: ICellRendererParams<StagingRow>) {
@@ -58,9 +87,7 @@ function studentNameRenderer(p: ICellRendererParams<StagingRow>) {
   return (
     <span>
       {String(row.studentName ?? "—")}
-      {roll ? (
-        <span className="text-blue-700"> ({roll})</span>
-      ) : null}
+      {roll ? <span className="text-blue-700"> ({roll})</span> : null}
     </span>
   );
 }
@@ -69,7 +96,9 @@ function dateFieldRenderer(field: "releasedFromDt" | "releasedToDt") {
   return (p: ICellRendererParams<StagingRow>) => formatDt(p.data?.[field]);
 }
 
-function makeTutionRenderer(onChange: (row: StagingRow, value: number) => void) {
+function makeTutionRenderer(
+  onChange: (row: StagingRow, value: number) => void,
+) {
   return (p: ICellRendererParams<StagingRow>) => {
     const row = p.data;
     if (!row) return null;
@@ -125,9 +154,10 @@ export default function ScholarshipStudentsUploadPage() {
     if (localRows) return localRows;
     const mapped: StagingRow[] = [];
     for (const raw of staging) {
+      // Angular mutates staging rows in place; keep the same shape.
       const row: StagingRow = { ...raw };
-      const app = (row.applicationDTO ?? {}) as Record<string, unknown>;
-      const balance = Number(app.balanceAmount ?? 0);
+      const app = row.applicationDTO as Record<string, unknown> | undefined;
+      const balance = Number(app?.balanceAmount ?? 0);
       const tution = Number(row.tutionFee ?? 0);
       row.balanceAmount = balance;
       row.color = "transparent";
@@ -136,29 +166,37 @@ export default function ScholarshipStudentsUploadPage() {
         row.color = "#ffa0a0";
         row.isValidate = true;
       }
-      if (!collegeCode || String(app.collegeCode ?? "") === collegeCode) {
+      // Angular: applicationDTO.collegeCode === params.collegeCode
+      // If query collegeCode is missing, keep all rows so Save is not stuck empty.
+      if (!collegeCode || String(app?.collegeCode ?? "") === collegeCode) {
         mapped.push(row);
       }
     }
     return mapped;
   }, [staging, collegeCode, localRows]);
 
-  const handleTutionChange = useCallback((row: StagingRow, value: number) => {
-    setLocalRows((prev) => {
-      const base = prev ?? preStaggings;
-      return base.map((r) => {
-        if (r !== row && r.schStgStdPreceedingId !== row.schStgStdPreceedingId) {
-          return r;
-        }
-        const next = { ...r, tutionFee: value, rtfAmount: value };
-        const balance = Number(next.balanceAmount ?? 0);
-        if (balance <= value) {
-          next.color = "transparent";
-        }
-        return next;
+  const handleTutionChange = useCallback(
+    (row: StagingRow, value: number) => {
+      setLocalRows((prev) => {
+        const base = prev ?? preStaggings;
+        return base.map((r) => {
+          if (
+            r !== row &&
+            r.schStgStdPreceedingId !== row.schStgStdPreceedingId
+          ) {
+            return r;
+          }
+          const next = { ...r, tutionFee: value, rtfAmount: value };
+          const balance = Number(next.balanceAmount ?? 0);
+          if (balance <= value) {
+            next.color = "transparent";
+          }
+          return next;
+        });
       });
-    });
-  }, [preStaggings]);
+    },
+    [preStaggings],
+  );
 
   const onFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -179,7 +217,9 @@ export default function ScholarshipStudentsUploadPage() {
             type: bstr instanceof ArrayBuffer ? "array" : "binary",
           });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
+          const data = XLSX.utils.sheet_to_json(ws, {
+            header: 1,
+          }) as unknown[][];
           let size = 0;
           for (const row of data) {
             if (Array.isArray(row) && row.length > 0) size += 1;
@@ -215,7 +255,8 @@ export default function ScholarshipStudentsUploadPage() {
   }, [refetch]);
 
   const handleSave = useCallback(async () => {
-    const rows = [...preStaggings];
+    // Angular `addStdPreceedings` mutates `preStaggings` then POSTs the same array.
+    const rows = preStaggings.map((r) => ({ ...r }));
     let flag = false;
     for (const row of rows) {
       const app = row.applicationDTO;
@@ -226,12 +267,9 @@ export default function ScholarshipStudentsUploadPage() {
         row.schStdApplicationId = app.schStdApplicationId;
         row.courseYearId = app.courseYearId;
         row.schPreceedingId = schPreceedingId;
-        row.releaseFromDt = row.releasedFromDt
-          ? new Date(String(row.releasedFromDt)).toISOString()
-          : null;
-        row.releaseToDt = row.releasedToDt
-          ? new Date(String(row.releasedToDt)).toISOString()
-          : null;
+        // Angular: `new Date(releasedFromDt)` / `new Date(releasedToDt)` (JSON → ISO/null).
+        row.releaseFromDt = toApiDate(row.releasedFromDt);
+        row.releaseToDt = toApiDate(row.releasedToDt);
         row.isAmountSettled = 0;
         row.color = "transparent";
         row.isValidate = false;
@@ -376,9 +414,13 @@ export default function ScholarshipStudentsUploadPage() {
             >
               {uploading ? "Uploading…" : "Upload"}
             </Button>
+            <Button type="button" variant="outline" onClick={downloadSampleXl}>
+              Download Sample XL
+            </Button>
             {excelRowCount > 0 ? (
               <p className="text-sm text-destructive">
-                Total number of students listed in xsl sheet are {excelRowCount}.
+                Total number of students listed in xsl sheet are {excelRowCount}
+                .
               </p>
             ) : null}
           </div>
@@ -398,17 +440,13 @@ export default function ScholarshipStudentsUploadPage() {
       toolbar={{ search: true, searchPlaceholder: "Search" }}
       toolbarTrailing={
         <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/scholarship-management/preceeding-details")}
-          >
+          <Button type="button" variant="outline" onClick={() => router.back()}>
             Back
           </Button>
           <Button
             type="button"
             onClick={() => void handleSave()}
-            disabled={saving || preStaggings.length === 0}
+            disabled={saving}
           >
             {saving ? "Saving…" : "Save"}
           </Button>

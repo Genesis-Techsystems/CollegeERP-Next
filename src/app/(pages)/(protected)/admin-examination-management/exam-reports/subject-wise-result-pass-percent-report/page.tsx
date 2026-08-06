@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import {
@@ -29,11 +29,12 @@ const toastInfo = (msg: string) => toast.info(msg);
 const TOOLBAR = {
   search: true,
   searchPlaceholder: "Search...",
-  columnPicker: false,
+  columnPicker: true,
   exportPdf: false,
   exportExcel: false,
-  columnFilters: false,
 } as const;
+
+const GROUP_HEADER = "app-table-header-group";
 
 function escapeHtml(value: string): string {
   return value
@@ -391,100 +392,176 @@ export default function SubjectWiseResultPassPercentReportPage() {
     );
   }
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+  // Angular table: group row (Before Moderation / After Moderation / After Grace)
+  // then leaf columns S.No … Final Pass %.
+  const columnDefs = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(
     () => [
       {
         headerName: "S.No",
+        colId: "sno",
         valueGetter: rowIndexGetter,
         width: 70,
         flex: 0,
+        pinned: "left",
       },
       {
         headerName: "Semester",
-        minWidth: 100,
+        colId: "semester",
+        minWidth: 110,
+        width: 110,
+        pinned: "left",
         valueGetter: (p) => txt(p.data?.course_year_code),
       },
       {
         headerName: "Subject",
+        colId: "subject",
         minWidth: 180,
+        width: 180,
+        pinned: "left",
         valueGetter: (p) => txt(p.data?.subject_name),
       },
       {
         headerName: "Registered",
+        colId: "registered",
         minWidth: 100,
+        width: 100,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.registered),
       },
       {
         headerName: "Appeared",
+        colId: "appeared",
         minWidth: 100,
+        width: 100,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Appeared),
       },
       {
-        headerName: "BM Passed",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.passed),
+        headerName: "Before Moderation",
+        headerClass: GROUP_HEADER,
+        marryChildren: true,
+        children: [
+          {
+            headerName: "Passed",
+            colId: "bm_passed",
+            minWidth: 90,
+            width: 90,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.passed),
+          },
+          {
+            headerName: "Pass %",
+            colId: "bm_pass_pct",
+            minWidth: 90,
+            width: 90,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Passed_percent),
+          },
+          {
+            headerName: ">=55% Marks",
+            colId: "bm_55_marks",
+            minWidth: 110,
+            width: 110,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Count_of_above_55_percent),
+          },
+          {
+            headerName: ">=55 %Age",
+            colId: "bm_55_pct",
+            minWidth: 100,
+            width: 100,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Percent_of_above_55_percent),
+          },
+        ],
       },
       {
-        headerName: "BM Pass %",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.Passed_percent),
+        headerName: "After Moderation",
+        headerClass: GROUP_HEADER,
+        marryChildren: true,
+        children: [
+          {
+            headerName: "Passed",
+            colId: "am_passed",
+            minWidth: 90,
+            width: 90,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Passed_after_moderation),
+          },
+          {
+            headerName: "Pass %",
+            colId: "am_pass_pct",
+            minWidth: 90,
+            width: 90,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Passed_after_moderation_percent),
+          },
+          {
+            headerName: "Moderation Marks Awarded",
+            colId: "am_mod_marks",
+            minWidth: 150,
+            width: 150,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Moderation_marks_awarded),
+          },
+          {
+            headerName: "No.of Students Benefited",
+            colId: "am_benefited",
+            minWidth: 150,
+            width: 150,
+            cellClass: "text-center",
+            valueGetter: (p) =>
+              p.data ? String(rowMetrics(p.data).modBenefit) : "",
+          },
+        ],
       },
       {
-        headerName: ">=55% Marks",
-        minWidth: 110,
-        valueGetter: (p) => txt(p.data?.Count_of_above_55_percent),
+        headerName: "After Grace Marks",
+        headerClass: GROUP_HEADER,
+        marryChildren: true,
+        children: [
+          {
+            headerName: "Passed",
+            colId: "ag_passed",
+            minWidth: 90,
+            width: 90,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Passed_after_grace),
+          },
+          {
+            headerName: "Pass %",
+            colId: "ag_pass_pct",
+            minWidth: 90,
+            width: 90,
+            cellClass: "text-center",
+            valueGetter: (p) => txt(p.data?.Passed_after_grace_percent),
+          },
+          {
+            headerName: "No.of Students Benefited",
+            colId: "ag_benefited",
+            minWidth: 150,
+            width: 150,
+            cellClass: "text-center",
+            valueGetter: (p) =>
+              p.data ? String(rowMetrics(p.data).graceBenefit) : "",
+          },
+        ],
       },
       {
-        headerName: ">=55 %Age",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.Percent_of_above_55_percent),
-      },
-      {
-        headerName: "AM Passed",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.Passed_after_moderation),
-      },
-      {
-        headerName: "AM Pass %",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.Passed_after_moderation_percent),
-      },
-      {
-        headerName: "Moderation Marks Awarded",
-        minWidth: 140,
-        valueGetter: (p) => txt(p.data?.Moderation_marks_awarded),
-      },
-      {
-        headerName: "AM Students Benefited",
-        minWidth: 140,
-        valueGetter: (p) =>
-          p.data ? String(rowMetrics(p.data).modBenefit) : "",
-      },
-      {
-        headerName: "AG Passed",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.Passed_after_grace),
-      },
-      {
-        headerName: "AG Pass %",
-        minWidth: 100,
-        valueGetter: (p) => txt(p.data?.Passed_after_grace_percent),
-      },
-      {
-        headerName: "AG Students Benefited",
-        minWidth: 140,
-        valueGetter: (p) =>
-          p.data ? String(rowMetrics(p.data).graceBenefit) : "",
-      },
-      {
-        headerName: "Benefited (Mod+Grace)",
-        minWidth: 150,
+        headerName: "No.of Students Benefited after Moderation and Grace",
+        colId: "combined_benefited",
+        minWidth: 200,
+        width: 200,
+        cellClass: "text-center",
         valueGetter: (p) =>
           p.data ? String(rowMetrics(p.data).combinedBenefit) : "",
       },
       {
         headerName: "Final Pass %",
+        colId: "final_pass_pct",
         minWidth: 110,
+        width: 110,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Passed_after_grace_percent),
       },
     ],
@@ -610,9 +687,10 @@ export default function SubjectWiseResultPassPercentReportPage() {
       }
       filters={filters}
       rowData={rows}
-      columnDefs={columnDefs}
+      columnDefs={columnDefs as ColDef<AnyRow>[]}
       loading={loadingList}
       pagination
+      fitColumnsToWidth={false}
       toolbar={TOOLBAR}
       toolbarTrailing={
         rows.length > 0 ? (

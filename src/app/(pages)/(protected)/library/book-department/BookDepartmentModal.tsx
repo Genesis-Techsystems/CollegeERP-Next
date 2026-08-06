@@ -15,7 +15,7 @@ import {
   listLibraryDetailsByOrganization,
   updateLibraryBookCategory,
 } from "@/services";
-import type { LibraryBookCategory } from "@/types/library";
+import type { LibraryBookCategory, LibraryCategory } from "@/types/library";
 import { toastError, toastSuccess } from "@/lib/toast";
 
 function requiredId(label: string) {
@@ -45,6 +45,7 @@ interface BookDepartmentModalProps {
   open: boolean;
   onClose: () => void;
   row: LibraryBookCategory | null;
+  existingRows?: LibraryBookCategory[];
   onSaved: () => void;
 }
 
@@ -52,12 +53,14 @@ export function BookDepartmentModal({
   open,
   onClose,
   row,
+  existingRows = [],
   onSaved,
 }: Readonly<BookDepartmentModalProps>) {
   const isEditing = row != null;
   const [organizations, setOrganizations] = useState<SelectOption[]>([]);
   const [libraries, setLibraries] = useState<SelectOption[]>([]);
   const [categories, setCategories] = useState<SelectOption[]>([]);
+  const [categoryRows, setCategoryRows] = useState<LibraryCategory[]>([]);
   const [loadingLibraries, setLoadingLibraries] = useState(false);
 
   const {
@@ -119,6 +122,7 @@ export function BookDepartmentModal({
     if (!open || !organizationId) {
       setLibraries([]);
       setCategories([]);
+      setCategoryRows([]);
       return;
     }
     setLoadingLibraries(true);
@@ -126,7 +130,7 @@ export function BookDepartmentModal({
       listLibraryDetailsByOrganization(organizationId),
       listLibraryCategoriesByOrganization(organizationId),
     ])
-      .then(([libraryRows, categoryRows]) => {
+      .then(([libraryRows, nextCategoryRows]) => {
         setLibraries(
           libraryRows.map((library) => ({
             value: String(library.libraryId),
@@ -135,8 +139,9 @@ export function BookDepartmentModal({
             ),
           })),
         );
+        setCategoryRows(nextCategoryRows);
         setCategories(
-          categoryRows.map((category) => ({
+          nextCategoryRows.map((category) => ({
             value: String(category.libCategoryId),
             label: String(category.bookCategoryCode ?? category.libCategoryId),
           })),
@@ -147,6 +152,31 @@ export function BookDepartmentModal({
   }, [open, organizationId]);
 
   async function onSubmit(data: FormValues) {
+    const selectedCategory = categoryRows.find(
+      (category) => category.libCategoryId === data.libCategoryId,
+    );
+    const code = (
+      selectedCategory?.bookCategoryCode ??
+      row?.bookCategoryCode ??
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const duplicate = existingRows.some(
+      (item) =>
+        item.libraryId === data.libraryId &&
+        (item.bookCategoryCode ?? "").trim().toLowerCase() === code &&
+        code.length > 0 &&
+        item.bookcatId !== (row?.bookcatId ?? -1),
+    );
+    if (duplicate) {
+      toastError(
+        "Book department code already exists for the selected library",
+      );
+      return;
+    }
+
     const payload = {
       ...data,
       reason: data.isActive ? "active" : data.reason?.trim() || "inactive",

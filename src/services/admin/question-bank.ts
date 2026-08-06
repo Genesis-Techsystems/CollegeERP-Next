@@ -2,7 +2,7 @@
  * Question Bank (Assessment) service — Angular `question-bank-list` parity.
  *
  * API endpoints (match Angular CONSTANTS + crudService):
- *   GET  /domain/list/Assessment?size=99999&query=…     — list (ADMIN / by user)
+ *   GET  /domain/list/Assessment?query=order(createdDt=desc)&size=99999 — listAllDetails
  *   POST /assessment                                     — create question bank (assessmentUrl)
  *   PUT  /assessment                                     — update question bank (assessmentUrl)
  *   POST /assessment/addQuestion                         — add / update / soft-delete question
@@ -33,35 +33,25 @@ import { AppError } from "@/lib/errors";
 
 // ─── Question Bank CRUD ───────────────────────────────────────────────────────
 
-/**
- * Angular `listDetailsByTwoIdWithSort` query — literal `&` between clauses:
- * `preparedbyUser.userId==1739&isActive==true.order(createdDt=DESC)`
- * (do not use buildQuery `.and.` — domainList encodes `&` as %26).
- */
-function buildQuestionBankListQuery(userId: number): string {
-  return `preparedbyUser.userId==${userId}&isActive==true.order(createdDt=DESC)`;
-}
-
+/** Angular: keep only truthy `isForQuestionbank` (drops false / null / undefined). */
 function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
-  return rows.filter((r) => {
-    if (r.isForQuestionbank === true) return true;
-    if (r.isForQuestionbank === false) return false;
-    return true;
-  });
+  return rows.filter((r) => r.isForQuestionbank);
 }
 
 /**
- * List question banks for the logged-in preparer.
- * Angular (admin + QuestionPaperSetter): same payload shape —
- * `preparedbyUser.userId=={userId}&isActive==true.order(createdDt=DESC)`.
- * Client filter: `isForQuestionbank` (same as Angular).
+ * List question banks — Angular `question-bank-list` / listAllDetails parity:
+ *   GET /domain/list/Assessment?query=order(createdDt=desc)&size=99999
+ * (no preparedbyUser / isActive filter — Active + InActive both returned).
+ * Client filter: `isForQuestionbank`.
  */
-export async function listQuestionBanks(userId: number): Promise<Assessment[]> {
-  if (!userId) return [];
-  const query = buildQuestionBankListQuery(userId);
+export async function listQuestionBanks(
+  _userId?: number,
+): Promise<Assessment[]> {
+  // Match Angular query key order + casing: query=order(createdDt=desc)&size=99999
   const rows = await domainListRawQuery<Assessment>(
     ENTITIES.ASSESSMENT.name,
-    query,
+    "order(createdDt=desc)",
+    true,
   );
   return filterQuestionBankRows(rows);
 }

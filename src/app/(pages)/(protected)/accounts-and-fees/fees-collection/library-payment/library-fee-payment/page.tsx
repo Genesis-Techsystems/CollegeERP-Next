@@ -5,7 +5,7 @@ import { StudentCategoryFeeList } from "../../_components/StudentCategoryFeeList
 
 /**
  * Angular: fees-collection/library-payment/library-fee-payment → LibraryPayListComponent
- * Student search + fee structures; Pay Details → payment/pay-fees?page=library-fee
+ * Student search + fee structures; Pay Details → library-payment/library-fee
  */
 function LibraryFeePaymentContent() {
   return (
