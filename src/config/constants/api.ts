@@ -1186,6 +1186,19 @@ export const LIBRARY_API = {
   FINE_COLLECTION: "getAllRecords/s_rep_lib_fee_collection",
   /** Angular `print()` / `download()` — `getAllRecordsPDFDownload/s_rep_lib_fee_collection` */
   FINE_COLLECTION_PDF: "getAllRecordsPDFDownload/s_rep_lib_fee_collection",
+  /** Angular `bookIssueReportUrl` — Day Wise Book Issues */
+  DAY_WISE_BOOK_ISSUE: "getAllRecords/s_rep_lib_day_wise_book_issue",
+  /** Angular `bookReturnReportUrl` — Day Wise Book Returns */
+  DAY_WISE_BOOK_RETURNS: "getAllRecords/s_rep_day_wise_book_returns",
+  /** Angular `libraruFineCollectionUrl` — Day Wise Library Fine Collection report */
+  LIB_FINE_COLLECTION_REPORT: "getAllRecords/s_rep_lib_fine_collection",
+  /** Angular `libraruFineCollectionPdfDownloadUrl` */
+  LIB_FINE_COLLECTION_REPORT_PDF:
+    "getAllRecordsPDFDownload/s_rep_lib_fine_collection",
+  /** Angular `getLibBookWiseCountUrl` — Book Count by Course/Author */
+  LIB_BOOK_WISE_COUNT: "getAllRecords/s_rep_lib_book_wise_count",
+  /** Angular `noOfTitlesUrl` (download companion; list uses `titlesreport`) */
+  LIB_TITLES: "getAllRecords/s_rep_lib_titles",
   BOOK: "Book",
   /** Angular `subjectBookCrudUrl` */
   SUBJECT_BOOK: "SubjectBook",
@@ -1801,6 +1814,14 @@ export const ATTENDANCE_API = {
     "downloadattendancenottakenlist/s_rep_attendance_not_taken_staff",
   /** GET: emp attendance summary */
   EMP_ATTENDANCE_SUMMARY: "getAllRecords/s_get_emp_attendance_summary",
+  /** Angular `empAttendanceSummaryyReportUrl` — Employee Attendance Summary Report */
+  EMP_ATTENDANCE_SUMMARY_REPORT:
+    "getAllRecords/s_get_emp_attendance_summary_report",
+  /** Angular `empAttendanceeReportUrl` — Employee / Faculty Subjects Attendance Report */
+  EMP_ATTENDANCE_REPORT: "getAllRecords/s_get_emp_attendance_report",
+  /** Angular `subjectWiseAttedanceReportUrl` */
+  SUBJECT_WISE_FACULTY_ATTENDANCE:
+    "getAllRecords/s_rep_tt_std_subwise_attendance",
   /** GET: std attendance summary */
   STD_ATTENDANCE_SUMMARY: "getAllRecords/s_get_std_attendance_summary",
   /** GET: employee monthly attendance report */
@@ -2165,6 +2186,8 @@ export const TRANSPORT_API = {
   GET_ROUTE_DETAILS: "getAllRecords/s_get_route_details",
   /** GET: student transport details */
   GET_STUDENT_TRANSPORT: "getAllRecords/s_get_std_transport",
+  /** Angular `getRouteWiseStudentTransportUrl` */
+  GET_ROUTEWISE_STD_TRANSPORT: "getAllRecords/s_get_routewise_std_transport",
   /** POST: transport allocation for student */
   TRANSPORT_ALLOCATION: "transportallocationforstudent",
   /** Angular `transportDetailUrl` */
@@ -2306,6 +2329,11 @@ export const COUNSELOR_API = {
   FORTNIGHT_REPORT: "getAllRecords/s_get_counselor_report",
   /** GET: counselor fortnight download report */
   FORTNIGHT_DOWNLOAD: "getAllRecordsDownload/s_get_counselor_report",
+  /** Angular `counselorActivityReportUrl` */
+  ACTIVITY_REPORT: "getAllRecords/s_get_counselor_Activity_report",
+  /** Angular `counselorActivityReportDownloadReport` */
+  ACTIVITY_REPORT_DOWNLOAD:
+    "getAllRecordsDownload/s_get_counselor_Activity_report",
 } as const;
 
 // ─── Self-Appraisal ──────────────────────────────────────────────────────────
@@ -2397,6 +2425,12 @@ export const MISC_REPORT_API = {
   STD_SCHOLARSHIP_DOWNLOAD: "getAllRecordsDownload/s_std_scholarship_list",
   /** GET: enquiry application summary */
   ENQUIRY_APP_SUMMARY: "getAllRecords/s_get_enquiry_application_summary",
+  /** Angular `getStdAcademicHistoryReport` */
+  STD_ACADEMIC_HISTORY: "getAllRecords/s_get_std_academic_historyreport",
+  /** Angular `getStdLabBatchesReportsUrl` */
+  STD_LAB_BATCHES: "getAllRecords/s_get_std_labbatches",
+  /** Angular `getSmsSummaryUrl` — daily SMS communication detail report */
+  SMS_SUMMARY: "getAllRecords/s_get_sms_summary",
   /** GET: feedback status */
   GET_FEEDBACK_STATUS: "getAllRecords/s_get_feedback_status",
   /** GET: visitors report */

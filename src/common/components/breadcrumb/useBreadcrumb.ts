@@ -173,12 +173,16 @@ function feeReportsMenuBreadcrumb(
 
 /**
  * Student report pages under Reports → Student Reports.
+ * URL folder is `admin-student-reports` / `student-admission-reports` — never show
+ * that raw segment; Angular menu crumb is "Student Reports".
  */
 function studentReportsMenuBreadcrumb(
   pathname: string,
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
   const path = pathname.replace(/\/$/, "") || "/";
+  const base =
+    /\/reports\/(?:admin-student-reports|student-admission-reports)\//i;
 
   const leaf =
     /\/reports\/(?:admin-student-reports|student-admission-reports)\/day-wise-admission-report$/i.test(
@@ -233,14 +237,47 @@ function studentReportsMenuBreadcrumb(
                                   path,
                                 )
                               ? "Student Caste Wise Gender Count Report"
-                              : null;
+                              : /\/reports\/(?:admin-student-reports|student-admission-reports)\/enquir(?:ies|ers)-report$/i.test(
+              path,
+            )
+          ? "Enquirers Report"
+          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-academic-history-report$/i.test(
+                path,
+              )
+            ? "Student Academic History Report"
+            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-lab-batches-report$/i.test(
+                  path,
+                )
+              ? "Students Lab Batches Report"
+              : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-electives?-report$/i.test(
+                    path,
+                  )
+                ? "Student Elective Report"
+                : /\/reports\/(?:admin-student-reports|student-admission-reports)\/class-syllabus-status-report$/i.test(
+                      path,
+                    )
+                  ? "Class Syllabus Report"
+                  : /\/reports\/(?:admin-student-reports|student-admission-reports)\/subject-wise-syllabus-report$/i.test(
+                        path,
+                      )
+                    ? "Subject Wise Syllabus Report"
+                    : /\/reports\/(?:admin-student-reports|student-admission-reports)\/daily-sms[-]?communication-detail-report$/i.test(
+                          path,
+                        )
+                      ? "Daily SMS Detail Report"
+                      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/(?:studentcount-drilldown-report|student-drilldown-report)$/i.test(
+                            path,
+                          )
+                        ? "Student Count Report"
+                        : null;
 
-  if (!leaf) return items;
+  if (!leaf || !base.test(path)) return items;
 
   const labels = items.map((i) => i.label.toLowerCase());
   const alreadyCorrect =
     labels.some((l) => l === "reports") &&
-    labels.some((l) => l === "student reports") &&
+    labels.some((l) => l === "student reports" || l === "student report") &&
+    !labels.some((l) => l.includes("admin student")) &&
     labels.some((l) => l === leaf.toLowerCase());
   if (alreadyCorrect) return items;
 
@@ -248,6 +285,258 @@ function studentReportsMenuBreadcrumb(
     { label: "Home", href: "/dashboard" },
     { label: "Reports" },
     { label: "Student Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Attendance report pages under Reports → Attendance Reports.
+ * URL folder may be `admin-attendance-reports` or `student-attendance-reports`.
+ */
+function attendanceReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const base =
+    /\/reports\/(?:admin-attendance-reports|student-attendance-reports)\//i;
+  if (!base.test(path)) return items;
+
+  const leaf = /\/mentor-fortnight-report$/i.test(path)
+    ? "Mentor Fortnight Report"
+    : /\/counselor-activity-report$/i.test(path)
+      ? "Counselor Activity Report"
+      : /\/employee-attendance-summary-report$/i.test(path)
+        ? "Employee Attendance Summary Report"
+        : /\/employee-attendance-report$/i.test(path)
+          ? "Employee Attendance Report"
+          : /\/subject-wise-faculty-attendance-report$/i.test(path)
+            ? "Subject Wise College Attendance Report"
+            : /\/faculty-subjects-attendance-report$/i.test(path)
+              ? "Faculty Subjects Attendance Report"
+              : /\/class-student-wise-ptm-report$/i.test(path)
+                ? "Student Wise PTM Report"
+                : /\/(?:day-wise-attendance-count-report|student-attendance-count-report)$/i.test(
+                      path,
+                    )
+                  ? "Day-wise Students Attendance Summary Report"
+                  : /\/course-wise-students-attendance-report$/i.test(path)
+                    ? "Course-Wise Students Attendance Report"
+                    : /\/parent-teacher-meeting-report$/i.test(path)
+                      ? "Parent Teacher Meeting"
+                      : null;
+
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some(
+      (l) => l === "attendance reports" || l === "student attendance reports",
+    ) &&
+    !labels.some((l) => l.includes("admin attendance")) &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Student Attendance Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Staff Proxy Report breadcrumb under Reports → Timetable Reports.
+ */
+function timetableReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/\/reports\/admin-timetable-reports\/staff-proxy-report$/i.test(path)) {
+    return items;
+  }
+
+  const leaf = "Staff Proxy Report";
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some(
+      (l) => l === "timetable reports" || l === "time table reports",
+    ) &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Timetable Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Library Reports breadcrumb under Reports → Library Reports.
+ */
+function libraryReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const leafByPath: Record<string, string> = {
+    "/reports/admin-library-reports/book-issue-report": "Book Issue Report",
+    "/reports/admin-library-reports/book-return-report":
+      "Day Wise Book Return Report",
+    "/reports/admin-library-reports/library-fine-collection-report":
+      "Day Wise Library Fine Collection",
+    "/reports/admin-library-reports/total-titles-report": "Titles Report",
+    "/reports/admin-library-reports/book-count-course-author-report":
+      "Book Count by Course/Author Report",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "library reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Library Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Transport Reports breadcrumb under Reports → Transport Reports.
+ */
+function transportReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const leafByPath: Record<string, string> = {
+    "/reports/admin-transport-reports/vehicle-details-report":
+      "Vehicle Details Report",
+    "/reports/admin-transport-reports/driver-details-report":
+      "Driver Details Report",
+    "/reports/admin-transport-reports/route-details-report":
+      "Route Details Report",
+    "/reports/admin-transport-reports/student-transport-details-cls-sc-report":
+      "Transport Details By Class/Sec Report",
+    "/reports/admin-transport-reports/route-wise-students-details-month":
+      "Route-Wise Students Details By Month",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "transport reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Transport Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * HR Reports breadcrumb under Reports → HR Reports.
+ */
+function hrReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const leafByPath: Record<string, string> = {
+    "/reports/admin-hr-reports/employee-list-by-campus-report":
+      "Employee List By Campus",
+    "/reports/admin-hr-reports/employee-detail-report":
+      "Employee Detail Report",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "hr reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "HR Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Management Reports breadcrumb under Reports → Management Reports.
+ */
+function managementReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const leafByPath: Record<string, string> = {
+    "/reports/management-reports/inventory-stock-report":
+      "Inventory Stock Report",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "management reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Management Reports" },
+    { label: leaf },
+  ];
+}
+
+/**
+ * Finance Reports breadcrumb under Reports → Finance Reports.
+ */
+function financeReportsMenuBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const leafByPath: Record<string, string> = {
+    "/reports/admin-finance-reports/day-wise-expenses": "Day-Wise Expenses",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  const alreadyCorrect =
+    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === "finance reports") &&
+    labels.some((l) => l === leaf.toLowerCase());
+  if (alreadyCorrect) return items;
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Reports" },
+    { label: "Finance Reports" },
     { label: leaf },
   ];
 }
@@ -788,6 +1077,13 @@ export function useBreadcrumb(
   items = examReportsModuleBreadcrumb(pathname, items);
   items = feeReportsMenuBreadcrumb(pathname, items);
   items = studentReportsMenuBreadcrumb(pathname, items);
+  items = attendanceReportsMenuBreadcrumb(pathname, items);
+  items = timetableReportsMenuBreadcrumb(pathname, items);
+  items = libraryReportsMenuBreadcrumb(pathname, items);
+  items = transportReportsMenuBreadcrumb(pathname, items);
+  items = hrReportsMenuBreadcrumb(pathname, items);
+  items = managementReportsMenuBreadcrumb(pathname, items);
+  items = financeReportsMenuBreadcrumb(pathname, items);
   items = reportCatalogBreadcrumb(pathname, items);
   items = accountsFeesPaymentBreadcrumb(pathname, items);
   items = simplifyAdminDirectLeafBreadcrumb(pathname, items);

@@ -2686,6 +2686,73 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return "/reports/admin-student-reports/day-wise-admission-report";
       }
+      // Angular student-admission / admin-student reports
+      if (
+        hrefLower.includes("enquiries-report") ||
+        hrefLower.includes("enquirers-report") ||
+        (labelLower.includes("enquir") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/enquiries-report";
+      }
+      if (
+        hrefLower.includes("student-academic-history-report") ||
+        (labelLower.includes("academic history") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/student-academic-history-report";
+      }
+      if (
+        hrefLower.includes("students-lab-batches-report") ||
+        hrefLower.includes("student-lab-batches-report") ||
+        (labelLower.includes("lab batch") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/students-lab-batches-report";
+      }
+      if (
+        hrefLower.includes("student-electives-report") ||
+        hrefLower.includes("student-elective-report") ||
+        (labelLower.includes("elective") &&
+          labelLower.includes("report") &&
+          labelLower.includes("student"))
+      ) {
+        return "/reports/admin-student-reports/student-electives-report";
+      }
+      if (
+        hrefLower.includes("class-syllabus-status-report") ||
+        (labelLower.includes("class syllabus") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/class-syllabus-status-report";
+      }
+      if (
+        hrefLower.includes("subject-wise-syllabus-report") ||
+        (labelLower.includes("subject") &&
+          labelLower.includes("syllabus") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/subject-wise-syllabus-report";
+      }
+      if (
+        hrefLower.includes("daily-smscommunication-detail-report") ||
+        hrefLower.includes("daily-sms-communication-detail-report") ||
+        (labelLower.includes("daily sms") && labelLower.includes("report")) ||
+        (labelLower.includes("sms detail") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/daily-smscommunication-detail-report";
+      }
+      if (
+        hrefLower.includes("studentcount-drilldown-report") ||
+        hrefLower.includes("student-drilldown-report") ||
+        (labelLower.includes("student") &&
+          labelLower.includes("drilldown") &&
+          labelLower.includes("report")) ||
+        (labelLower.includes("student count report") &&
+          !labelLower.includes("caste") &&
+          !labelLower.includes("gender")) ||
+        (labelLower.includes("student drilldown") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-student-reports/studentcount-drilldown-report";
+      }
       // Angular Day Wise Application Report
       if (
         hrefLower.includes("student-application-report") ||
@@ -2901,6 +2968,232 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             labelLower.includes("student")))
       ) {
         return "/reports/admin-student-reports/student-caste-wise-gender-count-report";
+      }
+      // Attendance Reports (Angular admin-attendance-reports)
+      if (
+        hrefLower.includes("mentor-fortnight-report") ||
+        (labelLower.includes("mentor") &&
+          labelLower.includes("fortnight") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/mentor-fortnight-report";
+      }
+      if (
+        hrefLower.includes("counselor-activity-report") ||
+        (labelLower.includes("counselor") &&
+          labelLower.includes("activity") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/counselor-activity-report";
+      }
+      if (
+        hrefLower.includes("employee-attendance-summary-report") ||
+        (labelLower.includes("employee") &&
+          labelLower.includes("attendance") &&
+          labelLower.includes("summary") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/employee-attendance-summary-report";
+      }
+      if (
+        hrefLower.includes("employee-attendance-report") ||
+        (labelLower.includes("employee") &&
+          labelLower.includes("attendance") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("summary") &&
+          !labelLower.includes("monthly"))
+      ) {
+        return "/reports/admin-attendance-reports/employee-attendance-report";
+      }
+      if (
+        hrefLower.includes("subject-wise-faculty-attendance-report") ||
+        (labelLower.includes("subject") &&
+          labelLower.includes("college") &&
+          labelLower.includes("attendance") &&
+          labelLower.includes("report")) ||
+        (labelLower.includes("subject wise") &&
+          labelLower.includes("faculty") &&
+          labelLower.includes("attendance"))
+      ) {
+        return "/reports/admin-attendance-reports/subject-wise-faculty-attendance-report";
+      }
+      if (
+        hrefLower.includes("faculty-subjects-attendance-report") ||
+        (labelLower.includes("faculty") &&
+          labelLower.includes("subject") &&
+          labelLower.includes("attendance") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/faculty-subjects-attendance-report";
+      }
+      if (
+        hrefLower.includes("class-student-wise-ptm-report") ||
+        (labelLower.includes("ptm") &&
+          (labelLower.includes("class") || labelLower.includes("student")) &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/class-student-wise-ptm-report";
+      }
+      if (
+        hrefLower.includes("day-wise-attendance-count-report") ||
+        hrefLower.includes("student-attendance-count-report") ||
+        (labelLower.includes("day") &&
+          labelLower.includes("attendance") &&
+          labelLower.includes("summary") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/day-wise-attendance-count-report";
+      }
+      if (
+        hrefLower.includes("course-wise-students-attendance-report") ||
+        (labelLower.includes("course") &&
+          labelLower.includes("student") &&
+          labelLower.includes("attendance") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-attendance-reports/course-wise-students-attendance-report";
+      }
+      if (
+        hrefLower.includes("parent-teacher-meeting-report") ||
+        (labelLower.includes("parent") &&
+          labelLower.includes("teacher") &&
+          (labelLower.includes("meeting") || labelLower.includes("ptm")) &&
+          !labelLower.includes("class"))
+      ) {
+        return "/reports/admin-attendance-reports/parent-teacher-meeting-report";
+      }
+      // Timetable Reports — Staff Proxy only
+      if (
+        hrefLower.includes("staff-proxy-report") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("proxy") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/staff-proxy-report";
+      }
+      // Transport Reports
+      if (
+        hrefLower.includes("vehicle-details-report") ||
+        (labelLower.includes("vehicle") &&
+          labelLower.includes("details") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-transport-reports/vehicle-details-report";
+      }
+      if (
+        hrefLower.includes("driver-details-report") ||
+        (labelLower.includes("driver") &&
+          labelLower.includes("details") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("helper"))
+      ) {
+        return "/reports/admin-transport-reports/driver-details-report";
+      }
+      if (
+        hrefLower.includes("route-details-report") ||
+        (labelLower.includes("route") &&
+          labelLower.includes("details") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("student") &&
+          !labelLower.includes("wise"))
+      ) {
+        return "/reports/admin-transport-reports/route-details-report";
+      }
+      if (
+        hrefLower.includes("student-transport-details-cls-sc-report") ||
+        hrefLower.includes("student-transport-details-by-class") ||
+        (labelLower.includes("transport") &&
+          labelLower.includes("class") &&
+          (labelLower.includes("sec") || labelLower.includes("section")))
+      ) {
+        return "/reports/admin-transport-reports/student-transport-details-cls-sc-report";
+      }
+      if (
+        hrefLower.includes("route-wise-students-details-month") ||
+        hrefLower.includes("routewise-students-details-by-month") ||
+        (labelLower.includes("route") &&
+          labelLower.includes("student") &&
+          labelLower.includes("month"))
+      ) {
+        return "/reports/admin-transport-reports/route-wise-students-details-month";
+      }
+      // Library Reports
+      if (
+        hrefLower.includes("book-issue-report") ||
+        (labelLower.includes("day wise") &&
+          labelLower.includes("book") &&
+          labelLower.includes("issue"))
+      ) {
+        return "/reports/admin-library-reports/book-issue-report";
+      }
+      if (
+        hrefLower.includes("book-return-report") ||
+        (labelLower.includes("day wise") &&
+          labelLower.includes("book") &&
+          labelLower.includes("return"))
+      ) {
+        return "/reports/admin-library-reports/book-return-report";
+      }
+      if (
+        hrefLower.includes("library-fine-collection-report") ||
+        (labelLower.includes("library") &&
+          labelLower.includes("fine") &&
+          labelLower.includes("collection") &&
+          (labelLower.includes("day") || labelLower.includes("list")))
+      ) {
+        return "/reports/admin-library-reports/library-fine-collection-report";
+      }
+      if (
+        hrefLower.includes("total-titles-report") ||
+        labelLower === "titles report" ||
+        (labelLower.includes("titles") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("book"))
+      ) {
+        return "/reports/admin-library-reports/total-titles-report";
+      }
+      if (
+        hrefLower.includes("book-count-course-author-report") ||
+        hrefLower.includes("book-count-by-course-report") ||
+        (labelLower.includes("book count") &&
+          (labelLower.includes("course") || labelLower.includes("author")))
+      ) {
+        return "/reports/admin-library-reports/book-count-course-author-report";
+      }
+      // HR Reports
+      if (
+        hrefLower.includes("employee-list-by-campus") ||
+        (labelLower.includes("employee list") &&
+          (labelLower.includes("campus") || labelLower.includes("department")))
+      ) {
+        return "/reports/admin-hr-reports/employee-list-by-campus-report";
+      }
+      if (
+        hrefLower.includes("employee-detail-report") ||
+        (labelLower.includes("employee") &&
+          labelLower.includes("detail") &&
+          (labelLower.includes("report") || labelLower === "employee details"))
+      ) {
+        return "/reports/admin-hr-reports/employee-detail-report";
+      }
+      // Management Reports
+      if (
+        hrefLower.includes("inventory-stock-report") ||
+        (labelLower.includes("inventory") &&
+          labelLower.includes("stock") &&
+          (labelLower.includes("report") || labelLower.includes("summary")))
+      ) {
+        return "/reports/management-reports/inventory-stock-report";
+      }
+      // Finance Reports — Day-Wise Expenses
+      if (
+        hrefLower.includes("day-wise-expenses") ||
+        hrefLower.includes("daywise-expenses") ||
+        (labelLower.includes("day") &&
+          labelLower.includes("wise") &&
+          labelLower.includes("expense"))
+      ) {
+        return "/reports/admin-finance-reports/day-wise-expenses";
       }
       // Angular Report Catalog (report-catalyst)
       if (
