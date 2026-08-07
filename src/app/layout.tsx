@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import { ThemeInit } from "./theme-init";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import { ThemeInit } from "./theme-init";
 
 // Premium "Indigo / Inter" theme — Inter for both body and headings.
 const inter = Inter({
@@ -53,8 +52,6 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        {/* Apply saved colour theme + dark mode before first paint (no flash) */}
-        <ThemeInit />
         {/* Theme bootstrap via useServerInsertedHTML — avoids React 19 script-in-component warning */}
         <ThemeInit />
         {children}
