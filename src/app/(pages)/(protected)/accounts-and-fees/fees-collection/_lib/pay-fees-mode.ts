@@ -53,6 +53,8 @@ export type CategoryFeePayConfig = {
   useFilteredShell?: boolean;
   /** Angular: Fee Receipts block only when `feeReceipts.length > 0`. */
   showReceiptsOnlyWhenPresent?: boolean;
+  /** Hide Fee Receipts card entirely (Library Fee Payment). */
+  hideFeeReceipts?: boolean;
   backHref: (qs: URLSearchParams) => string;
 };
 
@@ -128,6 +130,8 @@ export function resolveFeePayConfig(page: string | null): CategoryFeePayConfig {
       categoryCode: "LF",
       requireTransport: false,
       filterOnlineLookups: false,
+      useFilteredShell: true,
+      hideFeeReceipts: true,
       backHref: (qs) => {
         const back = new URLSearchParams();
         for (const key of [

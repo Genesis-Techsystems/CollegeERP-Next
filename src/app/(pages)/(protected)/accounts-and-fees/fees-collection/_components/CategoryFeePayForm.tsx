@@ -157,6 +157,7 @@ export function CategoryFeePayForm({
     title,
     useFilteredShell = false,
     showReceiptsOnlyWhenPresent = false,
+    hideFeeReceipts = false,
   } = config;
 
   const [form, setForm] = useState<PayFormState>({
@@ -340,7 +341,7 @@ export function CategoryFeePayForm({
   const { data: receipts = [], isLoading: loadingReceipts } = useQuery({
     queryKey: QK.feesCollection.particularWiseReceipts(receiptFilters ?? {}),
     queryFn: () => listParticularWiseReceipts(receiptFilters!),
-    enabled: Boolean(receiptFilters),
+    enabled: Boolean(receiptFilters) && !hideFeeReceipts,
   });
 
   const paymentModes = useMemo(() => {
@@ -1112,8 +1113,9 @@ export function CategoryFeePayForm({
           </div>
         </TableCard>
 
-        {/* Angular: Fee Receipts only when feeReceipts.length > 0 */}
-        {!showReceiptsOnlyWhenPresent || receipts.length > 0 ? (
+        {/* Library: hide receipts card. Bus/others: only when present (Angular). */}
+        {!hideFeeReceipts &&
+        (!showReceiptsOnlyWhenPresent || receipts.length > 0) ? (
           <TableCard
             headerLeft={
               <span className="text-sm font-medium">Fee Receipts</span>
