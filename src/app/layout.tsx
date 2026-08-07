@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+import { ThemeInit } from "./theme-init";
 
 // Premium "Indigo / Inter" theme — Inter for both body and headings.
 const inter = Inter({
@@ -49,14 +50,10 @@ export default function RootLayout({
           integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
           crossOrigin="anonymous"
         />
-        {/* Apply saved colour theme + dark mode before first paint (no flash) */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('erp_theme_settings')||'{}');var t=s.colorScheme||'university-blue';document.documentElement.setAttribute('data-theme',t);var m=s.themeMode||'light';if(m==='system'){m=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','university-blue');}})();`,
-          }}
-        />
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {/* Theme bootstrap via useServerInsertedHTML — avoids React 19 script-in-component warning */}
+        <ThemeInit />
         {children}
       </body>
     </html>
