@@ -394,3 +394,27 @@ export async function sendBulkEmailToAdminFromStaff(
   if (!res.ok) throw parseApiError(res, body);
   assertLegacyMasterPost(body, "Send bulk email to admin failed");
 }
+
+/**
+ * Angular `principal-staff-to-admin-email` —
+ * `crudService.addMasterDetails(sendEmailToAdminurl, email)`.
+ */
+export async function sendEmailToAdmin(
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const res = await fetch(
+    `${PROXY_BASE}/${COMMUNICATION_API.SEND_EMAIL_TO_ADMIN}`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  const body = (await res.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  if (!res.ok) throw parseApiError(res, body);
+  assertLegacyMasterPost(body, "Send email to admin failed");
+}

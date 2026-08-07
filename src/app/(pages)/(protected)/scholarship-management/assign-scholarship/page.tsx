@@ -19,12 +19,6 @@ import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
-  academicYearOption,
-  batchOption,
-  collegeOption,
-  courseGroupOption,
-  courseOption,
-  courseYearOption,
   filterAcademicYearsByUniversity,
   filterCollegesByUniversity,
   filterCourseGroups,
@@ -32,7 +26,7 @@ import {
   filterCourseYears,
   filterUniversities,
   pickNum,
-  universityOption,
+  pickText,
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
@@ -48,6 +42,19 @@ import type {
   UpdateStdStudentScholarshipPayload,
 } from "@/types/scholarship";
 
+/** Angular Assign Scholarship: filter dropdowns show codes, not full names. */
+function codeOption(
+  row: FilterRow,
+  idKeys: string[],
+  codeKeys: string[],
+  fallbackKeys: string[] = [],
+) {
+  const id = pickNum(row, idKeys);
+  return {
+    value: String(id),
+    label: pickText(row, codeKeys) || pickText(row, fallbackKeys) || String(id),
+  };
+}
 type StructureMode = "batch" | "academic";
 type StudentTab = "assigned" | "unassigned";
 
@@ -101,44 +108,75 @@ export default function AssignScholarshipPage() {
   const isBatchMode = mode === "batch";
 
   const universityOptions = useMemo(
-    () => filterUniversities(filtersData).map(universityOption),
+    () =>
+      filterUniversities(filtersData).map((r) =>
+        codeOption(
+          r,
+          ["fk_university_id", "universityId", "Universities.universityId"],
+          ["university_code", "universityCode"],
+        ),
+      ),
     [filtersData],
   );
 
   const collegeOptions = useMemo(
     () =>
-      filterCollegesByUniversity(filtersData, universityId).map(collegeOption),
+      filterCollegesByUniversity(filtersData, universityId).map((r) =>
+        codeOption(
+          r,
+          ["fk_college_id", "collegeId", "fk_collegeId"],
+          ["college_code", "collegeCode"],
+        ),
+      ),
     [filtersData, universityId],
   );
 
   const courseOptions = useMemo(
-    () => filterCourses(filtersData, collegeId).map(courseOption),
+    () =>
+      filterCourses(filtersData, collegeId).map((r) =>
+        codeOption(
+          r,
+          ["fk_course_id", "courseId"],
+          ["course_code", "courseCode"],
+        ),
+      ),
     [filtersData, collegeId],
   );
 
   const courseGroupOptions = useMemo(
     () =>
-      filterCourseGroups(filtersData, collegeId, courseId).map(
-        courseGroupOption,
+      filterCourseGroups(filtersData, collegeId, courseId).map((r) =>
+        codeOption(
+          r,
+          ["fk_course_group_id", "courseGroupId", "CourseGroup.courseGroupId"],
+          ["group_code", "groupCode"],
+        ),
       ),
     [filtersData, collegeId, courseId],
   );
 
   const courseYearOptions = useMemo(
     () =>
-      filterCourseYears(
-        filtersData,
-        collegeId,
-        courseId,
-        courseGroupId,
-      ).map(courseYearOption),
+      filterCourseYears(filtersData, collegeId, courseId, courseGroupId).map(
+        (r) =>
+          codeOption(
+            r,
+            ["fk_course_year_id", "courseYearId"],
+            ["course_year_code", "courseYearCode", "year_code", "yearCode"],
+            ["course_year_name", "courseYearName"],
+          ),
+      ),
     [filtersData, collegeId, courseId, courseGroupId],
   );
 
   const academicYearOptions = useMemo(
     () =>
-      filterAcademicYearsByUniversity(academicData, universityId).map(
-        academicYearOption,
+      filterAcademicYearsByUniversity(academicData, universityId).map((r) =>
+        codeOption(
+          r,
+          ["fk_academic_year_id", "academicYearId"],
+          ["academic_year", "academicYear"],
+        ),
       ),
     [academicData, universityId],
   );
@@ -151,14 +189,10 @@ export default function AssignScholarshipPage() {
 
   const batchOptions = useMemo(
     () =>
-      batches.map((b) =>
-        batchOption({
-          fk_batch_id: b.batchId,
-          batchId: b.batchId,
-          batch_name: b.batchName,
-          batchName: b.batchName,
-        }),
-      ),
+      batches.map((b) => ({
+        value: String(b.batchId),
+        label: b.batchCode || b.batchName || String(b.batchId),
+      })),
     [batches],
   );
 
@@ -173,10 +207,10 @@ export default function AssignScholarshipPage() {
 
   const filtersReady = Boolean(
     collegeId &&
-      courseId &&
-      courseGroupId &&
-      courseYearId &&
-      (isBatchMode ? batchId : academicYearId),
+    courseId &&
+    courseGroupId &&
+    courseYearId &&
+    (isBatchMode ? batchId : academicYearId),
   );
 
   const clearStudents = useCallback(() => {
@@ -267,7 +301,8 @@ export default function AssignScholarshipPage() {
 
         const universities = filterUniversities(filters.filtersData);
         const firstUniversity =
-          pickNum(universities[0], ["fk_university_id", "universityId"]) || null;
+          pickNum(universities[0], ["fk_university_id", "universityId"]) ||
+          null;
         setUniversityId(firstUniversity);
 
         if (!firstUniversity) return;
@@ -408,17 +443,13 @@ export default function AssignScholarshipPage() {
     if (tab === "assigned") {
       setAssignedList((prev) =>
         prev.map((r) =>
-          matchesSearch(r, search.trim().toLowerCase())
-            ? { ...r, checked }
-            : r,
+          matchesSearch(r, search.trim().toLowerCase()) ? { ...r, checked } : r,
         ),
       );
     } else {
       setUnAssignedList((prev) =>
         prev.map((r) =>
-          matchesSearch(r, search.trim().toLowerCase())
-            ? { ...r, checked }
-            : r,
+          matchesSearch(r, search.trim().toLowerCase()) ? { ...r, checked } : r,
         ),
       );
     }
@@ -463,10 +494,7 @@ export default function AssignScholarshipPage() {
     const amount = typeId ? resolveAmount(typeId) : 0;
 
     const payload: UpdateStdStudentScholarshipPayload[] = source.map((x) => {
-      const studentTypeId =
-        typeId ||
-        Number(x.scholarshipTypeId ?? 0) ||
-        0;
+      const studentTypeId = typeId || Number(x.scholarshipTypeId ?? 0) || 0;
       return {
         studentScholarshipId: x.studentScholarshipId ?? null,
         collegeId,
@@ -496,7 +524,10 @@ export default function AssignScholarshipPage() {
       );
       await loadStudentsAndTypes();
     } catch (err) {
-      toastError(err, getErrorMessage(err) || `Failed to ${label.toLowerCase()}`);
+      toastError(
+        err,
+        getErrorMessage(err) || `Failed to ${label.toLowerCase()}`,
+      );
     } finally {
       setSaving(false);
     }
@@ -646,12 +677,8 @@ export default function AssignScholarshipPage() {
                 <div className="w-full max-w-xs">
                   <Select
                     label="Scholarship Type"
-                    value={
-                      scholarshipTypeId ? String(scholarshipTypeId) : null
-                    }
-                    onChange={(v) =>
-                      setScholarshipTypeId(v ? Number(v) : null)
-                    }
+                    value={scholarshipTypeId ? String(scholarshipTypeId) : null}
+                    onChange={(v) => setScholarshipTypeId(v ? Number(v) : null)}
                     options={scholarshipTypeOptions}
                     placeholder="Select scholarship type"
                     searchable
@@ -814,9 +841,7 @@ function StudentTable({
                   ) : (
                     <Select
                       value={
-                        scholarshipTypeId
-                          ? String(scholarshipTypeId)
-                          : null
+                        scholarshipTypeId ? String(scholarshipTypeId) : null
                       }
                       onChange={(v) => onScholarshipTypeChange?.(v)}
                       options={scholarshipTypeOptions}

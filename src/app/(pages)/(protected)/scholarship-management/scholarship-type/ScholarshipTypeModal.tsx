@@ -151,19 +151,32 @@ export function ScholarshipTypeModal({
       }
     }
 
+    // Angular update body example:
+    // { organizationId, universityId, scholarshipTypeCode, scholarshipTypeDesc,
+    //   sortOrder: "1", isActive, reason, scholarshipTypeId }
+    const sortOrder =
+      data.sortOrder === undefined ||
+      data.sortOrder === null ||
+      Number.isNaN(Number(data.sortOrder))
+        ? undefined
+        : String(data.sortOrder);
+
     const payload = {
       organizationId: data.organizationId,
       universityId: data.universityId,
       scholarshipTypeCode: data.scholarshipTypeCode.trim(),
       scholarshipTypeDesc: data.scholarshipTypeDesc.trim(),
-      sortOrder: data.sortOrder,
+      ...(sortOrder !== undefined ? { sortOrder } : {}),
       isActive: data.isActive,
       reason: data.isActive ? "active" : data.reason?.trim() || "inactive",
     };
 
     try {
       if (isEditing && row) {
-        await updateScholarshipType(row.scholarshipTypeId, payload);
+        await updateScholarshipType(row.scholarshipTypeId, {
+          ...payload,
+          scholarshipTypeId: row.scholarshipTypeId,
+        });
         toastSuccess("Scholarship type updated");
       } else {
         await createScholarshipType(payload);
@@ -265,7 +278,11 @@ export function ScholarshipTypeModal({
           <ActiveStatusField
             isActive={field.value}
             reason={watch("reason") ?? ""}
-            onActiveChange={field.onChange}
+            onActiveChange={(v) => {
+              const next = v === true;
+              field.onChange(next);
+              if (next) setValue("reason", "active");
+            }}
             onReasonChange={(value) => setValue("reason", value)}
             reasonError={errors.reason?.message}
           />

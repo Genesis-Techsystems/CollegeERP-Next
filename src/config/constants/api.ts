@@ -1020,6 +1020,12 @@ export const FEE_API = {
    * `getAllRecords/daywise_fee_collection` (Day Wise / Monthly Fee Report).
    */
   DAY_WISE_FEE_COLLECTION: "getAllRecords/daywise_fee_collection",
+  /**
+   * Angular `getDaywiseOnlineErpFeePaymentsUrl` —
+   * `getAllRecords/s_get_daywise_online_erp_fee_payments`.
+   */
+  DAYWISE_ONLINE_ERP_FEE_PAYMENTS:
+    "getAllRecords/s_get_daywise_online_erp_fee_payments",
   /** Angular `feeStudentWiseParticularsCrudUrl` */
   FEE_STUDENT_WISE_PARTICULARS_2: "feestudentwiseparticulars",
   /** Angular `feeStudentDataParticularCrudUrl` */

@@ -132,6 +132,41 @@ export function resolveForcedNavRoute(
     return "/staff-faculty-leaves/leave-summary";
   }
 
+  // Daily Attendance Report / Daily Attendance of Students
+  // Angular: student-daily-attendance-count-report
+  // Filters: College, Academic Year, Course, Date only (no Group/Year/Section).
+  if (
+    hrefLower.includes("student-daily-attendance-count-report") ||
+    hrefLower.includes("admin-attendance-reports/student-daily") ||
+    (hrefLower.includes("daily-attendance-report") &&
+      !hrefLower.includes("period") &&
+      !hrefLower.includes("percentage") &&
+      !hrefLower.includes("daily-attendance-count-report")) ||
+    labelLower === "daily attendance report" ||
+    labelLower === "student daily attendance report" ||
+    labelLower === "daily attendance of students" ||
+    labelLower.includes("daily attendance of student")
+  ) {
+    return "/reports/student-attendance-reports/student-daily-attendance-count-report";
+  }
+
+  // Subject Wise Student Attendance (Angular subject-wise-attendance-report).
+  // Must beat Attendance Management `student-attendance` label remap.
+  if (
+    hrefLower.includes("subject-wise-attendance-report") ||
+    labelLower === "subject wise student attendance" ||
+    (labelLower.includes("subject") &&
+      labelLower.includes("wise") &&
+      labelLower.includes("attendance") &&
+      !labelLower.includes("faculty") &&
+      !labelLower.includes("evaluator") &&
+      !labelLower.includes("result") &&
+      !labelLower.includes("pass") &&
+      !labelLower.includes("percentage"))
+  ) {
+    return "/reports/student-attendance-reports/subject-wise-attendance-report";
+  }
+
   // Label + href pins for all Examination Reports pages — must run before any
   // generic `/exam-reports/{slug}` passthrough (wrong DB slugs like
   // `subject-wise-percentage-report` would otherwise 404).
@@ -1512,6 +1547,18 @@ export function resolveForcedNavRoute(
       return "/reports/admin-fee-reports/library-fee-collections";
     }
     if (
+      hrefLower.includes("scholarship-detailed-report") ||
+      hrefLower.includes("scholarship-detailed") ||
+      (labelLower.includes("scholarship") &&
+        labelLower.includes("detailed") &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/") ||
+          labelLower.includes("report")))
+    ) {
+      return "/reports/admin-fee-reports/scholarship-detailed-report";
+    }
+    if (
       hrefLower.includes("scholarship-due-list") ||
       hrefLower.includes("admin-fee-reports/scholarship-due") ||
       hrefLower.includes("s_rep_scholarship_duelist") ||
@@ -1525,6 +1572,19 @@ export function resolveForcedNavRoute(
       return "/reports/admin-fee-reports/scholarship-due-list";
     }
     if (
+      hrefLower.includes("day-wise-admission-report") ||
+      hrefLower.includes("daywise-admission-report") ||
+      (labelLower.includes("day wise") &&
+        labelLower.includes("admission") &&
+        !labelLower.includes("application") &&
+        (hrefLower.includes("student") ||
+          hrefLower.includes("admin-student") ||
+          hrefLower.includes("admission") ||
+          labelLower.includes("report")))
+    ) {
+      return "/reports/admin-student-reports/day-wise-admission-report";
+    }
+    if (
       hrefLower.includes("student-application-report") ||
       hrefLower.includes("admin-student-reports/student-application") ||
       (labelLower.includes("day wise") &&
@@ -1534,6 +1594,195 @@ export function resolveForcedNavRoute(
           labelLower.includes("report")))
     ) {
       return "/reports/admin-student-reports/student-application-report";
+    }
+    // Angular Student Count By Gender Report
+    if (
+      hrefLower.includes("students-gender-count") ||
+      hrefLower.includes("adm_branch_acyr_gender_count") ||
+      (labelLower.includes("gender") &&
+        labelLower.includes("student count") &&
+        !labelLower.includes("caste") &&
+        (hrefLower.includes("student") ||
+          hrefLower.includes("admin-student") ||
+          hrefLower.includes("admission") ||
+          labelLower.includes("report")))
+    ) {
+      return "/reports/admin-student-reports/students-gender-count";
+    }
+    // Angular Student Count By Caste Report (branch/AY wise caste)
+    if (
+      hrefLower.includes("branch-and-academicyear-wise-caste-count") ||
+      hrefLower.includes("branch-academicyear-wise-caste") ||
+      hrefLower.includes("branch_acyr_caste") ||
+      (labelLower.includes("caste") &&
+        labelLower.includes("student count") &&
+        !labelLower.includes("gender") &&
+        (hrefLower.includes("student") ||
+          hrefLower.includes("admin-student") ||
+          hrefLower.includes("admission") ||
+          hrefLower.includes("caste") ||
+          labelLower.includes("report")))
+    ) {
+      return "/reports/admin-student-reports/branch-and-academicyear-wise-caste-count";
+    }
+    // Angular Student Details Report (students list)
+    if (
+      hrefLower.includes("students-list-report") ||
+      hrefLower.includes("academic_branch_course_yr_std") ||
+      (labelLower.includes("student details") &&
+        (labelLower.includes("report") ||
+          hrefLower.includes("student") ||
+          hrefLower.includes("admin-student")))
+    ) {
+      return "/reports/admin-student-reports/students-list-report";
+    }
+    // Angular Semister wise Students Report
+    if (
+      hrefLower.includes("sem-list-report") ||
+      hrefLower.includes("sem_list") ||
+      labelLower.includes("semister") ||
+      (labelLower.includes("semester") && labelLower.includes("wise"))
+    ) {
+      return "/reports/admin-student-reports/sem-list-report";
+    }
+    // Angular Lateral Students Report
+    if (
+      hrefLower.includes("lateral-students-report") ||
+      hrefLower.includes("academic_branch_course_yr_lateral_std") ||
+      labelLower.includes("lateral students")
+    ) {
+      return "/reports/admin-student-reports/lateral-students-report";
+    }
+    // Angular Student Contact Report
+    if (
+      hrefLower.includes("student-contact-report") ||
+      hrefLower.includes("std_contact") ||
+      labelLower.includes("student contact")
+    ) {
+      return "/reports/admin-student-reports/student-contact-report";
+    }
+    // Angular Student Attendance Reports
+    // Daily Attendance Report / Of Students → student-daily-attendance-count-report
+    if (
+      hrefLower.includes("student-daily-attendance-count-report") ||
+      hrefLower.includes("admin-attendance-reports/student-daily") ||
+      (hrefLower.includes("daily-attendance-report") &&
+        !hrefLower.includes("period") &&
+        !hrefLower.includes("percentage") &&
+        !hrefLower.includes("daily-attendance-count-report")) ||
+      labelLower === "daily attendance report" ||
+      labelLower === "student daily attendance report" ||
+      labelLower === "daily attendance of students" ||
+      labelLower.includes("daily attendance of student") ||
+      (labelLower.includes("daily attendance") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("period") &&
+        !labelLower.includes("percentage") &&
+        !labelLower.includes("statistical") &&
+        !labelLower.includes("count"))
+    ) {
+      return "/reports/student-attendance-reports/student-daily-attendance-count-report";
+    }
+    // Angular route is `daily-period-attendance-report` (folder name differs).
+    if (
+      hrefLower.includes("daily-attendance-period-wise-report") ||
+      hrefLower.includes("daily-period-attendance-report") ||
+      (labelLower.includes("daily") &&
+        labelLower.includes("period") &&
+        labelLower.includes("attendance"))
+    ) {
+      return "/reports/student-attendance-reports/daily-attendance-period-wise-report";
+    }
+    if (
+      hrefLower.includes("student-attendance-percentage-report") ||
+      (labelLower.includes("attendance") &&
+        labelLower.includes("percentage") &&
+        labelLower.includes("report"))
+    ) {
+      return "/reports/student-attendance-reports/student-attendance-percentage-report";
+    }
+    if (
+      hrefLower.includes("subject-wise-attendance-report") ||
+      (labelLower.includes("subject") &&
+        labelLower.includes("wise") &&
+        labelLower.includes("attendance") &&
+        !labelLower.includes("faculty") &&
+        !labelLower.includes("evaluator") &&
+        !labelLower.includes("result") &&
+        !labelLower.includes("pass") &&
+        !labelLower.includes("percentage"))
+    ) {
+      return "/reports/student-attendance-reports/subject-wise-attendance-report";
+    }
+    if (
+      hrefLower.includes(
+        "student-attendance-reports/student-attendance-report",
+      ) ||
+      (hrefLower.includes("student-attendance-report") &&
+        !hrefLower.includes("percentage") &&
+        !hrefLower.includes("period-wise") &&
+        !hrefLower.includes("subject-wise")) ||
+      labelLower === "student attendance report" ||
+      (labelLower.includes("student attendance report") &&
+        !labelLower.includes("percentage") &&
+        !labelLower.includes("subject"))
+    ) {
+      return "/reports/student-attendance-reports/student-attendance-report";
+    }
+    // Angular Students Detained List Report
+    if (
+      hrefLower.includes("student-detained-list") ||
+      hrefLower.includes("sem_std_detained_list") ||
+      labelLower.includes("detained list") ||
+      labelLower.includes("students detained")
+    ) {
+      return "/reports/admin-student-reports/student-detained-list";
+    }
+    // Angular Student Rejoin Lists Report
+    if (
+      hrefLower.includes("students-rejoined-list") ||
+      hrefLower.includes("sem_std_rejoin_list") ||
+      labelLower.includes("rejoin list") ||
+      labelLower.includes("rejoined")
+    ) {
+      return "/reports/admin-student-reports/students-rejoined-list";
+    }
+    // Angular Student Count Report (branch/AY wise).
+    // DB label is often just "Student Count" / "Student Count Report"; page.url may be
+    // `student-count` or `branch-academicyear-wise-student-count`. Unmapped → 404 → dashboard.
+    if (
+      !labelLower.includes("quota") &&
+      !hrefLower.includes("quota") &&
+      !hrefLower.includes("adm_quota_std_count") &&
+      !labelLower.includes("registered") &&
+      !hrefLower.includes("registered-students-count") &&
+      !labelLower.includes("gender") &&
+      !hrefLower.includes("gender") &&
+      !labelLower.includes("caste") &&
+      !hrefLower.includes("caste") &&
+      (hrefLower.includes("branch-academicyear-wise-student-count") ||
+        hrefLower.includes("branch-academic-year-wise-student-count") ||
+        hrefLower.includes("adm_branch_acyr_count") ||
+        hrefLower.includes("academicyear-wise-student-count") ||
+        /(?:^|\/)student-count(?:-report)?(?:\/|$|\?)/.test(hrefLower) ||
+        labelLower === "student count" ||
+        labelLower === "student count report" ||
+        ((labelLower.includes("branch") || labelLower.includes("academic")) &&
+          labelLower.includes("student count")))
+    ) {
+      return "/reports/admin-student-reports/branch-academicyear-wise-student-count";
+    }
+    if (
+      hrefLower.includes("admission-quota-wise-student-count") ||
+      hrefLower.includes("adm_quota_std_count") ||
+      (labelLower.includes("quota") &&
+        labelLower.includes("student count") &&
+        (hrefLower.includes("student") ||
+          hrefLower.includes("admin-student") ||
+          hrefLower.includes("admission") ||
+          labelLower.includes("report")))
+    ) {
+      return "/reports/admin-student-reports/admission-quota-wise-student-count-report";
     }
     if (
       hrefLower.includes("caste-wise-gender") ||
@@ -1557,13 +1806,40 @@ export function resolveForcedNavRoute(
       return "/report-catalyst";
     }
     if (
+      hrefLower.includes("exam-fee-due-list") ||
+      hrefLower.includes("exam-registration-due") ||
+      (labelLower.includes("exam") &&
+        (labelLower.includes("registration due") ||
+          (labelLower.includes("exam fee") && labelLower.includes("due"))) &&
+        (hrefLower.includes("fee-reports") ||
+          hrefLower.includes("admin-fee-reports") ||
+          hrefLower.includes("/reports/") ||
+          labelLower.includes("list")))
+    ) {
+      return "/accounts-and-fees/fee-reports/exam-fee-due-list";
+    }
+    if (
+      hrefLower.includes("daywise-online-fee-payments") ||
+      hrefLower.includes("day-wise-online-fee") ||
+      hrefLower.includes("daywise-online") ||
+      ((labelLower.includes("day wise") || labelLower.includes("day-wise")) &&
+        labelLower.includes("online") &&
+        labelLower.includes("fee"))
+    ) {
+      return "/reports/admin-fee-reports/daywise-online-fee-payments";
+    }
+    if (
       hrefLower.includes("daywise-fee-report") ||
       hrefLower.includes("day-wise-fee-report") ||
       hrefLower.includes("admin-fee-reports/daywise") ||
       (labelLower.includes("day wise") &&
-        (labelLower.includes("receipt") || labelLower.includes("fee"))) ||
+        (labelLower.includes("receipt") || labelLower.includes("fee")) &&
+        !labelLower.includes("online") &&
+        !labelLower.includes("application")) ||
       (labelLower.includes("day-wise") &&
-        (labelLower.includes("receipt") || labelLower.includes("fee")))
+        (labelLower.includes("receipt") || labelLower.includes("fee")) &&
+        !labelLower.includes("online") &&
+        !labelLower.includes("application"))
     ) {
       return "/accounts-and-fees/fee-reports/daywise-fee-report";
     }

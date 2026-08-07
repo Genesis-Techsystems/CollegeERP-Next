@@ -324,6 +324,36 @@ export const QK = {
           collegeId,
         ] as const,
     },
+    daywiseOnlineFeePayments: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "daywiseOnlineFeePayments",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+    },
+    scholarshipDetailedReport: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "scholarshipDetailedReport",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+    },
+    examFeeDueList: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "examFeeDueList",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+    },
     employeeSearch: (term: string) =>
       ["FeesCollection", "employeeSearch", term] as const,
     employeeDetails: (employeeId: number) =>

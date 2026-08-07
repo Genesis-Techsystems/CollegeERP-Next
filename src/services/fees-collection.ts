@@ -1,6 +1,7 @@
 import { ENTITIES } from "@/config/constants/entities";
 import {
   EMPLOYEE_API,
+  EXAM_API,
   FEE_API,
   NEXT_API,
   TRANSPORT_API,
@@ -1806,6 +1807,95 @@ export async function getDayWiseFeeCollection(params: {
     }
     return row;
   });
+}
+
+/**
+ * Angular Scholarship Detailed Report `getSummary` —
+ * `getAllRecords/s_rep_fee_studentdetails` with `student_sch_details_*` flags.
+ */
+export async function fetchScholarshipDetailedSummary(params: {
+  flag: string;
+  collegeId?: number;
+  academicYear?: string | number;
+  courseId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  loginUserEmpId?: number;
+  studentId?: number;
+  categoryCode?: string;
+  particularCode?: string;
+}): Promise<Record<string, unknown>[]> {
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    FEE_API.REP_FEE_STUDENT_DETAILS,
+    {
+      in_flag: params.flag,
+      in_college_id: params.collegeId ?? 0,
+      in_academic_year: params.academicYear ?? 0,
+      in_course_id: params.courseId ?? 0,
+      in_course_group_id: params.courseGroupId ?? 0,
+      in_course_year_id: params.courseYearId ?? 0,
+      in_loginuser_empid: params.loginUserEmpId ?? 0,
+      in_student_id: params.studentId ?? 0,
+      in_category_code: params.categoryCode ?? "",
+      in_particular_code: params.particularCode ?? "",
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+/**
+ * Angular Daywise Online Fee Payments `getDueList` —
+ * `getAllRecords/s_get_daywise_online_erp_fee_payments`.
+ */
+export async function getDaywiseOnlineErpFeePayments(params: {
+  collegeId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<Record<string, unknown>[]> {
+  if (!params.collegeId) return [];
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    FEE_API.DAYWISE_ONLINE_ERP_FEE_PAYMENTS,
+    {
+      in_flag: "academic_year_fee",
+      in_clg_id: params.collegeId,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_from_date: params.fromDate,
+      in_to_date: params.toDate,
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}
+
+/**
+ * Angular Exam Fee Due List `getDetails` —
+ * `getAllRecords/s_get_exam_std_registration` + `exam_registration_fee_due_list`.
+ */
+export async function getExamRegistrationFeeDueList(
+  examId: number,
+): Promise<Record<string, unknown>[]> {
+  if (!examId) return [];
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    EXAM_API.EXAM_STD_REGISTRATION,
+    {
+      in_flag: "exam_registration_fee_due_list",
+      in_exam_id: examId,
+      in_course_year_id: 0,
+      in_course_group_id: 0,
+      in_student_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_examtype_catdet_id: 0,
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
 }
 
 /**

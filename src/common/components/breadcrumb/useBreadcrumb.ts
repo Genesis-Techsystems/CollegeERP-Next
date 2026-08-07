@@ -140,7 +140,19 @@ function feeReportsMenuBreadcrumb(
                       path,
                     )
                   ? "Scholarship Report"
-                  : null;
+                  : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/scholarship-detailed-report$/i.test(
+                        path,
+                      )
+                    ? "Scholarship Detailed Report"
+                    : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/daywise-online-fee-payments$/i.test(
+                          path,
+                        )
+                      ? "Day Wise Online Fee Payment Reports"
+                      : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/exam-fee-due-list$/i.test(
+                            path,
+                          )
+                        ? "Exam Registration Due List"
+                        : null;
 
   if (!leaf) return items;
 
@@ -169,15 +181,59 @@ function studentReportsMenuBreadcrumb(
   const path = pathname.replace(/\/$/, "") || "/";
 
   const leaf =
-    /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-application-report$/i.test(
+    /\/reports\/(?:admin-student-reports|student-admission-reports)\/day-wise-admission-report$/i.test(
       path,
     )
-      ? "Day Wise Application Report"
-      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-caste-wise-gender-count(?:-report)?$/i.test(
+      ? "Admission Report"
+      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-application-report$/i.test(
             path,
           )
-        ? "Student Caste Wise Gender Count Report"
-        : null;
+        ? "Day Wise Application Report"
+        : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-gender-count$/i.test(
+              path,
+            )
+          ? "Student Count By Gender Report"
+          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/branch-and-academicyear-wise-caste-count$/i.test(
+                path,
+              )
+            ? "Student Count By Caste Report"
+            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-list-report$/i.test(
+                  path,
+                )
+              ? "Student Details Report"
+              : /\/reports\/(?:admin-student-reports|student-admission-reports)\/sem-list-report$/i.test(
+                    path,
+                  )
+                ? "Semister wise Students Report"
+                : /\/reports\/(?:admin-student-reports|student-admission-reports)\/lateral-students-report$/i.test(
+                      path,
+                    )
+                  ? "Lateral Students Report"
+                  : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-contact-report$/i.test(
+                        path,
+                      )
+                    ? "Student Contact Report"
+                    : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-detained-list$/i.test(
+                          path,
+                        )
+                      ? "Students Detained List Report"
+                      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-rejoined-list$/i.test(
+                            path,
+                          )
+                        ? "Student Rejoin Lists Report"
+                        : /\/reports\/(?:admin-student-reports|student-admission-reports)\/branch-academicyear-wise-student-count$/i.test(
+                              path,
+                            )
+                          ? "Student Count Report"
+                          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/admission-quota-wise-student-count-report$/i.test(
+                                path,
+                              )
+                            ? "Student Count By Quota Report"
+                            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-caste-wise-gender-count(?:-report)?$/i.test(
+                                  path,
+                                )
+                              ? "Student Caste Wise Gender Count Report"
+                              : null;
 
   if (!leaf) return items;
 

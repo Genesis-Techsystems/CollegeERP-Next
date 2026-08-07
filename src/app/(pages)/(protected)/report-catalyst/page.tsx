@@ -42,6 +42,50 @@ const FEE_REPORT_LINKS = [
     href: `/reports/admin-student-reports/student-application-report?path=report-catalyst`,
   },
   {
+    label: "Student Admission Report",
+    href: `/reports/admin-student-reports/day-wise-admission-report?path=report-catalyst`,
+  },
+  {
+    label: "Student Count Report",
+    href: `/reports/admin-student-reports/branch-academicyear-wise-student-count?path=report-catalyst`,
+  },
+  {
+    label: "Student Count By Quota Report",
+    href: `/reports/admin-student-reports/admission-quota-wise-student-count-report?path=report-catalyst`,
+  },
+  {
+    label: "Student Count By Gender Report",
+    href: `/reports/admin-student-reports/students-gender-count?path=report-catalyst`,
+  },
+  {
+    label: "Student Count By Caste Report",
+    href: `/reports/admin-student-reports/branch-and-academicyear-wise-caste-count?path=report-catalyst`,
+  },
+  {
+    label: "Student Details Report",
+    href: `/reports/admin-student-reports/students-list-report?path=report-catalyst`,
+  },
+  {
+    label: "Semister wise Students Report",
+    href: `/reports/admin-student-reports/sem-list-report?path=report-catalyst`,
+  },
+  {
+    label: "Lateral Students Report",
+    href: `/reports/admin-student-reports/lateral-students-report?path=report-catalyst`,
+  },
+  {
+    label: "Student Contact Report",
+    href: `/reports/admin-student-reports/student-contact-report?path=report-catalyst`,
+  },
+  {
+    label: "Students Detained List Report",
+    href: `/reports/admin-student-reports/student-detained-list?path=report-catalyst`,
+  },
+  {
+    label: "Student Rejoin Lists Report",
+    href: `/reports/admin-student-reports/students-rejoined-list?path=report-catalyst`,
+  },
+  {
     label: "Student Caste Wise Gender Count",
     href: `/reports/admin-student-reports/student-caste-wise-gender-count-report?path=report-catalyst`,
   },
