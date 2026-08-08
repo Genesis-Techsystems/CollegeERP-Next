@@ -209,3 +209,95 @@ export async function searchStudentsForLibraryFineReport(
     throw error;
   }
 }
+
+/**
+ * Book Wise Count — Angular `bookwisecountreport?bookcatId=`
+ * (UI list endpoint; not `s_rep_lib_book_wise_count`).
+ */
+export async function getBookWiseCountReport(
+  bookcatId: number,
+): Promise<AnyRow[]> {
+  if (!bookcatId) return [];
+  try {
+    const data = await fetchDetails<unknown>(LIBRARY_API.BOOK_WISE_REPORT, {
+      bookcatId,
+      page: 0,
+      size: 99999,
+    });
+    return asRowList(data);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}
+
+/** Total Books Reports — Angular `totalbookreport?bookcatId=` */
+export async function getTotalBooksReport(
+  bookcatId: number,
+): Promise<AnyRow[]> {
+  if (!bookcatId) return [];
+  try {
+    const data = await fetchDetails<unknown>(LIBRARY_API.TOTAL_BOOK_REPORT, {
+      bookcatId,
+    });
+    return asRowList(data);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}
+
+/**
+ * Library Books / Consolidated Report —
+ * Angular `getAllRecords/s_books_consolidated_report?in_lib_id=`
+ */
+export async function getLibraryConsolidatedReport(
+  libraryId: number,
+): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords(
+      procName(LIBRARY_API.BOOKS_CONSOLIDATED_REPORT),
+      { in_lib_id: libraryId },
+    );
+    return firstResultGroup(data);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}
+
+/**
+ * Book Search Report —
+ * Angular `bookdetailsearchreport?q=&filter=`
+ */
+export async function getBookDetailSearchReport(params: {
+  q: string;
+  filter: string;
+}): Promise<AnyRow[]> {
+  const term = params.q.trim();
+  if (!term || !params.filter) return [];
+  try {
+    const data = await fetchDetails<unknown>(
+      CERTIFICATE_API.BOOK_DETAIL_SEARCH_REPORT,
+      { q: term, filter: params.filter },
+    );
+    return asRowList(data);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}
+
+/** Periodical Reports — Angular `getAllRecords/s_rep_lib_periodcalls` */
+export async function getPeriodicalReports(): Promise<AnyRow[]> {
+  try {
+    const data = await getAllRecords(
+      procName(LIBRARY_API.LIB_PERIODICALS_REPORT),
+      {},
+    );
+    return firstResultGroup(data);
+  } catch (error) {
+    if (isNoRecordsError(error)) return [];
+    throw error;
+  }
+}

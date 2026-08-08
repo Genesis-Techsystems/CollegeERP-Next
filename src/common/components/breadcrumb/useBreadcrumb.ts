@@ -104,12 +104,34 @@ function examReportsModuleBreadcrumb(
  * Fee report pages live under Reports → Fee Reports in the menu even though
  * App Router paths are under `/accounts-and-fees/fee-reports/…`.
  * Breadcrumb: Reports > Fee Reports > {page}.
+ *
+ * Exception — Angular Student Fee Report (drilldown-summary-report):
+ * Home > Accounts and Fees > Fee Reports > Student Fee Report
  */
 function feeReportsMenuBreadcrumb(
   pathname: string,
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
   const path = pathname.replace(/\/$/, "") || "/";
+
+  if (
+    /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/drilldown-summary-report$/i.test(
+      path,
+    )
+  ) {
+    const labels = items.map((i) => i.label.toLowerCase());
+    const alreadyCorrect =
+      labels.some((l) => l === "accounts and fees") &&
+      labels.some((l) => l === "fee reports") &&
+      labels.some((l) => l === "student fee report");
+    if (alreadyCorrect) return items;
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Reports" },
+      { label: "Student Fee Report" },
+    ];
+  }
 
   const leaf =
     /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/daywise-fee-report$/i.test(
@@ -347,18 +369,37 @@ function attendanceReportsMenuBreadcrumb(
 }
 
 /**
- * Staff Proxy Report breadcrumb under Reports → Timetable Reports.
+ * Timetable Reports breadcrumb under Reports → Timetable Reports.
  */
 function timetableReportsMenuBreadcrumb(
   pathname: string,
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
   const path = pathname.replace(/\/$/, "") || "/";
-  if (!/\/reports\/admin-timetable-reports\/staff-proxy-report$/i.test(path)) {
-    return items;
-  }
+  const leafByPath: Record<string, string> = {
+    "/reports/admin-timetable-reports/dialy-timetable-report":
+      "Daily Timetable Report",
+    "/reports/admin-timetable-reports/weekly-timetable-report":
+      "Weekly Timetable Report",
+    "/reports/admin-timetable-reports/daily-statistical-report":
+      "Daily Attendance Statistical Report",
+    "/reports/admin-timetable-reports/semester-wise-timetable-report":
+      "Semester Wise Timetable Report",
+    "/reports/admin-timetable-reports/department-wise-timetable-report":
+      "Department Wise Timetable Report",
+    "/reports/admin-timetable-reports/master-timetable-report":
+      "Master Timetable Report",
+    "/reports/admin-timetable-reports/staff-timetable-report":
+      "Staff Timetable Report",
+    "/reports/admin-timetable-reports/staff-workload-report":
+      "Staff Workload Report",
+    "/reports/admin-timetable-reports/staff-proxy-report": "Staff Proxy Report",
+    "/reports/admin-timetable-reports/cca-activity-report":
+      "CCA Activity Report",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
 
-  const leaf = "Staff Proxy Report";
   const labels = items.map((i) => i.label.toLowerCase());
   const alreadyCorrect =
     labels.some((l) => l === "reports") &&
@@ -393,6 +434,12 @@ function libraryReportsMenuBreadcrumb(
     "/reports/admin-library-reports/total-titles-report": "Titles Report",
     "/reports/admin-library-reports/book-count-course-author-report":
       "Book Count by Course/Author Report",
+    "/reports/admin-library-reports/book-wise-report": "Book Wise Count",
+    "/reports/admin-library-reports/total-books-report": "Total Books Reports",
+    "/reports/admin-library-reports/library-consolidated-report":
+      "Library Books Report",
+    "/reports/admin-library-reports/book-search-report": "Book Search Report",
+    "/reports/admin-library-reports/periodical-reports": "Periodical Reports",
   };
   const leaf = leafByPath[path];
   if (!leaf) return items;
