@@ -9,9 +9,9 @@
  *   1. Rate-limit check (in-memory, per IP)
  *   2. Validate request body with Zod
  *   3. Call Spring Boot POST /api/auth/login -> JWT
- *   4. Call Spring Boot GET /api/authorization -> UserDTO
+ *   4. Call Spring Boot GET /api/authorization?isMobile=false -> UserDTO
  *   5. Build SessionUser with derived privilege flags
- *   6. Store { jwt, user, issuedAt } in Iron Session
+ *   6. Build sidenav once (buildNavTree) and cache server-side; store { jwt, user, issuedAt } in Iron Session
  *   7. Return slim SessionUser to client (no JWT, no modules/pages)
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -30,6 +30,7 @@ import {
   APP_CONFIG,
   resolveDefaultDashboardPath,
 } from "@/config/constants/app";
+import { setCachedNav } from "@/lib/nav-cache";
 
 // In-memory rate limiter: max 10 requests per minute per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -233,18 +234,34 @@ export async function POST(request: NextRequest) {
       if (sid > 0) sessionUser.studentId = sid;
     }
 
-    // 6. Store { jwt, user, issuedAt } in Iron Session — JWT never leaves the server
-    // Note: modules/pages are NOT stored here (cookie size limit ~4KB) — fetched fresh via /api/auth/me
+    // 6. Store { jwt, user, issuedAt } in Iron Session — JWT never leaves the server.
+    // modules/pages stay out of the cookie (~4KB limit). Build the sidenav once
+    // from this authorization response and cache it server-side (Angular keeps
+    // loginUser.modules/pages in memory/localStorage for the same reason).
+    // Dynamic import keeps /api/auth/login free of the heavy navigation graph so
+    // failed/slow first compiles do not freeze the whole login request.
+    const issuedAt = Date.now();
+    try {
+      const { buildNavTree } = await import("@/lib/navigation");
+      const navItems = buildNavTree(
+        userDto.modules ?? [],
+        userDto.pages ?? [],
+      );
+      setCachedNav(sessionUser.userId, issuedAt, navItems);
+    } catch {
+      // Layout rebuilds nav on cache miss — login must still succeed.
+    }
+
     const session = await getIronSession<IronSessionData>(
       await cookies(),
       sessionOptions,
     );
     session.jwt = jwt;
     session.user = sessionUser;
-    session.issuedAt = Date.now();
+    session.issuedAt = issuedAt;
     await session.save();
 
-    // 7. Return slim user to client — modules/pages excluded (nav built server-side in layout)
+    // 7. Return slim user to client — modules/pages excluded (nav from cache/layout)
     return NextResponse.json({ user: sessionUser });
   } catch {
     // 8. Never expose backend error details. When an OTP was supplied the failure

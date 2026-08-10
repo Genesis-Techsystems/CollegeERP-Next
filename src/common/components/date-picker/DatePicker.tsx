@@ -11,6 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 const currentYear = new Date().getFullYear();
 const DEFAULT_START_MONTH = new Date(currentYear - 100, 0, 1);
@@ -29,6 +30,11 @@ export interface DatePickerProps {
   clearable?: boolean;
   /** date-fns format string for the trigger label. Defaults to long text (`PPP`). */
   displayFormat?: string;
+  /**
+   * `outlined` — bordered box.
+   * `standard` — Fuse / Angular Material underline (app default).
+   */
+  variant?: "outlined" | "standard";
   className?: string;
 }
 
@@ -44,10 +50,13 @@ export function DatePicker({
   maxDate,
   clearable = true,
   displayFormat = "PPP",
+  variant: variantProp,
   className,
 }: Readonly<DatePickerProps>) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const variant = useFormFieldVariant(variantProp);
+  const isStandard = variant === "standard";
 
   function handleSelect(date: Date | undefined) {
     onChange(date ?? null);
@@ -69,7 +78,7 @@ export function DatePicker({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label htmlFor={id} className="text-[12px] font-medium">
+        <label htmlFor={id} className="text-[12px] font-normal text-black/54">
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
         </label>
@@ -83,9 +92,21 @@ export function DatePicker({
             disabled={disabled}
             aria-required={required || undefined}
             className={cn(
-              "h-8 w-full justify-start text-left text-[12px] font-normal",
+              "h-9 w-full justify-start text-left text-[length:var(--app-control-font-size)] font-normal shadow-none",
               !value && "text-muted-foreground",
-              error && "border-destructive focus-visible:ring-destructive",
+              isStandard
+                ? cn(
+                    "rounded-none border-0 border-b border-black/12 bg-transparent px-0 hover:bg-transparent",
+                    open && "border-b-2 border-[#0c51a4]",
+                    error
+                      ? "border-b-2 border-destructive"
+                      : "focus-visible:border-b-2 focus-visible:border-[#0c51a4] focus-visible:ring-0",
+                  )
+                : cn(
+                    "rounded-md",
+                    error &&
+                      "border-destructive focus-visible:ring-destructive",
+                  ),
             )}
           >
             <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
@@ -116,7 +137,8 @@ export function DatePicker({
               month_caption:
                 "rdp-month_caption flex justify-center pt-1 relative items-center gap-1 text-xs font-medium",
               // Visible native month/year selects (RDP default hides selects via opacity:0)
-              dropdowns: "rdp-dropdowns flex items-center justify-center gap-1.5",
+              dropdowns:
+                "rdp-dropdowns flex items-center justify-center gap-1.5",
               dropdown_root:
                 "rdp-dropdown_root relative inline-flex items-center",
               dropdown:

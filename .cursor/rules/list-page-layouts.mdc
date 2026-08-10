@@ -1,9 +1,3 @@
----
-description: Use ListPage / FilteredListPage for list UIs — filters live inside the table card
-globs: src/app/**/page.tsx
-alwaysApply: false
----
-
 # List page layouts
 
 Use layout shells from `@/components/layout`. UI only — do not change API/business logic.
@@ -13,38 +7,34 @@ Use layout shells from `@/components/layout`. UI only — do not change API/busi
 | Pattern | Component | Example |
 |---|---|---|
 | Title + search/toolbar + table (no filters) | `ListPage` | Organizations, Campus |
-| Title + **filters inside same card** + toolbar + table | `FilteredListPage` | Grade Setup, Room Details |
-| Title + **filters inside same card** + custom body (no AG Grid) | `FilteredPage` | Exam Max Marks, Internal Exam Registration Multi |
+| **Separate** filter card + table card (Angular default) | `FilteredListPage` | Subjects, Grade Setup, Room Details |
+| **Separate** filter card + custom body (no AG Grid) | `FilteredPage` | Exam Max Marks |
 
 ```tsx
-import { ListPage, FilteredListPage, FilteredPage } from '@/components/layout'
+import { ListPage, FilteredListPage, FilteredPage, TableContextHeader } from '@/components/layout'
 ```
 
-## FilteredListPage — filters inside the table card
+## FilteredListPage — Angular separated cards (default)
 
-One card: title (+ filter toggle) → filters → search toolbar → grid → pagination.
+Filter card and table card are separate with a gap. Enabled by default (`filtersSeparated`).
 
 ```tsx
 <FilteredListPage
-  title="Room Details"
-  filters={
-    <CollegeFilterPanel shell="bare" …>
-      <Button>Get List</Button>
-    </CollegeFilterPanel>
+  title="Subject Master"
+  showTable={Boolean(courseId)}
+  tableHeader={
+    <TableContextHeader title="Subjects List" info={<>{univ} · {course}</>} />
   }
+  filters={/* selects */}
   rowData={rows}
   columnDefs={columnDefs}
-  pagination
   toolbar={{ searchPlaceholder: 'Search…' }}
   toolbarTrailing={<Button>Add</Button>}
->
-  {/* modals */}
-</FilteredListPage>
+/>
 ```
 
-- Do **not** put filters in a separate card above `DataTable`.
-- Prefer `CollegeFilterPanel shell="bare"` (or custom filter JSX) so the shell/DataTable owns the card.
-- `DataTable` also accepts `filters` directly if you need the slot without the page wrapper.
+- `tableHeader` defaults to book icon + page title; pass `null` to hide; pass `TableContextHeader` for custom title + selected-filter info.
+- Opt out only when needed: `filtersSeparated={false}`.
 
 ## ListPage — header + table only
 
@@ -57,12 +47,4 @@ One card: title (+ filter toggle) → filters → search toolbar → grid → pa
   toolbar={{ searchPlaceholder: 'Search…' }}
   toolbarTrailing={<Button>New</Button>}
 />
-```
-
-## Wrong
-
-```tsx
-// ❌ Separate filter card + separate table card
-<div className="app-card">{/* filters */}</div>
-<DataTable title="…" />
 ```

@@ -5338,18 +5338,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
 
         <CollapsibleContent>
           <ul className="mt-0.5 space-y-0">
-            {item
-              .children!.slice()
-              .sort((a, b) => a.sortOrder - b.sortOrder)
-              .map((child) => (
-                <li key={child.id}>
-                  <NavItem
-                    item={child}
-                    depth={depth + 1}
-                    layoutHydrated={layoutHydrated}
-                  />
-                </li>
-              ))}
+            {/* Order comes from buildNavTree (Angular parity): pages by sortOrder, then submodules in API order — do not re-sort. */}
+            {item.children!.map((child) => (
+              <li key={child.id}>
+                <NavItem
+                  item={child}
+                  depth={depth + 1}
+                  layoutHydrated={layoutHydrated}
+                />
+              </li>
+            ))}
           </ul>
         </CollapsibleContent>
       </Collapsible>
