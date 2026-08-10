@@ -22,6 +22,9 @@ import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastInfo } from "@/lib/toast";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
+import { printHtmlInIframe } from "@/lib/print";
+import { escapeHtml, buildHtmlTable } from "@/common/export-html-table";
+import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import {
   filterColleges,
   filterCourseGroups,
@@ -357,6 +360,8 @@ export default function FeeDueListPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
 
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
+
   const flagNo = useMemo(() => {
     const f = DUE_LIST_FLAGS.find((x) => x.flagName === flag);
     return f?.flagNo ?? 0;
@@ -687,6 +692,63 @@ export default function FeeDueListPage() {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
 
+  const handlePrintReport = () => {
+    const collegeLabel =
+      collegeOptions.find((o) => o.value === collegeId)?.label || "";
+
+    // Build columns including S.No
+    const columns = [
+      { key: "siNo", header: "SI.No" },
+      ...columnDefs
+        .filter(
+          (col: any) =>
+            !col.children && col.headerName && col.headerName !== "SI.No",
+        )
+        .map((col: any) => ({
+          key:
+            col.field ||
+            col.headerName?.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+          header: col.headerName || "",
+        })),
+    ];
+
+    // Add S.No to rows
+    const rowsWithIndex = rowData.map((row: any, idx: number) => ({
+      ...row,
+      siNo: idx + 1,
+    }));
+
+    const tableHtml = buildHtmlTable(columns as any, rowsWithIndex as any);
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>Fee Due List Report</title>
+<style>
+@page{margin:12mm}
+body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
+.header{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
+.header img{width:90px;height:auto;max-height:100px;object-fit:contain}
+.header-text{flex:1}
+.collegeName{font-size:24px;font-weight:600;margin:0 0 6px}
+.title{font-size:20px;font-weight:550;margin:0 0 6px}
+.details{font-size:12px;color:#666;margin:0}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+th,td{border:1px solid #333;padding:6px 5px}
+th{background:#f2f2f2;font-weight:600}
+</style></head><body>
+<div class="header">
+  <img src="${collegeLogo}" alt="College Logo" onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'" />
+  <div class="header-text">
+    <p class="collegeName">${escapeHtml(collegeLabel)}</p>
+    ${dataDetails ? `<p class="details">${escapeHtml(dataDetails)}</p>` : ""}
+    <p class="title">Fee Due List Report</p>
+  </div>
+</div>
+${tableHtml}
+</body></html>`;
+
+    printHtmlInIframe(html);
+  };
+
   const pageTitle =
     showTable && dataDetails ? `Fee Due List (${dataDetails})` : "Fee Due List";
 
@@ -901,7 +963,7 @@ export default function FeeDueListPage() {
             variant="outline"
             size="sm"
             className="h-9 px-3 text-[12px]"
-            onClick={() => window.print()}
+            onClick={() => handlePrintReport()}
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Print Report

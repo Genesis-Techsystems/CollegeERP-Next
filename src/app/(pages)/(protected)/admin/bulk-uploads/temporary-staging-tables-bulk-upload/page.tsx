@@ -1,118 +1,119 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { FileSpreadsheet, Upload, X } from 'lucide-react'
-import { FileDropzone } from '@/common/components/forms'
-import { FilteredPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { uploadTemporaryStagingTable } from '@/services'
+import { useState, useRef } from "react";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { uploadTemporaryStagingTable } from "@/services";
 
 export default function TemporaryStagingTablesBulkUploadPage() {
-  const [tableName, setTableName] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-
-  const fileName = selectedFile?.name ?? ''
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [tableName, setTableName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   function clearSelectedFile() {
-    setSelectedFile(null)
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   async function onUpload() {
-    const file = selectedFile
+    const file = selectedFile;
     if (!tableName.trim()) {
-      toastError(new Error('Please enter table name.'), 'Temporary Staging Tables')
-      return
+      toastError(
+        new Error("Please enter Table Name."),
+        "Temporary Staging Tables",
+      );
+      return;
     }
     if (!file) {
-      toastError(new Error('Please choose a file.'), 'Temporary Staging Tables')
-      return
+      toastError(
+        new Error("Please choose a file."),
+        "Temporary Staging Tables",
+      );
+      return;
     }
 
-    setUploading(true)
+    setUploading(true);
     try {
-      const msg = await uploadTemporaryStagingTable(tableName.trim(), file)
-      toastSuccess(msg || 'Upload successful')
-      setTableName('')
-      clearSelectedFile()
+      const msg = await uploadTemporaryStagingTable(tableName.trim(), file);
+      toastSuccess(msg || "Upload successful");
+      setTableName("");
+      clearSelectedFile();
     } catch (err) {
-      toastError(err, 'Upload failed')
+      toastError(err, "Upload failed");
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
   }
 
-  return (
-    <FilteredPage title="Temporary Staging Tables Bulk Upload" filtersCollapsible={false} filters={<span className="sr-only">Upload</span>}>
-      <div className="app-card overflow-hidden">
-        <div className="px-4 py-2 border-b border-border bg-muted/40">
-          <h2 className="app-card-title">
-            Temporary Staging Tables Bulk Upload
-          </h2>
-        </div>
+  function onDownload() {
+    const link = document.createElement("a");
+    link.href = "/assets/docs/UnitTopic_bulk_upload.xlsx";
+    link.download = "UnitTopic_bulk_upload.xlsx";
+    link.click();
+  }
 
-        <div className="px-4 py-3">
-          <div className="border border-border rounded-lg p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <div className="md:col-span-4">
-                <label htmlFor="temp-table-name" className="mb-1 block text-xs font-medium text-slate-700">Table Name</label>
-                <Input
-                  id="temp-table-name"
-                  value={tableName}
-                  onChange={(e) => setTableName(e.target.value)}
-                  placeholder="Table Name"
-                  className="h-9 text-[12px]"
-                />
-              </div>
-              <div className="md:col-span-8 flex justify-end">
-                <a
-                  href="/assets/docs/UnitTopic_bulk_upload.xlsx"
-                  download
-                  className="text-xs text-[hsl(var(--primary))] hover:underline whitespace-nowrap"
-                >
-                  Download Sample XLSX
-                </a>
-              </div>
+  return (
+    <FilteredListPage
+      title="Temporary Staging Tables Bulk Upload"
+      filtersCollapsible={false}
+      filters={
+        <div className="border border-border rounded-lg p-4 space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6 py-2 px-1">
+            <div className="flex items-center shrink-0 gap-3">
+              <label
+                htmlFor="temp-table-name"
+                className="text-sm font-semibold text-slate-700 whitespace-nowrap"
+              >
+                Table Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="temp-table-name"
+                value={tableName}
+                onChange={(e) => setTableName(e.target.value)}
+                placeholder="Table Name"
+                className="h-9 w-[180px] text-xs"
+              />
             </div>
 
-            <p className="text-xs font-medium text-slate-700">Upload Tables :</p>
-            <div className="space-y-3">
-              <FileDropzone
-                accept=".xls,.xlsx"
-                onFilesChange={(files) => setSelectedFile(files[0] ?? null)}
+            <div className="flex items-center shrink-0">
+              <span className="text-sm font-semibold text-slate-700">
+                Upload Tables :
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full md:w-auto">
+              <input
+                ref={fileInputRef}
+                type="file"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                accept=".xlsx"
+                className="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
+              />
+              <Button
+                type="button"
+                className="bg-[#042956] hover:bg-[#031f42] text-white font-medium px-6 shrink-0"
+                onClick={onUpload}
+                disabled={uploading}
               >
-                <p className="text-xs text-slate-700">Drag and drop XLS/XLSX file here, or click to select</p>
-              </FileDropzone>
-
-              {fileName ? (
-                <div className="mt-2 inline-flex max-w-full items-center rounded-md border border-dashed border-input bg-muted/40 px-2.5 py-1.5">
-                  <div className="min-w-0 inline-flex items-center gap-1.5">
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs text-slate-700 truncate">{fileName}</p>
-                    <button
-                      type="button"
-                      onClick={clearSelectedFile}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-slate-200 hover:text-slate-700 shrink-0"
-                      aria-label="Delete selected file"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="pt-2 flex justify-end">
-                <Button type="button" className="w-full md:w-40" onClick={() => void onUpload()} disabled={uploading}>
-                  <Upload className="h-4 w-4 mr-1.5" />
-                  {uploading ? 'Uploading...' : 'Upload'}
-                </Button>
-              </div>
+                Upload
+              </Button>
+              <Button
+                type="button"
+                className="bg-[#ffb300] hover:bg-[#ffa000] text-black font-semibold border-0 px-4 shrink-0"
+                onClick={onDownload}
+              >
+                Download Sample XLSX
+              </Button>
             </div>
           </div>
         </div>
-      </div>
-    </FilteredPage>
-  )
+      }
+      body={<div />}
+    />
+  );
 }

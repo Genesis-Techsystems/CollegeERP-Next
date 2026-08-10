@@ -3794,7 +3794,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       labelLower.includes("complete exam fee registration") ||
       labelLower.includes("complete examfee registration")
     ) {
-      return `${preExamBase}/complete-exam-fee-registration`;
+      return "/admin-examination-management/result-processing/complete-exam-process";
     }
     if (labelLower.includes("exam center barcode")) {
       return "/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes";
