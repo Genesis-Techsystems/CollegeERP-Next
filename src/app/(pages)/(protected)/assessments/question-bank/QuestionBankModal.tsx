@@ -50,7 +50,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   bank: Assessment | null;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   userId: number;
 }
 
@@ -213,7 +213,7 @@ export default function QuestionBankModal({
         });
         toast.success("Question bank created");
       }
-      onSaved();
+      await onSaved();
       onClose();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to save");

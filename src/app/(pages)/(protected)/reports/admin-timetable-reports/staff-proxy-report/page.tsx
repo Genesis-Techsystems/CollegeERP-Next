@@ -214,10 +214,7 @@ export default function StaffProxyReportPage() {
       Number(departmentId || 0),
     ),
     queryFn: () =>
-      listEmployeesForStaffProxyReport(
-        Number(collegeId),
-        Number(departmentId),
-      ),
+      listEmployeesForStaffProxyReport(Number(collegeId), Number(departmentId)),
     enabled: Number(collegeId ?? 0) > 0 && Number(departmentId || 0) > 0,
   });
 
@@ -482,6 +479,7 @@ export default function StaffProxyReportPage() {
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}

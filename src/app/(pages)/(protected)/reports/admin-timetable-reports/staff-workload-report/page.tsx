@@ -209,11 +209,12 @@ export default function StaffWorkloadReportPage() {
     if (!colleges.length) return;
     if (
       !colleges.some(
-        (r) =>
-          String(pickNum(r, ["fk_college_id", "collegeId"])) === collegeId,
+        (r) => String(pickNum(r, ["fk_college_id", "collegeId"])) === collegeId,
       )
     ) {
-      setCollegeId(String(pickNum(colleges[0], ["fk_college_id", "collegeId"])));
+      setCollegeId(
+        String(pickNum(colleges[0], ["fk_college_id", "collegeId"])),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -455,6 +456,7 @@ export default function StaffWorkloadReportPage() {
           </Button>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
@@ -463,9 +465,7 @@ export default function StaffWorkloadReportPage() {
       pagination
       paginationPageSize={25}
       getRowId={(p) =>
-        p.data?.isTotal
-          ? "__total__"
-          : String(p.data?.employee ?? "")
+        p.data?.isTotal ? "__total__" : String(p.data?.employee ?? "")
       }
       toolbar={{
         search: true,

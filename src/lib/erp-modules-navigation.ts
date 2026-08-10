@@ -4,11 +4,18 @@ import {
   mapMirroredModuleNavRoute,
 } from "@/lib/erp-module-mirror/navigation";
 import {
+  isStudentClassDiaryViewer,
+  isStudentPortalViewer,
   mapModuleTail,
   normalizeLabelKey,
 } from "./erp-modules-navigation-utils";
 import { mapAdminInstitutionalRoomRoute } from "@/lib/admin-institutional-navigation";
 import { mapHostelNavRoute } from "./hostel-navigation";
+
+export {
+  isStudentClassDiaryViewer,
+  isStudentPortalViewer,
+} from "./erp-modules-navigation-utils";
 
 /** App Router bases (Angular legacy paths mapped in `navigation.ts` normalizeHref). */
 export const ATTENDANCE_MGMT_BASE = "/attendance-management";
@@ -187,14 +194,20 @@ export function mapStaffClassesLabelToRoute(label?: string): string | null {
     return `${STAFF_CLASSES_BASE}/my-timetable`;
   }
   if (key === "assignments" || key === "assignment") {
+    if (isStudentPortalViewer()) {
+      return `${STUDENT_ACADEMICS_BASE}/student-assignments`;
+    }
     return `${STAFF_CLASSES_BASE}/assignments`;
   }
-  // Bare "Class Diary" only — do not steal "Staff Class Diary" / "Student Class Diary".
+  // Bare "Class Diary" — staff Academics vs student Academics (shared menu label).
   if (
     (key === "classdiary" || key === "classdairy") &&
     !key.includes("staff") &&
     !key.includes("student")
   ) {
+    if (isStudentClassDiaryViewer()) {
+      return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
+    }
     return `${STAFF_CLASSES_BASE}/class-dairy`;
   }
   return null;
@@ -217,11 +230,29 @@ export function mapStaffClassesNavRoute(
     return null;
   }
 
+  const hrefRaw = (href ?? "").trim();
+  const hrefLower = hrefRaw.toLowerCase();
+
+  // Shared DB href `staff-classes/class-dairy` for student Academics → student page.
+  if (
+    (hrefLower.includes("staff-classes/class-dairy") ||
+      hrefLower.includes("staff-classes/class-diary")) &&
+    isStudentPortalViewer()
+  ) {
+    return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
+  }
+
+  // Shared DB href `staff-classes/assignments` for student Academics → student page.
+  if (
+    hrefLower.includes("staff-classes/assignments") &&
+    isStudentPortalViewer()
+  ) {
+    return `${STUDENT_ACADEMICS_BASE}/student-assignments`;
+  }
+
   const byLabel = mapStaffClassesLabelToRoute(label);
   if (byLabel) return byLabel;
 
-  const hrefRaw = (href ?? "").trim();
-  const hrefLower = hrefRaw.toLowerCase();
   if (!hrefRaw || hrefRaw === "#") return null;
 
   // Do not steal attendance-update under staff-classes (handled by attendance mapper).
@@ -951,9 +982,8 @@ export function mapErpModuleNavRoute(
   const institutional = mapAdminInstitutionalRoomRoute(href, label);
   if (institutional) return institutional;
 
-  // Staff Classes before Student Academics so bare "Class Diary" /
-  // staff-classes/class-dairy is not stolen by student-class-dairy pins.
-  // But prefer student academics when the label is Staff/Student Class Diary.
+  // Staff/Student Class Diary labels (and student portal bare Class Diary /
+  // Assignments) → student academics pages.
   const labelKey = normalizeLabelKey(label ?? "");
   if (
     labelKey === "staffclassdiary" ||
@@ -961,9 +991,17 @@ export function mapErpModuleNavRoute(
     labelKey === "studentclassdiary" ||
     labelKey === "studentclassdairy" ||
     (labelKey.includes("staff") &&
-      (labelKey.includes("classdiary") || labelKey.includes("classdairy")))
+      (labelKey.includes("classdiary") || labelKey.includes("classdairy"))) ||
+    ((labelKey === "classdiary" || labelKey === "classdairy") &&
+      isStudentPortalViewer())
   ) {
     return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
+  }
+  if (
+    (labelKey === "assignments" || labelKey === "assignment") &&
+    isStudentPortalViewer()
+  ) {
+    return `${STUDENT_ACADEMICS_BASE}/student-assignments`;
   }
 
   return (

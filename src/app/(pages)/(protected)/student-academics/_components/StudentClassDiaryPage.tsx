@@ -41,6 +41,16 @@ function readStorage(key: string): string {
   return globalThis.localStorage.getItem(key) ?? "";
 }
 
+function writeStorage(key: string, value: number | string): void {
+  if (typeof globalThis.window === "undefined") return;
+  if (value === "" || value == null) return;
+  if (typeof value === "number" && !(value > 0)) return;
+  const next = String(value);
+  if (globalThis.localStorage.getItem(key) !== next) {
+    globalThis.localStorage.setItem(key, next);
+  }
+}
+
 function txt(row: AnyRow | null | undefined, keys: string[]): string {
   if (!row) return "";
   for (const key of keys) {
@@ -176,28 +186,37 @@ export function StudentClassDiaryPage() {
     courseYearId: number;
   } | null>(null);
 
-  const subjectOptions = useMemo<SelectOption[]>(
-    () =>
-      studentSubjects.map((s) => {
-        const id = num(s, ["subjectId", "subject_id"]);
-        const name = txt(s, ["subjectName", "subject_name"]);
-        const typeCode = txt(s, [
-          "subjectTypeCode",
-          "subjectTypeName",
-          "subject_type_code",
-        ]);
-        return {
-          value: String(id),
-          label: typeCode ? `${name} - ( ${typeCode} )` : name || String(id),
-        };
-      }),
-    [studentSubjects],
-  );
+  const subjectOptions = useMemo<SelectOption[]>(() => {
+    const opts: SelectOption[] = [];
+    for (const s of studentSubjects) {
+      // Angular option value: myClass.subjectId (also seen as nested Subject.*)
+      const nested =
+        s.subject && typeof s.subject === "object"
+          ? (s.subject as AnyRow)
+          : null;
+      const id =
+        num(s, ["subjectId", "subject_id", "fk_subject_id"]) ||
+        num(nested, ["subjectId", "subject_id"]);
+      if (!id) continue;
+      const name =
+        txt(s, ["subjectName", "subject_name"]) ||
+        txt(nested, ["subjectName", "subject_name"]);
+      const typeCode =
+        txt(s, ["subjectTypeCode", "subjectTypeName", "subject_type_code"]) ||
+        txt(nested, ["subjectTypeCode", "subjectTypeName"]);
+      opts.push({
+        value: String(id),
+        label: typeCode ? `${name} - ( ${typeCode} )` : name || String(id),
+      });
+    }
+    return opts;
+  }, [studentSubjects]);
 
   const loadContext = useCallback(async () => {
     setContextLoading(true);
     setStudentSubjects([]);
     try {
+      // Angular: localStorage.studentId → getStudent(studentdetail) → StudentSubject
       const storageStudentId = positiveId(readStorage("studentId"));
       const sessionStudentId = positiveId(user?.studentId);
       const studentId = sessionStudentId || storageStudentId;
@@ -212,20 +231,29 @@ export function StudentClassDiaryPage() {
         )) as AnyRow | null;
       }
 
+      // Prefer studentdetail (Angular getStudent) over session AY — session often
+      // has college current year (e.g. 90) while the student is enrolled in 91.
       const collegeId =
         num(detail, ["collegeId", "fk_college_id"]) ||
-        positiveId(readStorage("collegeId"));
+        positiveId(readStorage("collegeId"), user?.collegeId);
       const academicYearId =
         num(detail, ["academicYearId", "fk_academic_year_id"]) ||
-        positiveId(readStorage("academicYearId"));
+        positiveId(readStorage("academicYearId"), user?.academicYearId);
       const groupSectionId =
-        num(detail, ["groupSectionId", "fk_group_section_id", "sectionId"]) ||
+        num(detail, ["groupSectionId", "fk_group_section_id"]) ||
         positiveId(readStorage("groupSectionId"));
       const sid =
         num(detail, ["studentId", "fk_student_id", "student_id"]) || studentId;
       const courseYearId =
         num(detail, ["courseYearId", "fk_course_year_id"]) ||
         positiveId(readStorage("courseYearId"));
+
+      // Mirror Angular login getStudent: persist student AY/section for notes filter.
+      writeStorage("studentId", sid);
+      writeStorage("collegeId", collegeId);
+      writeStorage("academicYearId", academicYearId);
+      writeStorage("groupSectionId", groupSectionId);
+      writeStorage("courseYearId", courseYearId);
 
       if (!collegeId || !academicYearId || !groupSectionId || !sid) {
         toastInfo("Could not load your student academic context.");
@@ -242,6 +270,7 @@ export function StudentClassDiaryPage() {
       });
 
       // Angular selectedStudent → StudentSubject list (for By Subject filter)
+      // Exact: college.collegeId & academicYear.academicYearId & … & isActive==true
       if (courseYearId) {
         const subjects = await listStudentSubjectsForStudent({
           collegeId,

@@ -23,6 +23,8 @@ import type {
   StudentFeeSearchRow,
   StudentFeeStructureRow,
   TransportAllocationRow,
+  TransportFeePaymentRow,
+  TransportPaymentPayload,
   FeeParticularWiseReceiptRow,
   FeeStudentParticularRow,
 } from "@/types/fees-collection";
@@ -839,11 +841,17 @@ export async function searchEmployeesForTransport(
     empStatus: "ACTV",
   };
   if (collegeId) params.collegeId = collegeId;
-  const data = await fetchDetails<EmployeeSearchRow[]>(
-    FEE_API.EMPLOYEE_SEARCH,
-    params,
-  );
-  return Array.isArray(data) ? data : [];
+  // Angular `employeesearch?q=&empStatus=ACTV` (+ optional collegeId).
+  const paths = ["employeesearch", FEE_API.EMPLOYEE_SEARCH] as const;
+  for (const path of paths) {
+    try {
+      const data = await fetchDetails<EmployeeSearchRow[]>(path, params);
+      if (Array.isArray(data)) return data;
+    } catch {
+      // try next path shape
+    }
+  }
+  return [];
 }
 
 /** Angular `employeedetailsbyid?employeeId=` on faculty transport payment. */
@@ -880,6 +888,64 @@ export async function listTransportAllocationsByEmployee(
   if (data && typeof data === "object" && Array.isArray(data.resultList))
     return data.resultList;
   return [];
+}
+
+/**
+ * Angular faculty-fee-pay `listDetailsByTwoIds(TransportFeePayment, …)` —
+ * `TransportAllocation.transportAllocationId` + `EmployeeDetail.employeeId`.
+ */
+export async function listTransportFeePayments(params: {
+  transportAllocationId: number;
+  employeeId: number;
+}): Promise<TransportFeePaymentRow[]> {
+  const { transportAllocationId, employeeId } = params;
+  if (!transportAllocationId || !employeeId) return [];
+  try {
+    const rows = await domainList<TransportFeePaymentRow>(
+      FEE_API.TRANSPORT_FEE_PAYMENT,
+      buildQuery({
+        "TransportAllocation.transportAllocationId": transportAllocationId,
+        "EmployeeDetail.employeeId": employeeId,
+      }),
+    );
+    if (rows.length > 0) return rows;
+  } catch {
+    // try alternate casing
+  }
+  try {
+    return await domainList<TransportFeePaymentRow>(
+      FEE_API.TRANSPORT_FEE_PAYMENT,
+      buildQuery({
+        "transportAllocation.transportAllocationId": transportAllocationId,
+        "employeeDetail.employeeId": employeeId,
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Angular faculty-fee-pay `feereceipts?collegeId=&employeeId=&academicYearId=`. */
+export async function listFeeReceiptsForEmployee(params: {
+  collegeId: number;
+  employeeId: number;
+  academicYearId: number;
+}): Promise<FeeReceiptRow[]> {
+  const { collegeId, employeeId, academicYearId } = params;
+  if (!collegeId || !employeeId || !academicYearId) return [];
+  const data = await fetchDetails<FeeReceiptRow[]>(FEE_API.FEE_RECEIPTS, {
+    collegeId,
+    employeeId,
+    academicYearId,
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+/** Angular faculty-fee-pay POST `transportpayment`. */
+export async function submitTransportPayment(
+  payload: TransportPaymentPayload,
+): Promise<unknown> {
+  return postDetails(TRANSPORT_API.TRANSPORT_PAYMENT, payload);
 }
 
 export async function listFeeStructuresForAllocation(params: {

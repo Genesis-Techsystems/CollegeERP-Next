@@ -41,7 +41,10 @@ import {
   toSelectOptions,
   txt,
 } from "../_lib/timetable-report-filters";
-import { getAttendanceCollegeDeptFilters, getCcaActivityReport } from "@/services";
+import {
+  getAttendanceCollegeDeptFilters,
+  getCcaActivityReport,
+} from "@/services";
 
 const REPORT_TITLE = "CCA Activity Report";
 
@@ -160,41 +163,51 @@ export default function CcaActivityReportPage() {
 
   const collegeOptions = useMemo(
     () =>
-      toSelectOptions(colleges, ["fk_college_id", "collegeId"], [
-        "college_code",
-        "collegeCode",
-      ]),
+      toSelectOptions(
+        colleges,
+        ["fk_college_id", "collegeId"],
+        ["college_code", "collegeCode"],
+      ),
     [colleges],
   );
   const courseOptions = useMemo(
     () =>
-      toSelectOptions(courses, ["fk_course_id", "courseId"], [
-        "course_code",
-        "courseCode",
-      ]),
+      toSelectOptions(
+        courses,
+        ["fk_course_id", "courseId"],
+        ["course_code", "courseCode"],
+      ),
     [courses],
   );
   const groupOptions = useMemo(
     () =>
-      toSelectOptions(courseGroups, ["fk_course_group_id", "courseGroupId"], [
-        "group_code",
-        "groupCode",
-      ]),
+      toSelectOptions(
+        courseGroups,
+        ["fk_course_group_id", "courseGroupId"],
+        ["group_code", "groupCode"],
+      ),
     [courseGroups],
   );
   const yearOptions = useMemo(
     () =>
-      toSelectOptions(courseYears, ["fk_course_year_id", "courseYearId"], [
-        "course_year_name",
-        "courseYearName",
-      ]),
+      toSelectOptions(
+        courseYears,
+        ["fk_course_year_id", "courseYearId"],
+        ["course_year_name", "courseYearName"],
+      ),
     [courseYears],
   );
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -203,7 +216,11 @@ export default function CcaActivityReportPage() {
       setCourseId("");
       return;
     }
-    if (!courses.some((r) => num(r.fk_course_id ?? r.courseId) === Number(courseId))) {
+    if (
+      !courses.some(
+        (r) => num(r.fk_course_id ?? r.courseId) === Number(courseId),
+      )
+    ) {
       setCourseId(String(num(courses[0].fk_course_id ?? courses[0].courseId)));
     }
   }, [courses, courseId]);
@@ -215,11 +232,17 @@ export default function CcaActivityReportPage() {
     }
     if (
       !courseGroups.some(
-        (r) => num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId),
+        (r) =>
+          num(r.fk_course_group_id ?? r.courseGroupId) ===
+          Number(courseGroupId),
       )
     ) {
       setCourseGroupId(
-        String(num(courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId)),
+        String(
+          num(
+            courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId,
+          ),
+        ),
       );
     }
   }, [courseGroups, courseGroupId]);
@@ -231,11 +254,14 @@ export default function CcaActivityReportPage() {
     }
     if (
       !courseYears.some(
-        (r) => num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
+        (r) =>
+          num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
       )
     ) {
       setCourseYearId(
-        String(num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId)),
+        String(
+          num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId),
+        ),
       );
     }
   }, [courseYears, courseYearId]);
@@ -263,7 +289,9 @@ export default function CcaActivityReportPage() {
     const college = colleges.find(
       (r) => num(r.fk_college_id ?? r.collegeId) === cid,
     );
-    const course = courses.find((r) => num(r.fk_course_id ?? r.courseId) === coid);
+    const course = courses.find(
+      (r) => num(r.fk_course_id ?? r.courseId) === coid,
+    );
     const group = courseGroups.find(
       (r) => num(r.fk_course_group_id ?? r.courseGroupId) === gid,
     );
@@ -283,7 +311,9 @@ export default function CcaActivityReportPage() {
     setLoadingList(true);
     clearResults();
     setDataDetails(details);
-    setCollegeName(txt(college?.college_name ?? college?.collegeName) || "College");
+    setCollegeName(
+      txt(college?.college_name ?? college?.collegeName) || "College",
+    );
     try {
       const raw = await getCcaActivityReport({
         collegeId: cid,
@@ -433,6 +463,7 @@ export default function CcaActivityReportPage() {
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}

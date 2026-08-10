@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastSuccess, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
   courseGroupIdFromDeptHead,
@@ -119,6 +119,7 @@ export function StaffAttendanceNotMarkedListPage() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [isDisabled, setIsDisabled] = useState(false);
   const [lastQuery, setLastQuery] = useState<{
     dateYmd: string;
     departmentId: number;
@@ -155,6 +156,7 @@ export function StaffAttendanceNotMarkedListPage() {
     try {
       const heads = await listDepartmentHeadsByDepartment(deptId);
       setDeptHeads(heads);
+      setIsDisabled(true);
     } catch (e) {
       setDeptHeads([]);
       toastError(e, "Failed to load department heads");
@@ -196,6 +198,7 @@ export function StaffAttendanceNotMarkedListPage() {
     setStaffType(next);
     setStaff([]);
     setLastQuery(null);
+    setIsDisabled(false);
   }
 
   async function getStaff() {
@@ -213,6 +216,22 @@ export function StaffAttendanceNotMarkedListPage() {
     // Always call API: Dept Emp → in_issamedept=1; Other Dept Emp → in_issamedept=0
     const courseGroupId = courseGroupIdFromDeptHead(deptHeads[0]);
     const nextIssamedept: 0 | 1 = staffType === "G" ? 0 : 1;
+
+    let flag = true;
+    if (staffType === "G") {
+      if (deptHeads.length > 0) {
+        flag = true;
+      } else {
+        flag = false;
+      }
+    }
+
+    if (!flag) {
+      toastInfo(
+        "Department is not synchronised with course group, please contact system admin.",
+      );
+      return;
+    }
 
     setLoading(true);
     setStaff([]);
@@ -275,7 +294,7 @@ export function StaffAttendanceNotMarkedListPage() {
           </Label>
         </div>
         <div className="ml-[35px] flex items-center gap-2">
-          <RadioGroupItem value="G" id="staff-type-g" />
+          <RadioGroupItem value="G" id="staff-type-g" disabled={isDisabled} />
           <Label
             htmlFor="staff-type-g"
             className="cursor-pointer font-normal text-sm"

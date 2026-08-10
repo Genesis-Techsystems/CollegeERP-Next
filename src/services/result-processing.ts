@@ -83,14 +83,47 @@ export async function getModerationColleges(): Promise<AnyRow[]> {
 /** Angular selectedCollege(): AcademicYear by college, isActive, fromDate DESC. */
 export async function getModerationAcademicYears(
   collegeId: number,
+  universityId?: number,
 ): Promise<AnyRow[]> {
-  return domainList<AnyRow>(
-    "AcademicYear",
-    buildQuery(
-      { "College.collegeId": collegeId, isActive: true },
-      { field: "fromDate", direction: "DESC" },
-    ),
-  );
+  const queries = [];
+  if (collegeId) {
+    queries.push(
+      buildQuery(
+        { "College.collegeId": collegeId, isActive: true },
+        { field: "fromDate", direction: "DESC" },
+      ),
+      buildQuery(
+        { "college.collegeId": collegeId, isActive: true },
+        { field: "fromDate", direction: "DESC" },
+      ),
+    );
+  }
+  if (universityId) {
+    queries.push(
+      buildQuery(
+        { "University.universityId": universityId, isActive: true },
+        { field: "fromDate", direction: "DESC" },
+      ),
+      buildQuery(
+        { "Universities.universityId": universityId, isActive: true },
+        { field: "fromDate", direction: "DESC" },
+      ),
+      buildQuery(
+        { universityId: universityId, isActive: true },
+        { field: "fromDate", direction: "DESC" },
+      ),
+    );
+  }
+
+  for (const q of queries) {
+    try {
+      const rows = await domainList<AnyRow>("AcademicYear", q);
+      if (Array.isArray(rows) && rows.length > 0) return rows;
+    } catch {
+      // try next
+    }
+  }
+  return [];
 }
 
 /** Angular selectedAcademicYear(): Course by college, isActive. */
