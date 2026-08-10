@@ -144,11 +144,12 @@ export function NewSuggestionModal({
   }, [open, row, reset]);
 
   async function submitForm(values: FormValues) {
+    // Angular submit: ackDate = moment(); isAcknowledged = data.isAcknowledged; userId from session
     const payload: AnyRow = {
       ...values,
       ackDate: new Date().toISOString(),
-      isAcknowledged: row?.isAcknowledged ?? false,
-      userId,
+      isAcknowledged: row?.isAcknowledged,
+      userId: String(userId),
     };
     if (isEditing) {
       payload.suggestionId = row?.suggestionId;
@@ -169,7 +170,7 @@ export function NewSuggestionModal({
       }}
       isSubmitting={isSubmitting}
       submitLabel="Save"
-      cancelLabel="Cancel"
+      cancelLabel="Close"
       formClassName="space-y-2 py-0"
     >
       <div className="space-y-2">
@@ -278,7 +279,7 @@ export function NewSuggestionModal({
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_3fr] gap-2 border-b py-2 text-sm last:border-0">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold text-muted-foreground">{label}</span>
       <span>{value || "—"}</span>
     </div>
   );

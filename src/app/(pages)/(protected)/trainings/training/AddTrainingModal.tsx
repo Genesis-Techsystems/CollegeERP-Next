@@ -1,86 +1,104 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
+import { format } from 'date-fns'
+import { FormModal } from '@/common/components/feedback'
+import { Select } from '@/common/components/select'
+import { DatePicker } from '@/common/components/date-picker'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { PlacementTraining } from '@/types/trainings'
 import type { College } from '@/types/college'
-import type { GeneralMasterDetail } from '@/types/general-master'
 import { listColleges } from '@/services/admin/college'
-import { listGeneralDetailsByMasterId, listGeneralMasters } from '@/services/admin/general-master'
-import { listActiveEmployeesByCollege } from '@/services/admin/staff-subject-mapping'
+import { listGeneralDetailsByMaster } from '@/services/examination'
+import { searchEmployeesForCompanyMeeting } from '@/services/placements'
 import { createTraining, updateTraining } from '@/services/trainings'
+import { GM_CODES } from '@/config/constants/ui'
 
-const schema = z.object({
-  collegeId: z.string().min(1, 'College is required'),
-  trainingTypeCatId: z.string().optional(),
-  yearName: z.string().min(1, 'Year is required'),
-  employeeId: z.string().optional(),
-  trainingTitle: z.string().min(1, 'Training title is required'),
-  trainerName: z.string().min(1, 'Trainer name is required'),
-  startDate: z.string().min(1, 'Start date is required'),
-  endDate: z.string().min(1, 'End date is required'),
-  trainingDescription: z.string().optional(),
-  trainerDetails: z.string().optional(),
-  discussionPoints: z.string().optional(),
-  isTrackAudience: z.boolean().optional(),
-  isActive: z.boolean(),
-})
+type TrackAudience = 'null' | 'true' | 'false'
 
-type FormValues = z.infer<typeof schema>
+type FormValues = {
+  collegeId: string | null
+  yearName: string | null
+  trainingTypeCatId: string | null
+  trainingTitle: string
+  employeeId: string | null
+  trainingDescription: string
+  trainerName: string
+  trainerDetails: string
+  discussionPoints: string
+  startDate: Date | null
+  endDate: Date | null
+  isTrackAudience: TrackAudience
+  isActive: boolean
+  reason: string
+}
+
+function buildYearOptions(): { value: string; label: string }[] {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 10 }, (_, i) => {
+    const y = String(current - i)
+    return { value: y, label: y }
+  })
+}
+
+function parseDate(value?: string | null): Date | null {
+  if (!value) return null
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function toTrackAudience(
+  v: boolean | null | undefined | 'null' | string,
+): TrackAudience {
+  // API / Angular may return null, string "null", or booleans
+  if (v == null || v === 'null' || v === 'All') return 'null'
+  if (v === true || v === 'true') return 'true'
+  return 'false'
+}
+
+/** Angular mat-option values: `'null'` | true | false — All must stay the string `"null"`. */
+function fromTrackAudience(v: TrackAudience): boolean | 'null' {
+  if (v === 'null') return 'null'
+  return v === 'true'
+}
 
 function getDefaults(edit?: PlacementTraining | null): FormValues {
   if (edit) {
     return {
       collegeId: String(edit.collegeId),
-      trainingTypeCatId: edit.trainingTypeCatId ? String(edit.trainingTypeCatId) : '',
-      yearName: edit.yearName,
-      employeeId: edit.employeeId ? String(edit.employeeId) : '',
-      trainingTitle: edit.trainingTitle,
-      trainerName: edit.trainerName,
-      startDate: edit.startDate,
-      endDate: edit.endDate,
+      yearName: String(edit.yearName),
+      trainingTypeCatId: edit.trainingTypeCatId != null ? String(edit.trainingTypeCatId) : null,
+      trainingTitle: edit.trainingTitle ?? '',
+      employeeId: edit.employeeId != null ? String(edit.employeeId) : null,
       trainingDescription: edit.trainingDescription ?? '',
+      trainerName: edit.trainerName ?? '',
       trainerDetails: edit.trainerDetails ?? '',
       discussionPoints: edit.discussionPoints ?? '',
-      isTrackAudience: edit.isTrackAudience ?? false,
+      startDate: parseDate(edit.startDate) ?? new Date(),
+      endDate: parseDate(edit.endDate) ?? new Date(),
+      isTrackAudience: toTrackAudience(edit.isTrackAudience),
       isActive: edit.isActive,
+      reason: edit.reason ?? 'active',
     }
   }
   return {
-    collegeId: '',
-    trainingTypeCatId: '',
-    yearName: '',
-    employeeId: '',
+    collegeId: null,
+    yearName: null,
+    trainingTypeCatId: null,
     trainingTitle: '',
-    trainerName: '',
-    startDate: '',
-    endDate: '',
+    employeeId: null,
     trainingDescription: '',
+    trainerName: '',
     trainerDetails: '',
     discussionPoints: '',
-    isTrackAudience: false,
+    startDate: new Date(),
+    endDate: new Date(),
+    isTrackAudience: 'null',
     isActive: true,
+    reason: 'active',
   }
 }
 
@@ -93,8 +111,13 @@ interface Props {
 
 export default function AddTrainingModal({ open, onClose, editData, onSaved }: Props) {
   const [colleges, setColleges] = useState<College[]>([])
-  const [trainingTypes, setTrainingTypes] = useState<GeneralMasterDetail[]>([])
-  const [employees, setEmployees] = useState<Array<{ employeeId: number; empName: string }>>([])
+  const [trainingTypes, setTrainingTypes] = useState<
+    Array<{ generalDetailId: number; generalDetailDisplayName: string }>
+  >([])
+  const [employees, setEmployees] = useState<
+    Array<{ employeeId: number; firstName: string; empNumber?: string | null }>
+  >([])
+  const [loadingEmployees, setLoadingEmployees] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const {
@@ -103,62 +126,111 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
     control,
     watch,
     reset,
-    formState: { errors, isSubmitting },
+    setValue,
+    formState: { isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
     defaultValues: getDefaults(editData),
   })
 
   const collegeId = watch('collegeId')
+  const isActive = watch('isActive')
+  const employeeId = watch('employeeId')
 
   useEffect(() => {
     if (!open) return
     listColleges().then(setColleges).catch(console.error)
-    listGeneralMasters()
-      .then(async (masters) => {
-        const master = masters.find((m) => m.generalMasterCode === 'PLCMNTTRNGTYP')
-        if (master?.generalMasterId) {
-          const details = await listGeneralDetailsByMasterId(master.generalMasterId)
-          setTrainingTypes(details)
-        }
-      })
+    listGeneralDetailsByMaster(GM_CODES.TRAINING_TYPE)
+      .then((rows) =>
+        setTrainingTypes(
+          (rows as Array<{ generalDetailId: number; generalDetailDisplayName: string }>) ?? [],
+        ),
+      )
       .catch(console.error)
   }, [open])
 
   useEffect(() => {
-    if (collegeId) {
-      listActiveEmployeesByCollege(Number(collegeId))
-        .then((rows) => setEmployees(rows as Array<{ employeeId: number; empName: string }>))
-        .catch(console.error)
-    } else {
-      setEmployees([])
-    }
-  }, [collegeId])
-
-  useEffect(() => {
     reset(getDefaults(editData))
     setSubmitError(null)
+    setEmployees([])
+    if (open && editData?.empNumber && editData.collegeId) {
+      void searchIncharge(String(editData.empNumber), editData.collegeId)
+    }
   }, [open, editData, reset])
+
+  async function searchIncharge(term: string, college?: number) {
+    const cid = college ?? Number(collegeId)
+    if (!cid || term.trim().length < 5) {
+      setEmployees([])
+      return
+    }
+    setLoadingEmployees(true)
+    try {
+      const rows = await searchEmployeesForCompanyMeeting(cid, term)
+      setEmployees(
+        rows.map((r) => ({
+          employeeId: Number(r.employeeId ?? 0),
+          firstName: String(r.firstName ?? r.empName ?? r.employeeName ?? ''),
+          empNumber: (r.empNumber as string | null | undefined) ?? null,
+        })).filter((e) => e.employeeId > 0),
+      )
+    } catch {
+      setEmployees([])
+    } finally {
+      setLoadingEmployees(false)
+    }
+  }
+
+  const employeeOptions = useMemo(() => {
+    const opts = employees.map((e) => ({
+      value: String(e.employeeId),
+      label: e.empNumber ? `${e.firstName} (${e.empNumber})` : e.firstName,
+    }))
+    // Keep selected edit employee visible even if search not re-run
+    if (
+      editData?.employeeId &&
+      employeeId === String(editData.employeeId) &&
+      !opts.some((o) => o.value === String(editData.employeeId))
+    ) {
+      opts.unshift({
+        value: String(editData.employeeId),
+        label: editData.empNumber
+          ? `${editData.empName ?? 'Employee'} (${editData.empNumber})`
+          : (editData.empName ?? 'Employee'),
+      })
+    }
+    return opts
+  }, [employees, editData, employeeId])
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null)
+    if (!values.collegeId || !values.yearName || !values.startDate || !values.endDate) {
+      setSubmitError('Please fill required fields')
+      return
+    }
     try {
+      // Angular closes the dialog with the form object; update also sets traningId on the body.
       const payload: Partial<PlacementTraining> = {
         collegeId: Number(values.collegeId),
-        trainingTypeCatId: values.trainingTypeCatId ? Number(values.trainingTypeCatId) : undefined,
+        trainingTypeCatId: values.trainingTypeCatId
+          ? Number(values.trainingTypeCatId)
+          : undefined,
         yearName: values.yearName,
         employeeId: values.employeeId ? Number(values.employeeId) : undefined,
         trainingTitle: values.trainingTitle,
-        trainerName: values.trainerName,
-        startDate: values.startDate,
-        endDate: values.endDate,
         trainingDescription: values.trainingDescription,
+        trainerName: values.trainerName,
         trainerDetails: values.trainerDetails,
         discussionPoints: values.discussionPoints,
-        isTrackAudience: values.isTrackAudience,
+        startDate: format(values.startDate, 'yyyy-MM-dd'),
+        endDate: format(values.endDate, 'yyyy-MM-dd'),
+        // Must be string `"null"` for All (not JSON null) — Angular `[value]="'null'"`
+        isTrackAudience: fromTrackAudience(values.isTrackAudience),
         isActive: values.isActive,
+        reason: values.isActive ? (values.reason || 'active') : values.reason,
       }
       if (editData) {
+        payload.traningId = editData.traningId
+        payload.createdDt = editData.createdDt
         await updateTraining(editData.traningId, payload)
       } else {
         await createTraining(payload)
@@ -171,178 +243,201 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Training' : 'Add Training'}
-          </DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">College *</Label>
-              <Controller
-                name="collegeId"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
-                    <SelectContent>
-                      {colleges.map((c) => (
-                        <SelectItem key={c.collegeId} value={String(c.collegeId)}>
-                          {c.collegeName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={editData ? 'Edit Training' : 'Add Training'}
+      size="xl"
+      cancelLabel="Close"
+      submitLabel="Save"
+      isSubmitting={isSubmitting}
+      onSubmit={handleSubmit(onSubmit)}
+      formClassName="space-y-3"
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+        <div className="sm:col-span-3">
+          <Controller
+            name="collegeId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="College"
+                value={field.value}
+                onChange={(v) => {
+                  field.onChange(v)
+                  setValue('yearName', null)
+                  setValue('employeeId', null)
+                  setEmployees([])
+                }}
+                options={colleges.map((c) => ({
+                  value: String(c.collegeId),
+                  label: c.collegeCode || c.collegeName,
+                }))}
+                placeholder="College"
               />
-              {errors.collegeId && <p className="text-xs text-red-500">{errors.collegeId.message}</p>}
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">Training Type</Label>
-              <Controller
-                name="trainingTypeCatId"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                    <SelectContent>
-                      {trainingTypes.map((t) => (
-                        <SelectItem key={t.generalDetailId} value={String(t.generalDetailId)}>
-                          {t.generalDetailDisplayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+            )}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <Controller
+            name="yearName"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Year"
+                value={field.value}
+                onChange={field.onChange}
+                options={buildYearOptions()}
+                placeholder="Year"
+                disabled={!collegeId}
               />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Year *</Label>
-              <Input {...register('yearName')} placeholder="e.g. 2024-25" />
-              {errors.yearName && <p className="text-xs text-red-500">{errors.yearName.message}</p>}
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">Incharge Employee</Label>
-              <Controller
-                name="employeeId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ?? ''}
-                    onValueChange={field.onChange}
-                    disabled={!collegeId || employees.length === 0}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                    <SelectContent>
-                      {employees.map((e) => (
-                        <SelectItem key={e.employeeId} value={String(e.employeeId)}>
-                          {e.empName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+            )}
+          />
+        </div>
+        <div className="sm:col-span-7">
+          <Controller
+            name="trainingTypeCatId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Training Type"
+                value={field.value}
+                onChange={field.onChange}
+                options={trainingTypes.map((t) => ({
+                  value: String(t.generalDetailId),
+                  label: t.generalDetailDisplayName,
+                }))}
+                placeholder="Training Type"
               />
-            </div>
+            )}
+          />
+        </div>
+
+        <div className="sm:col-span-6">
+          <label className="text-xs font-medium mb-1 block">Training Title</label>
+          <Input {...register('trainingTitle')} placeholder="Training Title" />
+        </div>
+        <div className="sm:col-span-6">
+          <Controller
+            name="employeeId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Incharge"
+                value={field.value}
+                onChange={field.onChange}
+                options={employeeOptions}
+                placeholder="Search by Employee name or Id…"
+                searchable
+                onSearch={(term) => void searchIncharge(term)}
+                isLoading={loadingEmployees}
+                disabled={!collegeId}
+              />
+            )}
+          />
+        </div>
+
+        <div className="sm:col-span-12">
+          <label className="text-xs font-medium mb-1 block">Training Description</label>
+          <Textarea {...register('trainingDescription')} rows={2} placeholder="Training Description" />
+        </div>
+
+        <div className="sm:col-span-6">
+          <label className="text-xs font-medium mb-1 block">Trainer Name</label>
+          <Input {...register('trainerName')} placeholder="Trainer Name" />
+        </div>
+        <div className="sm:col-span-6">
+          <label className="text-xs font-medium mb-1 block">Trainer Details</label>
+          <Input {...register('trainerDetails')} placeholder="Trainer Details" />
+        </div>
+
+        <div className="sm:col-span-12">
+          <label className="text-xs font-medium mb-1 block">Discussion Points</label>
+          <Textarea {...register('discussionPoints')} rows={2} placeholder="Discussion Points" />
+        </div>
+
+        <div className="sm:col-span-4">
+          <Controller
+            name="startDate"
+            control={control}
+            render={({ field }) => (
+              <DatePicker
+                label="Start Date"
+                value={field.value}
+                onChange={field.onChange}
+                displayFormat="dd/MM/yyyy"
+                clearable={false}
+              />
+            )}
+          />
+        </div>
+        <div className="sm:col-span-4">
+          <Controller
+            name="endDate"
+            control={control}
+            render={({ field }) => (
+              <DatePicker
+                label="End Date"
+                value={field.value}
+                onChange={field.onChange}
+                displayFormat="dd/MM/yyyy"
+                clearable={false}
+              />
+            )}
+          />
+        </div>
+        <div className="sm:col-span-4">
+          <Controller
+            name="isTrackAudience"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Training To"
+                value={field.value}
+                onChange={(v) => field.onChange((v ?? 'null') as TrackAudience)}
+                options={[
+                  { value: 'null', label: 'All' },
+                  { value: 'true', label: 'Student' },
+                  { value: 'false', label: 'Staff' },
+                ]}
+                placeholder="Training To"
+                clearable={false}
+              />
+            )}
+          />
+        </div>
+
+        <div className="sm:col-span-4 flex items-end pb-2">
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={(v) => {
+                    const active = v === true
+                    field.onChange(active)
+                    if (active) setValue('reason', 'active')
+                  }}
+                />
+                Active
+              </label>
+            )}
+          />
+        </div>
+
+        {!isActive && (
+          <div className="sm:col-span-4">
+            <label className="text-xs font-medium mb-1 block">Reason</label>
+            <Input {...register('reason')} placeholder="Reason" />
           </div>
+        )}
+      </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Training Title *</Label>
-              <Input {...register('trainingTitle')} placeholder="Training title" />
-              {errors.trainingTitle && <p className="text-xs text-red-500">{errors.trainingTitle.message}</p>}
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">Trainer Name *</Label>
-              <Input {...register('trainerName')} placeholder="Trainer name" />
-              {errors.trainerName && <p className="text-xs text-red-500">{errors.trainerName.message}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Start Date *</Label>
-              <Input type="date" {...register('startDate')} />
-              {errors.startDate && <p className="text-xs text-red-500">{errors.startDate.message}</p>}
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">End Date *</Label>
-              <Input type="date" {...register('endDate')} />
-              {errors.endDate && <p className="text-xs text-red-500">{errors.endDate.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Training Description</Label>
-            <Textarea {...register('trainingDescription')} rows={2} placeholder="Description" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Trainer Details</Label>
-              <Textarea {...register('trainerDetails')} rows={2} placeholder="Trainer details" />
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">Discussion Points</Label>
-              <Textarea {...register('discussionPoints')} rows={2} placeholder="Discussion points" />
-            </div>
-          </div>
-
-          <div className="flex gap-6 pt-1">
-            <Controller
-              name="isTrackAudience"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox
-                    checked={field.value ?? false}
-                    onCheckedChange={field.onChange}
-                  />
-                  Track Audience
-                </label>
-              )}
-            />
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                  Is Active
-                </label>
-              )}
-            />
-          </div>
-
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
-          )}
-
-          <DialogFooter className="pt-1">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {submitError && (
+        <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+      )}
+    </FormModal>
   )
 }

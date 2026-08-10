@@ -529,27 +529,33 @@ export function resolveForcedNavRoute(
     }
   }
 
-  // Staff Grievances & Suggestions — must beat generic grievance-details / student pins
+  // Staff Grievances & Suggestions / College Suggestions — must beat generic grievance pins
   if (
     hrefLower.includes("staff-grievances") ||
     hrefLower.includes("staff-grevievances") ||
+    hrefLower.includes("collge-suggestions") ||
+    hrefLower.includes("college-suggestions") ||
     labelKey === "new suggestions" ||
     labelKey === "new suggestion" ||
     labelKey === "suggestions list" ||
     hrefLower.includes("new-suggestions") ||
-    hrefLower.includes("suggestions-list")
+    hrefLower.includes("new-suggestion") ||
+    hrefLower.includes("suggestions-list") ||
+    hrefLower.includes("collge-suggestions-list")
   ) {
     if (hrefLower.includes("grievance-details")) {
       return "/staff-grievances-&-suggestions/grevieviance-list/grievance-details";
     }
     if (
       hrefLower.includes("suggestions-list") ||
+      hrefLower.includes("collge-suggestions-list") ||
       labelKey === "suggestions list"
     ) {
       return "/staff-grievances-&-suggestions/suggestions-list";
     }
     if (
       hrefLower.includes("new-suggestions") ||
+      hrefLower.includes("new-suggestion") ||
       labelKey === "new suggestions" ||
       labelKey === "new suggestion"
     ) {

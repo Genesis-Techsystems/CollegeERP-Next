@@ -629,6 +629,8 @@ export default function ExamRegisterSubjectsPage() {
         examFeeAmount,
         examStdId,
         examtypeCatId,
+        isInternalExam: true,
+        createdDt: new Date().toISOString(),
         regulationId: num(
           selectedStudent.regulationId ?? selectedStudent.fk_regulation_id,
         ),

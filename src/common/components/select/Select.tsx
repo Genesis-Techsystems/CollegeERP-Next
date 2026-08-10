@@ -16,7 +16,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { SELECT_TOOLTIP_MIN_LENGTH } from "./OptionTooltip";
+import { OptionTooltip } from "./OptionTooltip";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,14 +85,13 @@ export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
   return out;
 }
 
-/** Tooltip text for long/truncated select options; short labels return undefined. */
+/** Full tooltip text for an option; OptionTooltip decides when to show it. */
 export function selectOptionTooltip(
   opt: Pick<SelectOption, "label" | "title"> | null | undefined,
 ): string | undefined {
   if (!opt) return undefined;
   const text = String(opt.title ?? opt.label ?? "").trim();
-  if (!text || text.length <= SELECT_TOOLTIP_MIN_LENGTH) return undefined;
-  return text;
+  return text || undefined;
 }
 
 /** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
@@ -261,7 +260,7 @@ export function Select({
             aria-invalid={error ? true : undefined}
             aria-haspopup="listbox"
             disabled={disabled}
-            title={selectedOption?.title || undefined}
+            title={selectOptionTooltip(selectedOption)}
             className={cn(
               "app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
               "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
@@ -276,7 +275,7 @@ export function Select({
             {/* Label / placeholder */}
             <span
               className={cn(
-                "min-w-0 truncate",
+                "min-w-0 truncate text-left",
                 !selectedOption && "text-slate-400",
               )}
             >
@@ -369,6 +368,7 @@ export function Select({
             ) : (
               filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value;
+                const tip = selectOptionTooltip(opt);
                 return (
                   <button
                     key={`${String(opt.value)}::${idx}`}
@@ -376,7 +376,6 @@ export function Select({
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
-                    title={opt.title || undefined}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
                       "flex w-full gap-2 px-3 py-2 text-sm transition-colors",
@@ -393,28 +392,38 @@ export function Select({
                         <Check className="h-3.5 w-3.5 text-primary" />
                       )}
                     </span>
-                    <span
+                    <OptionTooltip
+                      content={tip}
                       className={cn(
                         "min-w-0 flex-1 text-left",
                         wrapOptionLabels || opt.description
                           ? "whitespace-normal leading-snug"
-                          : "truncate",
+                          : undefined,
                       )}
                     >
                       <span
                         className={cn(
                           "block",
-                          opt.description ? "truncate" : undefined,
+                          wrapOptionLabels || opt.description
+                            ? "whitespace-normal leading-snug"
+                            : "truncate",
                         )}
                       >
-                        {opt.label}
-                      </span>
-                      {opt.description ? (
-                        <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground leading-4 whitespace-normal break-words">
-                          {opt.description}
+                        <span
+                          className={cn(
+                            "block",
+                            opt.description ? "truncate" : undefined,
+                          )}
+                        >
+                          {opt.label}
                         </span>
-                      ) : null}
-                    </span>
+                        {opt.description ? (
+                          <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground leading-4 whitespace-normal break-words">
+                            {opt.description}
+                          </span>
+                        ) : null}
+                      </span>
+                    </OptionTooltip>
                   </button>
                 );
               })

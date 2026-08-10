@@ -170,7 +170,13 @@ export default function TrainingRegistrationPage() {
   const rows = useMemo<TrainingRow[]>(() => {
     if (!allTrainings) return [];
     return allTrainings
-      .filter((t) => t.isTrackAudience == null || t.isTrackAudience)
+      // Angular All = string "null" / null; employee self-reg excludes Student-only (true)
+      .filter(
+        (t) =>
+          t.isTrackAudience == null ||
+          t.isTrackAudience === 'null' ||
+          t.isTrackAudience === false,
+      )
       .map((t) => ({
         ...t,
         registered: registeredIds.has(t.traningId),

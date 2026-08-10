@@ -11,7 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
-/** Min characters before a dropdown tooltip is shown (short labels need no tip). */
+/** Prefer tip when label is long; shorter labels still tip if visually truncated. */
 export const SELECT_TOOLTIP_MIN_LENGTH = 20;
 
 type OptionTooltipProps = {
@@ -22,16 +22,18 @@ type OptionTooltipProps = {
   enabled?: boolean;
 };
 
-function isLongTooltipText(content?: string): content is string {
-  const text = content?.trim() ?? "";
-  return text.length > SELECT_TOOLTIP_MIN_LENGTH;
+function isOverflowing(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  if (el.scrollWidth > el.clientWidth + 1) return true;
+  // Nested truncate target (e.g. label span inside wrapper)
+  const truncated = el.querySelector<HTMLElement>(".truncate, [data-truncate]");
+  if (truncated && truncated.scrollWidth > truncated.clientWidth + 1) return true;
+  return false;
 }
 
 /**
- * Hover tooltip for truncated select labels (only when text is longer than
- * {@link SELECT_TOOLTIP_MIN_LENGTH} characters).
- * White background + dark text (readable on all themes). Portaled so it is not
- * clipped by the dropdown scroll container.
+ * Hover tooltip for select labels. Shown when text is truncated or longer than
+ * {@link SELECT_TOOLTIP_MIN_LENGTH}. Portaled above dialogs/popovers (z-[1300]).
  */
 export function OptionTooltip({
   content,
@@ -46,7 +48,7 @@ export function OptionTooltip({
     null,
   );
   const [mounted, setMounted] = useState(false);
-  const tipContent = isLongTooltipText(content) ? content.trim() : undefined;
+  const tipText = content?.trim() || undefined;
 
   useEffect(() => {
     setMounted(true);
@@ -68,11 +70,18 @@ export function OptionTooltip({
     });
   }, []);
 
+  const shouldShowTip = useCallback(() => {
+    if (!enabled || !tipText) return false;
+    // Long labels always tip; shorter ones tip only when visually truncated.
+    if (tipText.length >= SELECT_TOOLTIP_MIN_LENGTH) return true;
+    return isOverflowing(triggerRef.current);
+  }, [enabled, tipText]);
+
   const show = useCallback(() => {
-    if (!enabled || !tipContent) return;
+    if (!shouldShowTip()) return;
     updatePosition();
     setOpen(true);
-  }, [enabled, tipContent, updatePosition]);
+  }, [shouldShowTip, updatePosition]);
 
   const hide = useCallback(() => setOpen(false), []);
 
@@ -88,20 +97,21 @@ export function OptionTooltip({
   }, [open, updatePosition]);
 
   const tip =
-    open && mounted && coords && tipContent
+    open && mounted && coords && tipText
       ? createPortal(
           <div
             id={tipId}
             role="tooltip"
             className={cn(
-              "pointer-events-none fixed z-[200] max-w-[min(22.5rem,calc(100vw-1rem))]",
+              // Above Dialog (1100) and Popover (1200)
+              "pointer-events-none fixed z-[1300] max-w-[min(22.5rem,calc(100vw-1rem))]",
               "rounded-md border border-slate-200 bg-white px-3 py-1.5",
               "text-[12px] font-medium leading-snug text-slate-900 shadow-md",
               "whitespace-normal break-words",
             )}
             style={{ top: coords.top, left: coords.left }}
           >
-            {tipContent}
+            {tipText}
           </div>,
           document.body,
         )

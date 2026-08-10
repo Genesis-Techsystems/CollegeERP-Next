@@ -2543,8 +2543,10 @@ export const PLACEMENT_API = {
   TRAINING_STUDENT: "TrainingStudent",
   /** Angular `trainingSessionUrl` */
   TRAINING_SESSION: "TrainingSession",
-  /** Angular `trainingAttendenceUrl` */
+  /** Angular `trainingAttendenceUrl` — POST body array (not domain/create). */
   TRAINING_ATTENDENCE: "trainingstdattend",
+  /** Angular `trainingAttendenceDetailsUrl` — domain entity (spelling preserved). */
+  TRAINING_ATTENDENCE_DETAILS: "TrainingStudentAttendence",
   /** Angular `companyContactUrl` */
   COMPANY_CONTACT: "CompanyContact",
   /** Angular `achivementCategoryUrl` */

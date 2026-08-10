@@ -600,6 +600,10 @@ export function normalizeHref(path: string): string {
     .replace(/\/apps\/user-management\//gi, "/user-management/")
     // Angular Email & SMS app folder → Next routes.
     .replace(/\/apps\/email-sms\//gi, "/email-sms/")
+    // Angular Staff NAAC module → App Router `/staff-naac/...`
+    .replace(/\/apps\/staff-naac\//gi, "/staff-naac/")
+    // Angular NAAC Assessment (Material SSR pages) → App Router `/naac-assessment/...`
+    .replace(/\/apps\/naac-assessment\//gi, "/naac-assessment/")
     /** SKOLO / some builds: module segment `email-&-sms` (ampersand) e.g. `#/email-&-sms/principal-to-Dept-email`. */
     .replace(/\/email-&-sms\//gi, "/email-sms/")
     .replace(/\/email-%26-sms\//gi, "/email-sms/")

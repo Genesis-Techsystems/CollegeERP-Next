@@ -1,73 +1,88 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Button } from '@/components/ui/button'
+import { format } from 'date-fns'
+import { FormModal } from '@/common/components/feedback'
+import { Select } from '@/common/components/select'
+import { DatePicker } from '@/common/components/date-picker'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { TrainingSession } from '@/types/trainings'
-import { listActiveEmployeesByCollege } from '@/services/admin/staff-subject-mapping'
+import { searchEmployeesForCompanyMeeting } from '@/services/placements'
 import { createTrainingSession, updateTrainingSession } from '@/services/trainings'
 
-const schema = z.object({
-  sessionDate: z.string().min(1, 'Session date is required'),
-  fromTime: z.string().optional(),
-  toTime: z.string().optional(),
-  noOfAttendees: z.string().optional(),
-  inchargeEmployeeId: z.string().min(1, 'Incharge is required'),
-  sessionTakenBy: z.string().min(1, 'Session taken by is required'),
-  sessionTopicsCovered: z.string().optional(),
-  isSessionCancelled: z.boolean().optional(),
-  sessionCancelReason: z.string().optional(),
-  isActive: z.boolean(),
-})
+type FormValues = {
+  inchargeEmployeeId: string | null
+  sessionTakenBy: string
+  sessionDate: Date | null
+  fromTime: string
+  toTime: string
+  noOfAttendees: string
+  sessionTopicsCovered: string
+  isSessionCancelled: boolean
+  sessionCancelReason: string
+  isActive: boolean
+  reason: string
+}
 
-type FormValues = z.infer<typeof schema>
+function parseDate(value?: string | null): Date | null {
+  if (!value) return null
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d
+}
 
-function getDefaults(edit?: TrainingSession | null): FormValues {
+/** Angular stores `9:0:00` / `10:0:00` — map to HTML `time` `HH:mm`. */
+function toHtmlTime(value?: string | null): string {
+  if (!value) return ''
+  const m = String(value).match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/)
+  if (!m) return ''
+  return `${String(Number(m[1])).padStart(2, '0')}:${String(Number(m[2])).padStart(2, '0')}`
+}
+
+/**
+ * Angular `convert_to_24h` → `hours + ':' + minutes + ':' + '00'`
+ * e.g. `9:0:00` (no zero-padding).
+ */
+function toAngularTime(htmlTime: string): string {
+  if (!htmlTime) return ''
+  const [h, m] = htmlTime.split(':')
+  return `${Number(h)}:${Number(m)}:00`
+}
+
+function getDefaults(
+  edit?: TrainingSession | null,
+  startDate?: string | null,
+): FormValues {
   if (edit) {
     return {
-      sessionDate: edit.sessionDate,
-      fromTime: edit.fromTime ?? '',
-      toTime: edit.toTime ?? '',
-      noOfAttendees: edit.noOfAttendees != null ? String(edit.noOfAttendees) : '',
-      inchargeEmployeeId: edit.inchargeEmployeeId != null ? String(edit.inchargeEmployeeId) : '',
+      inchargeEmployeeId:
+        edit.inchargeEmployeeId != null ? String(edit.inchargeEmployeeId) : null,
       sessionTakenBy: edit.sessionTakenBy ?? '',
+      sessionDate: parseDate(edit.sessionDate),
+      fromTime: toHtmlTime(edit.fromTime) || '09:00',
+      toTime: toHtmlTime(edit.toTime) || '10:00',
+      noOfAttendees: edit.noOfAttendees != null ? String(edit.noOfAttendees) : '',
       sessionTopicsCovered: edit.sessionTopicsCovered ?? '',
       isSessionCancelled: edit.isSessionCancelled ?? false,
       sessionCancelReason: edit.sessionCancelReason ?? '',
       isActive: edit.isActive,
+      reason: edit.reason ?? 'active',
     }
   }
   return {
-    sessionDate: '',
-    fromTime: '',
-    toTime: '',
-    noOfAttendees: '',
-    inchargeEmployeeId: '',
+    inchargeEmployeeId: null,
     sessionTakenBy: '',
+    sessionDate: parseDate(startDate) ?? new Date(),
+    fromTime: '09:00',
+    toTime: '10:00',
+    noOfAttendees: '',
     sessionTopicsCovered: '',
     isSessionCancelled: false,
     sessionCancelReason: '',
     isActive: true,
+    reason: 'active',
   }
 }
 
@@ -77,6 +92,8 @@ interface Props {
   editData: TrainingSession | null
   traningDetId: number
   collegeId: number
+  startDate?: string | null
+  endDate?: string | null
   onSaved: () => void
 }
 
@@ -86,9 +103,14 @@ export default function AddTrainingSessionModal({
   editData,
   traningDetId,
   collegeId,
+  startDate,
+  endDate,
   onSaved,
 }: Props) {
-  const [employees, setEmployees] = useState<Array<{ employeeId: number; empName: string }>>([])
+  const [employees, setEmployees] = useState<
+    Array<{ employeeId: number; firstName: string; empNumber?: string | null }>
+  >([])
+  const [loadingEmployees, setLoadingEmployees] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const {
@@ -97,49 +119,105 @@ export default function AddTrainingSessionModal({
     control,
     watch,
     reset,
-    formState: { errors, isSubmitting },
+    setValue,
+    formState: { isSubmitting },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: getDefaults(editData),
+    defaultValues: getDefaults(editData, startDate),
   })
 
   const isCancelled = watch('isSessionCancelled')
+  const isActive = watch('isActive')
+  const inchargeEmployeeId = watch('inchargeEmployeeId')
 
   useEffect(() => {
-    if (!open) return
-    if (collegeId) {
-      listActiveEmployeesByCollege(collegeId)
-        .then((rows) => setEmployees(rows as Array<{ employeeId: number; empName: string }>))
-        .catch(console.error)
-    }
-  }, [open, collegeId])
-
-  useEffect(() => {
-    reset(getDefaults(editData))
+    reset(getDefaults(editData, startDate))
     setSubmitError(null)
-  }, [open, editData, reset])
+    setEmployees([])
+    if (open && editData?.inchargeEmpNumber && collegeId) {
+      void searchIncharge(editData.inchargeEmpNumber)
+    }
+  }, [open, editData, reset, startDate, collegeId])
+
+  async function searchIncharge(term: string) {
+    if (!collegeId || term.trim().length < 5) {
+      setEmployees([])
+      return
+    }
+    setLoadingEmployees(true)
+    try {
+      const rows = await searchEmployeesForCompanyMeeting(collegeId, term)
+      setEmployees(
+        rows
+          .map((r) => ({
+            employeeId: Number(r.employeeId ?? 0),
+            firstName: String(r.firstName ?? r.empName ?? r.employeeName ?? ''),
+            empNumber: (r.empNumber as string | null | undefined) ?? null,
+          }))
+          .filter((e) => e.employeeId > 0),
+      )
+    } catch {
+      setEmployees([])
+    } finally {
+      setLoadingEmployees(false)
+    }
+  }
+
+  const employeeOptions = useMemo(() => {
+    const opts = employees.map((e) => ({
+      value: String(e.employeeId),
+      label: e.empNumber ? `${e.firstName} (${e.empNumber})` : e.firstName,
+    }))
+    if (
+      editData?.inchargeEmployeeId &&
+      inchargeEmployeeId === String(editData.inchargeEmployeeId) &&
+      !opts.some((o) => o.value === String(editData.inchargeEmployeeId))
+    ) {
+      opts.unshift({
+        value: String(editData.inchargeEmployeeId),
+        label: editData.inchargeEmpNumber
+          ? `${editData.inchargeEmpName ?? 'Employee'} (${editData.inchargeEmpNumber})`
+          : (editData.inchargeEmpName ?? 'Employee'),
+      })
+    }
+    return opts
+  }, [employees, editData, inchargeEmployeeId])
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null)
+    if (!values.sessionDate || !values.inchargeEmployeeId || !values.sessionTakenBy) {
+      setSubmitError('Please fill required fields')
+      return
+    }
     try {
-      const payload: Partial<TrainingSession> = {
-        sessionDate: values.sessionDate,
-        fromTime: values.fromTime,
-        toTime: values.toTime,
-        noOfAttendees: values.noOfAttendees ? Number(values.noOfAttendees) : undefined,
+      // Angular update body (exact keys): trainingSessionId, traningDetId, createdDt,
+      // fromTime/toTime as `H:m:00`, sessionCancelReason null when not cancelled.
+      const payload: Record<string, unknown> = {
+        sessionDate: format(values.sessionDate, 'yyyy-MM-dd'),
+        fromTime: toAngularTime(values.fromTime),
+        toTime: toAngularTime(values.toTime),
+        noOfAttendees: values.noOfAttendees ? Number(values.noOfAttendees) : null,
         inchargeEmployeeId: Number(values.inchargeEmployeeId),
         sessionTakenBy: values.sessionTakenBy,
-        sessionTopicsCovered: values.sessionTopicsCovered,
-        isSessionCancelled: values.isSessionCancelled,
-        sessionCancelReason: values.sessionCancelReason,
+        sessionTopicsCovered: values.sessionTopicsCovered || null,
+        isSessionCancelled: !!values.isSessionCancelled,
+        sessionCancelReason: values.isSessionCancelled
+          ? values.sessionCancelReason || null
+          : null,
         isActive: values.isActive,
+        reason: values.isActive ? values.reason || 'active' : values.reason || null,
         traningDetId,
-        collegeId,
       }
       if (editData) {
-        await updateTrainingSession(editData.trainingSessionId, payload)
+        payload.trainingSessionId = editData.trainingSessionId
+        payload.createdDt = editData.createdDt
+        await updateTrainingSession(
+          editData.trainingSessionId,
+          payload as Partial<TrainingSession>,
+        )
       } else {
-        await createTrainingSession(payload)
+        // Angular create also injects collegeId from parent
+        payload.collegeId = collegeId
+        await createTrainingSession(payload as Partial<TrainingSession>)
       }
       onSaved()
       onClose()
@@ -149,116 +227,137 @@ export default function AddTrainingSessionModal({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-[hsl(var(--primary))]">
-            {editData ? 'Edit Session' : 'Add Session'}
-          </DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Session Date *</Label>
-              <Input type="date" {...register('sessionDate')} />
-              {errors.sessionDate && <p className="text-xs text-red-500">{errors.sessionDate.message}</p>}
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">No. of Attendees</Label>
-              <Input type="number" {...register('noOfAttendees')} placeholder="0" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">From Time</Label>
-              <Input type="time" {...register('fromTime')} />
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">To Time</Label>
-              <Input type="time" {...register('toTime')} />
-            </div>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Incharge Employee *</Label>
-            <Controller
-              name="inchargeEmployeeId"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
-                  <SelectContent>
-                    {employees.map((e) => (
-                      <SelectItem key={e.employeeId} value={String(e.employeeId)}>
-                        {e.empName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+    <FormModal
+      open={open}
+      onClose={onClose}
+      title={editData ? 'Edit Training Session' : 'Add Training Session'}
+      size="lg"
+      cancelLabel="Close"
+      submitLabel="Save"
+      isSubmitting={isSubmitting}
+      onSubmit={(e) => {
+        e.preventDefault()
+        void handleSubmit(onSubmit)()
+      }}
+      formClassName="space-y-3"
+    >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Controller
+          name="inchargeEmployeeId"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label="Incharge Name"
+              value={field.value}
+              onChange={field.onChange}
+              options={employeeOptions}
+              placeholder="Search by Employee name or Id…"
+              searchable
+              onSearch={(term) => void searchIncharge(term)}
+              isLoading={loadingEmployees}
+              disabled={!collegeId}
             />
-            {errors.inchargeEmployeeId && <p className="text-xs text-red-500">{errors.inchargeEmployeeId.message}</p>}
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Session Taken By *</Label>
-            <Input {...register('sessionTakenBy')} placeholder="Name of person who took the session" />
-            {errors.sessionTakenBy && <p className="text-xs text-red-500">{errors.sessionTakenBy.message}</p>}
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Topics Covered</Label>
-            <Textarea {...register('sessionTopicsCovered')} rows={2} placeholder="Topics covered in this session" />
-          </div>
-
-          <div className="flex gap-6 pt-1">
-            <Controller
-              name="isSessionCancelled"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                  Is Session Cancelled
-                </label>
-              )}
-            />
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  Is Active
-                </label>
-              )}
-            />
-          </div>
-
-          {isCancelled && (
-            <div className="space-y-0.5">
-              <Label className="text-xs">Cancel Reason</Label>
-              <Input {...register('sessionCancelReason')} placeholder="Reason for cancellation" />
-            </div>
           )}
+        />
+        <div>
+          <label className="text-xs font-medium mb-1 block">Session TakenBy</label>
+          <Input {...register('sessionTakenBy')} placeholder="Session TakenBy" />
+        </div>
 
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+        <Controller
+          name="sessionDate"
+          control={control}
+          render={({ field }) => (
+            <DatePicker
+              label="Session Date"
+              value={field.value}
+              onChange={field.onChange}
+              minDate={parseDate(startDate) ?? undefined}
+              maxDate={parseDate(endDate) ?? undefined}
+              displayFormat="dd/MM/yyyy"
+              clearable={false}
+            />
           )}
+        />
+        <div>
+          <label className="text-xs font-medium mb-1 block">No Of Attendees</label>
+          <Input type="number" {...register('noOfAttendees')} placeholder="No Of Attendees" />
+        </div>
+        <div>
+          <label className="text-xs font-medium mb-1 block">From Time</label>
+          <Input type="time" {...register('fromTime')} />
+        </div>
+        <div>
+          <label className="text-xs font-medium mb-1 block">To Time</label>
+          <Input type="time" {...register('toTime')} />
+        </div>
 
-          <DialogFooter className="pt-1">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : editData ? 'Update' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium mb-1 block">Session Topics Covered</label>
+          <Textarea
+            {...register('sessionTopicsCovered')}
+            rows={2}
+            placeholder="Session Topics Covered"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Controller
+            name="isSessionCancelled"
+            control={control}
+            render={({ field }) => (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={field.value ?? false}
+                  onCheckedChange={field.onChange}
+                />
+                Is Session Cancelled
+              </label>
+            )}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={(v) => {
+                    const active = v === true
+                    field.onChange(active)
+                    if (active) setValue('reason', 'active')
+                  }}
+                />
+                Active
+              </label>
+            )}
+          />
+        </div>
+
+        {isCancelled && (
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium mb-1 block">Session Cancel Reason</label>
+            <Textarea
+              {...register('sessionCancelReason')}
+              rows={2}
+              placeholder="Session Cancel Reason"
+            />
+          </div>
+        )}
+
+        {!isActive && (
+          <div className="sm:col-span-2">
+            <label className="text-xs font-medium mb-1 block">Reason</label>
+            <Input {...register('reason')} placeholder="Reason" />
+          </div>
+        )}
+      </div>
+
+      {submitError && (
+        <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+      )}
+    </FormModal>
   )
 }

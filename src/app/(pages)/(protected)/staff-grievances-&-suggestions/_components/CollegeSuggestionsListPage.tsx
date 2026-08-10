@@ -7,7 +7,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format } from "date-fns";
-import { Pencil } from "lucide-react";
+import { BookOpen, Pencil } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListPage } from "@/components/layout";
 import { ConfirmDialog } from "@/common/components/feedback";
@@ -37,6 +37,29 @@ function formatDate(value: unknown): string {
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
   return format(d, "MMM d, yyyy");
+}
+
+/** Angular AcknowledgeConfirmation closes with string `'true'`. */
+function isAcknowledged(row: AnyRow | null | undefined): boolean {
+  const v = row?.isAcknowledged;
+  return v === true || v === "true" || v === 1 || v === "1";
+}
+
+function suggestedByLabel(row: AnyRow | null | undefined): string {
+  const name = String(row?.userName ?? "").trim();
+  const num = String(row?.userNumber ?? "").trim();
+  if (!name && !num) return "—";
+  return num ? `${name} (${num})` : name;
+}
+
+/** Angular `collge-suggestions/.../acknowledge-confirmation` detail row. */
+function AckDetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[minmax(7rem,1fr)_3fr] gap-x-2 gap-y-0.5 px-2 py-1.5 text-sm">
+      <span className="font-medium text-foreground">{label} :</span>
+      <span className="min-w-0 break-words text-[#0d29ff]">{value || "—"}</span>
+    </div>
+  );
 }
 
 export function CollegeSuggestionsListPage() {
@@ -76,7 +99,7 @@ export function CollegeSuggestionsListPage() {
       await updateCollegeSuggestion(suggestionId, {
         ...ackRow,
         employeeId,
-        isAcknowledged: true,
+        isAcknowledged: "true",
       });
       toastSuccess("Suggestion acknowledged successfully.");
       setAckRow(null);
@@ -168,8 +191,7 @@ export function CollegeSuggestionsListPage() {
         cellRenderer: (p: ICellRendererParams<AnyRow>) => {
           const row = p.data;
           if (!row) return null;
-          const acknowledged = Boolean(row.isAcknowledged);
-          if (!acknowledged) {
+          if (!isAcknowledged(row)) {
             return (
               <Button
                 size="sm"
@@ -205,24 +227,56 @@ export function CollegeSuggestionsListPage() {
       columnDefs={columnDefs}
       loading={!ready || listQuery.isLoading}
       pagination
+      paginationPageSize={5}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
       }}
     >
       <ConfirmDialog
         open={ackRow !== null}
         title="Confirmation"
-        description="Sure, you want to Acknowledge ?"
+        headerIcon={<BookOpen className="h-4 w-4 text-[#042956]" />}
         confirmLabel="Ok"
         cancelLabel="Close"
         confirmVariant="default"
+        contentClassName="sm:max-w-[800px]"
         onConfirm={() => {
           void handleAcknowledge();
         }}
         onCancel={() => setAckRow(null)}
         isLoading={saving}
-      />
+      >
+        {/* Angular collge-suggestions acknowledge-confirmation details box */}
+        <div className="rounded-md border border-[#c3d9ff] px-1 py-1">
+          <AckDetailRow
+            label="Suggestion"
+            value={String(ackRow?.suggestionSubject ?? "")}
+          />
+          <AckDetailRow
+            label="Suggestion Type"
+            value={String(ackRow?.suggestiontypeCatCode ?? "")}
+          />
+          <AckDetailRow
+            label="Suggestion For"
+            value={String(ackRow?.suggestionforCatCode ?? "")}
+          />
+          <AckDetailRow label="Suggested By" value={suggestedByLabel(ackRow)} />
+          <AckDetailRow
+            label="Suggestion Date"
+            value={formatDate(ackRow?.createdDt)}
+          />
+          <AckDetailRow
+            label="Description"
+            value={String(ackRow?.suggestionDescription ?? "")}
+          />
+        </div>
+        <p className="text-sm text-foreground">
+          Sure, you want to Acknowledge ?
+        </p>
+      </ConfirmDialog>
 
       <CollegeSuggestionReplyModal
         open={replyRow !== null}

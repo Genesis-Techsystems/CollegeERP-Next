@@ -1,107 +1,114 @@
-'use client'
+"use client";
 
-import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useForm, Controller } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useForm, Controller } from "react-hook-form";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { ChevronDown, Eye, PencilIcon, Plus } from "lucide-react";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, MultiSelect } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { getTrainingDetail, createTrainingDetail, updateTrainingDetail } from '@/services/trainings'
-import { listRooms } from '@/services/admin/room'
-import type { TrainingDetail } from '@/types/trainings'
-import type { Room } from '@/types/room'
+  createTrainingDetail,
+  listTrainingDetailsByCollegeAndTraining,
+  updateTrainingDetail,
+} from "@/services/trainings";
+import { listRooms } from "@/services/admin/room";
+import type { TrainingDetail } from "@/types/trainings";
+import type { Room } from "@/types/room";
+import { rowIndexGetter } from "@/lib/utils";
+import { ViewTrainingDetailsModal } from "../training/ViewTrainingDetailsModal";
 
-const DAYS = [
-  { id: '1', label: 'Mon' },
-  { id: '2', label: 'Tue' },
-  { id: '3', label: 'Wed' },
-  { id: '4', label: 'Thu' },
-  { id: '5', label: 'Fri' },
-  { id: '6', label: 'Sat' },
-  { id: '7', label: 'Sun' },
-]
+/** Angular weekDaysList — full day names joined into fkDayIds. */
+const WEEK_DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
-const schema = z.object({
-  trainingDetailTitle: z.string().min(1, 'Detail title is required'),
-  trainerName: z.string().min(1, 'Trainer name is required'),
-  trainerDetails: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  location: z.string().optional(),
-  noOfStudents: z.string().optional(),
-  roomId: z.string().optional(),
-  isRecurring: z.boolean().optional(),
-  fkDayIds: z.string().optional(),
-  trainingDetailDesc: z.string().optional(),
-  isActive: z.boolean(),
-  reason: z.string().min(1, 'Reason is required'),
-})
+type FormValues = {
+  trainingDetailTitle: string;
+  trainingDetailDesc: string;
+  trainerName: string;
+  trainerDetails: string;
+  isRecurring: boolean;
+  fkDayIds: string[];
+  startTime: string;
+  endTime: string;
+  noOfStudents: string;
+  roomId: string | null;
+  location: string;
+  isActive: boolean;
+  reason: string;
+};
 
-type FormValues = z.infer<typeof schema>
-
-function getDefaults(detail?: TrainingDetail | null): FormValues {
-  if (detail) {
-    return {
-      trainingDetailTitle: detail.trainingDetailTitle,
-      trainerName: detail.trainerName,
-      trainerDetails: detail.trainerDetails ?? '',
-      startTime: detail.startTime ?? '',
-      endTime: detail.endTime ?? '',
-      location: detail.location ?? '',
-      noOfStudents: detail.noOfStudents != null ? String(detail.noOfStudents) : '',
-      roomId: detail.roomId != null ? String(detail.roomId) : '',
-      isRecurring: detail.isRecurring ?? false,
-      fkDayIds: detail.fkDayIds ?? '',
-      trainingDetailDesc: detail.trainingDetailDesc ?? '',
-      isActive: detail.isActive,
-      reason: detail.reason ?? '',
-    }
-  }
+function emptyForm(): FormValues {
   return {
-    trainingDetailTitle: '',
-    trainerName: '',
-    trainerDetails: '',
-    startTime: '',
-    endTime: '',
-    location: '',
-    noOfStudents: '',
-    roomId: '',
+    trainingDetailTitle: "",
+    trainingDetailDesc: "",
+    trainerName: "",
+    trainerDetails: "",
     isRecurring: false,
-    fkDayIds: '',
-    trainingDetailDesc: '',
+    fkDayIds: [],
+    startTime: "09:00",
+    endTime: "10:00",
+    noOfStudents: "",
+    roomId: null,
+    location: "",
     isActive: true,
-    reason: '',
-  }
+    reason: "active",
+  };
+}
+
+function tConvert(time?: string | null): string {
+  if (!time) return "";
+  const match = String(time).match(
+    /^([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/,
+  );
+  if (!match) return time;
+  const hour = Number(match[1]);
+  const mins = match[2];
+  const ampm = hour < 12 ? "AM" : "PM";
+  const h12 = hour % 12 || 12;
+  return `${h12}:${mins} ${ampm}`;
+}
+
+function toHms(time: string): string {
+  if (!time) return "";
+  // HTML time is HH:mm — Angular convert_to_24h returns H:m:00
+  const [h, m] = time.split(":");
+  return `${Number(h)}:${Number(m)}:00`;
 }
 
 function TrainingDetailContent() {
-  const router = useRouter()
-  const params = useSearchParams()
+  const router = useRouter();
+  const params = useSearchParams();
 
-  const action = params.get('a') ?? 'New Training Detail'
-  const traningDetId = params.get('traningDetId')
-  const paTraningId = params.get('paTraningId') ?? ''
-  const trainingTitle = params.get('trainingTitle') ?? ''
-  const collegeId = params.get('collegeId') ?? ''
-  const yearName = params.get('yearName') ?? ''
+  const collegeId = Number(params.get("collegeId") ?? 0);
+  const collegeCode = params.get("collegeCode") ?? "";
+  const yearName = params.get("yearName") ?? "";
+  const paTraningId = Number(
+    params.get("traningId") ?? params.get("paTraningId") ?? 0,
+  );
+  const trainingTitle = params.get("trainingTitle") ?? "";
+  const trainingTypeCatCode = params.get("trainingTypeCatCode") ?? "";
+  const empName = params.get("empName") ?? "";
+  const empNumber = params.get("empNumber") ?? "";
 
-  const isEdit = Boolean(traningDetId)
-
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(isEdit)
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [details, setDetails] = useState<TrainingDetail[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(true);
+  const [editRow, setEditRow] = useState<TrainingDetail | null>(null);
+  const [viewRow, setViewRow] = useState<TrainingDetail | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -109,236 +116,425 @@ function TrainingDetailContent() {
     control,
     watch,
     reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: getDefaults(),
-  })
+    setValue,
+    formState: { isSubmitting },
+  } = useForm<FormValues>({ defaultValues: emptyForm() });
 
-  const isRecurring = watch('isRecurring')
-  const fkDayIds = watch('fkDayIds')
-  const selectedDays = fkDayIds ? fkDayIds.split(',').filter(Boolean) : []
+  const isRecurring = watch("isRecurring");
+  const isActive = watch("isActive");
+
+  const loadDetails = useCallback(async () => {
+    if (!collegeId || !paTraningId) {
+      setDetails([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      // Angular: College.collegeId==X.and.Training.traningId==Y
+      const rows = await listTrainingDetailsByCollegeAndTraining(
+        collegeId,
+        paTraningId,
+      );
+      setDetails(rows);
+    } catch {
+      setDetails([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [collegeId, paTraningId]);
 
   useEffect(() => {
-    listRooms().then(setRooms).catch(console.error)
-  }, [])
+    listRooms()
+      .then((rows) => setRooms(rows.filter((r) => r.isActive !== false)))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
-    if (!isEdit || !traningDetId) return
-    setLoading(true)
-    getTrainingDetail(Number(traningDetId))
-      .then((detail) => {
-        if (detail) reset(getDefaults(detail))
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [isEdit, traningDetId, reset])
+    void loadDetails();
+  }, [loadDetails]);
 
-  function toggleDay(dayId: string, current: string[], onChange: (v: string) => void) {
-    const next = current.includes(dayId)
-      ? current.filter((d) => d !== dayId)
-      : [...current, dayId]
-    onChange(next.join(','))
+  function clearForm() {
+    setEditRow(null);
+    reset(emptyForm());
+    setSubmitError(null);
+  }
+
+  function loadEdit(row: TrainingDetail) {
+    setEditRow(row);
+    setFormOpen(true);
+    reset({
+      trainingDetailTitle: row.trainingDetailTitle ?? "",
+      trainingDetailDesc: row.trainingDetailDesc ?? "",
+      trainerName: row.trainerName ?? "",
+      trainerDetails: row.trainerDetails ?? "",
+      isRecurring: !!row.isRecurring,
+      fkDayIds: row.fkDayIds ? row.fkDayIds.split(",").filter(Boolean) : [],
+      startTime: row.startTime?.slice(0, 5) ?? "09:00",
+      endTime: row.endTime?.slice(0, 5) ?? "10:00",
+      noOfStudents: row.noOfStudents != null ? String(row.noOfStudents) : "",
+      roomId: row.roomId != null ? String(row.roomId) : null,
+      location: row.location ?? "",
+      isActive: row.isActive,
+      reason: row.reason ?? "active",
+    });
   }
 
   async function onSubmit(values: FormValues) {
-    setSubmitError(null)
+    setSubmitError(null);
+    if (!values.trainingDetailTitle.trim() || !values.trainerName.trim()) {
+      setSubmitError("Training Detail and Trainer Name are required");
+      return;
+    }
     try {
       const payload: Partial<TrainingDetail> = {
         trainingDetailTitle: values.trainingDetailTitle,
+        trainingDetailDesc: values.trainingDetailDesc,
         trainerName: values.trainerName,
         trainerDetails: values.trainerDetails,
-        startTime: values.startTime,
-        endTime: values.endTime,
-        location: values.location,
-        noOfStudents: values.noOfStudents ? Number(values.noOfStudents) : undefined,
-        roomId: values.roomId ? Number(values.roomId) : undefined,
         isRecurring: values.isRecurring,
-        fkDayIds: values.fkDayIds,
-        trainingDetailDesc: values.trainingDetailDesc,
+        fkDayIds:
+          values.isRecurring && values.fkDayIds.length
+            ? values.fkDayIds.join(",")
+            : null,
+        startTime: toHms(values.startTime),
+        endTime: toHms(values.endTime),
+        noOfStudents: values.noOfStudents
+          ? Number(values.noOfStudents)
+          : undefined,
+        roomId: values.roomId ? Number(values.roomId) : undefined,
+        location: values.location,
         isActive: values.isActive,
-        reason: values.reason,
-        paTraningId: Number(paTraningId),
-        collegeId: Number(collegeId),
-        yearName,
-      }
-      if (isEdit && traningDetId) {
-        await updateTrainingDetail(Number(traningDetId), payload)
+        reason: values.isActive ? values.reason || "active" : values.reason,
+        collegeId,
+        paTraningId,
+      };
+      if (editRow) {
+        payload.traningDetId = editRow.traningDetId;
+        payload.createdDt = editRow.createdDt;
+        await updateTrainingDetail(editRow.traningDetId, payload);
       } else {
-        await createTrainingDetail(payload)
+        await createTrainingDetail(payload);
       }
-      router.back()
+      clearForm();
+      await loadDetails();
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save')
+      setSubmitError(
+        e instanceof Error ? e.message : "Failed to save training detail",
+      );
     }
   }
 
-  if (loading) {
-    return (
-      <PageContainer>
-        <div className="app-card p-6 text-sm text-muted-foreground">Loading…</div>
-      </PageContainer>
-    )
-  }
+  const columnDefs = useMemo<ColDef<TrainingDetail>[]>(
+    () => [
+      { headerName: "No.", valueGetter: rowIndexGetter, width: 60, flex: 0 },
+      { field: "trainerName", headerName: "Trainer", minWidth: 130, flex: 1 },
+      {
+        field: "trainingDetailTitle",
+        headerName: "Training Detail Title",
+        minWidth: 180,
+        flex: 2,
+      },
+      {
+        headerName: "Timings",
+        minWidth: 140,
+        flex: 1,
+        valueGetter: (p) =>
+          `${tConvert(p.data?.startTime)} - ${tConvert(p.data?.endTime)}`,
+      },
+      { field: "fkDayIds", headerName: "Days", minWidth: 120, flex: 1 },
+      { field: "roomCode", headerName: "Room", minWidth: 90, flex: 0.8 },
+      {
+        field: "isActive",
+        headerName: "Status",
+        minWidth: 90,
+        flex: 0.8,
+        cellRenderer: (p: ICellRendererParams<TrainingDetail>) => (
+          <StatusBadge status={p.data?.isActive ?? false} />
+        ),
+      },
+      {
+        headerName: "Actions",
+        width: 100,
+        flex: 0,
+        pinned: "right",
+        cellRenderer: (p: ICellRendererParams<TrainingDetail>) => {
+          const row = p.data;
+          if (!row) return null;
+          return (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center text-primary"
+                title="Edit"
+                onClick={() => loadEdit(row)}
+              >
+                <PencilIcon className="h-3.5 w-3.5" />
+              </button>
+              <span className="text-muted-foreground text-xs">|</span>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground hover:text-foreground"
+                title="View Training Details"
+                onClick={() => setViewRow(row)}
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          );
+        },
+      },
+    ],
+    [],
+  );
 
-  return (
-    <PageContainer className="space-y-4">
-      <div className="app-card p-4 space-y-4">
-        {/* Context header */}
-        <div className="flex items-center gap-4 pb-2 border-b border-border">
-          <h2 className="app-card-title">{action}</h2>
-          {trainingTitle && (
-            <span className="text-xs text-muted-foreground">
-              {trainingTitle}
-              {yearName && ` · ${yearName}`}
-            </span>
-          )}
-        </div>
+  // Angular: Training Details <small>(collegeCode/yearName/trainingTitle)</small>
+  const contextLabel = [collegeCode, yearName, trainingTitle]
+    .filter(Boolean)
+    .join("/");
+  const pageTitle = contextLabel
+    ? `Training Details (${contextLabel})`
+    : "Training Details";
 
+  const addForm = (
+    <div className="w-full">
+      <button
+        type="button"
+        className="mb-3 flex w-full items-center justify-between text-left"
+        onClick={() => setFormOpen((o) => !o)}
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <Plus className="h-4 w-4 text-primary" />
+          {editRow ? "Edit Training Details" : "Add Training Details"}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform ${formOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {formOpen && (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-          <div className="space-y-0.5">
-            <Label className="text-xs">Detail Title *</Label>
-            <Input {...register('trainingDetailTitle')} placeholder="Training detail title" />
-            {errors.trainingDetailTitle && <p className="text-xs text-red-500">{errors.trainingDetailTitle.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Trainer Name *</Label>
-              <Input {...register('trainerName')} placeholder="Trainer name" />
-              {errors.trainerName && <p className="text-xs text-red-500">{errors.trainerName.message}</p>}
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">Trainer Details</Label>
-              <Input {...register('trainerDetails')} placeholder="Trainer details" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Start Time</Label>
-              <Input type="time" {...register('startTime')} />
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">End Time</Label>
-              <Input type="time" {...register('endTime')} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Location</Label>
-              <Input {...register('location')} placeholder="Location" />
-            </div>
-
-            <div className="space-y-0.5">
-              <Label className="text-xs">No. of Students</Label>
-              <Input type="number" {...register('noOfStudents')} placeholder="0" />
-            </div>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Room</Label>
-            <Controller
-              name="roomId"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                  <SelectTrigger><SelectValue placeholder="Select room" /></SelectTrigger>
-                  <SelectContent>
-                    {rooms.map((r) => (
-                      <SelectItem key={r.roomId} value={String(r.roomId)}>
-                        {r.roomName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Controller
-              name="isRecurring"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-xs cursor-pointer">
-                  <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                  Is Recurring
-                </label>
-              )}
-            />
-          </div>
-
-          {isRecurring && (
-            <div className="space-y-1">
-              <Label className="text-xs">Days</Label>
-              <Controller
-                name="fkDayIds"
-                control={control}
-                render={({ field }) => (
-                  <div className="flex flex-wrap gap-2">
-                    {DAYS.map((d) => (
-                      <label key={d.id} className="flex items-center gap-1.5 text-xs cursor-pointer">
-                        <Checkbox
-                          checked={selectedDays.includes(d.id)}
-                          onCheckedChange={() =>
-                            toggleDay(d.id, selectedDays, field.onChange)
-                          }
-                        />
-                        {d.label}
-                      </label>
-                    ))}
-                  </div>
-                )}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-xs font-medium">
+                Training Detail <span className="text-red-500">*</span>
+              </label>
+              <Input
+                {...register("trainingDetailTitle")}
+                placeholder="Training Detail"
               />
             </div>
-          )}
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Description</Label>
-            <Textarea {...register('trainingDetailDesc')} rows={2} placeholder="Description" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-0.5">
-              <Label className="text-xs">Reason *</Label>
-              <Input {...register('reason')} placeholder="Reason" />
-              {errors.reason && <p className="text-xs text-red-500">{errors.reason.message}</p>}
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-xs font-medium">
+                Training Detail Description
+              </label>
+              <Input
+                {...register("trainingDetailDesc")}
+                placeholder="Training Detail Description"
+              />
             </div>
-
-            <div className="flex items-end pb-1">
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-xs font-medium">
+                Trainer Name <span className="text-red-500">*</span>
+              </label>
+              <Input {...register("trainerName")} placeholder="Trainer Name" />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-xs font-medium">
+                Trainer Details
+              </label>
+              <Input
+                {...register("trainerDetails")}
+                placeholder="Trainer Details"
+              />
+            </div>
+            <div className="lg:col-span-2 flex items-end pb-2">
               <Controller
-                name="isActive"
+                name="isRecurring"
                 control={control}
                 render={({ field }) => (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    Is Active
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                    Recurring
                   </label>
                 )}
               />
             </div>
+
+            {isRecurring && (
+              <div className="lg:col-span-4">
+                <Controller
+                  name="fkDayIds"
+                  control={control}
+                  render={({ field }) => (
+                    <MultiSelect
+                      label="Week Day"
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={WEEK_DAYS.map((d) => ({ value: d, label: d }))}
+                      placeholder="Select week days"
+                    />
+                  )}
+                />
+              </div>
+            )}
           </div>
 
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 items-end">
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-primary">
+                From Time
+              </label>
+              <Input type="time" {...register("startTime")} />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-primary">
+                To Time
+              </label>
+              <Input type="time" {...register("endTime")} />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-xs font-medium">
+                No of Students
+              </label>
+              <Input
+                type="number"
+                {...register("noOfStudents")}
+                placeholder="No of Students"
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <Controller
+                name="roomId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Room"
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={rooms.map((r) => ({
+                      value: String(r.roomId),
+                      label: r.roomName,
+                    }))}
+                    placeholder="Room"
+                  />
+                )}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <label className="mb-1 block text-xs font-medium">Location</label>
+              <Input {...register("location")} placeholder="Location" />
+            </div>
+            <div className="lg:col-span-1 flex items-end pb-2">
+              <Controller
+                name="isActive"
+                control={control}
+                render={({ field }) => (
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(v) => {
+                        const active = v === true;
+                        field.onChange(active);
+                        if (active) setValue("reason", "active");
+                      }}
+                    />
+                    Active
+                  </label>
+                )}
+              />
+            </div>
+            <div className="lg:col-span-1 flex items-end">
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Saving…" : "Save Details"}
+              </Button>
+            </div>
+          </div>
+
+          {!isActive && (
+            <div className="max-w-xs">
+              <label className="mb-1 block text-xs font-medium">Reason</label>
+              <Input {...register("reason")} placeholder="Reason" />
+            </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
-              Back
+          {submitError && (
+            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
+              {submitError}
+            </p>
+          )}
+
+          {editRow && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={clearForm}
+            >
+              Cancel Edit
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving…' : isEdit ? 'Update' : 'Save'}
-            </Button>
-          </div>
+          )}
         </form>
-      </div>
-    </PageContainer>
-  )
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <FilteredListPage
+        title={pageTitle}
+        filters={addForm}
+        filtersCollapsible={false}
+        rowData={details}
+        columnDefs={columnDefs}
+        loading={loading}
+        pagination
+        toolbar={{
+          search: true,
+          searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
+        }}
+        toolbarTrailing={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              router.push(
+                `/trainings/training?yearName=${encodeURIComponent(yearName)}` +
+                  `&collegeId=${collegeId}&paTraningId=${paTraningId}`,
+              )
+            }
+          >
+            Back
+          </Button>
+        }
+      >
+        <ViewTrainingDetailsModal
+          open={viewRow != null}
+          onClose={() => setViewRow(null)}
+          mode="trainingsD"
+          detail={
+            viewRow
+              ? {
+                  ...viewRow,
+                  yearName,
+                  collegeCode,
+                  paTrainingTitle: trainingTitle || viewRow.paTrainingTitle,
+                  trainingTypeCatCode,
+                  empName,
+                  empNumber,
+                  paStartDate: viewRow.paStartDate,
+                  paEndDate: viewRow.paEndDate,
+                }
+              : null
+          }
+        />
+      </FilteredListPage>
+    </>
+  );
 }
 
 export default function TrainingDetailPage() {
@@ -346,5 +542,5 @@ export default function TrainingDetailPage() {
     <Suspense>
       <TrainingDetailContent />
     </Suspense>
-  )
+  );
 }

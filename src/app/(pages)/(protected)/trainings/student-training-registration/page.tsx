@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { User } from 'lucide-react'
 import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,18 +13,18 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Select } from '@/common/components/select'
-import { searchStudentsByKeyword } from '@/services/student-information'
-import { searchEmployeesForHr } from '@/services/hr-payroll'
 import {
-  listTrainings,
+  listTrainingsByCollege,
   listTrainingStudentsByEmployee,
   listTrainingStudentsByStudent,
   createTrainingStudent,
-} from '@/services/trainings'
+  searchStudentsForTrainingRegistration,
+  searchEmployeesForTrainingRegistration,
+} from '@/services'
 import type { PlacementTraining, TrainingStudent } from '@/types/trainings'
 import { rowIndexGetter } from '@/lib/utils'
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, unknown>
 type Mode = 'student' | 'employee'
 type TrainingRow = PlacementTraining & { registered: boolean }
 
@@ -48,7 +49,19 @@ function pickText(row: AnyRow | null | undefined, keys: string[]): string {
   return ''
 }
 
-// ─── Confirm registration modal ───────────────────────────────────────────────
+/** Angular `date:'MMM d, y'` style. */
+function formatAngularDate(value?: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+// ─── Confirm registration modal (Angular TrainingRegisterModal) ───────────────
 
 interface ConfirmModalProps {
   training: PlacementTraining | null
@@ -82,35 +95,36 @@ function ConfirmModal({ training, onClose, onConfirm }: ConfirmModalProps) {
 
         {training && (
           <div className="space-y-2 py-2 text-sm">
-            <div className="grid grid-cols-3 gap-1">
-              <span className="text-xs text-muted-foreground">Training</span>
-              <span className="col-span-2 font-medium">
-                {training.trainingTitle}
+            <div className="grid grid-cols-[100px_1fr] gap-1">
+              <span className="text-muted-foreground">Training :</span>
+              <span className="font-medium text-primary">
+                {training.trainingTitle}{' '}
                 {training.trainingTypeCatCode && (
-                  <span className="text-muted-foreground ml-1">({training.trainingTypeCatCode})</span>
+                  <span className="text-muted-foreground">
+                    ({training.trainingTypeCatCode})
+                  </span>
                 )}
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-1">
-              <span className="text-xs text-muted-foreground">Trainer</span>
-              <span className="col-span-2">{training.trainerName}</span>
+            <div className="grid grid-cols-[100px_1fr] gap-1">
+              <span className="text-muted-foreground">Trainer:</span>
+              <span className="text-primary">{training.trainerName}</span>
             </div>
-            {training.empName && (
-              <div className="grid grid-cols-3 gap-1">
-                <span className="text-xs text-muted-foreground">Incharge</span>
-                <span className="col-span-2">
-                  {training.empName}
-                  {training.empNumber && (
-                    <span className="text-muted-foreground ml-1">({training.empNumber})</span>
-                  )}
-                </span>
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-1">
-              <span className="text-xs text-muted-foreground">Date</span>
-              <span className="col-span-2">{training.startDate} – {training.endDate}</span>
+            <div className="grid grid-cols-[100px_1fr] gap-1">
+              <span className="text-muted-foreground">Incharge :</span>
+              <span className="text-primary">
+                {training.empName}
+                {training.empNumber != null ? ` - (${training.empNumber})` : ''}
+              </span>
             </div>
-            <p className="pt-2 font-semibold">Are you sure to register?</p>
+            <div className="grid grid-cols-[100px_1fr] gap-1">
+              <span className="text-muted-foreground">Date :</span>
+              <span className="text-primary">
+                {formatAngularDate(training.startDate)} -{' '}
+                {formatAngularDate(training.endDate)}
+              </span>
+            </div>
+            <p className="pt-2 font-bold">Are you sure to register ?</p>
           </div>
         )}
 
@@ -119,9 +133,11 @@ function ConfirmModal({ training, onClose, onConfirm }: ConfirmModalProps) {
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving}>Close</Button>
-          <Button onClick={handleConfirm} disabled={saving}>
-            {saving ? 'Registering…' : 'Save'}
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Close
+          </Button>
+          <Button onClick={() => void handleConfirm()} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -129,53 +145,71 @@ function ConfirmModal({ training, onClose, onConfirm }: ConfirmModalProps) {
   )
 }
 
-// ─── Profile Card ─────────────────────────────────────────────────────────────
+// ─── Profile cards (Angular std-his layout) ───────────────────────────────────
 
+function ProfilePhoto({ src, alt }: { src?: string; alt: string }) {
+  const [broken, setBroken] = useState(false)
+  if (!src || broken) {
+    return (
+      <div className="h-20 w-20 rounded-md bg-sky-100 flex items-center justify-center shrink-0">
+        <User className="h-10 w-10 text-sky-600/70" aria-hidden />
+      </div>
+    )
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className="h-20 w-20 rounded-md object-cover shrink-0 bg-sky-50"
+      onError={() => setBroken(true)}
+    />
+  )
+}
+
+/** Angular student card: photo | firstName, rollNumber, college/course/group/year/section, mobile */
 function StudentProfileCard({ row }: { row: AnyRow }) {
-  const name = pickText(row, ['studentName', 'firstName', 'fullName'])
-  const roll = pickText(row, ['hallticketNumber', 'rollNumber', 'admissionNumber'])
-  const course = pickText(row, ['courseName', 'course_name'])
-  const mobile = pickText(row, ['mobileNumber', 'mobile', 'phone'])
-  const college = pickText(row, ['collegeName', 'collegeCode'])
-  const dept = pickText(row, ['departmentName', 'department'])
+  const name = pickText(row, ['firstName', 'studentName', 'fullName'])
+  const roll = pickText(row, ['rollNumber', 'hallticketNumber', 'admissionNumber'])
+  const collegeCode = pickText(row, ['collegeCode'])
+  const courseCode = pickText(row, ['courseCode'])
+  const groupCode = pickText(row, ['groupCode'])
+  const courseYearName = pickText(row, ['courseYearName'])
+  const section = pickText(row, ['section', 'sectionName'])
+  const mobile = pickText(row, ['mobile', 'mobileNumber', 'phone'])
+  const photo = pickText(row, ['studentPhotoPath', 'photoPath', 'photo'])
+  // Angular: collegeCode / courseCode / groupCode / courseYearName / Section {{section}}
+  const meta = `${collegeCode} / ${courseCode} / ${groupCode} / ${courseYearName} / Section ${section}`
 
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3 flex gap-4 items-start">
-      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-primary font-bold text-lg">{name.charAt(0).toUpperCase() || 'S'}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs flex-1">
-        {name && <div><span className="text-muted-foreground">Name: </span><span className="font-medium">{name}</span></div>}
-        {roll && <div><span className="text-muted-foreground">Roll No: </span><span className="font-medium">{roll}</span></div>}
-        {course && <div><span className="text-muted-foreground">Course: </span><span className="font-medium">{course}</span></div>}
-        {dept && <div><span className="text-muted-foreground">Dept: </span><span className="font-medium">{dept}</span></div>}
-        {college && <div><span className="text-muted-foreground">College: </span><span className="font-medium">{college}</span></div>}
-        {mobile && <div><span className="text-muted-foreground">Mobile: </span><span className="font-medium">{mobile}</span></div>}
+    <div className="rounded-md border border-sky-200 bg-sky-50/40 p-3 flex gap-4 items-start">
+      <ProfilePhoto src={photo || undefined} alt={name || 'Student'} />
+      <div className="text-sm space-y-0.5 min-w-0">
+        <p className="font-medium text-foreground">{name || '—'}</p>
+        <p className="text-muted-foreground">{roll || '—'}</p>
+        <p className="text-muted-foreground break-words">{meta}</p>
+        <p className="text-muted-foreground">{mobile || '—'}</p>
       </div>
     </div>
   )
 }
 
+/** Angular employee card: photo | firstName, empNumber, empDeptName, mobile */
 function EmployeeProfileCard({ row }: { row: AnyRow }) {
-  const name = pickText(row, ['employeeName', 'empName', 'firstName', 'fullName', 'name'])
-  const empNo = pickText(row, ['empNumber', 'employeeNumber', 'employeeNo', 'empNo'])
-  const dept = pickText(row, ['departmentName', 'department', 'deptName'])
-  const designation = pickText(row, ['designationName', 'designation'])
-  const college = pickText(row, ['collegeName', 'collegeCode'])
-  const mobile = pickText(row, ['mobileNumber', 'mobile', 'phone'])
+  const name = pickText(row, ['firstName', 'employeeName', 'empName', 'name'])
+  const empNo = pickText(row, ['empNumber', 'employeeNumber', 'empNo'])
+  const dept = pickText(row, ['empDeptName', 'departmentName', 'department', 'deptName'])
+  const mobile = pickText(row, ['mobile', 'mobileNumber', 'phone'])
+  const photo = pickText(row, ['photoPath', 'photo', 'employeePhotoPath'])
 
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3 flex gap-4 items-start">
-      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-primary font-bold text-lg">{name.charAt(0).toUpperCase() || 'E'}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs flex-1">
-        {name && <div><span className="text-muted-foreground">Name: </span><span className="font-medium">{name}</span></div>}
-        {empNo && <div><span className="text-muted-foreground">Emp No: </span><span className="font-medium">{empNo}</span></div>}
-        {dept && <div><span className="text-muted-foreground">Dept: </span><span className="font-medium">{dept}</span></div>}
-        {designation && <div><span className="text-muted-foreground">Designation: </span><span className="font-medium">{designation}</span></div>}
-        {college && <div><span className="text-muted-foreground">College: </span><span className="font-medium">{college}</span></div>}
-        {mobile && <div><span className="text-muted-foreground">Mobile: </span><span className="font-medium">{mobile}</span></div>}
+    <div className="rounded-md border border-sky-200 bg-sky-50/40 p-3 flex gap-4 items-start">
+      <ProfilePhoto src={photo || undefined} alt={name || 'Employee'} />
+      <div className="text-sm space-y-0.5 min-w-0">
+        <p className="font-medium text-foreground">{name || '—'}</p>
+        <p className="text-muted-foreground">{empNo || '—'}</p>
+        <p className="text-muted-foreground">{dept || '—'}</p>
+        <p className="text-muted-foreground">{mobile || '—'}</p>
       </div>
     </div>
   )
@@ -185,100 +219,107 @@ function EmployeeProfileCard({ row }: { row: AnyRow }) {
 
 export default function StudentTrainingRegistrationPage() {
   const [mode, setMode] = useState<Mode>('student')
-
-  // Search state
   const [searchRows, setSearchRows] = useState<AnyRow[]>([])
   const [loadingSearch, setLoadingSearch] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [selectedRow, setSelectedRow] = useState<AnyRow | null>(null)
-
-  // Trainings + registrations
   const [trainings, setTrainings] = useState<PlacementTraining[]>([])
   const [registrations, setRegistrations] = useState<TrainingStudent[]>([])
   const [loadingData, setLoadingData] = useState(false)
-
-  // Confirm modal
   const [confirmTraining, setConfirmTraining] = useState<PlacementTraining | null>(null)
-
-  // ── Search options ──────────────────────────────────────────────────────────
 
   const searchOptions = useMemo(() => {
     if (mode === 'student') {
-      return searchRows.map((row) => ({
-        value: String(pickNum(row, ['studentId', 'fk_student_id', 'student_id'])),
-        label: `${pickText(row, ['studentName', 'firstName']) || 'Student'} (${pickText(row, ['hallticketNumber', 'rollNumber']) || '-'})`,
-      }))
+      return searchRows.map((row) => {
+        const id = pickNum(row, ['studentId', 'fk_student_id', 'student_id'])
+        const name = pickText(row, ['firstName', 'studentName']) || 'Student'
+        const roll = pickText(row, ['rollNumber', 'hallticketNumber'])
+        return {
+          value: String(id),
+          // Angular: {{firstName}} ({{rollNumber}})
+          label: roll ? `${name} (${roll})` : name,
+        }
+      })
     }
-    return searchRows.map((row) => ({
-      value: String(pickNum(row, ['employeeId', 'employee_id'])),
-      label: `${pickText(row, ['employeeName', 'empName', 'firstName', 'name']) || 'Employee'} (${pickText(row, ['empNumber', 'employeeNumber']) || '-'})`,
-    }))
+    return searchRows.map((row) => {
+      const id = pickNum(row, ['employeeId', 'employee_id'])
+      const name = pickText(row, ['firstName', 'employeeName', 'empName', 'name']) || 'Employee'
+      const empNo = pickText(row, ['empNumber', 'employeeNumber'])
+      // Angular screenshot: Ramya T(EMP-26-101)
+      return {
+        value: String(id),
+        label: empNo ? `${name}(${empNo})` : name,
+      }
+    })
   }, [searchRows, mode])
 
-  // ── Handle search ───────────────────────────────────────────────────────────
-
-  const handleSearch = useCallback(async (term: string) => {
-    if (term.trim().length < 5) {
-      setSearchRows([])
-      return
-    }
-    setLoadingSearch(true)
-    try {
-      if (mode === 'student') {
-        const rows = await searchStudentsByKeyword(term)
-        setSearchRows(Array.isArray(rows) ? rows : [])
-      } else {
-        const rows = await searchEmployeesForHr(term)
-        setSearchRows(Array.isArray(rows) ? rows : [])
+  const handleSearch = useCallback(
+    async (term: string) => {
+      // Angular: length > 4
+      if (term.trim().length < 5) {
+        setSearchRows([])
+        return
       }
-    } catch {
-      setSearchRows([])
-    } finally {
-      setLoadingSearch(false)
-    }
-  }, [mode])
+      setLoadingSearch(true)
+      try {
+        if (mode === 'student') {
+          const rows = await searchStudentsForTrainingRegistration(term)
+          setSearchRows(Array.isArray(rows) ? (rows as AnyRow[]) : [])
+        } else {
+          const rows = await searchEmployeesForTrainingRegistration(term)
+          setSearchRows(Array.isArray(rows) ? (rows as AnyRow[]) : [])
+        }
+      } catch {
+        setSearchRows([])
+      } finally {
+        setLoadingSearch(false)
+      }
+    },
+    [mode],
+  )
 
-  // ── Handle person selection ─────────────────────────────────────────────────
-
-  const handleSelect = useCallback(async (value: string | null) => {
-    const id = value ? Number(value) : null
-    setSelectedId(id)
-    setTrainings([])
-    setRegistrations([])
-
-    if (!id) {
-      setSelectedRow(null)
-      return
-    }
-
-    const found = searchRows.find((r) => {
-      if (mode === 'student') return pickNum(r, ['studentId', 'fk_student_id', 'student_id']) === id
-      return pickNum(r, ['employeeId', 'employee_id']) === id
-    }) ?? null
-    setSelectedRow(found)
-
-    setLoadingData(true)
-    try {
-      const [allTrainings, regs] = await Promise.all([
-        listTrainings(),
-        mode === 'student'
-          ? listTrainingStudentsByStudent(id)
-          : listTrainingStudentsByEmployee(id),
-      ])
-      const filtered = allTrainings.filter(
-        (t) => t.isTrackAudience == null || t.isTrackAudience,
-      )
-      setTrainings(filtered)
-      setRegistrations(regs)
-    } catch {
+  const handleSelect = useCallback(
+    async (value: string | null) => {
+      const id = value ? Number(value) : null
+      setSelectedId(id)
       setTrainings([])
       setRegistrations([])
-    } finally {
-      setLoadingData(false)
-    }
-  }, [searchRows, mode])
 
-  // ── Switch mode ─────────────────────────────────────────────────────────────
+      if (!id) {
+        setSelectedRow(null)
+        return
+      }
+
+      const found =
+        searchRows.find((r) => {
+          if (mode === 'student') {
+            return pickNum(r, ['studentId', 'fk_student_id', 'student_id']) === id
+          }
+          return pickNum(r, ['employeeId', 'employee_id']) === id
+        }) ?? null
+      setSelectedRow(found)
+
+      const collegeId = pickNum(found, ['collegeId', 'college_id'])
+      setLoadingData(true)
+      try {
+        // Angular: College.collegeId==X.and.isActive==true.order(createdDt=DESC)
+        const [collegeTrainings, regs] = await Promise.all([
+          collegeId > 0 ? listTrainingsByCollege(collegeId) : Promise.resolve([]),
+          mode === 'student'
+            ? listTrainingStudentsByStudent(id)
+            : listTrainingStudentsByEmployee(id),
+        ])
+        setTrainings(collegeTrainings)
+        setRegistrations(regs)
+      } catch {
+        setTrainings([])
+        setRegistrations([])
+      } finally {
+        setLoadingData(false)
+      }
+    },
+    [searchRows, mode],
+  )
 
   function switchMode(next: Mode) {
     setMode(next)
@@ -289,83 +330,111 @@ export default function StudentTrainingRegistrationPage() {
     setRegistrations([])
   }
 
-  // ── Registered ID set ───────────────────────────────────────────────────────
-
   const registeredIds = useMemo(
     () => new Set(registrations.map((r) => r.trainingId)),
     [registrations],
   )
 
-  // ── Rows for table ──────────────────────────────────────────────────────────
-
   const tableRows = useMemo<TrainingRow[]>(
-    () => trainings.map((t) => ({ ...t, registered: registeredIds.has(t.traningId) })),
+    () =>
+      trainings.map((t) => ({
+        ...t,
+        registered: registeredIds.has(t.traningId),
+      })),
     [trainings, registeredIds],
   )
 
-  // ── Register handler ────────────────────────────────────────────────────────
-
   async function handleRegister(training: PlacementTraining) {
-    if (!selectedId) return
-    const payload: Partial<import('@/types/trainings').TrainingStudent> = {
+    if (!selectedId || !selectedRow) return
+    // Angular student: { studentId, collegeId: data.collegeId, trainingId, isActive }
+    // Angular employee: { employeeId, collegeId: employees[0].collegeId, trainingId, isActive }
+    const collegeId =
+      mode === 'employee'
+        ? pickNum(selectedRow, ['collegeId', 'college_id']) || training.collegeId
+        : training.collegeId
+
+    const payload: Partial<TrainingStudent> = {
       trainingId: training.traningId,
-      collegeId: training.collegeId,
+      collegeId,
       isActive: true,
     }
-    if (mode === 'student') {
-      ;(payload as any).studentId = selectedId
-      ;(payload as any).studentDetail = { studentId: selectedId }
-    } else {
-      payload.employeeId = selectedId
-    }
+    if (mode === 'student') payload.studentId = selectedId
+    else payload.employeeId = selectedId
+
     await createTrainingStudent(payload)
 
-    // Refresh registrations
-    const updated = mode === 'student'
-      ? await listTrainingStudentsByStudent(selectedId)
-      : await listTrainingStudentsByEmployee(selectedId)
+    const updated =
+      mode === 'student'
+        ? await listTrainingStudentsByStudent(selectedId)
+        : await listTrainingStudentsByEmployee(selectedId)
     setRegistrations(updated)
   }
 
-  // ── Column defs ─────────────────────────────────────────────────────────────
-
+  // Angular displayedColumns: id, trainingTitle, trainingTypeCatDisplayName,
+  // trainerName, empName, startDate, isActive, actions
   const columnDefs = useMemo<ColDef<TrainingRow>[]>(
     () => [
       { headerName: 'No.', valueGetter: rowIndexGetter, width: 60, flex: 0 },
-      { field: 'trainingTitle', headerName: 'Training Title', minWidth: 180, flex: 2 },
-      { field: 'trainingTypeCatDisplayName', headerName: 'Training Type', minWidth: 130, flex: 1 },
+      { field: 'trainingTitle', headerName: 'Training', minWidth: 200, flex: 2 },
+      {
+        field: 'trainingTypeCatDisplayName',
+        headerName: 'Training Type',
+        minWidth: 150,
+        flex: 1.2,
+      },
       { field: 'trainerName', headerName: 'Trainer Name', minWidth: 130, flex: 1 },
-      { field: 'startDate', headerName: 'Start Date', minWidth: 110, flex: 1 },
-      { field: 'endDate', headerName: 'End Date', minWidth: 110, flex: 1 },
+      {
+        headerName: 'Incharge',
+        minWidth: 140,
+        flex: 1,
+        valueGetter: (p) => {
+          const row = p.data
+          if (!row?.empName) return ''
+          return row.empNumber != null
+            ? `${row.empName} (${row.empNumber})`
+            : row.empName
+        },
+      },
+      {
+        headerName: 'Date',
+        minWidth: 180,
+        flex: 1.2,
+        valueGetter: (p) =>
+          p.data
+            ? `${formatAngularDate(p.data.startDate)} - ${formatAngularDate(p.data.endDate)}`
+            : '',
+      },
       {
         headerName: 'Status',
-        minWidth: 110,
-        flex: 0.9,
+        minWidth: 100,
+        flex: 0.8,
         cellRenderer: (p: ICellRendererParams<TrainingRow>) => {
           const row = p.data
           if (!row) return null
-          if (row.registered) {
-            return (
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                Registered
-              </span>
-            )
-          }
           return (
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
-              Register
+            <span
+              className={
+                row.registered
+                  ? 'text-xs font-medium text-green-700'
+                  : 'text-xs font-medium text-slate-600'
+              }
+            >
+              {row.registered ? 'Registered' : 'Register'}
             </span>
           )
         },
       },
       {
         headerName: 'Actions',
-        width: 150,
+        width: 120,
         flex: 0,
+        pinned: 'right',
         cellRenderer: (p: ICellRendererParams<TrainingRow>) => {
           const row = p.data
           if (!row) return null
-          if (row.registered) return <span className="text-muted-foreground text-xs">—</span>
+          if (row.registered) {
+            return <span className="text-muted-foreground text-xs">-</span>
+          }
           return (
             <Button
               size="sm"
@@ -381,14 +450,15 @@ export default function StudentTrainingRegistrationPage() {
     [],
   )
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // Angular: table only when trainingsList.length > 0
+  const showTable = Boolean(selectedId) && (loadingData || tableRows.length > 0)
 
   return (
     <FilteredListPage
-      title="Student Training Registration"
+      title="Training Registration"
       filters={(
         <div className="space-y-4">
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-6">
             <label className="flex items-center gap-2 cursor-pointer text-sm">
               <input
                 type="radio"
@@ -411,13 +481,13 @@ export default function StudentTrainingRegistrationPage() {
             </label>
           </div>
 
-          <div className="max-w-sm">
+          <div className="max-w-md">
             <Select
               label={mode === 'student' ? 'Student' : 'Employee'}
               value={selectedId ? String(selectedId) : null}
               onChange={(v) => void handleSelect(v)}
               options={searchOptions}
-              placeholder={`Search ${mode === 'student' ? 'student' : 'employee'} (min 5 chars)…`}
+              placeholder="Search..."
               searchable
               onSearch={(term) => void handleSearch(term)}
               isLoading={loadingSearch}
@@ -429,15 +499,20 @@ export default function StudentTrainingRegistrationPage() {
           {selectedRow && mode === 'employee' && <EmployeeProfileCard row={selectedRow} />}
         </div>
       )}
-      rowData={selectedId ? tableRows : []}
-      columnDefs={columnDefs}
+      rowData={showTable ? tableRows : []}
+      columnDefs={showTable ? columnDefs : undefined}
+      body={!showTable ? null : undefined}
       loading={loadingData}
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search trainings…',
-        pdfDocumentTitle: 'Training Registration',
-      }}
+      toolbar={
+        showTable
+          ? {
+              search: true,
+              searchPlaceholder: 'Search',
+              pdfDocumentTitle: 'Training Registration',
+            }
+          : undefined
+      }
     >
       <ConfirmModal
         training={confirmTraining}

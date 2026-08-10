@@ -936,21 +936,34 @@ export const QK = {
     list: () => ["Training", "list"] as const,
     byCollege: (collegeId: number) =>
       ["Training", "byCollege", collegeId] as const,
+    byCollegeYear: (collegeId: number, yearName: string) =>
+      ["Training", "byCollegeYear", collegeId, yearName] as const,
   },
   trainingDetails: {
     all: ["TrainingDetail"] as const,
     byTraining: (traningId: number) =>
       ["TrainingDetail", "byTraining", traningId] as const,
+    active: () => ["TrainingDetail", "active"] as const,
+    byCollegeTraining: (collegeId: number, paTraningId: number) =>
+      ["TrainingDetail", "byCollegeTraining", collegeId, paTraningId] as const,
   },
   trainingSessions: {
     all: ["TrainingSession"] as const,
     byDetail: (traningDetId: number) =>
       ["TrainingSession", "byDetail", traningDetId] as const,
+    byDetailDate: (traningDetId: number, sessionDate: string) =>
+      ["TrainingSession", "byDetailDate", traningDetId, sessionDate] as const,
   },
   trainingRegistrations: {
     all: ["TrainingStudent"] as const,
     byEmployee: (employeeId: number) =>
       ["TrainingStudent", "byEmployee", employeeId] as const,
+    byTraining: (traningId: number) =>
+      ["TrainingStudent", "byTraining", traningId] as const,
+  },
+  trainingAttendance: {
+    bySession: (trainingSessionId: number) =>
+      ["TrainingStudentAttendence", "bySession", trainingSessionId] as const,
   },
   programRegistrationApproval: {
     byEmployee: (employeeId: number) =>

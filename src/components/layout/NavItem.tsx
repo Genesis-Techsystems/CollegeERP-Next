@@ -1741,27 +1741,33 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       }
     }
 
-    // Staff Grievances & Suggestions — must beat generic grievance-details / student pins
+    // Staff Grievances & Suggestions / College Suggestions — must beat generic grievance pins
     if (
       hrefLower.includes("staff-grievances") ||
       hrefLower.includes("staff-grevievances") ||
+      hrefLower.includes("collge-suggestions") ||
+      hrefLower.includes("college-suggestions") ||
       labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestions" ||
       labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestion" ||
       labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "suggestions list" ||
       hrefLower.includes("new-suggestions") ||
-      hrefLower.includes("suggestions-list")
+      hrefLower.includes("new-suggestion") ||
+      hrefLower.includes("suggestions-list") ||
+      hrefLower.includes("collge-suggestions-list")
     ) {
       if (hrefLower.includes("grievance-details")) {
         return "/staff-grievances-&-suggestions/grevieviance-list/grievance-details";
       }
       if (
         hrefLower.includes("suggestions-list") ||
+        hrefLower.includes("collge-suggestions-list") ||
         labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "suggestions list"
       ) {
         return "/staff-grievances-&-suggestions/suggestions-list";
       }
       if (
         hrefLower.includes("new-suggestions") ||
+        hrefLower.includes("new-suggestion") ||
         labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestions" ||
         labelLower.replace(/[^a-z0-9]+/g, " ").trim() === "new suggestion"
       ) {

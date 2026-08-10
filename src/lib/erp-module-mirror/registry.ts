@@ -489,8 +489,14 @@ export const TRAININGS_MODULE: ErpModuleMirrorConfig = {
     ),
     r(
       "student-training-registration",
-      "Student Registration",
-      "Register students for training.",
+      "Training Registration",
+      "Register students or employees for training.",
+      "transaction",
+    ),
+    r(
+      "training-registration",
+      "Employee Training Registration",
+      "Self-register for trainings at login college.",
       "transaction",
     ),
     r(
@@ -500,21 +506,27 @@ export const TRAININGS_MODULE: ErpModuleMirrorConfig = {
       "report",
     ),
     r(
-      "attendance",
+      "training-attendance",
+      "Training Attendance",
+      "Classes list for attendance.",
+      "transaction",
+    ),
+    r(
+      "mark-attendance",
       "Mark Attendance",
       "Session attendance marking.",
+      "transaction",
+    ),
+    r(
+      "attendance",
+      "Mark Attendance",
+      "Session attendance marking (alias).",
       "transaction",
     ),
     r(
       "view-training-attendance",
       "View Attendance",
       "Attendance reports.",
-      "report",
-    ),
-    r(
-      "training-attendance",
-      "Training Classes",
-      "Classes list for attendance.",
       "report",
     ),
     r(

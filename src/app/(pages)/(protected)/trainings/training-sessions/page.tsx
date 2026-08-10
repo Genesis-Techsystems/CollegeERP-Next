@@ -1,223 +1,259 @@
-'use client'
+"use client";
 
-import { useState, useMemo, useEffect, Suspense } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon } from 'lucide-react'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
+import { useState, useMemo, useEffect, Suspense } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PencilIcon } from "lucide-react";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Select } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { listTrainings, listTrainingDetails, listTrainingSessions } from '@/services/trainings'
-import { listColleges } from '@/services/admin/college'
-import type { PlacementTraining, TrainingDetail, TrainingSession } from '@/types/trainings'
-import type { College } from '@/types/college'
-import { rowIndexGetter } from '@/lib/utils'
-import AddTrainingSessionModal from './AddTrainingSessionModal'
+  listTrainingsByCollegeAndYear,
+  listTrainingDetailsByCollegeAndTraining,
+  listTrainingSessions,
+} from "@/services/trainings";
+import { listColleges } from "@/services/admin/college";
+import type {
+  PlacementTraining,
+  TrainingDetail,
+  TrainingSession,
+} from "@/types/trainings";
+import type { College } from "@/types/college";
+import { rowIndexGetter } from "@/lib/utils";
+import AddTrainingSessionModal from "./AddTrainingSessionModal";
 
-function buildYearOptions(): string[] {
-  const current = new Date().getFullYear()
-  return Array.from({ length: 10 }, (_, i) => String(current - i))
+function buildYearOptions(): { value: string; label: string }[] {
+  const current = new Date().getFullYear();
+  return Array.from({ length: 10 }, (_, i) => {
+    const y = String(current - i);
+    return { value: y, label: y };
+  });
 }
 
-function activeRenderer(p: ICellRendererParams<TrainingSession>) {
-  const active = p.data?.isActive
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-      {active ? 'Active' : 'Inactive'}
-    </span>
-  )
+function statusRenderer(p: ICellRendererParams<TrainingSession>) {
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function TrainingSessionsContent() {
-  const [colleges, setColleges] = useState<College[]>([])
-  const [trainings, setTrainings] = useState<PlacementTraining[]>([])
-  const [trainingDetails, setTrainingDetails] = useState<TrainingDetail[]>([])
+  const [colleges, setColleges] = useState<College[]>([]);
+  const [trainings, setTrainings] = useState<PlacementTraining[]>([]);
+  const [trainingDetails, setTrainingDetails] = useState<TrainingDetail[]>([]);
+  const [loadingTrainings, setLoadingTrainings] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
-  const [collegeId, setCollegeId] = useState('')
-  const [yearName, setYearName] = useState('')
-  const [traningId, setTraningId] = useState('')
-  const [traningDetId, setTraningDetId] = useState('')
+  const [collegeId, setCollegeId] = useState<string | null>(null);
+  const [yearName, setYearName] = useState<string | null>(null);
+  const [traningId, setTraningId] = useState<string | null>(null);
+  const [traningDetId, setTraningDetId] = useState<string | null>(null);
 
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editData, setEditData] = useState<TrainingSession | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editData, setEditData] = useState<TrainingSession | null>(null);
 
-  const filtersReady = Boolean(collegeId && yearName && traningId && traningDetId)
+  const filtersReady = Boolean(
+    collegeId && yearName && traningId && traningDetId,
+  );
+  const selectedTraining = trainings.find(
+    (t) => String(t.traningId) === traningId,
+  );
 
-  const { data: sessions, isLoading, invalidate } = useCrudList<TrainingSession>({
+  const {
+    data: sessions,
+    isLoading,
+    invalidate,
+  } = useCrudList<TrainingSession>({
     queryKey: QK.trainingSessions.byDetail(Number(traningDetId)),
     queryFn: () => listTrainingSessions(Number(traningDetId)),
     enabled: filtersReady,
-  })
+  });
 
   useEffect(() => {
-    listColleges().then(setColleges).catch(console.error)
-  }, [])
+    listColleges().then(setColleges).catch(console.error);
+  }, []);
 
   useEffect(() => {
-    if (collegeId && yearName) {
-      listTrainings()
-        .then((rows) =>
-          setTrainings(
-            rows.filter(
-              (t) => String(t.collegeId) === collegeId && t.yearName === yearName,
-            ),
-          ),
-        )
-        .catch(console.error)
-    } else {
-      setTrainings([])
-      setTraningId('')
-      setTraningDetId('')
+    if (!collegeId || !yearName) {
+      setTrainings([]);
+      setTraningId(null);
+      setTraningDetId(null);
+      return;
     }
-  }, [collegeId, yearName])
+    setLoadingTrainings(true);
+    listTrainingsByCollegeAndYear(Number(collegeId), yearName)
+      .then(setTrainings)
+      .catch(() => setTrainings([]))
+      .finally(() => setLoadingTrainings(false));
+  }, [collegeId, yearName]);
 
   useEffect(() => {
-    if (traningId && collegeId && yearName) {
-      listTrainingDetails({ collegeId: Number(collegeId), yearName, traningId: Number(traningId) })
-        .then(setTrainingDetails)
-        .catch(console.error)
-    } else {
-      setTrainingDetails([])
-      setTraningDetId('')
+    if (!collegeId || !traningId) {
+      setTrainingDetails([]);
+      setTraningDetId(null);
+      return;
     }
-  }, [traningId, collegeId, yearName])
-
-  const selectedDetail = trainingDetails.find((d) => String(d.traningDetId) === traningDetId)
+    setLoadingDetails(true);
+    listTrainingDetailsByCollegeAndTraining(
+      Number(collegeId),
+      Number(traningId),
+    )
+      .then(setTrainingDetails)
+      .catch(() => setTrainingDetails([]))
+      .finally(() => setLoadingDetails(false));
+  }, [collegeId, traningId]);
 
   const columnDefs = useMemo<ColDef<TrainingSession>[]>(
     () => [
-      { headerName: 'No.', valueGetter: rowIndexGetter, width: 60, flex: 0 },
-      { field: 'trainerName', headerName: 'Trainer Name', minWidth: 130, flex: 1 },
-      { field: 'sessionDate', headerName: 'Session Date', minWidth: 110, flex: 1 },
-      { field: 'fromTime', headerName: 'From Time', minWidth: 100, flex: 0.8 },
-      { field: 'noOfAttendees', headerName: 'Attendees', minWidth: 90, flex: 0.8 },
-      { field: 'inchargeEmpName', headerName: 'Incharge', minWidth: 130, flex: 1 },
-      { field: 'collegeCode', headerName: 'College', minWidth: 90, flex: 0.8 },
-      { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.8, cellRenderer: activeRenderer },
+      { headerName: "No.", valueGetter: rowIndexGetter, width: 60, flex: 0 },
       {
-        headerName: 'Actions',
+        field: "trainerName",
+        headerName: "Trainer Name",
+        minWidth: 130,
+        flex: 1,
+      },
+      {
+        field: "sessionDate",
+        headerName: "Session Date",
+        minWidth: 110,
+        flex: 1,
+      },
+      {
+        headerName: "Time",
+        minWidth: 140,
+        flex: 1,
+        valueGetter: (p) => {
+          const from = p.data?.fromTime ?? "";
+          const to = p.data?.toTime ?? "";
+          return from || to ? `${from}${from && to ? " – " : ""}${to}` : "";
+        },
+      },
+      {
+        field: "noOfAttendees",
+        headerName: "No Of Attendees",
+        minWidth: 110,
+        flex: 0.8,
+      },
+      {
+        field: "inchargeEmpName",
+        headerName: "Incharge Name",
+        minWidth: 130,
+        flex: 1,
+      },
+      { field: "collegeCode", headerName: "College", minWidth: 90, flex: 0.8 },
+      {
+        ...{ field: "isActive", headerName: "Status", minWidth: 90, flex: 0.8 },
+        cellRenderer: statusRenderer,
+      },
+      {
+        headerName: "Actions",
         width: 80,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<TrainingSession>) => {
-          const row = p.data
-          if (!row) return null
+          const row = p.data;
+          if (!row) return null;
           return (
             <Button
               size="sm"
               variant="ghost"
               className="h-8 w-8 p-0"
-              onClick={() => { setEditData(row); setModalOpen(true) }}
+              onClick={() => {
+                setEditData(row);
+                setModalOpen(true);
+              }}
             >
               <PencilIcon className="h-3.5 w-3.5" />
             </Button>
-          )
+          );
         },
       },
     ],
     [],
-  )
+  );
 
   return (
     <FilteredListPage
       title="Training Sessions"
-      filters={(
-        <div className="grid grid-cols-4 gap-3">
-          <div className="space-y-0.5">
-            <Label className="text-xs">College *</Label>
-            <Select
-              value={collegeId}
-              onValueChange={(v) => { setCollegeId(v); setYearName(''); setTraningId(''); setTraningDetId('') }}
-            >
-              <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
-              <SelectContent>
-                {colleges.map((c) => (
-                  <SelectItem key={c.collegeId} value={String(c.collegeId)}>
-                    {c.collegeName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Year *</Label>
-            <Select
-              value={yearName}
-              onValueChange={(v) => { setYearName(v); setTraningId(''); setTraningDetId('') }}
-              disabled={!collegeId}
-            >
-              <SelectTrigger><SelectValue placeholder="Select year" /></SelectTrigger>
-              <SelectContent>
-                {buildYearOptions().map((y) => (
-                  <SelectItem key={y} value={y}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Training *</Label>
-            <Select
-              value={traningId}
-              onValueChange={(v) => { setTraningId(v); setTraningDetId('') }}
-              disabled={!collegeId || !yearName || trainings.length === 0}
-            >
-              <SelectTrigger><SelectValue placeholder="Select training" /></SelectTrigger>
-              <SelectContent>
-                {trainings.map((t) => (
-                  <SelectItem key={t.traningId} value={String(t.traningId)}>
-                    {t.trainingTitle}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Training Detail *</Label>
-            <Select
-              value={traningDetId}
-              onValueChange={setTraningDetId}
-              disabled={!traningId || trainingDetails.length === 0}
-            >
-              <SelectTrigger><SelectValue placeholder="Select detail" /></SelectTrigger>
-              <SelectContent>
-                {trainingDetails.map((d) => (
-                  <SelectItem key={d.traningDetId} value={String(d.traningDetId)}>
-                    {d.trainingDetailTitle}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      filters={
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Select
+            label="College *"
+            value={collegeId}
+            onChange={(v) => {
+              setCollegeId(v);
+              setYearName(null);
+              setTraningId(null);
+              setTraningDetId(null);
+            }}
+            options={colleges.map((c) => ({
+              value: String(c.collegeId),
+              label: c.collegeCode || c.collegeName,
+            }))}
+            placeholder="Select college"
+          />
+          <Select
+            label="Year *"
+            value={yearName}
+            onChange={(v) => {
+              setYearName(v);
+              setTraningId(null);
+              setTraningDetId(null);
+            }}
+            options={buildYearOptions()}
+            placeholder="Select year"
+            disabled={!collegeId}
+          />
+          <Select
+            label="Training *"
+            value={traningId}
+            onChange={(v) => {
+              setTraningId(v);
+              setTraningDetId(null);
+            }}
+            options={trainings.map((t) => ({
+              value: String(t.traningId),
+              label: t.trainingTitle,
+            }))}
+            placeholder="Select training"
+            disabled={!collegeId || !yearName}
+            isLoading={loadingTrainings}
+          />
+          <Select
+            label="Training Details *"
+            value={traningDetId}
+            onChange={setTraningDetId}
+            options={trainingDetails.map((d) => ({
+              value: String(d.traningDetId),
+              label: d.trainingDetailTitle,
+            }))}
+            placeholder="Select detail"
+            disabled={!traningId}
+            isLoading={loadingDetails}
+          />
         </div>
-      )}
+      }
       rowData={filtersReady ? sessions : []}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search sessions…',
-        pdfDocumentTitle: 'Training Sessions',
+        searchPlaceholder: "Search sessions…",
+        pdfDocumentTitle: "Training Sessions",
+        exportExcel: false,
+        exportPdf: false,
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <Button
           size="sm"
           disabled={!filtersReady}
-          onClick={() => { setEditData(null); setModalOpen(true) }}
+          onClick={() => {
+            setEditData(null);
+            setModalOpen(true);
+          }}
         >
           + Add Session
         </Button>
-      )}
+      }
     >
       <AddTrainingSessionModal
         open={modalOpen}
@@ -225,10 +261,12 @@ function TrainingSessionsContent() {
         editData={editData}
         traningDetId={Number(traningDetId)}
         collegeId={Number(collegeId)}
+        startDate={selectedTraining?.startDate}
+        endDate={selectedTraining?.endDate}
         onSaved={invalidate}
       />
     </FilteredListPage>
-  )
+  );
 }
 
 export default function TrainingSessionsPage() {
@@ -236,5 +274,5 @@ export default function TrainingSessionsPage() {
     <Suspense>
       <TrainingSessionsContent />
     </Suspense>
-  )
+  );
 }

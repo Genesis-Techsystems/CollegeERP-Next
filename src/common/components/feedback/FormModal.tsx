@@ -135,8 +135,8 @@ export function FormModal({
 
           <DialogFooter
             className={cn(
-              "shrink-0 gap-2 pt-3 sm:justify-end",
-              showFooterDivider && "border-t border-border/60",
+              "shrink-0 gap-2 pt-5 sm:justify-end",
+              // showFooterDivider && "border-t border-border/60",
             )}
           >
             {showCancelButton ? (

@@ -17,11 +17,17 @@ export interface PlacementTraining {
   collegeId: number
   collegeCode: string
   collegeName?: string | null
-  isTrackAudience?: boolean | null
+  /**
+   * Angular form values: `true` (Student), `false` (Staff), or string `"null"` (All).
+   * Backend expects the string `"null"` for All — not JSON null.
+   */
+  isTrackAudience?: boolean | null | 'null'
   isActive: boolean
   reason?: string | null
   createdDt?: string
   updatedDt?: string
+  /** Nested details sometimes returned on Training list rows (Angular view modal). */
+  trainigDetailDTOs?: TrainingDetail[] | null
 }
 
 export interface TrainingDetail {
@@ -45,6 +51,10 @@ export interface TrainingDetail {
   collegeId: number
   collegeCode?: string | null
   yearName?: string | null
+  /** Parent training fields returned on attendance classes list. */
+  paTrainingTitle?: string | null
+  paStartDate?: string | null
+  paEndDate?: string | null
   createdDt?: string
   updatedDt?: string
 }
@@ -56,8 +66,18 @@ export interface TrainingStudent {
   studentId?: number | null
   collegeId: number
   isActive: boolean
+  firstName?: string | null
+  rollNumber?: string | null
+  empNumber?: string | null
   createdDt?: string
   updatedDt?: string
+  /** UI / attendance merge fields (not always persisted on create). */
+  checked?: boolean
+  isPresent?: boolean
+  trainingSessionId?: number | null
+  trainingStdAttendenceId?: number | null
+  attendenceCapturedEmpId?: number | null
+  attendanceDate?: string | null
 }
 
 export interface TrainingSession {
@@ -82,4 +102,19 @@ export interface TrainingSession {
   trainerName?: string | null
   createdDt?: string
   updatedDt?: string
+}
+
+/** Angular domain entity `TrainingStudentAttendence` (spelling preserved). */
+export interface TrainingStudentAttendence {
+  trainingStdAttendenceId: number
+  trainingSessionId: number
+  studentId?: number | null
+  employeeId?: number | null
+  isPresent: boolean
+  isActive: boolean
+  attendenceCapturedEmpId?: number | null
+  attendanceDate?: string | null
+  firstName?: string | null
+  rollNumber?: string | null
+  empNumber?: string | null
 }

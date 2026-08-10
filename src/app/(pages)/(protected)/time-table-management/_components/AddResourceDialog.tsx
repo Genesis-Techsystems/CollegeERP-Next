@@ -401,12 +401,16 @@ export function AddResourceDialog({
 
   const subjectOptions = useMemo<SelectOption[]>(
     () =>
-      subjects.map((subject) => ({
-        value: String(
-          subject.subjectCourseyearId ?? subject.subjectCourseYearId,
-        ),
-        label: String(subject.subjectName ?? subject.subjectCode),
-      })),
+      subjects.map((subject) => {
+        const name = String(subject.subjectName ?? subject.subjectCode ?? "");
+        return {
+          value: String(
+            subject.subjectCourseyearId ?? subject.subjectCourseYearId,
+          ),
+          label: name,
+          title: name,
+        };
+      }),
     [subjects],
   );
 

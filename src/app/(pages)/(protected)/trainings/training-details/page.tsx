@@ -6,30 +6,40 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import { PencilIcon } from 'lucide-react'
 import { FilteredListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Select } from '@/common/components/select'
+import { StatusBadge } from '@/common/components/data-display'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { listTrainings, listTrainingDetails } from '@/services/trainings'
+import {
+  listTrainingsByCollegeAndYear,
+  listTrainingDetailsByCollegeAndTraining,
+} from '@/services/trainings'
 import { listColleges } from '@/services/admin/college'
 import type { PlacementTraining, TrainingDetail } from '@/types/trainings'
 import type { College } from '@/types/college'
 import { rowIndexGetter } from '@/lib/utils'
 
-function activeRenderer(p: ICellRendererParams<TrainingDetail>) {
-  const active = p.data?.isActive
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-      {active ? 'Active' : 'Inactive'}
-    </span>
-  )
+function buildYearOptions(): { value: string; label: string }[] {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 10 }, (_, i) => {
+    const y = String(current - i)
+    return { value: y, label: y }
+  })
+}
+
+function tConvert(time?: string | null): string {
+  if (!time) return ''
+  const match = String(time).match(/^([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/)
+  if (!match) return time
+  const hour = Number(match[1])
+  const mins = match[2]
+  const ampm = hour < 12 ? 'AM' : 'PM'
+  const h12 = hour % 12 || 12
+  return `${h12}:${mins} ${ampm}`
+}
+
+function statusRenderer(p: ICellRendererParams<TrainingDetail>) {
+  return <StatusBadge status={p.data?.isActive ?? false} />
 }
 
 function TrainingDetailsContent() {
@@ -38,21 +48,25 @@ function TrainingDetailsContent() {
 
   const [colleges, setColleges] = useState<College[]>([])
   const [trainings, setTrainings] = useState<PlacementTraining[]>([])
+  const [loadingTrainings, setLoadingTrainings] = useState(false)
 
-  const [collegeId, setCollegeId] = useState(params.get('collegeId') ?? '')
-  const [yearName, setYearName] = useState(params.get('yearName') ?? '')
-  const [traningId, setTraningId] = useState(params.get('paTraningId') ?? '')
+  const [collegeId, setCollegeId] = useState<string | null>(params.get('collegeId'))
+  const [yearName, setYearName] = useState<string | null>(params.get('yearName'))
+  const [traningId, setTraningId] = useState<string | null>(
+    params.get('paTraningId') ?? params.get('traningId'),
+  )
 
   const filtersReady = Boolean(collegeId && yearName && traningId)
+  const selectedTraining = trainings.find((t) => String(t.traningId) === traningId)
+  const collegeCode =
+    colleges.find((c) => String(c.collegeId) === collegeId)?.collegeCode ??
+    params.get('collegeCode') ??
+    ''
 
   const { data: details, isLoading } = useCrudList<TrainingDetail>({
-    queryKey: QK.trainingDetails.byTraining(Number(traningId)),
+    queryKey: QK.trainingDetails.byCollegeTraining(Number(collegeId), Number(traningId)),
     queryFn: () =>
-      listTrainingDetails({
-        collegeId: Number(collegeId),
-        yearName,
-        traningId: Number(traningId),
-      }),
+      listTrainingDetailsByCollegeAndTraining(Number(collegeId), Number(traningId)),
     enabled: filtersReady,
   })
 
@@ -61,29 +75,38 @@ function TrainingDetailsContent() {
   }, [])
 
   useEffect(() => {
-    if (collegeId) {
-      listTrainings().then(setTrainings).catch(console.error)
-    } else {
+    if (!collegeId || !yearName) {
       setTrainings([])
-      setTraningId('')
+      return
     }
-  }, [collegeId])
-
-  const filteredTrainings = trainings.filter(
-    (t) => !collegeId || String(t.collegeId) === collegeId,
-  )
-
-  const selectedTraining = trainings.find((t) => String(t.traningId) === traningId)
+    setLoadingTrainings(true)
+    listTrainingsByCollegeAndYear(Number(collegeId), yearName)
+      .then(setTrainings)
+      .catch(() => setTrainings([]))
+      .finally(() => setLoadingTrainings(false))
+  }, [collegeId, yearName])
 
   const columnDefs = useMemo<ColDef<TrainingDetail>[]>(
     () => [
       { headerName: 'No.', valueGetter: rowIndexGetter, width: 60, flex: 0 },
       { field: 'trainerName', headerName: 'Trainer Name', minWidth: 130, flex: 1 },
-      { field: 'trainingDetailTitle', headerName: 'Detail Title', minWidth: 180, flex: 2 },
-      { field: 'startTime', headerName: 'Start Time', minWidth: 100, flex: 0.8 },
-      { field: 'endTime', headerName: 'End Time', minWidth: 100, flex: 0.8 },
+      { field: 'trainingDetailTitle', headerName: 'Training Detail Title', minWidth: 180, flex: 2 },
+      {
+        headerName: 'Timings',
+        minWidth: 140,
+        flex: 1,
+        valueGetter: (p) =>
+          `${tConvert(p.data?.startTime)} - ${tConvert(p.data?.endTime)}`,
+      },
+      { field: 'fkDayIds', headerName: 'Days', minWidth: 120, flex: 1 },
       { field: 'roomCode', headerName: 'Room', minWidth: 90, flex: 0.8 },
-      { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.8, cellRenderer: activeRenderer },
+      {
+        field: 'isActive',
+        headerName: 'Status',
+        minWidth: 90,
+        flex: 0.8,
+        cellRenderer: statusRenderer,
+      },
       {
         headerName: 'Actions',
         width: 80,
@@ -98,7 +121,17 @@ function TrainingDetailsContent() {
               className="h-8 w-8 p-0"
               onClick={() =>
                 router.push(
-                  `/trainings/training-detail?a=Edit+Training+Detail&traningDetId=${row.traningDetId}&paTraningId=${row.paTraningId}&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}&collegeId=${collegeId}&yearName=${encodeURIComponent(yearName)}`,
+                  `/trainings/training-detail?a=Edit+Training+Detail` +
+                    `&traningDetId=${row.traningDetId}` +
+                    `&traningId=${row.paTraningId}` +
+                    `&paTraningId=${row.paTraningId}` +
+                    `&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}` +
+                    `&collegeId=${collegeId}` +
+                    `&collegeCode=${encodeURIComponent(collegeCode)}` +
+                    `&yearName=${encodeURIComponent(yearName ?? '')}` +
+                    `&trainingTypeCatCode=${encodeURIComponent(selectedTraining?.trainingTypeCatCode ?? '')}` +
+                    `&empName=${encodeURIComponent(selectedTraining?.empName ?? '')}` +
+                    `&empNumber=${encodeURIComponent(selectedTraining?.empNumber ?? '')}`,
                 )
               }
             >
@@ -108,57 +141,51 @@ function TrainingDetailsContent() {
         },
       },
     ],
-    [router, collegeId, yearName, selectedTraining],
+    [router, collegeId, yearName, selectedTraining, collegeCode],
   )
 
   return (
     <FilteredListPage
       title="Training Details"
       filters={(
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-0.5">
-            <Label className="text-xs">College *</Label>
-            <Select
-              value={collegeId}
-              onValueChange={(v) => { setCollegeId(v); setTraningId('') }}
-            >
-              <SelectTrigger><SelectValue placeholder="Select college" /></SelectTrigger>
-              <SelectContent>
-                {colleges.map((c) => (
-                  <SelectItem key={c.collegeId} value={String(c.collegeId)}>
-                    {c.collegeName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Year *</Label>
-            <Input
-              value={yearName}
-              onChange={(e) => setYearName(e.target.value)}
-              placeholder="e.g. 2024-25"
-            />
-          </div>
-
-          <div className="space-y-0.5">
-            <Label className="text-xs">Training *</Label>
-            <Select
-              value={traningId}
-              onValueChange={setTraningId}
-              disabled={!collegeId || filteredTrainings.length === 0}
-            >
-              <SelectTrigger><SelectValue placeholder="Select training" /></SelectTrigger>
-              <SelectContent>
-                {filteredTrainings.map((t) => (
-                  <SelectItem key={t.traningId} value={String(t.traningId)}>
-                    {t.trainingTitle}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Select
+            label="College *"
+            value={collegeId}
+            onChange={(v) => {
+              setCollegeId(v)
+              setYearName(null)
+              setTraningId(null)
+            }}
+            options={colleges.map((c) => ({
+              value: String(c.collegeId),
+              label: c.collegeCode || c.collegeName,
+            }))}
+            placeholder="Select college"
+          />
+          <Select
+            label="Year *"
+            value={yearName}
+            onChange={(v) => {
+              setYearName(v)
+              setTraningId(null)
+            }}
+            options={buildYearOptions()}
+            placeholder="Select year"
+            disabled={!collegeId}
+          />
+          <Select
+            label="Training *"
+            value={traningId}
+            onChange={setTraningId}
+            options={trainings.map((t) => ({
+              value: String(t.traningId),
+              label: t.trainingTitle,
+            }))}
+            placeholder="Select training"
+            disabled={!collegeId || !yearName}
+            isLoading={loadingTrainings}
+          />
         </div>
       )}
       rowData={filtersReady ? details : []}
@@ -167,7 +194,7 @@ function TrainingDetailsContent() {
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search details…',
+        searchPlaceholder: 'Search',
         pdfDocumentTitle: 'Training Details',
       }}
       toolbarTrailing={(
@@ -176,7 +203,15 @@ function TrainingDetailsContent() {
           disabled={!filtersReady}
           onClick={() =>
             router.push(
-              `/trainings/training-detail?a=New+Training+Detail&paTraningId=${traningId}&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}&collegeId=${collegeId}&yearName=${encodeURIComponent(yearName)}`,
+              `/trainings/training-detail?collegeId=${collegeId}` +
+                `&collegeCode=${encodeURIComponent(collegeCode)}` +
+                `&yearName=${encodeURIComponent(yearName ?? '')}` +
+                `&traningId=${traningId}` +
+                `&paTraningId=${traningId}` +
+                `&trainingTitle=${encodeURIComponent(selectedTraining?.trainingTitle ?? '')}` +
+                `&trainingTypeCatCode=${encodeURIComponent(selectedTraining?.trainingTypeCatCode ?? '')}` +
+                `&empName=${encodeURIComponent(selectedTraining?.empName ?? '')}` +
+                `&empNumber=${encodeURIComponent(selectedTraining?.empNumber ?? '')}`,
             )
           }
         >
