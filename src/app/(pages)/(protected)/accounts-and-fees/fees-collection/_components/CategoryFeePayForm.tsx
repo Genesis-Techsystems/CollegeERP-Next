@@ -632,7 +632,11 @@ export function CategoryFeePayForm({
         financialYearId: fyId,
         feeStdDataId: Number(feeStudentData.feeStdDataId),
         revertbByEmployeeId: localStorage.getItem("employeeId") ?? undefined,
-        feeParticularwisePayments: [{ ...working, amount: payAmt }],
+        // Match Fee Payment: particular `paidAmount` must be the amount collected now
+        // (not the prior paid/balance snapshot, which was sending 0).
+        feeParticularwisePayments: [
+          { ...working, amount: payAmt, paidAmount: payAmt },
+        ],
         payerTypeId: payerTypeId ? Number(payerTypeId) : undefined,
         payerName: String(feeStudentData.firstName ?? ""),
         firstName: String(feeStudentData.firstName ?? ""),

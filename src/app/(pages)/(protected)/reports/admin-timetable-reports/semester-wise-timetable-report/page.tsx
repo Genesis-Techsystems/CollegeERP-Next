@@ -3,17 +3,17 @@
 /**
  * Semester Wise Timetable Report —
  * Angular `reports/admin-timetable-reports/semester-wise-timetable-report` parity.
+ * Results render as a readable HTML matrix (Angular-style), not AG Grid.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
@@ -43,12 +43,6 @@ import {
   type PeriodKey,
 } from "../_lib/timetable-matrix";
 import {
-  buildMatrixColumnDefs,
-  periodField,
-  toMatrixGridRows,
-  type MatrixGridRow,
-} from "../_lib/timetable-grid";
-import {
   distinctAcademicYears,
   distinctColleges,
   distinctCourseGroups,
@@ -61,6 +55,11 @@ import {
 } from "../_lib/timetable-report-filters";
 
 const REPORT_TITLE = "Semester Wise Timetable Report";
+
+type SemesterMatrixRow = {
+  label: string;
+  cells: string[];
+};
 
 export default function SemesterWiseTimetableReportPage() {
   const router = useRouter();
@@ -86,7 +85,7 @@ export default function SemesterWiseTimetableReportPage() {
   const [sectionId, setSectionId] = useState("");
 
   const [subjectKeys, setSubjectKeys] = useState<PeriodKey[]>([]);
-  const [gridRows, setGridRows] = useState<MatrixGridRow[]>([]);
+  const [matrixRows, setMatrixRows] = useState<SemesterMatrixRow[]>([]);
   const [dataDetails, setDataDetails] = useState("");
   const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
@@ -96,7 +95,7 @@ export default function SemesterWiseTimetableReportPage() {
 
   const clearResults = useCallback(() => {
     setSubjectKeys([]);
-    setGridRows([]);
+    setMatrixRows([]);
     setShowTable(false);
     setDataDetails("");
     setCollegeName("");
@@ -174,42 +173,47 @@ export default function SemesterWiseTimetableReportPage() {
 
   const collegeOptions = useMemo(
     () =>
-      toSelectOptions(colleges, ["fk_college_id", "collegeId"], [
-        "college_code",
-        "collegeCode",
-      ]),
+      toSelectOptions(
+        colleges,
+        ["fk_college_id", "collegeId"],
+        ["college_code", "collegeCode"],
+      ),
     [colleges],
   );
   const ayOptions = useMemo(
     () =>
-      toSelectOptions(academicYears, ["fk_academic_year_id", "academicYearId"], [
-        "academic_year",
-        "academicYear",
-      ]),
+      toSelectOptions(
+        academicYears,
+        ["fk_academic_year_id", "academicYearId"],
+        ["academic_year", "academicYear"],
+      ),
     [academicYears],
   );
   const courseOptions = useMemo(
     () =>
-      toSelectOptions(courses, ["fk_course_id", "courseId"], [
-        "course_code",
-        "courseCode",
-      ]),
+      toSelectOptions(
+        courses,
+        ["fk_course_id", "courseId"],
+        ["course_code", "courseCode"],
+      ),
     [courses],
   );
   const groupOptions = useMemo(
     () =>
-      toSelectOptions(courseGroups, ["fk_course_group_id", "courseGroupId"], [
-        "group_code",
-        "groupCode",
-      ]),
+      toSelectOptions(
+        courseGroups,
+        ["fk_course_group_id", "courseGroupId"],
+        ["group_code", "groupCode"],
+      ),
     [courseGroups],
   );
   const yearOptions = useMemo(
     () =>
-      toSelectOptions(courseYears, ["fk_course_year_id", "courseYearId"], [
-        "course_year_name",
-        "courseYearName",
-      ]),
+      toSelectOptions(
+        courseYears,
+        ["fk_course_year_id", "courseYearId"],
+        ["course_year_name", "courseYearName"],
+      ),
     [courseYears],
   );
   const sectionOptions = useMemo(
@@ -224,8 +228,14 @@ export default function SemesterWiseTimetableReportPage() {
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -236,11 +246,18 @@ export default function SemesterWiseTimetableReportPage() {
     }
     if (
       !academicYears.some(
-        (r) => num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId),
+        (r) =>
+          num(r.fk_academic_year_id ?? r.academicYearId) ===
+          Number(academicYearId),
       )
     ) {
       setAcademicYearId(
-        String(num(academicYears[0].fk_academic_year_id ?? academicYears[0].academicYearId)),
+        String(
+          num(
+            academicYears[0].fk_academic_year_id ??
+              academicYears[0].academicYearId,
+          ),
+        ),
       );
     }
   }, [academicYears, academicYearId]);
@@ -250,7 +267,11 @@ export default function SemesterWiseTimetableReportPage() {
       setCourseId("");
       return;
     }
-    if (!courses.some((r) => num(r.fk_course_id ?? r.courseId) === Number(courseId))) {
+    if (
+      !courses.some(
+        (r) => num(r.fk_course_id ?? r.courseId) === Number(courseId),
+      )
+    ) {
       setCourseId(String(num(courses[0].fk_course_id ?? courses[0].courseId)));
     }
   }, [courses, courseId]);
@@ -262,11 +283,17 @@ export default function SemesterWiseTimetableReportPage() {
     }
     if (
       !courseGroups.some(
-        (r) => num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId),
+        (r) =>
+          num(r.fk_course_group_id ?? r.courseGroupId) ===
+          Number(courseGroupId),
       )
     ) {
       setCourseGroupId(
-        String(num(courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId)),
+        String(
+          num(
+            courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId,
+          ),
+        ),
       );
     }
   }, [courseGroups, courseGroupId]);
@@ -278,11 +305,14 @@ export default function SemesterWiseTimetableReportPage() {
     }
     if (
       !courseYears.some(
-        (r) => num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
+        (r) =>
+          num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
       )
     ) {
       setCourseYearId(
-        String(num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId)),
+        String(
+          num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId),
+        ),
       );
     }
   }, [courseYears, courseYearId]);
@@ -311,22 +341,14 @@ export default function SemesterWiseTimetableReportPage() {
     }
   }, [sections, sectionId]);
 
-  const columnDefs = useMemo<ColDef<MatrixGridRow>[]>(
-    () => buildMatrixColumnDefs("Days/Hours", subjectKeys),
-    [subjectKeys],
-  );
-
   const tableHtml = useMemo(() => {
-    if (!showTable || gridRows.length === 0) return "";
+    if (!showTable || matrixRows.length === 0) return "";
     return buildMatrixTableHtml({
       firstColHeader: "Days/Hours",
       keys: subjectKeys,
-      rows: gridRows.map((r) => ({
-        label: r.rowLabel,
-        cells: subjectKeys.map((k) => String(r[periodField(k.Period)] ?? "")),
-      })),
+      rows: matrixRows,
     });
-  }, [gridRows, showTable, subjectKeys]);
+  }, [matrixRows, showTable, subjectKeys]);
 
   const handleGetList = async () => {
     const cid = Number(collegeId || 0);
@@ -346,7 +368,9 @@ export default function SemesterWiseTimetableReportPage() {
     const ayRow = academicYears.find(
       (r) => num(r.fk_academic_year_id ?? r.academicYearId) === ay,
     );
-    const course = courses.find((r) => num(r.fk_course_id ?? r.courseId) === coid);
+    const course = courses.find(
+      (r) => num(r.fk_course_id ?? r.courseId) === coid,
+    );
     const group = courseGroups.find(
       (r) => num(r.fk_course_group_id ?? r.courseGroupId) === gid,
     );
@@ -354,7 +378,8 @@ export default function SemesterWiseTimetableReportPage() {
       (r) => num(r.fk_course_year_id ?? r.courseYearId) === yid,
     );
     const section = sections.find(
-      (r) => num(r.fk_group_section_id ?? r.groupSectionId ?? r.sectionId) === sid,
+      (r) =>
+        num(r.fk_group_section_id ?? r.groupSectionId ?? r.sectionId) === sid,
     );
 
     const details = [
@@ -400,14 +425,11 @@ export default function SemesterWiseTimetableReportPage() {
       }
       const matrix = buildWeeklyTimetableMatrix(raw);
       setSubjectKeys(matrix.subjectKeys);
-      setGridRows(
-        toMatrixGridRows(
-          matrix.studentTimetable.map((r) => ({
-            label: r.WeekDay_Name,
-            cells: r.subjectTimetable.map((c) => c.subject),
-          })),
-          matrix.subjectKeys,
-        ),
+      setMatrixRows(
+        matrix.studentTimetable.map((r) => ({
+          label: r.WeekDay_Name,
+          cells: r.subjectTimetable.map((c) => c.subject),
+        })),
       );
       setShowTable(true);
     } catch (err) {
@@ -463,7 +485,7 @@ export default function SemesterWiseTimetableReportPage() {
       : REPORT_TITLE;
 
   return (
-    <FilteredListPage<MatrixGridRow>
+    <FilteredPage
       title={pageTitle}
       filters={
         <div className="space-y-3">
@@ -561,47 +583,89 @@ export default function SemesterWiseTimetableReportPage() {
           </div>
         </div>
       }
-      rowData={showTable ? gridRows : []}
-      columnDefs={columnDefs}
-      loading={loadingList}
-      resultsVisible={showTable}
-      hideEmptyGrid
-      pagination
-      paginationPageSize={25}
-      getRowId={(p) => String(p.data?.__rowId ?? "")}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        exportExcel: false,
-        exportPdf: false,
-        columnPicker: true,
-        lockColumnIds: ["rowLabel"],
-      }}
-      toolbarTrailing={
+      body={
         showTable ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
-              onClick={handleExcelExport}
-            >
-              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Export Excel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
-              onClick={() => void printReport()}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
-            </Button>
-          </>
-        ) : null
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={handleExcelExport}
+              >
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                Export Excel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={() => void printReport()}
+              >
+                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                Print Report
+              </Button>
+            </div>
+
+            <div className="rounded border border-[#d0d7de]">
+              <table className="w-full table-fixed border-collapse text-[12px] leading-snug">
+                <thead>
+                  <tr className="bg-[#d9edf7]">
+                    <th className="w-[9%] border border-[#c5d6e0] bg-[#d9edf7] px-2 py-3 text-center font-semibold text-[#0b4f8a]">
+                      Days/Hours
+                    </th>
+                    {subjectKeys.map((key) => {
+                      const time = String(key.Period_Time ?? "").trim();
+                      return (
+                        <th
+                          key={String(key.Period)}
+                          className="border border-[#c5d6e0] px-2 py-3 text-center align-middle font-semibold text-[#0b4f8a]"
+                        >
+                          <div className="break-words">
+                            {String(key.Period)}
+                          </div>
+                          {time ? (
+                            <div className="mt-1 break-words text-[11px] font-medium text-[#e65100]">
+                              {time}
+                            </div>
+                          ) : null}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrixRows.map((row) => (
+                    <tr key={row.label} className="bg-white">
+                      <th className="border border-[#e0e0e0] bg-white px-2 py-3 text-center font-semibold text-blue-600">
+                        {row.label}
+                      </th>
+                      {row.cells.map((cell, idx) => {
+                        const isEmpty = !cell || cell === "-";
+                        return (
+                          <td
+                            key={`${row.label}-${subjectKeys[idx]?.Period ?? idx}`}
+                            className={`border border-[#e0e0e0] px-2 py-3 text-center align-middle text-[12px] text-foreground ${
+                              isEmpty
+                                ? "bg-[#f5f5f5] text-muted-foreground"
+                                : "bg-white"
+                            }`}
+                            style={{
+                              whiteSpace: "normal",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {cell || "-"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : undefined
       }
     />
   );

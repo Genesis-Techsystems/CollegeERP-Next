@@ -24,6 +24,8 @@ import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
   buildQuery,
   domainList,
+  fetchStudentDetail,
+  fetchStudentDetailByUserId,
   postDetails,
   uploadFile,
 } from "@/services";
@@ -43,6 +45,16 @@ function positiveId(...candidates: unknown[]): number {
 function readStorage(key: string): string {
   if (typeof globalThis.window === "undefined") return "";
   return globalThis.localStorage.getItem(key) ?? "";
+}
+
+function writeStorage(key: string, value: number | string): void {
+  if (typeof globalThis.window === "undefined") return;
+  if (value === "" || value == null) return;
+  if (typeof value === "number" && !(value > 0)) return;
+  const next = String(value);
+  if (globalThis.localStorage.getItem(key) !== next) {
+    globalThis.localStorage.setItem(key, next);
+  }
 }
 
 function txt(row: AnyRow | null | undefined, keys: string[]): string {
@@ -210,8 +222,7 @@ const COL_DEFS = {
   title: {
     headerName: "Title",
     minWidth: 160,
-    valueGetter: (p) =>
-      txt(assignmentDetails(p.data), ["title"]) || "—",
+    valueGetter: (p) => txt(assignmentDetails(p.data), ["title"]) || "—",
   } as ColDef<AnyRow>,
   submissionDueDate: {
     headerName: "Submission Date",
@@ -268,9 +279,24 @@ export function StudentAssignmentsPage() {
     setLoading(true);
     try {
       // Angular: localStorage.studentId → listDetailsByTwoIdsWithSort(StudentAssignment, …)
-      const storageStudentId = positiveId(readStorage("studentId"));
-      const sessionStudentId = positiveId(user?.studentId);
-      const studentId = sessionStudentId || storageStudentId;
+      let studentId =
+        positiveId(user?.studentId) || positiveId(readStorage("studentId"));
+
+      if (!studentId && user?.userId) {
+        const byUser = (await fetchStudentDetailByUserId(
+          user.userId,
+        )) as AnyRow | null;
+        studentId = positiveId(
+          byUser?.studentId,
+          byUser?.fk_student_id,
+          byUser?.student_id,
+        );
+      }
+      if (studentId) {
+        writeStorage("studentId", studentId);
+        // Keep detail warm for submit payload fields when localStorage is thin.
+        void fetchStudentDetail(studentId).catch(() => null);
+      }
 
       if (!studentId) {
         setRows([]);
@@ -278,21 +304,42 @@ export function StudentAssignmentsPage() {
         return;
       }
 
-      const query = buildQuery(
-        {
-          "studentDetail.studentId": studentId,
-          isActive: true,
-        },
-        { field: "studentAssignmentId", direction: "DESC" },
-      );
-      const list = await domainList<AnyRow>(
-        ASSIGNMENT_API.STUDENT_ASSIGNMENT,
-        query,
-      );
+      // Angular: studentDetail.studentId==X.and.isActive==true.order(studentAssignmentId=desc)
+      const queryVariants = [
+        buildQuery(
+          {
+            "studentDetail.studentId": studentId,
+            isActive: true,
+          },
+          { field: "studentAssignmentId", direction: "DESC" },
+        ),
+        buildQuery(
+          {
+            "StudentDetail.studentId": studentId,
+            isActive: true,
+          },
+          { field: "studentAssignmentId", direction: "DESC" },
+        ),
+      ];
+
+      let list: AnyRow[] = [];
+      for (const query of queryVariants) {
+        try {
+          const rows = await domainList<AnyRow>(
+            ASSIGNMENT_API.STUDENT_ASSIGNMENT,
+            query,
+          );
+          if (Array.isArray(rows) && rows.length > 0) {
+            list = rows;
+            break;
+          }
+        } catch {
+          // try next Angular-compatible query shape
+        }
+      }
+
       const now = new Date();
-      const enriched = (Array.isArray(list) ? list : []).map((r) =>
-        enrichAssignment(r, now),
-      );
+      const enriched = list.map((r) => enrichAssignment(r, now));
       setRows(enriched);
       if (enriched.length === 0) {
         toastInfo("No assignments found.");
@@ -353,10 +400,7 @@ export function StudentAssignmentsPage() {
       setSubmitting(true);
       try {
         const details = assignmentDetails(submitRow);
-        const collegeId = positiveId(
-          submitRow.collegeId,
-          details.collegeId,
-        );
+        const collegeId = positiveId(submitRow.collegeId, details.collegeId);
 
         // Angular getWorkflowStages → filter Draft/Submited; submit forces Submited stage
         let workflowStageId = positiveId(submitRow.workflowStageId);
@@ -411,7 +455,8 @@ export function StudentAssignmentsPage() {
           ASSIGNMENT_API.STUDENT_ASSIGNMENT_POST,
           payload,
         );
-        const studentAssignmentId = extractCreatedId(created) || String(existingId);
+        const studentAssignmentId =
+          extractCreatedId(created) || String(existingId);
 
         if (studentAssignmentId) {
           const formData = new FormData();

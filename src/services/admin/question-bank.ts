@@ -33,16 +33,30 @@ import { AppError } from "@/lib/errors";
 
 // ─── Question Bank CRUD ───────────────────────────────────────────────────────
 
+/**
+ * Newest first for the Question Bank grid.
+ * Prefer `createdDt` DESC; break ties / missing dates with `assessmentId` DESC
+ * so a just-created bank stays on the top row.
+ */
+function compareNewestFirst(a: Assessment, b: Assessment): number {
+  const ta = a.createdDt ? Date.parse(a.createdDt) : Number.NaN;
+  const tb = b.createdDt ? Date.parse(b.createdDt) : Number.NaN;
+  const aOk = Number.isFinite(ta);
+  const bOk = Number.isFinite(tb);
+  if (aOk && bOk && tb !== ta) return tb - ta;
+  return (b.assessmentId ?? 0) - (a.assessmentId ?? 0);
+}
+
 /** Angular: keep only truthy `isForQuestionbank` (drops false / null / undefined). */
 function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
-  return rows.filter((r) => r.isForQuestionbank);
+  return rows.filter((r) => r.isForQuestionbank).sort(compareNewestFirst);
 }
 
 /**
  * List question banks — Angular `question-bank-list` / listAllDetails parity:
  *   GET /domain/list/Assessment?query=order(createdDt=desc)&size=99999
  * (no preparedbyUser / isActive filter — Active + InActive both returned).
- * Client filter: `isForQuestionbank`.
+ * Client filter: `isForQuestionbank`; client sort reinforces newest-first.
  */
 export async function listQuestionBanks(
   _userId?: number,

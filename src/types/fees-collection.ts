@@ -350,3 +350,42 @@ export type TransportAllocationRow = {
   dropTime?: string;
   [key: string]: unknown;
 };
+
+/** Row from Angular `TransportFeePayment` domain list on faculty-fee-pay. */
+export type TransportFeePaymentRow = {
+  transportFeePaymentId?: number;
+  grossAmount?: number;
+  discountAmount?: number;
+  fineAmount?: number;
+  paidAmount?: number;
+  balanceAmount?: number;
+  /** Client-only pay amount entered on the row (Angular `particular.amount`). */
+  amount?: number;
+  [key: string]: unknown;
+};
+
+/** Angular `transportpayment` POST body for faculty bus fee pay. */
+export type TransportPaymentPayload = {
+  paymentFor?: string;
+  fineReason?: string;
+  receiptDt?: string | Date;
+  amount?: number;
+  paymentTypeId?: number;
+  paymentModeId?: number;
+  transactionNo?: string;
+  otherPaymentNumber?: string;
+  referenceNumber?: string;
+  ddno?: string;
+  chequeNo?: string;
+  collegeId?: number;
+  academicYearId?: number;
+  employeeId?: number;
+  receiptAmount?: number;
+  allocationId?: number;
+  revertbByEmployeeId?: string | number | null;
+  payerTypeId?: number;
+  payerName?: string;
+  firstName?: string;
+  collegeCode?: string;
+  [key: string]: unknown;
+};
