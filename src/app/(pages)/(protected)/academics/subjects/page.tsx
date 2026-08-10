@@ -5,8 +5,12 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Eye, Pencil, Plus } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { StatusBadge } from "@/common/components/data-display";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { MINIO_URL } from "@/config/constants/api";
 import {
   listActiveCoursesByUniversity,
@@ -173,12 +177,30 @@ export default function SubjectsMasterPage() {
   const [open, setOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<AnyRow | null>(null);
 
+  const selectedUniversity = useMemo(
+    () =>
+      universities.find(
+        (u) =>
+          pickNum(u, ["universityId", "pk_university_id"]) === universityId,
+      ) ?? null,
+    [universities, universityId],
+  );
+
   const selectedCourse = useMemo(
     () =>
       courses.find(
         (c) => pickNum(c, ["courseId", "pk_course_id"]) === courseId,
       ) ?? null,
     [courses, courseId],
+  );
+
+  const selectedUniversityLabel = safeString(
+    selectedUniversity?.universityCode ||
+      selectedUniversity?.universityName ||
+      "",
+  );
+  const selectedCourseLabel = safeString(
+    selectedCourse?.courseCode || selectedCourse?.courseName || "",
   );
 
   const universityOptions = useMemo(
@@ -274,28 +296,57 @@ export default function SubjectsMasterPage() {
   return (
     <FilteredListPage
       title="Subject Master"
+      showTable={Boolean(courseId)}
+      tableHeader={
+        courseId ? (
+          <TableContextHeader
+            title="Subjects List"
+            info={
+              <>
+                {selectedUniversityLabel ? (
+                  <span>{selectedUniversityLabel}</span>
+                ) : null}
+                {selectedUniversityLabel && selectedCourseLabel ? (
+                  <span aria-hidden>·</span>
+                ) : null}
+                {selectedCourseLabel ? (
+                  <span>{selectedCourseLabel}</span>
+                ) : null}
+              </>
+            }
+          />
+        ) : null
+      }
       filters={
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Select
-            label="University"
-            required
-            value={universityId ? String(universityId) : null}
-            onChange={(v) => setUniversityId(v ? Number(v) : null)}
-            options={universityOptions}
-            placeholder="University"
-            searchable
-          />
-          <Select
-            label="Course"
-            required
-            value={courseId ? String(courseId) : null}
-            onChange={(v) => setCourseId(v ? Number(v) : null)}
-            options={courseOptions}
-            placeholder="Course"
-            searchable
-            disabled={!universityId}
-          />
-        </div>
+        <GlobalFilterBarRow className="global-filter-bar__row--fields">
+          <GlobalFilterField
+            label="University *"
+            className="global-filter-field--shrink"
+          >
+            <Select
+              value={universityId ? String(universityId) : null}
+              onChange={(v) => setUniversityId(v ? Number(v) : null)}
+              options={universityOptions}
+              placeholder="University"
+              searchable
+              className="min-w-[12rem]"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField
+            label="Course *"
+            className="global-filter-field--shrink"
+          >
+            <Select
+              value={courseId ? String(courseId) : null}
+              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              options={courseOptions}
+              placeholder="Course"
+              searchable
+              disabled={!universityId}
+              className="min-w-[12rem]"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
       }
       rowData={courseId ? rows : []}
       columnDefs={columnDefs}

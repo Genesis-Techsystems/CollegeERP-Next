@@ -6,7 +6,6 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, type SelectOption } from "@/common/components/select";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { listExamLabBatches } from "@/services/exam-lab-batches";
@@ -924,11 +923,11 @@ export default function EvaluatorSubjectRolesPage() {
           </GlobalFilterBarRow>
 
           {displayFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border-t border-slate-100 pt-3">
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course Year
-                </Label>
+            <GlobalFilterBarRow className="global-filter-bar__row--aesr-r1">
+              <GlobalFilterField
+                label="Course Year"
+                className="global-filter-field--fx20"
+              >
                 <Select
                   value={courseYearId ? String(courseYearId) : null}
                   onChange={(v) => setCourseYearId(v ? Number(v) : null)}
@@ -941,11 +940,11 @@ export default function EvaluatorSubjectRolesPage() {
                   )}
                   placeholder="Course Year"
                 />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">
-                  College
-                </Label>
+              </GlobalFilterField>
+              <GlobalFilterField
+                label="College"
+                className="global-filter-field--fx20"
+              >
                 <Select
                   value={collegeId ? String(collegeId) : null}
                   onChange={(v) => {
@@ -962,11 +961,11 @@ export default function EvaluatorSubjectRolesPage() {
                   )}
                   placeholder="College"
                 />
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-[12px] text-muted-foreground">
-                  Course Group
-                </Label>
+              </GlobalFilterField>
+              <GlobalFilterField
+                label="Course Group"
+                className="global-filter-field--fx20"
+              >
                 <Select
                   value={courseGroupId ? String(courseGroupId) : null}
                   onChange={(v) => {
@@ -982,11 +981,11 @@ export default function EvaluatorSubjectRolesPage() {
                   )}
                   placeholder="Course Group"
                 />
-              </div>
-              <div className="md:col-span-3">
-                <Label className="text-[12px] text-muted-foreground">
-                  Exam Lab Batch
-                </Label>
+              </GlobalFilterField>
+              <GlobalFilterField
+                label="Exam Lab Batch"
+                className="global-filter-field--fx20"
+              >
                 <Select
                   value={examLabBatchesId ? String(examLabBatchesId) : null}
                   onChange={(v) => setExamLabBatchesId(v ? Number(v) : null)}
@@ -1011,77 +1010,73 @@ export default function EvaluatorSubjectRolesPage() {
                   )}
                   placeholder="Exam Lab Batch"
                 />
-              </div>
+              </GlobalFilterField>
               {!isReEvaluation && (
-                <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">
-                    Max evaluations
-                  </Label>
+                <GlobalFilterField
+                  label="Max No Of Evaluations"
+                  className="global-filter-field--fx20"
+                >
                   <Input
                     type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max evaluations"
+                    placeholder="Max No Of Evaluations"
                     value={maxNoOfEvaluationsAssign}
                     onChange={(e) =>
                       setMaxNoOfEvaluationsAssign(e.target.value)
                     }
                   />
-                </div>
+                </GlobalFilterField>
               )}
               {isReEvaluation && (
-                <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">
-                    Max re-evaluations
-                  </Label>
+                <GlobalFilterField
+                  label="Max No Of Re-Evaluations"
+                  className="global-filter-field--fx20"
+                >
                   <Input
                     type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max re-evaluations"
+                    placeholder="Max No Of Re-Evaluations"
                     value={maxNoOfReevaluationsAssign}
                     onChange={(e) =>
                       setMaxNoOfReevaluationsAssign(e.target.value)
                     }
                   />
-                </div>
+                </GlobalFilterField>
               )}
-            </div>
+            </GlobalFilterBarRow>
           )}
 
           {!displayFilters && (
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <GlobalFilterBarRow className="global-filter-bar__row--aesr-r1">
               {!isReEvaluation && (
-                <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">
-                    Max evaluations
-                  </Label>
+                <GlobalFilterField
+                  label="Max No Of Evaluations"
+                  className="global-filter-field--fx20"
+                >
                   <Input
                     type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max evaluations"
+                    placeholder="Max No Of Evaluations"
                     value={maxNoOfEvaluationsAssign}
                     onChange={(e) =>
                       setMaxNoOfEvaluationsAssign(e.target.value)
                     }
                   />
-                </div>
+                </GlobalFilterField>
               )}
               {isReEvaluation && (
-                <div className="md:col-span-2">
-                  <Label className="text-[12px] text-muted-foreground">
-                    Max re-evaluations
-                  </Label>
+                <GlobalFilterField
+                  label="Max No Of Re-Evaluations"
+                  className="global-filter-field--fx20"
+                >
                   <Input
                     type="number"
-                    className="h-8 text-[12px]"
-                    placeholder="Max re-evaluations"
+                    placeholder="Max No Of Re-Evaluations"
                     value={maxNoOfReevaluationsAssign}
                     onChange={(e) =>
                       setMaxNoOfReevaluationsAssign(e.target.value)
                     }
                   />
-                </div>
+                </GlobalFilterField>
               )}
-            </div>
+            </GlobalFilterBarRow>
           )}
 
           <div className="flex justify-end gap-2 px-5 pb-3">
@@ -1115,74 +1110,109 @@ export default function EvaluatorSubjectRolesPage() {
             {dialogTitle}
           </div>
           <div className="overflow-x-auto p-2">
-            <table className="w-full text-[12px] border-collapse">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="p-2 font-medium">Exam</th>
-                  <th className="p-2 font-medium">Role</th>
-                  <th className="p-2 font-medium">Regulation</th>
-                  <th className="p-2 font-medium">Subjects</th>
-                  {showWideTable && (
-                    <>
-                      <th className="p-2 font-medium">College</th>
-                      <th className="p-2 font-medium">Course Group</th>
-                      <th className="p-2 font-medium">Course Year</th>
-                      <th className="p-2 font-medium">Lab Batch</th>
-                    </>
-                  )}
-                  <th className="p-2 font-medium">Re-eval</th>
-                  <th className="p-2 font-medium">Max eval</th>
-                  <th className="p-2 font-medium">Max re-eval</th>
-                  <th className="p-2 font-medium w-16">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map((row, index) => (
-                  <tr
-                    key={`row-${index}-${row.subjectId}`}
-                    className="border-b border-slate-100"
-                  >
-                    <td className="p-2">{tableCell(row.examName)}</td>
-                    <td className="p-2">
-                      {tableCell(
-                        row.roleName ?? roleLabel(Number(row.evaluatorRoleId)),
-                      )}
-                    </td>
-                    <td className="p-2">{tableCell(row.regulationCode)}</td>
-                    <td className="p-2">{tableCell(row.subjectCode)}</td>
+            <div className="mat-table-shell">
+              <table className="mat-table min-w-full">
+                <thead>
+                  <tr className="mat-header-row">
+                    <th className="mat-header-cell px-2 py-1.5 text-left">Exam</th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">Role</th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Regulation
+                    </th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Subjects
+                    </th>
                     {showWideTable && (
                       <>
-                        <td className="p-2">{tableCell(row.collegeCode)}</td>
-                        <td className="p-2">
-                          {tableCell(row.courseGroupCode)}
-                        </td>
-                        <td className="p-2">{tableCell(row.courseYearCode)}</td>
-                        <td className="p-2">
-                          {tableCell(row.examLabBatchName)}
-                        </td>
+                        <th className="mat-header-cell px-2 py-1.5 text-left">
+                          College
+                        </th>
+                        <th className="mat-header-cell px-2 py-1.5 text-left">
+                          Course Group
+                        </th>
+                        <th className="mat-header-cell px-2 py-1.5 text-left">
+                          Course Year
+                        </th>
+                        <th className="mat-header-cell px-2 py-1.5 text-left">
+                          Lab Batch
+                        </th>
                       </>
                     )}
-                    <td className="p-2">{tableCell(row.isReEvaluation)}</td>
-                    <td className="p-2">
-                      {tableCell(row.maxNoOfEvaluationsAssign)}
-                    </td>
-                    <td className="p-2">
-                      {tableCell(row.maxNoOfReevaluationsAssign)}
-                    </td>
-                    <td className="p-2">
-                      <button
-                        type="button"
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Remove row"
-                        onClick={() => deleteRow(row, index)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Re-eval
+                    </th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Max eval
+                    </th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Max re-eval
+                    </th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left w-16">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {tableRows.map((row, index) => (
+                    <tr
+                      key={`row-${index}-${row.subjectId}`}
+                      className="mat-row"
+                    >
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(row.examName)}
+                      </td>
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(
+                          row.roleName ??
+                            roleLabel(Number(row.evaluatorRoleId)),
+                        )}
+                      </td>
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(row.regulationCode)}
+                      </td>
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(row.subjectCode)}
+                      </td>
+                      {showWideTable && (
+                        <>
+                          <td className="mat-cell px-2 py-1.5">
+                            {tableCell(row.collegeCode)}
+                          </td>
+                          <td className="mat-cell px-2 py-1.5">
+                            {tableCell(row.courseGroupCode)}
+                          </td>
+                          <td className="mat-cell px-2 py-1.5">
+                            {tableCell(row.courseYearCode)}
+                          </td>
+                          <td className="mat-cell px-2 py-1.5">
+                            {tableCell(row.examLabBatchName)}
+                          </td>
+                        </>
+                      )}
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(row.isReEvaluation)}
+                      </td>
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(row.maxNoOfEvaluationsAssign)}
+                      </td>
+                      <td className="mat-cell px-2 py-1.5">
+                        {tableCell(row.maxNoOfReevaluationsAssign)}
+                      </td>
+                      <td className="mat-cell px-2 py-1.5">
+                        <button
+                          type="button"
+                          className="app-table-action-delete inline-flex h-7 w-7 items-center justify-center text-red-600 hover:bg-red-50"
+                          aria-label="Remove row"
+                          onClick={() => deleteRow(row, index)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
           <div className="p-3 flex justify-end border-t border-slate-100">
             <Button

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { PageContainer } from "./PageContainer";
-import { FilteredPage } from "./FilteredPage";
+import { AngularFilterCard } from "./AngularFilterCard";
 import { DataTable, type DataTableProps } from "@/common/components/table";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { cn } from "@/lib/utils";
@@ -12,22 +12,37 @@ export interface FilteredListPageProps<T> extends Omit<
   DataTableProps<T>,
   "subtitle" | "bordered" | "rowData" | "columnDefs"
 > {
-  /** Title shown above filters — defaults to the sidebar menu label when omitted. */
+  /** Title shown on the filter card — defaults to the sidebar menu label when omitted. */
   title?: string;
-  /** Filter fields / actions rendered inside the same card as the table. */
+  /** Filter fields / actions (rendered in a separate card above the table). */
   filters: ReactNode;
-  /** Optional content rendered below filters and above the search toolbar. */
+  /**
+   * Angular pattern: filter card and table card are separate.
+   * Default `true`. Pass `false` only to force the old single-card layout.
+   */
+  filtersSeparated?: boolean;
+  /**
+   * Optional bar above the table toolbar (book icon + title + selected filter info).
+   * When omitted, a default header with the page title is shown.
+   * Pass `null` to hide it.
+   */
+  tableHeader?: ReactNode | null;
+  /**
+   * Hide the table card until true (Angular `*ngIf` on course/filters).
+   * Default true.
+   */
+  showTable?: boolean;
+  /** Optional content rendered below filters inside the filter card. */
   filtersFooter?: ReactNode;
-  /** Optional notice / alert above the card. */
+  /** Optional notice / alert above the cards. */
   notice?: ReactNode;
   /**
-   * Custom content below filters in the same card (dual lists, editors).
-   * When set without column defs, the AG Grid is omitted.
+   * Custom content in a separate card below filters (when there is no AG Grid).
    */
   body?: ReactNode;
-  /** Optional className for the body wrapper (e.g. `border-t-0` to hide the separator). */
+  /** Optional className for the body card wrapper. */
   bodyClassName?: string;
-  /** Modals and other page-level content rendered after the table / body card. */
+  /** Modals and other page-level content rendered after the cards. */
   children?: ReactNode;
   className?: string;
   rowData?: T[];
@@ -35,14 +50,14 @@ export interface FilteredListPageProps<T> extends Omit<
 }
 
 /**
- * Header + filters + table in **one** card (Grade Setup / Room Details pattern).
- * Filters sit between the title and the search toolbar inside DataTable.
- * Column header filters are on by default (`columnFilters` from DataTable).
- * Pass `body` (without column defs) for custom non-grid content in the same shell.
+ * Angular-style layout: filter card + separate table/body card (app-wide default).
  */
 export function FilteredListPage<T>({
   title,
   filters,
+  filtersSeparated = true,
+  tableHeader,
+  showTable = true,
   filtersFooter,
   notice,
   body,
@@ -59,21 +74,80 @@ export function FilteredListPage<T>({
   const displayTitle = title ?? navLabel ?? "Page";
   const hasTable = Array.isArray(columnDefs) && columnDefs.length > 0;
 
-  // Custom-body pages (dual lists, etc.): same chrome, no empty AG Grid.
+  const filterCard = (
+    <AngularFilterCard
+      title={displayTitle}
+      collapsible={filtersCollapsible}
+      defaultOpen={filtersDefaultOpen}
+    >
+      {filters}
+      {filtersFooter}
+    </AngularFilterCard>
+  );
+
+  // Separated layout (default) — Angular Subject Master pattern
+  if (filtersSeparated) {
+    const resolvedTableHeader =
+      tableHeader === null
+        ? null
+        : (tableHeader ?? (
+            // Default context bar: book + page title (pages can override via tableHeader)
+            <DefaultTableHeader title={displayTitle} />
+          ));
+
+    return (
+      <PageContainer className={cn("space-y-4", className)}>
+        {notice}
+        {filterCard}
+
+        {showTable && hasTable ? (
+          <DataTable
+            title=""
+            subtitle=""
+            bordered
+            filters={undefined}
+            filtersFooter={resolvedTableHeader}
+            rowData={rowData ?? []}
+            columnDefs={columnDefs ?? []}
+            {...tableProps}
+          />
+        ) : null}
+
+        {!hasTable && body !== undefined ? (
+          <div
+            className={cn(
+              "app-card app-data-table-card overflow-hidden p-4",
+              bodyClassName,
+            )}
+          >
+            {resolvedTableHeader}
+            {body}
+          </div>
+        ) : (
+          body
+        )}
+
+        {children}
+      </PageContainer>
+    );
+  }
+
+  // Legacy single-card layout (opt-in via filtersSeparated={false})
   if (!hasTable && body !== undefined) {
     return (
-      <FilteredPage
-        title={displayTitle}
-        filters={filters}
-        notice={notice}
-        body={body}
-        bodyClassName={bodyClassName}
-        filtersCollapsible={filtersCollapsible}
-        filtersDefaultOpen={filtersDefaultOpen}
-        className={className}
-      >
+      <PageContainer className={cn("space-y-4", className)}>
+        {notice}
+        {filterCard}
+        <div
+          className={cn(
+            "app-card app-data-table-card overflow-hidden p-4",
+            bodyClassName,
+          )}
+        >
+          {body}
+        </div>
         {children}
-      </FilteredPage>
+      </PageContainer>
     );
   }
 
@@ -95,5 +169,17 @@ export function FilteredListPage<T>({
       {body}
       {children}
     </PageContainer>
+  );
+}
+
+function DefaultTableHeader({ title }: { title: string }) {
+  // Lazy import avoided — keep markup inline to match TableContextHeader styles
+  return (
+    <div className="table-context-header">
+      <span className="material-icons table-context-header__icon" aria-hidden>
+        book
+      </span>
+      <strong className="table-context-header__title">{title}</strong>
+    </div>
   );
 }

@@ -1,27 +1,31 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ChevronDown, Filter } from "lucide-react";
-import { CardHeadingTitle } from "@/common/components/data-display";
+import type { ReactNode } from "react";
 import { PageContainer } from "./PageContainer";
+import { AngularFilterCard } from "./AngularFilterCard";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { cn } from "@/lib/utils";
 
 export interface FilteredPageProps {
   /** Single page title — defaults to the sidebar menu label when omitted. */
   title?: string;
-  /** Filter fields rendered inside the card under the title. */
+  /** Filter fields rendered in a separate card under the title. */
   filters: ReactNode;
-  /** Optional notice / alert above the card. */
+  /** Optional notice / alert above the cards. */
   notice?: ReactNode;
   /**
-   * Optional content rendered inside the same card below the filters
+   * Content in a separate card below the filters
    * (custom grids, dual lists, editors — when there is no AG Grid DataTable).
    */
   body?: ReactNode;
-  /** Optional className for the body wrapper (default includes top border). */
+  /** Optional className for the body card wrapper. */
   bodyClassName?: string;
-  /** Secondary panels, modals, or extra cards rendered after the filter card. */
+  /**
+   * Optional bar at the top of the body card (book icon + title + filter info).
+   * Pass `null` to hide. Default: page title.
+   */
+  tableHeader?: ReactNode | null;
+  /** Secondary panels, modals, or extra cards rendered after the cards. */
   children?: ReactNode;
   filtersCollapsible?: boolean;
   filtersDefaultOpen?: boolean;
@@ -29,8 +33,7 @@ export interface FilteredPageProps {
 }
 
 /**
- * Title + filters in one card (same chrome as FilteredListPage / DataTable),
- * for pages that use custom content instead of AG Grid.
+ * Angular-style layout: filter card + separate body card (no AG Grid).
  */
 export function FilteredPage({
   title,
@@ -38,101 +41,65 @@ export function FilteredPage({
   notice,
   body,
   bodyClassName,
+  tableHeader,
   children,
   filtersCollapsible = true,
   filtersDefaultOpen = true,
   className,
 }: FilteredPageProps) {
   const navLabel = usePageNavLabel();
-  // Explicit page title wins over sidebar nav label (same as ListPage / FilteredListPage).
-  // Pass title="" to hide the heading (e.g. when body already has its own section title).
   const displayTitle = title === "" ? "" : (title ?? navLabel ?? "Page");
-  const showHeading = displayTitle.length > 0;
-  const [filtersOpen, setFiltersOpen] = useState(filtersDefaultOpen);
+
+  const resolvedTableHeader =
+    tableHeader === null
+      ? null
+      : (tableHeader ??
+        (displayTitle ? (
+          <div className="table-context-header">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              book
+            </span>
+            <strong className="table-context-header__title">
+              {displayTitle}
+            </strong>
+          </div>
+        ) : null));
 
   return (
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
-      <div className="app-data-table app-data-table-card flex flex-col">
-        {showHeading ? (
-          <div
-            className={cn("app-data-table-heading", filtersOpen ? "pb-0" : "")}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                {filtersCollapsible ? (
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between gap-2 text-left"
-                    onClick={() => setFiltersOpen(!filtersOpen)}
-                    aria-expanded={filtersOpen}
-                    aria-label="Toggle filters"
-                  >
-                    <CardHeadingTitle>{displayTitle}</CardHeadingTitle>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
-                      <Filter className="h-3.5 w-3.5" aria-hidden />
-                      <ChevronDown
-                        className={cn(
-                          "h-3.5 w-3.5 transition-transform duration-300",
-                          filtersOpen && "rotate-180",
-                        )}
-                        aria-hidden
-                      />
-                    </span>
-                  </button>
-                ) : (
-                  <CardHeadingTitle>{displayTitle}</CardHeadingTitle>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : filtersCollapsible ? (
-          <div className="flex justify-end px-5 pt-3">
-            <button
-              type="button"
-              className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground"
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              aria-expanded={filtersOpen}
-              aria-label="Toggle filters"
-            >
-              <Filter className="h-3.5 w-3.5" aria-hidden />
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 transition-transform duration-300",
-                  filtersOpen && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </button>
-          </div>
-        ) : null}
+      {displayTitle ? (
+        <AngularFilterCard
+          title={displayTitle}
+          collapsible={filtersCollapsible}
+          defaultOpen={filtersDefaultOpen}
+        >
+          {filters}
+        </AngularFilterCard>
+      ) : (
+        <div className="app-card angular-filter-card overflow-hidden p-4">
+          {filters}
+        </div>
+      )}
 
+      {body ? (
         <div
           className={cn(
-            "grid transition-[grid-template-rows] duration-300 ease-in-out",
-            filtersOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            "app-card app-data-table-card overflow-hidden",
+            bodyClassName,
           )}
         >
-          <div
-            className={cn(
-              "min-h-0",
-              filtersOpen ? "overflow-visible" : "overflow-hidden",
-            )}
-          >
-            <div className="global-filter-bar__inner px-5 pb-3 [&_.global-filter-bar__inner]:!pt-0">
-              {filters}
-            </div>
-          </div>
-        </div>
-
-        {body ? (
-          <div
-            className={cn("border-t border-border px-5 py-4", bodyClassName)}
-          >
+          {resolvedTableHeader ? (
+            <div className="px-5 pt-2">{resolvedTableHeader}</div>
+          ) : null}
+          <div className={cn(resolvedTableHeader ? "px-5 pb-4" : "p-4")}>
             {body}
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {children}
     </PageContainer>
   );

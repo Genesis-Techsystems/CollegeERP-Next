@@ -149,10 +149,8 @@ export function Sidebar() {
         return false;
       return true;
     });
-    let items = [
-      buildHomeNavItem(homeHref),
-      ...withoutDashboard.slice().sort((a, b) => a.sortOrder - b.sortOrder),
-    ];
+    // Order comes from buildNavTree (Angular parity) — do not re-sort top-level items.
+    let items = [buildHomeNavItem(homeHref), ...withoutDashboard];
     if (searchTerm.trim()) items = filterBySearch(items, searchTerm);
     if (IS_DEBUG_MODE && debugSettings.nav.hiddenIds.length > 0) {
       items = filterByDebug(items, new Set(debugSettings.nav.hiddenIds));
@@ -189,9 +187,10 @@ export function Sidebar() {
     }
   }, [isExpanded]);
 
-  // On first load only: scroll the nav container so the active item is visible.
-  // Do NOT repeat on every route change; users expect the sidebar scroll position
-  // to stay fixed while navigating.
+  // On first load only: scroll the nav so the active item is visible — but only
+  // when it is outside the viewport. Always scrolling the active item to the top
+  // (e.g. Home on dashboard) pushes the "Main Menu" label up and clips it.
+  // Do NOT repeat on every route change; users expect scroll position to stay put.
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
@@ -205,9 +204,18 @@ export function Sidebar() {
         ) ?? nav.querySelector<HTMLElement>('a[aria-current="page"]');
       if (!target) return;
 
-      const navTop = nav.getBoundingClientRect().top;
-      const targetTop = target.getBoundingClientRect().top;
-      const newScrollTop = nav.scrollTop + (targetTop - navTop) - 8; // 8px breathing room
+      const navRect = nav.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const fullyVisible =
+        targetRect.top >= navRect.top + 4 &&
+        targetRect.bottom <= navRect.bottom - 4;
+      if (fullyVisible) return;
+
+      // Keep "Main Menu" (and other section labels) in view when scrolling up.
+      const label = nav.querySelector<HTMLElement>(".sidebar-section-label");
+      const labelOffset = label ? label.offsetHeight + 4 : 8;
+      const newScrollTop =
+        nav.scrollTop + (targetRect.top - navRect.top) - labelOffset;
       nav.scrollTo({ top: Math.max(0, newScrollTop), behavior: "instant" });
     };
 

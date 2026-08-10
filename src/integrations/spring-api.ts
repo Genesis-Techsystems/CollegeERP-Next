@@ -30,10 +30,12 @@ export async function springLogin(
 
   let res: Response
   try {
+    // Spring can be slow on cold start; abort so the BFF never hangs forever.
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
     })
   } catch {
     throw new Error('Login service unavailable')
