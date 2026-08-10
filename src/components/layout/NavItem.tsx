@@ -2740,16 +2740,32 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/reports/admin-student-reports/daily-smscommunication-detail-report";
       }
       if (
+        hrefLower.includes("drilldown-summary-report") ||
+        hrefLower.includes("fee-reports/drilldown") ||
+        hrefLower.includes("admin-fee-reports/drilldown") ||
+        (labelLower.includes("student fee") &&
+          (labelLower.includes("drilldown") ||
+            labelLower === "student fee report")) ||
+        (labelLower.includes("fee") &&
+          labelLower.includes("drilldown") &&
+          labelLower.includes("report"))
+      ) {
+        return "/accounts-and-fees/fee-reports/drilldown-summary-report";
+      }
+      if (
         hrefLower.includes("studentcount-drilldown-report") ||
         hrefLower.includes("student-drilldown-report") ||
         (labelLower.includes("student") &&
           labelLower.includes("drilldown") &&
-          labelLower.includes("report")) ||
+          labelLower.includes("report") &&
+          !labelLower.includes("fee")) ||
         (labelLower.includes("student count report") &&
           !labelLower.includes("caste") &&
-          !labelLower.includes("gender")) ||
+          !labelLower.includes("gender") &&
+          !labelLower.includes("fee")) ||
         (labelLower.includes("student drilldown") &&
-          labelLower.includes("report"))
+          labelLower.includes("report") &&
+          !labelLower.includes("fee"))
       ) {
         return "/reports/admin-student-reports/studentcount-drilldown-report";
       }
@@ -2807,11 +2823,15 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/reports/admin-student-reports/students-list-report";
       }
       // Angular Semister wise Students Report
+      // Do not match "Semester Wise Timetable Report" (timetable reports).
       if (
         hrefLower.includes("sem-list-report") ||
         hrefLower.includes("sem_list") ||
         labelLower.includes("semister") ||
-        (labelLower.includes("semester") && labelLower.includes("wise"))
+        (labelLower.includes("semester") &&
+          labelLower.includes("wise") &&
+          !labelLower.includes("timetable") &&
+          !hrefLower.includes("timetable"))
       ) {
         return "/reports/admin-student-reports/sem-list-report";
       }
@@ -3062,7 +3082,77 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return "/reports/admin-attendance-reports/parent-teacher-meeting-report";
       }
-      // Timetable Reports — Staff Proxy only
+      // Timetable Reports
+      if (
+        hrefLower.includes("daily-statistical-report") ||
+        (labelLower.includes("daily") &&
+          labelLower.includes("statistical") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/daily-statistical-report";
+      }
+      if (
+        hrefLower.includes("dialy-timetable-report") ||
+        hrefLower.includes("daily-timetable-report") ||
+        (labelLower.includes("daily") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("statistical"))
+      ) {
+        return "/reports/admin-timetable-reports/dialy-timetable-report";
+      }
+      if (
+        hrefLower.includes("weekly-timetable-report") ||
+        (labelLower.includes("weekly") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/weekly-timetable-report";
+      }
+      if (
+        hrefLower.includes("semester-wise-timetable-report") ||
+        (labelLower.includes("semester") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/semester-wise-timetable-report";
+      }
+      if (
+        hrefLower.includes("department-wise-timetable") ||
+        (labelLower.includes("department") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/department-wise-timetable-report";
+      }
+      if (
+        hrefLower.includes("master-timetable-report") ||
+        hrefLower.includes("master-timetable") ||
+        (labelLower.includes("master") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/master-timetable-report";
+      }
+      if (
+        hrefLower.includes("staff-workload-report") ||
+        hrefLower.includes("staffworkload") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("workload") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/staff-workload-report";
+      }
+      if (
+        hrefLower.includes("staff-timetable-report") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("proxy") &&
+          !labelLower.includes("workload"))
+      ) {
+        return "/reports/admin-timetable-reports/staff-timetable-report";
+      }
       if (
         hrefLower.includes("staff-proxy-report") ||
         (labelLower.includes("staff") &&
@@ -3070,6 +3160,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           labelLower.includes("report"))
       ) {
         return "/reports/admin-timetable-reports/staff-proxy-report";
+      }
+      if (
+        hrefLower.includes("cca-activity-report") ||
+        (labelLower.includes("cca") &&
+          labelLower.includes("activity") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-timetable-reports/cca-activity-report";
       }
       // Transport Reports
       if (
@@ -3159,6 +3257,43 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           (labelLower.includes("course") || labelLower.includes("author")))
       ) {
         return "/reports/admin-library-reports/book-count-course-author-report";
+      }
+      if (
+        hrefLower.includes("book-wise-report") ||
+        hrefLower.includes("book-wise-count") ||
+        (labelLower.includes("book wise") && labelLower.includes("count"))
+      ) {
+        return "/reports/admin-library-reports/book-wise-report";
+      }
+      if (
+        hrefLower.includes("total-books-report") ||
+        (labelLower.includes("total books") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-library-reports/total-books-report";
+      }
+      if (
+        hrefLower.includes("library-consolidated-report") ||
+        hrefLower.includes("library-conslidated-report") ||
+        (labelLower.includes("library books") &&
+          labelLower.includes("report")) ||
+        (labelLower.includes("consolidated") &&
+          labelLower.includes("library") &&
+          labelLower.includes("report"))
+      ) {
+        return "/reports/admin-library-reports/library-consolidated-report";
+      }
+      if (
+        hrefLower.includes("book-search-report") ||
+        (labelLower.includes("book search") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-library-reports/book-search-report";
+      }
+      if (
+        hrefLower.includes("periodical-reports") ||
+        hrefLower.includes("periodical-report") ||
+        (labelLower.includes("periodical") && labelLower.includes("report"))
+      ) {
+        return "/reports/admin-library-reports/periodical-reports";
       }
       // HR Reports
       if (

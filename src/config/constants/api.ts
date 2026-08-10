@@ -1220,6 +1220,10 @@ export const LIBRARY_API = {
   TOTAL_BOOK_REPORT: "totalbookreport",
   /** Angular `bookWiseReportUrl` */
   BOOK_WISE_REPORT: "bookwisecountreport",
+  /** Angular `consolidatedReportUrl` — Library Books / consolidated report */
+  BOOKS_CONSOLIDATED_REPORT: "getAllRecords/s_books_consolidated_report",
+  /** Angular `periodicalReportsUrl` */
+  LIB_PERIODICALS_REPORT: "getAllRecords/s_rep_lib_periodcalls",
   /** Angular `libStudentVisitsUrl` */
   LIB_STUDENT_VISITS: "libStudentVisits",
   /** Angular `finChequeBooksUrl` */

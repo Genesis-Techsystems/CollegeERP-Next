@@ -1478,6 +1478,7 @@ export const QK = {
   },
   timetableReports: {
     colleges: () => ["TimetableReports", "colleges"] as const,
+    clsFilters: () => ["TimetableReports", "clsFilters"] as const,
     departments: (collegeId: number) =>
       ["TimetableReports", "departments", collegeId] as const,
     employees: (collegeId: number, departmentId: number) =>
