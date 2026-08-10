@@ -260,38 +260,38 @@ function studentReportsMenuBreadcrumb(
                                 )
                               ? "Student Caste Wise Gender Count Report"
                               : /\/reports\/(?:admin-student-reports|student-admission-reports)\/enquir(?:ies|ers)-report$/i.test(
-              path,
-            )
-          ? "Enquirers Report"
-          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-academic-history-report$/i.test(
-                path,
-              )
-            ? "Student Academic History Report"
-            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-lab-batches-report$/i.test(
-                  path,
-                )
-              ? "Students Lab Batches Report"
-              : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-electives?-report$/i.test(
-                    path,
-                  )
-                ? "Student Elective Report"
-                : /\/reports\/(?:admin-student-reports|student-admission-reports)\/class-syllabus-status-report$/i.test(
-                      path,
-                    )
-                  ? "Class Syllabus Report"
-                  : /\/reports\/(?:admin-student-reports|student-admission-reports)\/subject-wise-syllabus-report$/i.test(
-                        path,
-                      )
-                    ? "Subject Wise Syllabus Report"
-                    : /\/reports\/(?:admin-student-reports|student-admission-reports)\/daily-sms[-]?communication-detail-report$/i.test(
-                          path,
-                        )
-                      ? "Daily SMS Detail Report"
-                      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/(?:studentcount-drilldown-report|student-drilldown-report)$/i.test(
-                            path,
-                          )
-                        ? "Student Count Report"
-                        : null;
+                                    path,
+                                  )
+                                ? "Enquirers Report"
+                                : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-academic-history-report$/i.test(
+                                      path,
+                                    )
+                                  ? "Student Academic History Report"
+                                  : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-lab-batches-report$/i.test(
+                                        path,
+                                      )
+                                    ? "Students Lab Batches Report"
+                                    : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-electives?-report$/i.test(
+                                          path,
+                                        )
+                                      ? "Student Elective Report"
+                                      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/class-syllabus-status-report$/i.test(
+                                            path,
+                                          )
+                                        ? "Class Syllabus Report"
+                                        : /\/reports\/(?:admin-student-reports|student-admission-reports)\/subject-wise-syllabus-report$/i.test(
+                                              path,
+                                            )
+                                          ? "Subject Wise Syllabus Report"
+                                          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/daily-sms[-]?communication-detail-report$/i.test(
+                                                path,
+                                              )
+                                            ? "Daily SMS Detail Report"
+                                            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/(?:studentcount-drilldown-report|student-drilldown-report)$/i.test(
+                                                  path,
+                                                )
+                                              ? "Student Count Report"
+                                              : null;
 
   if (!leaf || !base.test(path)) return items;
 
@@ -376,33 +376,34 @@ function timetableReportsMenuBreadcrumb(
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
   const path = pathname.replace(/\/$/, "") || "/";
-  const leafByPath: Record<string, string> = {
-    "/reports/admin-timetable-reports/dialy-timetable-report":
-      "Daily Timetable Report",
-    "/reports/admin-timetable-reports/weekly-timetable-report":
-      "Weekly Timetable Report",
-    "/reports/admin-timetable-reports/daily-statistical-report":
-      "Daily Attendance Statistical Report",
-    "/reports/admin-timetable-reports/semester-wise-timetable-report":
-      "Semester Wise Timetable Report",
-    "/reports/admin-timetable-reports/department-wise-timetable-report":
-      "Department Wise Timetable Report",
-    "/reports/admin-timetable-reports/master-timetable-report":
-      "Master Timetable Report",
-    "/reports/admin-timetable-reports/staff-timetable-report":
-      "Staff Timetable Report",
-    "/reports/admin-timetable-reports/staff-workload-report":
-      "Staff Workload Report",
-    "/reports/admin-timetable-reports/staff-proxy-report": "Staff Proxy Report",
-    "/reports/admin-timetable-reports/cca-activity-report":
-      "CCA Activity Report",
+  const isStaffReports = path.startsWith(
+    "/staff-reports/admin-timetable-reports/",
+  );
+  const reportsRoot = isStaffReports
+    ? "/staff-reports/admin-timetable-reports"
+    : "/reports/admin-timetable-reports";
+  const leafBySlug: Record<string, string> = {
+    "dialy-timetable-report": "Daily Timetable Report",
+    "weekly-timetable-report": "Weekly Timetable Report",
+    "daily-statistical-report": "Daily Attendance Statistical Report",
+    "semester-wise-timetable-report": "Semester Wise Timetable Report",
+    "department-wise-timetable-report": "Department Wise Timetable Report",
+    "master-timetable-report": "Master Timetable Report",
+    "staff-timetable-report": "Staff Timetable Report",
+    "staff-workload-report": "Staff Workload Report",
+    "staff-proxy-report": "Staff Proxy Report",
+    "cca-activity-report": "CCA Activity Report",
   };
-  const leaf = leafByPath[path];
+  const slug = path.startsWith(`${reportsRoot}/`)
+    ? path.slice(reportsRoot.length + 1)
+    : "";
+  const leaf = leafBySlug[slug];
   if (!leaf) return items;
 
+  const rootLabel = isStaffReports ? "Staff Reports" : "Reports";
   const labels = items.map((i) => i.label.toLowerCase());
   const alreadyCorrect =
-    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === rootLabel.toLowerCase()) &&
     labels.some(
       (l) => l === "timetable reports" || l === "time table reports",
     ) &&
@@ -411,7 +412,7 @@ function timetableReportsMenuBreadcrumb(
 
   return [
     { label: "Home", href: "/dashboard" },
-    { label: "Reports" },
+    { label: rootLabel },
     { label: "Timetable Reports" },
     { label: leaf },
   ];
@@ -843,7 +844,15 @@ const STAFF_ACADEMICS_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Classes" },
     { label: "Assignments" },
   ],
+  "/student-academics/student-assignments": [
+    { label: "Academics" },
+    { label: "Assignments" },
+  ],
   "/staff-classes/class-dairy": [{ label: "Class Diary" }],
+  "/student-academics/student-class-dairy": [
+    { label: "Academics" },
+    { label: "Class Diary" },
+  ],
   "/staff-classes/attendance-update": [
     { label: "Academics" },
     { label: "Attendance Management" },

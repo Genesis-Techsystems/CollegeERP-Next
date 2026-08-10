@@ -3,17 +3,17 @@
 /**
  * Department Wise Timetable Report —
  * Angular `reports/admin-timetable-reports/department-wise-timetable` parity.
+ * Results render as a readable HTML matrix (Angular-style), not AG Grid.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
@@ -38,14 +38,8 @@ import {
   buildDepartmentWiseMatrix,
   buildDepartmentWiseTableHtml,
   formatDeptWiseCell,
-  type DeptWiseRow,
   type WeekdayKey,
 } from "../_lib/timetable-matrix";
-import {
-  buildDepartmentWiseColumnDefs,
-  toDepartmentWiseGridRows,
-  type MatrixGridRow,
-} from "../_lib/timetable-grid";
 import {
   distinctAcademicYears,
   distinctColleges,
@@ -57,6 +51,11 @@ import {
 const REPORT_TITLE = "Department Wise Timetable Report";
 
 const DEPT_KEYS = ["fk_dept_id", "deptId", "departmentId", "emp_dept_id"];
+
+type DeptMatrixDisplayRow = {
+  label: string;
+  cells: string[];
+};
 
 function pickDeptId(row: Record<string, unknown>): number {
   for (const k of DEPT_KEYS) {
@@ -95,8 +94,10 @@ export default function DepartmentWiseTimetableReportPage() {
   const [departmentId, setDepartmentId] = useState("0");
 
   const [weekdayKeys, setWeekdayKeys] = useState<WeekdayKey[]>([]);
-  const [deptMatrixRows, setDeptMatrixRows] = useState<DeptWiseRow[]>([]);
-  const [gridRows, setGridRows] = useState<MatrixGridRow[]>([]);
+  const [matrixRows, setMatrixRows] = useState<DeptMatrixDisplayRow[]>([]);
+  const [htmlRows, setHtmlRows] = useState<
+    ReturnType<typeof buildDepartmentWiseMatrix>["studentTimetable"]
+  >([]);
   const [dataDetails, setDataDetails] = useState("");
   const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
@@ -106,8 +107,8 @@ export default function DepartmentWiseTimetableReportPage() {
 
   const clearResults = useCallback(() => {
     setWeekdayKeys([]);
-    setDeptMatrixRows([]);
-    setGridRows([]);
+    setMatrixRows([]);
+    setHtmlRows([]);
     setShowTable(false);
     setDataDetails("");
     setCollegeName("");
@@ -158,18 +159,20 @@ export default function DepartmentWiseTimetableReportPage() {
 
   const collegeOptions = useMemo(
     () =>
-      toSelectOptions(colleges, ["fk_college_id", "collegeId"], [
-        "college_code",
-        "collegeCode",
-      ]),
+      toSelectOptions(
+        colleges,
+        ["fk_college_id", "collegeId"],
+        ["college_code", "collegeCode"],
+      ),
     [colleges],
   );
   const ayOptions = useMemo(
     () =>
-      toSelectOptions(academicYears, ["fk_academic_year_id", "academicYearId"], [
-        "academic_year",
-        "academicYear",
-      ]),
+      toSelectOptions(
+        academicYears,
+        ["fk_academic_year_id", "academicYearId"],
+        ["academic_year", "academicYear"],
+      ),
     [academicYears],
   );
   const departmentOptions = useMemo(
@@ -185,8 +188,14 @@ export default function DepartmentWiseTimetableReportPage() {
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -197,11 +206,18 @@ export default function DepartmentWiseTimetableReportPage() {
     }
     if (
       !academicYears.some(
-        (r) => num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId),
+        (r) =>
+          num(r.fk_academic_year_id ?? r.academicYearId) ===
+          Number(academicYearId),
       )
     ) {
       setAcademicYearId(
-        String(num(academicYears[0].fk_academic_year_id ?? academicYears[0].academicYearId)),
+        String(
+          num(
+            academicYears[0].fk_academic_year_id ??
+              academicYears[0].academicYearId,
+          ),
+        ),
       );
     }
   }, [academicYears, academicYearId]);
@@ -211,18 +227,13 @@ export default function DepartmentWiseTimetableReportPage() {
     clearResults();
   }, [collegeId, clearResults]);
 
-  const columnDefs = useMemo<ColDef<MatrixGridRow>[]>(
-    () => buildDepartmentWiseColumnDefs(weekdayKeys),
-    [weekdayKeys],
-  );
-
   const tableHtml = useMemo(() => {
-    if (!showTable || deptMatrixRows.length === 0) return "";
+    if (!showTable || htmlRows.length === 0) return "";
     return buildDepartmentWiseTableHtml({
       keys: weekdayKeys,
-      rows: deptMatrixRows,
+      rows: htmlRows,
     });
-  }, [deptMatrixRows, showTable, weekdayKeys]);
+  }, [htmlRows, showTable, weekdayKeys]);
 
   const handleGetList = async () => {
     const cid = Number(collegeId || 0);
@@ -240,9 +251,7 @@ export default function DepartmentWiseTimetableReportPage() {
       (r) => num(r.fk_academic_year_id ?? r.academicYearId) === ay,
     );
     const deptRow =
-      dept > 0
-        ? departments.find((r) => pickDeptId(r) === dept)
-        : null;
+      dept > 0 ? departments.find((r) => pickDeptId(r) === dept) : null;
 
     const details = [
       txt(college?.college_code ?? college?.collegeCode),
@@ -281,15 +290,14 @@ export default function DepartmentWiseTimetableReportPage() {
       }
       const matrix = buildDepartmentWiseMatrix(raw);
       setWeekdayKeys(matrix.keys);
-      setDeptMatrixRows(matrix.studentTimetable);
-      setGridRows(
-        toDepartmentWiseGridRows(
-          matrix.studentTimetable.map((r) => ({
-            label: r.Faculty,
-            cells: matrix.keys.map((k) => formatDeptWiseCell(r.cells[k.weekday_name])),
-          })),
-          matrix.keys,
-        ),
+      setHtmlRows(matrix.studentTimetable);
+      setMatrixRows(
+        matrix.studentTimetable.map((r) => ({
+          label: r.Faculty,
+          cells: matrix.keys.map((k) =>
+            formatDeptWiseCell(r.cells[k.weekday_name]),
+          ),
+        })),
       );
       setShowTable(true);
     } catch (err) {
@@ -345,7 +353,7 @@ export default function DepartmentWiseTimetableReportPage() {
       : REPORT_TITLE;
 
   return (
-    <FilteredListPage<MatrixGridRow>
+    <FilteredPage
       title={pageTitle}
       filters={
         <div className="flex flex-wrap items-end gap-3">
@@ -409,47 +417,79 @@ export default function DepartmentWiseTimetableReportPage() {
           </Button>
         </div>
       }
-      rowData={showTable ? gridRows : []}
-      columnDefs={columnDefs}
-      loading={loadingList}
-      resultsVisible={showTable}
-      hideEmptyGrid
-      pagination
-      paginationPageSize={25}
-      getRowId={(p) => String(p.data?.__rowId ?? "")}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        exportExcel: false,
-        exportPdf: false,
-        columnPicker: true,
-        lockColumnIds: ["rowLabel"],
-      }}
-      toolbarTrailing={
+      body={
         showTable ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
-              onClick={handleExcelExport}
-            >
-              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Export Excel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
-              onClick={() => void printReport()}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
-            </Button>
-          </>
-        ) : null
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={handleExcelExport}
+              >
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                Export Excel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={() => void printReport()}
+              >
+                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                Print Report
+              </Button>
+            </div>
+
+            <div className="rounded border border-[#d0d7de]">
+              <table className="w-full table-fixed border-collapse text-[12px] leading-snug">
+                <thead>
+                  <tr className="bg-[#d9edf7]">
+                    <th className="w-[12%] border border-[#c5d6e0] bg-[#d9edf7] px-2 py-3 text-center font-semibold text-[#0b4f8a]">
+                      Employee
+                    </th>
+                    {weekdayKeys.map((key) => (
+                      <th
+                        key={key.weekday_name}
+                        className="border border-[#c5d6e0] px-2 py-3 text-center align-middle font-semibold text-[#0b4f8a]"
+                      >
+                        {key.weekday_name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrixRows.map((row) => (
+                    <tr key={row.label} className="bg-white">
+                      <th className="border border-[#e0e0e0] bg-white px-2 py-3 text-center font-semibold text-blue-600">
+                        {row.label}
+                      </th>
+                      {row.cells.map((cell, idx) => {
+                        const isEmpty = !cell;
+                        return (
+                          <td
+                            key={`${row.label}-${weekdayKeys[idx]?.weekday_name ?? idx}`}
+                            className={`border border-[#e0e0e0] px-2 py-3 text-center align-middle text-[12px] text-foreground ${
+                              isEmpty
+                                ? "bg-[#f5f5f5] text-muted-foreground"
+                                : "bg-white"
+                            }`}
+                            style={{
+                              whiteSpace: "pre-line",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {cell || ""}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : undefined
       }
     />
   );

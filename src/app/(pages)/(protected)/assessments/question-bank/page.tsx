@@ -177,6 +177,7 @@ export default function QuestionBankPage() {
     data: banks,
     isLoading: loading,
     invalidate,
+    refetch,
   } = useCrudList({
     queryKey: QK.questionBanks.list(userId),
     queryFn: () => listQuestionBanks(userId),
@@ -265,6 +266,7 @@ export default function QuestionBankPage() {
       title="Question Banks"
       rowData={banks}
       columnDefs={columnDefs}
+      getRowId={(p) => String(p.data.assessmentId)}
       loading={loading || importingId !== null}
       pagination
       toolbar={{
@@ -312,7 +314,10 @@ export default function QuestionBankPage() {
           setEditingBank(null);
         }}
         bank={editingBank}
-        onSaved={invalidate}
+        onSaved={async () => {
+          // Force a network refetch so the new bank is in the sorted list immediately
+          await refetch();
+        }}
         userId={user?.userId ?? 0}
       />
 

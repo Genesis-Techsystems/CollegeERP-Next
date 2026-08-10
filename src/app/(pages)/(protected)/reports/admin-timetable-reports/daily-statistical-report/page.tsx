@@ -155,42 +155,47 @@ export default function DailyStatisticalReportPage() {
 
   const collegeOptions = useMemo(
     () =>
-      toSelectOptions(colleges, ["fk_college_id", "collegeId"], [
-        "college_code",
-        "collegeCode",
-      ]),
+      toSelectOptions(
+        colleges,
+        ["fk_college_id", "collegeId"],
+        ["college_code", "collegeCode"],
+      ),
     [colleges],
   );
   const ayOptions = useMemo(
     () =>
-      toSelectOptions(academicYears, ["fk_academic_year_id", "academicYearId"], [
-        "academic_year",
-        "academicYear",
-      ]),
+      toSelectOptions(
+        academicYears,
+        ["fk_academic_year_id", "academicYearId"],
+        ["academic_year", "academicYear"],
+      ),
     [academicYears],
   );
   const courseOptions = useMemo(
     () =>
-      toSelectOptions(courses, ["fk_course_id", "courseId"], [
-        "course_code",
-        "courseCode",
-      ]),
+      toSelectOptions(
+        courses,
+        ["fk_course_id", "courseId"],
+        ["course_code", "courseCode"],
+      ),
     [courses],
   );
   const groupOptions = useMemo(
     () =>
-      toSelectOptions(courseGroups, ["fk_course_group_id", "courseGroupId"], [
-        "group_code",
-        "groupCode",
-      ]),
+      toSelectOptions(
+        courseGroups,
+        ["fk_course_group_id", "courseGroupId"],
+        ["group_code", "groupCode"],
+      ),
     [courseGroups],
   );
   const yearOptions = useMemo(
     () =>
-      toSelectOptions(courseYears, ["fk_course_year_id", "courseYearId"], [
-        "course_year_name",
-        "courseYearName",
-      ]),
+      toSelectOptions(
+        courseYears,
+        ["fk_course_year_id", "courseYearId"],
+        ["course_year_name", "courseYearName"],
+      ),
     [courseYears],
   );
   const sectionOptions = useMemo(
@@ -205,8 +210,14 @@ export default function DailyStatisticalReportPage() {
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -217,11 +228,18 @@ export default function DailyStatisticalReportPage() {
     }
     if (
       !academicYears.some(
-        (r) => num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId),
+        (r) =>
+          num(r.fk_academic_year_id ?? r.academicYearId) ===
+          Number(academicYearId),
       )
     ) {
       setAcademicYearId(
-        String(num(academicYears[0].fk_academic_year_id ?? academicYears[0].academicYearId)),
+        String(
+          num(
+            academicYears[0].fk_academic_year_id ??
+              academicYears[0].academicYearId,
+          ),
+        ),
       );
     }
   }, [academicYears, academicYearId]);
@@ -231,7 +249,11 @@ export default function DailyStatisticalReportPage() {
       setCourseId("");
       return;
     }
-    if (!courses.some((r) => num(r.fk_course_id ?? r.courseId) === Number(courseId))) {
+    if (
+      !courses.some(
+        (r) => num(r.fk_course_id ?? r.courseId) === Number(courseId),
+      )
+    ) {
       setCourseId(String(num(courses[0].fk_course_id ?? courses[0].courseId)));
     }
   }, [courses, courseId]);
@@ -243,11 +265,17 @@ export default function DailyStatisticalReportPage() {
     }
     if (
       !courseGroups.some(
-        (r) => num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId),
+        (r) =>
+          num(r.fk_course_group_id ?? r.courseGroupId) ===
+          Number(courseGroupId),
       )
     ) {
       setCourseGroupId(
-        String(num(courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId)),
+        String(
+          num(
+            courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId,
+          ),
+        ),
       );
     }
   }, [courseGroups, courseGroupId]);
@@ -259,11 +287,14 @@ export default function DailyStatisticalReportPage() {
     }
     if (
       !courseYears.some(
-        (r) => num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
+        (r) =>
+          num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
       )
     ) {
       setCourseYearId(
-        String(num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId)),
+        String(
+          num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId),
+        ),
       );
     }
   }, [courseYears, courseYearId]);
@@ -336,7 +367,9 @@ export default function DailyStatisticalReportPage() {
     const ayRow = academicYears.find(
       (r) => num(r.fk_academic_year_id ?? r.academicYearId) === ay,
     );
-    const course = courses.find((r) => num(r.fk_course_id ?? r.courseId) === coid);
+    const course = courses.find(
+      (r) => num(r.fk_course_id ?? r.courseId) === coid,
+    );
     const group = courseGroups.find(
       (r) => num(r.fk_course_group_id ?? r.courseGroupId) === gid,
     );
@@ -344,7 +377,8 @@ export default function DailyStatisticalReportPage() {
       (r) => num(r.fk_course_year_id ?? r.courseYearId) === yid,
     );
     const section = sections.find(
-      (r) => num(r.fk_group_section_id ?? r.groupSectionId ?? r.sectionId) === sid,
+      (r) =>
+        num(r.fk_group_section_id ?? r.groupSectionId ?? r.sectionId) === sid,
     );
 
     const details = [
@@ -573,7 +607,9 @@ export default function DailyStatisticalReportPage() {
       filtersFooter={
         showTable ? (
           <p className="text-[12px]">
-            <span className="font-medium text-green-600">Attendance Capture</span>
+            <span className="font-medium text-green-600">
+              Attendance Capture
+            </span>
             {" | "}
             <span className="font-medium text-red-600">
               Attendance Not Capture
@@ -581,6 +617,7 @@ export default function DailyStatisticalReportPage() {
           </p>
         ) : null
       }
+      showTable={showTable}
       rowData={showTable ? gridRows : []}
       columnDefs={columnDefs}
       loading={loadingList}

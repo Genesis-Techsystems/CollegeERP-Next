@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ASSESSMENT_API } from "@/config/constants";
 import { useSessionContext } from "@/context/SessionContext";
 import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
+import { isStudentClassDiaryViewer } from "@/lib/erp-modules-navigation";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import {
@@ -221,6 +222,15 @@ export function ClassDiaryPage() {
     sessionLoading,
   );
 
+  // Student Academics "Class Dairy" menus often share staff-classes/class-dairy.
+  // Send student portal users to Angular-parity student Class Diary.
+  const studentViewer = !sessionLoading && isStudentClassDiaryViewer();
+  useEffect(() => {
+    if (studentViewer) {
+      router.replace("/student-academics/student-class-dairy");
+    }
+  }, [studentViewer, router]);
+
   const [courses, setCourses] = useState<StaffSubjectClass[]>([]);
   const [semesterKey, setSemesterKey] = useState<string>("0");
   const [rows, setRows] = useState<AnyRow[]>([]);
@@ -303,14 +313,15 @@ export function ClassDiaryPage() {
   );
 
   useEffect(() => {
-    if (sessionLoading || isResolving) return;
+    if (studentViewer || sessionLoading || isResolving) return;
     void loadCourses();
-  }, [sessionLoading, isResolving, loadCourses]);
+  }, [studentViewer, sessionLoading, isResolving, loadCourses]);
 
   useEffect(() => {
-    if (loading || sessionLoading || isResolving) return;
+    if (studentViewer || loading || sessionLoading || isResolving) return;
     void loadClassNotes(selectedCourse, courses);
   }, [
+    studentViewer,
     loading,
     sessionLoading,
     isResolving,
@@ -350,6 +361,10 @@ export function ClassDiaryPage() {
   );
 
   const busy = sessionLoading || isResolving || loading || listLoading;
+
+  if (studentViewer) {
+    return null;
+  }
 
   return (
     <FilteredListPage

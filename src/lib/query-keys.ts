@@ -360,6 +360,25 @@ export const QK = {
       ["FeesCollection", "employeeDetails", employeeId] as const,
     transportAllocations: (employeeId: number) =>
       ["FeesCollection", "transportAllocations", employeeId] as const,
+    transportFeePayments: (transportAllocationId: number, employeeId: number) =>
+      [
+        "FeesCollection",
+        "transportFeePayments",
+        transportAllocationId,
+        employeeId,
+      ] as const,
+    employeeFeeReceipts: (
+      collegeId: number,
+      employeeId: number,
+      academicYearId: number,
+    ) =>
+      [
+        "FeesCollection",
+        "employeeFeeReceipts",
+        collegeId,
+        employeeId,
+        academicYearId,
+      ] as const,
     paylinkFilters: (orgId: number, employeeId: number) =>
       ["FeesCollection", "paylinkFilters", orgId, employeeId] as const,
     feeDueNotifications: (filters: Record<string, unknown>) =>
