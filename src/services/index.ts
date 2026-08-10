@@ -95,6 +95,7 @@ export * from "./curriculum-report";
 export * from "./student-subjects-report";
 export * from "./answer-paper-bags-report";
 export * from "./exam-registration-reports";
+export { getExamTimetableFilterRows, dedupeBy } from "./exam-papers-delivery";
 // pre-examination: listActiveColleges conflicts with invigilator-remuneration; listCoursesByUniversity
 // conflicts with revision-master; listExamRoomAllotments and listExamInvigilationAllotments conflict
 // with seating-plan (different signatures — seating-plan variants are exported without collegeId param).
@@ -170,6 +171,7 @@ export * from "./principal-student-profile";
 export * from "./student-timetable";
 export * from "./student-dashboard";
 export * from "./student-attendance";
+export * from "./student-attendance-reports";
 export * from "./attendance-management";
 export * from "./mentorship";
 export * from "./events";
@@ -228,6 +230,12 @@ export * from "./result-processing";
 export * from "./re-evaluation";
 export * from "./scholarship";
 export * from "./admission";
+export * from "./student-admission-reports";
+export * from "./attendance-reports";
+export * from "./timetable-reports";
+export * from "./library-reports";
+export * from "./transport-reports";
+export * from "./hr-reports";
 export * from "./e-office";
 export * from "./affiliated-colleges";
 export * from "./hr-payroll";

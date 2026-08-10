@@ -339,26 +339,32 @@ export function FeeDetailsModal({
             </p>
           </div>
 
-          <DataTable
-            columnDefs={PARTICULAR_COLS}
-            rowData={particulars}
-            loading={isLoading}
-            height="auto"
-            toolbar={false}
-            pagination={false}
-          />
-
-          <div className="space-y-2">
-            <h3 className="text-base font-semibold">Fee Receipts</h3>
+          {/* Show particulars grid only while loading or when rows exist */}
+          {isLoading || particulars.length > 0 ? (
             <DataTable
-              columnDefs={receiptCols}
-              rowData={receiptRows}
-              loading={loadingReceipts}
+              columnDefs={PARTICULAR_COLS}
+              rowData={particulars}
+              loading={isLoading}
               height="auto"
               toolbar={false}
               pagination={false}
             />
-          </div>
+          ) : null}
+
+          {/* Angular: Fee Receipts block only when feeReceipts.length > 0 */}
+          {loadingReceipts || receiptRows.length > 0 ? (
+            <div className="space-y-2">
+              <h3 className="text-base font-semibold">Fee Receipts</h3>
+              <DataTable
+                columnDefs={receiptCols}
+                rowData={receiptRows}
+                loading={loadingReceipts}
+                height="auto"
+                toolbar={false}
+                pagination={false}
+              />
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter>

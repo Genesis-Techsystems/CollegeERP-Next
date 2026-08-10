@@ -57,7 +57,20 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (key.includes("attendancemanagement") || key === "attendancemanagement") {
     return `${ATTENDANCE_MGMT_BASE}/attendance-dashboard`;
   }
-  if (key.includes("studentattendance") && !key.includes("view")) {
+  // Attendance Management entry only — not Student Attendance *Reports*.
+  const isAttendanceReportLabel =
+    key.includes("report") ||
+    key.includes("subjectwise") ||
+    key.includes("percentage") ||
+    key.includes("register") ||
+    key.includes("consolidated") ||
+    key.includes("dailyattendance") ||
+    (key.includes("detail") && key.includes("attendance"));
+  if (
+    key.includes("studentattendance") &&
+    !key.includes("view") &&
+    !isAttendanceReportLabel
+  ) {
     return `${ATTENDANCE_MGMT_BASE}/student-attendance`;
   }
   if (key.includes("viewstudent") && key.includes("attendance")) {

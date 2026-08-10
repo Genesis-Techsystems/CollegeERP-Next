@@ -294,10 +294,11 @@ async function proxyGet<T>(
 
 // ── Scholarship Type ──────────────────────────────────────────────────────────
 
+/** Angular: GET domain/list/ScholarshipType?query=order(createdDt=desc)&size=99999 */
 export async function listScholarshipTypes(): Promise<ScholarshipType[]> {
   return domainList<ScholarshipType>(
     ENTITIES.SCHOLARSHIP_TYPE.name,
-    buildQuery({}, { field: "sortOrder", direction: "ASC" }),
+    "order(createdDt=desc)",
   );
 }
 
@@ -307,6 +308,7 @@ export async function createScholarshipType(
   return domainCreate<ScholarshipType>(ENTITIES.SCHOLARSHIP_TYPE.name, data);
 }
 
+/** Angular: PUT domain/update/ScholarshipType?query=scholarshipTypeId=={id} */
 export async function updateScholarshipType(
   scholarshipTypeId: number,
   data: Partial<ScholarshipTypePayload>,
@@ -315,7 +317,7 @@ export async function updateScholarshipType(
     ENTITIES.SCHOLARSHIP_TYPE.name,
     ENTITIES.SCHOLARSHIP_TYPE.pk,
     scholarshipTypeId,
-    data,
+    { ...data, scholarshipTypeId },
   );
 }
 

@@ -7,7 +7,8 @@ export type ScholarshipType = {
   universityCode?: string;
   scholarshipTypeCode: string;
   scholarshipTypeDesc: string;
-  sortOrder?: number;
+  /** Angular often sends this as a string on create/update. */
+  sortOrder?: number | string;
   isActive: boolean;
   reason?: string;
 };
@@ -15,7 +16,10 @@ export type ScholarshipType = {
 export type ScholarshipTypePayload = Omit<
   ScholarshipType,
   "scholarshipTypeId" | "orgCode" | "universityCode"
->;
+> & {
+  /** Angular includes this on update body; omitted on create. */
+  scholarshipTypeId?: number;
+};
 
 /** Student scholarship application row. */
 export type ScholarshipApplication = {

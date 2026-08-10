@@ -324,6 +324,36 @@ export const QK = {
           collegeId,
         ] as const,
     },
+    daywiseOnlineFeePayments: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "daywiseOnlineFeePayments",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+    },
+    scholarshipDetailedReport: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "scholarshipDetailedReport",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+    },
+    examFeeDueList: {
+      filters: (orgId: number, employeeId: number) =>
+        [
+          "FeesCollection",
+          "examFeeDueList",
+          "filters",
+          orgId,
+          employeeId,
+        ] as const,
+    },
     employeeSearch: (term: string) =>
       ["FeesCollection", "employeeSearch", term] as const,
     employeeDetails: (employeeId: number) =>
@@ -1431,6 +1461,83 @@ export const QK = {
     colleges: () => ["FeedbackStatusReport", "colleges"] as const,
     academicYears: (universityId: number) =>
       ["FeedbackStatusReport", "academicYears", universityId] as const,
+  },
+
+  /** Angular `reports/student-admission-reports/*` / `admin-student-reports/*`. */
+  attendanceReports: {
+    timetableFilters: (orgId: number, empId: number) =>
+      ["AttendanceReports", "timetableFilters", orgId, empId] as const,
+    collegeDeptFilters: (orgId: number, empId: number) =>
+      ["AttendanceReports", "collegeDeptFilters", orgId, empId] as const,
+    collegeDeptSubjectFilters: (orgId: number, empId: number) =>
+      ["AttendanceReports", "collegeDeptSubjectFilters", orgId, empId] as const,
+    subjectFilters: (orgId: number, empId: number) =>
+      ["AttendanceReports", "subjectFilters", orgId, empId] as const,
+    courseSubjectFilters: (orgId: number, empId: number) =>
+      ["AttendanceReports", "courseSubjectFilters", orgId, empId] as const,
+  },
+  timetableReports: {
+    colleges: () => ["TimetableReports", "colleges"] as const,
+    departments: (collegeId: number) =>
+      ["TimetableReports", "departments", collegeId] as const,
+    employees: (collegeId: number, departmentId: number) =>
+      ["TimetableReports", "employees", collegeId, departmentId] as const,
+  },
+  libraryReports: {
+    libraries: (collegeId: number) =>
+      ["LibraryReports", "libraries", collegeId] as const,
+    bookCategories: (libraryId: number) =>
+      ["LibraryReports", "bookCategories", libraryId] as const,
+  },
+  transportReports: {
+    colleges: () => ["TransportReports", "colleges"] as const,
+    collegeFilters: (orgId: number, empId: number) =>
+      ["TransportReports", "collegeFilters", orgId, empId] as const,
+    timetableFilters: (orgId: number, empId: number) =>
+      ["TransportReports", "timetableFilters", orgId, empId] as const,
+    routes: () => ["TransportReports", "routes"] as const,
+    routeStops: (routeId: number) =>
+      ["TransportReports", "routeStops", routeId] as const,
+  },
+  hrReports: {
+    collegeDeptFilters: (orgId: number, empId: number) =>
+      ["HrReports", "collegeDeptFilters", orgId, empId] as const,
+    collegeFilters: (orgId: number, empId: number) =>
+      ["HrReports", "collegeFilters", orgId, empId] as const,
+  },
+  managementReports: {
+    collegeFilters: (orgId: number, empId: number) =>
+      ["ManagementReports", "collegeFilters", orgId, empId] as const,
+  },
+  financeReports: {
+    collegeFilters: (orgId: number, empId: number) =>
+      ["FinanceReports", "collegeFilters", orgId, empId] as const,
+  },
+  studentAdmissionReports: {
+    all: ["StudentAdmissionReports"] as const,
+    filters: (orgId: number, employeeId: number) =>
+      ["StudentAdmissionReports", "filters", orgId, employeeId] as const,
+    enquiries: (filters: {
+      collegeId: number;
+      fromDate: string;
+      toDate: string;
+    }) => ["StudentAdmissionReports", "enquiries", filters] as const,
+    academicHistory: (filters: {
+      collegeId: number;
+      courseId: number;
+      academicYearId: number;
+      courseGroupId: number;
+      courseYearId: number;
+    }) => ["StudentAdmissionReports", "academicHistory", filters] as const,
+    labBatches: (filters: {
+      collegeId: number;
+      courseId: number;
+      academicYearId: number;
+      courseGroupId: number;
+      courseYearId: number;
+    }) => ["StudentAdmissionReports", "labBatches", filters] as const,
+    electives: (filters: { collegeId: number; courseYearId: number }) =>
+      ["StudentAdmissionReports", "electives", filters] as const,
   },
 
   /** Angular `principal-my-approvals/leave-applications` + `tc-no-due-approvals`. */

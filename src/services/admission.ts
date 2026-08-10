@@ -662,3 +662,34 @@ export async function fetchStudentReports(
   const block = data?.result?.[0];
   return Array.isArray(block) ? block : [];
 }
+
+/**
+ * Angular Student Contact Report Get List —
+ * `listBySevenIds(getStdDetailsReport, …)` →
+ * `getAllRecords/s_get_std_details_report?in_clg_id=&in_course_id=&…`
+ */
+export async function fetchStdDetailsReport(params: {
+  collegeId: number;
+  courseId?: number;
+  academicYearId?: number;
+  courseGroupId?: number;
+  courseYearId?: number;
+  groupSectionId?: number;
+  studentStatusCatDetId?: number;
+}): Promise<Record<string, unknown>[]> {
+  if (!params.collegeId) return [];
+  const data = await getAllRecords<{ result: Record<string, unknown>[][] }>(
+    "s_get_std_details_report",
+    {
+      in_clg_id: params.collegeId,
+      in_course_id: params.courseId ?? 0,
+      in_academic_year_id: params.academicYearId ?? 0,
+      in_course_group_id: params.courseGroupId ?? 0,
+      in_course_year_id: params.courseYearId ?? 0,
+      in_group_section_id: params.groupSectionId ?? 0,
+      in_std_status_catdet_id: params.studentStatusCatDetId ?? 0,
+    },
+  );
+  const block = data?.result?.[0];
+  return Array.isArray(block) ? block : [];
+}

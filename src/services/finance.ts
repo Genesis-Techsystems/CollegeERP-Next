@@ -598,3 +598,58 @@ export async function fetchTransportSummary(params: {
   }
   return firstResultSet<TransportSummaryRow>(envelope.data);
 }
+
+/**
+ * Angular management-reports/inventory-stock-report:
+ * GET `getAllRecords/s_get_inventory_stock_summary`
+ * `in_district_id=0&in_clg_id=`
+ */
+export async function fetchInventoryStockSummary(params: {
+  collegeId: number;
+}): Promise<Record<string, unknown>[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.INVENTORY_STOCK_SUMMARY,
+    {
+      in_district_id: 0,
+      in_clg_id: params.collegeId,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load inventory stock report",
+    );
+  }
+  return firstResultSet<Record<string, unknown>>(envelope.data);
+}
+
+/**
+ * Angular fee-reports/day-wise-expenses:
+ * GET `getAllRecords/s_get_daywsie_expense_report`
+ * `in_from_date=&in_to_date=&in_clg_id=`
+ */
+export async function fetchDayWiseExpenseReport(params: {
+  collegeId: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<Record<string, unknown>[]> {
+  const envelope = await getAllRecordsEnvelope<StoredProcRows>(
+    DASHBOARD_API.DAY_WISE_EXPENSE,
+    {
+      in_from_date: params.fromDate,
+      in_to_date: params.toDate,
+      in_clg_id: params.collegeId,
+    },
+  );
+  const message = envelope.message ?? "";
+  if (!envelope.success) {
+    if (/no\s+record(?:\(s\)|s)?/i.test(message)) return [];
+    throw new AppError(
+      "API_ERROR",
+      message || "Failed to load day-wise expense report",
+    );
+  }
+  return firstResultSet<Record<string, unknown>>(envelope.data);
+}

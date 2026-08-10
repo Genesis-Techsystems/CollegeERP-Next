@@ -102,9 +102,7 @@ const PARTICULAR_COLS = {
   } as ColDef<FeeSchStructureParticularLine>,
 };
 
-function makeDeleteRenderer(
-  onDelete: (index: number) => void,
-) {
+function makeDeleteRenderer(onDelete: (index: number) => void) {
   return (p: ICellRendererParams<FeeSchStructureParticularLine>) => (
     <Button
       type="button"
@@ -133,10 +131,8 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
   const courseId = Number(initialQuery.courseId ?? 0) || 0;
   const batchId = Number(initialQuery.batchId ?? 0) || 0;
   const academicYearId = Number(initialQuery.academicYearId ?? 0) || 0;
-  const feeSchStructureId =
-    Number(initialQuery.feeSchStructureId ?? 0) || 0;
-  const isAcademicScholarship =
-    initialQuery.isAcademicScholarship === "true";
+  const feeSchStructureId = Number(initialQuery.feeSchStructureId ?? 0) || 0;
+  const isAcademicScholarship = initialQuery.isAcademicScholarship === "true";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,9 +141,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
   );
   const [feeCategories, setFeeCategories] = useState<FeeCategory[]>([]);
   const [feeParticulars, setFeeParticulars] = useState<FeeParticular[]>([]);
-  const [courseYearsDataList, setCourseYearsDataList] = useState<YearTab[]>(
-    [],
-  );
+  const [courseYearsDataList, setCourseYearsDataList] = useState<YearTab[]>([]);
 
   const [scholarshipTypeId, setScholarshipTypeId] = useState<number | null>(
     null,
@@ -217,9 +211,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
       return { ...tab, particulars };
     });
     setCourseYearsDataList(yearTabs);
-    setActiveTab(
-      yearTabs[0] ? String(yearTabs[0].courseYearId) : "",
-    );
+    setActiveTab(yearTabs[0] ? String(yearTabs[0].courseYearId) : "");
     setDraftByYear((prev) => {
       const next = { ...prev };
       for (const tab of yearTabs) {
@@ -264,9 +256,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
               : "",
           );
           setScholarshipTypeDesc(
-            structure.scholarshipTypeDesc ||
-              structure.scholarshipType ||
-              "",
+            structure.scholarshipTypeDesc || structure.scholarshipType || "",
           );
           const lateral = Boolean(
             structure.isLateral ?? structure.isForLateral,
@@ -319,10 +309,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
     }
   }
 
-  function updateDraft(
-    yearId: number,
-    patch: Partial<ParticularDraft>,
-  ) {
+  function updateDraft(yearId: number, patch: Partial<ParticularDraft>) {
     setDraftByYear((prev) => ({
       ...prev,
       [yearId]: { ...(prev[yearId] ?? emptyDraft()), ...patch },
@@ -411,9 +398,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
     } else {
       qs.set("batchId", String(batchId));
     }
-    router.push(
-      `/scholarship-management/scholarship-value?${qs.toString()}`,
-    );
+    router.push(`/scholarship-management/scholarship-value?${qs.toString()}`);
   }
 
   async function onSave() {
@@ -421,7 +406,10 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
       toastInfo("Select scholarship type");
       return;
     }
-    if (scholarshipAmount === "" || !Number.isFinite(Number(scholarshipAmount))) {
+    if (
+      scholarshipAmount === "" ||
+      !Number.isFinite(Number(scholarshipAmount))
+    ) {
       toastInfo("Enter scholarship amount");
       return;
     }
@@ -457,9 +445,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
     }
 
     const payload: FeeSchStructureBulkPayload = {
-      ...(mode === "edit" && feeSchStructureId
-        ? { feeSchStructureId }
-        : {}),
+      ...(mode === "edit" && feeSchStructureId ? { feeSchStructureId } : {}),
       collegeId,
       courseId,
       batchId: isAcademicScholarship ? null : batchId,
@@ -550,30 +536,6 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
               <span>Is For Lateral</span>
             </label>
           </GlobalFilterField>
-          <GlobalFilterField
-            label=" "
-            className="global-filter-field--shrink global-filter-field--action"
-          >
-            <div className="flex h-9 items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={goBack}
-                disabled={saving}
-              >
-                Back
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void onSave()}
-                disabled={loading || saving}
-              >
-                {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </GlobalFilterField>
         </GlobalFilterBarRow>
       }
       body={
@@ -589,9 +551,7 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
                     key={tab.courseYearId}
                     value={String(tab.courseYearId)}
                   >
-                    {tab.feeLabel ||
-                      tab.courseYearName ||
-                      `Year ${tab.yearNo}`}
+                    {tab.feeLabel || tab.courseYearName || `Year ${tab.yearNo}`}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -733,6 +693,28 @@ export function ScholarshipValueForm({ mode, title, initialQuery }: Props) {
         ) : null
       }
     >
+      {/* Angular form-btn: outside card, yellow Back + navy Save, right-aligned.
+          Plain <button> for Back — shared Button+[data-app-back] CSS forces white. */}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          className="app-control inline-flex min-w-[80px] cursor-pointer items-center justify-center rounded-[5px] border-0 bg-[#f0ad4e] px-3 py-1 text-[length:var(--app-control-font-size)] font-medium text-black hover:bg-[#ec9c2c] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={goBack}
+          disabled={saving}
+        >
+          Back
+        </button>
+        <Button
+          type="button"
+          size="sm"
+          className="!bg-[#0a2e67] !text-white hover:!bg-[#082653]"
+          onClick={() => void onSave()}
+          disabled={loading || saving}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+      </div>
+
       <ConfirmDialog
         open={confirmDelete != null}
         title="Remove particular?"
