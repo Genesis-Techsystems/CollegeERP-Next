@@ -74,6 +74,7 @@ function examOptionLabel(row: AnyRow): string {
 export default function AssignReEvaluatorPage() {
   const [loading, setLoading] = useState(false);
   const [isReevaluation, setIsReevaluation] = useState(false);
+  const [showTable, setShowTable] = useState(false);
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
   const [restRows, setRestRows] = useState<AnyRow[]>([]);
@@ -190,11 +191,13 @@ export default function AssignReEvaluatorPage() {
     [exams],
   );
   const subjectOptions = useMemo<SelectOption[]>(
-    () =>
-      subjects.map((r) => ({
+    () => [
+      { value: "0", label: "All" },
+      ...subjects.map((r) => ({
         value: String(num(r.fk_subject_id)),
         label: `${txt(r.subject_name)} - ${txt(r.subject_code)} (${txt(r.regulation_code)})`,
       })),
+    ],
     [subjects],
   );
   const evaluatorOptions = useMemo<SelectOption[]>(
@@ -308,6 +311,7 @@ export default function AssignReEvaluatorPage() {
   ]);
 
   function resetResult() {
+    setShowTable(false);
     setSubjectMasterRows([]);
     setUnmappedRows([]);
     setMappedRows([]);
@@ -369,21 +373,22 @@ export default function AssignReEvaluatorPage() {
 
   function onSubjectChange(v: string | null) {
     resetResult();
-    setSubjectId(v ? Number(v) : null);
+    // Angular mat-option [value]="0" → All; keep 0 (do not treat as empty)
+    setSubjectId(v == null || v === "" ? null : Number(v));
   }
 
   async function getList() {
-    // Angular: form requires subjectId before Get List (Validators.required)
+    // Angular allows subjectId=0 (All) into getSubjectsMarksList SP
     if (
       !courseId ||
       !academicYearId ||
       !examId ||
       !courseYearId ||
       !regulationId ||
-      !subjectId
+      subjectId == null
     ) {
       toastError(
-        "Select Course, Academic Year, Exam, Course Year, Regulation and Subject",
+        "Select Course, Exam Year, Exam, Course Year, Regulation and Subject",
       );
       return;
     }
@@ -402,6 +407,7 @@ export default function AssignReEvaluatorPage() {
         isReevaluation,
       });
       setSubjectMasterRows(rows);
+      setShowTable(true);
     } catch {
       toastError("Failed to load re-evaluator master list");
     } finally {
@@ -642,24 +648,54 @@ export default function AssignReEvaluatorPage() {
 
   const masterColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
-      { headerName: "S.No", valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
-      { headerName: "Course", minWidth: 100, valueGetter: (p) => txt(p.data?.course_code) },
-      { headerName: "Exam", minWidth: 110, valueGetter: (p) => txt(p.data?.exam_month_yr) },
-      { headerName: "Course Year", minWidth: 110, valueGetter: (p) => txt(p.data?.course_year_code) },
+      {
+        headerName: "S.No",
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 70,
+        flex: 0,
+      },
+      {
+        headerName: "Course",
+        minWidth: 100,
+        valueGetter: (p) => txt(p.data?.course_code),
+      },
+      {
+        headerName: "Exam",
+        minWidth: 110,
+        valueGetter: (p) => txt(p.data?.exam_month_yr),
+      },
+      {
+        headerName: "Course Year",
+        minWidth: 110,
+        valueGetter: (p) => txt(p.data?.course_year_code),
+      },
       {
         headerName: "Subject",
         minWidth: 180,
         flex: 1,
-        valueGetter: (p) => `${txt(p.data?.subject_code)} - ${txt(p.data?.subject_name)}`,
+        valueGetter: (p) =>
+          `${txt(p.data?.subject_code)} - ${txt(p.data?.subject_name)}`,
       },
-      { headerName: "Total Papers", minWidth: 110, valueGetter: (p) => num(p.data?.total_papers) },
-      { headerName: "Mapped Papers", minWidth: 120, valueGetter: (p) => num(p.data?.mapped_papers) },
+      {
+        headerName: "Total Papers",
+        minWidth: 110,
+        valueGetter: (p) => num(p.data?.total_papers),
+      },
+      {
+        headerName: "Mapped Papers",
+        minWidth: 120,
+        valueGetter: (p) => num(p.data?.mapped_papers),
+      },
       {
         headerName: "Actions",
         minWidth: 120,
         flex: 0,
         cellRenderer: (p: ICellRendererParams<AnyRow>) => (
-          <Button type="button" size="sm" onClick={() => p.data && void getDetails(p.data)}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => p.data && void getDetails(p.data)}
+          >
             Get Details
           </Button>
         ),
@@ -670,11 +706,14 @@ export default function AssignReEvaluatorPage() {
 
   return (
     <FilteredListPage
-      title="Assign Re-Evaluator"
-      filters={(
+      title="Moderation Assign Re-Evaluator"
+      filters={
         <>
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="Course">
+          <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r1">
+            <GlobalFilterField
+              label="Course"
+              className="global-filter-field--fx15"
+            >
               <SearchableSelect
                 value={courseId ? String(courseId) : null}
                 onChange={onCourseChange}
@@ -682,51 +721,74 @@ export default function AssignReEvaluatorPage() {
                 placeholder="Course"
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Academic Year">
+            <GlobalFilterField
+              label="Exam Year"
+              className="global-filter-field--fx15"
+            >
               <SearchableSelect
                 value={academicYearId ? String(academicYearId) : null}
                 onChange={onAcademicYearChange}
                 options={academicYearOptions}
-                placeholder="Academic Year"
+                placeholder="Exam Year"
+                disabled={!courseId}
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Exam">
+            <GlobalFilterField
+              label="Exam"
+              className="global-filter-field--fx69"
+            >
               <SearchableSelect
                 value={examId ? String(examId) : null}
                 onChange={onExamChange}
                 options={examOptions}
-                placeholder="Search exam…"
+                placeholder="Exam"
                 searchable
+                disabled={!academicYearId}
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Course Year">
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow className="global-filter-bar__row--reassign-r2">
+            <GlobalFilterField
+              label="Course Year"
+              className="global-filter-field--fx15"
+            >
               <SearchableSelect
                 value={courseYearId ? String(courseYearId) : null}
                 onChange={onCourseYearChange}
                 options={courseYearOptions}
                 placeholder="Course Year"
+                disabled={!examId}
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Regulation">
+            <GlobalFilterField
+              label="Regulation"
+              className="global-filter-field--fx15"
+            >
               <SearchableSelect
                 value={regulationId ? String(regulationId) : null}
                 onChange={onRegulationChange}
                 options={regulationOptions}
                 placeholder="Regulation"
+                disabled={!courseYearId}
               />
             </GlobalFilterField>
-          </GlobalFilterBarRow>
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="Subject">
+            <GlobalFilterField
+              label="Subject"
+              className="global-filter-field--fx40"
+            >
               <SearchableSelect
-                value={subjectId ? String(subjectId) : null}
+                value={subjectId != null ? String(subjectId) : null}
                 onChange={onSubjectChange}
                 options={subjectOptions}
-                placeholder="Search subjects…"
+                placeholder="Subject"
                 searchable
+                disabled={!regulationId}
               />
             </GlobalFilterField>
-            <GlobalFilterField label="">
+            <GlobalFilterField
+              label="Is Re-Evaluation"
+              className="global-filter-field--fx15"
+            >
               <label className="inline-flex h-[30px] items-center gap-2 text-[12px]">
                 <input
                   type="checkbox"
@@ -740,23 +802,25 @@ export default function AssignReEvaluatorPage() {
               </label>
             </GlobalFilterField>
             <GlobalFilterField
-              label=""
-              className="global-filter-field--shrink global-filter-field--action"
+              label=" "
+              className="global-filter-field--action global-filter-field--fx10"
             >
               <Button
                 type="button"
+                size="sm"
                 onClick={() => void getList()}
                 disabled={loading}
-                className="h-[30px] px-3 text-[12px]"
+                className="h-[30px] w-full shrink-0 px-3 text-[12px]"
               >
                 Get List
               </Button>
             </GlobalFilterField>
           </GlobalFilterBarRow>
         </>
-      )}
+      }
       rowData={subjectMasterRows}
       columnDefs={masterColumnDefs}
+      showTable={showTable}
       loading={loading}
       pagination
       toolbar={SEARCH_ONLY_TOOLBAR}
@@ -831,48 +895,48 @@ export default function AssignReEvaluatorPage() {
                   </tr>
                 ) : (
                   pagedUnmappedRows.map((row, i) => {
-                  const key = buildRowKey(row);
-                  return (
-                    <tr
-                      key={`unmapped-${key}-${i}`}
-                      className="border-t align-top"
-                    >
-                      <td className="px-2 py-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedKeys.includes(key)}
-                          onChange={(e) => toggleRow(key, e.target.checked)}
-                        />
-                      </td>
-                      <td className="px-2 py-1">{txt(row.omr_serial_no)}</td>
-                      <td className="px-2 py-1">{txt(row.evaluator_name)}</td>
-                      <td className="px-2 py-1">
-                        {txt(row.evaluated_totalmarks)}
-                      </td>
-                      <td className="px-2 py-1 min-w-[220px]">
-                        <SearchableSelect
-                          value={
-                            num(row.assignEvaluatorProfileId)
-                              ? String(num(row.assignEvaluatorProfileId))
-                              : null
-                          }
-                          onChange={(v) => onSingleEvaluator(key, v)}
-                          options={
-                            (
-                              row.availableEvaluators as AnyRow[] | undefined
-                            )?.map((e) => ({
-                              value: String(
-                                num(e.pk_exam_evaluator_profile_id),
-                              ),
-                              label: txt(e.evaluator_name),
-                            })) ?? []
-                          }
-                          placeholder="Select evaluator…"
-                          searchable
-                        />
-                      </td>
-                    </tr>
-                  );
+                    const key = buildRowKey(row);
+                    return (
+                      <tr
+                        key={`unmapped-${key}-${i}`}
+                        className="border-t align-top"
+                      >
+                        <td className="px-2 py-1">
+                          <input
+                            type="checkbox"
+                            checked={selectedKeys.includes(key)}
+                            onChange={(e) => toggleRow(key, e.target.checked)}
+                          />
+                        </td>
+                        <td className="px-2 py-1">{txt(row.omr_serial_no)}</td>
+                        <td className="px-2 py-1">{txt(row.evaluator_name)}</td>
+                        <td className="px-2 py-1">
+                          {txt(row.evaluated_totalmarks)}
+                        </td>
+                        <td className="px-2 py-1 min-w-[220px]">
+                          <SearchableSelect
+                            value={
+                              num(row.assignEvaluatorProfileId)
+                                ? String(num(row.assignEvaluatorProfileId))
+                                : null
+                            }
+                            onChange={(v) => onSingleEvaluator(key, v)}
+                            options={
+                              (
+                                row.availableEvaluators as AnyRow[] | undefined
+                              )?.map((e) => ({
+                                value: String(
+                                  num(e.pk_exam_evaluator_profile_id),
+                                ),
+                                label: txt(e.evaluator_name),
+                              })) ?? []
+                            }
+                            placeholder="Select evaluator…"
+                            searchable
+                          />
+                        </td>
+                      </tr>
+                    );
                   })
                 )}
               </tbody>

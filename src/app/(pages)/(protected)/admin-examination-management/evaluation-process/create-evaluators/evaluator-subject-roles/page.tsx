@@ -25,6 +25,7 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
+import { withSubjectGroupNames } from "@/common/utils/data-helpers";
 
 type AnyRow = Record<string, any>;
 
@@ -55,32 +56,6 @@ function dedupeBy<T>(rows: T[], keyFn: (r: T) => string | number) {
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
-  });
-}
-
-/** Angular assign-evaluator-subjectroles: distinct subjects + joined group_name list. */
-function withSubjectGroupNames(subjectsList: AnyRow[]): AnyRow[] {
-  if (!Array.isArray(subjectsList) || subjectsList.length === 0) return [];
-  const subjectIds = subjectsList.map((s) =>
-    pickNum(s, ["fk_subject_id", "subjectId"]),
-  );
-  const distinct = subjectsList.filter((s, index) => {
-    const id = pickNum(s, ["fk_subject_id", "subjectId"]);
-    return id > 0 && !subjectIds.includes(id, index + 1);
-  });
-  return distinct.map((subject) => {
-    const sid = pickNum(subject, ["fk_subject_id", "subjectId"]);
-    const groupNames = [
-      ...new Set(
-        subjectsList
-          .filter((x) => pickNum(x, ["fk_subject_id", "subjectId"]) === sid)
-          .map((x) =>
-            pickText(x, ["group_name", "groupName", "group_code", "groupCode"]),
-          )
-          .filter(Boolean),
-      ),
-    ].join(", ");
-    return { ...subject, groupNames };
   });
 }
 
@@ -1114,8 +1089,12 @@ export default function EvaluatorSubjectRolesPage() {
               <table className="mat-table min-w-full">
                 <thead>
                   <tr className="mat-header-row">
-                    <th className="mat-header-cell px-2 py-1.5 text-left">Exam</th>
-                    <th className="mat-header-cell px-2 py-1.5 text-left">Role</th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Exam
+                    </th>
+                    <th className="mat-header-cell px-2 py-1.5 text-left">
+                      Role
+                    </th>
                     <th className="mat-header-cell px-2 py-1.5 text-left">
                       Regulation
                     </th>

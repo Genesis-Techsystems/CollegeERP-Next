@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ColDef } from "ag-grid-community";
+import type { LucideIcon } from "lucide-react";
+import {
+  CloudUpload,
+  FileText,
+  GraduationCap,
+  SquareCheck,
+  User,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import { SearchInput } from "@/common/components/search";
 import {
   GlobalFilterBarRow,
@@ -26,8 +36,88 @@ import {
   listEvaluationModerationData,
 } from "@/services/evaluation-process";
 import { FilteredPage } from "@/components/layout";
+import {
+  subjectSelectLabel,
+  withSubjectGroupNames,
+} from "@/common/utils/data-helpers";
+import { cn } from "@/lib/utils";
 
 type AnyRow = Record<string, any>;
+
+function ModerationStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-medium text-[#0c51a4]">
+          {label}
+        </p>
+        <p className="text-[18px] font-semibold leading-tight text-[#0c51a4]">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ModerationPanel({
+  title,
+  icon: Icon,
+  children,
+  className,
+}: {
+  title: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border/70 px-3 py-2.5">
+        <Icon className="h-4 w-4 shrink-0 text-[#0c51a4]" aria-hidden />
+        <p className="text-[13px] font-semibold text-[#0c51a4]">{title}</p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    </div>
+  );
+}
+
+function ModerationEmpty({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+      <span className="mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]/80">
+        <Icon className="h-7 w-7" aria-hidden />
+      </span>
+      <p className="text-sm font-semibold text-[#0c51a4]">{title}</p>
+      <p className="max-w-[15rem] text-xs leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
   if (!row) return 0;
@@ -246,8 +336,7 @@ export default function EvaluationModerationPage() {
     );
   }, [restRows, courseYearId]);
   const subjects = useMemo(
-    () =>
-      dedupeBy(subjectRows, (r) => pickNum(r, ["fk_subject_id", "subjectId"])),
+    () => withSubjectGroupNames(subjectRows as AnyRow[]),
     [subjectRows],
   );
 
@@ -898,13 +987,16 @@ export default function EvaluationModerationPage() {
               resetFetchedState();
               setSubjectId(v ? Number(v) : null);
             }}
-            options={subjects.map(
-              (s) =>
-                ({
-                  value: String(pickNum(s, ["fk_subject_id", "subjectId"])),
-                  label: `${pickText(s, ["subject_name", "subjectName"])} - ${pickText(s, ["subject_code", "subjectCode"])}`,
-                }) as SelectOption,
-            )}
+            options={subjects.map((s) => {
+              const label = subjectSelectLabel(s);
+              const groupNames = pickText(s, ["groupNames"]);
+              return {
+                value: String(pickNum(s, ["fk_subject_id", "subjectId"])),
+                label,
+                title: label,
+                description: groupNames || undefined,
+              } as SelectOption;
+            })}
             placeholder="Subject"
             searchable
             disabled={!regulationId}
@@ -934,183 +1026,243 @@ export default function EvaluationModerationPage() {
       filtersDefaultOpen
       body={
         hasFetched ? (
-          <div className="space-y-3">
-            <p className="text-[13px]">
-              <span className="font-semibold">Total Students:</span>{" "}
-              {totalStudents} | <span className="font-semibold">Uploaded:</span>{" "}
-              {uploaded} | <span className="font-semibold">UnAssigned:</span>{" "}
-              {unassigned} | <span className="font-semibold">Assigned:</span>{" "}
-              {assigned} |{" "}
-              <span className="font-semibold">No of Evaluators:</span>{" "}
-              {evaluatorRows.length}
-            </p>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-stretch overflow-hidden rounded-lg border border-border/70 bg-card divide-x divide-border/70">
+              <ModerationStat
+                icon={GraduationCap}
+                label="Total Students"
+                value={totalStudents}
+              />
+              <ModerationStat
+                icon={CloudUpload}
+                label="Uploaded"
+                value={uploaded}
+              />
+              <ModerationStat
+                icon={UserMinus}
+                label="UnAssigned"
+                value={unassigned}
+              />
+              <ModerationStat icon={Users} label="Assigned" value={assigned} />
+              <ModerationStat
+                icon={User}
+                label="No of Evaluators"
+                value={evaluatorRows.length}
+              />
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-3 border rounded-md p-2">
-                <p className="text-[13px] font-semibold mb-2">
-                  Evaluator List / Assigned Count
-                </p>
-                <div className="space-y-1 max-h-[280px] overflow-auto">
-                  {evaluatorRows.map((e, i) => {
-                    const id = evaluatorAssignProfileId(e);
-                    const checked = selectedEvaluatorId === id;
-                    return (
-                      <label
-                        key={`ev-${id}-${i}`}
-                        className="flex items-center gap-2 text-[12px]"
-                      >
-                        <input
-                          type="radio"
-                          checked={checked}
-                          onChange={() => {
-                            setSelectedEvaluatorId(id);
-                            setSelectedOmr([]);
-                          }}
-                        />
-                        <span>
-                          {pickText(e, ["evaluator_name", "evaluatorName"])} / (
-                          {pickNum(e, ["no_of_students_assigned"])})
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+              <ModerationPanel
+                title="Evaluator List / Assigned Count"
+                icon={Users}
+                className="md:col-span-3"
+              >
+                {evaluatorRows.length === 0 ? (
+                  <ModerationEmpty
+                    icon={Users}
+                    title="No evaluator selected"
+                    description="Select an evaluator to view assigned count."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
+                    {evaluatorRows.map((e, i) => {
+                      const id = evaluatorAssignProfileId(e);
+                      const checked = selectedEvaluatorId === id;
+                      return (
+                        <label
+                          key={`ev-${id}-${i}`}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors",
+                            checked
+                              ? "bg-[#0c51a4]/10 text-[#0c51a4]"
+                              : "hover:bg-muted/50",
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedEvaluatorId(id);
+                              setSelectedOmr([]);
+                            }}
+                          />
+                          <span>
+                            {pickText(e, ["evaluator_name", "evaluatorName"])} /
+                            ({pickNum(e, ["no_of_students_assigned"])})
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </ModerationPanel>
 
-              <div className="md:col-span-5 border rounded-md p-2">
-                <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card md:col-span-5">
+                <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
                   <SearchInput
                     value={omrSearch}
                     onChange={setOmrSearch}
-                    placeholder="Search…"
+                    placeholder="Search evaluator..."
                     className="w-full max-w-sm"
                   />
-                  <span className="shrink-0 text-[12px] font-semibold text-blue-700">
+                  <span className="shrink-0 text-[12px] font-semibold text-[#0c51a4]">
                     Total :{" "}
                     {selectedEvaluatorId ? assignableStudents.length : 0}
                   </span>
                 </div>
-                <div className="max-h-[280px] overflow-auto border rounded">
-                  <table className="w-full text-[12px]">
-                    <thead>
-                      <tr className="bg-muted/40">
-                        <th className="text-left px-2 py-1 w-14">
-                          <label className="inline-flex items-center gap-1 font-normal">
-                            <input
-                              type="checkbox"
-                              checked={areAllVisibleSelected}
-                              disabled={
-                                !selectedEvaluatorId ||
-                                visibleAssignableOmrs.length === 0
-                              }
-                              onChange={() => toggleSelectAllVisible()}
-                            />
-                            All
-                          </label>
-                        </th>
-                        <th className="text-left px-2 py-1">Serial No</th>
-                        <th className="text-center px-2 py-1">
-                          Answer Papers Assigned
-                        </th>
-                        <th className="text-left px-2 py-1">
-                          Evaluated Total Marks
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {assignableStudents.length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={4}
-                            className="px-2 py-3 text-center text-muted-foreground"
-                          >
-                            {selectedEvaluatorId
-                              ? "No OMR sheets found."
-                              : "Select an evaluator to list OMR sheets."}
-                          </td>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="max-h-[280px] flex-1 overflow-auto">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="bg-sky-50 text-[#0c51a4]">
+                          <th className="w-14 px-2 py-2 text-left font-semibold">
+                            <label className="inline-flex items-center gap-1 font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={areAllVisibleSelected}
+                                disabled={
+                                  !selectedEvaluatorId ||
+                                  visibleAssignableOmrs.length === 0
+                                }
+                                onChange={() => toggleSelectAllVisible()}
+                              />
+                              All
+                            </label>
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Serial No
+                          </th>
+                          <th className="px-2 py-2 text-center font-semibold">
+                            Answer Papers Assigned
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Evaluated Total Marks
+                          </th>
                         </tr>
-                      ) : (
-                        assignableStudents.map((s, idx) => {
-                          const omr = String(s?.omr_serial_no ?? "");
-                          const disabled = isOmrDisabledFor(
-                            s,
-                            selectedProfileId,
-                          );
-                          const checked = selectedOmr.includes(omr);
-                          return (
-                            <tr
-                              key={`omr-${omr}-${idx}`}
-                              className={`border-t ${disabled ? "opacity-50" : ""}`}
-                            >
-                              <td className="px-2 py-1">
-                                <input
-                                  type="checkbox"
-                                  disabled={disabled}
-                                  checked={checked}
-                                  onChange={(e) =>
-                                    toggleOmrSelection(omr, e.target.checked)
-                                  }
-                                />
-                              </td>
-                              <td className="px-2 py-1">{omr || "-"}</td>
-                              <td className="px-2 py-1 text-center">
-                                {Number(s?.omr_mapped ?? 0)}
-                              </td>
-                              <td className="px-2 py-1">
-                                {s?.list_evaluated_totalmarks != null &&
-                                String(s.list_evaluated_totalmarks).trim() !==
-                                  ""
-                                  ? String(s.list_evaluated_totalmarks)
-                                  : ""}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2 flex items-center justify-end gap-2">
-                  <span className="text-[12px] font-semibold text-blue-700">
-                    Selected : {selectedOmr.length}
-                  </span>
+                      </thead>
+                      <tbody>
+                        {assignableStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-0">
+                              <ModerationEmpty
+                                icon={FileText}
+                                title={
+                                  selectedEvaluatorId
+                                    ? "No OMR sheets found"
+                                    : "Select an evaluator"
+                                }
+                                description={
+                                  selectedEvaluatorId
+                                    ? "No assignable OMR sheets for this evaluator."
+                                    : "Select an evaluator to list OMR sheets."
+                                }
+                              />
+                            </td>
+                          </tr>
+                        ) : (
+                          assignableStudents.map((s, idx) => {
+                            const omr = String(s?.omr_serial_no ?? "");
+                            const disabled = isOmrDisabledFor(
+                              s,
+                              selectedProfileId,
+                            );
+                            const checked = selectedOmr.includes(omr);
+                            return (
+                              <tr
+                                key={`omr-${omr}-${idx}`}
+                                className={cn(
+                                  "border-t border-border/60",
+                                  disabled && "opacity-50",
+                                )}
+                              >
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="checkbox"
+                                    disabled={disabled}
+                                    checked={checked}
+                                    onChange={(e) =>
+                                      toggleOmrSelection(omr, e.target.checked)
+                                    }
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5">{omr || "-"}</td>
+                                <td className="px-2 py-1.5 text-center">
+                                  {Number(s?.omr_mapped ?? 0)}
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  {s?.list_evaluated_totalmarks != null &&
+                                  String(s.list_evaluated_totalmarks).trim() !==
+                                    ""
+                                    ? String(s.list_evaluated_totalmarks)
+                                    : ""}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-end border-t border-border/60 px-3 py-2">
+                    <span className="text-[12px] font-semibold text-[#0c51a4]">
+                      Selected : {selectedOmr.length}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="md:col-span-2 border rounded-md p-2">
-                <p className="text-[12px] font-semibold mb-2">
-                  Selected ({selectedOmr.length})
-                </p>
-                <div className="max-h-[280px] overflow-auto space-y-1">
-                  {selectedOmr.map((omr) => (
-                    <div
-                      key={`sel-${omr}`}
-                      className="text-[12px] text-blue-700"
-                    >
-                      {omr}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 border rounded-md p-2">
-                <p className="text-[12px] font-semibold mb-2">
-                  Assigned OMR List ({alreadyAssignedStudents.length})
-                </p>
-                <div className="max-h-[280px] overflow-auto space-y-1">
-                  {alreadyAssignedStudents.map((s) => {
-                    const omr = String(s?.omr_serial_no ?? "");
-                    return (
+              <ModerationPanel
+                title={`Selected (${selectedOmr.length})`}
+                icon={SquareCheck}
+                className="md:col-span-2"
+              >
+                {selectedOmr.length === 0 ? (
+                  <ModerationEmpty
+                    icon={SquareCheck}
+                    title="No items selected"
+                    description="Selected evaluators will appear here."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
+                    {selectedOmr.map((omr) => (
                       <div
-                        key={`as-${omr}`}
-                        className="text-[12px] text-blue-700"
+                        key={`sel-${omr}`}
+                        className="rounded-md bg-[#0c51a4]/5 px-2 py-1 text-[12px] font-medium text-[#0c51a4]"
                       >
                         {omr}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
+                    ))}
+                  </div>
+                )}
+              </ModerationPanel>
+
+              <ModerationPanel
+                title={`Assigned OMR List (${alreadyAssignedStudents.length})`}
+                icon={FileText}
+                className="md:col-span-2"
+              >
+                {alreadyAssignedStudents.length === 0 ? (
+                  <ModerationEmpty
+                    icon={FileText}
+                    title="No OMR sheets assigned"
+                    description="Assigned OMR sheets will appear here."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
+                    {alreadyAssignedStudents.map((s) => {
+                      const omr = String(s?.omr_serial_no ?? "");
+                      return (
+                        <div
+                          key={`as-${omr}`}
+                          className="rounded-md bg-[#0c51a4]/5 px-2 py-1 text-[12px] font-medium text-[#0c51a4]"
+                        >
+                          {omr}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ModerationPanel>
             </div>
 
             <div className="flex justify-end">
@@ -1150,7 +1302,7 @@ export default function EvaluationModerationPage() {
       <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
+            <DialogTitle className="text-[16px] font-semibold text-[#0c51a4]">
               {popupTitle}
             </DialogTitle>
           </DialogHeader>

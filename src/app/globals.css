@@ -285,6 +285,219 @@
   min-width: 5.5rem !important;
 }
 
+/* Evaluation Rejection — Academic Year / Exam Group / Exam Center / Get List */
+.global-filter-bar__row--eval-reject > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx30 {
+  flex: 0 0 30% !important;
+  width: 30% !important;
+  max-width: 30% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx25 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Send Mails to Evaluators — Course / AY / Exam / Role / Re-Eval / Get List */
+.global-filter-bar__row--send-mail-eval > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx18 {
+  flex: 0 0 18% !important;
+  width: 18% !important;
+  max-width: 18% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx12 {
+  flex: 0 0 12% !important;
+  width: 12% !important;
+  max-width: 12% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Assign Mails to Evaluators — Angular yar-bordr dual pick-list */
+.send-mail-eval-panel {
+  border: 2px solid #89c5ff;
+  border-radius: 3px;
+  padding: 6px 10px;
+  background: #fff;
+  margin: 0;
+}
+
+.send-mail-eval-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 0;
+}
+
+.send-mail-eval-panel__col {
+  border: 1px solid #dedede;
+  box-sizing: border-box;
+  min-height: 320px;
+  background: #fff;
+}
+
+.send-mail-eval-panel__col--left,
+.send-mail-eval-panel__col--right {
+  flex: 1 1 45%;
+  max-width: 50%;
+  min-width: 280px;
+}
+
+.send-mail-eval-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 6px 8px 8px;
+}
+
+.send-mail-eval-panel__total {
+  color: #0c51a4;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.send-mail-eval-table-wrap {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.send-mail-eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 13px;
+  margin: 0;
+}
+
+.send-mail-eval-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #c3d9ff;
+  color: #0c51a4;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 5px solid #c3d9ff;
+}
+
+.send-mail-eval-table td {
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #dce8ff;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.send-mail-eval-table tbody tr:nth-child(even) {
+  background: #f1f6ff;
+}
+
+.send-mail-eval-table tbody tr:nth-child(odd) {
+  background: #fff;
+}
+
+.send-mail-eval-table__selected-name {
+  color: #0c51a4 !important;
+}
+
+.send-mail-eval-table th.send-mail-eval-table__selected-head {
+  color: #0c51a4;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .send-mail-eval-panel__col--left,
+  .send-mail-eval-panel__col--right {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
+
+/* Re-Assign Evaluators — row2: CourseYear / Regulation / Subject / IsReEval / Get List */
+.global-filter-bar__row--reassign-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
 /* Exam Center Rooms — Angular fxFlex.gt-xs (20 / 18 / 60 / 22, 50 / 16 / 16 / 10) */
 .global-filter-bar__row--ecr-r1,
 .global-filter-bar__row--ecr-r2 {
@@ -497,6 +710,18 @@
   .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx15,
   .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx49,
   .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx20,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx30,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx25,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx10,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx15,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx18,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx40,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx12,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx10,
+  .global-filter-bar__row--reassign-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--reassign-r2 > .global-filter-field--fx40,
+  .global-filter-bar__row--reassign-r2 > .global-filter-field--fx10,
   .global-filter-bar__row--ecr-r1 > .global-filter-field--fx20,
   .global-filter-bar__row--ecr-r1 > .global-filter-field--fx18,
   .global-filter-bar__row--ecr-r1 > .global-filter-field--fx40,

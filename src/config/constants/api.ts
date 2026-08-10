@@ -531,6 +531,8 @@ export const EXAM_EVAL_API = {
   EVALUATOR_BANK_DETAILS: "ExamEvaluatorBankDetails",
   /** POST: send user ID and password to evaluator */
   SEND_EVALUATOR_CREDENTIALS: "sendUserIdAndPasswordToEvaluator",
+  /** Angular getEvaluatorProfileDetailsUrl → getAllRecords/s_get_evaluator_profile_details */
+  GET_EVALUATOR_PROFILE_DETAILS: "s_get_evaluator_profile_details",
   /** POST: add exam student evaluation pages list */
   ADD_STUDENT_EVAL_PAGES: "addExamStudentEvaluationPagesList",
   /** PUT: update evaluation assignments start date */
@@ -2134,6 +2136,8 @@ export const UNIV_EXAM_CENTER_API = {
   GENERATE_BAR_CODE: "generate-barcode/examstudents",
   /** Angular `updateRejectProcessedReasonUrl` */
   UPDATE_REJECT_PROCESSED_REASON: "updateRejectProcessedReason",
+  /** Angular `getExamRejectDetailsUrl` → getAllRecords/s_get_exam_reject_details */
+  GET_EXAM_REJECT_DETAILS: "s_get_exam_reject_details",
 } as const;
 
 // ─── University Committees ───────────────────────────────────────────────────
