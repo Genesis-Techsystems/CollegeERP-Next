@@ -422,8 +422,8 @@ export default function SubjectWiseAttendanceReportPage() {
       setCollegeName(
         String(
           college?.collegeName ??
-            f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
-            "",
+          f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
+          "",
         ),
       );
       if (raw.length === 0) {

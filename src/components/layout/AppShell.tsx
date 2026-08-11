@@ -51,7 +51,13 @@ export function AppShell({
   const showBreadcrumb =
     pathname !== "/dashboard" &&
     pathname !== "/evaluator" &&
-    pathname !== "/student-dashboard";
+    pathname !== "/student-dashboard" &&
+    pathname !== "/hr-payroll/service-book/service-book-entries" &&
+    pathname !== "/hr-payroll/service-book/employee-wallet" &&
+    pathname !== "/hr-payroll/employee/id-cards" &&
+    pathname !== "/finance/journal-book" &&
+    pathname !== "/finance/bank-book" &&
+    pathname !== "/finance/cash-book";
 
   useEffect(() => {
     if (!pageTitle) return;

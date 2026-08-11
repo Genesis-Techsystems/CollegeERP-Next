@@ -3052,6 +3052,40 @@ export function resolveForcedNavRoute(
   ) {
     return `${postExamBase}/complete-exam-process`;
   }
+  if (
+    hrefLower.includes("marks-memo-generation") ||
+    (labelLower.includes("marks memo") && labelLower.includes("generation")) ||
+    labelLower.includes("exam marks memo generation")
+  ) {
+    return `${postExamBase}/marks-memo-generation`;
+  }
+  if (
+    hrefLower.includes("marks-memo-issue/memo-print") ||
+    hrefLower.includes("memo-print")
+  ) {
+    return `${postExamBase}/marks-memo-issue/memo-print`;
+  }
+  if (
+    hrefLower.includes("marks-memo-issue") ||
+    (labelLower.includes("marks memo") && labelLower.includes("issue")) ||
+    labelLower.includes("exam marks memo issue")
+  ) {
+    return `${postExamBase}/marks-memo-issue`;
+  }
+  if (
+    hrefLower.includes("exam-setup-details") ||
+    labelLower.includes("exam setup details")
+  ) {
+    return `${preExamBase}/exam-setup-details`;
+  }
+  if (
+    hrefLower.includes("subject-source-outcome") ||
+    hrefLower.includes("subject-source-out-come-mapping") ||
+    hrefLower.includes("subject-source-outcome-mapping") ||
+    (labelLower.includes("subject source") && labelLower.includes("outcome"))
+  ) {
+    return `${preExamBase}/subject-source-outcome-mapping`;
+  }
   // Answer Paper Bags Report (exam-reports — not delivery-process CRUD)
   if (
     hrefLower.includes("examcenter-answerpaper-bags-report") ||
@@ -3356,7 +3390,7 @@ export function resolveForcedNavRoute(
       if (hrHref.includes("/apps/hr-payroll")) {
         return (
           hrPayrollBase +
-            hrHref.split("/apps/hr-payroll")[1]?.replace(/\/$/, "") ||
+          hrHref.split("/apps/hr-payroll")[1]?.replace(/\/$/, "") ||
           hrPayrollBase
         );
       }

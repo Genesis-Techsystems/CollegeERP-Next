@@ -1837,3 +1837,103 @@ export async function getInternalAttendanceSubjects(params: {
   const picked = firstGroupByFlag(groups, ["univ_exam_sub_regexamstd"]);
   return picked.length > 0 ? picked : [];
 }
+
+// ---------------------------------------------------------------------------
+// Marks Memo Generation & Issue Services (Angular parity)
+// ---------------------------------------------------------------------------
+
+export async function generateMarksMemoData(params: {
+  examId: number;
+  courseYearId: number;
+  courseGroupId: number;
+  studentId?: number;
+}): Promise<AnyRow> {
+  const data = await getAllRecords<{ result?: AnyRow[] }>(
+    "s_exam_memodata_pop",
+    {
+      in_exam_id: params.examId,
+      in_course_year_id: params.courseYearId || 0,
+      in_course_group_id: params.courseGroupId || 0,
+      in_student_id: params.studentId || 0,
+    },
+  );
+  return data ?? {};
+}
+
+export async function getMarksMemoMaster(params: {
+  studentId: number;
+  examId: number;
+  courseYearId: number;
+}): Promise<AnyRow[]> {
+  try {
+    const list = await domainList<AnyRow>(
+      "ExamMemoMaster",
+      buildQuery({
+        "studentDetail.studentId": params.studentId,
+        "examMaster.examId": params.examId,
+        "courseYear.courseYearId": params.courseYearId,
+      }),
+    );
+    if (Array.isArray(list) && list.length > 0) return list;
+  } catch {
+    // fallback
+  }
+  return [];
+}
+
+export async function getCollegeCertificatesForMemo(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  try {
+    const list = await domainList<AnyRow>(
+      "CollegeCertificate",
+      buildQuery({
+        certifcateCode: "MARKSMEMO",
+        isActive: true,
+        "College.collegeId": collegeId,
+      }),
+    );
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getFeeCertificateIssues(params: {
+  studentId: number;
+  collegeCertificateId: number;
+  certificateNumber: string;
+}): Promise<AnyRow[]> {
+  try {
+    const list = await domainList<AnyRow>(
+      "FeeCertificateIssue",
+      buildQuery({
+        "studentDetail.studentId": params.studentId,
+        "CollegeCertificate.collegeCertificateId": params.collegeCertificateId,
+        certificateNumber: params.certificateNumber,
+      }),
+    );
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveExamMemoMaster(data: AnyRow): Promise<AnyRow> {
+  if (data?.examMemoMasterId || data?.pk_exam_memo_master_id) {
+    return putDetails("ExamMemoMaster", data);
+  }
+  return postDetails("ExamMemoMaster", data);
+}
+
+export async function issueMarksMemoCertificate(data: AnyRow): Promise<AnyRow> {
+  return postDetails("FeeCertificateIssue", data);
+}
+
+export async function uploadBulkExamMarks(formData: FormData): Promise<AnyRow> {
+  return (await uploadFile("uploadbulkexammarks", formData)) as AnyRow;
+}
+
+export async function postBulkExamMarks(uniquecode: string): Promise<AnyRow> {
+  return fetchDetails(`exambulkmarkspop?in_uniquecode=${uniquecode}`);
+}

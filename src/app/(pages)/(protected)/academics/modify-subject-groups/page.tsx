@@ -205,7 +205,7 @@ export default function ModifySubjectGroupsPage() {
 
   return (
     <FilteredListPage
-      title="Modify Subject Groups"
+      title="Modify Subject Group"
       filters={
         <StudentSearchSelect
           label="Student"
@@ -218,15 +218,23 @@ export default function ModifySubjectGroupsPage() {
         />
       }
       rowData={student ? studentDetailsRows : []}
-      columnDefs={studentDetailsColumnDefs}
-      toolbar={student ? { search: true, searchPlaceholder: "Search" } : false}
-      pagination={false}
+      columnDefs={student ? studentDetailsColumnDefs : []}
+      toolbar={
+        student
+          ? {
+              search: true,
+              searchPlaceholder: "Search",
+            }
+          : false
+      }
+      pagination={student ? false : false}
       rightRail={
         student ? (
           <div className="overflow-hidden rounded-md border border-[#c3d9ff] bg-card">
             <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[13px] font-semibold uppercase tracking-wide text-slate-700">
               To Course Group
             </h3>
+
             <div className="space-y-3 p-3">
               <Select
                 label="Course Group *"
@@ -238,12 +246,14 @@ export default function ModifySubjectGroupsPage() {
                 isLoading={loadingGroups}
                 disabled={loadingGroups}
               />
+
               <DatePicker
                 label="Modified On"
                 value={modifiedOn}
                 onChange={setModifiedOn}
                 placeholder="Select date"
               />
+
               <div className="flex justify-end pt-1">
                 <Button
                   type="button"

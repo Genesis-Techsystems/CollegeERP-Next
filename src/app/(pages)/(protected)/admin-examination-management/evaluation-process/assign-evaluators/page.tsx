@@ -30,6 +30,7 @@ export default function AssignEvaluatorsPage() {
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
   const [evaluatorRows, setEvaluatorRows] = useState<AnyRow[]>([]);
   const [studentRows, setStudentRows] = useState<AnyRow[]>([]);
+  const [statsInfo, setStatsInfo] = useState<AnyRow | null>(null);
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>([]);
   const [allChecked, setAllChecked] = useState(false);
 
@@ -247,18 +248,20 @@ export default function AssignEvaluatorsPage() {
       return;
     setLoading(true);
     try {
-      const { evaluators, students } = await getEvaluatorAssignmentBundle({
-        organizationId: organizationId || 1,
-        examId,
-        courseYearId,
-        subjectId,
-        regulationId,
-        courseId,
-        academicYearId,
-        employeeId,
-      });
+      const { evaluators, students, stats } =
+        await getEvaluatorAssignmentBundle({
+          organizationId: organizationId || 1,
+          examId,
+          courseYearId,
+          subjectId,
+          regulationId,
+          courseId,
+          academicYearId,
+          employeeId,
+        });
       setEvaluatorRows(evaluators);
       setStudentRows(students);
+      setStatsInfo(stats ?? null);
       setSelectedProfileIds([]);
       setAllChecked(false);
       setShowPanel(true);
@@ -356,13 +359,27 @@ export default function AssignEvaluatorsPage() {
     setDetailOpen(true);
   }
 
-  const uploadedCount = studentRows.filter(
-    (r) => num(r.is_answerpaper_uploaded) === 1 || txt(r.omr_serial_no),
-  ).length;
-  const unAssigned = studentRows.filter(
-    (r) => num(r.fk_exam_evaluator_profile_id) === 0,
-  ).length;
-  const noOfAssigned = Math.max(uploadedCount - unAssigned, 0);
+  const totalStudentsCount =
+    num(statsInfo?.totalStudents) || studentRows.length;
+  const evaluationStudentsCount =
+    statsInfo?.EvaluationStudents != null
+      ? num(statsInfo.EvaluationStudents)
+      : totalStudentsCount;
+  const uploadedCount =
+    statsInfo?.NoOfAnswerpapersUploaded != null
+      ? num(statsInfo.NoOfAnswerpapersUploaded)
+      : studentRows.filter(
+          (r) => num(r.is_answerpaper_uploaded) === 1 || txt(r.omr_serial_no),
+        ).length;
+  const unAssigned =
+    statsInfo?.UnAssinged != null
+      ? num(statsInfo.UnAssinged)
+      : studentRows.filter((r) => num(r.fk_exam_evaluator_profile_id) === 0)
+          .length;
+  const noOfAssigned =
+    statsInfo?.Assigned != null
+      ? num(statsInfo.Assigned)
+      : Math.max(uploadedCount - unAssigned, 0);
   const filteredEvaluators = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return evaluatorRows;
@@ -373,42 +390,42 @@ export default function AssignEvaluatorsPage() {
 
   const cols = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(
     () => [
+      ...(unAssigned > 0
+        ? [
+            {
+              headerName: "All",
+              width: 70,
+              cellRenderer: (p: any) => {
+                const profileId = num(p.data?.pk_exam_evaluator_profile_id);
+                return (
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3 accent-[hsl(var(--primary))]"
+                    checked={selectedProfileIds.includes(profileId)}
+                    onChange={(e) => {
+                      toggleRow(profileId, e.target.checked);
+                    }}
+                  />
+                );
+              },
+              headerComponent: () => (
+                <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-3 w-3 accent-[hsl(var(--primary))]"
+                    checked={allChecked}
+                    onChange={(e) => {
+                      toggleAll(e.target.checked);
+                    }}
+                  />
+                  <span>All</span>
+                </label>
+              ),
+            },
+          ]
+        : []),
       {
-        headerName: "All",
-        width: 70,
-        cellRenderer: (p: any) => {
-          if (unAssigned <= 0) return null;
-          const profileId = num(p.data?.pk_exam_evaluator_profile_id);
-          return (
-            <input
-              type="checkbox"
-              className="h-3 w-3 accent-[hsl(var(--primary))]"
-              checked={selectedProfileIds.includes(profileId)}
-              onChange={(e) => {
-                toggleRow(profileId, e.target.checked);
-              }}
-            />
-          );
-        },
-        headerComponent: () => {
-          if (unAssigned <= 0) return null;
-          return (
-            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                className="h-3 w-3 accent-[hsl(var(--primary))]"
-                checked={allChecked}
-                onChange={(e) => {
-                  toggleAll(e.target.checked);
-                }}
-              />
-              <span>All</span>
-            </label>
-          );
-        },
-      },
-      {
-        headerName: "SI.No",
+        headerName: "Sl.No",
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
         width: 80,
       },
@@ -588,9 +605,11 @@ export default function AssignEvaluatorsPage() {
         showPanel && (
           <div className="mt-4 pt-4 border-t p-3 text-[12px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded">
             Evaluation Students:{" "}
-            <span className="text-red-600 font-bold">{studentRows.length}</span>{" "}
+            <span className="text-red-600 font-bold">
+              {evaluationStudentsCount}
+            </span>{" "}
             | Total Students:{" "}
-            <span className="text-red-600 font-bold">{studentRows.length}</span>{" "}
+            <span className="text-red-600 font-bold">{totalStudentsCount}</span>{" "}
             | No.Of AnswerPapers Uploaded:{" "}
             <span className="text-red-600 font-bold">{uploadedCount}</span> |
             UnAssigned:{" "}

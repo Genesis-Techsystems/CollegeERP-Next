@@ -22,6 +22,24 @@ import { toastError, toastSuccess } from "@/lib/toast";
 
 type AnyRow = Record<string, any>;
 
+function getEvaluatorProfileId(row: AnyRow): number {
+  return num(
+    row.pk_exam_evaluator_profile_id ??
+      row.fk_exam_evaluator_profile_id ??
+      row.exam_evaluator_profile_id ??
+      row.evaluator_profile_id,
+  );
+}
+
+function getAssignmentId(row: AnyRow): number {
+  return num(
+    row.fk_exam_evaluationassignment_id ??
+      row.pk_exam_evaluationassignment_id ??
+      row.exam_evaluationassignment_id ??
+      row.id,
+  );
+}
+
 export default function AssignEvaluatorsManualPage() {
   const [loading, setLoading] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
@@ -30,12 +48,15 @@ export default function AssignEvaluatorsManualPage() {
   const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
   const [evaluatorRows, setEvaluatorRows] = useState<AnyRow[]>([]);
   const [studentRows, setStudentRows] = useState<AnyRow[]>([]);
+  const [statsInfo, setStatsInfo] = useState<AnyRow | null>(null);
+
   const [selectedEvaluatorProfileId, setSelectedEvaluatorProfileId] = useState<
     number | null
   >(null);
-  const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
+  const [selectedOmrs, setSelectedOmrs] = useState<string[]>([]);
   const [searchEvaluator, setSearchEvaluator] = useState("");
   const [searchOmr, setSearchOmr] = useState("");
+
   const [detailTitle, setDetailTitle] = useState("");
   const [detailRows, setDetailRows] = useState<AnyRow[]>([]);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -197,31 +218,35 @@ export default function AssignEvaluatorsManualPage() {
   const selectedRows = useMemo(
     () =>
       unMappedUploadedStudents.filter((r) =>
-        selectedStudentIds.includes(num(r.pk_exam_evaluationassignment_id)),
+        selectedOmrs.includes(txt(r.omr_serial_no)),
       ),
-    [unMappedUploadedStudents, selectedStudentIds],
+    [unMappedUploadedStudents, selectedOmrs],
   );
 
   const allChecked = useMemo(() => {
     return (
       filteredStudents.length > 0 &&
-      filteredStudents.every((r) =>
-        selectedStudentIds.includes(num(r.pk_exam_evaluationassignment_id)),
-      )
+      filteredStudents.every((r) => selectedOmrs.includes(txt(r.omr_serial_no)))
     );
-  }, [filteredStudents, selectedStudentIds]);
+  }, [filteredStudents, selectedOmrs]);
 
   function toggleAll(checked: boolean) {
-    const ids = filteredStudents.map((r) =>
-      num(r.pk_exam_evaluationassignment_id),
-    );
-    setSelectedStudentIds((s) => {
+    const omrs = filteredStudents
+      .map((r) => txt(r.omr_serial_no))
+      .filter(Boolean);
+    setSelectedOmrs((prev) => {
       if (checked) {
-        return [...new Set([...s, ...ids])];
+        return [...new Set([...prev, ...omrs])];
       } else {
-        return s.filter((x) => !ids.includes(x));
+        return prev.filter((x) => !omrs.includes(x));
       }
     });
+  }
+
+  function toggleStudent(omr: string, checked: boolean) {
+    setSelectedOmrs((prev) =>
+      checked ? [...new Set([...prev, omr])] : prev.filter((x) => x !== omr),
+    );
   }
 
   useEffect(() => {
@@ -311,38 +336,49 @@ export default function AssignEvaluatorsManualPage() {
     )
       return;
     setLoading(true);
-    setShowPanel(true);
     try {
-      const { evaluators, students } = await getEvaluatorAssignmentBundle({
-        organizationId: organizationId || 1,
-        examId,
-        courseYearId,
-        subjectId,
-        regulationId,
-        courseId,
-        academicYearId,
-        employeeId,
-      });
+      const { evaluators, students, stats } =
+        await getEvaluatorAssignmentBundle({
+          organizationId: organizationId || 1,
+          examId,
+          courseYearId,
+          subjectId,
+          regulationId,
+          courseId,
+          academicYearId,
+          employeeId,
+        });
       setEvaluatorRows(evaluators);
       setStudentRows(students);
+      setStatsInfo(stats ?? null);
       setSelectedEvaluatorProfileId(null);
-      setSelectedStudentIds([]);
+      setSelectedOmrs([]);
+      setShowPanel(true);
     } finally {
       setLoading(false);
     }
   }
 
   async function assign() {
-    if (!selectedEvaluatorProfileId || selectedStudentIds.length === 0) return;
+    if (!selectedEvaluatorProfileId || selectedOmrs.length === 0) return;
     const selectedEvaluator = evaluatorRows.find(
-      (r) => num(r.pk_exam_evaluator_profile_id) === selectedEvaluatorProfileId,
+      (r) => getEvaluatorProfileId(r) === selectedEvaluatorProfileId,
     );
-    const timetableDetIds = txt(selectedEvaluator?.pk_exam_timetable_det_ids);
+    const timetableDetIds = txt(
+      selectedEvaluator?.pk_exam_timetable_det_ids ??
+        selectedEvaluator?.fk_exam_timetable_det_ids,
+    );
+
+    const assignmentIds = selectedRows
+      .map((r) => getAssignmentId(r))
+      .filter((id) => id > 0)
+      .join(",");
+
     setLoading(true);
     try {
       await updateManualEvaluationAssignment({
         profileId: selectedEvaluatorProfileId,
-        examEvaluationAssignmentIdsCsv: selectedStudentIds.join(","),
+        examEvaluationAssignmentIdsCsv: assignmentIds,
         timetableDetIds,
         examId: examId || 0,
         subjectId: subjectId || 0,
@@ -357,21 +393,11 @@ export default function AssignEvaluatorsManualPage() {
     }
   }
 
-  function toggleStudent(id: number, checked: boolean) {
-    setSelectedStudentIds((s) =>
-      checked ? [...s, id] : s.filter((x) => x !== id),
-    );
-  }
-
   function openEvaluatorDetail(
     row: AnyRow,
     mode: "assigned" | "evaluated" | "due",
   ) {
-    const profileId = num(
-      row.fk_exam_evaluator_profile_id ??
-        row.pk_exam_evaluator_profile_id ??
-        row.exam_evaluator_profile_id,
-    );
+    const profileId = getEvaluatorProfileId(row);
     let list = studentRows.filter((x) => {
       const xProfileId = num(
         x.fk_exam_evaluator_profile_id ??
@@ -395,12 +421,20 @@ export default function AssignEvaluatorsManualPage() {
     setDetailOpen(true);
   }
 
-  const totalStudents = studentRows.length;
-  const uploadedCount = studentRows.filter(
-    (r) => num(r.is_answerpaper_uploaded) === 1,
-  ).length;
-  const unAssigned = unMappedUploadedStudents.length;
-  const assigned = Math.max(uploadedCount - unAssigned, 0);
+  const totalStudents = num(statsInfo?.totalStudents) || studentRows.length;
+  const uploadedCount =
+    statsInfo?.NoOfAnswerpapersUploaded != null
+      ? num(statsInfo.NoOfAnswerpapersUploaded)
+      : studentRows.filter((r) => num(r.is_answerpaper_uploaded) === 1).length;
+  const unAssigned =
+    statsInfo?.UnAssinged != null
+      ? num(statsInfo.UnAssinged)
+      : unMappedUploadedStudents.length;
+  const assigned =
+    statsInfo?.Assigned != null
+      ? num(statsInfo.Assigned)
+      : Math.max(uploadedCount - unAssigned, 0);
+
   const filteredDetailRows = useMemo(() => {
     const q = detailSearch.trim().toLowerCase();
     if (!q) return detailRows;
@@ -416,21 +450,22 @@ export default function AssignEvaluatorsManualPage() {
   const cols = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(
     () => [
       {
-        headerName: "SI.No",
+        headerName: "Sl.No",
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
-        width: 80,
+        width: 70,
+        flex: 0,
       },
       {
         field: "evaluator_name",
         headerName: "Evaluator Name",
-        valueGetter: (p) => txt(p.data?.evaluator_name),
-        minWidth: 160,
+        minWidth: 200,
+        flex: 1,
       },
       {
         field: "email",
         headerName: "Evaluator Email",
-        valueGetter: (p) => txt(p.data?.email),
-        minWidth: 160,
+        minWidth: 220,
+        flex: 1,
       },
       {
         field: "no_of_students_assigned",
@@ -468,9 +503,9 @@ export default function AssignEvaluatorsManualPage() {
         headerName: "Due Answer Sheets",
         minWidth: 160,
         cellRenderer: (p: any) => {
-          const assigned = num(p.data?.no_of_students_assigned);
+          const assignedVal = num(p.data?.no_of_students_assigned);
           const completed = num(p.data?.no_of_evaluations_completed);
-          const val = Math.max(assigned - completed, 0);
+          const val = Math.max(assignedVal - completed, 0);
           return (
             <span
               className="text-blue-700 cursor-pointer hover:underline"
@@ -604,31 +639,27 @@ export default function AssignEvaluatorsManualPage() {
                   className="mb-2 w-full max-w-sm"
                 />
                 <div className="max-h-[320px] overflow-auto space-y-1">
-                  {filteredEvaluators.map((row) => (
-                    <label
-                      key={num(row.pk_exam_evaluator_profile_id)}
-                      className="flex items-start gap-2 text-[12px]"
-                    >
-                      <input
-                        type="radio"
-                        name="evaluator"
-                        checked={
-                          selectedEvaluatorProfileId ===
-                          num(row.pk_exam_evaluator_profile_id)
-                        }
-                        onChange={() =>
-                          setSelectedEvaluatorProfileId(
-                            num(row.pk_exam_evaluator_profile_id),
-                          )
-                        }
-                      />
-                      <span>
-                        {txt(row.evaluator_name)} (
-                        {num(row.no_of_evaluations_completed)}/
-                        {num(row.no_of_students_assigned)})
-                      </span>
-                    </label>
-                  ))}
+                  {filteredEvaluators.map((row) => {
+                    const profId = getEvaluatorProfileId(row);
+                    return (
+                      <label
+                        key={profId || txt(row.evaluator_name)}
+                        className="flex items-start gap-2 text-[12px] cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name="evaluator"
+                          checked={selectedEvaluatorProfileId === profId}
+                          onChange={() => setSelectedEvaluatorProfileId(profId)}
+                        />
+                        <span>
+                          {txt(row.evaluator_name)} (
+                          {num(row.no_of_evaluations_completed)}/
+                          {num(row.no_of_students_assigned)})
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -649,7 +680,7 @@ export default function AssignEvaluatorsManualPage() {
                     )}
                   </div>
                   <span className="text-[12px] text-blue-700 font-semibold">
-                    Selected: {selectedStudentIds.length}
+                    Selected: {selectedOmrs.length}
                   </span>
                 </div>
                 <Input
@@ -659,21 +690,22 @@ export default function AssignEvaluatorsManualPage() {
                   className="h-8 text-[12px] mb-2"
                 />
                 <div className="max-h-[320px] overflow-auto space-y-1">
-                  {filteredStudents.map((row, i) => {
-                    const id = num(row.pk_exam_evaluationassignment_id);
-                    const checked = selectedStudentIds.includes(id);
-                    const rowKey = `${id}-${txt(row.omr_serial_no)}-${i}`;
+                  {filteredStudents.map((row) => {
+                    const omrStr = txt(row.omr_serial_no);
+                    const checked = selectedOmrs.includes(omrStr);
                     return (
                       <label
-                        key={rowKey}
-                        className="flex items-center gap-2 text-[12px]"
+                        key={omrStr}
+                        className="flex items-center gap-2 text-[12px] cursor-pointer"
                       >
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={(e) => toggleStudent(id, e.target.checked)}
+                          onChange={(e) =>
+                            toggleStudent(omrStr, e.target.checked)
+                          }
                         />
-                        {txt(row.omr_serial_no)}
+                        {omrStr}
                       </label>
                     );
                   })}
@@ -682,12 +714,12 @@ export default function AssignEvaluatorsManualPage() {
 
               <div className="md:col-span-4 rounded border p-2">
                 <h3 className="text-[13px] font-semibold mb-2">
-                  Selected: {selectedStudentIds.length}
+                  Selected: {selectedOmrs.length}
                 </h3>
                 <div className="max-h-[320px] overflow-auto space-y-1 text-[12px]">
                   {selectedRows.map((row, i) => (
                     <div
-                      key={`${num(row.pk_exam_evaluationassignment_id)}-${txt(row.omr_serial_no)}-${i}`}
+                      key={`${txt(row.omr_serial_no)}-${i}`}
                       className="text-blue-700"
                     >
                       {txt(row.omr_serial_no) || "-"}
@@ -702,8 +734,9 @@ export default function AssignEvaluatorsManualPage() {
                   disabled={
                     loading ||
                     !selectedEvaluatorProfileId ||
-                    selectedStudentIds.length === 0
+                    selectedOmrs.length === 0
                   }
+                  className="h-8 px-4 text-[12px] bg-[#0E7096] hover:bg-[#0E7096]/90 text-white"
                 >
                   Assign
                 </Button>
@@ -711,72 +744,67 @@ export default function AssignEvaluatorsManualPage() {
             </div>
           </div>
 
-          <DataTable
-            title="Evaluators List"
-            bordered
-            rowData={evaluatorRows}
-            columnDefs={cols}
-            pagination
-            loading={loading}
-            hideEmptyGrid
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search evaluator…",
-            }}
-          />
+          <div className="app-card p-3 space-y-2">
+            <h3 className="text-[14px] font-semibold text-slate-800">
+              Evaluators List
+            </h3>
+            <DataTable
+              rowData={evaluatorRows}
+              columnDefs={cols}
+              pagination
+              paginationPageSize={25}
+            />
+          </div>
         </div>
       )}
 
-      {isClient &&
-        detailOpen &&
+      {detailOpen &&
+        isClient &&
         createPortal(
-          <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4">
-            <div className="w-full max-w-3xl rounded-lg bg-card border shadow-xl">
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <h4 className="text-[14px] font-semibold">{detailTitle}</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[11px]"
-                  onClick={() => {
-                    setDetailOpen(false);
-                    setDetailRows([]);
-                  }}
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-2xl bg-white rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+              <div className="px-4 py-3 bg-slate-100 border-b flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-slate-800">
+                  {detailTitle}
+                </h3>
+                <button
+                  onClick={() => setDetailOpen(false)}
+                  className="text-slate-500 hover:text-slate-700 text-lg font-bold"
                 >
-                  Close
-                </Button>
+                  &times;
+                </button>
               </div>
-              <div className="p-3 max-h-[60vh] overflow-auto">
-                <div className="mb-2">
-                  <SearchInput
-                    placeholder="Search…"
-                    value={detailSearch}
-                    onChange={setDetailSearch}
-                    className="w-full max-w-sm"
-                  />
-                </div>
-                <table className="w-full text-[12px]">
-                  <thead className="bg-muted/40">
-                    <tr>
-                      <th className="px-2 py-1 text-left">SI.No</th>
-                      <th className="px-2 py-1 text-left">OMR Serial No</th>
-                      <th className="px-2 py-1 text-left">
-                        Evaluated Total Marks
+              <div className="p-3 border-b">
+                <SearchInput
+                  placeholder="Search OMR or Marks…"
+                  value={detailSearch}
+                  onChange={setDetailSearch}
+                  className="w-full max-w-sm text-xs"
+                />
+              </div>
+              <div className="p-4 overflow-auto flex-1">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b">
+                      <th className="p-2 font-semibold text-slate-600">
+                        Sl.No
+                      </th>
+                      <th className="p-2 font-semibold text-slate-600">
+                        Barcode / OMR
+                      </th>
+                      <th className="p-2 font-semibold text-slate-600 text-right">
+                        Evaluated Marks
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredDetailRows.map((r, i) => (
-                      <tr
-                        key={`${num(r.fk_exam_evaluationassignment_id)}-${txt(r.omr_serial_no)}-${i}`}
-                        className="border-t"
-                      >
-                        <td className="px-2 py-1">{i + 1}</td>
-                        <td className="px-2 py-1">
-                          {txt(r.omr_serial_no ?? r.omrSerialNo)}
+                      <tr key={i} className="border-b hover:bg-slate-50">
+                        <td className="p-2">{i + 1}</td>
+                        <td className="p-2">
+                          {txt(r.omr_serial_no ?? r.omrSerialNo) || "-"}
                         </td>
-                        <td className="px-2 py-1">
+                        <td className="p-2 text-right font-medium text-slate-700">
                           {txt(
                             r.evaluated_totalmarks ?? r.evaluatedTotalMarks,
                           ) || "-"}
@@ -784,17 +812,27 @@ export default function AssignEvaluatorsManualPage() {
                       </tr>
                     ))}
                     {filteredDetailRows.length === 0 && (
-                      <tr className="border-t">
+                      <tr>
                         <td
-                          className="px-2 py-2 text-center text-muted-foreground"
                           colSpan={3}
+                          className="p-4 text-center text-slate-500"
                         >
-                          No records found
+                          No records found.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+              </div>
+              <div className="px-4 py-2 bg-slate-50 border-t flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDetailOpen(false)}
+                  className="h-8 text-xs"
+                >
+                  Close
+                </Button>
               </div>
             </div>
           </div>,
