@@ -1849,6 +1849,10 @@ export const ATTENDANCE_API = {
   COUNSELORMAPPINGSWITHOTABSENTIES: "counselormappingswithotabsenties",
   /** Angular `trainingAttendenceDetailsUrl` */
   TRAINING_ATTENDENCE_DETAILS: "TrainingStudentAttendence",
+  /** Angular `getBiometricUsersUrl` — employee/student search for biometric device log report. */
+  GET_BIOMETRIC_USERS: "getAllRecords/s_get_biometric_users",
+  /** Angular `combinedDeviceLogsUrl` — biometric device log report (in/out punches). */
+  COMBINED_DEVICE_LOGS: "getAllRecords/s_get_combined_device_logs",
 } as const;
 
 /** Angular `timetable` app — timing sets, class timings, timetables, schedules. */
@@ -2441,6 +2445,8 @@ export const MISC_REPORT_API = {
   GET_STD_CC_ACTIVITIES: "getAllRecords/s_get_std_ccactivities_report",
   /** Angular `studentSubjectReportUrl` */
   STUDENT_SUBJECT_REPORT: "getAllRecords/s_get_std_sub_report",
+  /** Angular `getSubjectUnitTopicsUrl` — Course Delivery Plan / Tracking reports */
+  SUBJECT_UNIT_TOPICS_REPORT: "getAllRecords/s_get_subject_unit_topics",
   /** POST: upload to temp table */
   UPLOAD_TEMP_TABLE: "upload",
 } as const;

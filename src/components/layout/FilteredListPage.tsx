@@ -14,6 +14,8 @@ export interface FilteredListPageProps<T> extends Omit<
 > {
   /** Title shown above filters — defaults to the sidebar menu label when omitted. */
   title?: string;
+  /** Optional subtitle below the title (e.g. selected committee / exam / subject heading). */
+  subtitle?: string;
   /** Filter fields / actions rendered inside the same card as the table. */
   filters: ReactNode;
   /** Optional content rendered below filters and above the search toolbar. */
@@ -42,6 +44,7 @@ export interface FilteredListPageProps<T> extends Omit<
  */
 export function FilteredListPage<T>({
   title,
+  subtitle,
   filters,
   filtersFooter,
   notice,
@@ -82,7 +85,7 @@ export function FilteredListPage<T>({
       {notice}
       <DataTable
         title={displayTitle}
-        subtitle=""
+        subtitle={subtitle ?? ""}
         bordered
         filters={filters}
         filtersFooter={filtersFooter}

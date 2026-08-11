@@ -149,7 +149,7 @@ export function AssignResourceTimetableMatrix({
                     key={`${weekday.weekdayId}-${timing.timetableScheduleId ?? ti}`}
                     className={`table-td px-2 py-5 text-center align-middle${isBreak ? " break" : ""}${clickable ? " cursor-pointer hover:brightness-95" : ""}`}
                     colSpan={Math.max(1, Number(timing.colspan ?? 1) || 1)}
-                    style={{ background: bg }}
+                    style={{ background: bg, color: fg }}
                     role={clickable ? "button" : undefined}
                     tabIndex={clickable ? 0 : undefined}
                     onClick={() => {

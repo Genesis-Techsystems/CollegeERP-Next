@@ -238,38 +238,38 @@ function studentReportsMenuBreadcrumb(
                                 )
                               ? "Student Caste Wise Gender Count Report"
                               : /\/reports\/(?:admin-student-reports|student-admission-reports)\/enquir(?:ies|ers)-report$/i.test(
-              path,
-            )
-          ? "Enquirers Report"
-          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-academic-history-report$/i.test(
-                path,
-              )
-            ? "Student Academic History Report"
-            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-lab-batches-report$/i.test(
-                  path,
-                )
-              ? "Students Lab Batches Report"
-              : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-electives?-report$/i.test(
-                    path,
-                  )
-                ? "Student Elective Report"
-                : /\/reports\/(?:admin-student-reports|student-admission-reports)\/class-syllabus-status-report$/i.test(
-                      path,
-                    )
-                  ? "Class Syllabus Report"
-                  : /\/reports\/(?:admin-student-reports|student-admission-reports)\/subject-wise-syllabus-report$/i.test(
-                        path,
-                      )
-                    ? "Subject Wise Syllabus Report"
-                    : /\/reports\/(?:admin-student-reports|student-admission-reports)\/daily-sms[-]?communication-detail-report$/i.test(
-                          path,
-                        )
-                      ? "Daily SMS Detail Report"
-                      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/(?:studentcount-drilldown-report|student-drilldown-report)$/i.test(
-                            path,
-                          )
-                        ? "Student Count Report"
-                        : null;
+                                    path,
+                                  )
+                                ? "Enquirers Report"
+                                : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-academic-history-report$/i.test(
+                                      path,
+                                    )
+                                  ? "Student Academic History Report"
+                                  : /\/reports\/(?:admin-student-reports|student-admission-reports)\/students-lab-batches-report$/i.test(
+                                        path,
+                                      )
+                                    ? "Students Lab Batches Report"
+                                    : /\/reports\/(?:admin-student-reports|student-admission-reports)\/student-electives?-report$/i.test(
+                                          path,
+                                        )
+                                      ? "Student Elective Report"
+                                      : /\/reports\/(?:admin-student-reports|student-admission-reports)\/class-syllabus-status-report$/i.test(
+                                            path,
+                                          )
+                                        ? "Class Syllabus Report"
+                                        : /\/reports\/(?:admin-student-reports|student-admission-reports)\/subject-wise-syllabus-report$/i.test(
+                                              path,
+                                            )
+                                          ? "Subject Wise Syllabus Report"
+                                          : /\/reports\/(?:admin-student-reports|student-admission-reports)\/daily-sms[-]?communication-detail-report$/i.test(
+                                                path,
+                                              )
+                                            ? "Daily SMS Detail Report"
+                                            : /\/reports\/(?:admin-student-reports|student-admission-reports)\/(?:studentcount-drilldown-report|student-drilldown-report)$/i.test(
+                                                  path,
+                                                )
+                                              ? "Student Count Report"
+                                              : null;
 
   if (!leaf || !base.test(path)) return items;
 

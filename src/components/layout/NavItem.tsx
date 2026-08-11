@@ -1324,20 +1324,27 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? "").toLowerCase();
 
-    // Daily Attendance Report / Of Students → count report (College/AY/Course/Date only)
+    // Daily Attendance of Students ONLY (not "Daily Attendance Report").
     if (
-      hrefLower.includes("student-daily-attendance-count-report") ||
+      hrefLower.includes("daily-attendance-of-students") ||
       hrefLower.includes("admin-attendance-reports/student-daily") ||
+      labelLower === "daily attendance of students" ||
+      labelLower.includes("daily attendance of student")
+    ) {
+      return "/reports/student-attendance-reports/daily-attendance-of-students";
+    }
+
+    // Daily Attendance Report (Angular period matrix).
+    if (
       (hrefLower.includes("daily-attendance-report") &&
+        !hrefLower.includes("student-daily") &&
         !hrefLower.includes("period") &&
         !hrefLower.includes("percentage") &&
         !hrefLower.includes("daily-attendance-count-report")) ||
       labelLower === "daily attendance report" ||
-      labelLower === "student daily attendance report" ||
-      labelLower === "daily attendance of students" ||
-      labelLower.includes("daily attendance of student")
+      labelLower === "student daily attendance report"
     ) {
-      return "/reports/student-attendance-reports/student-daily-attendance-count-report";
+      return "/reports/student-attendance-reports/daily-attendance-report";
     }
 
     // Subject Wise Student Attendance — beat Attendance Management remap
@@ -2837,27 +2844,33 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return "/reports/admin-student-reports/student-contact-report";
       }
-      // Angular Student Attendance Reports
-      // Daily Attendance Report / Of Students → count report
+      // Daily Attendance of Students ONLY (not "Daily Attendance Report").
       if (
-        hrefLower.includes("student-daily-attendance-count-report") ||
+        hrefLower.includes("daily-attendance-of-students") ||
         hrefLower.includes("admin-attendance-reports/student-daily") ||
+        labelLower === "daily attendance of students" ||
+        labelLower.includes("daily attendance of student")
+      ) {
+        return "/reports/student-attendance-reports/daily-attendance-of-students";
+      }
+      // Daily Attendance Report (Angular period matrix).
+      if (
         (hrefLower.includes("daily-attendance-report") &&
+          !hrefLower.includes("student-daily") &&
           !hrefLower.includes("period") &&
           !hrefLower.includes("percentage") &&
           !hrefLower.includes("daily-attendance-count-report")) ||
         labelLower === "daily attendance report" ||
         labelLower === "student daily attendance report" ||
-        labelLower === "daily attendance of students" ||
-        labelLower.includes("daily attendance of student") ||
         (labelLower.includes("daily attendance") &&
           labelLower.includes("report") &&
+          !labelLower.includes("of student") &&
           !labelLower.includes("period") &&
           !labelLower.includes("percentage") &&
           !labelLower.includes("statistical") &&
           !labelLower.includes("count"))
       ) {
-        return "/reports/student-attendance-reports/student-daily-attendance-count-report";
+        return "/reports/student-attendance-reports/daily-attendance-report";
       }
       // Angular route is `daily-period-attendance-report` (folder name differs).
       if (

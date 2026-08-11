@@ -459,14 +459,6 @@ export default function StudentDailyAttendanceCountReportPage() {
             >
               {loadingList ? "Loading…" : "Get Attendance Summary"}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
-              onClick={goBack}
-            >
-              Back
-            </Button>
           </div>
         </div>
       }

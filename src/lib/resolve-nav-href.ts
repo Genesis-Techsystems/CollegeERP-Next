@@ -119,6 +119,70 @@ export function resolveForcedNavRoute(
   const sidebarPin = resolveSidebarLabelPin(href, label);
   if (sidebarPin) return sidebarPin;
 
+  // TODO / To-Do module — Angular `#/todo/todolist` + `#/todo/todolisttags`.
+  // App Router pages live under `/to-do/...` (hyphen). Pin before generic passthrough.
+  if (
+    hrefLower.includes("todolisttags") ||
+    hrefLower.includes("todolist-tags") ||
+    hrefLower.includes("todo-list-tags") ||
+    hrefLower.includes("todo-listtags") ||
+    labelLower === "todo list tags" ||
+    labelLower === "to-do list tags" ||
+    labelLower === "todolist tags" ||
+    (labelLower.includes("todo") &&
+      labelLower.includes("tag") &&
+      !labelLower.includes("activity"))
+  ) {
+    return "/to-do/todolisttags";
+  }
+  if (
+    hrefLower.includes("/todolist") ||
+    hrefLower.includes("todo-list") ||
+    hrefLower.includes("/to-do/todolist") ||
+    labelLower === "todo list" ||
+    labelLower === "to-do list" ||
+    labelLower === "todolist" ||
+    labelLower === "add todo list" ||
+    (labelLower.includes("todo") &&
+      labelLower.includes("list") &&
+      !labelLower.includes("tag") &&
+      !labelLower.includes("activity"))
+  ) {
+    return "/to-do/todolist";
+  }
+
+  // Budget masters (Angular `apps/budget/*`) — not Finance budget pages.
+  if (
+    !hrefLower.includes("/finance/") &&
+    (hrefLower.includes("budgetcategory") ||
+      hrefLower.includes("budget-category") ||
+      labelLower === "budget category" ||
+      labelLower === "budget categories" ||
+      labelLower === "budgetcategory")
+  ) {
+    return "/budget/budgetcategory";
+  }
+  if (
+    !hrefLower.includes("/finance/") &&
+    (hrefLower.includes("budgetprograms") ||
+      hrefLower.includes("budget-programs") ||
+      hrefLower.includes("budgetprogram") ||
+      labelLower === "budget programs" ||
+      labelLower === "budget program" ||
+      labelLower === "budgetprograms")
+  ) {
+    return "/budget/budgetprograms";
+  }
+  if (
+    !hrefLower.includes("/finance/") &&
+    (hrefLower.includes("budgetallocation") ||
+      hrefLower.includes("budget-allocation") ||
+      labelLower === "budget allocation" ||
+      labelLower === "budgetallocation")
+  ) {
+    return "/budget/budgetallocation";
+  }
+
   // Faculty Leaves → Leave Summary (Angular `staff-faculty-leaves/leave-summary`)
   // Missing route 404s to root not-found → dashboard; pin before generic leave remaps.
   if (
@@ -132,22 +196,28 @@ export function resolveForcedNavRoute(
     return "/staff-faculty-leaves/leave-summary";
   }
 
-  // Daily Attendance Report / Daily Attendance of Students
-  // Angular: student-daily-attendance-count-report
-  // Filters: College, Academic Year, Course, Date only (no Group/Year/Section).
+  // Daily Attendance of Students ONLY (Angular student-daily-attendance-count-report).
+  // Do not conflate with "Daily Attendance Report" (period matrix).
   if (
-    hrefLower.includes("student-daily-attendance-count-report") ||
+    hrefLower.includes("daily-attendance-of-students") ||
     hrefLower.includes("admin-attendance-reports/student-daily") ||
+    labelLower === "daily attendance of students" ||
+    labelLower.includes("daily attendance of student")
+  ) {
+    return "/reports/student-attendance-reports/daily-attendance-of-students";
+  }
+
+  // Daily Attendance Report (Angular daily-attendance-report → period matrix).
+  if (
     (hrefLower.includes("daily-attendance-report") &&
+      !hrefLower.includes("student-daily") &&
       !hrefLower.includes("period") &&
       !hrefLower.includes("percentage") &&
       !hrefLower.includes("daily-attendance-count-report")) ||
     labelLower === "daily attendance report" ||
-    labelLower === "student daily attendance report" ||
-    labelLower === "daily attendance of students" ||
-    labelLower.includes("daily attendance of student")
+    labelLower === "student daily attendance report"
   ) {
-    return "/reports/student-attendance-reports/student-daily-attendance-count-report";
+    return "/reports/student-attendance-reports/daily-attendance-report";
   }
 
   // Subject Wise Student Attendance (Angular subject-wise-attendance-report).
@@ -1263,6 +1333,13 @@ export function resolveForcedNavRoute(
     ) {
       return "/reports/admin-student-reports/certificate-request-report";
     }
+    // Angular: reports/student-admission-reports/student-photo-signature-report
+    if (
+      hrefLower.includes("student-photo-signature-report") ||
+      (labelLower.includes("photo") && labelLower.includes("signature"))
+    ) {
+      return "/reports/admin-student-reports/student-photo-signature-report";
+    }
     // Angular: reports/student-admission-reports/students-subject-report
     // Must beat generic "student subjects" → SIS master mapping.
     if (
@@ -1275,6 +1352,16 @@ export function resolveForcedNavRoute(
       return "/reports/admin-student-reports/student-subjects-report";
     }
     // HR Reports
+    if (
+      hrefLower.includes("employee-count-drilldown-report") ||
+      hrefLower.includes("employee-drilldown-report") ||
+      (labelLower.includes("employee") &&
+        (labelLower.includes("drilldown") ||
+          labelLower.includes("drill down")) &&
+        labelLower.includes("count"))
+    ) {
+      return "/reports/admin-hr-reports/employee-drilldown-report";
+    }
     if (
       hrefLower.includes("employee-list-by-campus") ||
       (labelLower.includes("employee list") &&
@@ -1747,27 +1834,49 @@ export function resolveForcedNavRoute(
     ) {
       return "/reports/admin-student-reports/student-contact-report";
     }
-    // Angular Student Attendance Reports
-    // Daily Attendance Report / Of Students → student-daily-attendance-count-report
+    // Daily Attendance of Students ONLY (not "Daily Attendance Report").
     if (
       hrefLower.includes("student-daily-attendance-count-report") ||
       hrefLower.includes("admin-attendance-reports/student-daily") ||
+      labelLower === "daily attendance of students" ||
+      labelLower.includes("daily attendance of student")
+    ) {
+      return "/reports/student-attendance-reports/daily-attendance-of-students";
+    }
+    // Daily Attendance Report (Angular period matrix).
+    if (
       (hrefLower.includes("daily-attendance-report") &&
+        !hrefLower.includes("student-daily") &&
         !hrefLower.includes("period") &&
         !hrefLower.includes("percentage") &&
         !hrefLower.includes("daily-attendance-count-report")) ||
       labelLower === "daily attendance report" ||
       labelLower === "student daily attendance report" ||
-      labelLower === "daily attendance of students" ||
-      labelLower.includes("daily attendance of student") ||
       (labelLower.includes("daily attendance") &&
         labelLower.includes("report") &&
+        !labelLower.includes("of student") &&
         !labelLower.includes("period") &&
         !labelLower.includes("percentage") &&
         !labelLower.includes("statistical") &&
         !labelLower.includes("count"))
     ) {
-      return "/reports/student-attendance-reports/student-daily-attendance-count-report";
+      return "/reports/student-attendance-reports/daily-attendance-report";
+    }
+    // Angular: reports/student-attendance-reports/course-delivery-plan-report
+    if (
+      hrefLower.includes("course-delivery-plan") ||
+      (labelLower.includes("course delivery") && labelLower.includes("plan"))
+    ) {
+      return "/reports/admin-attendance-reports/course-delivery-plan";
+    }
+    // Angular folder typo `course-delivary-tracking-report` kept for route parity.
+    if (
+      hrefLower.includes("course-delivary-tracking") ||
+      hrefLower.includes("course-delivery-tracking") ||
+      (labelLower.includes("course delivery") &&
+        labelLower.includes("tracking"))
+    ) {
+      return "/reports/admin-attendance-reports/course-delivary-tracking-report";
     }
     // Angular route is `daily-period-attendance-report` (folder name differs).
     if (

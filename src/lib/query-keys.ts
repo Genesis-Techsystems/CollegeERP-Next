@@ -1518,6 +1518,57 @@ export const QK = {
     collegeFilters: (orgId: number, empId: number) =>
       ["HrReports", "collegeFilters", orgId, empId] as const,
   },
+  /** Angular `student-attendance-reports/course-delivery-plan-report` + `course-delivary-tracking-report`. */
+  courseDeliveryReports: {
+    filters: (orgId: number, empId: number) =>
+      ["CourseDeliveryReports", "filters", orgId, empId] as const,
+    sections: (
+      orgId: number,
+      empId: number,
+      collegeId: number,
+      courseId: number,
+      courseGroupId: number,
+      courseYearId: number,
+      academicYearId: number,
+    ) =>
+      [
+        "CourseDeliveryReports",
+        "sections",
+        orgId,
+        empId,
+        collegeId,
+        courseId,
+        courseGroupId,
+        courseYearId,
+        academicYearId,
+      ] as const,
+    subjects: (
+      orgId: number,
+      empId: number,
+      collegeId: number,
+      courseId: number,
+      courseGroupId: number,
+      courseYearId: number,
+      groupSectionId: number,
+      academicYearId: number,
+    ) =>
+      [
+        "CourseDeliveryReports",
+        "subjects",
+        orgId,
+        empId,
+        collegeId,
+        courseId,
+        courseGroupId,
+        courseYearId,
+        groupSectionId,
+        academicYearId,
+      ] as const,
+  },
+  /** Angular `hr-reports/employee-count-drilldown-report`. */
+  employeeDrilldownReport: {
+    orgs: () => ["EmployeeDrilldownReport", "orgs"] as const,
+  },
   managementReports: {
     collegeFilters: (orgId: number, empId: number) =>
       ["ManagementReports", "collegeFilters", orgId, empId] as const,
@@ -1581,5 +1632,34 @@ export const QK = {
         collegeCertificateId,
         tabIndex,
       ] as const,
+  },
+
+  /** Angular `app/main/apps/to-do/*`. */
+  todoListTags: {
+    all: ["EmpTodoListTags"] as const,
+    byCollege: (collegeId: number) =>
+      ["EmpTodoListTags", "byCollege", collegeId] as const,
+    lookup: () => ["EmpTodoListTags", "lookup"] as const,
+  },
+  todoActivityLookup: () => ["EmpActivityList", "lookup"] as const,
+  todoList: {
+    all: ["EmpTodoList"] as const,
+    list: () => ["EmpTodoList", "list"] as const,
+  },
+
+  /** Angular `app/main/apps/budget/*`. */
+  budgetCategory: {
+    all: ["BudgetCategory"] as const,
+    list: () => ["BudgetCategory", "list"] as const,
+    active: () => ["BudgetCategory", "active"] as const,
+  },
+  budgetPrograms: {
+    all: ["BudgetPrograms"] as const,
+    list: () => ["BudgetPrograms", "list"] as const,
+    active: () => ["BudgetPrograms", "active"] as const,
+  },
+  budgetAllocation: {
+    all: ["BudgetAllocation"] as const,
+    list: () => ["BudgetAllocation", "list"] as const,
   },
 } as const;

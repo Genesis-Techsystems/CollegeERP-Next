@@ -1,18 +1,33 @@
-/** Angular staff-naac Extended Profile snapshot values (assessmentonline HEI scrape). */
+/** Angular staff-naac Extended Profile + QIF snapshot (assessmentonline HEI scrape). */
 
 export type YearValue = { year: string; value: string };
 
 export type DocRow = {
   description: string;
+  required?: boolean;
   templateLabel?: string;
   templateHref?: string;
   fileName?: string;
+  fileHref?: string;
+  /** Link input row (Angular `input_url_*`) instead of file upload. */
+  linkInput?: boolean;
+  linkValue?: string;
+  otherFilesHeader?: boolean;
+  otherFile?: boolean;
+  questionnaireId?: string | number;
+  fileformatId?: string | number;
+  seq?: string | number;
 };
+
+export type MetricKind = "years" | "single";
 
 export type MetricBlock = {
   id: string;
   title: string;
-  years: YearValue[];
+  kind: MetricKind;
+  /** Used when `kind === "single"` (Angular Teachers 2.1). */
+  singleValue?: string;
+  years?: YearValue[];
   documents: DocRow[];
 };
 
@@ -22,13 +37,23 @@ export type ExtendedSection = {
   metrics: MetricBlock[];
 };
 
-const FIVE_YEARS: YearValue[] = [
-  { year: "2021-22", value: "554" },
-  { year: "2020-21", value: "405" },
-  { year: "2019-20", value: "250" },
-  { year: "2018-19", value: "241" },
-  { year: "2017-18", value: "171" },
-];
+const FIVE_YEARS_LABELS = [
+  "2021-22",
+  "2020-21",
+  "2019-20",
+  "2018-19",
+  "2017-18",
+] as const;
+
+function yearsOf(...values: string[]): YearValue[] {
+  return FIVE_YEARS_LABELS.map((year, i) => ({
+    year,
+    value: values[i] ?? "",
+  }));
+}
+
+const DATA_TEMPLATE_BASE =
+  "https://assessmentonline.naac.gov.in/storage/app/admin/dynamicfiles";
 
 export const EXTENDED_PROFILE_SECTIONS: ExtendedSection[] = [
   {
@@ -38,18 +63,23 @@ export const EXTENDED_PROFILE_SECTIONS: ExtendedSection[] = [
       {
         id: "1.1",
         title: "Number of students year wise during the last five years",
-        years: FIVE_YEARS,
+        kind: "years",
+        years: yearsOf("554", "405", "250", "241", "171"),
         documents: [
           {
             description: "Upload Supporting Document",
             fileName: "1.1_E_L.pdf",
+            fileHref:
+              "https://assessmentonline.naac.gov.in/storage/app/hei/SSR/114626/dynamic_1689399377_11926.pdf",
           },
           {
             description: "Institutional data in prescribed format",
+            required: true,
             templateLabel: "Data Template",
-            templateHref:
-              "https://assessmentonline.naac.gov.in/public/index.php/hei/generate_excel/extended",
+            templateHref: `${DATA_TEMPLATE_BASE}/1.1_179.xlsx`,
             fileName: "1.1_E_L.xlsx",
+            fileHref:
+              "https://assessmentonline.naac.gov.in/storage/app/hei/SSR/114626/dynamic_1688460997_11926.xlsx",
           },
         ],
       },
@@ -61,25 +91,32 @@ export const EXTENDED_PROFILE_SECTIONS: ExtendedSection[] = [
     metrics: [
       {
         id: "2.1",
-        title: "Number of full time teachers year wise during the last five years",
-        years: [
-          { year: "2021-22", value: "32" },
-          { year: "2020-21", value: "28" },
-          { year: "2019-20", value: "24" },
-          { year: "2018-19", value: "22" },
-          { year: "2017-18", value: "18" },
-        ],
+        title:
+          "Number of teaching staff / full time teachers during the last five years (Without repeat count):",
+        kind: "single",
+        singleValue: "139",
         documents: [
           {
             description: "Upload Supporting Document",
-            fileName: "2.1_E_L.pdf",
           },
           {
             description: "Institutional data in prescribed format",
+            required: true,
             templateLabel: "Data Template",
+            templateHref: `${DATA_TEMPLATE_BASE}/2.1_179.xlsx`,
             fileName: "2.1_E_L.xlsx",
+            fileHref:
+              "https://assessmentonline.naac.gov.in/storage/app/hei/SSR/114626/dynamic_1688979181_11926.xlsx",
           },
         ],
+      },
+      {
+        id: "2.2",
+        title:
+          "Number of teaching staff / full time teachers year wise during the last five years",
+        kind: "years",
+        years: yearsOf("43", "35", "20", "24", "17"),
+        documents: [],
       },
     ],
   },
@@ -89,36 +126,16 @@ export const EXTENDED_PROFILE_SECTIONS: ExtendedSection[] = [
     metrics: [
       {
         id: "3.1",
-        title: "Expenditure excluding salary component year wise during the last five years (INR in Lakhs)",
-        years: [
-          { year: "2021-22", value: "52.92" },
-          { year: "2020-21", value: "34.38" },
-          { year: "2019-20", value: "28.10" },
-          { year: "2018-19", value: "25.40" },
-          { year: "2017-18", value: "21.15" },
-        ],
+        title:
+          "Expenditure excluding salary component year wise during the last five years (INR in lakhs)",
+        kind: "years",
+        years: yearsOf("52.92", "48.66", "34.38", "00", "50.04"),
         documents: [
           {
             description: "Upload Supporting Document",
-            fileName: "3.1_E_L.pdf",
-          },
-          {
-            description: "Institutional data in prescribed format",
-            templateLabel: "Data Template",
-            fileName: "3.1_E_L.xlsx",
           },
         ],
       },
     ],
   },
 ];
-
-export const QIF_CRITERIA = [
-  { id: "1", title: "Curricular Aspects" },
-  { id: "2", title: "Teaching-learning and Evaluation" },
-  { id: "3", title: "Research, Innovations and Extension" },
-  { id: "4", title: "Infrastructure and Learning Resources" },
-  { id: "5", title: "Student Support and Progression" },
-  { id: "6", title: "Governance, Leadership and Management" },
-  { id: "7", title: "Institutional Values and Best Practices" },
-] as const;

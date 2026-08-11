@@ -360,7 +360,7 @@ export default function TransferCertificatePage() {
         selectedStudent?.academicYearId ?? detail.academicYearId ?? 0,
       ),
       studentId: studentNum,
-      certifcateCode: "Transfer Certificate",
+      collegeCertificateId: tcCertId,
       issuedOn: academicEndDate,
     };
 
@@ -558,7 +558,7 @@ export default function TransferCertificatePage() {
                   </div>
                   <div className="grid gap-4 sm:grid-cols-[1fr_auto] items-end">
                     <div className="space-y-1.5">
-                      <Label>Reason for leaveing *</Label>
+                      <Label>Reason for leaving *</Label>
                       <Input
                         value={reason}
                         onChange={(e) => setReason(e.target.value)}
@@ -628,7 +628,7 @@ export default function TransferCertificatePage() {
                             <td className="px-2 py-2">{row.remarks ?? "—"}</td>
                             <td className="px-2 py-2">
                               <div className="flex items-center gap-2">
-                                {row.refDocumentPath ? (
+                                {row.refDocumentPath && (
                                   <button
                                     type="button"
                                     className="text-[#0e62c7] hover:underline"
@@ -641,14 +641,12 @@ export default function TransferCertificatePage() {
                                   >
                                     <Eye className="h-4 w-4" />
                                   </button>
-                                ) : (
-                                  <span>—</span>
                                 )}
                                 <Button
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 px-2 text-[11px]"
+                                  className="h-7 px-2 text-[11px] "
                                   disabled={generating}
                                   onClick={() =>
                                     void handleGeneratePdfFromHistory(row)

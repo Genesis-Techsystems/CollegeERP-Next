@@ -600,6 +600,26 @@ export function normalizeHref(path: string): string {
     .replace(/\/apps\/user-management\//gi, "/user-management/")
     // Angular Email & SMS app folder → Next routes.
     .replace(/\/apps\/email-sms\//gi, "/email-sms/")
+    // Angular To-Do module (`app/main/apps/to-do/`) → App Router `/to-do/...`
+    .replace(/\/apps\/to-do\//gi, "/to-do/")
+    // Live Angular hash routes use module segment `todo` (no hyphen): `#/todo/todolist`
+    .replace(/\/apps\/todo\//gi, "/to-do/")
+    .replace(/\/todo\//gi, "/to-do/")
+    // Slug variants → existing App Router folders
+    .replace(/\/to-do\/todo-list(?=\/|$)/gi, "/to-do/todolist")
+    .replace(/\/to-do\/todo-list-tags(?=\/|$)/gi, "/to-do/todolisttags")
+    .replace(/\/to-do\/todolist-tags(?=\/|$)/gi, "/to-do/todolisttags")
+    .replace(/\/to-do\/todo-listtags(?=\/|$)/gi, "/to-do/todolisttags")
+    // Angular Budget module (`app/main/apps/budget/`) → App Router `/budget/...`
+    // (do not touch Finance's own `/finance/budget-allocation` etc. routes)
+    .replace(/\/apps\/budget\//gi, "/budget/")
+    .replace(/\/budget\/budget-category(?=\/|$)/gi, "/budget/budgetcategory")
+    .replace(/\/budget\/budget-programs(?=\/|$)/gi, "/budget/budgetprograms")
+    .replace(/\/budget\/budget-program(?=\/|$)/gi, "/budget/budgetprograms")
+    .replace(
+      /\/budget\/budget-allocation(?=\/|$)/gi,
+      "/budget/budgetallocation",
+    )
     // Angular Staff NAAC module → App Router `/staff-naac/...`
     .replace(/\/apps\/staff-naac\//gi, "/staff-naac/")
     // Angular NAAC Assessment (Material SSR pages) → App Router `/naac-assessment/...`

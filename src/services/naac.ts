@@ -81,7 +81,9 @@ export type NaacStudentMarks = NaacStudentRow & {
 };
 
 /** Angular default marks assigned in `getStudents()` after studentsList. */
-export function withDefaultNaacMarks(student: NaacStudentRow): NaacStudentMarks {
+export function withDefaultNaacMarks(
+  student: NaacStudentRow,
+): NaacStudentMarks {
   return {
     ...student,
     questions: [
@@ -165,7 +167,9 @@ export async function listNaacAcademicYears(
 /**
  * Angular: `listDetailsByTwoIds(Course, collegeId, true, College.collegeId, isActive)`
  */
-export async function listNaacCourses(collegeId: number): Promise<NaacCourse[]> {
+export async function listNaacCourses(
+  collegeId: number,
+): Promise<NaacCourse[]> {
   if (!collegeId) return [];
   return domainList<NaacCourse>(
     "Course",
@@ -188,7 +192,7 @@ export async function listNaacCourseGroups(
 
 /**
  * Angular: `listDetailsByTwoIdsWithSortLtd(CourseYear, courseId, true, ASC,
- * Course.courseId, isActive, sortOrder)` — size=100 in Angular.
+ * Course.courseId, isActive, sortOrder)` ΓÇö size=100 in Angular.
  */
 export async function listNaacCourseYears(
   courseId: number,
@@ -206,7 +210,7 @@ export async function listNaacCourseYears(
 
 /**
  * Angular: `listDetailsByFourIds(GroupSection, courseYearId, academicYearId,
- * courseGroupId, true, CourseYear…, AcademicYear…, CourseGroup…, isActive)`
+ * courseGroupId, true, CourseYearΓÇª, AcademicYearΓÇª, CourseGroupΓÇª, isActive)`
  */
 export async function listNaacSections(params: {
   courseYearId: number;
@@ -265,7 +269,7 @@ export function subjectsFromCourseOutcomes(
 /**
  * Angular: `listByThreeIds(studentsList, collegeId, courseGroupId, groupSectionId,
  * collegeId, courseGroupId, groupSectionId)`
- * → GET `studentsList?collegeId=&courseGroupId=&groupSectionId=`
+ * ΓåÆ GET `studentsList?collegeId=&courseGroupId=&groupSectionId=`
  */
 export async function listNaacStudents(params: {
   collegeId: number;

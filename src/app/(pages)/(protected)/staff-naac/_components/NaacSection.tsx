@@ -1,27 +1,41 @@
 import type { ReactNode } from "react";
+import { Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { toastSuccess } from "@/lib/toast";
 
-/** Blue section bar used across Angular SSR Profile / Extended / Executive pages. */
-export function NaacSectionHeader({
+/** Angular Bootstrap `panel-primary` heading (blue bar). */
+export function NaacPrimaryPanel({
   title,
+  children,
   className,
 }: {
-  title: string;
+  title?: string;
+  children: ReactNode;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "rounded-t-md bg-[#3b7bbf] px-4 py-2 text-sm font-semibold text-white",
+        "overflow-hidden rounded border border-[#337ab7] bg-white shadow-sm",
         className,
       )}
     >
-      {title}
+      {title ? (
+        <div className="bg-[#337ab7] px-4 py-2.5 text-[15px] font-semibold text-white">
+          {title}
+        </div>
+      ) : null}
+      <div className="space-y-4 p-4">{children}</div>
     </div>
   );
 }
 
-export function NaacSectionCard({
+/**
+ * Angular Bootstrap `panel-default` — gray heading + bordered body.
+ * Used for inner sections inside Basic / Academic tabs.
+ */
+export function NaacDefaultPanel({
   title,
   children,
   className,
@@ -33,13 +47,143 @@ export function NaacSectionCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border border-border bg-card shadow-sm",
+        "overflow-hidden rounded border border-[#ddd] bg-white",
         className,
       )}
     >
-      <NaacSectionHeader title={title} />
-      <div className="p-4">{children}</div>
+      <div className="border-b border-[#ddd] bg-[#f5f5f5] px-4 py-2 text-sm font-bold text-[#333]">
+        {title}
+      </div>
+      <div className="p-3">{children}</div>
     </div>
+  );
+}
+
+/** @deprecated Prefer NaacDefaultPanel for Angular staff-naac parity. */
+export function NaacSectionHeader({
+  title,
+  className,
+}: {
+  title: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-t-md bg-[#337ab7] px-4 py-2 text-sm font-semibold text-white",
+        className,
+      )}
+    >
+      {title}
+    </div>
+  );
+}
+
+/** @deprecated Prefer NaacDefaultPanel (gray) inside NaacPrimaryPanel (blue). */
+export function NaacSectionCard({
+  title,
+  children,
+  className,
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <NaacDefaultPanel title={title} className={className}>
+      {children}
+    </NaacDefaultPanel>
+  );
+}
+
+/** Angular `td_style` purple value text. */
+export const naacTdValueClass = "text-[#5b2c6f]";
+
+/** Bordered label/value table matching Angular `table table-bordered`. */
+export function NaacBorderedTable({
+  children,
+  className,
+  fixed = true,
+}: {
+  children: ReactNode;
+  className?: string;
+  fixed?: boolean;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table
+        className={cn(
+          "w-full border-collapse border border-[#ddd] text-sm",
+          fixed && "table-fixed",
+          className,
+        )}
+      >
+        {children}
+      </table>
+    </div>
+  );
+}
+
+export function NaacTd({
+  children,
+  className,
+  colSpan,
+  value = false,
+}: {
+  children?: ReactNode;
+  className?: string;
+  colSpan?: number;
+  /** Apply Angular purple value colour. */
+  value?: boolean;
+}) {
+  return (
+    <td
+      colSpan={colSpan}
+      className={cn(
+        "border border-[#ddd] px-3 py-2 align-middle",
+        value && naacTdValueClass,
+        className,
+      )}
+    >
+      {children}
+    </td>
+  );
+}
+
+export function NaacTh({
+  children,
+  className,
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <th
+      className={cn(
+        "border border-[#ddd] bg-[#DCDCDC] px-3 py-2 text-left font-semibold text-[#333]",
+        className,
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
+/** Two-column label | value row. */
+export function NaacLabelValueRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <tr>
+      <NaacTd className="w-[35%] bg-white font-normal text-[#333]">
+        {label}
+      </NaacTd>
+      <NaacTd value>{children}</NaacTd>
+    </tr>
   );
 }
 
@@ -49,16 +193,18 @@ export function NaacKeyValueGrid({
   rows: { label: string; value: string }[];
 }) {
   return (
-    <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-      {rows.map((row) => (
-        <div key={row.label} className="flex gap-2 text-sm">
-          <span className="min-w-24 shrink-0 font-medium text-muted-foreground">
-            {row.label}:
-          </span>
-          <span className="text-foreground">{row.value || "—"}</span>
-        </div>
-      ))}
-    </div>
+    <NaacBorderedTable>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label}>
+            <NaacTd className="w-[30%]">{row.label}</NaacTd>
+            <NaacTd value colSpan={3}>
+              {row.value || ""}
+            </NaacTd>
+          </tr>
+        ))}
+      </tbody>
+    </NaacBorderedTable>
   );
 }
 
@@ -70,38 +216,49 @@ export function NaacSimpleTable({
   rows: Record<string, string | number | undefined>[];
 }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-muted/50">
+    <NaacBorderedTable fixed={false}>
+      <thead>
+        <tr>
+          {columns.map((c) => (
+            <NaacTh key={c.key}>{c.header}</NaacTh>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i}>
             {columns.map((c) => (
-              <th
-                key={c.key}
-                className="border border-border px-3 py-2 text-left font-semibold"
-              >
-                {c.header}
-              </th>
+              <NaacTd key={c.key} value>
+                {row[c.key] ?? ""}
+              </NaacTd>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="odd:bg-background even:bg-muted/20">
-              {columns.map((c) => (
-                <td key={c.key} className="border border-border px-3 py-2">
-                  {row[c.key] ?? ""}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </NaacBorderedTable>
+  );
+}
+
+/** Angular `naac-assessment` `copyToClipboard(textN)` — Material "Copy text" button. */
+export function CopyTextButton({ text }: { text: string }) {
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toastSuccess("Successfully Copied");
+    } catch {
+      // Angular silently swallows clipboard failures too.
+    }
+  };
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={handleCopy}>
+      <Copy className="mr-1.5 h-3.5 w-3.5" />
+      Copy text
+    </Button>
   );
 }
 
 export const naacTabListClass =
-  "h-auto w-full flex-wrap justify-start rounded-none border-b border-border bg-transparent p-0";
+  "inline-flex h-auto w-max min-w-full justify-start gap-0 rounded-none bg-transparent p-0";
 
 export const naacTabTriggerClass =
-  "rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-background data-[state=active]:shadow-none";
+  "rounded-none border-b-2 border-transparent bg-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground shadow-none data-[state=active]:border-[#337ab7] data-[state=active]:bg-transparent data-[state=active]:text-[#337ab7] data-[state=active]:shadow-none";

@@ -54,7 +54,7 @@ function positiveId(...candidates: unknown[]): number {
 
 /** Angular Course Assessment — `staff-naac/staff-naac-assessment`. */
 export default function StaffNaacCourseAssessmentPage() {
-  const { user, loading: sessionLoading } = useSessionContext();
+  const { user, isLoading: sessionLoading } = useSessionContext();
   const { employeeId, isResolving } = useLoginEmployeeId(user, sessionLoading);
 
   const [colleges, setColleges] = useState<NaacCollege[]>([]);
@@ -152,9 +152,7 @@ export default function StaffNaacCourseAssessmentPage() {
         setEmployeeName(String(rows[0]?.employeeName ?? ""));
         setSubjects(subjectsFromCourseOutcomes(rows));
       } catch (e) {
-        toast.error(
-          e instanceof Error ? e.message : "Failed to load subjects",
-        );
+        toast.error(e instanceof Error ? e.message : "Failed to load subjects");
       }
     })();
     return () => {
@@ -373,7 +371,9 @@ export default function StaffNaacCourseAssessmentPage() {
 
   const updateStudent = (
     index: number,
-    patch: Partial<NaacStudentMarks> | ((s: NaacStudentMarks) => NaacStudentMarks),
+    patch:
+      | Partial<NaacStudentMarks>
+      | ((s: NaacStudentMarks) => NaacStudentMarks),
   ) => {
     setStudents((prev) => {
       const next = [...prev];
@@ -532,11 +532,15 @@ export default function StaffNaacCourseAssessmentPage() {
               </div>
 
               {loadingStudents && (
-                <p className="text-sm text-muted-foreground">Loading students…</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading students…
+                </p>
               )}
 
               {!loadingStudents && filteredStudents.length === 0 && (
-                <p className="text-sm text-muted-foreground">No students found.</p>
+                <p className="text-sm text-muted-foreground">
+                  No students found.
+                </p>
               )}
 
               {filteredStudents.length > 0 && (
@@ -545,7 +549,10 @@ export default function StaffNaacCourseAssessmentPage() {
                     <table className="w-full min-w-[1100px] border-collapse text-xs">
                       <thead>
                         <tr className="bg-muted/60">
-                          <th className="border border-border p-1" colSpan={2} />
+                          <th
+                            className="border border-border p-1"
+                            colSpan={2}
+                          />
                           <th
                             className="border border-border p-1 text-center font-semibold"
                             colSpan={11}
@@ -560,7 +567,10 @@ export default function StaffNaacCourseAssessmentPage() {
                           </th>
                         </tr>
                         <tr className="bg-muted/40">
-                          <th className="border border-border p-1" colSpan={2} />
+                          <th
+                            className="border border-border p-1"
+                            colSpan={2}
+                          />
                           <th
                             className="border border-border p-1 text-center"
                             colSpan={8}
@@ -573,10 +583,15 @@ export default function StaffNaacCourseAssessmentPage() {
                           <th className="border border-border p-1 text-center">
                             Section-C
                           </th>
-                          <th className="border border-border p-1" colSpan={6} />
+                          <th
+                            className="border border-border p-1"
+                            colSpan={6}
+                          />
                         </tr>
                         <tr className="bg-muted/30">
-                          <th className="border border-border px-2 py-1">S.no</th>
+                          <th className="border border-border px-2 py-1">
+                            S.no
+                          </th>
                           <th className="border border-border px-2 py-1 text-left">
                             Roll No
                           </th>
@@ -588,7 +603,9 @@ export default function StaffNaacCourseAssessmentPage() {
                               Q{j + 1}
                             </th>
                           ))}
-                          <th className="border border-border px-1 py-1">Total</th>
+                          <th className="border border-border px-1 py-1">
+                            Total
+                          </th>
                           <th className="border border-border px-1 py-1">
                             Case Study
                           </th>
@@ -634,7 +651,9 @@ export default function StaffNaacCourseAssessmentPage() {
                           <th className="border border-border px-1 py-1">20</th>
                           <th className="border border-border px-1 py-1">5</th>
                           <th className="border border-border px-1 py-1">60</th>
-                          <th className="border border-border px-1 py-1">100</th>
+                          <th className="border border-border px-1 py-1">
+                            100
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
