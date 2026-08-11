@@ -30,7 +30,9 @@ function firstResultGroup(data: ProcEnvelope | null | undefined): AnyRow[] {
   return Array.isArray(first) ? (first as AnyRow[]) : [];
 }
 
-function splitAttendanceFilterGroups(groups: AnyRow[][]): AttendanceFiltersResult {
+function splitAttendanceFilterGroups(
+  groups: AnyRow[][],
+): AttendanceFiltersResult {
   let filtersData: AnyRow[] = [];
   let academicData: AnyRow[] = [];
   let departmentData: AnyRow[] = [];
@@ -237,19 +239,22 @@ export async function getMentorFortnightReport(params: {
   toPercentage: number;
 }): Promise<AnyRow[]> {
   if (!params.collegeId) return [];
-  const data = await getAllRecords<ProcEnvelope>(COUNSELOR_API.FORTNIGHT_REPORT, {
-    in_collegeId: params.collegeId,
-    in_academicYearId: params.academicYearId,
-    in_courseId: params.courseId,
-    in_CoursegroupId: params.courseGroupId,
-    in_courseYearId: params.courseYearId,
-    in_Section: 0,
-    in_CounselorId: 0,
-    in_fdate: params.fromDate,
-    in_tdate: params.toDate,
-    in_from_percentage: params.fromPercentage,
-    in_to_percentage: params.toPercentage,
-  });
+  const data = await getAllRecords<ProcEnvelope>(
+    COUNSELOR_API.FORTNIGHT_REPORT,
+    {
+      in_collegeId: params.collegeId,
+      in_academicYearId: params.academicYearId,
+      in_courseId: params.courseId,
+      in_CoursegroupId: params.courseGroupId,
+      in_courseYearId: params.courseYearId,
+      in_Section: 0,
+      in_CounselorId: 0,
+      in_fdate: params.fromDate,
+      in_tdate: params.toDate,
+      in_from_percentage: params.fromPercentage,
+      in_to_percentage: params.toPercentage,
+    },
+  );
   return firstResultGroup(data);
 }
 
@@ -291,12 +296,15 @@ export async function getCounselorActivityReport(params: {
   zeroCounselling: number;
 }): Promise<AnyRow[]> {
   if (!params.collegeId || !params.attendanceDate) return [];
-  const data = await getAllRecords<ProcEnvelope>(COUNSELOR_API.ACTIVITY_REPORT, {
-    in_college_id: params.collegeId,
-    in_emp_dept_id: params.departmentId,
-    in_attendance_date: params.attendanceDate,
-    in_zero_counselling: params.zeroCounselling,
-  });
+  const data = await getAllRecords<ProcEnvelope>(
+    COUNSELOR_API.ACTIVITY_REPORT,
+    {
+      in_college_id: params.collegeId,
+      in_emp_dept_id: params.departmentId,
+      in_attendance_date: params.attendanceDate,
+      in_zero_counselling: params.zeroCounselling,
+    },
+  );
   return firstResultGroup(data);
 }
 
@@ -402,6 +410,9 @@ export async function getDayWiseStdAttendanceSummary(params: {
   collegeId: number;
   courseId: number;
   academicYearId: number;
+  /** From selected college/AY/course filter row; Angular always sends this. */
+  courseGroupId?: number;
+  courseYearId?: number;
 }): Promise<AnyRow[]> {
   if (!params.collegeId || !params.classDate) return [];
   const data = await getAllRecords<ProcEnvelope>(
@@ -409,9 +420,10 @@ export async function getDayWiseStdAttendanceSummary(params: {
     {
       in_cls_date: params.classDate,
       in_clg_id: params.collegeId,
-      in_course_year_id: 0,
+      in_course_year_id: params.courseYearId ?? 0,
       in_course_id: params.courseId,
       in_ayear_id: params.academicYearId,
+      in_course_group_id: params.courseGroupId ?? 0,
     },
   );
   return firstResultGroup(data);

@@ -319,6 +319,7 @@ export default function BookWiseReportPage() {
           </Button>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}

@@ -5,7 +5,6 @@ import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
-import { DataTable } from "@/common/components/table";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
@@ -161,6 +160,7 @@ export default function InternalMarksReportPage() {
 
   const [flatRows, setFlatRows] = useState<AnyRow[]>([]);
   const [filterSummary, setFilterSummary] = useState("");
+  const [showTable, setShowTable] = useState(false);
 
   const collegeLogo = useCollegeLogo(collegeId);
 
@@ -318,6 +318,7 @@ export default function InternalMarksReportPage() {
   function clearResults() {
     setFlatRows([]);
     setFilterSummary("");
+    setShowTable(false);
   }
 
   useEffect(() => {
@@ -485,7 +486,9 @@ export default function InternalMarksReportPage() {
       return;
     }
     setLoading(true);
-    clearResults();
+    setFlatRows([]);
+    setFilterSummary("");
+    setShowTable(false);
     try {
       const rows = await getInternalMarksReport({
         examId,
@@ -499,6 +502,7 @@ export default function InternalMarksReportPage() {
         return;
       }
       setFlatRows(rows);
+      setShowTable(true);
 
       const collegeCode = strFrom(
         colleges.find(
@@ -808,7 +812,8 @@ export default function InternalMarksReportPage() {
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={flatRows.length > 0 ? tableRows : []}
+      showTable={showTable}
+      rowData={showTable ? tableRows : []}
       columnDefs={columnDefs}
       loading={loading}
       pagination
@@ -817,30 +822,34 @@ export default function InternalMarksReportPage() {
       fitColumnsToWidth={false}
       toolbar={TOOLBAR}
       toolbarTrailing={
-        mainList.length > 0 ? (
+        showTable && mainList.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+              size="sm"
+              className="h-9 text-[12px]"
               onClick={handleExportExcel}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Excel Report
+              Export Excel
             </Button>
             <Button
               type="button"
-              className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+              size="sm"
+              className="h-9 text-[12px]"
               onClick={handlePrint}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report
             </Button>
           </div>
-        ) : null
+        ) : undefined
       }
-      filtersFooter={
+      tableHeader={
         filterSummary ? (
-          <p className="text-sm font-medium text-primary">{filterSummary}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-primary">{filterSummary}</p>
+          </div>
         ) : null
       }
     />

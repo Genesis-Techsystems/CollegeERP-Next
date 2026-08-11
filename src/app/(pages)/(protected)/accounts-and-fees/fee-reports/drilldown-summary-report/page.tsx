@@ -12,6 +12,9 @@ import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { MINIO_URL } from "@/config/constants/api";
+import { useSessionContext } from "@/context/SessionContext";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { printHtmlInIframe } from "@/lib/print";
 import { escapeHtml } from "@/common/export-html-table";
 import { getErrorMessage } from "@/lib/errors";
@@ -24,9 +27,29 @@ import {
 import {
   fetchScholarshipDetailedSummary,
   getFeeMasterCollegeFilters,
+  listOrganizations,
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
+
+/**
+ * Angular PrintData logo: `MINIO + organization.logoPath`.
+ * Falls back to default placeholder when path is missing.
+ */
+function toOrgPrintLogoUrl(path: string | null | undefined): string {
+  const raw = String(path ?? "").trim();
+  if (!raw) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return origin ? `${origin}${DEFAULT_COLLEGE_LOGO}` : DEFAULT_COLLEGE_LOGO;
+  }
+  if (/^(https?:\/\/|data:)/i.test(raw)) return raw;
+  if (raw.startsWith("/")) {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return origin ? `${origin}${raw}` : raw;
+  }
+  const base = String(MINIO_URL ?? "").replace(/\/$/, "");
+  return base ? `${base}/${raw.replace(/^\/+/, "")}` : raw;
+}
 
 type DrillStep = {
   id: number;
@@ -88,11 +111,14 @@ function annotateRows(
 }
 
 export default function DrilldownSummaryReportPage() {
+  const { user } = useSessionContext();
   const orgId = Number(
-    globalThis?.localStorage?.getItem("organizationId") ?? 0,
+    user?.organizationId ??
+      globalThis?.localStorage?.getItem("organizationId") ??
+      0,
   );
   const employeeId = Number(
-    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+    user?.employeeId ?? globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
 
   const [academicYear, setAcademicYear] = useState<string>("");
@@ -108,6 +134,30 @@ export default function DrilldownSummaryReportPage() {
     queryFn: () => getFeeMasterCollegeFilters(orgId, employeeId),
     enabled: orgId > 0 && employeeId > 0,
   });
+
+  // Angular: Logo = organization.logoPath, display name = organization.orgName
+  const orgsQuery = useQuery({
+    queryKey: ["organizations", "student-fee-drilldown-print"],
+    queryFn: listOrganizations,
+    enabled: orgId > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const orgPrintMeta = useMemo(() => {
+    const org =
+      (orgsQuery.data ?? []).find((o) => Number(o.organizationId) === orgId) ??
+      null;
+    return {
+      orgName:
+        org?.orgName?.trim() ||
+        user?.collegeName?.trim() ||
+        String(
+          globalThis?.localStorage?.getItem("currentCollege") ?? "",
+        ).trim() ||
+        "",
+      logoPath: org?.logoPath?.trim() || "",
+    };
+  }, [orgsQuery.data, orgId, user?.collegeName]);
 
   const academicData = useMemo(
     () => (filtersQuery.data?.academicData ?? []) as FilterRow[],
@@ -258,12 +308,7 @@ export default function DrilldownSummaryReportPage() {
       detailName: "College",
       detailValue: "college_code",
     });
-  }, [
-    academicYear,
-    academicData.length,
-    filtersQuery.isLoading,
-    loadSummary,
-  ]);
+  }, [academicYear, academicData.length, filtersQuery.isLoading, loadSummary]);
 
   const onAcademicYearChange = (v: string | null) => {
     const next = v ?? "";
@@ -463,15 +508,37 @@ export default function DrilldownSummaryReportPage() {
 
   const printReport = () => {
     if (!excelTableRef.current) return;
+    const orgLabel = orgPrintMeta.orgName || "Organization";
+    const titleLine = academicYear
+      ? `Student Fee Report - (${academicYear})`
+      : "Student Fee Report";
+    // Angular: MINIO + organization.logoPath (GIT org logo, not college logo)
+    const logoSrc = toOrgPrintLogoUrl(orgPrintMeta.logoPath);
+
     printHtmlInIframe(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Student Fee Report</title>
 <style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
+@page{margin:12mm}
+body{font-family:Arial,Helvetica,sans-serif;padding:12px;color:#111;margin:0;background:#fff}
+.print-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:10px}
+.portraitLogo{
+  height:90px;width:90px;min-width:90px;min-height:90px;
+  object-fit:contain;display:block;flex-shrink:0
+}
+.print-header-text{flex:1;min-width:0}
+.collegeName{text-align:left!important;font-size:24px;font-weight:550;margin:12px 0 2px;color:#000}
+.title{text-align:left!important;font-size:18px;font-weight:550;margin:0 0 8px;color:#000}
 table{width:100%;border-collapse:collapse;font-size:11px}
 th,td{border:1px solid #333;padding:3px 5px;text-align:center}
 th{background:#e8f0fe}
 </style></head><body>
-<p style="font-weight:600">Student Fee Report${academicYear ? ` — ${escapeHtml(academicYear)}` : ""}</p>
+<div class="print-header">
+  <img src="${escapeHtml(logoSrc)}" alt="Organization Logo" class="portraitLogo" />
+  <div class="print-header-text">
+    <p class="collegeName">${escapeHtml(orgLabel)}</p>
+    <p class="title">${escapeHtml(titleLine)}</p>
+  </div>
+</div>
 ${excelTableRef.current.outerHTML}
 </body></html>`);
   };
@@ -583,7 +650,9 @@ ${excelTableRef.current.outerHTML}
                       )}
                     </>
                   )}
-                  <th className="border px-2 py-1.5 text-center">Total Amount</th>
+                  <th className="border px-2 py-1.5 text-center">
+                    Total Amount
+                  </th>
                   <th className="border px-2 py-1.5 text-center">RTF Amount</th>
                   <th className="border px-2 py-1.5 text-center">
                     College Amount
@@ -592,7 +661,9 @@ ${excelTableRef.current.outerHTML}
                     College Discount
                   </th>
                   <th className="border px-2 py-1.5 text-center">NET Amount</th>
-                  <th className="border px-2 py-1.5 text-center">Paid Amount</th>
+                  <th className="border px-2 py-1.5 text-center">
+                    Paid Amount
+                  </th>
                   <th className="border px-2 py-1.5 text-center">
                     Due College Amount
                   </th>

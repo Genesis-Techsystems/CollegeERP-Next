@@ -424,6 +424,55 @@ export default function FeedbackSummaryPage() {
     Boolean(surveyFormId) &&
     percentageValue !== "";
 
+  // Angular parity: load results when all filters are selected (not only on Get click).
+  useEffect(() => {
+    if (!canGetList) {
+      setRows([]);
+      setHasFetched(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setLoadingList(true);
+        setHasFetched(true);
+        try {
+          const list = await getFeedbackSummaryReportRows({
+            surveyFormId: n(surveyFormId),
+            groupSectionId: n(groupSectionId),
+            courseYearId: n(courseYearId),
+            percentageValue: Number(percentageValue) || 0,
+          });
+          if (cancelled) return;
+          setRows(list);
+          if (list.length === 0) toastSuccess("No records found.");
+        } catch (e) {
+          if (cancelled) return;
+          setRows([]);
+          toastError(getErrorMessage(e) || "Failed to load feedback summary");
+        } finally {
+          if (!cancelled) setLoadingList(false);
+        }
+      })();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    canGetList,
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    groupSectionId,
+    surveyFormId,
+    percentageValue,
+  ]);
+
   async function handleGetList() {
     if (!canGetList) {
       toastError("Please fill all required filters.");
@@ -617,6 +666,7 @@ export default function FeedbackSummaryPage() {
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList || filtersQuery.isLoading}

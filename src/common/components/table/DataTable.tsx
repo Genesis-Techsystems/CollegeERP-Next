@@ -23,6 +23,7 @@ import {
   type GridSizeChangedEvent,
   type RowDataUpdatedEvent,
   type GridReadyEvent,
+  type GetRowStyle,
 } from "ag-grid-community";
 import { ChevronDown, Download, Filter } from "lucide-react";
 import { CardHeadingTitle } from "@/common/components/data-display";
@@ -146,6 +147,8 @@ export interface DataTableProps<T> {
   filters?: ReactNode;
   /** Optional content rendered directly below filters and above the toolbar. */
   filtersFooter?: ReactNode;
+  /** Optional content rendered directly below the toolbar and above the grid. */
+  toolbarFooter?: ReactNode;
   /** Collapse the filters section. Default true when `filters` is set. */
   filtersCollapsible?: boolean;
   /** Uncontrolled default open when collapsible. Default true. */
@@ -206,6 +209,17 @@ export interface DataTableProps<T> {
   fitColumnsToWidth?: boolean;
   /** AG Grid row height in pixels. */
   rowHeight?: number;
+  /**
+   * Force AG Grid `autoHeight` even for wide tables (`fitColumnsToWidth={false}`).
+   * Use on paginated matrix reports to avoid empty space under a fixed grid height.
+   */
+  autoHeight?: boolean;
+  /** Optional AG Grid pinned top rows (e.g. "No. of Classes" summary). */
+  pinnedTopRowData?: T[];
+  /** Optional AG Grid row style (e.g. highlight summary rows). */
+  getRowStyle?: GetRowStyle<T>;
+  /** Optional content rendered inside the table card below the grid/pagination. */
+  afterGrid?: ReactNode;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -272,7 +286,8 @@ function computeWideGridHeight(
   pageSize: number,
   rowHeightPx?: number,
 ): number {
-  const rowH = rowHeightPx ?? 40;
+  // Match CSS `--app-table-row-height` (35px) when rowHeight is not overridden.
+  const rowH = rowHeightPx ?? 35;
   const visibleRows = Math.max(Math.min(rowCount, pageSize), 1);
   const headerH = 96;
   const hScrollBar = 16;
@@ -524,6 +539,7 @@ export function DataTable<T>({
   bordered = true,
   filters,
   filtersFooter,
+  toolbarFooter,
   filtersCollapsible = true,
   filtersDefaultOpen = true,
   filtersOpen: filtersOpenProp,
@@ -556,6 +572,10 @@ export function DataTable<T>({
   columnFilters: columnFiltersProp = true,
   fitColumnsToWidth = true,
   rowHeight,
+  autoHeight = false,
+  pinnedTopRowData,
+  getRowStyle,
+  afterGrid,
 }: DataTableProps<T>) {
   const tb = useMemo(() => resolveToolbar(toolbarProp), [toolbarProp]);
   const enableColumnFilters = columnFiltersProp;
@@ -679,7 +699,8 @@ export function DataTable<T>({
     (resolvedTitle && enableColumnFilters && tb.show ? FILTER_HINT : undefined);
 
   const isAutoHeight =
-    !isWideTable && (height === "auto" || pagination || serverSide);
+    autoHeight ||
+    (!isWideTable && (height === "auto" || pagination || serverSide));
 
   const dataForPaging = clientPaginationEnabled ? filteredRowData : rowData;
   const clientTotalRows = dataForPaging.length;
@@ -1001,6 +1022,10 @@ export function DataTable<T>({
               </div>
             )}
 
+          {toolbarFooter ? (
+            <div className="px-5 pb-2 pt-0">{toolbarFooter}</div>
+          ) : null}
+
           <div
             className={cn(
               rightRail &&
@@ -1025,6 +1050,8 @@ export function DataTable<T>({
                     ref={gridRef}
                     context={{ __rowNumberOffset: rowNumberOffset }}
                     rowData={pagedRowData}
+                    pinnedTopRowData={pinnedTopRowData}
+                    getRowStyle={getRowStyle}
                     columnDefs={resolvedColumnDefs}
                     defaultColDef={defaultColDef}
                     domLayout={isAutoHeight ? "autoHeight" : undefined}
@@ -1076,6 +1103,12 @@ export function DataTable<T>({
               onPageSizeChange={handleServerPageSizeChange}
             />
           )}
+
+          {afterGrid ? (
+            <div className="border-t border-border/60 px-5 py-3">
+              {afterGrid}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -1,36 +1,47 @@
 /**
  * Group Wise Passed/Failed Result Sheets — iframe print.
  * Avoids AppShell blank-sheet issues from window.print() on the main document.
+ * Angular parity: logo + college name header, then hall tickets in 4 columns.
  */
 
-type AnyRow = Record<string, unknown>
+import { printHtmlInIframe } from "@/lib/print";
+
+type AnyRow = Record<string, unknown>;
+
+const DEFAULT_LOGO = "/assets/images/avatars/default_logo.png";
 
 export type GroupWisePrintGroup = {
-  groupCode: string
-  students: AnyRow[]
-}
+  groupCode: string;
+  students: AnyRow[];
+};
 
 export type GroupWisePrintMeta = {
-  title: string
-  examLabel?: string
-  courseGroupCode?: string
-  resultStatus: string
-}
+  title: string;
+  examLabel?: string;
+  courseGroupCode?: string;
+  resultStatus: string;
+  collegeName?: string;
+  collegeLogo?: string;
+};
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function hallTicket(row: AnyRow): string {
-  for (const key of ['hallticket_number', 'hall_ticketno', 'hallTicketNumber']) {
-    const v = row?.[key]
-    if (v != null && String(v).trim() !== '') return String(v)
+  for (const key of [
+    "hallticket_number",
+    "hall_ticketno",
+    "hallTicketNumber",
+  ]) {
+    const v = row?.[key];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
+  return "";
 }
 
 const PRINT_CSS = `
@@ -45,22 +56,50 @@ const PRINT_CSS = `
     print-color-adjust: exact;
   }
   .wrap { padding: 12px 16px; }
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  .logo-col {
+    width: 15%;
+    flex: 0 0 15%;
+    padding-right: 10px;
+  }
+  .logo-col img {
+    max-width: 100%;
+    max-height: 90px;
+    width: auto;
+    height: auto;
+    display: block;
+    object-fit: contain;
+  }
+  .title-col {
+    width: 85%;
+    flex: 1 1 85%;
+    text-align: center;
+    padding-top: 4px;
+  }
   .college-name {
     text-align: center;
     font-size: 28px;
     font-weight: 700;
     margin: 12px 0 4px;
+    color: #000;
   }
   .title {
     text-align: center;
     font-size: 23px;
     font-weight: 600;
     margin: 4px 0;
+    color: #000;
   }
   .details {
     text-align: center;
     font-size: 18px;
     margin: 4px 0 16px;
+    color: #000;
   }
   .course-line {
     text-align: left;
@@ -95,42 +134,47 @@ const PRINT_CSS = `
   @media print {
     html, body { background: #fff !important; }
   }
-`
+`;
 
 function chunkTickets(tickets: string[], size = 4): string[][] {
-  const rows: string[][] = []
+  const rows: string[][] = [];
   for (let i = 0; i < tickets.length; i += size) {
-    rows.push(tickets.slice(i, i + size))
+    rows.push(tickets.slice(i, i + size));
   }
-  return rows
+  return rows;
 }
 
-function buildDocument(groups: GroupWisePrintGroup[], meta: GroupWisePrintMeta): string {
-  const title = escapeHtml(meta.title)
-  const exam = escapeHtml(meta.examLabel ?? '')
-  const courseGroup = escapeHtml(meta.courseGroupCode ?? '')
-  const status = escapeHtml(meta.resultStatus)
+function buildDocument(
+  groups: GroupWisePrintGroup[],
+  meta: GroupWisePrintMeta,
+): string {
+  const title = escapeHtml(meta.title);
+  const exam = escapeHtml(meta.examLabel ?? "");
+  const courseGroup = escapeHtml(meta.courseGroupCode ?? "");
+  const status = escapeHtml(meta.resultStatus);
+  const collegeName = escapeHtml(meta.collegeName ?? "");
+  const logoSrc = escapeHtml(meta.collegeLogo || DEFAULT_LOGO);
 
   const groupsHtml = groups
     .map((group) => {
-      const tickets = group.students.map(hallTicket).filter(Boolean)
+      const tickets = group.students.map(hallTicket).filter(Boolean);
       const rows = chunkTickets(tickets)
         .map(
           (row) =>
             `<tr>${row
               .map((t) => `<td>${escapeHtml(t)}</td>`)
-              .concat(Array(Math.max(0, 4 - row.length)).fill('<td></td>'))
-              .join('')}</tr>`,
+              .concat(Array(Math.max(0, 4 - row.length)).fill("<td></td>"))
+              .join("")}</tr>`,
         )
-        .join('')
+        .join("");
       return `
         <p class="group-head">${escapeHtml(group.groupCode)} - ${status} (${tickets.length})</p>
         <hr />
         <table class="tickets" cellspacing="0" cellpadding="0">${rows}</table>
         <hr />
-      `
+      `;
     })
-    .join('')
+    .join("");
 
   return `<!DOCTYPE html>
 <html>
@@ -141,46 +185,25 @@ function buildDocument(groups: GroupWisePrintGroup[], meta: GroupWisePrintMeta):
 </head>
 <body>
   <div class="wrap">
-    <p class="title">${title}</p>
-    ${exam ? `<p class="details">${exam}</p>` : ''}
-    ${courseGroup ? `<p class="course-line">Course : ${courseGroup}</p>` : ''}
+    <div class="header-row">
+      <div class="logo-col"><img src="${logoSrc}" alt="College Logo" /></div>
+      <div class="title-col">
+        ${collegeName ? `<p class="college-name">${collegeName}</p>` : ""}
+        <p class="title">${title}</p>
+        ${exam ? `<p class="details">${exam}</p>` : ""}
+      </div>
+    </div>
+    ${courseGroup ? `<p class="course-line">Course : ${courseGroup}</p>` : ""}
     ${groupsHtml}
   </div>
 </body>
-</html>`
-}
-
-function printHtmlInIframe(html: string): void {
-  const frame = document.createElement('iframe')
-  frame.setAttribute('aria-hidden', 'true')
-  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
-  document.body.appendChild(frame)
-
-  const fdoc = frame.contentDocument
-  const win = frame.contentWindow
-  if (!fdoc || !win) {
-    frame.remove()
-    return
-  }
-
-  fdoc.open()
-  fdoc.write(html)
-  fdoc.close()
-
-  const cleanup = () => frame.remove()
-  win.addEventListener('afterprint', cleanup)
-
-  setTimeout(() => {
-    win.focus()
-    win.print()
-    setTimeout(cleanup, 1500)
-  }, 300)
+</html>`;
 }
 
 export function printGroupWiseResultSheets(
   groups: GroupWisePrintGroup[],
   meta: GroupWisePrintMeta,
 ): void {
-  if (!groups.length) return
-  printHtmlInIframe(buildDocument(groups, meta))
+  if (!groups.length) return;
+  printHtmlInIframe(buildDocument(groups, meta));
 }

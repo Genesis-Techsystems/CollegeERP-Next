@@ -1,31 +1,57 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon } from 'lucide-react'
-import { ListPage } from '@/components/layout'
+import { useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import { ListPage } from "@/components/layout";
 
-import { StatusBadge } from '@/common/components/data-display'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listCommitteePositions } from '@/services'
-import type { UnivCommitteePosition } from '@/types/committees'
-import CommitteePositionModal from './CommitteePositionModal'
+import { StatusBadge } from "@/common/components/data-display";
+import { Button } from "@/components/ui/button";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listCommitteePositions } from "@/services";
+import type { UnivCommitteePosition } from "@/types/committees";
+import CommitteePositionModal from "./CommitteePositionModal";
 
-const organizationId = () => Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+const organizationId = () =>
+  Number(globalThis?.localStorage?.getItem("organizationId") ?? 0);
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<UnivCommitteePosition>,
-  organizationName: { field: 'organizationName', headerName: 'Organisation', minWidth: 130, flex: 1 } as ColDef<UnivCommitteePosition>,
-  committeePossitoinName: { field: 'committeePossitoinName', headerName: 'Committee Position', minWidth: 180, flex: 1.2 } as ColDef<UnivCommitteePosition>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<UnivCommitteePosition>,
-  actions: { headerName: 'Edit', minWidth: 86, width: 86, flex: 0 } as ColDef<UnivCommitteePosition>,
-}
+  siNo: {
+    headerName: "SI No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<UnivCommitteePosition>,
+  organizationName: {
+    field: "organizationName",
+    headerName: "Organisation",
+    minWidth: 130,
+    flex: 1,
+  } as ColDef<UnivCommitteePosition>,
+  committeePossitoinName: {
+    field: "committeePossitoinName",
+    headerName: "Committee Position",
+    minWidth: 180,
+    flex: 1.2,
+  } as ColDef<UnivCommitteePosition>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 90,
+    flex: 0.7,
+  } as ColDef<UnivCommitteePosition>,
+  actions: {
+    headerName: "Edit",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<UnivCommitteePosition>,
+};
 
 function statusRenderer(p: ICellRendererParams<UnivCommitteePosition>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -37,23 +63,26 @@ function makeActionsRenderer(
       size="sm"
       variant="ghost"
       className="h-8 w-8 p-0"
-      onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
+      onClick={() => {
+        setEditing(p.data ?? null);
+        setModalOpen(true);
+      }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function CreateCommitteePositionPage() {
-  const orgId = organizationId()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editData, setEditData] = useState<UnivCommitteePosition | null>(null)
+  const orgId = organizationId();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editData, setEditData] = useState<UnivCommitteePosition | null>(null);
 
   const { data, isLoading, invalidate } = useCrudList<UnivCommitteePosition>({
     queryKey: QK.committeePositions.list(orgId),
     queryFn: () => listCommitteePositions(orgId),
     enabled: orgId > 0,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<UnivCommitteePosition>[]>(
     () => [
@@ -61,33 +90,49 @@ export default function CreateCommitteePositionPage() {
       COL_DEFS.organizationName,
       COL_DEFS.committeePossitoinName,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditData, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditData, setModalOpen),
+      },
     ],
     [],
-  )
+  );
 
   return (
     <ListPage
-              title="Create Committee Position"
-              rowData={data}
-              columnDefs={columnDefs}
-              loading={isLoading}
-              pagination
-              toolbar={{ search: true, searchPlaceholder: 'Search positions…', pdfDocumentTitle: 'Committee Positions' }}
-              toolbarTrailing={(
-                <Button size="sm" onClick={() => { setEditData(null); setModalOpen(true) }}>
-                  <PlusIcon className="h-4 w-4 mr-1" />
-                  Add Position
-                </Button>
-              )}
-            >
+      title="Create Committee Position"
+      rowData={data}
+      columnDefs={columnDefs}
+      loading={isLoading}
+      pagination
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search positions…",
+        pdfDocumentTitle: "Committee Positions",
+      }}
+      toolbarTrailing={
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditData(null);
+            setModalOpen(true);
+          }}
+        >
+          <PlusIcon className="h-4 w-4 mr-1" />
+          Create Committee Position
+        </Button>
+      }
+    >
       <CommitteePositionModal
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditData(null) }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditData(null);
+        }}
         editData={editData}
         organizationId={orgId}
         onSaved={invalidate}
       />
     </ListPage>
-  )
+  );
 }

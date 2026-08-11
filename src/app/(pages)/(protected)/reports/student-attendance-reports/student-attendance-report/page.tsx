@@ -2,7 +2,8 @@
 
 /**
  * Student Attendance Report —
- * Angular `reports/student-attendance-reports/student-attendance-report` parity.
+ * Admin: `reports/student-attendance-reports/student-attendance-report`
+ * HOD:   `staff-reports/admin-attendance-reports/student-attendance-report`
  * Get List: `getAllRecords/s_rep_tt_std_daywise_attendance`
  * AG Grid: one row per subject + dynamic date columns.
  */
@@ -402,6 +403,7 @@ export default function StudentAttendanceReportPage() {
       );
       if (raw.length === 0) {
         toastInfo("No attendance records found.");
+        setShowTable(false);
         return;
       }
       const pivoted = pivotDaywiseRows(raw);
@@ -418,6 +420,7 @@ export default function StudentAttendanceReportPage() {
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
+      setShowTable(false);
     } finally {
       setLoadingList(false);
     }
@@ -483,8 +486,9 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
           : REPORT_TITLE
       }
       filters={
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
+        <div className="space-y-3">
+          {/* Row 1: College → Section */}
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Select
               label="College"
               required
@@ -494,8 +498,6 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               placeholder="College"
               isLoading={f.loadingFilters}
             />
-          </div>
-          <div className="min-w-[8.5rem] flex-1 basis-[8.5rem] sm:min-w-[9.5rem]">
             <Select
               label="Academic Year"
               required
@@ -504,8 +506,6 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               options={f.ayOptions}
               placeholder="Academic Year"
             />
-          </div>
-          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
             <Select
               label="Course"
               required
@@ -515,8 +515,6 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               placeholder="Course"
               disabled={!f.collegeId}
             />
-          </div>
-          <div className="min-w-[8rem] flex-1 basis-[8rem] sm:min-w-[9rem]">
             <Select
               label="Course Group"
               required
@@ -526,8 +524,6 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               placeholder="Course Group"
               disabled={!f.courseId}
             />
-          </div>
-          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
             <Select
               label="Course Year"
               required
@@ -537,8 +533,6 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               placeholder="Course Year"
               disabled={!f.courseGroupId}
             />
-          </div>
-          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
             <Select
               label="Section"
               required
@@ -552,45 +546,47 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               disabled={!f.courseYearId}
             />
           </div>
-          <div className="min-w-[12rem] flex-1 basis-[12rem] sm:min-w-[14rem]">
-            <Select
-              label="Student"
-              required
-              searchable
-              value={studentId || null}
-              onChange={(v) => {
-                setStudentId(v ?? "");
-                clearResults();
-              }}
-              options={studentOptions}
-              placeholder="Student"
-              isLoading={loadingStudents}
-              disabled={!f.sectionId}
-            />
-          </div>
-          <div className="min-w-[9rem] flex-1 basis-[9rem]">
-            <DatePicker
-              label="From Date"
-              value={fromDate}
-              onChange={onFromChange}
-              displayFormat="dd-MM-yyyy"
-              clearable={false}
-            />
-          </div>
-          <div className="min-w-[9rem] flex-1 basis-[9rem]">
-            <DatePicker
-              label="To Date"
-              value={toDate}
-              onChange={onToChange}
-              displayFormat="dd-MM-yyyy"
-              minDate={fromDate ?? undefined}
-              clearable={false}
-            />
-          </div>
-          <div className="flex shrink-0 items-center gap-2 pb-0.5">
+
+          {/* Row 2: Student (wide) + dates + actions */}
+          <div className="flex flex-nowrap items-end gap-3 overflow-x-auto pb-0.5">
+            <div className="min-w-[18rem] w-[40%] max-w-[28rem] shrink-0 grow">
+              <Select
+                label="Student"
+                required
+                searchable
+                value={studentId || null}
+                onChange={(v) => {
+                  setStudentId(v ?? "");
+                  clearResults();
+                }}
+                options={studentOptions}
+                placeholder="Student"
+                isLoading={loadingStudents}
+                disabled={!f.sectionId}
+              />
+            </div>
+            <div className="w-[11rem] shrink-0">
+              <DatePicker
+                label="From Date"
+                value={fromDate}
+                onChange={onFromChange}
+                displayFormat="dd-MM-yyyy"
+                clearable={false}
+              />
+            </div>
+            <div className="w-[11rem] shrink-0">
+              <DatePicker
+                label="To Date"
+                value={toDate}
+                onChange={onToChange}
+                displayFormat="dd-MM-yyyy"
+                minDate={fromDate ?? undefined}
+                clearable={false}
+              />
+            </div>
             <Button
               type="button"
-              className="h-9 w-fit px-4"
+              className="h-9 w-fit shrink-0 px-4"
               disabled={loadingList}
               onClick={() => void handleGetList()}
             >
@@ -599,7 +595,7 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
             <Button
               type="button"
               variant="secondary"
-              className="h-9 w-fit px-4"
+              className="h-9 w-fit shrink-0 px-4"
               onClick={goBack}
             >
               Back
@@ -607,6 +603,7 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? gridRows : []}
       columnDefs={columnDefs}
       loading={loadingList}

@@ -535,6 +535,7 @@ ${tableHtml}
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       pagination

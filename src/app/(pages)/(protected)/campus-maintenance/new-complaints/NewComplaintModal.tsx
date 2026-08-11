@@ -580,7 +580,6 @@ export default function NewComplaintModal({
                     clearable={!lockCollege}
                     disabled={lockCollege}
                     error={errors.collegeId?.message}
-                    contentClassName="z-[110]"
                   />
                 )}
               />
@@ -605,7 +604,6 @@ export default function NewComplaintModal({
                       departmentOptions.length === 0 ||
                       lockDepartment
                     }
-                    contentClassName="z-[110]"
                   />
                 )}
               />
@@ -622,7 +620,6 @@ export default function NewComplaintModal({
                     placeholder="Select room"
                     searchable
                     clearable
-                    contentClassName="z-[110]"
                   />
                 )}
               />
@@ -639,7 +636,6 @@ export default function NewComplaintModal({
                     placeholder="Select type"
                     searchable
                     clearable
-                    contentClassName="z-[110]"
                   />
                 )}
               />

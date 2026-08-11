@@ -3,19 +3,21 @@
 /**
  * Student Attendance Percentage Report —
  * Angular `reports/student-attendance-reports/student-attendance-percentage-report` parity.
- * AG Grid: one row per student + dynamic subject columns.
+ * AG Grid: pinned "No. of Classes" row + one row per student + dynamic subject columns.
+ * Table appears only after Get List.
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ColDef } from "ag-grid-community";
+import type {
+  CellClassParams,
+  CellStyle,
+  ColDef,
+  RowClassParams,
+} from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
-import {
-  buildHtmlTable,
-  escapeHtml,
-  exportHtmlTableAsExcel,
-} from "@/common/export-html-table";
+import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +37,7 @@ import {
   buildBannerHtml,
 } from "../_lib/useAttendanceReportFilters";
 
-type AnyRow = Record<string, unknown>;
+type AnyRow = Record<string, unknown> & { __isClassesRow?: boolean };
 
 type SubjectKey = {
   subject: string;
@@ -49,6 +51,7 @@ type SubjectKey = {
 };
 
 const REPORT_TITLE = "Student Attendance Percentage Report";
+const CLASSES_ROW_BG = "#c5d9f1";
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -62,6 +65,31 @@ function num(v: unknown): number {
 
 function subjectFieldKey(code: string): string {
   return `sub_${code}`;
+}
+
+function isClassesRow(data: AnyRow | undefined | null): boolean {
+  return Boolean(data?.__isClassesRow);
+}
+
+function buildClassesRow(keys: SubjectKey[]): AnyRow {
+  const cells: Record<string, string> = {};
+  let total = 0;
+  for (const key of keys) {
+    const n = num(key.Total_classes);
+    cells[subjectFieldKey(key.subject)] = String(n);
+    total += n;
+  }
+  return {
+    __isClassesRow: true,
+    rollNumber: "",
+    firstName: "",
+    Father_Mobile_No: "",
+    studentDisplay: "No. of Classes",
+    present: total,
+    total: total,
+    totalPercenteage: "",
+    ...cells,
+  };
 }
 
 function transformPercentageRows(rows: AnyRow[]): {
@@ -180,32 +208,66 @@ export default function StudentAttendancePercentageReportPage() {
   const collegeNum = Number(filters.collegeId || 0) || null;
   const collegeLogo = useCollegeLogo(collegeNum);
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
-    const subjectCols: ColDef<AnyRow>[] = keys.map((key) => {
+  const classesRow = useMemo(
+    () => (keys.length > 0 ? buildClassesRow(keys) : null),
+    [keys],
+  );
+
+  const pinnedTopRowData = useMemo(
+    () => (classesRow ? [classesRow] : undefined),
+    [classesRow],
+  );
+
+  const getRowStyle = useCallback((params: RowClassParams<AnyRow>) => {
+    if (isClassesRow(params.data)) {
+      return {
+        background: CLASSES_ROW_BG,
+        fontWeight: "bold",
+      };
+    }
+    return undefined;
+  }, []);
+
+  const columnDefs = useMemo((): ColDef<AnyRow>[] => {
+    const boldCenter = (p: CellClassParams<AnyRow>): CellStyle => ({
+      textAlign: "center",
+      ...(isClassesRow(p.data) ? { fontWeight: "bold" } : {}),
+    });
+
+    const subjectCols = keys.map((key): ColDef<AnyRow> => {
       const field = subjectFieldKey(key.subject);
       const typeLabel = str(key.Subject_Type);
       return {
         field,
-        headerName: typeLabel
-          ? `${key.subject} (${typeLabel})`
-          : key.subject,
+        headerName: typeLabel ? `${key.subject} (${typeLabel})` : key.subject,
         headerTooltip: str(key.Subject_name),
         minWidth: 110,
         flex: 0,
-        cellStyle: { textAlign: "center" },
+        cellStyle: boldCenter,
         valueGetter: (p) => {
           const v = p.data?.[field];
+          if (isClassesRow(p.data)) {
+            return v == null || v === "" ? "0" : String(v);
+          }
           return v == null || v === "" ? "-" : String(v);
         },
-      } as ColDef<AnyRow>;
+      };
     });
 
     return [
       {
         headerName: "S.No",
-        valueGetter: rowIndexGetter,
+        colSpan: (p) => (isClassesRow(p.data) ? 3 : 1),
+        valueGetter: (p) => {
+          if (isClassesRow(p.data)) return "No. of Classes";
+          return rowIndexGetter(p);
+        },
         width: 70,
         flex: 0,
+        cellStyle: (p): CellStyle | undefined =>
+          isClassesRow(p.data)
+            ? { textAlign: "right", fontWeight: "bold" }
+            : undefined,
       },
       {
         field: "rollNumber",
@@ -223,56 +285,75 @@ export default function StudentAttendancePercentageReportPage() {
         headerName: "Total",
         minWidth: 90,
         flex: 0,
-        cellStyle: { textAlign: "center" },
+        cellStyle: boldCenter,
       },
       {
         field: "totalPercenteage",
         headerName: "Percentage(%)",
         minWidth: 120,
         flex: 0,
-        cellStyle: { textAlign: "center" },
+        cellStyle: boldCenter,
+        valueGetter: (p) => {
+          if (isClassesRow(p.data)) return "";
+          const v = p.data?.totalPercenteage;
+          return v == null || v === "" ? "" : String(v);
+        },
       },
     ];
   }, [keys]);
 
-  const excelColumns = useMemo(() => {
-    const cols: { key: string; header: string }[] = [
-      { key: "siNo", header: "S.No" },
-      { key: "rollNumber", header: "Roll No." },
-      { key: "studentDisplay", header: "Student" },
-    ];
-    for (const key of keys) {
-      const typeLabel = str(key.Subject_Type);
-      cols.push({
-        key: subjectFieldKey(key.subject),
-        header: typeLabel ? `${key.subject} (${typeLabel})` : key.subject,
-      });
-    }
-    cols.push(
-      { key: "present", header: "Total" },
-      { key: "totalPercenteage", header: "Percentage(%)" },
-    );
-    return cols;
-  }, [keys]);
-
-  const exportFlatRows = useMemo(
-    () =>
-      gridRows.map((row, i) => {
-        const flat: Record<string, unknown> = {
-          siNo: i + 1,
-          rollNumber: String(row.rollNumber ?? ""),
-          studentDisplay: String(row.studentDisplay ?? ""),
-          present: String(row.present ?? ""),
-          totalPercenteage: String(row.totalPercenteage ?? ""),
-        };
-        for (const key of keys) {
-          const f = subjectFieldKey(key.subject);
-          flat[f] = String(row[f] ?? "-");
-        }
-        return flat;
+  const buildReportTableHtml = useCallback(() => {
+    const headerCells: string[] = [
+      "S.No",
+      "Roll No.",
+      "Student",
+      ...keys.map((key) => {
+        const typeLabel = str(key.Subject_Type);
+        return typeLabel ? `${key.subject} (${typeLabel})` : key.subject;
       }),
-    [gridRows, keys],
-  );
+      "Total",
+      "Percentage(%)",
+    ];
+    const head = headerCells
+      .map(
+        (h) =>
+          `<th style="border:1px solid #333;padding:4px 6px;background:#f3f4f6;">${escapeHtml(h)}</th>`,
+      )
+      .join("");
+
+    const subjectCells = (row: AnyRow) =>
+      keys
+        .map((key) => {
+          const f = subjectFieldKey(key.subject);
+          const v = row[f];
+          return `<td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(v ?? (isClassesRow(row) ? "0" : "-")))}</td>`;
+        })
+        .join("");
+
+    const classesHtml = classesRow
+      ? `<tr style="background:${CLASSES_ROW_BG};font-weight:bold;">
+      <td colspan="3" style="border:1px solid #333;padding:4px 6px;text-align:right;">No. of Classes</td>
+      ${subjectCells(classesRow)}
+      <td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(classesRow.present ?? ""))}</td>
+      <td style="border:1px solid #333;padding:4px 6px;"></td>
+    </tr>`
+      : "";
+
+    const body = gridRows
+      .map((row, i) => {
+        return `<tr>
+      <td style="border:1px solid #333;padding:4px 6px;text-align:center;">${i + 1}</td>
+      <td style="border:1px solid #333;padding:4px 6px;">${escapeHtml(String(row.rollNumber ?? ""))}</td>
+      <td style="border:1px solid #333;padding:4px 6px;">${escapeHtml(String(row.studentDisplay ?? ""))}</td>
+      ${subjectCells(row)}
+      <td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(row.present ?? ""))}</td>
+      <td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(row.totalPercenteage ?? ""))}</td>
+    </tr>`;
+      })
+      .join("");
+
+    return `<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr>${head}</tr></thead><tbody>${classesHtml}${body}</tbody></table>`;
+  }, [classesRow, gridRows, keys]);
 
   const handleGetList = async () => {
     const cid = Number(filters.collegeId || 0);
@@ -380,19 +461,19 @@ export default function StudentAttendancePercentageReportPage() {
   }, [keys]);
 
   const handleExcelExport = useCallback(() => {
-    if (exportFlatRows.length === 0) {
+    if (gridRows.length === 0) {
       toastError("No records to export.");
       return;
     }
     const headerHtml = `<div style="text-align:center;margin-bottom:12px;">
       <div style="font-size:14px;font-weight:bold;">${escapeHtml(REPORT_TITLE)}${dataDetails ? ` - ${escapeHtml(dataDetails)}` : ""}</div>
     </div>`;
-    const tableHtml = buildHtmlTable(excelColumns, exportFlatRows) + noteTableHtml;
+    const tableHtml = buildReportTableHtml() + noteTableHtml;
     exportHtmlTableAsExcel(`${REPORT_TITLE}.xls`, tableHtml, headerHtml);
-  }, [dataDetails, excelColumns, exportFlatRows, noteTableHtml]);
+  }, [buildReportTableHtml, dataDetails, gridRows.length, noteTableHtml]);
 
   const handlePrintReport = useCallback(() => {
-    if (exportFlatRows.length === 0) {
+    if (gridRows.length === 0) {
       toastError("No records to print.");
       return;
     }
@@ -405,7 +486,7 @@ export default function StudentAttendancePercentageReportPage() {
       orgCode,
     });
     const printed = new Date().toLocaleDateString("en-GB").replace(/\//g, "-");
-    const tableHtml = buildHtmlTable(excelColumns, exportFlatRows) + noteTableHtml;
+    const tableHtml = buildReportTableHtml() + noteTableHtml;
     printHtmlInIframe(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
@@ -418,11 +499,11 @@ export default function StudentAttendancePercentageReportPage() {
 <p style="text-align:left;margin:8px 0;">Printed Date : ${escapeHtml(printed)}</p>
 ${tableHtml}</body></html>`);
   }, [
+    buildReportTableHtml,
     collegeLogo,
     collegeName,
     dataDetails,
-    excelColumns,
-    exportFlatRows,
+    gridRows.length,
     noteTableHtml,
     orgCode,
   ]);
@@ -552,8 +633,11 @@ ${tableHtml}</body></html>`);
       columnDefs={columnDefs}
       loading={loadingList}
       pagination
+      showTable={showTable}
       resultsVisible={showTable}
       hideEmptyGrid
+      pinnedTopRowData={showTable ? pinnedTopRowData : undefined}
+      getRowStyle={getRowStyle}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
