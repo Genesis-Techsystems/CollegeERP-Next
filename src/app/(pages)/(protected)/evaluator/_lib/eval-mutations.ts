@@ -281,21 +281,35 @@ const S_POP_EXAM_EVALUATOR_ASSIGNMENT: ProcTemplateItem[] = [
 ];
 
 /**
- * Angular assignNext — try to pull another paper onto this evaluator profile.
- * Returns true when Flag === 'Success' (then caller should re-fetch answer papers).
+ * Angular assignNext — pull another paper onto this profile.
+ * Evaluator → `assign_next_eval`; Moderator → `assign_next_mod_eval`.
+ * Returns Flag from the proc (`Success` or a message for the modal).
  */
 export async function assignNextEvalForProfile(
   examEvaluatorProfileDetId: Id,
-): Promise<boolean> {
+  opts?: { isValidator?: boolean },
+): Promise<{ ok: boolean; flag: string | null; message?: string }> {
+  const flagName = opts?.isValidator
+    ? "assign_next_mod_eval"
+    : "assign_next_eval";
   const res = await apiProc<any>(
     S_POP_EVALUATOR_ASSIGNMENT_URL,
     S_POP_EXAM_EVALUATOR_ASSIGNMENT,
     [
-      { procKey: "in_flag", procValue: "assign_next_eval" },
+      { procKey: "in_flag", procValue: flagName },
       { procKey: "in_profileids", procValue: examEvaluatorProfileDetId },
     ],
   );
-  if (!res?.success) return false;
-  const flag = res?.data?.result?.[0]?.[0]?.Flag;
-  return flag === "Success";
+  const flag =
+    res?.data?.result?.[0]?.[0]?.Flag != null
+      ? String(res.data.result[0][0].Flag)
+      : null;
+  if (!res?.success) {
+    return { ok: false, flag, message: res?.message };
+  }
+  return {
+    ok: flag === "Success",
+    flag,
+    message: res?.message,
+  };
 }

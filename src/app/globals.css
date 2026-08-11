@@ -166,8 +166,9 @@
   background: hsl(var(--card));
   border: none;
   box-shadow:
-    0 2px 6px 0 rgba(218, 218, 253, 0.65),
-    0 2px 6px 0 rgba(206, 206, 238, 0.54);
+    0 3px 1px -2px rgba(0, 0, 0, 0.12),
+    0 2px 2px 0 rgba(0, 0, 0, 0.1),
+    0 1px 5px 0 rgba(0, 0, 0, 0.08);
 }
 
 /* ── Global filter bar — Review Queue reference layout ───────────────────── */
@@ -318,6 +319,166 @@
   width: auto !important;
   max-width: 7.5rem !important;
   min-width: 5.5rem !important;
+}
+
+/* View Answer Papers — AY / Exam Group / Exam Date / QP / Get List */
+.global-filter-bar__row--view-answer-papers > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--view-answer-papers > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--view-answer-papers > .global-filter-field--fx30 {
+  flex: 0 0 30% !important;
+  width: 30% !important;
+  max-width: 30% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--view-answer-papers > .global-filter-field--fx25 {
+  flex: 0 0 25% !important;
+  width: 25% !important;
+  max-width: 25% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--view-answer-papers > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+.view-answer-papers-radio {
+  /* Sit in the vertical middle between breadcrumb and filters card */
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 1.35rem 0 1.35rem 24px;
+}
+
+.view-answer-papers-radio__group {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  align-items: center !important;
+  gap: 2.5rem !important;
+  grid-template-columns: none !important;
+}
+
+.view-answer-papers-radio__option {
+  display: inline-flex !important;
+  flex-direction: row;
+  align-items: center !important;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1 !important;
+}
+
+.view-answer-papers-radio__control {
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  margin: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+}
+
+.view-answer-papers-radio__label {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px !important;
+  color: #042956;
+  white-space: nowrap;
+}
+
+.view-answer-papers-page {
+  /* Equal air above radio (breadcrumb→radio) and below (radio→card) */
+  padding-top: 0 !important;
+}
+
+/* Radio sits mid-gap; keep normal space-y between barcode + results cards */
+.view-answer-papers-page > .view-answer-papers-radio + * {
+  margin-top: 0 !important;
+}
+
+.view-answer-papers-page .angular-filter-card__body {
+  padding: 1rem 1.5rem 1.25rem;
+}
+
+.view-answer-papers-barcode {
+  width: 38%;
+  min-width: 280px;
+  max-width: 420px;
+}
+
+.view-answer-papers-barcode__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #c4c4c4;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0.65rem 0.85rem;
+  min-height: 48px;
+}
+
+.view-answer-papers-barcode__field:focus-within {
+  border-color: #042956;
+  box-shadow: 0 0 0 1px #042956;
+}
+
+.view-answer-papers-barcode__icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.view-answer-papers-barcode__input {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  font-size: 15px !important;
+  color: #555 !important;
+  height: 1.75rem !important;
+  padding: 0 !important;
+  flex: 1;
+  min-width: 0;
+}
+
+.view-answer-papers-barcode__input:focus,
+.view-answer-papers-barcode__input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  ring: none !important;
+}
+
+.view-answer-papers-omr-table {
+  border: 3px solid #80a7eb !important;
+  margin: 0.75rem 0 1.25rem;
+  background: #fff;
+}
+
+.view-answer-papers-omr-table .app-data-table-card {
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* Send Mails to Evaluators — Course / AY / Exam / Role / Re-Eval / Get List */
@@ -757,6 +918,10 @@
   .global-filter-bar__row--eval-reject > .global-filter-field--fx30,
   .global-filter-bar__row--eval-reject > .global-filter-field--fx25,
   .global-filter-bar__row--eval-reject > .global-filter-field--fx10,
+  .global-filter-bar__row--view-answer-papers > .global-filter-field--fx20,
+  .global-filter-bar__row--view-answer-papers > .global-filter-field--fx30,
+  .global-filter-bar__row--view-answer-papers > .global-filter-field--fx25,
+  .global-filter-bar__row--view-answer-papers > .global-filter-field--fx10,
   .global-filter-bar__row--send-mail-eval > .global-filter-field--fx15,
   .global-filter-bar__row--send-mail-eval > .global-filter-field--fx18,
   .global-filter-bar__row--send-mail-eval > .global-filter-field--fx40,
@@ -842,24 +1007,42 @@
 }
 
 .global-filter-field__label {
-  /* Angular mat-form-field-label (legacy/standard) — not all-caps chips */
+  /* Angular mat-form-field-label — medium weight, light idle, primary when focused/open */
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
   margin-bottom: 0.125rem;
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
   color: rgba(0, 0, 0, 0.54);
   line-height: 1.25;
+  transition: color 150ms ease;
+  font-family: var(--font-body), "Manrope", system-ui, sans-serif;
+}
+
+.global-filter-field:has([aria-expanded="true"]) .global-filter-field__label,
+.global-filter-field:has([role="combobox"]:focus-visible) .global-filter-field__label,
+.global-filter-field:has(input:focus) .global-filter-field__label,
+.global-filter-field:has(button:focus-visible) .global-filter-field__label {
+  color: #0c51a4;
 }
 
 .global-filter-field__icon {
   width: 0.875rem;
   height: 0.875rem;
   flex-shrink: 0;
-  opacity: 0.85;
+  opacity: 0.7;
+  color: inherit;
+  transition: color 150ms ease, opacity 150ms ease;
+}
+
+.global-filter-field:has([aria-expanded="true"]) .global-filter-field__icon,
+.global-filter-field:has([role="combobox"]:focus-visible) .global-filter-field__icon,
+.global-filter-field:has(button:focus-visible) .global-filter-field__icon {
+  color: #0c51a4;
+  opacity: 1;
 }
 
 .global-filter-field__control {
@@ -888,8 +1071,11 @@
   border-radius: 1rem;
   overflow: hidden;
   background: hsl(var(--card));
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  border: none;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.12),
+    0 2px 2px 0 rgba(0, 0, 0, 0.1),
+    0 1px 5px 0 rgba(0, 0, 0, 0.08);
 }
 
 /* Hide in-card heading row — page title lives in PageHeader above the card */
@@ -1496,10 +1682,11 @@ a.app-control[data-app-add]:hover {
   background: rgba(12, 81, 164, 0.08);
 }
 
-/* ── Legacy page shells — DataTable replaces the old app-card table chrome ─ */
+/* ── Legacy page shells — DataTable replaces the old app-card table chrome ─
+   Skip mixed-content cards (filters + custom body that embed nested grids). */
 .app-card--hosts-data-table,
-.app-card:has(> div .app-data-table),
-.app-card:has(.app-data-table) {
+.app-card:has(> div .app-data-table):not(.app-card--mixed-content),
+.app-card:has(.app-data-table):not(.app-card--mixed-content) {
   border: none !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -1687,10 +1874,12 @@ a.app-control[data-app-add]:hover {
   overflow: hidden !important;
 }
 
-/* Reusable control tokens */
+/* Reusable control tokens — Angular mat-form-field value (regular, not bold) */
 .app-control {
   height: var(--app-control-height);
   font-size: var(--app-control-font-size);
+  font-weight: 400;
+  font-family: var(--font-body), "Manrope", system-ui, sans-serif;
 }
 
 /* Pointer cursor on all clickable buttons app-wide */
@@ -1713,7 +1902,7 @@ input[type="reset"]:disabled,
 
 .app-label {
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 500;
   color: rgba(0, 0, 0, 0.54);
 }
 
@@ -1766,15 +1955,17 @@ input[type="reset"]:disabled,
   background: hsl(var(--card));
   border-radius: 0;
   box-shadow:
-    0 2px 6px 0 rgba(218, 218, 253, 0.65),
-    0 2px 6px 0 rgba(206, 206, 238, 0.54);
+    0 3px 1px -2px rgba(0, 0, 0, 0.12),
+    0 2px 2px 0 rgba(0, 0, 0, 0.1),
+    0 1px 5px 0 rgba(0, 0, 0, 0.08);
   transition: box-shadow 150ms ease;
 }
 .app-card:hover {
   border-color: transparent;
   box-shadow:
-    0 2px 6px 0 rgba(218, 218, 253, 0.65),
-    0 2px 6px 0 rgba(206, 206, 238, 0.54);
+    0 3px 1px -2px rgba(0, 0, 0, 0.12),
+    0 2px 2px 0 rgba(0, 0, 0, 0.1),
+    0 1px 5px 0 rgba(0, 0, 0, 0.08);
 }
 
 /* ── Page name inside the filters card (fallback) ───────────────────────────
@@ -2431,8 +2622,12 @@ h4,
 .angular-filter-card {
   border-radius: 4px;
   background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
-  border: 1px solid #e8e8e8;
+  /* Angular mat-elevation-z2 — visible soft shadow on page bg */
+  border: none;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.12),
+    0 2px 2px 0 rgba(0, 0, 0, 0.1),
+    0 1px 5px 0 rgba(0, 0, 0, 0.08);
 }
 
 /* One full-width gold rule under the header (do not also border the inner button). */
@@ -2525,11 +2720,11 @@ h4,
   gap: 0.4rem;
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.25;
   color: #0c51a4;
-  font-family: var(--font-heading), Inter, system-ui, sans-serif;
+  font-family: var(--font-body), "Manrope", system-ui, sans-serif;
 }
 
 .app-card-title__icon {
@@ -2544,7 +2739,7 @@ h4,
 
 .app-card-title__text {
   min-width: 0;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Angular Material `book` when title omits CardHeadingTitle markup */
@@ -2827,7 +3022,8 @@ h4,
 }
 
 .mat-select-panel__search-input::placeholder {
-  color: rgba(0, 0, 0, 0.42);
+  color: rgba(0, 0, 0, 0.54);
+  font-weight: 500;
 }
 
 .mat-select-panel__list {
@@ -3165,8 +3361,9 @@ aside.app-sidebar,
   border-radius: 0 !important;
   border: none !important;
   box-shadow:
-    0 2px 6px 0 rgba(218, 218, 253, 0.65),
-    0 2px 6px 0 rgba(206, 206, 238, 0.54) !important;
+    0 3px 1px -2px rgba(0, 0, 0, 0.12),
+    0 2px 2px 0 rgba(0, 0, 0, 0.1),
+    0 1px 5px 0 rgba(0, 0, 0, 0.08) !important;
 }
 
 /* Angular Fuse footer */
@@ -3183,6 +3380,20 @@ aside.app-sidebar,
     0 -1px 1px -1px rgba(0, 0, 0, 0.2),
     0 0 1px 0 rgba(0, 0, 0, 0.14),
     0 -1px 3px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* Hide app copyright footer while evaluation workbench is open */
+body.eval-workbench-open .app-footer {
+  display: none;
+}
+
+/* Evaluation workbench is a body portal — full-screen over the host app chrome */
+body.eval-workbench-open {
+  overflow: hidden !important;
+}
+body.eval-workbench-open [data-app-shell] > [data-print-hide],
+body.eval-workbench-open [data-app-shell] [data-print-hide] {
+  display: none !important;
 }
 
 .app-footer__text {

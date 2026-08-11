@@ -16,6 +16,44 @@ import type { SubjectCard } from "./subject-cards";
 
 export type RoleTab = "evaluator" | "moderator";
 
+/** Browser Fullscreen API (F11-style) — must run in a user-gesture stack when possible. */
+async function enterBrowserFullscreen(el?: HTMLElement | null) {
+  if (typeof document === "undefined") return;
+  if (document.fullscreenElement) return;
+  const target = el ?? document.documentElement;
+  const req =
+    target.requestFullscreen?.bind(target) ??
+    (
+      target as HTMLElement & {
+        webkitRequestFullscreen?: () => Promise<void> | void;
+      }
+    ).webkitRequestFullscreen?.bind(target);
+  if (!req) return;
+  try {
+    await req();
+  } catch {
+    /* Autoplay/gesture policies may block — CSS full-viewport still applies. */
+  }
+}
+
+async function exitBrowserFullscreen() {
+  if (typeof document === "undefined") return;
+  if (!document.fullscreenElement) return;
+  const exit =
+    document.exitFullscreen?.bind(document) ??
+    (
+      document as Document & {
+        webkitExitFullscreen?: () => Promise<void> | void;
+      }
+    ).webkitExitFullscreen?.bind(document);
+  if (!exit) return;
+  try {
+    await exit();
+  } catch {
+    /* ignore */
+  }
+}
+
 export function EvaluatorPortal({
   pageTitle,
   pageSubtitle,
@@ -39,6 +77,17 @@ export function EvaluatorPortal({
     setOpenSubject(s);
   }
 
+  function openEvaluationScript(s: ScriptRow) {
+    setOpenScript(s);
+    // Same click that opens the paper — browsers allow Fullscreen API here (like F11).
+    void enterBrowserFullscreen();
+  }
+
+  function closeEvaluationScript() {
+    void exitBrowserFullscreen();
+    setOpenScript(null);
+  }
+
   // Full-screen marking workbench when a script is opened.
   if (openScript) {
     const workbench = (
@@ -53,8 +102,12 @@ export function EvaluatorPortal({
         isValidator={!!openSubject?.isValidator}
         prevEvaluatorAnswerPath={openScript.prevEvaluatorAnswerPath}
         // Back to answer-scripts list (same origin page — My Subjects or /evaluator).
-        onBack={() => setOpenScript(null)}
-        onFinishNext={(next) => setOpenScript(next)}
+        onBack={closeEvaluationScript}
+        onFinishNext={(next) => {
+          // Stay in browser fullscreen for the next paper.
+          setOpenScript(next);
+          void enterBrowserFullscreen();
+        }}
       />
     );
     return mounted ? createPortal(workbench, document.body) : null;
@@ -70,7 +123,7 @@ export function EvaluatorPortal({
           profileId={openSubject.examEvaluatorProfileId ?? undefined}
           profileDetId={openSubject.examEvaluatorProfileDetId ?? undefined}
           isValidator={!!openSubject.isValidator}
-          onOpen={(s) => setOpenScript(s)}
+          onOpen={openEvaluationScript}
           onBack={() => setOpenSubject(null)}
         />
       </PageContainer>

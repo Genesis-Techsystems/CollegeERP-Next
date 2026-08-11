@@ -369,11 +369,14 @@ ${excelTableRef.current.innerHTML}
   };
 
   const pageTitle =
-    showTable && dataDetails ? dataDetails : "Management Fee Report";
+    showTable && dataDetails
+      ? `Management Fee Report - ${dataDetails}`
+      : "Management Fee Report";
 
   return (
     <FilteredListPage
       title={pageTitle}
+      filterTitle="Management Fee Report"
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

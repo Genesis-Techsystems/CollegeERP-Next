@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+/**
+ * Evaluated Marks Report — Angular parity for
+ * evaluation-process/evaluated-marks-report
+ *
+ * Cascade: Course → AY → Exam → Course Year → Regulation → Subject
+ * Table shows only after Get List returns records length > 0.
+ */
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -99,6 +107,9 @@ export default function EvaluatedMarksReportPage() {
   const [regulationId, setRegulationId] = useState<number | null>(null);
   const [subjectId, setSubjectId] = useState<number | null>(null);
 
+  const restReqSeq = useRef(0);
+  const subjectReqSeq = useRef(0);
+
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
@@ -118,14 +129,19 @@ export default function EvaluatedMarksReportPage() {
       })),
     [courses],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
-        (r) => num(r.fk_academic_year_id),
-      ),
-    [baseRows, courseId],
-  );
+
+  const academicYears = useMemo(() => {
+    const list = dedupeBy(
+      baseRows.filter((r) => num(r.fk_course_id) === num(courseId)),
+      (r) => num(r.fk_academic_year_id),
+    );
+    return [...list].sort(
+      (a, b) =>
+        parseInt(txt(b.academic_year) || "0", 10) -
+        parseInt(txt(a.academic_year) || "0", 10),
+    );
+  }, [baseRows, courseId]);
+
   const academicYearOptions = useMemo<SelectOption[]>(
     () =>
       academicYears.map((r) => ({
@@ -134,6 +150,7 @@ export default function EvaluatedMarksReportPage() {
       })),
     [academicYears],
   );
+
   const exams = useMemo(
     () =>
       dedupeBy(
@@ -146,6 +163,7 @@ export default function EvaluatedMarksReportPage() {
       ),
     [baseRows, courseId, academicYearId],
   );
+
   const examOptions = useMemo<SelectOption[]>(
     () =>
       exams.map((r) => ({
@@ -154,6 +172,7 @@ export default function EvaluatedMarksReportPage() {
       })),
     [exams],
   );
+
   const courseYears = useMemo(
     () => dedupeBy(restRows, (r) => num(r.fk_course_year_id)),
     [restRows],
@@ -166,6 +185,7 @@ export default function EvaluatedMarksReportPage() {
       })),
     [courseYears],
   );
+
   const regulations = useMemo(
     () =>
       dedupeBy(
@@ -182,6 +202,7 @@ export default function EvaluatedMarksReportPage() {
       })),
     [regulations],
   );
+
   const subjects = useMemo(
     () => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)),
     [subjectRows],
@@ -195,75 +216,281 @@ export default function EvaluatedMarksReportPage() {
     [subjects],
   );
 
+  function clearResults() {
+    setRows([]);
+  }
+
+  function clearBelowCourse() {
+    setAcademicYearId(null);
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowAcademicYear() {
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowExam() {
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
+  }
+
+  function clearBelowCourseYear() {
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+  }
+
+  function clearBelowRegulation() {
+    setSubjectId(null);
+    setSubjectRows([]);
+  }
+
+  type CascadeCtx = {
+    courseId: number;
+    academicYearId: number;
+    examId: number;
+    courseYearId: number;
+  };
+
+  /** Angular selectedCourse → AY[0] DESC → selectedAcademicYear. */
+  function applyCourse(nextCourseId: number | null) {
+    clearResults();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setCourseId(nextCourseId);
+    clearBelowCourse();
+    if (!nextCourseId) return;
+    const ayRows = dedupeBy(
+      baseRows.filter((r) => num(r.fk_course_id) === nextCourseId),
+      (r) => num(r.fk_academic_year_id),
+    );
+    const sorted = [...ayRows].sort(
+      (a, b) =>
+        parseInt(txt(b.academic_year) || "0", 10) -
+        parseInt(txt(a.academic_year) || "0", 10),
+    );
+    const firstAy = num(sorted[0]?.fk_academic_year_id) || null;
+    if (firstAy) applyAcademicYear(firstAy, nextCourseId);
+  }
+
+  /** Angular selectedAcademicYear → exam[0] → selectedExam. */
+  function applyAcademicYear(nextAyId: number | null, forCourseId = courseId) {
+    clearResults();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setAcademicYearId(nextAyId);
+    clearBelowAcademicYear();
+    if (!nextAyId || !forCourseId) return;
+    const examRows = dedupeBy(
+      baseRows.filter(
+        (r) =>
+          num(r.fk_course_id) === num(forCourseId) &&
+          num(r.fk_academic_year_id) === nextAyId,
+      ),
+      (r) => num(r.fk_exam_id),
+    );
+    const firstExam = num(examRows[0]?.fk_exam_id) || null;
+    if (firstExam) applyExam(firstExam, forCourseId, nextAyId);
+  }
+
+  /** Angular selectedExam → rest filters → course year[0] → selectedCourseYr. */
+  function applyExam(
+    nextExamId: number | null,
+    forCourseId = courseId,
+    forAyId = academicYearId,
+  ) {
+    clearResults();
+    subjectReqSeq.current += 1;
+    setExamId(nextExamId);
+    clearBelowExam();
+    if (!nextExamId || !forCourseId || !forAyId) return;
+    const seq = ++restReqSeq.current;
+    void (async () => {
+      const list = await getRegSupRestFilters({
+        courseId: forCourseId,
+        academicYearId: forAyId,
+        examId: nextExamId,
+        employeeId,
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== restReqSeq.current) return;
+      setRestRows(list);
+      const years = dedupeBy(list, (r) => num(r.fk_course_year_id));
+      const firstYear = num(years[0]?.fk_course_year_id) || null;
+      if (firstYear) {
+        applyCourseYear(firstYear, list, {
+          courseId: forCourseId,
+          academicYearId: forAyId,
+          examId: nextExamId,
+          courseYearId: firstYear,
+        });
+      }
+    })();
+  }
+
+  /** Angular selectedCourseYr → regulations for that year → regulation[0]. */
+  function applyCourseYear(
+    nextYearId: number | null,
+    fromRest: AnyRow[] = restRows,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    clearResults();
+    subjectReqSeq.current += 1;
+    setCourseYearId(nextYearId);
+    clearBelowCourseYear();
+    if (!nextYearId) return;
+    const regs = dedupeBy(
+      fromRest.filter((r) => num(r.fk_course_year_id) === nextYearId),
+      (r) => num(r.fk_regulation_id),
+    );
+    const firstReg = num(regs[0]?.fk_regulation_id) || null;
+    if (!firstReg) return;
+    applyRegulation(firstReg, {
+      courseId: num(ctx?.courseId ?? courseId),
+      academicYearId: num(ctx?.academicYearId ?? academicYearId),
+      examId: num(ctx?.examId ?? examId),
+      courseYearId: nextYearId,
+    });
+  }
+
+  /** Angular selectedRegulation → load subjects (no auto-select subject). */
+  function applyRegulation(
+    nextRegId: number | null,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    clearResults();
+    setRegulationId(nextRegId);
+    clearBelowRegulation();
+    const cId = num(ctx?.courseId ?? courseId);
+    const ayId = num(ctx?.academicYearId ?? academicYearId);
+    const eId = num(ctx?.examId ?? examId);
+    const yId = num(ctx?.courseYearId ?? courseYearId);
+    if (!nextRegId || !cId || !ayId || !eId || !yId) return;
+    const seq = ++subjectReqSeq.current;
+    void (async () => {
+      const list = await getRegSupSubjectFilters({
+        courseId: cId,
+        academicYearId: ayId,
+        examId: eId,
+        courseYearId: yId,
+        regulationId: nextRegId,
+        employeeId,
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== subjectReqSeq.current) return;
+      setSubjectRows(list);
+    })();
+  }
+
+  /** Angular selectedsubject — clear prior Get List results. */
+  function applySubject(nextSubjectId: number | null) {
+    clearResults();
+    setSubjectId(nextSubjectId);
+  }
+
+  /** Angular selectedFlag — clear prior Get List results. */
+  function applyReevaluation(checked: boolean) {
+    clearResults();
+    setIsReevaluation(checked);
+  }
+
   useEffect(() => {
     async function init() {
       setLoading(true);
       try {
         const list = await getRegSupBaseFilters(employeeId);
         setBaseRows(list);
-        setCourseId(num(list[0]?.fk_course_id) || null);
+        const firstCourse = num(list[0]?.fk_course_id) || null;
+        if (!firstCourse) return;
+
+        setCourseId(firstCourse);
+        clearBelowCourse();
+
+        const ayRows = dedupeBy(
+          list.filter((r) => num(r.fk_course_id) === firstCourse),
+          (r) => num(r.fk_academic_year_id),
+        );
+        const sorted = [...ayRows].sort(
+          (a, b) =>
+            parseInt(txt(b.academic_year) || "0", 10) -
+            parseInt(txt(a.academic_year) || "0", 10),
+        );
+        const firstAy = num(sorted[0]?.fk_academic_year_id) || null;
+        if (!firstAy) return;
+
+        setAcademicYearId(firstAy);
+        clearBelowAcademicYear();
+
+        const examRows = dedupeBy(
+          list.filter(
+            (r) =>
+              num(r.fk_course_id) === firstCourse &&
+              num(r.fk_academic_year_id) === firstAy,
+          ),
+          (r) => num(r.fk_exam_id),
+        );
+        const firstExam = num(examRows[0]?.fk_exam_id) || null;
+        if (!firstExam) return;
+
+        setExamId(firstExam);
+        clearBelowExam();
+
+        const seq = ++restReqSeq.current;
+        const rest = await getRegSupRestFilters({
+          courseId: firstCourse,
+          academicYearId: firstAy,
+          examId: firstExam,
+          employeeId,
+        }).catch(() => [] as AnyRow[]);
+        if (seq !== restReqSeq.current) return;
+
+        setRestRows(rest);
+        const years = dedupeBy(rest, (r) => num(r.fk_course_year_id));
+        const firstYear = num(years[0]?.fk_course_year_id) || null;
+        if (!firstYear) return;
+
+        setCourseYearId(firstYear);
+        clearBelowCourseYear();
+
+        const regs = dedupeBy(
+          rest.filter((r) => num(r.fk_course_year_id) === firstYear),
+          (r) => num(r.fk_regulation_id),
+        );
+        const firstReg = num(regs[0]?.fk_regulation_id) || null;
+        if (!firstReg) return;
+
+        setRegulationId(firstReg);
+        clearBelowRegulation();
+
+        const subSeq = ++subjectReqSeq.current;
+        const subs = await getRegSupSubjectFilters({
+          courseId: firstCourse,
+          academicYearId: firstAy,
+          examId: firstExam,
+          courseYearId: firstYear,
+          regulationId: firstReg,
+          employeeId,
+        }).catch(() => [] as AnyRow[]);
+        if (subSeq !== subjectReqSeq.current) return;
+        setSubjectRows(subs);
       } finally {
         setLoading(false);
       }
     }
     void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/employeeId only; cascade is explicit
   }, [employeeId]);
-
-  useEffect(
-    () => setAcademicYearId(num(academicYears[0]?.fk_academic_year_id) || null),
-    [academicYears],
-  );
-  useEffect(() => setExamId(num(exams[0]?.fk_exam_id) || null), [exams]);
-  useEffect(
-    () => setRegulationId(num(regulations[0]?.fk_regulation_id) || null),
-    [regulations],
-  );
-
-  useEffect(() => {
-    async function loadRest() {
-      if (!courseId || !academicYearId || !examId) return;
-      const rest = await getRegSupRestFilters({
-        courseId,
-        academicYearId,
-        examId,
-        employeeId,
-      });
-      setRestRows(rest);
-      setCourseYearId(num(rest[0]?.fk_course_year_id) || null);
-    }
-    void loadRest();
-  }, [courseId, academicYearId, examId, employeeId]);
-
-  useEffect(() => {
-    async function loadSubjects() {
-      if (
-        !courseId ||
-        !academicYearId ||
-        !examId ||
-        !courseYearId ||
-        !regulationId
-      )
-        return;
-      const sub = await getRegSupSubjectFilters({
-        courseId,
-        academicYearId,
-        examId,
-        courseYearId,
-        regulationId,
-        employeeId,
-      });
-      setSubjectRows(sub);
-      setSubjectId(num(sub[0]?.fk_subject_id) || null);
-    }
-    void loadSubjects();
-  }, [
-    courseId,
-    academicYearId,
-    examId,
-    courseYearId,
-    regulationId,
-    employeeId,
-  ]);
 
   async function getList() {
     if (
@@ -366,13 +593,14 @@ export default function EvaluatedMarksReportPage() {
   return (
     <FilteredListPage
       title="Evaluated Marks Report"
-      filters={(
+      showTable={tableRows.length > 0}
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-2 space-y-1">
             <Label>Course</Label>
             <Select
               value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(num(v) || null)}
+              onChange={(v) => applyCourse(num(v) || null)}
               options={courseOptions}
               placeholder="Search course…"
             />
@@ -381,7 +609,7 @@ export default function EvaluatedMarksReportPage() {
             <Label>Academic Year</Label>
             <Select
               value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(num(v) || null)}
+              onChange={(v) => applyAcademicYear(num(v) || null)}
               options={academicYearOptions}
               placeholder="Search academic year…"
             />
@@ -390,7 +618,7 @@ export default function EvaluatedMarksReportPage() {
             <Label>Exam</Label>
             <Select
               value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(num(v) || null)}
+              onChange={(v) => applyExam(num(v) || null)}
               options={examOptions}
               placeholder="Search exam…"
             />
@@ -399,7 +627,7 @@ export default function EvaluatedMarksReportPage() {
             <Label>Course Year</Label>
             <Select
               value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(num(v) || null)}
+              onChange={(v) => applyCourseYear(num(v) || null)}
               options={courseYearOptions}
               placeholder="Search course year…"
             />
@@ -408,7 +636,7 @@ export default function EvaluatedMarksReportPage() {
             <Label>Regulation</Label>
             <Select
               value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(num(v) || null)}
+              onChange={(v) => applyRegulation(num(v) || null)}
               options={regulationOptions}
               placeholder="Search regulation…"
             />
@@ -417,7 +645,7 @@ export default function EvaluatedMarksReportPage() {
             <Label>Subject</Label>
             <Select
               value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(num(v) || null)}
+              onChange={(v) => applySubject(num(v) || null)}
               options={subjectOptions}
               placeholder="Search subjects…"
             />
@@ -427,7 +655,7 @@ export default function EvaluatedMarksReportPage() {
               <input
                 type="checkbox"
                 checked={isReevaluation}
-                onChange={(e) => setIsReevaluation(e.target.checked)}
+                onChange={(e) => applyReevaluation(e.target.checked)}
               />
               <span>Is Re-Evaluation</span>
             </label>
@@ -436,13 +664,21 @@ export default function EvaluatedMarksReportPage() {
             <Button
               type="button"
               onClick={() => void getList()}
-              disabled={loading}
+              disabled={
+                loading ||
+                !courseId ||
+                !academicYearId ||
+                !examId ||
+                !courseYearId ||
+                !regulationId ||
+                !subjectId
+              }
             >
               Get List
             </Button>
           </div>
         </div>
-      )}
+      }
       rowData={tableRows}
       columnDefs={columnDefs}
       pagination

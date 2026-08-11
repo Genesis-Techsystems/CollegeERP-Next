@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Check,
   ChevronDown,
   Clock,
   Eye,
@@ -99,9 +98,14 @@ type Annotation = {
   id: string;
   qid: string;
   mark: number;
-  /** Pixel offset from the paper wrapper’s top-left (not %). */
+  /** Pixel offset from the paper wrapper’s top-left (screen overlay). */
   x: number;
   y: number;
+  /** Page the mark was placed on (for scroll / reopen). */
+  page?: number | null;
+  /** Canvas-pixel coords persisted via mbtn_x_axis / mbtn_y_axis. */
+  canvasX?: number;
+  canvasY?: number;
   isConsider?: boolean;
 };
 
@@ -185,31 +189,36 @@ function markColorsFor(isConsider: unknown, isValidator = false): MarkColors {
   return MARK_COLOR_CONSIDER;
 }
 
-/** Left-rail question button styles: considering / not-considering / NA / idle. */
+/** Left-rail question button — orange while selected; status colors when not. */
 function questionButtonClass(
   q: Q,
   isActive: boolean,
   isValidator = false,
 ): string {
+  const base =
+    "rounded-[5px] border border-white/25 px-1.5 py-1.5 text-[12px] font-bold text-white shadow-[0_2px_3px_rgba(0,0,0,0.25)] transition-all";
+
+  // Selected question — solid orange background (always while active).
   if (isActive) {
-    return "border-primary bg-primary text-primary-foreground";
+    return cn(
+      base,
+      "border-2 border-[#2E7D32] !bg-[#FFB74D] text-white shadow-[0_2px_4px_rgba(0,0,0,0.3)] hover:!bg-[#FFA726]",
+    );
   }
   if (q.notAnswered) {
-    // NA — not answered
-    return "border-rose-300 bg-rose-100 text-rose-800 hover:bg-rose-200/80";
+    return cn(base, "bg-rose-500 hover:bg-rose-600");
   }
   if (q.marks !== null) {
-    if (q.isConsider === false) {
-      // Not considering — excluded from calculated total (gray)
-      return "border-slate-400 bg-slate-300 text-slate-800 hover:bg-slate-400/70";
+    if (!isMarkConsidering(q.isConsider)) {
+      return cn(base, "bg-slate-400 hover:bg-slate-500");
     }
-    // Moderator considering → blue; evaluator → green
     if (isValidator) {
-      return "border-blue-400/60 bg-blue-100 text-blue-900 hover:bg-blue-200/80";
+      return cn(base, "bg-sky-600 hover:bg-sky-700");
     }
-    return "border-green-400/60 bg-green-100 text-green-900 hover:bg-green-200/80";
+    // Considering (marks added) — teal.
+    return cn(base, "bg-[#2a9d8f] hover:bg-[#21867a]");
   }
-  return "border-border bg-card hover:bg-accent";
+  return cn(base, "bg-[#2a9d8f] hover:bg-[#21867a]");
 }
 
 function formatElapsed(seconds: number): string {
@@ -266,8 +275,8 @@ function roundRectPath(
 }
 
 /**
- * Draw a badge matching the live interactive one: a soft rounded pill holding the
- * question code + a solid mark-colored box with the mark value. Centered on (x, y).
+ * Draw on-paper mark exactly like Angular ExamDigit:
+ * red qid + square cyan badge + green ✓ glyph.
  */
 function drawMarkBadge(
   ctx: CanvasRenderingContext2D,
@@ -276,44 +285,102 @@ function drawMarkBadge(
   qid: string,
   mark: string,
   colors: MarkColors,
+  opts?: { fontScale?: number },
 ) {
-  const fs = Math.max(18, Math.round(ctx.canvas.width / 36));
+  const fontScale = opts?.fontScale ?? 1;
+  const fs = Math.max(26, Math.round((ctx.canvas.width / 22) * fontScale));
+  const badge = Math.max(24, Math.round(fs * 1.05));
+  const gap = Math.max(3, Math.round(fs * 0.12));
+  const checkFs = Math.max(22, Math.round(badge * 1.15));
+
   ctx.save();
-  ctx.font = `bold ${fs}px Arial, sans-serif`;
+  ctx.font = `bold ${fs}px Arial, Helvetica, sans-serif`;
   const qidW = ctx.measureText(qid).width;
+  const markFont = Math.max(14, Math.round(badge * 0.55));
+  ctx.font = `bold ${markFont}px Arial, Helvetica, sans-serif`;
   const markW = ctx.measureText(mark).width;
-  const gap = fs * 0.45;
-  const markPadX = fs * 0.5;
-  const markBoxW = markW + markPadX * 2;
-  const markBoxH = fs * 1.55;
-  const padX = fs * 0.6;
-  const padY = fs * 0.42;
-  const boxW = padX * 2 + qidW + gap + markBoxW;
-  const boxH = markBoxH + padY * 2;
+  const markBoxW = Math.max(badge, Math.ceil(markW + badge * 0.4));
+  // Single-digit / short marks stay square; longer values (e.g. 0.5) grow width.
+  const markBoxH = String(mark).length <= 1 ? markBoxW : badge;
+
+  const considering = colors.solid !== MARK_COLOR_NOT_CONSIDER.solid;
+  const isValidatorColor = colors.solid === MARK_COLOR_VALIDATOR.solid;
+  const showCheckIcon = considering;
+  const checkW = showCheckIcon ? checkFs * 0.85 : 0;
+
+  const boxW = qidW + gap + markBoxW + (showCheckIcon ? gap + checkW : 0);
+  const boxH = Math.max(markBoxH, fs, checkFs);
   const bx = Math.max(6, Math.min(x - boxW / 2, ctx.canvas.width - boxW - 6));
   const by = Math.max(6, Math.min(y - boxH / 2, ctx.canvas.height - boxH - 6));
+  const midY = by + boxH / 2;
+
+  // 1) Red question id
+  ctx.font = `bold ${fs}px Arial, Helvetica, sans-serif`;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  // Soft outer pill.
-  ctx.fillStyle = colors.soft;
-  roundRectPath(ctx, bx, by, boxW, boxH, boxH / 2);
+  ctx.fillStyle = "#e53935";
+  ctx.fillText(qid, bx, midY);
+
+  // 2) Square mark badge — cyan fill + thin dark border (Angular exact)
+  const mbx = bx + qidW + gap;
+  const mby = midY - markBoxH / 2;
+  const badgeFill = !considering
+    ? MARK_COLOR_NOT_CONSIDER.solid
+    : isValidatorColor
+      ? MARK_COLOR_VALIDATOR.solid
+      : "#00C2FF";
+  const badgeBorder = !considering
+    ? "#4b5563"
+    : isValidatorColor
+      ? "#1e3a8a"
+      : "#333333";
+  const radius = 4;
+  ctx.fillStyle = badgeFill;
+  roundRectPath(ctx, mbx, mby, markBoxW, markBoxH, radius);
   ctx.fill();
-  // Question code.
-  ctx.fillStyle = colors.text;
-  ctx.fillText(qid, bx + padX, by + boxH / 2 + 1);
-  // Solid mark box + value.
-  const mbx = bx + padX + qidW + gap;
-  const mby = by + (boxH - markBoxH) / 2;
-  ctx.fillStyle = colors.solid;
-  roundRectPath(ctx, mbx, mby, markBoxW, markBoxH, markBoxH / 2);
-  ctx.fill();
-  ctx.fillStyle = colors.fg;
-  ctx.fillText(mark, mbx + markPadX, by + boxH / 2 + 1);
+  ctx.strokeStyle = badgeBorder;
+  ctx.lineWidth = 1.25;
+  roundRectPath(
+    ctx,
+    mbx + 0.6,
+    mby + 0.6,
+    markBoxW - 1.2,
+    markBoxH - 1.2,
+    radius,
+  );
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `bold ${markFont}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(mark, mbx + markBoxW / 2, midY + 0.5);
+
+  // 3) Green ✓ glyph (Angular) — only when considering; red ✕ if mark is 0
+  if (showCheckIcon) {
+    const markNum = Number(mark);
+    const ok = Number.isFinite(markNum) ? markNum > 0 : mark !== "0";
+    const cx = mbx + markBoxW + gap;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.font = `bold ${checkFs}px Arial, Helvetica, sans-serif`;
+    if (ok) {
+      ctx.fillStyle = isValidatorColor ? MARK_COLOR_VALIDATOR.solid : "#4caf50";
+      ctx.fillText("\u2713", cx, midY);
+    } else {
+      ctx.fillStyle = "#ef4444";
+      ctx.fillText("\u2715", cx, midY);
+    }
+  }
+
   ctx.restore();
 }
 
-/** Workbench root is z-[70]; dialogs must stack above it. */
-const WORKBENCH_DIALOG_Z = "z-[100]";
+/** Larger mark chrome when baking the finish/submit PDF images. */
+const FINISH_MARK_FONT_SCALE = 1.6;
+
+/** Workbench root is z-[200] (above AppShell); dialogs must stack above it. */
+const WORKBENCH_DIALOG_Z = "z-[220]";
 
 /** Export JPEG quality — Angular embeds into 300×400 pages; full canvases are overkill. */
 const FINISH_JPEG_QUALITY = 0.72;
@@ -364,11 +431,9 @@ function downscaleCanvas(
 
 /**
  * Build finish-PDF page images quickly.
- * Export ONLY canvas / saved-mark badges (left-side drawn marks) — never the
- * floating HTML overlays (those include the delete ✕ and caused duplicate buttons
- * in the submitted PDF).
- * Already-painted pages are downscaled; others render off-screen at the same
- * workbench scale Angular uses (validator 3.5 / evaluator 0.5).
+ * Export ONLY canvas / saved-mark badges (left-side drawn marks) — never HTML
+ * overlays. Prefer a fresh PDF render + larger mark font so the submitted file
+ * stays readable after downscale.
  *
  * Angular `savePdfWithMasking`:
  *   `"1"` → only UI-visible (non-masked) pages
@@ -413,13 +478,8 @@ async function buildFinishPageBlobs(args: {
     onProgress?.(i + 1, pageNumbers.length);
     const src = byPage.get(pageNum);
 
-    if (src?.dataset.rendered === "1") {
-      // Canvas already has drawMarkBadge marks — export as-is (no floating overlays).
-      blobs.push(
-        await canvasToJpegBlob(downscaleCanvas(src, FINISH_EXPORT_MAX_W)),
-      );
-    } else if (pdfDoc) {
-      // Off-screen at workbench scale so saved-mark coords align (Angular finishPaper).
+    if (pdfDoc) {
+      // Always re-render for finish: image-only marks at a larger export font.
       const page = await pdfDoc.getPage(pageNum);
       const vp = page.getViewport({ scale: renderScale });
       const off = document.createElement("canvas");
@@ -438,10 +498,16 @@ async function buildFinishPageBlobs(args: {
           String(m.qid),
           String(m.mark),
           markColorsFor(m.isConsider, isValidator),
+          { fontScale: FINISH_MARK_FONT_SCALE },
         );
       }
       blobs.push(
         await canvasToJpegBlob(downscaleCanvas(off, FINISH_EXPORT_MAX_W)),
+      );
+    } else if (src?.dataset.rendered === "1") {
+      // Fallback when the PDF doc is gone — canvas already has image marks only.
+      blobs.push(
+        await canvasToJpegBlob(downscaleCanvas(src, FINISH_EXPORT_MAX_W)),
       );
     } else if (src) {
       blobs.push(
@@ -587,7 +653,7 @@ export function EvaluationWorkbench({
   );
 
   const [questions, setQuestions] = useState<Q[]>([]);
-  const [activeIdx, setActiveIdx] = useState(0);
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
 
   const [pendingMark, setPendingMark] = useState<number | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
@@ -657,7 +723,7 @@ export function EvaluationWorkbench({
   // Full reset only when a different script is opened (not on every refetch, so a
   // just-placed annotation and the active question survive the post-save reload).
   useEffect(() => {
-    setActiveIdx(0);
+    setActiveIdx(null);
     setAnnotations([]);
     setPendingMark(null);
     pdfRenderedRef.current = false; // new script → allow a fresh render
@@ -857,17 +923,8 @@ export function EvaluationWorkbench({
               renderTasks.delete(task);
             }
             if (cancelled) return;
-            for (const m of savedMarksRef.current) {
-              if (Number(m.page) !== p) continue;
-              drawMarkBadge(
-                ctx,
-                m.x,
-                m.y,
-                String(m.qid),
-                String(m.mark),
-                markColorsFor(m.isConsider, isValidatorRef.current),
-              );
-            }
+            // On-screen marks use HTML overlays (Angular-style red/blue/check).
+            // Canvas badges are baked only when finishing the PDF.
             applyPdfCanvasLayout(canvas);
             canvas.dataset.rendered = "1";
           } catch {
@@ -960,13 +1017,46 @@ export function EvaluationWorkbench({
   useEffect(() => {
     if (typeof document === "undefined") return;
     const previousOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.classList.add("eval-workbench-open");
+
+    // F11-style: fullscreen the document (not only the workbench div).
+    const enterFs = () => {
+      if (document.fullscreenElement) return;
+      const target = document.documentElement;
+      const req =
+        target.requestFullscreen?.bind(target) ??
+        (
+          target as HTMLElement & {
+            webkitRequestFullscreen?: () => Promise<void> | void;
+          }
+        ).webkitRequestFullscreen?.bind(target);
+      void req?.()?.catch?.(() => undefined);
+    };
+    enterFs();
+    const t = window.setTimeout(enterFs, 50);
+
     return () => {
+      window.clearTimeout(t);
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.classList.remove("eval-workbench-open");
+      if (document.fullscreenElement) {
+        const exit =
+          document.exitFullscreen?.bind(document) ??
+          (
+            document as Document & {
+              webkitExitFullscreen?: () => Promise<void> | void;
+            }
+          ).webkitExitFullscreen?.bind(document);
+        void exit?.()?.catch?.(() => undefined);
+      }
     };
   }, []);
 
-  const active = questions[activeIdx];
+  const active = activeIdx != null ? questions[activeIdx] : undefined;
   // Grand total is the server-authoritative value (applies best-of/capping so it
   // never exceeds the max) — mirrors Angular's questionMarksList[0].calculated_total_marks.
   // Fall back to the local sum only before the first server total arrives.
@@ -983,6 +1073,17 @@ export function EvaluationWorkbench({
   // Denominator comes from the real question paper total; fall back to the sum
   // of per-question maxima if the backend total is unavailable.
   const displayTotalMax = qpTotalMarks || totalMax;
+
+  /** Group questions by PART / level for Angular-style left rail. */
+  const questionsByLevel = useMemo(() => {
+    const map = new Map<string, { q: Q; i: number }[]>();
+    questions.forEach((q, i) => {
+      const key = String(q.level ?? "").trim();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({ q, i });
+    });
+    return Array.from(map.entries());
+  }, [questions]);
 
   // "Annotated on script" list = marks already saved on the paper (server) plus any
   // this-session placements not yet reflected in the saved set.
@@ -1001,13 +1102,17 @@ export function EvaluationWorkbench({
         id: a.id,
         qid: a.qid,
         mark: a.mark as string | number,
-        page: null as number | null,
-        domId: `annot-${a.id}`,
+        page: a.page ?? null,
+        domId: `annot-${a.id}` as string | null,
       }));
     return [...saved, ...local];
   }, [evalData, annotations]);
 
   const setMark = (m: number) => {
+    if (!active) {
+      toast.error("Select a question first.");
+      return;
+    }
     setPendingMark(m);
   };
 
@@ -1025,10 +1130,10 @@ export function EvaluationWorkbench({
     const prevMarks = active.marks;
     const considering = isMarkConsidering(active.isConsider);
 
-    // Which rendered page canvas was clicked, and the Y within it.
+    // Which rendered page canvas was clicked, and the X/Y within it (canvas pixels).
     let pageNumber = 1;
+    let xInCanvas = 120;
     let yInCanvas = 0;
-    let clickedCanvas: HTMLCanvasElement | null = null;
     const container = canvasContainerRef.current;
     if (container) {
       const canvases = Array.from(
@@ -1040,17 +1145,19 @@ export function EvaluationWorkbench({
         if (e.clientY >= r.top && e.clientY <= r.bottom) {
           // Use the real (unmasked) page number tagged on the canvas.
           pageNumber = Number(c.dataset.page) || i + 1;
-          // Store intrinsic canvas-pixel Y (scale-independent) so the mark redraws
-          // at the right height when the paper is reopened / composed.
+          // Intrinsic canvas-pixel coords so reopen / finish PDF land on the click.
+          xInCanvas = (e.clientX - r.left) * (c.width / (r.width || 1));
           yInCanvas = (e.clientY - r.top) * (c.height / (r.height || 1));
-          clickedCanvas = c;
           break;
         }
       }
     }
 
-    // Optimistic floating badge — pixel coords relative to the paper wrapper
-    // (percent-of-tall-paper misplaced overlays on long evaluated / moderator PDFs).
+    const markX = Math.round(Math.max(20, xInCanvas));
+    const markY = Math.round(Math.max(20, yInCanvas));
+
+    // Optimistic on-paper overlay at click (second-image style). Do NOT also
+    // paint a canvas badge here — that caused the duplicate mark.
     const rect = e.currentTarget.getBoundingClientRect();
     const xPx = e.clientX - rect.left;
     const yPx = e.clientY - rect.top;
@@ -1063,32 +1170,22 @@ export function EvaluationWorkbench({
         mark: markValue,
         x: xPx,
         y: yPx,
+        page: pageNumber,
+        canvasX: markX,
+        canvasY: markY,
         isConsider: considering,
       },
     ]);
+    const placedQid = active.id;
     setQuestions((prev) =>
       prev.map((q, i) => (i === activeIdx ? { ...q, marks: markValue } : q)),
     );
+    // Clear active (orange) once marks are placed — show status color instead.
+    setActiveIdx(null);
     setPendingMark(null);
 
-    // Angular: draw on the page bitmap immediately so mark chrome is visible
-    // even if the floating HTML overlay is clipped / stacked under canvases.
-    const qY = Math.max(50, yInCanvas);
-    if (clickedCanvas) {
-      const ctx = clickedCanvas.getContext("2d");
-      if (ctx) {
-        drawMarkBadge(
-          ctx,
-          120,
-          Math.max(50, qY - 20),
-          active.id,
-          String(markValue),
-          markColorsFor(considering, isValidator),
-        );
-      }
-    }
-
-    // Backend payload — questionBtn + marksBtn, coordinate rules per Angular.
+    // Persist click coords (same as marking-content / Angular marksBtn) so draft
+    // reopen places the overlay where the evaluator clicked — not fixed 60/120.
     const considerFlag = considering ? 1 : 0;
     const common = {
       isActive: true,
@@ -1109,8 +1206,8 @@ export function EvaluationWorkbench({
         iconId: active.qno ?? 0,
         iconValue: active.id,
         iconType: "questionBtn",
-        x_Axis: 60,
-        y_Axis: qY,
+        x_Axis: Math.max(20, markX - 60),
+        y_Axis: markY,
         marks: 0,
       },
       {
@@ -1118,8 +1215,8 @@ export function EvaluationWorkbench({
         iconId: markValue,
         iconValue: markValue,
         iconType: "marksBtn",
-        x_Axis: 120,
-        y_Axis: qY - 40,
+        x_Axis: markX,
+        y_Axis: markY,
         marks: markValue,
       },
     ];
@@ -1163,7 +1260,7 @@ export function EvaluationWorkbench({
         }
       }
       // Reload so server-recomputed marks + total flow back in.
-      // Keep floating on-screen overlays; finish PDF exports canvas marks only.
+      // Keep the on-paper HTML overlay; finish PDF bakes canvas marks into images.
       const afterSave = await refetchEvalData();
       const afterRows = afterSave.data?.questions ?? [];
       setQuestions(afterRows.map(toLocalQuestion));
@@ -1172,7 +1269,7 @@ export function EvaluationWorkbench({
       // Roll back the optimistic badge/mark.
       setAnnotations((prev) => prev.filter((a) => a.id !== optimisticId));
       setQuestions((prev) =>
-        prev.map((q, i) => (i === activeIdx ? { ...q, marks: prevMarks } : q)),
+        prev.map((q) => (q.id === placedQid ? { ...q, marks: prevMarks } : q)),
       );
       toast.error(
         err instanceof Error ? err.message : "Could not save the mark.",
@@ -1407,18 +1504,7 @@ export function EvaluationWorkbench({
 
         await page.render({ canvas, canvasContext: ctx, viewport: vp }).promise;
         if (gen !== repaintGenRef.current) return;
-        for (const m of savedMarksRef.current) {
-          if (Number(m.page) !== p) continue;
-          drawMarkBadge(
-            ctx,
-            m.x,
-            m.y,
-            String(m.qid),
-            String(m.mark),
-            markColorsFor(m.isConsider, isValidatorRef.current),
-          );
-        }
-        // Restore fluid width after render (bitmap resize can drop inline styles).
+        // Screen view uses HTML overlays only — do not re-bake canvas badges here.
         applyPdfCanvasLayout(canvas);
       } catch {
         /* ignore cancelled / mid-unmount renders */
@@ -1426,13 +1512,97 @@ export function EvaluationWorkbench({
     }
   };
 
-  // When is_consider / saved marks refresh, repaint badges so gray vs green updates.
+  // When is_consider / saved marks refresh, update overlay consider flags.
+  // Canvas pages stay clean on screen — badges are HTML only until finish PDF.
   useEffect(() => {
     if (pdfStatus !== "ready") return;
     if (!pdfRenderedRef.current) return;
+    // Soft clear: re-render pages without baked badges if a prior session left any.
     void repaintRenderedPages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evalData?.savedMarks, pdfStatus]);
+
+  // Seed / refresh on-paper HTML overlays from saved marks (reopen after draft).
+  // Positions come from mbtn_x_axis / mbtn_y_axis (click coords we persist).
+  useEffect(() => {
+    if (pdfStatus !== "ready") return;
+    const marks = evalData?.savedMarks ?? [];
+    if (marks.length === 0) return;
+
+    let cancelled = false;
+    const syncFromSaved = () => {
+      if (cancelled) return;
+      const paper = paperRef.current;
+      const container = canvasContainerRef.current;
+      if (!paper || !container) return;
+
+      setAnnotations((prev) => {
+        const savedQids = new Set(marks.map((m) => String(m.qid)));
+        // Keep only in-flight placements not yet returned by the server.
+        const optimistic = prev.filter(
+          (a) => !savedQids.has(a.qid) && !String(a.id).startsWith("saved-"),
+        );
+        const pr = paper.getBoundingClientRect();
+        const fromSaved: Annotation[] = [];
+        for (let i = 0; i < marks.length; i++) {
+          const m = marks[i];
+          const qid = String(m.qid);
+          const canvasX = Number(m.x) || 0;
+          const canvasY = Number(m.y) || 0;
+          const page = Number(m.page);
+          const canvas = container.querySelector(
+            `canvas[data-page="${page}"]`,
+          ) as HTMLCanvasElement | null;
+
+          let x = canvasX;
+          let y = canvasY;
+          if (canvas && canvas.width > 0) {
+            const cr = canvas.getBoundingClientRect();
+            if (cr.height >= 2) {
+              x = cr.left - pr.left + (canvasX / canvas.width) * cr.width;
+              y = cr.top - pr.top + (canvasY / canvas.height) * cr.height;
+            } else {
+              // Page slot not laid out yet — keep prior overlay coords if any.
+              const prevMatch = prev.find((a) => a.qid === qid);
+              if (prevMatch) {
+                fromSaved.push({
+                  ...prevMatch,
+                  mark: Number(m.mark),
+                  page,
+                  canvasX,
+                  canvasY,
+                  isConsider: m.isConsider,
+                });
+                continue;
+              }
+            }
+          }
+
+          fromSaved.push({
+            id: `saved-${page}-${qid}-${i}`,
+            qid,
+            mark: Number(m.mark),
+            x,
+            y,
+            page,
+            canvasX,
+            canvasY,
+            isConsider: m.isConsider,
+          });
+        }
+        return [...fromSaved, ...optimistic];
+      });
+    };
+
+    syncFromSaved();
+    const t1 = window.setTimeout(syncFromSaved, 200);
+    const t2 = window.setTimeout(syncFromSaved, 800);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [evalData?.savedMarks, pdfStatus, containerEl, pdfNumPages]);
 
   /**
    * Delete marks for one question (Angular removeSelect / NA reset):
@@ -1692,8 +1862,8 @@ export function EvaluationWorkbench({
 
       // Fast export: downscale painted pages; off-screen at role workbench scale for the rest.
       // Do NOT force-render every lazy page at full workbench scale (that delayed the upload).
-      // Ensure canvas has the latest left-side badges (savedMarks). Floating HTML
-      // overlays stay on screen for UX but are never baked into the finish PDF.
+      // Bake larger canvas badges into page images for the finish PDF only.
+      // On-screen marks stay as HTML overlays (no duplicate left-side draw).
       await repaintRenderedPages();
       const pageBlobs = await buildFinishPageBlobs({
         canvases,
@@ -1785,8 +1955,10 @@ export function EvaluationWorkbench({
     if (next) return toScript(next);
 
     // No queue left — try assign_next_eval then re-fetch (Angular assignNext).
-    const assigned = await assignNextEvalForProfile(profileDetId);
-    if (!assigned) return null;
+    const assigned = await assignNextEvalForProfile(profileDetId, {
+      isValidator,
+    });
+    if (!assigned.ok) return null;
     next = await fetchNextAssignablePaper(
       profileId,
       profileDetId,
@@ -1842,9 +2014,12 @@ export function EvaluationWorkbench({
   };
 
   // Shared full-screen shell for pre-data states (loading / error / empty).
-  if (questionsLoading || questionsError || !active) {
+  if (questionsLoading || questionsError || questions.length === 0) {
     return (
-      <div className="fixed inset-0 z-[70] flex h-screen flex-col bg-muted/30">
+      <div
+        data-eval-workbench
+        className="fixed inset-0 z-[200] flex h-dvh w-screen max-w-none flex-col bg-[#f3f4f6]"
+      >
         <div className="flex items-center justify-between gap-6 bg-eval-header px-6 py-3 text-eval-header-foreground">
           <button
             onClick={onBack}
@@ -1886,7 +2061,10 @@ export function EvaluationWorkbench({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex h-screen flex-col bg-muted/30">
+    <div
+      data-eval-workbench
+      className="fixed inset-0 z-[200] flex h-dvh w-screen max-w-none flex-col bg-[#f3f4f6]"
+    >
       {/* Full-width dark top bar — ExamDigit deep navy (not the host brand) */}
       <div className="flex items-center justify-between gap-6 bg-eval-header px-6 py-3 text-eval-header-foreground">
         <div className="flex items-center gap-6 text-sm">
@@ -1946,119 +2124,147 @@ export function EvaluationWorkbench({
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Left rail */}
-        <aside className="flex w-[280px] shrink-0 flex-col border-r bg-card">
-          <div className="flex items-center justify-between border-b bg-primary/30 px-4 py-3">
-            <div className="flex-1 text-center text-sm font-semibold text-primary">
-              Questions
+        {/* Left rail — Angular Questions + Marks panels */}
+        <aside className="flex w-[300px] shrink-0 flex-col border-r bg-[#f3f4f6]">
+          <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-hidden p-2">
+            {/* Questions column */}
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-md bg-white shadow-sm">
+              <div className="shrink-0 bg-[#0d9488] px-2 py-2 text-center text-[13px] font-semibold text-white">
+                Questions
+              </div>
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+                {questionsByLevel.map(([level, items]) => (
+                  <div key={level || "ungrouped"} className="space-y-1">
+                    {level ? (
+                      <div className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0f766e]">
+                        PART {level}
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-2 content-start gap-1.5">
+                      {items.map(({ q, i }) => (
+                        <button
+                          key={String(q.questionPaperMarksId ?? `${q.id}-${i}`)}
+                          type="button"
+                          onClick={() => {
+                            setActiveIdx(i);
+                            setPendingMark(null);
+                          }}
+                          title={
+                            q.notAnswered
+                              ? "Not answered"
+                              : q.marks !== null
+                                ? q.isConsider === false
+                                  ? "Not considering (excluded from total)"
+                                  : "Considering (included in total)"
+                                : undefined
+                          }
+                          className={questionButtonClass(
+                            q,
+                            i === activeIdx,
+                            isValidator,
+                          )}
+                        >
+                          {String(q.id).replace(/\./g, " ")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex-1 text-center text-sm font-semibold text-primary">
-              Marks
-            </div>
-          </div>
-          <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-hidden p-3">
-            <div
-              className={cn(
-                "grid content-start gap-1.5 overflow-auto",
-                questions.length > 10 ? "grid-cols-2" : "grid-cols-1",
-              )}
-            >
-              {questions.map((q, i) => (
+
+            {/* Marks column */}
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-md bg-white shadow-sm">
+              <div className="shrink-0 bg-[#0d9488] px-2 py-2 text-center text-[13px] font-semibold text-white">
+                Marks
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-hidden p-2">
                 <button
-                  key={String(q.questionPaperMarksId ?? `${q.id}-${i}`)}
-                  onClick={() => setActiveIdx(i)}
-                  title={
-                    q.notAnswered
-                      ? "Not answered"
-                      : q.marks !== null
-                        ? q.isConsider === false
-                          ? "Not considering (excluded from total)"
-                          : "Considering (included in total)"
-                        : undefined
-                  }
-                  className={cn(
-                    "rounded-md border px-2 py-1 text-[13px] font-medium transition-colors",
-                    questionButtonClass(q, i === activeIdx, isValidator),
+                  type="button"
+                  onClick={() => setNaOpen(true)}
+                  disabled={savingMark || isAssignmentLocked}
+                  className="w-full shrink-0 rounded-full bg-[#2a9d8f] py-1.5 text-center text-sm font-bold text-white shadow-sm hover:bg-[#21867a] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  NA
+                </button>
+                <div className="grid min-h-0 w-full flex-1 grid-cols-2 content-start justify-items-center gap-2 overflow-auto">
+                  {!active ? (
+                    <p className="col-span-2 px-1 py-4 text-center text-[11px] leading-snug text-muted-foreground">
+                      Select a question to award marks
+                    </p>
+                  ) : (
+                    marksFor(active.max, marksIntervalValue).map((m, mi) => {
+                      // Orange only while picking; otherwise teal (second-image color).
+                      const isPicking = pendingMark === m;
+                      const isSaved =
+                        pendingMark === null && active.marks === m;
+                      return (
+                        <button
+                          key={`${m}-${mi}`}
+                          type="button"
+                          onClick={() => setMark(m)}
+                          disabled={savingMark || isAssignmentLocked}
+                          className={cn(
+                            "flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white shadow-[0_2px_4px_rgba(0,0,0,0.3)] transition-all disabled:cursor-not-allowed disabled:opacity-50",
+                            isPicking
+                              ? "border-2 border-[#2E7D32] bg-[#FFB74D]"
+                              : isSaved
+                                ? "bg-[#2a9d8f] ring-2 ring-[#7bc4b8] ring-offset-1"
+                                : "bg-[#2a9d8f] hover:bg-[#21867a]",
+                          )}
+                        >
+                          {m}
+                        </button>
+                      );
+                    })
                   )}
-                >
-                  {q.id}
-                </button>
-              ))}
-            </div>
-            <div className="flex min-h-0 flex-col items-stretch gap-2 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setNaOpen(true)}
-                disabled={savingMark || isAssignmentLocked}
-                className="shrink-0 rounded-full border bg-card py-1.5 text-center text-sm font-semibold text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                NA
-              </button>
-              <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-2 overflow-auto">
-                {marksFor(active.max, marksIntervalValue).map((m, mi) => {
-                  const isSelected = active.marks === m || pendingMark === m;
-                  return (
-                    <button
-                      key={`${m}-${mi}`}
-                      onClick={() => setMark(m)}
-                      disabled={savingMark || isAssignmentLocked}
-                      className={cn(
-                        "flex h-10 items-center justify-center rounded-full text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50",
-                        isSelected
-                          ? "bg-mark text-mark-foreground shadow-md ring-2 ring-mark/30"
-                          : "bg-mark/10 text-mark hover:bg-mark/20",
-                      )}
-                    >
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="grid shrink-0 grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={openViewPages}
-                  disabled={pdfStatus !== "ready"}
-                  title="View pages"
-                  className="inline-flex items-center justify-center gap-1 rounded-full border bg-card py-1.5 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void removeSelect()}
-                  disabled={
-                    savingMark ||
-                    isAssignmentLocked ||
-                    !active ||
-                    (active.marks === null && !active.notAnswered)
-                  }
-                  title="Delete marks for selected question"
-                  className="inline-flex items-center justify-center gap-1 rounded-full border bg-card py-1.5 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                </div>
+                <div className="grid w-full shrink-0 grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={openViewPages}
+                    disabled={pdfStatus !== "ready"}
+                    title="View pages"
+                    className="inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void removeSelect()}
+                    disabled={
+                      savingMark ||
+                      isAssignmentLocked ||
+                      !active ||
+                      (active.marks === null && !active.notAnswered)
+                    }
+                    title="Delete marks for selected question"
+                    className="inline-flex h-9 w-9 items-center justify-center justify-self-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-          <div className="mx-3 mb-2 space-y-1.5 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-left text-[11px] leading-snug text-muted-foreground">
+          <div className="mx-2 mb-2 space-y-1.5 rounded-lg border border-dashed border-teal-400/50 bg-teal-50 px-2.5 py-1.5 text-left text-[11px] leading-snug text-muted-foreground">
             <div>
-              <span className="font-semibold text-primary">Tip:</span> pick a
+              <span className="font-semibold text-teal-800">Tip:</span> pick a
               mark, then click the script to place it.
             </div>
             <div className="flex flex-wrap gap-2 pt-0.5">
-              <span className="inline-flex items-center gap-1 rounded border border-green-400/60 bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-900">
+              <span className="inline-flex items-center gap-1 rounded border border-emerald-500 bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900">
                 Considering
               </span>
-              <span className="inline-flex items-center gap-1 rounded border border-slate-400 bg-slate-300 px-1.5 py-0.5 text-[10px] font-medium text-slate-800">
+              <span className="inline-flex items-center gap-1 rounded border border-slate-400 bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-800">
                 Not considering
               </span>
-              <span className="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-800">
+              <span className="inline-flex items-center gap-1 rounded border border-rose-400 bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-800">
                 NA
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 border-t p-3">
+          <div className="grid grid-cols-2 gap-2 border-t bg-white p-3">
             <Button
               onClick={() => openAction("reject")}
               className="rounded-lg font-semibold text-white shadow-sm"
@@ -2078,40 +2284,39 @@ export function EvaluationWorkbench({
 
         {/* Center */}
         <section className="flex min-w-0 flex-1 flex-col">
-          {/* Question section */}
-          <div className="flex items-start justify-between gap-4 border-b bg-card px-6 py-4">
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {active.level ? `PART ${active.level}` : "Question"}
+          {/* Question section — full-width card with QP/ANS icons inside (Angular) */}
+          <div className="border-b bg-[#f8fafc] px-4 py-3">
+            <div
+              className="flex w-full items-start gap-3 rounded border border-[#9aa3af] px-3 py-2.5 shadow-[0_2px_4px_rgba(0,0,0,0.12)]"
+              style={{
+                background: "linear-gradient(180deg, #f7f7f7 0%, #e4e7eb 100%)",
+              }}
+            >
+              <div className="min-w-0 flex-1 max-h-24 overflow-auto whitespace-pre-wrap break-words text-[13px] font-medium leading-snug text-slate-900">
+                {active
+                  ? `${active.id})${active.question ? ` ${active.question}` : ""}`
+                  : "Select a question from the left panel"}
               </div>
-              <div className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-words text-sm font-semibold leading-snug text-foreground">
-                {active.id}){active.question ? ` ${active.question}` : ""}
+              <div className="flex shrink-0 items-center gap-2 self-start">
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-violet-600 text-white shadow-md hover:bg-violet-700"
+                  onClick={() => openPaperModal("QP")}
+                  title="Question Paper"
+                  aria-label="Question Paper"
+                >
+                  <Files className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-violet-600 text-white shadow-md hover:bg-violet-700"
+                  onClick={() => openPaperModal("ANS")}
+                  title="Answer Paper / Sample Answer"
+                  aria-label="Answer Paper"
+                >
+                  <FileText className="h-4 w-4" />
+                </button>
               </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Badge variant="secondary" className="bg-primary/10 text-primary">
-                Max Marks: {active.max}
-              </Badge>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 bg-primary/10 text-primary hover:bg-primary/20"
-                onClick={() => openPaperModal("QP")}
-                title="Download Question Paper"
-              >
-                <Files className="h-4 w-4" /> Question Paper
-              </Button>
-
-              <Button
-                variant="secondary"
-                size="icon"
-                className="bg-primary/10 text-primary hover:bg-primary/20"
-                aria-label="View sample answer sheet"
-                title="Download Sample Answer Sheet"
-                onClick={() => openPaperModal("ANS")}
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
             </div>
           </div>
 
@@ -2152,66 +2357,102 @@ export function EvaluationWorkbench({
                 </div>
               )}
 
-              {/* pdfjs renders one stacked <canvas> per page into this container. */}
+              {/* pdfjs renders one stacked <canvas> per page; marks show as HTML overlays. */}
               <div
                 ref={setCanvasContainer}
                 className={cn("mt-8 w-full", pdfStatus !== "ready" && "hidden")}
               />
               {annotations.map((a) => {
-                // Live is_consider from questions (e.g. 1.b → 0 after placing 1.c),
-                // not the stale value captured when the floating pill was created.
+                // Live is_consider from questions (e.g. 1.b → 0 after placing 1.c).
                 const q = questions.find((x) => x.id === a.qid);
-                const colors = markColorsFor(
-                  q != null ? q.isConsider : a.isConsider,
-                  isValidator,
-                );
-                const solid = colors.solid;
-                const soft = colors.soft;
+                const considerRaw = q != null ? q.isConsider : a.isConsider;
+                const considering = isMarkConsidering(considerRaw);
+                const markNum = Number(a.mark);
+                const markOk = Number.isFinite(markNum)
+                  ? markNum > 0
+                  : a.mark !== 0;
+                const showCheck = considering && markOk;
+                // is_consider=0 → gray; validator → blue; else Angular cyan square.
+                const badgeClass = !considering
+                  ? "border-[#4b5563] bg-[#9CA3AF]"
+                  : isValidator
+                    ? "border-[#1e3a8a] bg-[#2563eb]"
+                    : "border-[#333333] bg-[#00C2FF]";
+                const tickClass = isValidator
+                  ? "text-[#2563eb]"
+                  : "text-[#4caf50]";
+                const markStr = String(a.mark);
+                const badgeH = 28;
+                const badgeW = Math.max(badgeH, 12 + markStr.length * 10);
                 return (
                   <div
                     key={a.id}
                     id={`annot-${a.id}`}
-                    className="group pointer-events-auto absolute z-50 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-2xl border px-4 py-2 shadow-lg"
+                    className="group pointer-events-auto absolute z-50 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 select-none"
                     style={{
                       left: a.x,
                       top: a.y,
-                      backgroundColor: soft,
-                      borderColor: solid,
-                      boxShadow: `0 8px 30px ${solid}40`,
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {/* Angular: bold red qid */}
                     <span
-                      className="rounded-lg bg-white/90 px-2 py-0.5 text-base font-semibold"
-                      style={{ color: colors.text }}
+                      className="whitespace-nowrap font-bold leading-none text-[#e53935]"
+                      style={{
+                        fontFamily: "Arial, Helvetica, sans-serif",
+                        fontSize: 26,
+                      }}
                     >
                       {a.qid}
                     </span>
+                    {/* Angular: square cyan + thin dark border */}
                     <span
-                      className="flex min-w-[2.5rem] items-center justify-center rounded-xl border px-3 py-1.5 text-base font-bold text-white"
+                      className={cn(
+                        "box-border inline-flex shrink-0 items-center justify-center border font-bold text-white",
+                        "rounded-[4px]",
+                        badgeClass,
+                      )}
                       style={{
-                        backgroundColor: solid,
-                        borderColor: solid,
-                        boxShadow: `0 4px 12px ${solid}4d, inset 0 -2px 0 rgba(0,0,0,0.1)`,
+                        width: badgeW,
+                        height: badgeH,
+                        fontFamily: "Arial, Helvetica, sans-serif",
+                        fontSize: markStr.length > 2 ? 13 : 16,
+                        lineHeight: 1,
                       }}
                     >
                       {a.mark}
                     </span>
-                    <Check className="h-6 w-6" style={{ color: solid }} />
+                    {/* Angular: Unicode ✓ — skip when is_consider=0 */}
+                    {considering ? (
+                      <span
+                        className={cn(
+                          "font-bold leading-none",
+                          showCheck ? tickClass : "text-[#ef4444]",
+                        )}
+                        style={{
+                          fontFamily: "Arial, Helvetica, sans-serif",
+                          fontSize: 32,
+                          marginLeft: 2,
+                        }}
+                        aria-hidden
+                      >
+                        {showCheck ? "\u2713" : "\u2715"}
+                      </span>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void removeAnnotation(a.id)}
                       disabled={savingMark || isAssignmentLocked}
-                      className="inline-flex rounded-full bg-destructive p-1.5 text-destructive-foreground hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="ml-0.5 inline-flex rounded-full bg-destructive p-1 text-destructive-foreground opacity-0 shadow transition-opacity hover:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-50"
                       title="Remove marks"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 );
               })}
             </div>
-            {pendingMark !== null && (
+            {pendingMark !== null && active && (
               <div className="mx-auto mt-3 max-w-3xl text-center text-xs text-muted-foreground">
                 Click on the answer script to place{" "}
                 <span className="font-semibold text-foreground">
@@ -2231,14 +2472,14 @@ export function EvaluationWorkbench({
 
         {/* Right rail */}
         <aside className="flex w-[260px] shrink-0 flex-col border-l bg-card">
-          <Card className="m-4 border-0 bg-eval-header shadow-sm">
-            <CardContent className="p-5 text-center text-white">
-              <div className="text-sm font-semibold">
+          <Card className="mx-4 mt-3 mb-2 border-0 bg-eval-header shadow-sm">
+            <CardContent className="p-2.5 text-center text-white">
+              <div className="text-xs font-semibold leading-tight">
                 Calculate Total Score:
               </div>
-              <div className="mt-2 flex items-baseline justify-center gap-1">
-                <span className="text-6xl font-bold">{total}</span>
-                <span className="text-2xl font-semibold text-white/80">
+              <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
+                <span className="text-4xl font-bold leading-none">{total}</span>
+                <span className="text-lg font-semibold text-white/80">
                   /{displayTotalMax}
                 </span>
               </div>
@@ -2289,7 +2530,10 @@ export function EvaluationWorkbench({
                           : "bg-green-50"),
                       i === activeIdx && "ring-1 ring-primary/30 ring-inset",
                     )}
-                    onClick={() => setActiveIdx(i)}
+                    onClick={() => {
+                      setActiveIdx(i);
+                      setPendingMark(null);
+                    }}
                   >
                     <TableCell className="font-medium">{q.id}</TableCell>
                     <TableCell className="text-right font-mono">
@@ -2356,7 +2600,10 @@ export function EvaluationWorkbench({
                         type="button"
                         onClick={() => {
                           const qi = questions.findIndex((q) => q.id === a.qid);
-                          if (qi !== -1) setActiveIdx(qi);
+                          if (qi !== -1) {
+                            setActiveIdx(qi);
+                            setPendingMark(null);
+                          }
                           const target = a.domId
                             ? document.getElementById(a.domId)
                             : a.page != null
@@ -2453,7 +2700,7 @@ export function EvaluationWorkbench({
               searchable={false}
               isLoading={ufmReasonsLoading}
               required
-              contentClassName="z-[110]"
+              contentClassName="z-[230]"
             />
             {/* Angular: free-text reason input is hidden until a dropdown reason is chosen */}
             {selectedReasonId ? (

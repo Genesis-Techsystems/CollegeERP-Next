@@ -721,7 +721,64 @@ export async function getExamSubjectsForSchedule(params: {
 }
 
 /**
+ * Angular add-exam-timetable `getFiltersList`:
+ * `s_get_univ_exam_details` + `in_flag=clg_exam_subject_filters`
+ *
+ * Positional result groups (not by row.flag):
+ * - result[0] → subject/regulation/course-group rows (`dataList` after course/year/exam filter)
+ * - result[1] → exam sessions
+ */
+export async function getClgExamSubjectFiltersBundle(params: {
+  courseId: number;
+  examId: number;
+  academicYearId: number;
+  courseYearId: number;
+  employeeId?: number;
+  /** Angular always sends 0; optional override if caller has course university. */
+  universityId?: number;
+}): Promise<{ dataList: any[]; sessions: any[] }> {
+  const data = await getAllRecords<{ result?: any[][] }>(
+    "s_get_univ_exam_details",
+    {
+      in_flag: "clg_exam_subject_filters",
+      in_flag_type: "",
+      in_university_id: params.universityId ?? 0,
+      in_college_id: 0,
+      in_course_id: params.courseId || 0,
+      in_course_group_id: 0,
+      in_course_year_id: params.courseYearId || 0,
+      in_academic_year_id: params.academicYearId || 0,
+      in_exam_id: params.examId || 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_loginuser_empid: params.employeeId ?? 0,
+      in_loginuser_roleid: 0,
+      in_param1: 0,
+      in_param2: "",
+    },
+  ).catch(() => ({ result: [] }));
+
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  const rawRows = Array.isArray(groups[0]) ? groups[0] : [];
+  const sessions = Array.isArray(groups[1]) ? groups[1] : [];
+
+  const courseId = Number(params.courseId) || 0;
+  const courseYearId = Number(params.courseYearId) || 0;
+  const examId = Number(params.examId) || 0;
+  const dataList = rawRows.filter(
+    (r) =>
+      Number(r.fk_course_id ?? 0) === courseId &&
+      Number(r.fk_course_year_id ?? 0) === courseYearId &&
+      Number(r.fk_exam_id ?? 0) === examId,
+  );
+
+  return { dataList, sessions };
+}
+
+/**
  * Subjects using s_get_univ_exam_details with flag=clg_exam_subject_filters
+ * (flattened dataList only — prefer {@link getClgExamSubjectFiltersBundle} for ADD).
  */
 export async function getUnivExamSubjectFilters(params: {
   courseId: number;
@@ -732,34 +789,14 @@ export async function getUnivExamSubjectFilters(params: {
   /** Optional regulation filter; defaults to 0 (no filter) when omitted. */
   regulationId?: number;
 }): Promise<any[]> {
-  const data = await getAllRecords<{ result?: any[][] }>(
-    "s_get_univ_exam_details",
-    {
-      in_flag: "clg_exam_subject_filters",
-      in_flag_type: "",
-      in_university_id: 0,
-      in_college_id: 0,
-      in_course_id: params.courseId,
-      in_course_group_id: 0,
-      in_course_year_id: params.courseYearId,
-      in_academic_year_id: params.academicYearId,
-      in_exam_id: params.examId,
-      in_regulation_id: params.regulationId ?? 0,
-      in_subject_id: 0,
-      in_sub_flag_type: "",
-      in_loginuser_empid: params.employeeId ?? 0,
-      in_loginuser_roleid: 0,
-      in_param1: 0,
-      in_param2: "",
-    },
-  );
-  const result = (data?.result ?? []) as any[][];
-  if (Array.isArray(result)) {
-    const out: any[] = [];
-    for (const arr of result) if (Array.isArray(arr)) out.push(...arr);
-    return out;
+  const { dataList } = await getClgExamSubjectFiltersBundle(params);
+  const regId = Number(params.regulationId ?? 0);
+  if (regId > 0) {
+    return dataList.filter(
+      (r) => Number(r.fk_regulation_id ?? r.regulation_id ?? 0) === regId,
+    );
   }
-  return [];
+  return dataList;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

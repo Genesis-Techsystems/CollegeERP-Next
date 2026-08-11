@@ -466,6 +466,8 @@ export default function StudentDailyAttendanceCountReportPage() {
       columnDefs={columnDefs}
       loading={loadingList}
       pagination
+      resultsVisible={showTable}
+      hideEmptyGrid
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

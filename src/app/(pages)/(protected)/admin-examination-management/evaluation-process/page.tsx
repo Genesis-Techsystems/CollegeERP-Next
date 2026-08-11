@@ -35,6 +35,7 @@ export default function EvaluationProcessIndexPage() {
     "chief-evaluation-pages",
     "exam-omr-rejection",
     "send-email-to-evaluators",
+    "view-answer-papers",
     "evaluation-templates",
   ];
 

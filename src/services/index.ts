@@ -145,6 +145,7 @@ export {
   getUnivExamRestNoTtGroups,
   getExamSubjectsForSchedule,
   getUnivExamSubjectFilters,
+  getClgExamSubjectFiltersBundle,
   listExamMarksSetup,
   listSubjectCategories,
   saveExamMarksSetup,

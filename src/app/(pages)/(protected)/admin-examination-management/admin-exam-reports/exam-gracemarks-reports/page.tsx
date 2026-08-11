@@ -600,6 +600,7 @@ export default function ExamGraceMarksReportsPage() {
   return (
     <FilteredListPage
       title="GraceMarks Reports"
+      resultsVisible={hasFetched}
       filters={
         <div className="space-y-2">
           <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">

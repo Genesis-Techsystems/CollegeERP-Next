@@ -138,6 +138,65 @@ export async function getEvaluatedAnswerPaperPresignedUrl(
   );
 }
 
+/**
+ * Angular view-answer-papers `viewAnswerPaper` / ListsDetails(generatePresignedUrls, type, path):
+ * type = answerPaperPath | evaluatedAnswerPaperPath
+ */
+export async function getViewAnswerPaperPresignedUrl(
+  path: string,
+  type: "answerPaperPath" | "evaluatedAnswerPaperPath",
+): Promise<string> {
+  if (type === "evaluatedAnswerPaperPath") {
+    const data = await getEvaluatedAnswerPaperPresignedUrl(path);
+    return String(data?.evaluatedAnswerPaperUrl ?? "").trim();
+  }
+  const data = await getAnswerPaperPresignedUrl(path);
+  return String(data?.answerPaperUrl ?? "").trim();
+}
+
+/**
+ * Angular view-answer-papers `getAnswerpaperDetails` / `enteredOmr`:
+ * getAllRecords/s_get_answerepaper_details in_flag=get_answerpaper_details → result[0]
+ */
+export async function getViewAnswerPaperDetails(params: {
+  examGroupId?: number;
+  academicYearId?: number;
+  examDate?: string;
+  questionPaperCode?: string;
+  omrSerialNo?: string;
+  employeeId?: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: AnyRow[][] }>(
+    EXAM_EVAL_API.ANSWER_PAPER_DETAILS,
+    {
+      in_flag: "get_answerpaper_details",
+      in_univ_examcenter_id: 0,
+      in_exam_group_id: params.examGroupId ?? 0,
+      in_exam_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_academic_year_id: params.academicYearId ?? 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_omr_serial_no: params.omrSerialNo ?? "",
+      in_eval_profile_det_id: 0,
+      in_eval_profile_id: 0,
+      in_university_id: 0,
+      in_exam_date: params.examDate ?? "1900-01-01",
+      in_questionpaper_code: params.questionPaperCode ?? "",
+      in_loginuser_empid: params.employeeId ?? 0,
+      in_loginuser_id: 0,
+      in_loginuser_roleid: 0,
+      in_param1: 0,
+      in_param2: "",
+    },
+  ).catch(() => ({ result: [] }));
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  return Array.isArray(groups[0]) ? groups[0].filter(Boolean) : [];
+}
+
 export async function listStudentAnswerPaperRows(
   examTimetableDetId: number,
   collegeId: number,

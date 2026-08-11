@@ -11,11 +11,14 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  UserPlus,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { SubjectCard } from "./subject-cards";
 import { useAssignedPapers } from "../_lib/queries";
+import { assignNextEvalForProfile } from "../_lib/eval-mutations";
 import { STATUS_COLORS } from "../_lib/config";
 import type { AnswerPaperRow } from "../_lib/api-types";
 import {
@@ -26,7 +29,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 /**
  * Row handed to the dashboard's `onOpen` when the evaluator opens a script.
@@ -50,10 +61,41 @@ export type ScriptRow = {
 };
 
 /** Status codes whose rows are terminal — action button stays disabled. */
-const CLOSED_STATUS = new Set(["Evaluated", "Reject", "Rejected"]);
+const CLOSED_STATUS = new Set([
+  "Evaluated",
+  "Reject",
+  "Rejected",
+  "Approved",
+  "Finalized",
+  "Finalised",
+]);
 
 function isOpenable(code: string | null | undefined): boolean {
-  return !!code && !CLOSED_STATUS.has(code);
+  // Angular: null / NewPaper / Assigned / InProgress → open Check Answersheet
+  if (code == null || String(code).trim() === "") return true;
+  return !CLOSED_STATUS.has(code);
+}
+
+/** Angular moderation CheckAnswerheet button label. */
+function moderatorActionLabel(code: string | null | undefined): string {
+  const normalized = String(code ?? "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return "Check Answersheet";
+  if (normalized === "inprogress" || normalized === "in progress")
+    return "In Progress";
+  if (
+    normalized === "assigned" ||
+    normalized === "newpaper" ||
+    normalized === "new"
+  )
+    return "Check Answersheet";
+  if (normalized === "evaluated") return "Evaluated";
+  if (normalized === "finalized" || normalized === "finalised")
+    return "Finalised";
+  if (normalized === "approved") return "Approved";
+  if (normalized === "rejected" || normalized === "reject") return "Rejected";
+  return code ?? "View";
 }
 
 function isEvaluatedStatus(code: string | null | undefined): boolean {
@@ -140,12 +182,24 @@ export function AnswerScriptsList({
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [assigningNext, setAssigningNext] = useState(false);
+  const [assignMessage, setAssignMessage] = useState<string | null>(null);
 
-  const pid = profileId != null ? String(profileId) : undefined;
-  const pdid = profileDetId != null ? String(profileDetId) : undefined;
+  const pid =
+    profileId != null
+      ? String(profileId)
+      : subject?.examEvaluatorProfileId != null
+        ? String(subject.examEvaluatorProfileId)
+        : undefined;
+  const pdid =
+    profileDetId != null
+      ? String(profileDetId)
+      : subject?.examEvaluatorProfileDetId != null
+        ? String(subject.examEvaluatorProfileDetId)
+        : undefined;
 
   const {
-    data: papers,
+    data: papersData,
     isLoading,
     isError,
     error,
@@ -153,7 +207,36 @@ export function AnswerScriptsList({
     isFetching,
   } = useAssignedPapers(pid, pdid, { isValidator });
 
-  const all: AnswerPaperRow[] = papers ?? [];
+  const all: AnswerPaperRow[] = papersData?.rows ?? [];
+
+  // Angular moderator + evaluator search-row Assign Next (always visible when profileDetId set).
+  // Moderator → assign_next_mod_eval; Evaluator → assign_next_eval.
+  const canAssignNext = !!pdid;
+
+  const assignNext = async () => {
+    if (!pdid || assigningNext) return;
+    setAssigningNext(true);
+    try {
+      const res = await assignNextEvalForProfile(pdid, {
+        isValidator: !!isValidator,
+      });
+      if (res.message) toast.success(res.message);
+      else toast.success("Success!");
+      if (res.flag && res.flag !== "Success") {
+        setAssignMessage(res.flag);
+      } else if (res.ok) {
+        await refetch();
+      } else if (res.flag) {
+        setAssignMessage(res.flag);
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not assign next paper.",
+      );
+    } finally {
+      setAssigningNext(false);
+    }
+  };
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -178,6 +261,7 @@ export function AnswerScriptsList({
     if (isEvaluatedStatus(code) || isRejectedStatus(code)) return false;
     return true;
   }).length;
+
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const pagedRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -195,6 +279,7 @@ export function AnswerScriptsList({
     : "Assigned Answer Papers";
 
   const hasIds = isValidator ? !!pdid : !!pid && !!pdid;
+  const colCount = isValidator ? 5 : 6;
 
   const pageNumbers = useMemo(() => {
     if (totalPages <= 5)
@@ -208,19 +293,21 @@ export function AnswerScriptsList({
 
   return (
     <div className="space-y-5">
-      <nav className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-        <span>Examination Management</span>
-        <span>{">"}</span>
-        <span>Evaluation Process</span>
-        <span>{">"}</span>
-        <span>Evaluator Subjects</span>
-        <span>{">"}</span>
-        <span className="text-foreground">
-          {isValidator
-            ? "Moderator Assigned Answer Papers"
-            : "Evaluator Assigned Answer Papers"}
-        </span>
-      </nav>
+      <div className="rounded-xl border border-border/70 bg-card px-4 py-2.5 shadow-sm">
+        <nav className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+          <span>Examination Management</span>
+          <span>{">"}</span>
+          <span>Evaluation Process</span>
+          <span>{">"}</span>
+          <span>Evaluator Subjects</span>
+          <span>{">"}</span>
+          <span className="text-foreground">
+            {isValidator
+              ? "Moderator Assigned Answer Papers"
+              : "Evaluator Assigned Answer Papers"}
+          </span>
+        </nav>
+      </div>
 
       <div className="rounded-3xl border border-border/70 bg-card/95 p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -239,17 +326,6 @@ export function AnswerScriptsList({
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-3">
-            {onBack && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onBack}
-                className="gap-1.5"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            )}
             <div className="flex min-w-[112px] items-center gap-3 rounded-2xl bg-primary/5 px-4 py-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <CheckCircle2 className="h-4 w-4" />
@@ -281,8 +357,8 @@ export function AnswerScriptsList({
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-border/70 bg-card shadow-sm">
-        <div className="border-b border-border/60 px-5 py-4">
-          <div className="relative max-w-sm">
+        <div className="flex flex-wrap items-center gap-3 border-b border-border/60 px-5 py-4">
+          <div className="relative min-w-[220px] max-w-sm flex-1">
             <div className="pointer-events-none absolute left-3 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-primary/8 text-primary">
               <Search className="h-3.5 w-3.5" />
             </div>
@@ -293,6 +369,26 @@ export function AnswerScriptsList({
               className="h-10 rounded-xl border-border/70 bg-background pl-11"
             />
           </div>
+          <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+            <Button
+              onClick={() => void assignNext()}
+              disabled={!canAssignNext || assigningNext || isFetching}
+              className="gap-1.5 bg-[#009688] text-white hover:bg-[#00796b] disabled:opacity-60"
+            >
+              {assigningNext ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              Assign Next
+            </Button>
+            {onBack && (
+              <Button variant="outline" onClick={onBack} className="gap-1.5">
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            )}
+          </div>
         </div>
         <div className="overflow-x-auto px-4 pt-3">
           <Table>
@@ -300,14 +396,24 @@ export function AnswerScriptsList({
               <TableRow className="bg-muted/35 hover:bg-muted/35">
                 <TableHead className="w-16 rounded-l-xl">S.No</TableHead>
                 <TableHead>Serial Number</TableHead>
-                <TableHead>Script ID</TableHead>
-                <TableHead>
-                  {isValidator ? "Previous Evaluated Marks" : "Evaluator Marks"}
-                </TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="rounded-r-xl text-right">
-                  Action
-                </TableHead>
+                {isValidator ? (
+                  <>
+                    <TableHead>Previous Evaluated Marks</TableHead>
+                    <TableHead>Check Answersheet</TableHead>
+                    <TableHead className="rounded-r-xl">
+                      Moderator Marks
+                    </TableHead>
+                  </>
+                ) : (
+                  <>
+                    <TableHead>Script ID</TableHead>
+                    <TableHead>Evaluator Marks</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="rounded-r-xl text-right">
+                      Action
+                    </TableHead>
+                  </>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -315,7 +421,7 @@ export function AnswerScriptsList({
               {!hasIds && (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={colCount}
                     className="py-12 text-center text-sm text-muted-foreground"
                   >
                     Select a subject and choose “Check Paper” to view its
@@ -328,7 +434,7 @@ export function AnswerScriptsList({
               {hasIds && isLoading && (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={colCount}
                     className="py-12 text-center text-sm text-muted-foreground"
                   >
                     Loading assigned answer scripts…
@@ -339,7 +445,7 @@ export function AnswerScriptsList({
               {/* Error. */}
               {hasIds && !isLoading && isError && (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center">
+                  <TableCell colSpan={colCount} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">
                       <AlertTriangle className="h-6 w-6 text-destructive" />
                       <span>
@@ -363,7 +469,7 @@ export function AnswerScriptsList({
               {hasIds && !isLoading && !isError && rows.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={colCount}
                     className="py-12 text-center text-sm text-muted-foreground"
                   >
                     {all.length === 0
@@ -384,13 +490,21 @@ export function AnswerScriptsList({
                     p.studentAnswerPaperId != null
                       ? String(p.studentAnswerPaperId)
                       : "—";
-                  const marks = marksNumber(
-                    isValidator
-                      ? (p.prevEvaluatorTotalMarks ?? p.evaluatedTotalMarks)
-                      : p.evaluatedTotalMarks,
-                  );
+                  const prevMarks = marksNumber(p.prevEvaluatorTotalMarks);
+                  const modMarks = marksNumber(p.evaluatedTotalMarks);
+                  const evalMarks = marksNumber(p.evaluatedTotalMarks);
                   const code = p.evaluationStatusCatDetCode ?? null;
                   const openable = isOpenable(code);
+                  const showModMarks =
+                    isEvaluatedStatus(code) ||
+                    String(code ?? "").toLowerCase() === "finalized" ||
+                    String(code ?? "").toLowerCase() === "finalised";
+                  const actionLabel = isValidator
+                    ? moderatorActionLabel(code)
+                    : openable
+                      ? "View"
+                      : "Evaluated";
+
                   return (
                     <TableRow
                       key={`${scriptId}-${i}`}
@@ -404,72 +518,136 @@ export function AnswerScriptsList({
                       <TableCell className="font-mono text-sm">
                         {serial}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {scriptId}
-                      </TableCell>
-                      <TableCell>
-                        {marks !== null ? (
-                          <span className="font-semibold text-primary">
-                            {marks}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {code ? (
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                              statusChipClasses(code),
+                      {isValidator ? (
+                        <>
+                          <TableCell>
+                            {prevMarks !== null ? (
+                              <span className="font-semibold text-primary">
+                                {prevMarks}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
                             )}
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            {code}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!openable}
-                          onClick={() =>
-                            onOpen({
-                              id: scriptId,
-                              serial,
-                              marks,
-                              checkedOn: p.answerSheetCheckDate ?? null,
-                              studentAnswerPaperId: p.studentAnswerPaperId,
-                              examEvaluationAssignmentId:
-                                p.examEvaluationAssignmentId,
-                              status: code,
-                              prevEvaluatorAnswerPath:
-                                p.prevEvaluatorAnswerPath ??
-                                p.evaluatedAnswerPaperPath ??
-                                null,
-                            })
-                          }
-                          className={cn(
-                            "min-w-20 rounded-lg border-primary/15 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary",
-                            !openable &&
-                              "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary",
-                              !openable &&
-                                "bg-muted-foreground/10 text-muted-foreground",
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!openable}
+                              onClick={() =>
+                                onOpen({
+                                  id: scriptId,
+                                  serial,
+                                  marks: prevMarks,
+                                  checkedOn: p.answerSheetCheckDate ?? null,
+                                  studentAnswerPaperId: p.studentAnswerPaperId,
+                                  examEvaluationAssignmentId:
+                                    p.examEvaluationAssignmentId,
+                                  status: code,
+                                  prevEvaluatorAnswerPath:
+                                    p.prevEvaluatorAnswerPath ??
+                                    p.evaluatedAnswerPaperPath ??
+                                    null,
+                                })
+                              }
+                              className={cn(
+                                "min-w-28 rounded-lg border-primary/15 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary",
+                                !openable &&
+                                  "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary",
+                                  !openable &&
+                                    "bg-muted-foreground/10 text-muted-foreground",
+                                )}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </span>
+                              {actionLabel}
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            {showModMarks && modMarks !== null ? (
+                              <span className="font-semibold text-primary">
+                                {modMarks}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
                             )}
-                          >
-                            <Eye className="h-3 w-3" />
-                          </span>
-                          {openable ? "View" : "Evaluated"}
-                        </Button>
-                      </TableCell>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="font-mono text-sm">
+                            {scriptId}
+                          </TableCell>
+                          <TableCell>
+                            {evalMarks !== null ? (
+                              <span className="font-semibold text-primary">
+                                {evalMarks}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {code ? (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+                                  statusChipClasses(code),
+                                )}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                                {code}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!openable}
+                              onClick={() =>
+                                onOpen({
+                                  id: scriptId,
+                                  serial,
+                                  marks: evalMarks,
+                                  checkedOn: p.answerSheetCheckDate ?? null,
+                                  studentAnswerPaperId: p.studentAnswerPaperId,
+                                  examEvaluationAssignmentId:
+                                    p.examEvaluationAssignmentId,
+                                  status: code,
+                                  prevEvaluatorAnswerPath:
+                                    p.prevEvaluatorAnswerPath ??
+                                    p.evaluatedAnswerPaperPath ??
+                                    null,
+                                })
+                              }
+                              className={cn(
+                                "min-w-20 rounded-lg border-primary/15 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary",
+                                !openable &&
+                                  "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-muted-foreground",
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary",
+                                  !openable &&
+                                    "bg-muted-foreground/10 text-muted-foreground",
+                                )}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </span>
+                              {actionLabel}
+                            </Button>
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -538,6 +716,24 @@ export function AnswerScriptsList({
           </div>
         </div>
       </div>
+
+      {/* Angular MessageModal — shows Flag when assign_next_eval is not Success */}
+      <Dialog
+        open={assignMessage != null}
+        onOpenChange={(o) => !o && setAssignMessage(null)}
+      >
+        <DialogContent className="sm:max-w-lg" hasDescription={false}>
+          <DialogHeader>
+            <DialogTitle>Message</DialogTitle>
+          </DialogHeader>
+          <p className="whitespace-pre-wrap text-sm text-foreground">
+            {assignMessage}
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setAssignMessage(null)}>Ok</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -158,6 +158,14 @@ function flattenAnswerPapers(rawData: any): AnswerPaperRow[] {
   return rows;
 }
 
+export type AssignedPapersResult = {
+  rows: AnswerPaperRow[];
+  /** Angular `exam_evauation_assignment_details.noOfStudentsAssigned` (pool gate). */
+  noOfStudentsAssigned: number;
+  /** Angular `exam_evauation_assignment_details.noOfEvaluationsCompleted`. */
+  noOfEvaluationsCompleted: number;
+};
+
 export function useAssignedPapers(
   profileId?: string,
   profileDetId?: string,
@@ -167,15 +175,48 @@ export function useAssignedPapers(
   return useQuery({
     queryKey: ["assignedPapers", profileId, profileDetId, isValidator],
     enabled: isValidator ? !!profileDetId : !!profileId && !!profileDetId,
-    queryFn: async (): Promise<AnswerPaperRow[]> => {
+    queryFn: async (): Promise<AssignedPapersResult> => {
       if (isValidator) {
+        // Angular evaluator-assigned-anspapers-moderation getAnswerPaper()
         return fetchModeratorAssignedPapers(profileDetId!);
       }
       const res = await apiGet<any>("getstudentanswerpapers", "", [
         { paramName: "examEvaluatorProfileId=", paramValue: profileId },
         { paramName: "&examEvaluatorProfileDetId=", paramValue: profileDetId },
       ]);
-      return flattenAnswerPapers(res?.data);
+      const raw = res?.data;
+      const first = Array.isArray(raw) && raw.length > 0 ? raw[0] : null;
+      const ev = first?.exam_evauation_assignment_details ?? {};
+      return {
+        rows: flattenAnswerPapers(raw),
+        noOfStudentsAssigned: Number(ev?.noOfStudentsAssigned) || 0,
+        noOfEvaluationsCompleted: Number(ev?.noOfEvaluationsCompleted) || 0,
+      };
+    },
+  });
+}
+
+/** Angular EVALPOOLDIFF — when remaining papers ≤ this, show Assign Next. */
+export function useEvalPoolDiffSetting() {
+  return useQuery({
+    queryKey: ["evalPoolDiffSetting"],
+    staleTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async (): Promise<number> => {
+      const res = await apiGet<any>("GeneralSetting", "domain/list/", [
+        { paramName: "size=", paramValue: "99999" },
+        { paramName: "&query=settingCode==", paramValue: "EVALPOOLDIFF" },
+      ]);
+      const parsed = GeneralSettingDataSchema.safeParse(res?.data);
+      const data = parsed.success ? parsed.data : res?.data;
+      if (!parsed.success)
+        logMismatchOnce("GeneralSetting(EVALPOOLDIFF)", parsed.error);
+      const list = data?.resultList ?? [];
+      if (list.length === 0) return 0;
+      const n = Number(list[0]?.settingValue);
+      return Number.isFinite(n) ? n : 0;
     },
   });
 }
@@ -184,8 +225,11 @@ export function useAssignedPapers(
  * Angular evaluator-assigned-anspapers-moderation `getAnswerPaper()`:
  * getAllRecords/s_get_examevaluation_bycodes with in_flag=moderation_assignments
  * and in_evalutor_profileid = examEvaluatorProfileDetId.
+ * Pool counts come from first row: no_of_students_assigned / no_of_evaluations_completed.
  */
-async function fetchModeratorAssignedPapers(profileDetId: string): Promise<AnswerPaperRow[]> {
+async function fetchModeratorAssignedPapers(
+  profileDetId: string,
+): Promise<AssignedPapersResult> {
   const orgId = Number(globalThis?.localStorage?.getItem("organizationId") ?? 0);
   const empId = Number(globalThis?.localStorage?.getItem("employeeId") ?? 0);
   const res = await apiGet<any>("getAllRecords/s_get_examevaluation_bycodes", "", [
@@ -210,6 +254,7 @@ async function fetchModeratorAssignedPapers(profileDetId: string): Promise<Answe
     { paramName: "&in_loginuser_empid=", paramValue: empId },
   ]);
   const rows: any[] = Array.isArray(res?.data?.result?.[0]) ? res.data.result[0] : [];
+  const first = rows[0] ?? null;
   const mapped: AnswerPaperRow[] = rows.map((row) => {
     const statusId = row?.fk_evaluationstatus_catdet_id ?? null;
     // Angular paper?prevEvaluatorAnswerPath=row.prev_evaluator_answerpath
@@ -240,7 +285,11 @@ async function fetchModeratorAssignedPapers(profileDetId: string): Promise<Answe
     (a, b) =>
       (Number(a.evaluationStatusCatDetId) || 0) - (Number(b.evaluationStatusCatDetId) || 0),
   );
-  return mapped;
+  return {
+    rows: mapped,
+    noOfStudentsAssigned: Number(first?.no_of_students_assigned) || 0,
+    noOfEvaluationsCompleted: Number(first?.no_of_evaluations_completed) || 0,
+  };
 }
 
 function statusCodeFromId(id: unknown): string | null {

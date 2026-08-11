@@ -471,6 +471,11 @@ export const EXAM_EVAL_API = {
   GET_COLLEGE_EXAM_DETAILS: "s_get_collegeexamdetails_bycode",
   /** GET: `getAllRecords/s_get_answerpaperupload_details` — Angular getAnswerPaperUploadUrl (Check Upload Status) */
   ANSWER_PAPER_UPLOAD_DETAILS: "s_get_answerpaperupload_details",
+  /**
+   * GET: `getAllRecords/s_get_answerepaper_details` — Angular getAnswerPaperDetailsUrl
+   * (View Answer Papers — note Angular spelling `answere`)
+   */
+  ANSWER_PAPER_DETAILS: "s_get_answerepaper_details",
   /** GET: generatePresignedUrls?answerPaperPath=… — presigned S3 URL for answer sheet preview */
   GENERATE_PRESIGNED_URLS: "generatePresignedUrls",
   /** CRUD: ExamStudentAnswerPaper */

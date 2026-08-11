@@ -651,6 +651,7 @@ export default function ExamInvigilatorAllotmentReportPage() {
   return (
     <FilteredListPage
       title="Invigilator Allotment Report"
+      resultsVisible={hasFetched}
       filters={
         <>
           <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">

@@ -17,7 +17,6 @@ import {
   getExamFiltersNoTimetableBundle,
   getExamTimetableDetails,
   listCourseYears,
-  listExamSessions,
   listExamFeeTypeGeneralDetails,
   saveExamTimetableDetailsByExamDate,
 } from "@/services/examination";
@@ -30,16 +29,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  LayoutGrid,
-  ShieldAlert,
-  GraduationCap,
-  Calendar,
-  ScrollText,
-} from "lucide-react";
+import { ShieldAlert, GraduationCap, Calendar, ScrollText } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import CheckConflictsModal from "./CheckConflictsModal";
@@ -96,6 +88,7 @@ type ExamMasterOption = {
   isRegularExam?: boolean;
   isSupplyExam?: boolean;
   isInternalExam?: boolean;
+  universityId?: number;
 };
 
 type ExamSessionOption = {
@@ -372,19 +365,8 @@ export default function ExamTimetablePage() {
     return out;
   }
 
-  // Fallback domain sessions until exam-scoped `exam_sessions` load.
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSessions() {
-      const rows = await listExamSessions().catch(() => [] as any[]);
-      if (cancelled) return;
-      setExamSessions(mapSessionRows(rows));
-    }
-    void loadSessions();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Exam-scoped sessions come from `univ_exam_rest_no_tt` → `exam_sessions`
+  // (loaded with course years). Do not call domain ExamSession list.
 
   // Restore academicYearId from URL once the academic-year list is available.
   useEffect(() => {
@@ -519,6 +501,7 @@ export default function ExamTimetablePage() {
       if (!selectedCourseId || !selectedAcademicYearId || !selectedExamId) {
         setExamScopedCourseYears([]);
         setSelectedCourseYearId(null);
+        setExamSessions([]);
         return;
       }
       const bundle = await getExamFiltersNoTimetableBundle({
@@ -530,9 +513,8 @@ export default function ExamTimetablePage() {
         strictRestFiltersGroup: examAdminLogin,
       }).catch(() => ({ restFilters: [] as any[], sessions: [] as any[] }));
       if (cancelled) return;
-      // Angular edit modal sessions come from this proc's `exam_sessions` group.
-      const fromFilter = mapSessionRows(bundle.sessions);
-      if (fromFilter.length > 0) setExamSessions(fromFilter);
+      // Angular edit modal sessions come from this proc's `exam_sessions` group only.
+      setExamSessions(mapSessionRows(bundle.sessions));
 
       const rows = Array.isArray(bundle.restFilters) ? bundle.restFilters : [];
       const seen = new Set<number>();
@@ -1209,6 +1191,13 @@ export default function ExamTimetablePage() {
       (y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId,
     );
     const exam = examMasters.find((e) => e.examId === selectedExamId);
+    const uniId = Number(
+      course?.fk_university_id ??
+        course?.university_id ??
+        course?.universityId ??
+        exam?.universityId ??
+        0,
+    );
     const params = new URLSearchParams({
       courseId: String(selectedCourseId),
       academicYearId: String(selectedAcademicYearId),
@@ -1225,6 +1214,7 @@ export default function ExamTimetablePage() {
       examName: String(exam?.examName ?? ""),
       fromDate: String(exam?.fromDate ?? ""),
       toDate: String(exam?.toDate ?? ""),
+      universityId: String(uniId || 0),
     });
     router.push(
       `/admin-examination-management/admin-exam-masters/exam-timetable/create?${params.toString()}`,
@@ -1549,74 +1539,90 @@ export default function ExamTimetablePage() {
           if (!v) setEditContext(null);
         }}
       >
-        <DialogContent className="gap-2 px-6 pb-6 pt-4 sm:max-w-lg">
-          <DialogHeader className="space-y-0 p-0">
-            <DialogTitle className="flex items-center gap-1.5 text-[15px] font-semibold leading-snug text-[#1565C0]">
-              <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden />
+        <DialogContent
+          className="gap-0 overflow-hidden px-0 pb-6 pt-0 sm:max-w-3xl"
+          description="Edit exam date, type, session, and active status for this timetable entry."
+        >
+          <DialogHeader className="relative z-[1] shrink-0 bg-white">
+            <DialogTitle className="min-w-0 max-w-[calc(100%-2.75rem)] pr-1">
               Edit Exam University Timetable
             </DialogTitle>
           </DialogHeader>
-          <Separator className="-mx-6 shrink-0" />
           {editContext && (
-            <form onSubmit={saveEditTimetable} className="space-y-4">
-              <div className="space-y-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] leading-relaxed text-[#1565C0]">
-                <p>
-                  <span className="font-semibold">Course Details: </span>
-                  {(() => {
-                    const cyEff = effectiveCourseYears.find(
-                      (y) =>
-                        Number(y.courseYearId) === Number(selectedCourseYearId),
-                    );
-                    const cyLegacy = courseYears.find(
-                      (y: any) =>
-                        (y.courseYearId ?? y.id) === selectedCourseYearId,
-                    );
-                    const yr =
-                      String(
-                        editContext.original.courseYearName ?? "",
-                      ).trim() ||
-                      cyEff?.courseYearName ||
-                      cyLegacy?.courseYearName ||
-                      cyLegacy?.yearName ||
-                      "";
-                    const reg =
-                      String(
-                        editContext.original.regulationCode ?? "",
-                      ).trim() || regulationLabel;
-                    return [editContext.branchLabel, yr, reg]
-                      .filter(Boolean)
-                      .join(" / ");
-                  })()}
-                </p>
-                {editExamRangeText ? (
-                  <p>
-                    <span className="font-semibold">Exam Details: </span>
+            <form onSubmit={saveEditTimetable} className="space-y-4 px-6 pt-3">
+              <div className="space-y-1.5 rounded-md border border-sky-200 bg-sky-50 px-3 py-2.5 text-[13px] text-[#0c51a4]">
+                <div className="grid grid-cols-[7.5rem_1fr] items-start gap-x-2 gap-y-1.5">
+                  <span className="font-semibold leading-5">
+                    Course Details:
+                  </span>
+                  <span className="leading-5">
+                    {(() => {
+                      const cyEff = effectiveCourseYears.find(
+                        (y) =>
+                          Number(y.courseYearId) ===
+                          Number(selectedCourseYearId),
+                      );
+                      const cyLegacy = courseYears.find(
+                        (y: any) =>
+                          (y.courseYearId ?? y.id) === selectedCourseYearId,
+                      );
+                      const yr =
+                        String(
+                          editContext.original.courseYearName ?? "",
+                        ).trim() ||
+                        cyEff?.courseYearName ||
+                        cyLegacy?.courseYearName ||
+                        cyLegacy?.yearName ||
+                        "";
+                      const reg =
+                        String(
+                          editContext.original.regulationCode ?? "",
+                        ).trim() || regulationLabel;
+                      return [editContext.branchLabel, yr, reg]
+                        .filter(Boolean)
+                        .join(" / ");
+                    })()}
+                  </span>
+                  {editExamRangeText ? (
+                    <>
+                      <span className="font-semibold leading-5">
+                        Exam Details:
+                      </span>
+                      <span className="leading-5">
+                        {(() => {
+                          const name = String(
+                            editContext.original.examName ?? "",
+                          ).trim();
+                          const range = formatExamMasterRange({
+                            fromDate: String(
+                              editContext.original.fromDate ?? "",
+                            ),
+                            toDate: String(editContext.original.toDate ?? ""),
+                          });
+                          if (name && range) return `${name} ${range}`;
+                          return editExamRangeText;
+                        })()}
+                      </span>
+                    </>
+                  ) : null}
+                  <span className="font-semibold leading-5">
+                    Subject Details:
+                  </span>
+                  <span className="leading-5">
                     {(() => {
                       const name = String(
-                        editContext.original.examName ?? "",
+                        editContext.original.subjectName ?? "",
                       ).trim();
-                      const range = formatExamMasterRange({
-                        fromDate: String(editContext.original.fromDate ?? ""),
-                        toDate: String(editContext.original.toDate ?? ""),
-                      });
-                      if (name && range) return `${name} ${range}`;
-                      return editExamRangeText;
+                      const code = String(
+                        editContext.original.subjectCode ?? "",
+                      );
+                      return name ? `${name} (${code})` : code || "—";
                     })()}
-                  </p>
-                ) : null}
-                <p>
-                  <span className="font-semibold">Subject Details: </span>
-                  {(() => {
-                    const name = String(
-                      editContext.original.subjectName ?? "",
-                    ).trim();
-                    const code = String(editContext.original.subjectCode ?? "");
-                    return name ? `${name} (${code})` : code || "—";
-                  })()}
-                </p>
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-end">
+                <div className="space-y-1.5">
                   <Label>Exam Date *</Label>
                   <Input
                     type="date"
@@ -1638,7 +1644,7 @@ export default function ExamTimetablePage() {
                     required
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label>Exam Type *</Label>
                   <Select
                     value={
@@ -1669,7 +1675,7 @@ export default function ExamTimetablePage() {
                   />
                 </div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label>Exam Session *</Label>
                 <Select
                   value={
@@ -1710,7 +1716,7 @@ export default function ExamTimetablePage() {
                   setEditForm((s) => ({ ...s, reason: v }))
                 }
               />
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="gap-2 px-0 sm:gap-0">
                 <Button
                   type="button"
                   variant="outline"

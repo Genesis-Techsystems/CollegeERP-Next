@@ -507,6 +507,7 @@ export default function StudentSubjectsReportPage() {
     <FilteredListPage<PivotRow>
       title="Student Subjects Report"
       className="relative"
+      resultsVisible={resultsVisible}
       notice={
         <RadioGroup
           value={mode}

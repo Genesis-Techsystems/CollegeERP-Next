@@ -5,10 +5,18 @@ import { PageContainer } from "./PageContainer";
 import { AngularFilterCard } from "./AngularFilterCard";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { cn } from "@/lib/utils";
+import { pageTitleForFilterCard } from "./page-title";
 
 export interface FilteredPageProps {
-  /** Single page title — defaults to the sidebar menu label when omitted. */
+  /**
+   * Page / report name. When it includes selected-filter text, the filters card
+   * shows only the page name; the body/table card keeps the full title.
+   */
   title?: string;
+  /** Optional override for the filters-card title (short page name). */
+  filterTitle?: string;
+  /** Optional override for the body/table card title (may include filter summary). */
+  tableTitle?: string;
   /** Filter fields rendered in a separate card under the title. */
   filters: ReactNode;
   /** Optional notice / alert above the cards. */
@@ -29,6 +37,8 @@ export interface FilteredPageProps {
   children?: ReactNode;
   filtersCollapsible?: boolean;
   filtersDefaultOpen?: boolean;
+  /** Show Angular "Filter" label on the card header (default true). */
+  showFilterLabel?: boolean;
   className?: string;
 }
 
@@ -37,6 +47,8 @@ export interface FilteredPageProps {
  */
 export function FilteredPage({
   title,
+  filterTitle,
+  tableTitle,
   filters,
   notice,
   body,
@@ -45,16 +57,21 @@ export function FilteredPage({
   children,
   filtersCollapsible = true,
   filtersDefaultOpen = true,
+  showFilterLabel = true,
   className,
 }: FilteredPageProps) {
   const navLabel = usePageNavLabel();
   const displayTitle = title === "" ? "" : (title ?? navLabel ?? "Page");
+  const filtersCardTitle = displayTitle
+    ? (filterTitle ?? pageTitleForFilterCard(displayTitle))
+    : "";
+  const bodyCardTitle = tableTitle ?? displayTitle;
 
   const resolvedTableHeader =
     tableHeader === null
       ? null
       : (tableHeader ??
-        (displayTitle ? (
+        (bodyCardTitle ? (
           <div className="table-context-header">
             <span
               className="material-icons table-context-header__icon"
@@ -63,7 +80,7 @@ export function FilteredPage({
               book
             </span>
             <strong className="table-context-header__title">
-              {displayTitle}
+              {bodyCardTitle}
             </strong>
           </div>
         ) : null));
@@ -71,11 +88,12 @@ export function FilteredPage({
   return (
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
-      {displayTitle ? (
+      {filtersCardTitle ? (
         <AngularFilterCard
-          title={displayTitle}
+          title={filtersCardTitle}
           collapsible={filtersCollapsible}
           defaultOpen={filtersDefaultOpen}
+          showFilterLabel={showFilterLabel}
         >
           {filters}
         </AngularFilterCard>
@@ -88,7 +106,7 @@ export function FilteredPage({
       {body ? (
         <div
           className={cn(
-            "app-card app-data-table-card overflow-hidden",
+            "app-card app-card--mixed-content overflow-hidden",
             bodyClassName,
           )}
         >

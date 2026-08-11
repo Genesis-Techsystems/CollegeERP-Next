@@ -151,7 +151,7 @@ export function MonthYearPicker({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label htmlFor={id} className="text-[12px] font-normal text-black/54">
+        <label htmlFor={id} className="text-[12px] font-medium text-black/54">
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
         </label>

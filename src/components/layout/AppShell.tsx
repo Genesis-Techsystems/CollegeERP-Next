@@ -209,7 +209,10 @@ export function AppShell({
   const sidebarIsExpanded = !mounted || !isSidebarCollapsed || isSidebarHovered;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[hsl(var(--background))]">
+    <div
+      data-app-shell
+      className="flex h-screen overflow-hidden bg-[hsl(var(--background))]"
+    >
       {IS_DEBUG_MODE && <DebugPanel />}
       {/* Mobile overlay when sidebar is open */}
       {isSidebarOpen && (

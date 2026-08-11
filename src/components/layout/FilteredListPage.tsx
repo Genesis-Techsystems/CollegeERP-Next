@@ -7,15 +7,30 @@ import { AngularFilterCard } from "./AngularFilterCard";
 import { DataTable, type DataTableProps } from "@/common/components/table";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { cn } from "@/lib/utils";
+import { pageTitleForFilterCard } from "./page-title";
 
 export interface FilteredListPageProps<T> extends Omit<
   DataTableProps<T>,
   "subtitle" | "bordered" | "rowData" | "columnDefs"
 > {
-  /** Title shown on the filter card — defaults to the sidebar menu label when omitted. */
+  /**
+   * Page / report name. When it includes selected-filter text
+   * (`Report — college / year / …`), the filters card shows only the page name;
+   * the get-list table card keeps the full title.
+   */
   title?: string;
   /** Optional subtitle below the title (e.g. selected committee / exam / subject heading). */
   subtitle?: string;
+  /**
+   * Optional override for the filters-card title (defaults to page name stripped
+   * from `title`). Prefer a short static label here.
+   */
+  filterTitle?: string;
+  /**
+   * Optional override for the get-list table card title (defaults to full `title`,
+   * including selected-filter summary when present).
+   */
+  tableTitle?: string;
   /** Filter fields / actions (rendered in a separate card above the table). */
   filters: ReactNode;
   /**
@@ -34,6 +49,12 @@ export interface FilteredListPageProps<T> extends Omit<
    * Default true.
    */
   showTable?: boolean;
+  /**
+   * Get List gate — when false, the entire table/results card is not rendered
+   * (not just an empty grid). Same default as DataTable (`true`).
+   * Report pages typically pass `resultsVisible={showTable}`.
+   */
+  resultsVisible?: boolean;
   /** Optional content rendered below filters inside the filter card. */
   filtersFooter?: ReactNode;
   /** Optional notice / alert above the cards. */
@@ -57,10 +78,13 @@ export interface FilteredListPageProps<T> extends Omit<
 export function FilteredListPage<T>({
   title,
   subtitle,
+  filterTitle,
+  tableTitle,
   filters,
   filtersSeparated = true,
   tableHeader,
   showTable = true,
+  resultsVisible = true,
   filtersFooter,
   notice,
   body,
@@ -75,11 +99,16 @@ export function FilteredListPage<T>({
 }: FilteredListPageProps<T>) {
   const navLabel = usePageNavLabel();
   const displayTitle = title ?? navLabel ?? "Page";
+  // Filters card: page name only. Table card: full title with selected filters.
+  const filtersCardTitle = filterTitle ?? pageTitleForFilterCard(displayTitle);
+  const listCardTitle = tableTitle ?? displayTitle;
   const hasTable = Array.isArray(columnDefs) && columnDefs.length > 0;
+  // Hide get-list results card until Get List (showTable / resultsVisible).
+  const listVisible = showTable && resultsVisible !== false;
 
   const filterCard = (
     <AngularFilterCard
-      title={displayTitle}
+      title={filtersCardTitle}
       collapsible={filtersCollapsible}
       defaultOpen={filtersDefaultOpen}
     >
@@ -95,7 +124,7 @@ export function FilteredListPage<T>({
         ? null
         : (tableHeader ?? (
             // Default context bar: book + page title (pages can override via tableHeader)
-            <DefaultTableHeader title={displayTitle} />
+            <DefaultTableHeader title={listCardTitle} />
           ));
 
     return (
@@ -103,7 +132,7 @@ export function FilteredListPage<T>({
         {notice}
         {filterCard}
 
-        {showTable && hasTable ? (
+        {listVisible && hasTable ? (
           <DataTable
             title=""
             subtitle=""
@@ -112,23 +141,24 @@ export function FilteredListPage<T>({
             filtersFooter={resolvedTableHeader}
             rowData={rowData ?? []}
             columnDefs={columnDefs ?? []}
+            resultsVisible={resultsVisible}
             {...tableProps}
           />
         ) : null}
 
-        {!hasTable && body !== undefined ? (
+        {listVisible && !hasTable && body != null ? (
           <div
             className={cn(
-              "app-card app-data-table-card overflow-hidden p-4",
+              "app-card app-card--mixed-content overflow-hidden p-4",
               bodyClassName,
             )}
           >
             {resolvedTableHeader}
             {body}
           </div>
-        ) : (
+        ) : listVisible ? (
           body
-        )}
+        ) : null}
 
         {children}
       </PageContainer>
@@ -143,7 +173,7 @@ export function FilteredListPage<T>({
         {filterCard}
         <div
           className={cn(
-            "app-card app-data-table-card overflow-hidden p-4",
+            "app-card app-card--mixed-content overflow-hidden p-4",
             bodyClassName,
           )}
         >
@@ -158,8 +188,8 @@ export function FilteredListPage<T>({
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
       <DataTable
-        title={displayTitle}
-        subtitle={subtitle ?? ""}
+        title={listCardTitle}
+        subtitle""
         bordered
         filters={filters}
         filtersFooter={filtersFooter}
