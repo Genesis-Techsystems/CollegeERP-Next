@@ -323,6 +323,7 @@ export default function ExamAnswerSheetsReportPage() {
   return (
     <FilteredListPage
       title="Exam Answer Sheets Report"
+      resultsVisible={hasFetched}
       filters={
         <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
           <div className="space-y-1 md:col-span-2">

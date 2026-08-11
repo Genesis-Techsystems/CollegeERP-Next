@@ -498,11 +498,14 @@ export default function LibraryFeeCollectionsPage() {
   };
 
   const pageTitle =
-    showTable && dataDetails ? dataDetails : "Library Fee Report";
+    showTable && dataDetails
+      ? `Library Fee Report - ${dataDetails}`
+      : "Library Fee Report";
 
   return (
     <FilteredListPage
       title={pageTitle}
+      filterTitle="Library Fee Report"
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

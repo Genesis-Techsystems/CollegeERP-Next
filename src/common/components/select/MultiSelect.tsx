@@ -191,7 +191,11 @@ export function MultiSelect({
 
   function renderTriggerContent() {
     if (value.length === 0) {
-      return <span className="text-slate-400 truncate">{placeholder}</span>;
+      return (
+        <span className="truncate font-medium text-[rgba(0,0,0,0.54)]">
+          {placeholder}
+        </span>
+      );
     }
 
     // Map selected values to options (preserve insertion order from `value`)
@@ -239,7 +243,10 @@ export function MultiSelect({
       {label && (
         <label
           htmlFor={triggerId}
-          className="text-[12px] font-normal text-black/54"
+          className={cn(
+            "text-[12px] font-medium transition-colors",
+            open ? "text-[#0c51a4]" : "text-black/54",
+          )}
         >
           {label}
           {required && (
@@ -311,8 +318,8 @@ export function MultiSelect({
               )}
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 text-slate-400 transition-transform duration-200",
-                  open && "rotate-180",
+                  "h-4 w-4 transition-transform duration-200",
+                  open ? "rotate-180 text-[#0c51a4]" : "text-slate-400",
                 )}
               />
             </span>

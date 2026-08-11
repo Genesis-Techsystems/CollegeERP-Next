@@ -1195,6 +1195,7 @@ export function ExamFinalAnalysisReportPage({
     <FilteredListPage
       title={title}
       filters={filterFields}
+      resultsVisible={hasFetched}
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}

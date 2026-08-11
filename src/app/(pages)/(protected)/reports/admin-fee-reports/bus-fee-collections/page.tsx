@@ -598,7 +598,10 @@ ${tableHtml}
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
 
-  const pageTitle = showTable && dataDetails ? dataDetails : "Bus Fee Report";
+  const pageTitle =
+    showTable && dataDetails
+      ? `Bus Fee Report - ${dataDetails}`
+      : "Bus Fee Report";
 
   const employeeOptions = useMemo(
     () =>
@@ -619,6 +622,7 @@ ${tableHtml}
   return (
     <FilteredListPage
       title={pageTitle}
+      filterTitle="Bus Fee Report"
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

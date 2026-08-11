@@ -558,5 +558,9 @@
   {
     "label": "upload scanned answer papers",
     "route": "/admin-examination-management/evaluation-process/scan-upload-process"
+  },
+  {
+    "label": "view answer papers",
+    "route": "/admin-examination-management/evaluation-process/view-answer-papers"
   }
 ]

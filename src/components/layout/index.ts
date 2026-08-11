@@ -9,6 +9,7 @@ export { FilteredListPage } from './FilteredListPage'
 export type { FilteredListPageProps } from './FilteredListPage'
 export { FilteredPage } from './FilteredPage'
 export type { FilteredPageProps } from './FilteredPage'
+export { pageTitleForFilterCard } from './page-title'
 export {
   AngularFilterCard,
   TableContextHeader,

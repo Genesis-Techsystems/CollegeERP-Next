@@ -166,8 +166,9 @@ export interface DataTableProps<T> {
    */
   hideEmptyGrid?: boolean;
   /**
-   * When false, hide search toolbar + grid + pagination (filters/title stay).
-   * Use after a "Get List" action — Angular `*ngIf="flag"` pattern. Default true.
+   * When false, hide the entire get-list results card in FilteredListPage
+   * (search toolbar + grid + pagination). Default true.
+   * Report pages pass `resultsVisible={showTable}` after Get List.
    */
   resultsVisible?: boolean;
   height?: string;

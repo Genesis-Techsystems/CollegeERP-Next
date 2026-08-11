@@ -384,10 +384,7 @@ export function StudentSearchSelect({
   return (
     <div ref={rootRef} className={cn("flex flex-col gap-1", className)}>
       {label ? (
-        <label
-          htmlFor={inputId}
-          className="text-xs font-medium text-foreground"
-        >
+        <label htmlFor={inputId} className="text-xs font-medium text-black/54">
           {label}
         </label>
       ) : null}
@@ -412,7 +409,7 @@ export function StudentSearchSelect({
             placeholder={placeholder}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={handleFocus}
-            className="h-10 w-full bg-transparent px-3 pr-9 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+            className="h-10 w-full bg-transparent px-3 pr-9 text-sm font-medium text-slate-900 placeholder:font-medium placeholder:text-[rgba(0,0,0,0.54)] focus:outline-none"
           />
           {displayValue || value ? (
             <button

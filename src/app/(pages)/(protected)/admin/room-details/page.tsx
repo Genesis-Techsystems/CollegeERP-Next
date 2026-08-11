@@ -389,11 +389,11 @@ export default function RoomDetailsPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
 
-  const [campusId, setCampusId] = useState<string | null>(null);
-  const [buildingId, setBuildingId] = useState<string | null>(null);
-  const [blockId, setBlockId] = useState<string | null>(null);
-  const [floorId, setFloorId] = useState<string | null>(null);
-  const [roomId, setRoomId] = useState<string | null>(null);
+  const [campusId, setCampusId] = useState<string | null>("0");
+  const [buildingId, setBuildingId] = useState<string | null>("0");
+  const [blockId, setBlockId] = useState<string | null>("0");
+  const [floorId, setFloorId] = useState<string | null>("0");
+  const [roomId, setRoomId] = useState<string | null>("0");
 
   const [resultRows, setResultRows] = useState<RoomDetail[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -448,12 +448,16 @@ export default function RoomDetailsPage() {
     listActiveFloorsByBlock(id).then(setFloors).catch(console.error);
   }, [blockId]);
 
+  const ALL_OPTION = { value: "0", label: "All" } as const;
+
   const campusOptions = useMemo(
-    () =>
-      campuses.map((campus) => ({
+    () => [
+      ALL_OPTION,
+      ...campuses.map((campus) => ({
         value: String(campus.campusId),
         label: campus.campusName,
       })),
+    ],
     [campuses],
   );
   const buildingOptions = useMemo(() => {
@@ -461,28 +465,36 @@ export default function RoomDetailsPage() {
     const filtered = selectedCampusId
       ? buildings.filter((building) => building.campusId === selectedCampusId)
       : buildings;
-    return filtered.map((building) => ({
-      value: String(building.buildingId),
-      label: `${building.buildingCode ?? ""} - ${building.buildingName}`.trim(),
-    }));
+    return [
+      ALL_OPTION,
+      ...filtered.map((building) => ({
+        value: String(building.buildingId),
+        label:
+          `${building.buildingCode ?? ""} - ${building.buildingName}`.trim(),
+      })),
+    ];
   }, [buildings, campusId]);
   const blockOptions = useMemo(
-    () =>
-      blocks.map((block) => ({
+    () => [
+      ALL_OPTION,
+      ...blocks.map((block) => ({
         value: String(block.blockId),
         label: `${block.blockCode ?? ""} - ${block.blockName ?? ""}`.trim(),
       })),
+    ],
     [blocks],
   );
   const floorOptions = useMemo(
-    () =>
-      floors.map((floor) => {
+    () => [
+      ALL_OPTION,
+      ...floors.map((floor) => {
         const floorNoText = floor.floorNo ? `(${String(floor.floorNo)})` : "";
         return {
           value: String(floor.floorId),
           label: `${floor.floorName ?? ""} ${floorNoText}`.trim(),
         };
       }),
+    ],
     [floors],
   );
   const roomOptions = useMemo(() => {
@@ -508,10 +520,13 @@ export default function RoomDetailsPage() {
       }
       return true;
     });
-    return filtered.map((room) => ({
-      value: String(pickRoomId(room)),
-      label: room.roomCode || room.roomName || String(pickRoomId(room)),
-    }));
+    return [
+      ALL_OPTION,
+      ...filtered.map((room) => ({
+        value: String(pickRoomId(room)),
+        label: room.roomCode || room.roomName || String(pickRoomId(room)),
+      })),
+    ];
   }, [rooms, buildingId, blockId, floorId, blocks]);
 
   const filteredData = useMemo(() => {
@@ -545,14 +560,13 @@ export default function RoomDetailsPage() {
             <Select
               value={campusId}
               onChange={(v) => {
-                setCampusId(v);
-                setBuildingId(null);
-                setBlockId(null);
-                setFloorId(null);
-                setRoomId(null);
+                setCampusId(v ?? "0");
+                setBuildingId("0");
+                setBlockId("0");
+                setFloorId("0");
+                setRoomId("0");
               }}
               options={campusOptions}
-              placeholder="All"
               searchable
             />
           </GlobalFilterField>
@@ -560,13 +574,12 @@ export default function RoomDetailsPage() {
             <Select
               value={buildingId}
               onChange={(v) => {
-                setBuildingId(v);
-                setBlockId(null);
-                setFloorId(null);
-                setRoomId(null);
+                setBuildingId(v ?? "0");
+                setBlockId("0");
+                setFloorId("0");
+                setRoomId("0");
               }}
               options={buildingOptions}
-              placeholder="All"
               searchable
             />
           </GlobalFilterField>
@@ -574,35 +587,32 @@ export default function RoomDetailsPage() {
             <Select
               value={blockId}
               onChange={(v) => {
-                setBlockId(v);
-                setFloorId(null);
-                setRoomId(null);
+                setBlockId(v ?? "0");
+                setFloorId("0");
+                setRoomId("0");
               }}
               options={blockOptions}
-              placeholder="All"
               searchable
-              disabled={!buildingId}
+              disabled={!Number(buildingId)}
             />
           </GlobalFilterField>
           <GlobalFilterField label="Floor">
             <Select
               value={floorId}
               onChange={(v) => {
-                setFloorId(v);
-                setRoomId(null);
+                setFloorId(v ?? "0");
+                setRoomId("0");
               }}
               options={floorOptions}
-              placeholder="All"
               searchable
-              disabled={!blockId}
+              disabled={!Number(blockId)}
             />
           </GlobalFilterField>
           <GlobalFilterField label="Room">
             <Select
               value={roomId}
-              onChange={setRoomId}
+              onChange={(v) => setRoomId(v ?? "0")}
               options={roomOptions}
-              placeholder="All"
               searchable
             />
           </GlobalFilterField>

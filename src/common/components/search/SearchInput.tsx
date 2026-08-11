@@ -206,7 +206,7 @@ export function SearchInput({
         aria-label={placeholder || "Search"}
         className={cn(
           "h-8 w-full rounded-full border border-input bg-white",
-          "pl-9 pr-9 text-[13px] text-foreground placeholder:text-muted-foreground",
+          "pl-9 pr-9 text-[13px] font-medium text-foreground placeholder:font-medium placeholder:text-[rgba(0,0,0,0.54)]",
           "focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 focus:ring-offset-0",
           "transition-colors duration-150",
         )}

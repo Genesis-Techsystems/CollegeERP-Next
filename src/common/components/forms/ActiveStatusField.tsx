@@ -40,8 +40,14 @@ export function ActiveStatusField({
   reasonPlaceholder = "Reason for deactivation",
 }: ActiveStatusFieldProps) {
   return (
-    <div className="grid grid-cols-2 gap-4 items-start">
-      <div className="flex items-center gap-2 pt-1">
+    <div
+      className={
+        isActive
+          ? "flex items-center gap-2"
+          : "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end"
+      }
+    >
+      <div className="flex h-9 items-center gap-2">
         <Checkbox
           id="isActive"
           checked={isActive}

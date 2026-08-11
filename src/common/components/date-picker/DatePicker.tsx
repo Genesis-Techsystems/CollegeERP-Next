@@ -78,7 +78,7 @@ export function DatePicker({
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
       {label && (
-        <label htmlFor={id} className="text-[12px] font-normal text-black/54">
+        <label htmlFor={id} className="text-[12px] font-medium text-black/54">
           {label}
           {required && <span className="text-destructive ml-0.5">*</span>}
         </label>
@@ -92,8 +92,8 @@ export function DatePicker({
             disabled={disabled}
             aria-required={required || undefined}
             className={cn(
-              "h-9 w-full justify-start text-left text-[length:var(--app-control-font-size)] font-normal shadow-none",
-              !value && "text-muted-foreground",
+              "h-9 w-full justify-start text-left text-[length:var(--app-control-font-size)] font-medium shadow-none",
+              !value && "text-[rgba(0,0,0,0.54)]",
               isStandard
                 ? cn(
                     "rounded-none border-0 border-b border-black/12 bg-transparent px-0 hover:bg-transparent",

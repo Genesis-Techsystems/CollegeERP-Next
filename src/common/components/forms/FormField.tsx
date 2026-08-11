@@ -26,7 +26,7 @@ export function FormField({
     <div className={cn("flex flex-col gap-1", className)}>
       <label
         htmlFor={htmlFor}
-        className="text-[12px] font-normal leading-none text-black/54 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        className="text-[12px] font-medium leading-none text-black/54 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
       >
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}

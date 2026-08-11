@@ -1,6 +1,6 @@
 "use client";
 
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionContext } from "@/context/SessionContext";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -839,18 +839,26 @@ export default function ExamFeeSetupPage() {
               </GlobalFilterField>
             ) : null}
           </GlobalFilterBarRow>
-
-          {hasFetched && titleLine ? (
-            <div className="flex items-start gap-2 pt-1">
-              <span className="shrink-0 text-[13px] font-medium text-slate-800">
-                Exam Fee Structure :
-              </span>
-              <span className="text-[13px] font-semibold text-[hsl(var(--primary))]">
-                {titleLine}
-              </span>
-            </div>
-          ) : null}
         </div>
+      }
+      tableHeader={
+        hasFetched ? (
+          <TableContextHeader
+            title="Exam Fee Setup"
+            info={
+              titleLine ? (
+                <>
+                  <span className="font-medium text-slate-800">
+                    Exam Fee Structure :
+                  </span>
+                  <span className="font-semibold text-[hsl(var(--primary))]">
+                    {titleLine}
+                  </span>
+                </>
+              ) : undefined
+            }
+          />
+        ) : undefined
       }
       rowData={hasFetched ? rows : []}
       columnDefs={cols}

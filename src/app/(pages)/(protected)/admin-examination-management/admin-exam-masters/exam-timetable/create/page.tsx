@@ -1,28 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import { distinct } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import {
-  getUnivExamFiltersAll,
   resolveExamLoginEmpId,
-  listCourseYears,
-  listCourseGroups,
-  listExamSessions,
-  getExamSubjectsForSchedule,
-  getUnivExamSubjectFilters,
+  getClgExamSubjectFiltersBundle,
   listExamFeeTypeGeneralDetails,
   getExamTimetableDetails,
   saveExamTimetable,
 } from "@/services/examination";
-import { getRegulations } from "@/services/exam-master";
 import { useSessionContext } from "@/context/SessionContext";
 import { FilteredPage } from "@/components/layout";
 import { useBreadcrumbLabel } from "@/common/components/breadcrumb";
@@ -47,6 +40,21 @@ export default function CreateExamTimetablePage() {
 
   useBreadcrumbLabel("Create Timetable");
 
+  // Angular ADD: IDs/labels come from list-page query params only — never univ_exam_filters.
+  const selectedCourseId = Number(searchParams.get("courseId") ?? 0) || null;
+  const selectedAcademicYearId =
+    Number(searchParams.get("academicYearId") ?? 0) || null;
+  const selectedExamId = Number(searchParams.get("examId") ?? 0) || null;
+  const selectedCourseYearId =
+    Number(searchParams.get("courseYearId") ?? 0) || null;
+  const paramCourseName = String(searchParams.get("courseName") ?? "");
+  const paramAcademicYear = String(searchParams.get("academicYear") ?? "");
+  const paramExamName = String(searchParams.get("examName") ?? "");
+  const paramCourseYearName = String(searchParams.get("courseYearName") ?? "");
+  const paramFromDate = String(searchParams.get("fromDate") ?? "");
+  const paramToDate = String(searchParams.get("toDate") ?? "");
+  const paramUniversityId = Number(searchParams.get("universityId") ?? 0) || 0;
+
   function goBack() {
     const qp = new URLSearchParams();
     if (selectedCourseId != null) qp.set("courseId", String(selectedCourseId));
@@ -60,45 +68,8 @@ export default function CreateExamTimetablePage() {
       `/admin-examination-management/admin-exam-masters/exam-timetable${q ? `?${q}` : ""}`,
     );
   }
-  // Filters
-  const [loadingFilters, setLoadingFilters] = useState(true);
-  const [filtersData, setFiltersData] = useState<any[]>([]);
 
-  const [courses, setCourses] = useState<any[]>([]);
-  const [academicYears, setAcademicYears] = useState<any[]>([]);
-  const [courseYears, setCourseYears] = useState<any[]>([]);
-  const [examMasters, setExamMasters] = useState<any[]>([]);
-
-  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState<
-    number | null
-  >(null);
-  const [selectedExamId, setSelectedExamId] = useState<number | null>(null);
-  const [paramCourseId, setParamCourseId] = useState<number | null>(null);
-  const [paramAcademicYearId, setParamAcademicYearId] = useState<number | null>(
-    null,
-  );
-  const [paramExamId, setParamExamId] = useState<number | null>(null);
-  const [paramCourseYearId, setParamCourseYearId] = useState<number | null>(
-    null,
-  );
-  const [paramCourseName, setParamCourseName] = useState("");
-  const [paramAcademicYear, setParamAcademicYear] = useState("");
-  const [paramExamName, setParamExamName] = useState("");
-  const [paramFromDate, setParamFromDate] = useState("");
-  const [paramToDate, setParamToDate] = useState("");
-
-  // Course years
-  const [q, setQ] = useState("");
-  const [selectedCourseYearIds, setSelectedCourseYearIds] = useState<
-    Set<number>
-  >(new Set());
-  const [selectedCourseYearId, setSelectedCourseYearId] = useState<
-    number | null
-  >(null);
-
-  // Subjects (now also carry the Regular/Supple/Internal exam-type flags so
-  // the save flow can derive examTypeCatId per detail row.)
+  // Subjects (carry Regular/Supple/Internal flags for save examTypeCatId).
   const [subjects, setSubjects] = useState<
     {
       id: number;
@@ -113,9 +84,6 @@ export default function CreateExamTimetablePage() {
     null,
   );
 
-  // Real Regulation dropdown — the previous "Exam fee type" Select was a
-  // workaround. examFeeTypes is still loaded so the save flow can resolve
-  // examTypeCatId from each subject's exam-type flag at save time.
   const [regulations, setRegulations] = useState<
     { id: number; code: string; name: string }[]
   >([]);
@@ -126,129 +94,11 @@ export default function CreateExamTimetablePage() {
     { id: number; code: string; name: string }[]
   >([]);
 
-  // Exam sessions (replaces hardcoded M/A select)
-  const [examSessions, setExamSessions] = useState<
-    {
-      id: number;
-      name: string;
-      code: string;
-      universityCode?: string;
-      sessionStartTime?: string;
-      sessionEndTime?: string;
-    }[]
-  >([]);
-  const [selectedExamSessionId, setSelectedExamSessionId] = useState<
-    number | null
-  >(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSessions() {
-      const rows = await listExamSessions().catch(() => [] as any[]);
-      if (cancelled) return;
-      const mapped = (Array.isArray(rows) ? rows : [])
-        .map((r: any) => ({
-          id: Number(r.examSessionId ?? r.id ?? 0),
-          name: String(r.examSessionName ?? r.name ?? "").trim(),
-          code: String(r.examsessioninCatCode ?? r.sessionCode ?? "").trim(),
-          universityCode:
-            String(r.universityCode ?? r.university_code ?? "").trim() ||
-            undefined,
-          sessionStartTime: r.sessionStartTime
-            ? String(r.sessionStartTime)
-            : undefined,
-          sessionEndTime: r.sessionEndTime
-            ? String(r.sessionEndTime)
-            : undefined,
-        }))
-        .filter((s) => s.id > 0);
-      setExamSessions(mapped);
-    }
-    void loadSessions();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Selected exam's university — used to scope the Exam Session dropdown.
-  const selectedExamUniversityCode = useMemo(() => {
-    const ex = examMasters.find(
-      (e: any) => (e.examId ?? e.id) === selectedExamId,
-    );
-    return String(ex?.universityCode ?? "").trim();
-  }, [examMasters, selectedExamId]);
-
-  const filteredExamSessions = useMemo(() => {
-    if (!selectedExamUniversityCode) return examSessions;
-    return examSessions.filter(
-      (s) =>
-        !s.universityCode || s.universityCode === selectedExamUniversityCode,
-    );
-  }, [examSessions, selectedExamUniversityCode]);
-
-  // Clear the selected session if it dropped out of the filtered list
-  // (e.g. user changed the exam to one with a different university).
-  useEffect(() => {
-    if (selectedExamSessionId == null) return;
-    if (!filteredExamSessions.some((s) => s.id === selectedExamSessionId)) {
-      setSelectedExamSessionId(null);
-      setSlotDraft((d) => ({ ...d, startTime: "", endTime: "" }));
-    }
-  }, [filteredExamSessions, selectedExamSessionId]);
-
-  // Effective exam from/to range — prefer the loaded exam master's dates,
-  // fall back to the URL params passed in from the list page.
-  const examFromDate = useMemo(() => {
-    const ex = examMasters.find(
-      (e: any) => (e.examId ?? e.id) === selectedExamId,
-    );
-    const raw = ex?.fromDate ?? paramFromDate ?? "";
-    return raw ? raw.slice(0, 10) : "";
-  }, [examMasters, selectedExamId, paramFromDate]);
-  const examToDate = useMemo(() => {
-    const ex = examMasters.find(
-      (e: any) => (e.examId ?? e.id) === selectedExamId,
-    );
-    const raw = ex?.toDate ?? paramToDate ?? "";
-    return raw ? raw.slice(0, 10) : "";
-  }, [examMasters, selectedExamId, paramToDate]);
-
-  // Load regulations for the selected course (filters the subject list).
-  useEffect(() => {
-    setRegulations([]);
-    setSelectedRegulationId(null);
-    if (!selectedCourseId) return;
-    let cancelled = false;
-    async function loadRegs() {
-      const rows = await getRegulations(selectedCourseId as number).catch(
-        () => [] as any[],
-      );
-      if (cancelled) return;
-      const mapped = (Array.isArray(rows) ? rows : [])
-        .map((r: any) => ({
-          id: Number(r.regulationId ?? r.id ?? 0),
-          code: String(r.regulationCode ?? r.regulationShortName ?? "").trim(),
-          name: String(
-            r.regulationName ?? r.regulation_name ?? r.regulationCode ?? "",
-          ).trim(),
-        }))
-        .filter((r) => r.id > 0);
-      setRegulations(mapped);
-    }
-    void loadRegs();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCourseId]);
-
-  // Timetable slots
   const [slotDraft, setSlotDraft] = useState<Slot>({
     date: "",
     startTime: "",
     endTime: "",
   });
-  const [slots, setSlots] = useState<Slot[]>([]);
-  // Course groups (loaded from API on courseId change)
   const [courseGroups, setCourseGroups] = useState<
     {
       id: number;
@@ -258,6 +108,236 @@ export default function CreateExamTimetablePage() {
     }[]
   >([]);
   const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+
+  const [dataList, setDataList] = useState<any[]>([]);
+  const [examSessions, setExamSessions] = useState<
+    {
+      id: number;
+      name: string;
+      code: string;
+      sessionStartTime?: string;
+      sessionEndTime?: string;
+    }[]
+  >([]);
+  const [selectedExamSessionId, setSelectedExamSessionId] = useState<
+    number | null
+  >(null);
+
+  const examFromDate = useMemo(() => {
+    const fromData = String(dataList[0]?.from_date ?? "").slice(0, 10);
+    if (fromData) return fromData;
+    return paramFromDate ? paramFromDate.slice(0, 10) : "";
+  }, [dataList, paramFromDate]);
+  const examToDate = useMemo(() => {
+    const toData = String(dataList[0]?.to_date ?? "").slice(0, 10);
+    if (toData) return toData;
+    return paramToDate ? paramToDate.slice(0, 10) : "";
+  }, [dataList, paramToDate]);
+
+  // EXMFEETYP only (Angular parallel getData) — not univ_exam_filters.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFeeTypes() {
+      const gd = await listExamFeeTypeGeneralDetails().catch(() => []);
+      if (cancelled) return;
+      setExamFeeTypes(
+        (Array.isArray(gd) ? gd : [])
+          .map((d: any) => ({
+            id: Number(d.generalDetailId ?? d.id ?? 0),
+            code: String(d.generalDetailCode ?? d.code ?? ""),
+            name: String(d.generalDetailName ?? d.name ?? ""),
+          }))
+          .filter((d) => d.code),
+      );
+    }
+    void loadFeeTypes();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Angular getFiltersList — clg_exam_subject_filters only.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSubjectFilterBundle() {
+      setDataList([]);
+      setExamSessions([]);
+      setSelectedExamSessionId(null);
+      setRegulations([]);
+      setSelectedRegulationId(null);
+      setSubjects([]);
+      setSelectedSubjectCode(null);
+      setCourseGroups([]);
+      setSelectedGroups(new Set());
+      if (
+        !selectedCourseId ||
+        !selectedAcademicYearId ||
+        !selectedExamId ||
+        !selectedCourseYearId
+      )
+        return;
+
+      const empId = resolveExamLoginEmpId(user?.employeeId);
+      const { dataList: rows, sessions } = await getClgExamSubjectFiltersBundle(
+        {
+          courseId: selectedCourseId,
+          examId: selectedExamId,
+          academicYearId: selectedAcademicYearId,
+          courseYearId: selectedCourseYearId,
+          employeeId: empId,
+          universityId: paramUniversityId,
+        },
+      ).catch(() => ({ dataList: [] as any[], sessions: [] as any[] }));
+      if (cancelled) return;
+
+      setDataList(rows);
+
+      const seen = new Set<number>();
+      const mappedSessions: {
+        id: number;
+        name: string;
+        code: string;
+        sessionStartTime?: string;
+        sessionEndTime?: string;
+      }[] = [];
+      for (const r of sessions) {
+        const id = Number(r.fk_exam_session_id ?? r.examSessionId ?? 0);
+        if (id <= 0 || seen.has(id)) continue;
+        seen.add(id);
+        const name = String(
+          r.exam_display_session_name ?? r.examSessionName ?? "",
+        ).trim();
+        if (!name) continue;
+        mappedSessions.push({
+          id,
+          name,
+          code: String(r.examsessioninCatCode ?? r.sessionCode ?? "").trim(),
+          sessionStartTime: r.session_start_time
+            ? String(r.session_start_time)
+            : r.sessionStartTime
+              ? String(r.sessionStartTime)
+              : undefined,
+          sessionEndTime: r.session_end_time
+            ? String(r.session_end_time)
+            : r.sessionEndTime
+              ? String(r.sessionEndTime)
+              : undefined,
+        });
+      }
+      setExamSessions(mappedSessions);
+
+      const from = String(rows[0]?.from_date ?? "").slice(0, 10);
+      if (from) {
+        setSlotDraft((s) => (s.date ? s : { ...s, date: from }));
+      }
+    }
+    void loadSubjectFilterBundle();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedCourseId,
+    selectedAcademicYearId,
+    selectedExamId,
+    selectedCourseYearId,
+    paramUniversityId,
+    user?.employeeId,
+  ]);
+
+  /** Angular selectedSession → unique regulations from dataList. */
+  function applySession(sessionId: number | null) {
+    setSelectedExamSessionId(sessionId);
+    setRegulations([]);
+    setSelectedRegulationId(null);
+    setSubjects([]);
+    setSelectedSubjectCode(null);
+    setCourseGroups([]);
+    setSelectedGroups(new Set());
+    if (sessionId == null) {
+      setSlotDraft((d) => ({ ...d, startTime: "", endTime: "" }));
+      return;
+    }
+    const s = examSessions.find((e) => e.id === sessionId);
+    setSlotDraft((d) => ({
+      ...d,
+      startTime: s?.sessionStartTime ?? "",
+      endTime: s?.sessionEndTime ?? "",
+    }));
+    const regs: { id: number; code: string; name: string }[] = [];
+    const seen = new Set<number>();
+    for (const r of dataList) {
+      const id = Number(r.fk_regulation_id ?? 0);
+      if (id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      const code = String(r.regulation_code ?? "").trim();
+      regs.push({ id, code, name: code });
+    }
+    setRegulations(regs);
+  }
+
+  /** Angular selectedRegulation → subjects for that regulation from dataList. */
+  function applyRegulation(regulationId: number | null) {
+    setSelectedRegulationId(regulationId);
+    setSubjects([]);
+    setSelectedSubjectCode(null);
+    setCourseGroups([]);
+    setSelectedGroups(new Set());
+    if (regulationId == null) return;
+    const mapped: {
+      id: number;
+      code: string;
+      name?: string;
+      isRegular?: boolean;
+      isSupple?: boolean;
+      isInternal?: boolean;
+    }[] = [];
+    const seen = new Set<string>();
+    for (const r of dataList) {
+      if (Number(r.fk_regulation_id ?? 0) !== regulationId) continue;
+      const code = String(r.subject_code ?? "").trim();
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      mapped.push({
+        id: Number(r.fk_subject_id ?? 0),
+        code,
+        name: String(r.subject_name ?? "").trim() || undefined,
+        isInternal: Boolean(r.is_internal_exam),
+        isRegular: Boolean(r.is_regular_exam),
+        isSupple: Boolean(r.is_supply_exam),
+      });
+    }
+    setSubjects(mapped);
+  }
+
+  /** Angular selectedSubject → course groups for that subject from dataList. */
+  function applySubject(subjectCode: string | null) {
+    setSelectedSubjectCode(subjectCode);
+    setCourseGroups([]);
+    setSelectedGroups(new Set());
+    if (!subjectCode) return;
+    const groups: {
+      id: number;
+      code: string;
+      regulationId?: number;
+      regulationName?: string;
+    }[] = [];
+    const seen = new Set<number>();
+    for (const r of dataList) {
+      if (String(r.subject_code ?? "").trim() !== subjectCode) continue;
+      const id = Number(r.fk_course_group_id ?? 0);
+      const code = String(r.group_code ?? "").trim();
+      if (id <= 0 || !code || seen.has(id)) continue;
+      seen.add(id);
+      groups.push({
+        id,
+        code,
+        regulationId: Number(r.fk_regulation_id ?? 0) || undefined,
+        regulationName: String(r.regulation_code ?? "").trim() || undefined,
+      });
+    }
+    setCourseGroups(groups);
+  }
+
   function toggleGroup(code: string) {
     setSelectedGroups((s) => {
       const next = new Set(s);
@@ -279,55 +359,6 @@ export default function CreateExamTimetablePage() {
     setSelectedGroups(new Set(courseGroups.map((g) => g.code)));
   }
 
-  useEffect(() => {
-    setCourseGroups([]);
-    setSelectedGroups(new Set());
-    if (!selectedCourseId) return;
-    let cancelled = false;
-    async function loadGroups() {
-      const rows = await listCourseGroups(selectedCourseId as number).catch(
-        () => [] as any[],
-      );
-      if (cancelled) return;
-      const list = (Array.isArray(rows) ? rows : [])
-        .map((g: any) => ({
-          id: Number(g.courseGroupId ?? g.course_group_id ?? g.id ?? 0),
-          code: String(
-            g.groupCode ??
-              g.courseGroupCode ??
-              g.group_code ??
-              g.course_group_code ??
-              g.courseGroupName ??
-              g.groupName ??
-              "",
-          ).trim(),
-          regulationId:
-            Number(
-              g.regulationId ?? g.regulation_id ?? g.fk_regulation_id ?? 0,
-            ) || undefined,
-          regulationName:
-            String(
-              g.regulationName ??
-                g.regulation_name ??
-                g.regulationShortName ??
-                "",
-            ).trim() || undefined,
-        }))
-        .filter((g) => g.code);
-      // Dedupe by code, preserving first occurrence
-      const seen = new Set<string>();
-      const unique = list.filter((g) =>
-        seen.has(g.code) ? false : (seen.add(g.code), true),
-      );
-      setCourseGroups(unique);
-    }
-    void loadGroups();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCourseId]);
-
-  // Staged rows (table)
   type StagedRow = {
     examDate: string;
     session: "M" | "A";
@@ -338,7 +369,6 @@ export default function CreateExamTimetablePage() {
   const [stagedRows, setStagedRows] = useState<StagedRow[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Existing Timetable modal
   const [existingOpen, setExistingOpen] = useState(false);
   const [existingRows, setExistingRows] = useState<ExistingExamTimetableRow[]>(
     [],
@@ -372,301 +402,6 @@ export default function CreateExamTimetablePage() {
     }));
     setExistingRows(mapped);
     setExistingOpen(true);
-  }
-
-  const filteredCourseYears = useMemo(() => {
-    const list = courseYears;
-    if (!q.trim()) return list;
-    const lower = q.toLowerCase();
-    return list.filter((y: any) => {
-      const label = (y.courseYearName ?? y.yearName ?? "")
-        .toString()
-        .toLowerCase();
-      return label.includes(lower);
-    });
-  }, [q, courseYears]);
-
-  const fetchFilters = useCallback(async () => {
-    setLoadingFilters(true);
-    try {
-      const empId = resolveExamLoginEmpId(user?.employeeId);
-      const flat = await getUnivExamFiltersAll(empId);
-      const f = flat.filter(
-        (r: any) => !r.flag || r.flag === "univ_exam_filters",
-      );
-      setFiltersData(f);
-      const distinctCourses = distinct(f ?? [], (r) => r.fk_course_id);
-      setCourses(distinctCourses);
-      if (distinctCourses.length > 0) {
-        handleCourseChange(distinctCourses[0].fk_course_id, f);
-      }
-      const gd = await listExamFeeTypeGeneralDetails().catch(() => []);
-      setExamFeeTypes(
-        (Array.isArray(gd) ? gd : [])
-          .map((d: any) => ({
-            id: Number(d.generalDetailId ?? d.id ?? 0),
-            code: String(d.generalDetailCode ?? d.code ?? ""),
-            name: String(d.generalDetailName ?? d.name ?? ""),
-          }))
-          .filter((d) => d.code),
-      );
-    } finally {
-      setLoadingFilters(false);
-    }
-  }, [user?.employeeId]);
-
-  useEffect(() => {
-    setParamCourseId(
-      searchParams?.get("courseId")
-        ? Number(searchParams?.get("courseId"))
-        : null,
-    );
-    setParamAcademicYearId(
-      searchParams?.get("academicYearId")
-        ? Number(searchParams?.get("academicYearId"))
-        : null,
-    );
-    setParamExamId(
-      searchParams?.get("examId") ? Number(searchParams?.get("examId")) : null,
-    );
-    setParamCourseYearId(
-      searchParams?.get("courseYearId")
-        ? Number(searchParams?.get("courseYearId"))
-        : null,
-    );
-    setParamCourseName(searchParams?.get("courseName") ?? "");
-    setParamAcademicYear(searchParams?.get("academicYear") ?? "");
-    setParamExamName(searchParams?.get("examName") ?? "");
-    setParamFromDate(searchParams?.get("fromDate") ?? "");
-    setParamToDate(searchParams?.get("toDate") ?? "");
-    fetchFilters();
-  }, [fetchFilters, searchParams]);
-
-  async function handleCourseChange(courseId: number, fRef = filtersData) {
-    setSelectedCourseId(courseId);
-    setSelectedAcademicYearId(null);
-    setSelectedExamId(null);
-    setExamMasters([]);
-    setCourseYears([]);
-    setSelectedCourseYearIds(new Set());
-    setSelectedCourseYearId(null);
-    setSubjects([]);
-    setSelectedSubjectCode(null);
-
-    const filtered = (fRef ?? []).filter(
-      (r: any) => Number(r.fk_course_id) === Number(courseId),
-    );
-    const years = distinct(filtered, (r: any) => r.fk_academic_year_id).sort(
-      (a: any, b: any) =>
-        Number(String(b.academic_year ?? "").split("-")[0] || 0) -
-        Number(String(a.academic_year ?? "").split("-")[0] || 0),
-    );
-    setAcademicYears(years);
-
-    const yrs = await listCourseYears(courseId).catch(() => []);
-    const arr = Array.isArray(yrs) ? yrs : [];
-    setCourseYears(arr);
-    if (arr.length > 0) {
-      if (
-        paramCourseYearId &&
-        arr.some(
-          (y: any) =>
-            Number(y.courseYearId ?? y.id) === Number(paramCourseYearId),
-        )
-      ) {
-        setSelectedCourseYearId(paramCourseYearId);
-      } else {
-        const first = arr[0].courseYearId ?? arr[0].id ?? null;
-        if (first != null) setSelectedCourseYearId(first);
-      }
-    }
-  }
-
-  useEffect(() => {
-    setExamMasters([]);
-    setSelectedExamId(null);
-    if (!selectedCourseId || !selectedAcademicYearId) return;
-    const rows = filtersData.filter(
-      (r: any) =>
-        Number(r.fk_course_id) === Number(selectedCourseId) &&
-        Number(r.fk_academic_year_id) === Number(selectedAcademicYearId),
-    );
-    const uniqByExam = distinct(rows, (r: any) =>
-      Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0),
-    );
-    const list = uniqByExam
-      .map((r: any) => ({
-        examId: Number(r.fk_exam_id ?? r.exam_id ?? r.examId ?? 0),
-        examName: String(
-          r.exam_name ??
-            r.exam_Name ??
-            r.exam_short_name ??
-            r.short_name ??
-            "—",
-        ),
-        universityId:
-          Number(
-            r.fk_university_id ?? r.university_id ?? r.universityId ?? 0,
-          ) || undefined,
-        universityCode:
-          String(r.university_code ?? r.universityCode ?? "").trim() ||
-          undefined,
-        fromDate:
-          String(
-            r.from_date ??
-              r.fromDate ??
-              r.exam_from_date ??
-              r.examFromDate ??
-              "",
-          ).trim() || undefined,
-        toDate:
-          String(
-            r.to_date ?? r.toDate ?? r.exam_to_date ?? r.examToDate ?? "",
-          ).trim() || undefined,
-      }))
-      .filter((e: { examId: number }) => e.examId > 0);
-    setExamMasters(list);
-    if (list.length > 0) setSelectedExamId(list[0].examId);
-  }, [selectedCourseId, selectedAcademicYearId, filtersData]);
-
-  useEffect(() => {
-    if (loadingFilters || courses.length === 0 || !paramCourseId) return;
-    if (selectedCourseId === paramCourseId) return;
-    if (courses.some((c: any) => c.fk_course_id === paramCourseId)) {
-      handleCourseChange(paramCourseId, filtersData);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingFilters, paramCourseId, courses, selectedCourseId]);
-
-  useEffect(() => {
-    if (
-      paramAcademicYearId &&
-      academicYears.some(
-        (a: any) => a.fk_academic_year_id === paramAcademicYearId,
-      )
-    ) {
-      setSelectedAcademicYearId(paramAcademicYearId);
-    }
-  }, [paramAcademicYearId, academicYears]);
-
-  useEffect(() => {
-    if (
-      paramExamId &&
-      examMasters.some((e: any) => (e.examId ?? e.id) === paramExamId)
-    ) {
-      setSelectedExamId(paramExamId);
-    }
-  }, [paramExamId, examMasters]);
-
-  useEffect(() => {
-    if (
-      paramCourseYearId &&
-      courseYears.some(
-        (y: any) => (y.courseYearId ?? y.id) === paramCourseYearId,
-      )
-    ) {
-      setSelectedCourseYearId(paramCourseYearId);
-    }
-  }, [paramCourseYearId, courseYears]);
-
-  // Load subjects when ids ready (uses legacy endpoints with fallback).
-  // Includes the selected regulationId so the proc filters server-side.
-  useEffect(() => {
-    async function loadSubjects() {
-      setSubjects([]);
-      setSelectedSubjectCode(null);
-      if (
-        !selectedCourseId ||
-        !selectedAcademicYearId ||
-        !selectedExamId ||
-        !selectedCourseYearId
-      )
-        return;
-      const empId = resolveExamLoginEmpId(user?.employeeId);
-      let rows: any[] = [];
-      rows = await getUnivExamSubjectFilters({
-        courseId: selectedCourseId,
-        examId: selectedExamId,
-        academicYearId: selectedAcademicYearId,
-        courseYearId: selectedCourseYearId,
-        employeeId: empId,
-        regulationId: selectedRegulationId ?? 0,
-      }).catch(() => []);
-      if (!rows || (Array.isArray(rows) && rows.length === 0)) {
-        rows = await getExamSubjectsForSchedule({
-          courseId: selectedCourseId,
-          examId: selectedExamId,
-          academicYearId: selectedAcademicYearId,
-          courseYearId: selectedCourseYearId,
-          employeeId: empId,
-        }).catch(() => []);
-      }
-      const mapped = (rows ?? [])
-        .map((r: any) => {
-          const id = Number(
-            r.subject_id ?? r.subjectId ?? r.id ?? r.fk_subject_id ?? 0,
-          );
-          const code = String(
-            r.subject_code ??
-              r.subjectCode ??
-              r.subCode ??
-              r.paperCode ??
-              r.code ??
-              "",
-          ).trim();
-          const name = String(
-            r.subject_name ??
-              r.subjectName ??
-              r.sub_name ??
-              r.paperName ??
-              r.name ??
-              "",
-          ).trim();
-          const isInternal = Boolean(r.is_internal_exam ?? r.isInternalExam);
-          const isRegular = Boolean(r.is_regular_exam ?? r.isRegularExam);
-          const isSupple = Boolean(
-            r.is_supply_exam ?? r.isSupplyExam ?? r.is_supple_exam,
-          );
-          return { id, code, name, isInternal, isRegular, isSupple };
-        })
-        .filter((x) => x.code);
-      // Deduplicate by code
-      const seen = new Set<string>();
-      const uniq: typeof mapped = [];
-      for (const s of mapped) {
-        if (!seen.has(s.code)) {
-          seen.add(s.code);
-          uniq.push(s);
-        }
-      }
-      setSubjects(uniq);
-    }
-    loadSubjects();
-  }, [
-    selectedCourseId,
-    selectedAcademicYearId,
-    selectedExamId,
-    selectedCourseYearId,
-    selectedRegulationId,
-    user?.employeeId,
-  ]);
-
-  function toggleCourseYear(id: number) {
-    setSelectedCourseYearIds((s) => {
-      const next = new Set(s);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function addSlot() {
-    if (!slotDraft.date || !slotDraft.startTime || !slotDraft.endTime) return;
-    setSlots((s) => [...s, slotDraft]);
-    setSlotDraft({ date: "", startTime: "", endTime: "" });
-  }
-  function removeSlot(i: number) {
-    setSlots((s) => s.filter((_, idx) => idx !== i));
   }
 
   function addSelectedToStage() {
@@ -852,46 +587,15 @@ export default function CreateExamTimetablePage() {
   ]);
 
   const summaryLine = useMemo(() => {
-    const course =
-      paramCourseName ||
-      courses.find((c) => c.fk_course_id === selectedCourseId)?.course_code ||
-      courses.find((c) => c.fk_course_id === selectedCourseId)?.course_name ||
-      "";
-    const ay =
-      paramAcademicYear ||
-      academicYears.find(
-        (a) => a.fk_academic_year_id === selectedAcademicYearId,
-      )?.academic_year ||
-      "";
-    const cy =
-      searchParams?.get("courseYearName") ||
-      courseYears.find(
-        (y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId,
-      )?.courseYearName ||
-      courseYears.find(
-        (y: any) => (y.courseYearId ?? y.id) === selectedCourseYearId,
-      )?.yearName ||
-      "";
-    const ex =
-      paramExamName ||
-      examMasters.find((e) => (e.examId ?? e.id) === selectedExamId)
-        ?.examName ||
-      "";
-    return [course, ay, cy, ex].filter(Boolean).join(" / ");
-  }, [
-    paramCourseName,
-    courses,
-    selectedCourseId,
-    paramAcademicYear,
-    academicYears,
-    selectedAcademicYearId,
-    searchParams,
-    courseYears,
-    selectedCourseYearId,
-    paramExamName,
-    examMasters,
-    selectedExamId,
-  ]);
+    return [
+      paramCourseName,
+      paramAcademicYear,
+      paramCourseYearName,
+      paramExamName,
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }, [paramCourseName, paramAcademicYear, paramCourseYearName, paramExamName]);
 
   return (
     <FilteredPage
@@ -942,28 +646,19 @@ export default function CreateExamTimetablePage() {
                     ? String(selectedExamSessionId)
                     : null
                 }
-                onChange={(v) => {
-                  const sid = Number(v);
-                  setSelectedExamSessionId(sid);
-                  const s = examSessions.find((e) => e.id === sid);
-                  setSlotDraft((d) => ({
-                    ...d,
-                    startTime: s?.sessionStartTime ?? "",
-                    endTime: s?.sessionEndTime ?? "",
-                  }));
-                }}
-                options={filteredExamSessions.map((s) => ({
+                onChange={(v) => applySession(v ? Number(v) : null)}
+                options={examSessions.map((s) => ({
                   value: String(s.id),
                   label: `${s.name}${s.sessionStartTime && s.sessionEndTime ? ` (${s.sessionStartTime} - ${s.sessionEndTime})` : ""}`,
                 }))}
                 placeholder={
                   examSessions.length === 0
-                    ? "Loading…"
-                    : filteredExamSessions.length === 0
-                      ? "No sessions for this university"
-                      : "Select Session"
+                    ? dataList.length === 0
+                      ? "Select course / year / exam first"
+                      : "No sessions"
+                    : "Select Session"
                 }
-                disabled={filteredExamSessions.length === 0}
+                disabled={examSessions.length === 0}
                 searchable
               />
             </GlobalFilterField>
@@ -977,16 +672,16 @@ export default function CreateExamTimetablePage() {
                     ? String(selectedRegulationId)
                     : null
                 }
-                onChange={(v) => setSelectedRegulationId(Number(v))}
+                onChange={(v) => applyRegulation(v ? Number(v) : null)}
                 options={regulations.map((r) => ({
                   value: String(r.id),
                   label: String(r.name || r.code),
                 }))}
                 placeholder={
                   regulations.length === 0
-                    ? selectedCourseId
-                      ? "No regulations for this course"
-                      : "Loading…"
+                    ? selectedExamSessionId
+                      ? "No regulations"
+                      : "Select session first"
                     : "Select Regulation"
                 }
                 disabled={regulations.length === 0}
@@ -999,20 +694,19 @@ export default function CreateExamTimetablePage() {
             >
               <Select
                 value={selectedSubjectCode}
-                onChange={(v) => setSelectedSubjectCode(v)}
+                onChange={(v) => applySubject(v)}
                 options={subjects.map((s) => ({
                   value: s.code,
                   label: `${s.code}${s.name ? ` — ${s.name}` : ""}`,
                 }))}
                 placeholder={
-                  subjects.length === 0 ? "No subjects" : "Select Subject"
+                  subjects.length === 0
+                    ? selectedRegulationId
+                      ? "No subjects"
+                      : "Select regulation first"
+                    : "Select Subject"
                 }
-                disabled={
-                  !selectedCourseId ||
-                  !selectedAcademicYearId ||
-                  !selectedExamId ||
-                  !selectedCourseYearId
-                }
+                disabled={subjects.length === 0}
                 searchable
               />
             </GlobalFilterField>
@@ -1033,9 +727,9 @@ export default function CreateExamTimetablePage() {
                   <div className="p-2 space-y-1 max-h-72 overflow-auto">
                     {courseGroups.length === 0 ? (
                       <div className="text-[12px] text-muted-foreground px-1 py-2">
-                        {selectedCourseId
-                          ? "No course groups for this course."
-                          : "Pick a course to load groups."}
+                        {selectedSubjectCode
+                          ? "No course groups for this subject."
+                          : "Select a subject to load course groups."}
                       </div>
                     ) : (
                       <>

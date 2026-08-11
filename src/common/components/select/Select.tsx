@@ -242,7 +242,10 @@ export function Select({
       {label && (
         <label
           htmlFor={triggerId}
-          className="text-[12px] font-normal text-black/54"
+          className={cn(
+            "text-[12px] font-medium transition-colors",
+            open ? "text-[#0c51a4]" : "text-black/54",
+          )}
         >
           {label}
           {required && (
@@ -293,11 +296,13 @@ export function Select({
                   ),
             )}
           >
-            {/* Label / placeholder */}
+            {/* Label / placeholder — medium weight; placeholder darker than muted hint */}
             <span
               className={cn(
-                "min-w-0 truncate",
-                !selectedOption && "text-slate-400",
+                "min-w-0 truncate font-medium",
+                selectedOption
+                  ? "text-[rgba(0,0,0,0.87)]"
+                  : "text-[rgba(0,0,0,0.54)]",
               )}
             >
               {selectedOption ? selectedOption.label : placeholder}
@@ -322,8 +327,8 @@ export function Select({
               )}
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 text-slate-400 transition-transform duration-200",
-                  open && "rotate-180",
+                  "h-4 w-4 transition-transform duration-200",
+                  open ? "rotate-180 text-[#0c51a4]" : "text-slate-400",
                 )}
               />
             </span>

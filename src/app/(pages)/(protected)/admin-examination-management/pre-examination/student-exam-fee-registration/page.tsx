@@ -7,7 +7,7 @@ import type {
   ICellRendererParams,
   ValueGetterParams,
 } from "ag-grid-community";
-import { ClipboardList, Eye, Printer } from "lucide-react";
+import { ClipboardList, Eye, Printer, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/common/components/select";
@@ -186,93 +186,6 @@ const VIEW_SUBJECT_COL_DEFS = {
   } as ColDef<AnyRow>,
 };
 
-const RECEIPT_COL_DEFS = {
-  siNo: {
-    headerName: "SI No.",
-    valueGetter: (p: ValueGetterParams<AnyRow>) => (p.node?.rowIndex ?? 0) + 1,
-    width: 80,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  semester: {
-    field: "courseYearName",
-    headerName: "Semester",
-    minWidth: 110,
-    flex: 0.9,
-  } as ColDef<AnyRow>,
-  receiptNo: {
-    field: "feeReceiptNo",
-    headerName: "Receipt No.",
-    minWidth: 120,
-    flex: 1,
-  } as ColDef<AnyRow>,
-  paymentDate: {
-    headerName: "Payment Date",
-    minWidth: 120,
-    flex: 1,
-  } as ColDef<AnyRow>,
-  paymentMode: {
-    field: "paymentModeCatDisplayName",
-    headerName: "Payment Mode",
-    minWidth: 120,
-    flex: 1,
-  } as ColDef<AnyRow>,
-  examType: {
-    field: "examtypeCatDisplayName",
-    headerName: "Exam Type",
-    minWidth: 110,
-    flex: 0.9,
-  } as ColDef<AnyRow>,
-  examFee: {
-    headerName: "Exam Fee (₹)",
-    minWidth: 110,
-    flex: 0.8,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-    valueGetter: (p: ValueGetterParams<AnyRow>) => p.data?.examFeeAmount ?? "-",
-  } as ColDef<AnyRow>,
-  addFee: {
-    headerName: "Add. Fee (₹)",
-    minWidth: 110,
-    flex: 0.8,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-    valueGetter: (p: ValueGetterParams<AnyRow>) => p.data?.examAddtFee ?? "-",
-  } as ColDef<AnyRow>,
-  lateFee: {
-    headerName: "LateFee(₹)",
-    minWidth: 100,
-    flex: 0.8,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-    valueGetter: (p: ValueGetterParams<AnyRow>) =>
-      p.data?.examFineAmount ?? "-",
-  } as ColDef<AnyRow>,
-  amount: {
-    field: "examTotalAmount",
-    headerName: "Amount (₹)",
-    minWidth: 110,
-    flex: 0.8,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-  } as ColDef<AnyRow>,
-  subjects: {
-    headerName: "Subjects",
-    minWidth: 110,
-    flex: 0.8,
-    sortable: false,
-    filter: false,
-  } as ColDef<AnyRow>,
-  actions: {
-    headerName: "Actions",
-    minWidth: 90,
-    width: 90,
-    flex: 0,
-    sortable: false,
-    filter: false,
-  } as ColDef<AnyRow>,
-};
-
-/** Angular ExamFeePayDialog table columns */
 const PAY_CONFIRM_COL_DEFS = {
   siNo: {
     headerName: "SI.No.",
@@ -1514,59 +1427,6 @@ export default function StudentExamFeeRegistrationPage() {
     [],
   );
 
-  const receiptColumnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      RECEIPT_COL_DEFS.siNo,
-      RECEIPT_COL_DEFS.semester,
-      RECEIPT_COL_DEFS.receiptNo,
-      {
-        ...RECEIPT_COL_DEFS.paymentDate,
-        valueGetter: (p) => fmtDate(p.data?.receiptDate),
-      },
-      RECEIPT_COL_DEFS.paymentMode,
-      RECEIPT_COL_DEFS.examType,
-      RECEIPT_COL_DEFS.examFee,
-      RECEIPT_COL_DEFS.addFee,
-      RECEIPT_COL_DEFS.lateFee,
-      RECEIPT_COL_DEFS.amount,
-      {
-        ...RECEIPT_COL_DEFS.subjects,
-        cellRenderer: (p: ICellRendererParams<AnyRow>) => {
-          const row = p.data;
-          if (!row) return null;
-          return (
-            <button
-              type="button"
-              className="rounded bg-[hsl(var(--primary))] px-2 py-1 text-[12px] text-primary-foreground"
-              onClick={() => viewCourseYearSubjects(row, "receipt")}
-            >
-              Courses
-            </button>
-          );
-        },
-      },
-      {
-        ...RECEIPT_COL_DEFS.actions,
-        cellRenderer: (p: ICellRendererParams<AnyRow>) => {
-          const row = p.data;
-          if (!row) return null;
-          return (
-            <button
-              type="button"
-              className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground"
-              title="Print Receipt"
-              onClick={() => printFeeReceipt(row)}
-            >
-              <Printer className="h-4 w-4" />
-            </button>
-          );
-        },
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feeReceipts],
-  );
-
   const payConfirmColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       PAY_CONFIRM_COL_DEFS.siNo,
@@ -1598,10 +1458,10 @@ export default function StudentExamFeeRegistrationPage() {
     <FilteredListPage
       title="Student Exam Fee Collection"
       filters={
-        <GlobalFilterBarRow className="!flex-nowrap !items-end">
+        <GlobalFilterBarRow className="!flex-nowrap !items-end w-full">
           <GlobalFilterField
             label="Student"
-            className="global-filter-field--shrink !min-w-0 w-[22rem] max-w-[calc(50%-0.5rem)]"
+            className="global-filter-field--shrink !min-w-0 !flex-[0_0_35%] !max-w-[35%] sm:!min-w-[16rem]"
           >
             <StudentSearchSelect
               label=""
@@ -1616,15 +1476,16 @@ export default function StudentExamFeeRegistrationPage() {
           </GlobalFilterField>
           <GlobalFilterField
             label="Exam *"
-            className="global-filter-field--shrink !min-w-0 w-[28rem] max-w-[calc(50%-0.5rem)]"
+            className="global-filter-field--shrink !min-w-0 !flex-[0_0_60%] !max-w-[60%] sm:!min-w-[20rem]"
           >
             <Select
               value={examId ? String(examId) : null}
               onChange={(v) => {
                 const eid = v ? Number(v) : 0;
                 examIdRef.current = eid;
-                setExamId(eid);
+                setExamId(eid || null);
                 if (eid) void selectedExternalExam(eid);
+                else setFlag(false);
               }}
               options={examsList.map((e) => ({
                 value: String(e.examId),
@@ -1638,174 +1499,173 @@ export default function StudentExamFeeRegistrationPage() {
         </GlobalFilterBarRow>
       }
       body={
-        <div className="space-y-4">
-          {/* Student banner */}
-          {!isEmptyObject(student) && flag && (
-            <div className="rounded border-4 border-[#c3d9ff] p-3">
-              <div className="flex gap-4">
-                <div className="w-[120px] shrink-0">
-                  {student.studentPhotoPath && !photoError ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+        studentId && examId && flag ? (
+          <div className="space-y-4">
+            {/* Student banner — Angular std-his */}
+            {!isEmptyObject(student) && (
+              <div className="overflow-hidden rounded-[3px] border-4 border-[#c3d9ff]">
+                <div className="flex flex-wrap items-stretch gap-0 sm:flex-nowrap">
+                  <div className="flex w-full shrink-0 items-center justify-center bg-white p-1.5 sm:w-[15%] sm:max-w-[140px]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={student.studentPhotoPath}
-                      alt="student"
-                      className="w-full bg-[#c3d9ff] p-1.5"
-                      style={{ maxHeight: 110 }}
+                      src={
+                        photoError || !student.studentPhotoPath
+                          ? "/assets/images/avatars/default_Student.png"
+                          : String(student.studentPhotoPath)
+                      }
+                      alt=""
+                      className="h-[100px] w-[75%] max-w-[120px] bg-[#c3d9ff] object-cover p-1.5"
                       onError={() => setPhotoError(true)}
                     />
-                  ) : (
-                    <div
-                      className="flex w-full items-center justify-center bg-[#c3d9ff] p-1.5 text-[28px] font-semibold text-white"
-                      style={{ height: 110 }}
-                    >
-                      {String(student.firstName ?? "?")
-                        .trim()
-                        .charAt(0)
-                        .toUpperCase() || "?"}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 text-[13px] leading-5">
-                  <p className="font-medium">
-                    {student.firstName} (
-                    <span className="text-blue-600">
-                      {student.isLateral ? "LATERAL" : "REGULAR"}
-                    </span>
-                    )
-                  </p>
-                  <p className="text-[#8c8c8c]">{student.hallticketNumber}</p>
-                  <p className="text-[#8c8c8c]">
-                    {student.collegeCode} / {student.academicYear} /{" "}
-                    {student.courseCode} / {student.groupCode} /{" "}
-                    {student.courseYearName} / Section {student.section}
-                  </p>
-                  <p className="text-[#8c8c8c]">{student.mobile}</p>
-                </div>
-                <div className="text-[14px]">
-                  <div className="py-1">
-                    Quota :{" "}
-                    <span className="text-blue-600">
-                      {student.quotaDisplayName}
-                    </span>
                   </div>
-                  <div className="py-1">
-                    Student Status :{" "}
-                    <span
-                      className={
-                        STATUS_CLASS[String(student.studentStatusCode)] ??
-                        "text-green-700 font-medium"
-                      }
-                    >
-                      {student.studentStatusDisplayName}
-                    </span>
+                  <div className="min-w-0 flex-1 px-2 py-2.5 text-[13px] leading-[1.35] sm:flex-[0_0_60%] sm:max-w-[60%]">
+                    <p className="m-0 font-medium text-black">
+                      {String(student.firstName ?? "").toUpperCase()} (
+                      <span className="font-medium text-blue-600">
+                        {student.isLateral ? "LATERAL" : "REGULAR"}
+                      </span>
+                      )
+                    </p>
+                    <p className="m-0 mt-1 font-medium text-[#8c8c8c]">
+                      {student.hallticketNumber}
+                    </p>
+                    <p className="m-0 mt-1 font-medium text-[#8c8c8c]">
+                      {student.collegeCode} / {student.academicYear} /{" "}
+                      {student.courseCode} / {student.groupCode} /{" "}
+                      {student.courseYearName} / Section {student.section}
+                    </p>
+                    <p className="m-0 mt-1 font-medium text-[#8c8c8c]">
+                      {student.mobile}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col justify-center px-3 py-2 text-[15px] sm:ml-auto">
+                    <div className="py-1 text-black">
+                      <span>Quota : </span>
+                      {student.quotaDisplayName != null &&
+                      String(student.quotaDisplayName).trim() !== "" ? (
+                        <span className="text-blue-600">
+                          {student.quotaDisplayName}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="py-1 text-black">
+                      <span>Student Status : </span>
+                      {student.studentStatusCode != null ? (
+                        <span
+                          className={
+                            STATUS_CLASS[String(student.studentStatusCode)] ??
+                            "font-bold text-green-700"
+                          }
+                        >
+                          {student.studentStatusDisplayName}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Select Exam Fee Courses */}
-          {studentId && flag && (
-            <div className="rounded border-2 border-[#89c5ff] p-2.5">
-              <h2 className="mb-2 rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+            {/* Select Exam Fee Courses */}
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <h2 className="m-0 bg-[#c3d9ff] px-4 py-2.5 text-[15px] font-semibold text-[#0c51a4]">
                 Select Exam Fee Courses
               </h2>
 
-              <div className="bg-white px-2 py-2">
+              <div className="space-y-4 p-4">
                 <div className="flex items-center gap-8 text-[13px]">
-                  <label className="flex items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2">
                     <input
                       type="radio"
                       name="checkExam"
+                      className="h-4 w-4 accent-[#0c51a4]"
                       checked={checkExam === 1}
                       onChange={() => onChangeCheckExam(1)}
                     />
                     Regular
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="inline-flex cursor-pointer items-center gap-2">
                     <input
                       type="radio"
                       name="checkExam"
+                      className="h-4 w-4 accent-[#0c51a4]"
                       checked={checkExam === 2}
                       onChange={() => onChangeCheckExam(2)}
                     />
                     Supplementary
                   </label>
                 </div>
-              </div>
 
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-12 gap-2">
-                {/* Semester */}
-                {courseYears.length > 0 && (
-                  <div className="md:col-span-2 bg-white p-2">
-                    <Select
-                      value={courseYearId ? String(courseYearId) : null}
-                      onChange={(v) => {
-                        const id = v ? Number(v) : null;
-                        setCourseYearId(id);
-                        if (id) getRelevantExamSubjects(id);
-                      }}
-                      options={courseYears.map((o) => ({
-                        value: String(o.fromCourseYearId),
-                        label:
-                          o.fromCourseYearName ?? `Sem ${o.fromCourseYearId}`,
-                      }))}
-                      placeholder="Semester"
-                      label="Semester"
-                    />
-                    {courseYearId && checkExam === 2 && (
-                      <div className="mt-2 flex gap-4">
-                        <span
-                          className="cursor-pointer text-[13px] text-blue-600 underline"
-                          onClick={() =>
-                            void getStudentSubjects(
-                              Number(courseYearId),
-                              2,
-                              Number(examIdRef.current),
-                            )
-                          }
-                        >
-                          All
-                        </span>
-                        <span
-                          className="cursor-pointer text-[13px] text-blue-600 underline"
-                          onClick={() =>
-                            getRelevantExamSubjects(Number(courseYearId))
-                          }
-                        >
-                          Supple
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Subjects table */}
-                {studentSubjects.length > 0 && (
-                  <div className="md:col-span-3 border border-[#dedede] bg-white">
-                    <div className="flex items-center justify-between gap-2 p-1.5">
-                      <div className="relative flex-1">
-                        <Input
-                          className="h-7 pl-7 text-[12px]"
-                          placeholder="Search..."
-                          value={searchText}
-                          onChange={(e) => setSearchText(e.target.value)}
-                        />
-                        <span className="material-icons absolute left-2 top-1.5 text-[14px] text-muted-foreground">
-                          🔍
-                        </span>
-                      </div>
-                      <span className="text-[13px] font-medium text-blue-600">
-                        Courses: {selectedCount}
-                      </span>
+                <div className="flex flex-wrap items-start gap-4 lg:flex-nowrap">
+                  {/* Semester */}
+                  {courseYears.length > 0 && (
+                    <div className="w-full shrink-0 sm:w-[11.5rem]">
+                      <Select
+                        variant="outlined"
+                        value={courseYearId ? String(courseYearId) : null}
+                        onChange={(v) => {
+                          const id = v ? Number(v) : null;
+                          setCourseYearId(id);
+                          if (id) getRelevantExamSubjects(id);
+                        }}
+                        options={courseYears.map((o) => ({
+                          value: String(o.fromCourseYearId),
+                          label:
+                            o.fromCourseYearName ?? `Sem ${o.fromCourseYearId}`,
+                        }))}
+                        placeholder="Semester"
+                        label="Semester"
+                      />
+                      {courseYearId && checkExam === 2 && (
+                        <div className="mt-2 flex gap-4">
+                          <span
+                            className="cursor-pointer text-[13px] font-medium text-blue-600 underline"
+                            onClick={() =>
+                              void getStudentSubjects(
+                                Number(courseYearId),
+                                2,
+                                Number(examIdRef.current),
+                              )
+                            }
+                          >
+                            All
+                          </span>
+                          <span
+                            className="cursor-pointer text-[13px] font-medium text-blue-600 underline"
+                            onClick={() =>
+                              getRelevantExamSubjects(Number(courseYearId))
+                            }
+                          >
+                            Supple
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <table className="w-full text-[12px]">
-                      <thead
-                        className="block overflow-y-auto"
-                        style={{ scrollbarGutter: "stable" }}
-                      >
-                        <tr className="flex w-full bg-[#C3D9FF]">
-                          <th className="w-[40px] px-1 py-1 text-center">
+                  )}
+
+                  {/* Subjects */}
+                  {studentSubjects.length > 0 && (
+                    <div className="flex min-h-[220px] w-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+                      <div className="flex items-center gap-3 px-3 py-2">
+                        <div className="relative min-w-0 flex-1">
+                          <Search
+                            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                            aria-hidden
+                          />
+                          <Input
+                            className="h-8 rounded-md border-slate-200 pl-8 text-[12px] font-medium"
+                            placeholder="Search..."
+                            value={searchText}
+                            onChange={(e) => setSearchText(e.target.value)}
+                          />
+                        </div>
+                        <span className="shrink-0 text-[12px] font-medium text-blue-600">
+                          Courses: {selectedCount}
+                        </span>
+                      </div>
+                      <div className="border-t border-slate-100 bg-[#C3D9FF] px-3 py-1.5">
+                        <div className="flex items-center gap-6 text-[12px] font-semibold text-slate-800">
+                          <label className="inline-flex cursor-pointer items-center gap-1.5">
                             <input
                               type="checkbox"
                               checked={
@@ -1816,34 +1676,32 @@ export default function StudentExamFeeRegistrationPage() {
                                 onToggleSelectAll(e.target.checked)
                               }
                             />
-                            <span className="ml-1">All</span>
-                          </th>
-                          <th className="flex-1 px-1 py-1 text-left">
-                            Subjects
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody
-                        className="block max-h-[150px] overflow-y-auto"
-                        style={{ scrollbarGutter: "stable" }}
-                      >
+                            <span>All</span>
+                          </label>
+                          <span>Subjects</span>
+                        </div>
+                      </div>
+                      <div className="max-h-[170px] flex-1 overflow-y-auto">
                         {filteredSubjects.map((obj, i) => (
-                          <tr
+                          <label
                             key={`sub-${obj.subjectId}-${obj.courseYearId}-${obj.examType ?? ""}-${i}`}
-                            className={`flex w-full ${obj.subjAlreadyRegistered ? "bg-[#f2f0f0]" : ""}`}
+                            className={`flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-[12px] last:border-b-0 ${
+                              obj.subjAlreadyRegistered
+                                ? "cursor-not-allowed bg-[#f2f0f0]"
+                                : "bg-white hover:bg-[#f7fbff]"
+                            }`}
                           >
-                            <td className="w-[40px] px-1 py-1 text-center">
-                              <input
-                                type="checkbox"
-                                disabled={obj.subjAlreadyRegistered}
-                                checked={!!obj.checked}
-                                onChange={() =>
-                                  !obj.subjAlreadyRegistered &&
-                                  checkedSubjects(!obj.checked, obj)
-                                }
-                              />
-                            </td>
-                            <td className="flex-1 px-1 py-1">
+                            <input
+                              type="checkbox"
+                              className="shrink-0"
+                              disabled={obj.subjAlreadyRegistered}
+                              checked={!!obj.checked}
+                              onChange={() =>
+                                !obj.subjAlreadyRegistered &&
+                                checkedSubjects(!obj.checked, obj)
+                              }
+                            />
+                            <span className="min-w-0 font-medium text-slate-800">
                               {obj.shortName}
                               {obj.subjectCode != null && (
                                 <>
@@ -1854,289 +1712,395 @@ export default function StudentExamFeeRegistrationPage() {
                                   </span>
                                 </>
                               )}
-                            </td>
-                          </tr>
+                            </span>
+                          </label>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Selected Courses */}
-                {selectedSubjects.length > 0 && (
-                  <div className="md:col-span-3 border border-[#dedede] bg-white">
-                    <table className="w-full text-[12px]">
-                      <thead>
-                        <tr className="bg-[#C3D9FF]">
-                          <th className="px-1 py-1 text-left text-blue-700">
-                            Selected Courses : {selectedCount}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="block max-h-[150px] overflow-y-auto">
-                        {selectedSubjects.map((sub, i) => (
-                          <tr key={`sel-${i}`} className="flex w-full">
-                            <td className="flex-1 px-1 py-1">
-                              {sub.shortName}
-                              {sub.subjectCode != null && (
-                                <>
-                                  {" "}
-                                  -{" "}
-                                  <span className="text-blue-600">
-                                    {sub.subjectCode}
-                                  </span>
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Additional Fee */}
-                {examFeeStructure.length > 0 &&
-                  additionalStructures.length > 0 && (
-                    <div className="md:col-span-3 border border-[#dedede] bg-white">
-                      <table className="w-full text-[12px]">
-                        <thead>
-                          <tr className="bg-[#C3D9FF]">
-                            <th className="px-1 py-1 text-left">
-                              Additional Fee
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="block max-h-[150px] overflow-y-auto">
-                          {additionalStructures.map((addFeeStr, i) =>
-                            addFeeStr.applyToAll === true ? (
-                              <tr
-                                key={`addl-${i}`}
-                                className="flex w-full items-center"
-                              >
-                                <td className="flex flex-1 items-center justify-between gap-2 px-1 py-1">
-                                  <span>
-                                    {addFeeStr.adtExamfeetypeCatDisplayName}
-                                  </span>
-                                  <Input
-                                    type="number"
-                                    className="h-7 w-20 border-2 border-[#c4c4c4] text-right text-[12px]"
-                                    value={String(addFeeStr.fee ?? 0)}
-                                    onChange={(e) =>
-                                      updateAdditionalFee(
-                                        i,
-                                        Number(e.target.value || 0),
-                                      )
-                                    }
-                                  />
-                                </td>
-                              </tr>
-                            ) : null,
-                          )}
-                        </tbody>
-                      </table>
+                      </div>
                     </div>
                   )}
 
-                {/* Add Fee — disabled when all subjects already registered / none selectable */}
-                {studentSubjects.length > 0 && (
-                  <div className="md:col-span-1 flex items-end">
-                    <Button
-                      className="h-8 w-full text-[12px]"
-                      onClick={addExamSubjects}
-                      disabled={!canAddFee}
-                    >
-                      Add Fee
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                  {/* Selected Courses */}
+                  {selectedSubjects.length > 0 && (
+                    <div className="flex min-h-[220px] w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white sm:w-[12.5rem] lg:w-[14rem]">
+                      <div className="bg-[#C3D9FF] px-3 py-1.5 text-[12px] font-semibold text-blue-700">
+                        Selected Courses : {selectedCount}
+                      </div>
+                      <div className="max-h-[190px] flex-1 overflow-y-auto">
+                        {selectedSubjects.map((sub, i) => (
+                          <div
+                            key={`sel-${i}`}
+                            className="border-b border-slate-100 px-3 py-1.5 text-[12px] font-medium last:border-b-0"
+                          >
+                            {sub.shortName}
+                            {sub.subjectCode != null && (
+                              <>
+                                {" "}
+                                -{" "}
+                                <span className="text-blue-600">
+                                  {sub.subjectCode}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-          {/* Exam Fee Payment summary */}
-          {studentId && courseYearFee.length > 0 && (
-            <div className="space-y-2">
-              <h2 className="rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
-                Exam Fee Payment
-              </h2>
-              <DataTable
-                title=""
-                bordered={false}
-                rowData={courseYearFee}
-                columnDefs={paymentColumnDefs}
-                getRowId={(p) =>
-                  String(
-                    (p.data as AnyRow)?.courseYearId ??
-                      `${(p.data as AnyRow)?.courseYearName}-${(p.data as AnyRow)?.examType}`,
-                  )
-                }
-                pagination={false}
-                toolbar={COMPACT_TOOLBAR}
-                height="auto"
-              />
-              <div className="flex items-center justify-between rounded border bg-white px-3 py-2 text-[13px]">
-                <span className="font-bold text-blue-700">Summary</span>
-                <span className="font-bold">
-                  Total Fees{" "}
-                  <span className="ml-6 tabular-nums">{totalReceiptAmt}</span>
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Payment section */}
-          {courseYearFee.length > 0 && (
-            <div className="rounded border-[10px] border-[#c3d9ff] bg-[#f1f6ff] p-2">
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="w-full sm:w-56">
-                  <Select
-                    value={paymentModeCatId ? String(paymentModeCatId) : null}
-                    onChange={(v) => setPaymentModeCatId(v ? Number(v) : null)}
-                    options={paymentModes.map((m) => ({
-                      value: String(m.generalDetailId),
-                      label:
-                        m.generalDetailDisplayName ??
-                        m.generalDetailName ??
-                        "-",
-                    }))}
-                    placeholder="Pay Mode"
-                    label="Pay Mode"
-                  />
-                </div>
-                {paymentModeCatId === 133 && (
-                  <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">
-                      Cheque Number
-                    </label>
-                    <Input
-                      className="h-8 text-[12px]"
-                      value={chequeNo}
-                      onChange={(e) => setChequeNo(e.target.value)}
-                    />
-                  </div>
-                )}
-                {paymentModeCatId === 134 && (
-                  <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">
-                      DD Number
-                    </label>
-                    <Input
-                      className="h-8 text-[12px]"
-                      value={ddno}
-                      onChange={(e) => setDdno(e.target.value)}
-                    />
-                  </div>
-                )}
-                {paymentModeCatId === 131 && (
-                  <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">
-                      Reference Number
-                    </label>
-                    <Input
-                      className="h-8 text-[12px]"
-                      value={referenceNumber}
-                      onChange={(e) => setReferenceNumber(e.target.value)}
-                    />
-                  </div>
-                )}
-                {(paymentModeCatId === 135 || paymentModeCatId === 132) && (
-                  <div className="w-full sm:w-56">
-                    <label className="text-[12px] text-muted-foreground">
-                      Transaction Number
-                    </label>
-                    <Input
-                      className="h-8 text-[12px]"
-                      value={transactionNo}
-                      onChange={(e) => setTransactionNo(e.target.value)}
-                    />
-                  </div>
-                )}
-                <div className="ml-auto text-right">
-                  <label className="block text-[14px] font-medium">
-                    Payment Amount
-                  </label>
-                  <Input
-                    type="number"
-                    disabled
-                    readOnly
-                    className="h-9 w-40 text-right text-[18px] font-bold"
-                    value={String(totalReceiptAmt)}
-                  />
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-end gap-3">
-                <div className="w-full sm:w-56">
-                  <label className="text-[12px] text-muted-foreground">
-                    Payment Date *
-                  </label>
-                  <DatePicker
-                    value={receiptDate}
-                    onChange={setReceiptDate}
-                    placeholder="Payment Date"
-                  />
-                </div>
-                <div className="min-w-[200px] flex-1">
-                  <label className="text-[12px] text-muted-foreground">
-                    Fee Comments
-                  </label>
-                  <Input
-                    className="h-8 text-[12px]"
-                    value={feeComments}
-                    onChange={(e) => setFeeComments(e.target.value)}
-                  />
-                </div>
-                <div className="w-full sm:w-40">
-                  <Button
-                    className="h-9 w-full text-[12px]"
-                    onClick={payExamFees}
-                    disabled={paying}
-                  >
-                    Pay fees
-                  </Button>
+                  {/* Additional Fee + Add Fee (first-image column) */}
+                  {studentSubjects.length > 0 && (
+                    <div className="flex w-full flex-col gap-3 sm:w-[11.5rem] lg:w-[13rem]">
+                      <div className="flex min-h-[180px] flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+                        <div className="bg-[#C3D9FF] px-3 py-1.5 text-[12px] font-semibold text-slate-800">
+                          Additional Fee
+                        </div>
+                        <div className="max-h-[160px] flex-1 overflow-y-auto">
+                          {examFeeStructure.length > 0 &&
+                          additionalStructures.some(
+                            (a) => a.applyToAll === true,
+                          )
+                            ? additionalStructures.map((addFeeStr, i) =>
+                                addFeeStr.applyToAll === true ? (
+                                  <div
+                                    key={`addl-${i}`}
+                                    className="flex items-center justify-between gap-2 border-b border-slate-100 px-2 py-1.5 last:border-b-0"
+                                  >
+                                    <span className="min-w-0 flex-1 text-[12px] font-medium">
+                                      {addFeeStr.adtExamfeetypeCatDisplayName}
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      className="h-7 w-[4.75rem] shrink-0 border-slate-300 text-right text-[12px] font-medium"
+                                      value={String(addFeeStr.fee ?? 0)}
+                                      onChange={(e) =>
+                                        updateAdditionalFee(
+                                          i,
+                                          Number(e.target.value || 0),
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                ) : null,
+                              )
+                            : null}
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          className="h-8 rounded-full px-5 text-[12px] font-medium"
+                          onClick={addExamSubjects}
+                          disabled={!canAddFee}
+                        >
+                          Add Fee
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Exam Fee Receipts (one block per course-year) */}
-          {coursesYearList.map((cyl, idx) => {
-            const rows = feeReceipts.filter(
-              (r) => Number(r.courseYearId) === Number(cyl.courseYearId),
-            );
-            return (
-              <div key={`cyl-${idx}`} className="space-y-2">
-                <h2 className="flex items-center justify-between rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
-                  <span>Exam Fee Receipts</span>
-                  <button
-                    type="button"
-                    className="rounded bg-[hsl(var(--primary))] px-2 py-1 text-[12px] text-primary-foreground"
-                    onClick={() => printExamForm(cyl)}
-                    title="Print Exam Form"
-                  >
-                    <Printer className="mr-1 inline h-3.5 w-3.5" />
-                    Exam Form
-                  </button>
+            {/* Exam Fee Payment summary */}
+            {studentId && courseYearFee.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                  Exam Fee Payment
                 </h2>
                 <DataTable
                   title=""
                   bordered={false}
-                  rowData={rows}
-                  columnDefs={receiptColumnDefs}
+                  rowData={courseYearFee}
+                  columnDefs={paymentColumnDefs}
                   getRowId={(p) =>
                     String(
-                      (p.data as AnyRow)?.examFeeReceiptId ??
-                        `${(p.data as AnyRow)?.feeReceiptNo}-${(p.data as AnyRow)?.courseYearId}`,
+                      (p.data as AnyRow)?.courseYearId ??
+                        `${(p.data as AnyRow)?.courseYearName}-${(p.data as AnyRow)?.examType}`,
                     )
                   }
                   pagination={false}
                   toolbar={COMPACT_TOOLBAR}
                   height="auto"
                 />
+                <div className="flex items-center justify-between rounded border bg-white px-3 py-2 text-[13px]">
+                  <span className="font-bold text-blue-700">Summary</span>
+                  <span className="font-bold">
+                    Total Fees{" "}
+                    <span className="ml-6 tabular-nums">{totalReceiptAmt}</span>
+                  </span>
+                </div>
               </div>
-            );
-          })}
-        </div>
+            )}
+
+            {/* Payment section */}
+            {courseYearFee.length > 0 && (
+              <div className="rounded border-[10px] border-[#c3d9ff] bg-[#f1f6ff] p-2">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="w-full sm:w-56">
+                    <Select
+                      value={paymentModeCatId ? String(paymentModeCatId) : null}
+                      onChange={(v) =>
+                        setPaymentModeCatId(v ? Number(v) : null)
+                      }
+                      options={paymentModes.map((m) => ({
+                        value: String(m.generalDetailId),
+                        label:
+                          m.generalDetailDisplayName ??
+                          m.generalDetailName ??
+                          "-",
+                      }))}
+                      placeholder="Pay Mode"
+                      label="Pay Mode"
+                    />
+                  </div>
+                  {paymentModeCatId === 133 && (
+                    <div className="w-full sm:w-56">
+                      <label className="text-[12px] text-muted-foreground">
+                        Cheque Number
+                      </label>
+                      <Input
+                        className="h-8 text-[12px]"
+                        value={chequeNo}
+                        onChange={(e) => setChequeNo(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {paymentModeCatId === 134 && (
+                    <div className="w-full sm:w-56">
+                      <label className="text-[12px] text-muted-foreground">
+                        DD Number
+                      </label>
+                      <Input
+                        className="h-8 text-[12px]"
+                        value={ddno}
+                        onChange={(e) => setDdno(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {paymentModeCatId === 131 && (
+                    <div className="w-full sm:w-56">
+                      <label className="text-[12px] text-muted-foreground">
+                        Reference Number
+                      </label>
+                      <Input
+                        className="h-8 text-[12px]"
+                        value={referenceNumber}
+                        onChange={(e) => setReferenceNumber(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {(paymentModeCatId === 135 || paymentModeCatId === 132) && (
+                    <div className="w-full sm:w-56">
+                      <label className="text-[12px] text-muted-foreground">
+                        Transaction Number
+                      </label>
+                      <Input
+                        className="h-8 text-[12px]"
+                        value={transactionNo}
+                        onChange={(e) => setTransactionNo(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <div className="ml-auto text-right">
+                    <label className="block text-[14px] font-medium">
+                      Payment Amount
+                    </label>
+                    <Input
+                      type="number"
+                      disabled
+                      readOnly
+                      className="h-9 w-40 text-right text-[18px] font-bold"
+                      value={String(totalReceiptAmt)}
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                  <div className="w-full sm:w-56">
+                    <label className="text-[12px] text-muted-foreground">
+                      Payment Date *
+                    </label>
+                    <DatePicker
+                      value={receiptDate}
+                      onChange={setReceiptDate}
+                      placeholder="Payment Date"
+                    />
+                  </div>
+                  <div className="min-w-[200px] flex-1">
+                    <label className="text-[12px] text-muted-foreground">
+                      Fee Comments
+                    </label>
+                    <Input
+                      className="h-8 text-[12px]"
+                      value={feeComments}
+                      onChange={(e) => setFeeComments(e.target.value)}
+                    />
+                  </div>
+                  <div className="w-full sm:w-40">
+                    <Button
+                      className="h-9 w-full text-[12px]"
+                      onClick={payExamFees}
+                      disabled={paying}
+                    >
+                      Pay fees
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Exam Fee Receipts (one block per course-year) — Angular HTML table */}
+            {coursesYearList.map((cyl, idx) => {
+              const rows = feeReceipts.filter(
+                (r) => Number(r.courseYearId) === Number(cyl.courseYearId),
+              );
+              return (
+                <div
+                  key={`cyl-${idx}`}
+                  className="overflow-hidden rounded-[3px] border border-[#e8e8e8] bg-white"
+                >
+                  <h2 className="m-0 flex items-center justify-between rounded-[3px] bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                    <span>Exam Fee Receipts</span>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded bg-[#ffcf46] px-2.5 py-1 text-[12px] font-medium text-black hover:brightness-95"
+                      onClick={() => printExamForm(cyl)}
+                      title="Print Exam Form"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Exam Form
+                    </button>
+                  </h2>
+                  <div className="overflow-x-auto bg-[#eaf2ff] p-1">
+                    <table className="w-full min-w-[960px] border-separate border-spacing-0 text-[12px]">
+                      <thead>
+                        <tr className="bg-[#C3D9FF]">
+                          <th className="w-[5%] px-2 py-2 text-left font-medium">
+                            SI No.
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            Semester
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            Receipt No.
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            Payment Date
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            Payment Mode
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            Exam Type
+                          </th>
+                          <th className="px-2 py-2 text-right font-medium">
+                            Exam Fee (₹)
+                          </th>
+                          <th className="px-2 py-2 text-right font-medium">
+                            Add. Fee (₹)
+                          </th>
+                          <th className="px-2 py-2 text-right font-medium">
+                            LateFee(₹)
+                          </th>
+                          <th className="px-2 py-2 text-right font-medium">
+                            Amount (₹)
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium">
+                            Subjects
+                          </th>
+                          <th className="px-2 py-2 text-center font-medium">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={12}
+                              className="bg-white px-3 py-6 text-center text-muted-foreground"
+                            >
+                              No receipts for this semester.
+                            </td>
+                          </tr>
+                        ) : (
+                          rows.map((feeReceipt, i) => (
+                            <tr
+                              key={
+                                feeReceipt.examFeeReceiptId ??
+                                `${feeReceipt.feeReceiptNo}-${feeReceipt.courseYearId}-${i}`
+                              }
+                              className={
+                                i % 2 === 0 ? "bg-white" : "bg-[#f1f6ff]"
+                              }
+                            >
+                              <td className="px-2 py-2 font-medium">{i + 1}</td>
+                              <td className="px-2 py-2 font-medium">
+                                {feeReceipt.courseYearName}
+                              </td>
+                              <td className="px-2 py-2 font-medium">
+                                {feeReceipt.feeReceiptNo}
+                              </td>
+                              <td className="px-2 py-2 font-medium">
+                                {fmtDate(feeReceipt.receiptDate)}
+                              </td>
+                              <td className="px-2 py-2 font-medium">
+                                {feeReceipt.paymentModeCatDisplayName}
+                              </td>
+                              <td className="px-2 py-2 font-medium">
+                                {feeReceipt.examtypeCatDisplayName}
+                              </td>
+                              <td className="px-2 py-2 text-right font-medium">
+                                {feeReceipt.examFeeAmount != null
+                                  ? feeReceipt.examFeeAmount
+                                  : "-"}
+                              </td>
+                              <td className="px-2 py-2 text-right font-medium">
+                                {feeReceipt.examAddtFee != null
+                                  ? feeReceipt.examAddtFee
+                                  : "-"}
+                              </td>
+                              <td className="px-2 py-2 text-right font-medium">
+                                {feeReceipt.examFineAmount != null
+                                  ? feeReceipt.examFineAmount
+                                  : "-"}
+                              </td>
+                              <td className="px-2 py-2 text-right font-medium">
+                                {feeReceipt.examTotalAmount}
+                              </td>
+                              <td className="px-2 py-2">
+                                <button
+                                  type="button"
+                                  className="rounded bg-[#ffcf46] px-2.5 py-1 text-[12px] font-medium text-black hover:brightness-95"
+                                  onClick={() =>
+                                    viewCourseYearSubjects(
+                                      feeReceipt,
+                                      "receipt",
+                                    )
+                                  }
+                                >
+                                  Courses
+                                </button>
+                              </td>
+                              <td className="px-2 py-2 text-center">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center justify-center text-[#0c51a4] hover:opacity-80"
+                                  title="Print Receipt"
+                                  onClick={() => printFeeReceipt(feeReceipt)}
+                                >
+                                  <Printer className="h-5 w-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : undefined
       }
     >
       {/* Pay confirmation modal — Angular ExamFeePayDialog parity */}
