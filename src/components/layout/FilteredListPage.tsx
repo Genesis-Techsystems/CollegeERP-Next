@@ -118,52 +118,51 @@ export function FilteredListPage<T>({
   );
 
   // Separated layout (default) — Angular Subject Master pattern
-  if (filtersSeparated) {
-    const resolvedTableHeader =
-      tableHeader === null
-        ? null
-        : (tableHeader ?? (
-            // Default context bar: book + page title (pages can override via tableHeader)
-            <DefaultTableHeader title={listCardTitle} />
-          ));
 
-    return (
-      <PageContainer className={cn("space-y-4", className)}>
-        {notice}
-        {filterCard}
+  const resolvedTableHeader =
+    tableHeader === null
+      ? null
+      : (tableHeader ?? (
+          // Default context bar: book + page title (pages can override via tableHeader)
+          <DefaultTableHeader title={listCardTitle} />
+        ));
 
-        {listVisible && hasTable ? (
-          <DataTable
-            title=""
-            subtitle=""
-            bordered
-            filters={undefined}
-            filtersFooter={resolvedTableHeader}
-            rowData={rowData ?? []}
-            columnDefs={columnDefs ?? []}
-            resultsVisible={resultsVisible}
-            {...tableProps}
-          />
-        ) : null}
+  return (
+    <PageContainer className={cn("space-y-4", className)}>
+      {notice}
+      {filterCard}
 
-        {listVisible && !hasTable && body != null ? (
-          <div
-            className={cn(
-              "app-card app-card--mixed-content overflow-hidden p-4",
-              bodyClassName,
-            )}
-          >
-            {resolvedTableHeader}
-            {body}
-          </div>
-        ) : listVisible ? (
-          body
-        ) : null}
+      {listVisible && hasTable ? (
+        <DataTable
+          title=""
+          subtitle=""
+          bordered
+          filters={undefined}
+          filtersFooter={resolvedTableHeader}
+          rowData={rowData ?? []}
+          columnDefs={columnDefs ?? []}
+          resultsVisible={resultsVisible}
+          {...tableProps}
+        />
+      ) : null}
 
-        {children}
-      </PageContainer>
-    );
-  }
+      {listVisible && !hasTable && body != null ? (
+        <div
+          className={cn(
+            "app-card app-card--mixed-content overflow-hidden p-4",
+            bodyClassName,
+          )}
+        >
+          {resolvedTableHeader}
+          {body}
+        </div>
+      ) : listVisible ? (
+        body
+      ) : null}
+
+      {children}
+    </PageContainer>
+  );
 
   // Legacy single-card layout (opt-in via filtersSeparated={false})
   if (!hasTable && body !== undefined) {
@@ -187,18 +186,19 @@ export function FilteredListPage<T>({
   return (
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
-      <DataTable
-        title={listCardTitle}
-        subtitle""
-        bordered
-        filters={filters}
-        filtersFooter={filtersFooter}
-        filtersCollapsible={filtersCollapsible}
-        filtersDefaultOpen={filtersDefaultOpen}
-        rowData={rowData ?? []}
-        columnDefs={columnDefs ?? []}
-        {...tableProps}
-      />
+      {listVisible && hasTable ? (
+        <DataTable
+          title=""
+          subtitle=""
+          bordered
+          filters={undefined}
+          filtersFooter={resolvedTableHeader}
+          rowData={rowData ?? []}
+          columnDefs={columnDefs ?? []}
+          resultsVisible={resultsVisible}
+          {...tableProps}
+        />
+      ) : null}
       {body}
       {children}
     </PageContainer>
