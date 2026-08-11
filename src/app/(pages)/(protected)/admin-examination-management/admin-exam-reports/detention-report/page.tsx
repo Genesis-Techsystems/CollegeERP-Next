@@ -123,6 +123,7 @@ export default function DetentionReportPage() {
   const [skipAutoSelect, setSkipAutoSelect] = useState(false);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [showTable, setShowTable] = useState(false);
 
   const colleges = useMemo(() => filterColleges(filtersData), [filtersData]);
   const courses = useMemo(
@@ -261,6 +262,7 @@ export default function DetentionReportPage() {
     }
     setLoading(true);
     setRows([]);
+    setShowTable(false);
     try {
       const data = await getBatchWiseDetentionReport({
         collegeId,
@@ -272,6 +274,7 @@ export default function DetentionReportPage() {
         return;
       }
       setRows(data);
+      setShowTable(true);
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -286,6 +289,7 @@ export default function DetentionReportPage() {
     setBatchId(null);
     setDomainBatches([]);
     setRows([]);
+    setShowTable(false);
   }
 
   /** Angular exportAsExcel — full report rows (same columns as MatTable). */
@@ -322,6 +326,7 @@ export default function DetentionReportPage() {
           onChange={(v) => {
             setSkipAutoSelect(false);
             setRows([]);
+            setShowTable(false);
             setCollegeId(v ? Number(v) : null);
           }}
           options={colleges.map((r) => ({
@@ -339,6 +344,7 @@ export default function DetentionReportPage() {
           onChange={(v) => {
             setSkipAutoSelect(false);
             setRows([]);
+            setShowTable(false);
             setCourseId(v ? Number(v) : null);
           }}
           options={courses.map((r) => ({
@@ -354,6 +360,7 @@ export default function DetentionReportPage() {
           value={batchId ? String(batchId) : null}
           onChange={(v) => {
             setRows([]);
+            setShowTable(false);
             setBatchId(v ? Number(v) : null);
           }}
           options={batches.map((r) => ({
@@ -392,18 +399,18 @@ export default function DetentionReportPage() {
     <FilteredListPage
       title="Detention Report"
       filters={filters}
-      rowData={rows}
+      showTable={showTable}
+      rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
       pagination
       paginationPageSize={10}
       toolbar={TOOLBAR}
       toolbarTrailing={
-        rows.length > 0 ? (
+        showTable && rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="outline"
               className="h-8 text-[12px]"
               onClick={handleExportExcel}
             >
@@ -412,7 +419,6 @@ export default function DetentionReportPage() {
             </Button>
             <Button
               type="button"
-              variant="outline"
               className="h-8 text-[12px]"
               onClick={handlePrint}
             >

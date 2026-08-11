@@ -16,11 +16,14 @@ import {
   getReEvaluationComparisionReport,
 } from "@/services";
 import { toastError, toastInfo } from "@/lib/toast";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
   Layers,
+  Printer,
   RotateCcw,
 } from "lucide-react";
 import { printReEvaluationComparisionReport } from "../_components/printReEvaluationComparisionReport";
@@ -31,8 +34,8 @@ const TOOLBAR = {
   search: true,
   searchPlaceholder: "Search…",
   columnPicker: true,
-  exportPdf: true,
-  exportExcel: true,
+  exportPdf: false,
+  exportExcel: false,
 } as const;
 
 const GROUP_HEADER = "app-table-header-group";
@@ -81,6 +84,10 @@ export default function ReEvaluationComparisionReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  const sessionCollegeId = Number(
+    globalThis?.localStorage?.getItem("collegeId") ?? 0,
+  );
+  const orgCode = String(globalThis?.localStorage?.getItem("orgCode") ?? "");
 
   const [loading, setLoading] = useState(false);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -94,6 +101,10 @@ export default function ReEvaluationComparisionReportPage() {
 
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [examLabel, setExamLabel] = useState("");
+  const [showTable, setShowTable] = useState(false);
+  const collegeLogo = useCollegeLogo(
+    sessionCollegeId > 0 ? sessionCollegeId : null,
+  );
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -250,6 +261,7 @@ export default function ReEvaluationComparisionReportPage() {
   function clearResults() {
     setRows([]);
     setExamLabel("");
+    setShowTable(false);
   }
 
   useEffect(() => {
@@ -373,7 +385,9 @@ export default function ReEvaluationComparisionReportPage() {
       return;
     }
     setLoading(true);
-    clearResults();
+    setRows([]);
+    setExamLabel("");
+    setShowTable(false);
     try {
       const data = await getReEvaluationComparisionReport({
         examId,
@@ -392,6 +406,7 @@ export default function ReEvaluationComparisionReportPage() {
         ),
       );
       setRows(data);
+      setShowTable(true);
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -453,6 +468,18 @@ export default function ReEvaluationComparisionReportPage() {
     const course = courses.find(
       (r) => numFrom(r, ["fk_course_id", "courseId"]) === Number(courseId),
     );
+    const year = courseYears.find(
+      (r) =>
+        numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
+        Number(courseYearId),
+    );
+    const logoUrl =
+      collegeLogo.startsWith("http") ||
+      collegeLogo.startsWith("data:") ||
+      collegeLogo.startsWith("blob:")
+        ? collegeLogo
+        : `${globalThis.location.origin}${collegeLogo.startsWith("/") ? "" : "/"}${collegeLogo}`;
+
     printReEvaluationComparisionReport(rows, {
       title: "Re-Evaluation Comparision Result Report",
       examLabel,
@@ -460,6 +487,21 @@ export default function ReEvaluationComparisionReportPage() {
         "university_name",
         "universityName",
       ]),
+      logoUrl,
+      orgCode,
+      courseCode: strFrom(course ?? {}, [
+        "course_code",
+        "courseCode",
+        "course_name",
+      ]),
+      courseYearCode:
+        courseYearId > 0
+          ? strFrom(year ?? {}, [
+              "course_year_code",
+              "courseYearCode",
+              "course_year_name",
+            ])
+          : "",
     });
   }
 
@@ -536,10 +578,13 @@ export default function ReEvaluationComparisionReportPage() {
                 searchable
               />
             </GlobalFilterField>
+          </GlobalFilterBarRow>
+
+          <GlobalFilterBarRow>
             <GlobalFilterField
               label="Course Year"
               icon={Layers}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="global-filter-field--fx15 !flex-[0_1_8rem] !max-w-[10rem] !min-w-[7rem]"
             >
               <Select
                 value={String(courseYearId)}
@@ -565,7 +610,7 @@ export default function ReEvaluationComparisionReportPage() {
                 isLoading={Boolean(examId) && loading}
               />
             </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 self-end pb-0.5">
               <Button
                 type="button"
                 className="h-8 text-[12px]"
@@ -588,21 +633,39 @@ export default function ReEvaluationComparisionReportPage() {
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={rows}
+      showTable={showTable}
+      rowData={showTable ? rows : []}
       columnDefs={columnDefs as ColDef<AnyRow>[]}
       loading={loading}
       pagination
       paginationPageSize={10}
       getRowId={getRowId}
       fitColumnsToWidth={false}
-      onExportExcel={handleExportExcel}
-      onExportPdf={handlePrint}
-      toolbar={{
-        ...TOOLBAR,
-        excelDocumentTitle: "Re-Evaluation Comparision Result Report",
-        excelFileName: "Re-Evaluation Comparision Result Report.xls",
-        pdfDocumentTitle: "Re-Evaluation Comparision Result Report",
-      }}
+      toolbar={TOOLBAR}
+      toolbarTrailing={
+        showTable && rows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 text-[12px]"
+              onClick={handleExportExcel}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 text-[12px]"
+              onClick={handlePrint}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
+        ) : undefined
+      }
     />
   );
 }

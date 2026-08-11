@@ -1342,7 +1342,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !hrefLower.includes("student-daily") &&
         !hrefLower.includes("period") &&
         !hrefLower.includes("percentage") &&
-        !hrefLower.includes("daily-attendance-count-report")) ||
+        !hrefLower.includes("daily-attendance-count-report") &&
+        !hrefLower.includes("student-daily-attendance-count-report")) ||
       labelLower === "daily attendance report" ||
       labelLower === "student daily attendance report"
     ) {
@@ -1887,6 +1888,26 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/my-feedback/suvey-form";
     }
 
+    // Student Requests — Bonafied Certificate (Angular certificates/bonafied-certificate).
+    // Must beat TC & No Due mirror (shared angularSegment `certificates/`) and
+    // the generic Request For Certificates catch-all.
+    if (
+      hrefLower.includes("bonafied-certificate") ||
+      hrefLower.includes("bonafide-certificate") ||
+      hrefLower.includes("bonafiedcertificate") ||
+      hrefLower.includes("bonafidecertificate") ||
+      labelKey === "bonafied certificate" ||
+      labelKey === "bonafide certificate" ||
+      ((labelLower.includes("bonafied") || labelLower.includes("bonafide")) &&
+        labelLower.includes("certificate") &&
+        !labelLower.includes("conduct") &&
+        isStudentPortalViewer())
+    ) {
+      return isStudentPortalViewer()
+        ? "/student-requests/bonafied-certificate"
+        : "/certificates/bonafied-certificate";
+    }
+
     // Student Requests — No Due Certificate (must beat TC staff "nodue" catch-all)
     if (
       hrefLower.includes("no-due-certificate") ||
@@ -1940,7 +1961,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
 
     // Student Requests — Request For Certificates (404→dashboard otherwise;
-    // must not steal TC & No Due "Certificate Requests")
+    // must not steal TC & No Due "Certificate Requests" or Bonafied Certificate)
     if (
       hrefLower.includes("request-for-certificates") ||
       hrefLower.includes("requestforcertificates") ||
@@ -1953,8 +1974,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("id card") &&
         !labelLower.includes("transfer") &&
         !labelLower.includes(" for tc") &&
+        !labelLower.includes("bonafied") &&
+        !labelLower.includes("bonafide") &&
         !hrefLower.includes("tc-certificate") &&
         !hrefLower.includes("request-for-tc") &&
+        !hrefLower.includes("bonafied") &&
+        !hrefLower.includes("bonafide") &&
         !hrefLower.includes("idcard") &&
         !hrefLower.includes("id-card") &&
         !hrefLower.includes("student-idcard"))
@@ -2722,7 +2747,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             hrefLower.includes("admission") ||
             labelLower.includes("report")))
       ) {
-        return "/reports/admin-student-reports/day-wise-admission-report";
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-student-reports/day-wise-admission-report"
+          : "/reports/admin-student-reports/day-wise-admission-report";
       }
       // Angular student-admission / admin-student reports
       if (
@@ -2759,7 +2786,10 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         hrefLower.includes("class-syllabus-status-report") ||
         (labelLower.includes("class syllabus") && labelLower.includes("report"))
       ) {
-        return "/reports/admin-student-reports/class-syllabus-status-report";
+        // Admin: /reports/... · HOD Angular: staff-reports/... → keep staff-reports prefix
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-student-reports/class-syllabus-status-report"
+          : "/reports/admin-student-reports/class-syllabus-status-report";
       }
       if (
         hrefLower.includes("subject-wise-syllabus-report") ||
@@ -2871,7 +2901,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           !labelLower.includes("timetable") &&
           !hrefLower.includes("timetable"))
       ) {
-        return "/reports/admin-student-reports/sem-list-report";
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-student-reports/sem-list-report"
+          : "/reports/admin-student-reports/sem-list-report";
       }
       // Angular Lateral Students Report
       if (
@@ -2887,7 +2919,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         hrefLower.includes("std_contact") ||
         labelLower.includes("student contact")
       ) {
-        return "/reports/admin-student-reports/student-contact-report";
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-student-reports/student-contact-report"
+          : "/reports/admin-student-reports/student-contact-report";
       }
       // Daily Attendance of Students ONLY (not "Daily Attendance Report").
       if (
@@ -2904,7 +2938,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           !hrefLower.includes("student-daily") &&
           !hrefLower.includes("period") &&
           !hrefLower.includes("percentage") &&
-          !hrefLower.includes("daily-attendance-count-report")) ||
+          !hrefLower.includes("daily-attendance-count-report") &&
+          !hrefLower.includes("student-daily-attendance-count-report")) ||
         labelLower === "daily attendance report" ||
         labelLower === "student daily attendance report" ||
         (labelLower.includes("daily attendance") &&
@@ -2913,7 +2948,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           !labelLower.includes("period") &&
           !labelLower.includes("percentage") &&
           !labelLower.includes("statistical") &&
-          !labelLower.includes("count"))
+          !labelLower.includes("count") &&
+          !labelLower.includes("of student"))
+      ) {
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-attendance-reports/daily-attendance-report"
+          : "/reports/student-attendance-reports/daily-attendance-period-wise-report";
+      }
+      // Angular `student-daily-attendance-count-report` — College/AY/Course/Date.
+      if (
+        hrefLower.includes("student-daily-attendance-count-report") ||
+        hrefLower.includes("admin-attendance-reports/student-daily") ||
+        labelLower === "daily attendance of students" ||
+        labelLower.includes("daily attendance of student")
       ) {
         return "/reports/student-attendance-reports/daily-attendance-report";
       }
@@ -2925,7 +2972,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           labelLower.includes("period") &&
           labelLower.includes("attendance"))
       ) {
-        return "/reports/student-attendance-reports/daily-attendance-period-wise-report";
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-attendance-reports/daily-attendance-report"
+          : "/reports/student-attendance-reports/daily-attendance-period-wise-report";
       }
       if (
         hrefLower.includes("student-attendance-percentage-report") ||
@@ -2952,16 +3001,24 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         hrefLower.includes(
           "student-attendance-reports/student-attendance-report",
         ) ||
+        hrefLower.includes(
+          "admin-attendance-reports/student-attendance-report",
+        ) ||
         (hrefLower.includes("student-attendance-report") &&
           !hrefLower.includes("percentage") &&
           !hrefLower.includes("period-wise") &&
-          !hrefLower.includes("subject-wise")) ||
+          !hrefLower.includes("subject-wise") &&
+          !hrefLower.includes("count-report")) ||
         labelLower === "student attendance report" ||
         (labelLower.includes("student attendance report") &&
           !labelLower.includes("percentage") &&
           !labelLower.includes("subject"))
       ) {
-        return "/reports/student-attendance-reports/student-attendance-report";
+        // Admin: /reports/student-attendance-reports/...
+        // HOD:   /staff-reports/admin-attendance-reports/...
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-attendance-reports/student-attendance-report"
+          : "/reports/student-attendance-reports/student-attendance-report";
       }
       // Angular Students Detained List Report
       if (
@@ -2970,7 +3027,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("detained list") ||
         labelLower.includes("students detained")
       ) {
-        return "/reports/admin-student-reports/student-detained-list";
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-student-reports/student-detained-list"
+          : "/reports/admin-student-reports/student-detained-list";
       }
       // Angular Student Rejoin Lists Report
       if (
@@ -3004,7 +3063,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           ((labelLower.includes("branch") || labelLower.includes("academic")) &&
             labelLower.includes("student count")))
       ) {
-        return "/reports/admin-student-reports/branch-academicyear-wise-student-count";
+        return hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-student-reports/branch-academicyear-wise-student-count"
+          : "/reports/admin-student-reports/branch-academicyear-wise-student-count";
       }
       // Angular Admission Quota Wise Student Count
       if (
@@ -3067,7 +3128,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           !labelLower.includes("summary") &&
           !labelLower.includes("monthly"))
       ) {
-        return "/reports/admin-attendance-reports/employee-attendance-report";
+        // Admin: /reports/... · HOD Angular: staff-reports/... → keep staff-reports prefix
+        const empAttBase = hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-attendance-reports"
+          : "/reports/admin-attendance-reports";
+        return `${empAttBase}/employee-attendance-report`;
       }
       if (
         hrefLower.includes("subject-wise-faculty-attendance-report") ||
@@ -3106,7 +3171,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           labelLower.includes("summary") &&
           labelLower.includes("report"))
       ) {
-        return "/reports/admin-attendance-reports/day-wise-attendance-count-report";
+        // Admin: /reports/... · HOD Angular: staff-reports/... → keep staff-reports prefix
+        const dayWiseBase = hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-attendance-reports"
+          : "/reports/admin-attendance-reports";
+        return `${dayWiseBase}/day-wise-attendance-count-report`;
       }
       if (
         hrefLower.includes("course-wise-students-attendance-report") ||
@@ -3124,7 +3193,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           (labelLower.includes("meeting") || labelLower.includes("ptm")) &&
           !labelLower.includes("class"))
       ) {
-        return "/reports/admin-attendance-reports/parent-teacher-meeting-report";
+        // Admin: /reports/... · HOD Angular: staff-reports/... → keep staff-reports prefix
+        const ptmBase = hrefLower.includes("staff-reports")
+          ? "/staff-reports/admin-attendance-reports"
+          : "/reports/admin-attendance-reports";
+        return `${ptmBase}/parent-teacher-meeting-report`;
       }
       // Timetable Reports —
       // Admin: /reports/admin-timetable-reports/*

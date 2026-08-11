@@ -326,3 +326,4 @@ export * from "./elective-group-mapping";
 export * from "./naac";
 export * from "./naac-portal";
 export * from "./delivery-and-hr-reports";
+export * from "./post-examination";

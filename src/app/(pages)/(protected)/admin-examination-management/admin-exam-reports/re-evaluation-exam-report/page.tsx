@@ -18,11 +18,14 @@ import {
 } from "@/services";
 import { GM_CODES } from "@/config/constants/ui";
 import { toastError, toastInfo } from "@/lib/toast";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
   Layers,
+  Printer,
   RotateCcw,
   Tags,
 } from "lucide-react";
@@ -34,8 +37,8 @@ const TOOLBAR = {
   search: true,
   searchPlaceholder: "Search…",
   columnPicker: true,
-  exportPdf: true,
-  exportExcel: true,
+  exportPdf: false,
+  exportExcel: false,
 } as const;
 
 function numFrom(row: AnyRow, keys: string[]): number {
@@ -224,6 +227,10 @@ export default function ReEvaluationExamReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  const sessionCollegeId = Number(
+    globalThis?.localStorage?.getItem("collegeId") ?? 0,
+  );
+  const orgCode = String(globalThis?.localStorage?.getItem("orgCode") ?? "");
 
   const [loading, setLoading] = useState(false);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -239,6 +246,10 @@ export default function ReEvaluationExamReportPage() {
 
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [examLabel, setExamLabel] = useState("");
+  const [showTable, setShowTable] = useState(false);
+  const collegeLogo = useCollegeLogo(
+    sessionCollegeId > 0 ? sessionCollegeId : null,
+  );
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -314,6 +325,7 @@ export default function ReEvaluationExamReportPage() {
   function clearResults() {
     setRows([]);
     setExamLabel("");
+    setShowTable(false);
   }
 
   useEffect(() => {
@@ -468,7 +480,9 @@ export default function ReEvaluationExamReportPage() {
       return;
     }
     setLoading(true);
-    clearResults();
+    setRows([]);
+    setExamLabel("");
+    setShowTable(false);
     try {
       const data = await getReEvaluationExamReport({
         examId,
@@ -489,6 +503,7 @@ export default function ReEvaluationExamReportPage() {
         ),
       );
       setRows(data);
+      setShowTable(true);
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -550,6 +565,18 @@ export default function ReEvaluationExamReportPage() {
     const course = courses.find(
       (r) => numFrom(r, ["fk_course_id", "courseId"]) === Number(courseId),
     );
+    const year = courseYears.find(
+      (r) =>
+        numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
+        Number(courseYearId),
+    );
+    const logoUrl =
+      collegeLogo.startsWith("http") ||
+      collegeLogo.startsWith("data:") ||
+      collegeLogo.startsWith("blob:")
+        ? collegeLogo
+        : `${globalThis.location.origin}${collegeLogo.startsWith("/") ? "" : "/"}${collegeLogo}`;
+
     printReEvaluationExamReport(rows, {
       title: "Re-Evaluation Exam Report",
       examLabel,
@@ -557,6 +584,21 @@ export default function ReEvaluationExamReportPage() {
         "university_name",
         "universityName",
       ]),
+      logoUrl,
+      orgCode,
+      courseCode: strFrom(course ?? {}, [
+        "course_code",
+        "courseCode",
+        "course_name",
+      ]),
+      courseYearCode:
+        courseYearId > 0
+          ? strFrom(year ?? {}, [
+              "course_year_code",
+              "courseYearCode",
+              "course_year_name",
+            ])
+          : "",
     });
   }
 
@@ -636,7 +678,11 @@ export default function ReEvaluationExamReportPage() {
           </GlobalFilterBarRow>
 
           <GlobalFilterBarRow>
-            <GlobalFilterField label="Exam Type" icon={Tags}>
+            <GlobalFilterField
+              label="Exam Type"
+              icon={Tags}
+              className="global-filter-field--fx15 !flex-[0_1_7.5rem] !max-w-[9rem] !min-w-[6.5rem]"
+            >
               <Select
                 value={String(examTypeCatdetId)}
                 onChange={(v) => {
@@ -658,7 +704,11 @@ export default function ReEvaluationExamReportPage() {
                 placeholder="Exam Type"
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Course Year" icon={Layers}>
+            <GlobalFilterField
+              label="Course Year"
+              icon={Layers}
+              className="global-filter-field--fx15 !flex-[0_1_8rem] !max-w-[10rem] !min-w-[7rem]"
+            >
               <Select
                 value={String(courseYearId)}
                 onChange={(v) => {
@@ -683,7 +733,7 @@ export default function ReEvaluationExamReportPage() {
                 isLoading={Boolean(examId) && loading}
               />
             </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 self-end pb-0.5">
               <Button
                 type="button"
                 className="h-8 text-[12px]"
@@ -706,21 +756,39 @@ export default function ReEvaluationExamReportPage() {
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={rows}
+      showTable={showTable}
+      rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
       pagination
       paginationPageSize={25}
       getRowId={getRowId}
       fitColumnsToWidth={false}
-      onExportExcel={handleExportExcel}
-      onExportPdf={handlePrint}
-      toolbar={{
-        ...TOOLBAR,
-        excelDocumentTitle: "Re-Evaluation Exam Report",
-        excelFileName: "Re-Evaluation Exam Report.xls",
-        pdfDocumentTitle: "Re-Evaluation Exam Report",
-      }}
+      toolbar={TOOLBAR}
+      toolbarTrailing={
+        showTable && rows.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 text-[12px]"
+              onClick={handleExportExcel}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 text-[12px]"
+              onClick={handlePrint}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
+        ) : undefined
+      }
     />
   );
 }

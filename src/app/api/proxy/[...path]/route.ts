@@ -60,10 +60,15 @@ async function proxyRequest(
     );
   }
 
-  // 2. Build target URL
+  // 2. Build target URL (deduplicate /cms/ prefix if SPRING_API_URL includes it)
   const { path } = await context.params;
   const queryString = request.nextUrl.search;
-  const targetUrl = `${process.env.SPRING_API_URL}/${path.join("/")}${queryString}`;
+  let subPath = path.join("/");
+  const baseUrl = process.env.SPRING_API_URL ?? "";
+  if (baseUrl.endsWith("/cms") && subPath.startsWith("cms/")) {
+    subPath = subPath.slice(4);
+  }
+  const targetUrl = `${baseUrl}/${subPath}${queryString}`;
 
   // 3. Forward request with same method and body; inject Authorization header
   const method = request.method;

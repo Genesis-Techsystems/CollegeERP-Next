@@ -133,6 +133,7 @@ export default function StudentBacklogDataPage() {
 
   const [mainList, setMainList] = useState<StudentSemesterRows[]>([]);
   const [courseYearCodes, setCourseYearCodes] = useState<string[]>([]);
+  const [showTable, setShowTable] = useState(false);
 
   const colleges = useMemo(() => filterColleges(filtersData), [filtersData]);
   const collegeLogo = useCollegeLogo(collegeId);
@@ -320,6 +321,7 @@ export default function StudentBacklogDataPage() {
     setLoading(true);
     setMainList([]);
     setCourseYearCodes([]);
+    setShowTable(false);
     try {
       const flatRows = await getBatchWiseStudentBacklogReport({
         collegeId,
@@ -339,6 +341,7 @@ export default function StudentBacklogDataPage() {
       ];
       setCourseYearCodes(uniqueYears);
       setMainList(groupByHallTicket(flatRows));
+      setShowTable(true);
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -354,6 +357,7 @@ export default function StudentBacklogDataPage() {
     setDomainBatches([]);
     setMainList([]);
     setCourseYearCodes([]);
+    setShowTable(false);
   }
 
   function handleExportExcel() {
@@ -417,6 +421,7 @@ export default function StudentBacklogDataPage() {
             setSkipAutoSelect(false);
             setMainList([]);
             setCourseYearCodes([]);
+            setShowTable(false);
             setCollegeId(v ? Number(v) : null);
           }}
           options={colleges.map((r) => ({
@@ -435,6 +440,7 @@ export default function StudentBacklogDataPage() {
             setSkipAutoSelect(false);
             setMainList([]);
             setCourseYearCodes([]);
+            setShowTable(false);
             setCourseId(v ? Number(v) : null);
           }}
           options={courses.map((r) => ({
@@ -451,6 +457,7 @@ export default function StudentBacklogDataPage() {
           onChange={(v) => {
             setMainList([]);
             setCourseYearCodes([]);
+            setShowTable(false);
             setBatchId(v ? Number(v) : null);
           }}
           options={batches.map((r) => ({
@@ -489,18 +496,19 @@ export default function StudentBacklogDataPage() {
     <FilteredListPage
       title="Batch Wise student Backlog Report"
       filters={filters}
-      rowData={tableRows}
+      showTable={showTable}
+      rowData={showTable ? tableRows : []}
       columnDefs={columnDefs as ColDef<AnyRow>[]}
       loading={loading}
       pagination
       paginationPageSize={10}
       toolbar={TOOLBAR}
       toolbarTrailing={
-        mainList.length > 0 ? (
+        showTable && mainList.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+              className="h-8 text-[12px]"
               onClick={handleExportExcel}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -508,7 +516,7 @@ export default function StudentBacklogDataPage() {
             </Button>
             <Button
               type="button"
-              className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+              className="h-8 text-[12px]"
               onClick={handlePrint}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />

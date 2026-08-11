@@ -21,6 +21,7 @@ import {
   courseGroupIdFromDeptHead,
   downloadStaffAttendanceNotMarkedReport,
   listActiveDepartments,
+  listDepartmentsByProcedure,
   listDepartmentHeadsByDepartment,
   listStaffAttendanceNotMarkedByDepartment,
   type DepartmentHeadRow,
@@ -128,8 +129,10 @@ export function StaffAttendanceNotMarkedListPage() {
   } | null>(null);
 
   useEffect(() => {
-    // Angular getData → listDetailsById(Department, 'true', isActive)
-    listActiveDepartments()
+    const ogId = Number(readStorage("organizationId") || 1);
+    const clgId = Number(readStorage("collegeId") || 16);
+
+    listDepartmentsByProcedure(ogId, clgId)
       .then((rows) => {
         setDepartments(rows);
         if (isHod && hodDeptId) {
@@ -141,11 +144,31 @@ export function StaffAttendanceNotMarkedListPage() {
 
   const departmentOptions = useMemo(
     () =>
-      departments.map((d) => ({
-        value: String(d.departmentId),
-        // Angular: `{{department.collegeCode}} - {{department.deptName}}`
-        label: `${d.collegeCode ?? ""} - ${d.deptName}`.replace(/^ - /, ""),
-      })),
+      departments
+        .map((d: any) => {
+          const id =
+            d.departmentId ??
+            d.department_id ??
+            d.pk_department_id ??
+            d.dept_id ??
+            d.id;
+          const name =
+            d.deptName ??
+            d.dept_name ??
+            d.department_name ??
+            d.dept_code ??
+            d.name ??
+            "";
+          const code =
+            d.collegeCode ?? d.college_code ?? d.college_short_name ?? "";
+          if (!id) return null;
+          const label = code ? `${code} - ${name}` : String(name);
+          return {
+            value: String(id),
+            label: label.replace(/^ - /, ""),
+          };
+        })
+        .filter((opt): opt is { value: string; label: string } => opt !== null),
     [departments],
   );
 

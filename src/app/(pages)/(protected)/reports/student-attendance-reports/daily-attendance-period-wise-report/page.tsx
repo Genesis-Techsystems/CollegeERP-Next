@@ -2,16 +2,23 @@
 
 /**
  * Daily Attendance Period Wise Report —
- * Angular `reports/student-attendance-reports/daily-attendance-period-wise-report` parity.
+ * Angular `daily-attendance-report` and `daily-period-attendance-report` parity
+ * (College / AY / Course / Group / Year / Section / Date; table after Get).
+ * On-screen grid uses FilteredListPage (same UI as Day-wise Attendance Summary).
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type {
+  ColDef,
+  ColGroupDef,
+  ICellRendererParams,
+} from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { exportHtmlTableAsExcel } from "@/common/export-html-table";
-import { FilteredPage } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { getErrorMessage } from "@/lib/errors";
@@ -67,12 +74,32 @@ type UniqueKey = {
   sub_credits: unknown;
 };
 
+type AttCol = {
+  field: string;
+  period: GroupedPeriod;
+  key: string | null;
+  childHeader: string;
+};
+
+type GridRow = {
+  __rowId: string;
+  siNo: string | number;
+  rollNumber: string;
+  student: string;
+  totalPeriods: string;
+} & Record<string, string | number | boolean | undefined>;
+
 const REPORT_TITLE = "Daily Attendance Period Wise Report";
 const PRINT_TITLE = "Day Wise Attendance Report";
 
 function str(v: unknown): string {
   if (v == null) return "";
   return String(v);
+}
+
+function attField(periodNo: string, key: string | null): string {
+  const safe = `${periodNo}_${key ?? "_"}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `att_${safe}`;
 }
 
 function getAttendance(
@@ -92,24 +119,7 @@ function getAttendance(
   return record ? str(record.Present_Classes) || "-" : "-";
 }
 
-function getSummary(
-  periodSummary: AnyRow[],
-  period: GroupedPeriod,
-  key: string | null,
-  field: string,
-): string | number {
-  const record = periodSummary.find((p) => {
-    if (str(p.Period_no) !== str(period.Period_no)) return false;
-    if (period.subject_type === "LAB") return str(p.batch_name) === (key ?? "");
-    if (period.subject_type === "ELECTIVE") {
-      return str(p.subject_short_name) === (key ?? "");
-    }
-    return str(p.subject_short_name) === str(period.subject);
-  });
-  return record ? (record[field] as string | number) ?? 0 : 0;
-}
-
-function transformDailyRows(rows: AnyRow[], summary: AnyRow[]) {
+function transformDailyRows(rows: AnyRow[]) {
   const groupedPeriods: GroupedPeriod[] = [];
   const studentAttendance: StudentAtt[] = [];
 
@@ -196,8 +206,176 @@ function transformDailyRows(rows: AnyRow[], summary: AnyRow[]) {
     studentAttendance,
     uniqueKeys,
     resultList: rows,
-    periodSummary: summary,
   };
+}
+
+function collectAttCols(groupedPeriods: GroupedPeriod[]): AttCol[] {
+  const cols: AttCol[] = [];
+  for (const period of groupedPeriods) {
+    const isSplit =
+      period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
+    if (!isSplit) {
+      cols.push({
+        field: attField(period.Period_no, null),
+        period,
+        key: null,
+        childHeader: `${str(period.subject)}\n(${period.subject_type})`,
+      });
+      continue;
+    }
+    for (const batch of period.batches) {
+      const key =
+        period.subject_type === "LAB" ? str(batch.batch_name) : batch.subject;
+      const childHeader =
+        period.subject_type === "LAB"
+          ? `${str(batch.batch_name)} (${batch.subject})\n(${period.subject_type})`
+          : `${batch.subject}\n(${period.subject_type})`;
+      cols.push({
+        field: attField(period.Period_no, key),
+        period,
+        key,
+        childHeader,
+      });
+    }
+  }
+  return cols;
+}
+
+function presentCellRenderer(p: ICellRendererParams<GridRow>) {
+  const val = str(p.value);
+  if (val === "A") {
+    return <span className="font-semibold text-red-600">{val}</span>;
+  }
+  return val || "-";
+}
+
+function buildGridColumnDefs(
+  attCols: AttCol[],
+): (ColDef<GridRow> | ColGroupDef<GridRow>)[] {
+  const cols: (ColDef<GridRow> | ColGroupDef<GridRow>)[] = [
+    {
+      colId: "siNo",
+      field: "siNo",
+      headerName: "S.No",
+      width: 70,
+      flex: 0,
+      pinned: "left",
+      sortable: false,
+      filter: false,
+    },
+    {
+      colId: "rollNumber",
+      field: "rollNumber",
+      headerName: "Roll No.",
+      minWidth: 110,
+      pinned: "left",
+    },
+    {
+      colId: "student",
+      field: "student",
+      headerName: "Student",
+      minWidth: 200,
+      pinned: "left",
+    },
+  ];
+
+  const byPeriod = new Map<string, AttCol[]>();
+  for (const col of attCols) {
+    const list = byPeriod.get(col.period.Period_no) ?? [];
+    list.push(col);
+    byPeriod.set(col.period.Period_no, list);
+  }
+
+  for (const [, periodCols] of byPeriod) {
+    const period = periodCols[0]?.period;
+    if (!period) continue;
+    const isSplit =
+      period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
+    const groupHeader = `${str(period.timeset)}\n${period.Period_no}`;
+
+    if (!isSplit) {
+      const only = periodCols[0];
+      cols.push({
+        colId: only.field,
+        field: only.field,
+        headerName: `${groupHeader}\n${only.childHeader}`,
+        headerTooltip: str(period.Subject_name),
+        wrapHeaderText: true,
+        autoHeaderHeight: true,
+        minWidth: 110,
+        cellRenderer: presentCellRenderer,
+        cellClass: "text-center",
+      });
+      continue;
+    }
+
+    cols.push({
+      headerName: groupHeader,
+      marryChildren: true,
+      children: periodCols.map(
+        (c) =>
+          ({
+            colId: c.field,
+            field: c.field,
+            headerName: c.childHeader,
+            headerTooltip: str(
+              c.period.batches.find((b) =>
+                c.period.subject_type === "LAB"
+                  ? str(b.batch_name) === (c.key ?? "")
+                  : b.subject === (c.key ?? ""),
+              )?.Subject_name ?? c.period.Subject_name,
+            ),
+            wrapHeaderText: true,
+            autoHeaderHeight: true,
+            minWidth: 120,
+            cellRenderer: presentCellRenderer,
+            cellClass: "text-center",
+          }) as ColDef<GridRow>,
+      ),
+    });
+  }
+
+  cols.push({
+    colId: "totalPeriods",
+    field: "totalPeriods",
+    headerName: "Total Periods",
+    minWidth: 110,
+    cellClass: "text-center",
+  });
+
+  return cols;
+}
+
+function buildGridRows(opts: {
+  studentAttendance: StudentAtt[];
+  resultList: AnyRow[];
+  attCols: AttCol[];
+}): GridRow[] {
+  const { studentAttendance, resultList, attCols } = opts;
+
+  // Student rows only — Angular data table has no Total Present/Absent/Strength rows.
+  return studentAttendance.map((student, i) => {
+    const total =
+      student.classes_attended != null || student.total_clasess != null
+        ? `${str(student.classes_attended) || "0"}/${str(student.total_clasess) || "0"}`
+        : "";
+    const row: GridRow = {
+      __rowId: `stu-${student.rollNumber}`,
+      siNo: i + 1,
+      rollNumber: student.rollNumber,
+      student: `${student.firstName} (${str(student.Father_Mobile_No)})`,
+      totalPeriods: total,
+    };
+    for (const col of attCols) {
+      row[col.field] = getAttendance(
+        resultList,
+        student,
+        col.period.Period_no,
+        col.key,
+      );
+    }
+    return row;
+  });
 }
 
 function buildPeriodHeaderCells(groupedPeriods: GroupedPeriod[]): {
@@ -254,12 +432,7 @@ function buildPeriodBodyCells(
       for (const batch of period.batches) {
         const key =
           period.subject_type === "LAB" ? batch.batch_name : batch.subject;
-        const val = getAttendance(
-          resultList,
-          student,
-          period.Period_no,
-          key,
-        );
+        const val = getAttendance(resultList, student, period.Period_no, key);
         const cls = val === "A" ? "color:#c00;font-weight:600;" : "";
         cells += `<td style="border:1px solid #333;padding:3px 5px;text-align:center;${cls}">${escapeHtml(val)}</td>`;
       }
@@ -268,47 +441,13 @@ function buildPeriodBodyCells(
   return cells;
 }
 
-function buildSummaryRow(
-  label: string,
-  field: string,
-  groupedPeriods: GroupedPeriod[],
-  periodSummary: AnyRow[],
-): string {
-  let cells = "";
-  for (const period of groupedPeriods) {
-    const isSplit =
-      period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
-    if (!isSplit) {
-      cells += `<td style="border:1px solid #333;padding:3px 5px;text-align:center;">${escapeHtml(str(getSummary(periodSummary, period, null, field)))}</td>`;
-    } else {
-      for (const batch of period.batches) {
-        const key =
-          period.subject_type === "LAB" ? batch.batch_name : batch.subject;
-        cells += `<td style="border:1px solid #333;padding:3px 5px;text-align:center;">${escapeHtml(str(getSummary(periodSummary, period, key, field)))}</td>`;
-      }
-    }
-  }
-  return `<tr>
-    <td colspan="3" style="border:1px solid #333;padding:3px 5px;text-align:right;"><b>${escapeHtml(label)}</b></td>
-    ${cells}
-    <td style="border:1px solid #333;padding:3px 5px;"></td>
-  </tr>`;
-}
-
 function buildReportTableHtml(opts: {
   groupedPeriods: GroupedPeriod[];
   studentAttendance: StudentAtt[];
   uniqueKeys: UniqueKey[];
   resultList: AnyRow[];
-  periodSummary: AnyRow[];
 }): string {
-  const {
-    groupedPeriods,
-    studentAttendance,
-    uniqueKeys,
-    resultList,
-    periodSummary,
-  } = opts;
+  const { groupedPeriods, studentAttendance, uniqueKeys, resultList } = opts;
   const { row1, row2 } = buildPeriodHeaderCells(groupedPeriods);
 
   const body = studentAttendance
@@ -326,26 +465,6 @@ function buildReportTableHtml(opts: {
       </tr>`;
     })
     .join("");
-
-  const foot =
-    buildSummaryRow(
-      "Total Present",
-      "TOTAL_PRESENT",
-      groupedPeriods,
-      periodSummary,
-    ) +
-    buildSummaryRow(
-      "Total Absent",
-      "TOTAL_ABSENT",
-      groupedPeriods,
-      periodSummary,
-    ) +
-    buildSummaryRow(
-      "Total Strength",
-      "TOTAL_STRENGTH",
-      groupedPeriods,
-      periodSummary,
-    );
 
   const noteBody = uniqueKeys
     .map(
@@ -371,7 +490,6 @@ function buildReportTableHtml(opts: {
     <tr>${row2}</tr>
   </thead>
   <tbody>${body}</tbody>
-  <tfoot>${foot}</tfoot>
 </table>
 <div style="padding:8px 0;margin-top:8px;">
   <p style="margin:7px 0;"><span style="font-weight:500;color:red;">Note :</span></p>
@@ -407,7 +525,6 @@ export default function DailyAttendancePeriodWiseReportPage() {
   const [studentAttendance, setStudentAttendance] = useState<StudentAtt[]>([]);
   const [uniqueKeys, setUniqueKeys] = useState<UniqueKey[]>([]);
   const [resultList, setResultList] = useState<AnyRow[]>([]);
-  const [periodSummary, setPeriodSummary] = useState<AnyRow[]>([]);
 
   const clearResults = useCallback(() => {
     setShowTable(false);
@@ -417,7 +534,6 @@ export default function DailyAttendancePeriodWiseReportPage() {
     setStudentAttendance([]);
     setUniqueKeys([]);
     setResultList([]);
-    setPeriodSummary([]);
   }, []);
 
   const filters = useAttendanceReportFilters({
@@ -433,6 +549,25 @@ export default function DailyAttendancePeriodWiseReportPage() {
     return d;
   }, []);
 
+  const attCols = useMemo(
+    () => collectAttCols(groupedPeriods),
+    [groupedPeriods],
+  );
+
+  const columnDefs = useMemo(() => buildGridColumnDefs(attCols), [attCols]);
+
+  const gridRows = useMemo(
+    () =>
+      showTable
+        ? buildGridRows({
+            studentAttendance,
+            resultList,
+            attCols,
+          })
+        : [],
+    [showTable, studentAttendance, resultList, attCols],
+  );
+
   const tableHtml = useMemo(() => {
     if (!showTable || studentAttendance.length === 0) return "";
     return buildReportTableHtml({
@@ -440,16 +575,8 @@ export default function DailyAttendancePeriodWiseReportPage() {
       studentAttendance,
       uniqueKeys,
       resultList,
-      periodSummary,
     });
-  }, [
-    showTable,
-    groupedPeriods,
-    studentAttendance,
-    uniqueKeys,
-    resultList,
-    periodSummary,
-  ]);
+  }, [showTable, groupedPeriods, studentAttendance, uniqueKeys, resultList]);
 
   const handleGetList = async () => {
     const cid = Number(filters.collegeId || 0);
@@ -508,7 +635,7 @@ export default function DailyAttendancePeriodWiseReportPage() {
             "",
         ),
       );
-      const transformed = transformDailyRows(raw.rows ?? [], raw.summary ?? []);
+      const transformed = transformDailyRows(raw.rows ?? []);
       if (transformed.studentAttendance.length === 0) {
         toastInfo("No attendance records found.");
         return;
@@ -517,7 +644,6 @@ export default function DailyAttendancePeriodWiseReportPage() {
       setStudentAttendance(transformed.studentAttendance);
       setUniqueKeys(transformed.uniqueKeys);
       setResultList(transformed.resultList);
-      setPeriodSummary(transformed.periodSummary);
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
@@ -567,18 +693,17 @@ ${tableHtml}
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
 
-  const pageTitle = showTable
-    ? dataDetails
-      ? `${REPORT_TITLE} — ${dataDetails}`
-      : REPORT_TITLE
-    : REPORT_TITLE;
+  const pageTitle =
+    showTable && dataDetails
+      ? `${REPORT_TITLE} - ${dataDetails}`
+      : REPORT_TITLE;
 
   return (
-    <FilteredPage
+    <FilteredListPage<GridRow>
       title={pageTitle}
       filters={
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="College"
               required
@@ -589,7 +714,7 @@ ${tableHtml}
               isLoading={filters.loadingFilters}
             />
           </div>
-          <div className="min-w-[8.5rem] flex-1 basis-[8.5rem] sm:min-w-[9.5rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Academic Year"
               required
@@ -599,7 +724,7 @@ ${tableHtml}
               placeholder="Academic Year"
             />
           </div>
-          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Course"
               required
@@ -610,7 +735,7 @@ ${tableHtml}
               disabled={!filters.collegeId}
             />
           </div>
-          <div className="min-w-[8rem] flex-1 basis-[8rem] sm:min-w-[9rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Course Group"
               required
@@ -621,7 +746,7 @@ ${tableHtml}
               disabled={!filters.courseId}
             />
           </div>
-          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Course Year"
               required
@@ -632,7 +757,7 @@ ${tableHtml}
               disabled={!filters.courseGroupId}
             />
           </div>
-          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Section"
               required
@@ -643,7 +768,7 @@ ${tableHtml}
               disabled={!filters.courseYearId}
             />
           </div>
-          <div className="min-w-[9rem] flex-1 basis-[9rem] sm:min-w-[10rem]">
+          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <DatePicker
               label="Date"
               required
@@ -657,53 +782,115 @@ ${tableHtml}
               }}
             />
           </div>
-          <div className="flex shrink-0 items-center gap-2 pb-0.5">
-            <Button
-              type="button"
-              className="h-9 w-fit px-4"
-              disabled={loadingList}
-              onClick={() => void handleGetList()}
-            >
-              {loadingList ? "Loading…" : "Get Daily Attendance"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
-              onClick={goBack}
-            >
-              Back
-            </Button>
-          </div>
+          <Button
+            type="button"
+            className="h-9 w-fit px-4"
+            disabled={loadingList}
+            onClick={() => void handleGetList()}
+          >
+            {loadingList ? "Loading…" : "Get Daily Attendance"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-9 w-fit px-4"
+            onClick={goBack}
+          >
+            Back
+          </Button>
         </div>
       }
-      body={
+      showTable={showTable}
+      rowData={gridRows}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      resultsVisible={showTable}
+      hideEmptyGrid
+      pagination
+      paginationPageSize={25}
+      fitColumnsToWidth={false}
+      autoHeight
+      getRowId={(p) => String(p.data?.__rowId ?? "")}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
+      toolbarTrailing={
         showTable ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 px-3 text-[12px]"
-                onClick={handleExcelExport}
-              >
-                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-                Export Excel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 px-3 text-[12px]"
-                onClick={handlePrintReport}
-              >
-                <Printer className="mr-1.5 h-3.5 w-3.5" />
-                Print Report
-              </Button>
-            </div>
-            <div
-              className="overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: tableHtml }}
-            />
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handlePrintReport}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
+        ) : null
+      }
+      afterGrid={
+        showTable && uniqueKeys.length > 0 ? (
+          <div className="overflow-x-auto">
+            <p className="mb-2 text-sm font-medium text-red-600">Note :</p>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                    S.No
+                  </th>
+                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                    Subject Code
+                  </th>
+                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                    Subject
+                  </th>
+                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                    Faculty
+                  </th>
+                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                    Credit Points
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {uniqueKeys.map((key, i) => (
+                  <tr key={`${key.subject}-${i}`}>
+                    <td className="border border-border px-2 py-1.5 text-center">
+                      {i + 1}
+                    </td>
+                    <td className="border border-border px-2 py-1.5">
+                      {key.subject}
+                    </td>
+                    <td className="border border-border px-2 py-1.5">
+                      {str(key.Subject_name)} (
+                      <span className="text-blue-600">
+                        {str(key.subject_type)}
+                      </span>
+                      )
+                    </td>
+                    <td className="border border-border px-2 py-1.5">
+                      {str(key.Faculty)}
+                    </td>
+                    <td className="border border-border px-2 py-1.5 text-center">
+                      {str(key.sub_credits)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : null
       }

@@ -2,14 +2,15 @@
 
 /**
  * Class Syllabus Report —
- * Angular `reports/student-admission-reports/class-syllabus-status-report` parity.
+ * Admin: `reports/admin-student-reports/class-syllabus-status-report`
+ * HOD:   `staff-reports/admin-student-reports/class-syllabus-status-report`
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -23,10 +24,18 @@ import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   fetchTimetableFilterRows,
   getClasswiseSyllabusStatus,
 } from "@/services";
+import {
+  attendancePrintShell,
+  resolveAttendancePrintLogo,
+  toPrintLogoUrl,
+} from "../../admin-attendance-reports/_lib/attendance-report-print";
+
+const PRINT_REPORT_TITLE = "Class Syllabus Report";
 
 type AnyRow = Record<string, unknown>;
 
@@ -113,6 +122,8 @@ export default function ClassSyllabusStatusReportPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
 
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
+
   const clearResults = useCallback(() => {
     setRows([]);
     setShowTable(false);
@@ -129,6 +140,14 @@ export default function ClassSyllabusStatusReportPage() {
     [filtersQuery.data],
   );
 
+  const selectedCollegeRow = useMemo(
+    () =>
+      filterRows.find(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId || 0),
+      ) ?? null,
+    [filterRows, collegeId],
+  );
+
   const colleges = useMemo(
     () =>
       dedupeBy(filterRows, (r) => num(r.fk_college_id ?? r.collegeId)).sort(
@@ -143,13 +162,17 @@ export default function ClassSyllabusStatusReportPage() {
     () =>
       dedupeBy(
         filterRows.filter(
-          (r) => !collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+          (r) =>
+            !collegeId ||
+            num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
         ),
         (r) => num(r.fk_academic_year_id ?? r.academicYearId),
       ).sort(
         (a, b) =>
           num(b.is_curr_ay ?? b.isCurrAy) - num(a.is_curr_ay ?? a.isCurrAy) ||
-          String(b.academic_year ?? "").localeCompare(String(a.academic_year ?? "")),
+          String(b.academic_year ?? "").localeCompare(
+            String(a.academic_year ?? ""),
+          ),
       ),
     [filterRows, collegeId],
   );
@@ -159,9 +182,11 @@ export default function ClassSyllabusStatusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)),
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)),
         ),
         (r) => num(r.fk_course_id ?? r.courseId),
       ),
@@ -173,10 +198,13 @@ export default function ClassSyllabusStatusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)) &&
-            (!courseId || num(r.fk_course_id ?? r.courseId) === Number(courseId)),
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)) &&
+            (!courseId ||
+              num(r.fk_course_id ?? r.courseId) === Number(courseId)),
         ),
         (r) => num(r.fk_course_group_id ?? r.courseGroupId),
       ),
@@ -188,12 +216,16 @@ export default function ClassSyllabusStatusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)) &&
-            (!courseId || num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)) &&
+            (!courseId ||
+              num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
             (!courseGroupId ||
-              num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId)),
+              num(r.fk_course_group_id ?? r.courseGroupId) ===
+                Number(courseGroupId)),
         ),
         (r) => num(r.fk_course_year_id ?? r.courseYearId),
       ).sort(
@@ -208,14 +240,19 @@ export default function ClassSyllabusStatusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)) &&
-            (!courseId || num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)) &&
+            (!courseId ||
+              num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
             (!courseGroupId ||
-              num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId)) &&
+              num(r.fk_course_group_id ?? r.courseGroupId) ===
+                Number(courseGroupId)) &&
             (!courseYearId ||
-              num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId)),
+              num(r.fk_course_year_id ?? r.courseYearId) ===
+                Number(courseYearId)),
         ),
         (r) => num(r.fk_group_section_id ?? r.groupSectionId ?? r.sectionId),
       ).sort(
@@ -223,13 +260,26 @@ export default function ClassSyllabusStatusReportPage() {
           num(a.fk_group_section_id ?? a.groupSectionId) -
           num(b.fk_group_section_id ?? b.groupSectionId),
       ),
-    [filterRows, collegeId, academicYearId, courseId, courseGroupId, courseYearId],
+    [
+      filterRows,
+      collegeId,
+      academicYearId,
+      courseId,
+      courseGroupId,
+      courseYearId,
+    ],
   );
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -240,12 +290,17 @@ export default function ClassSyllabusStatusReportPage() {
     }
     if (
       !academicYears.some(
-        (r) => num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId),
+        (r) =>
+          num(r.fk_academic_year_id ?? r.academicYearId) ===
+          Number(academicYearId),
       )
     ) {
       setAcademicYearId(
         String(
-          num(academicYears[0].fk_academic_year_id ?? academicYears[0].academicYearId),
+          num(
+            academicYears[0].fk_academic_year_id ??
+              academicYears[0].academicYearId,
+          ),
         ),
       );
     }
@@ -256,7 +311,11 @@ export default function ClassSyllabusStatusReportPage() {
       setCourseId("");
       return;
     }
-    if (!courses.some((r) => num(r.fk_course_id ?? r.courseId) === Number(courseId))) {
+    if (
+      !courses.some(
+        (r) => num(r.fk_course_id ?? r.courseId) === Number(courseId),
+      )
+    ) {
       setCourseId(String(num(courses[0].fk_course_id ?? courses[0].courseId)));
     }
   }, [courses, courseId]);
@@ -268,11 +327,17 @@ export default function ClassSyllabusStatusReportPage() {
     }
     if (
       !courseGroups.some(
-        (r) => num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId),
+        (r) =>
+          num(r.fk_course_group_id ?? r.courseGroupId) ===
+          Number(courseGroupId),
       )
     ) {
       setCourseGroupId(
-        String(num(courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId)),
+        String(
+          num(
+            courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId,
+          ),
+        ),
       );
     }
   }, [courseGroups, courseGroupId]);
@@ -284,11 +349,14 @@ export default function ClassSyllabusStatusReportPage() {
     }
     if (
       !courseYears.some(
-        (r) => num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
+        (r) =>
+          num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
       )
     ) {
       setCourseYearId(
-        String(num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId)),
+        String(
+          num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId),
+        ),
       );
     }
   }, [courseYears, courseYearId]);
@@ -325,6 +393,17 @@ export default function ClassSyllabusStatusReportPage() {
       })),
     [colleges],
   );
+
+  const collegeName = useMemo(() => {
+    const fromFilter = txt(
+      selectedCollegeRow?.college_name ?? selectedCollegeRow?.collegeName,
+    );
+    if (fromFilter) return fromFilter;
+    return (
+      collegeOptions.find((o) => o.value === collegeId)?.label || "College"
+    );
+  }, [selectedCollegeRow, collegeId, collegeOptions]);
+
   const ayOptions = useMemo(
     () =>
       academicYears.map((r) => ({
@@ -442,12 +521,14 @@ export default function ClassSyllabusStatusReportPage() {
       });
       if (raw.length === 0) {
         toastInfo("No class syllabus records found.");
+        setShowTable(false);
         return;
       }
       setRows(raw);
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
+      setShowTable(false);
     } finally {
       setLoadingList(false);
     }
@@ -458,7 +539,11 @@ export default function ClassSyllabusStatusReportPage() {
       toastInfo("No records to export.");
       return;
     }
-    const headerHtml = `<div style="font-weight:600;margin-bottom:8px;">Class Syllabus Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</div>`;
+    const headerHtml = `<div style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:600;">${escapeHtml(collegeName || "College")}</div>
+      ${dataDetails ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(dataDetails)}</div>` : ""}
+      <div style="font-size:16px;font-weight:550;margin-top:4px;">${escapeHtml(PRINT_REPORT_TITLE)}</div>
+    </div>`;
     exportHtmlTableAsExcel(
       "Class Syllabus Report.xls",
       buildHtmlTable(EXCEL_COLUMNS, exportRows),
@@ -466,22 +551,29 @@ export default function ClassSyllabusStatusReportPage() {
     );
   };
 
-  const printReport = () => {
+  const printReport = async () => {
     if (exportRows.length === 0) {
       toastInfo("No records to print.");
       return;
     }
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Class Syllabus Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px}
-th{background:#e8f0fe}
-</style></head><body>
-<p style="font-weight:600">Class Syllabus Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</p>
-${buildHtmlTable(EXCEL_COLUMNS, exportRows)}
-</body></html>`);
+    const cid = Number(collegeId || 0);
+    const logoSrc = await resolveAttendancePrintLogo(
+      selectedCollegeRow,
+      cid,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+    const tableHtml = buildHtmlTable(EXCEL_COLUMNS, exportRows);
+    printHtmlInIframe(
+      attendancePrintShell({
+        title: escapeHtml(PRINT_REPORT_TITLE),
+        logoSrc: escapeHtml(logoSrc),
+        fallbackLogo: escapeHtml(fallbackLogo),
+        collegeName: escapeHtml(collegeName || "College"),
+        dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
+        tableHtml,
+      }),
+    );
   };
 
   const goBack = () => {
@@ -591,6 +683,7 @@ ${buildHtmlTable(EXCEL_COLUMNS, exportRows)}
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? displayRows : []}
       columnDefs={columnDefs}
       loading={loadingList}
@@ -601,22 +694,31 @@ ${buildHtmlTable(EXCEL_COLUMNS, exportRows)}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
-      onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={printReport}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

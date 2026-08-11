@@ -58,7 +58,7 @@ export default function AllocateStudentSubjectPage() {
         setRegulationData([]);
       });
   }, []);
-
+  const ALL_VALUE = 0;
   const colleges = useMemo(
     () =>
       uniq(filtersData, "fk_college_id").sort(
@@ -66,46 +66,47 @@ export default function AllocateStudentSubjectPage() {
       ),
     [filtersData],
   );
-  const courses = useMemo(
-    () =>
-      uniq(
-        filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0)),
-        "fk_course_id",
-      ),
-    [filtersData, collegeId],
-  );
-  const courseGroups = useMemo(
-    () =>
-      uniq(
-        filtersData.filter(
-          (r) =>
-            n(r.fk_college_id) === (collegeId ?? 0) &&
-            n(r.fk_course_id) === (courseId ?? 0),
-        ),
-        "fk_course_group_id",
-      ),
-    [filtersData, collegeId, courseId],
-  );
-  const courseYears = useMemo(
-    () =>
-      uniq(
-        filtersData.filter(
-          (r) =>
-            n(r.fk_college_id) === (collegeId ?? 0) &&
-            n(r.fk_course_id) === (courseId ?? 0) &&
-            n(r.fk_course_group_id) === (courseGroupId ?? 0),
-        ),
-        "fk_course_year_id",
-      ).sort((a, b) => n(a.year_order) - n(b.year_order)),
-    [filtersData, collegeId, courseId, courseGroupId],
-  );
+  const courses = useMemo(() => {
+    const filtered = filtersData.filter((r) =>
+      collegeId === ALL_VALUE ? true : n(r.fk_college_id) === (collegeId ?? 0),
+    );
+
+    return uniq(filtered, "fk_course_id");
+  }, [filtersData, collegeId]);
+  const courseGroups = useMemo(() => {
+    const filtered = filtersData.filter(
+      (r) =>
+        (collegeId === ALL_VALUE || n(r.fk_college_id) === (collegeId ?? 0)) &&
+        (courseId === ALL_VALUE || n(r.fk_course_id) === (courseId ?? 0)),
+    );
+
+    return uniq(filtered, "fk_course_group_id");
+  }, [filtersData, collegeId, courseId]);
+  const courseYears = useMemo(() => {
+    const filtered = filtersData.filter(
+      (r) =>
+        (collegeId === ALL_VALUE || n(r.fk_college_id) === (collegeId ?? 0)) &&
+        (courseId === ALL_VALUE || n(r.fk_course_id) === (courseId ?? 0)) &&
+        (courseGroupId === ALL_VALUE ||
+          n(r.fk_course_group_id) === (courseGroupId ?? 0)),
+    );
+
+    return uniq(filtered, "fk_course_year_id").sort(
+      (a, b) => n(a.year_order) - n(b.year_order),
+    );
+  }, [filtersData, collegeId, courseId, courseGroupId]);
   const academicYears = useMemo(() => {
     const univId = n(
-      filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))
-        ?.fk_university_id,
+      filtersData.find(
+        (x) =>
+          collegeId === ALL_VALUE || n(x.fk_college_id) === (collegeId ?? 0),
+      )?.fk_university_id,
     );
+
     return uniq(
-      academicData.filter((r) => n(r.fk_university_id) === univId),
+      academicData.filter(
+        (r) => collegeId === ALL_VALUE || n(r.fk_university_id) === univId,
+      ),
       "fk_academic_year_id",
     ).sort((a, b) =>
       String(b.academic_year ?? "").localeCompare(
@@ -116,15 +117,21 @@ export default function AllocateStudentSubjectPage() {
   // Regulations come from the proc's `clg_filters_regulation` set — filtered by the selected
   // college's university and the selected course (Angular `selectedYear`).
   const regulations = useMemo(() => {
-    const univId = n(
-      filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))
-        ?.fk_university_id,
-    );
+    const universityIds =
+      collegeId === ALL_VALUE
+        ? new Set(filtersData.map((x) => n(x.fk_university_id)))
+        : new Set([
+            n(
+              filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))
+                ?.fk_university_id,
+            ),
+          ]);
+
     return uniq(
       regulationData.filter(
         (r) =>
-          n(r.fk_university_id) === univId &&
-          n(r.fk_course_id) === (courseId ?? 0),
+          universityIds.has(n(r.fk_university_id)) &&
+          (courseId === ALL_VALUE || n(r.fk_course_id) === (courseId ?? 0)),
       ),
       "fk_regulation_id",
     );
@@ -141,53 +148,74 @@ export default function AllocateStudentSubjectPage() {
     setAcademicYearId(null);
     setRegulationId(null);
   }, [collegeId]);
+
   useEffect(() => {
-    if (!courseId && courses.length) setCourseId(n(courses[0].fk_course_id));
+    if (collegeId === null && colleges.length) {
+      setCollegeId(ALL_VALUE);
+    }
+  }, [colleges, collegeId]);
+
+  useEffect(() => {
+    if (courseId === null && courses.length) {
+      setCourseId(ALL_VALUE);
+    }
   }, [courses, courseId]);
+
+  useEffect(() => {
+    if (courseGroupId === null && courseGroups.length) {
+      setCourseGroupId(ALL_VALUE);
+    }
+  }, [courseGroups, courseGroupId]);
+
+  useEffect(() => {
+    if (courseYearId === null && courseYears.length) {
+      setCourseYearId(ALL_VALUE);
+    }
+  }, [courseYears, courseYearId]);
+
+  useEffect(() => {
+    if (academicYearId === null && academicYears.length) {
+      setAcademicYearId(ALL_VALUE);
+    }
+  }, [academicYears, academicYearId]);
+
+  useEffect(() => {
+    if (regulationId === null && regulations.length) {
+      setRegulationId(ALL_VALUE);
+    }
+  }, [regulations, regulationId]);
   useEffect(() => {
     setCourseGroupId(null);
     setCourseYearId(null);
     setRegulationId(null);
   }, [courseId]);
-  useEffect(() => {
-    if (!courseGroupId && courseGroups.length)
-      setCourseGroupId(n(courseGroups[0].fk_course_group_id));
-  }, [courseGroups, courseGroupId]);
+
   useEffect(() => {
     setCourseYearId(null);
     setRegulationId(null);
   }, [courseGroupId]);
-  useEffect(() => {
-    if (!courseYearId && courseYears.length)
-      setCourseYearId(n(courseYears[0].fk_course_year_id));
-  }, [courseYears, courseYearId]);
-  useEffect(() => {
-    if (!academicYearId && academicYears.length)
-      setAcademicYearId(
-        n(
-          [...academicYears].sort(
-            (a, b) => n(b.is_curr_ay) - n(a.is_curr_ay),
-          )[0]?.fk_academic_year_id,
-        ),
-      );
-  }, [academicYears, academicYearId]);
 
   const regulationOptions = useMemo(
-    () =>
-      regulations.map((x) => ({
+    () => [
+      {
+        value: String(ALL_VALUE),
+        label: "All",
+      },
+      ...regulations.map((x) => ({
         value: String(n(x.fk_regulation_id)),
         label: s(x.regulation_code) || "Regulation",
       })),
+    ],
     [regulations],
   );
 
   // Angular `allocate` flag: the action card only appears once a regulation is chosen.
   const canAllocate = Boolean(
-    collegeId &&
-    academicYearId &&
-    courseGroupId &&
-    courseYearId &&
-    regulationId,
+    collegeId !== null &&
+    academicYearId !== null &&
+    courseGroupId !== null &&
+    courseYearId !== null &&
+    regulationId !== null,
   );
 
   async function onAllocate() {
@@ -224,63 +252,93 @@ export default function AllocateStudentSubjectPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <Select
             label="College *"
-            value={collegeId ? String(collegeId) : null}
-            onChange={(v) => setCollegeId(v ? Number(v) : null)}
-            options={colleges.map((x) => ({
-              value: String(n(x.fk_college_id)),
-              label: s(x.college_code),
-            }))}
+            value={collegeId !== null ? String(collegeId) : null}
+            onChange={(v) => setCollegeId(v ? Number(v) : ALL_VALUE)}
+            options={[
+              {
+                value: String(ALL_VALUE),
+                label: "All",
+              },
+              ...colleges.map((x) => ({
+                value: String(n(x.fk_college_id)),
+                label: s(x.college_code),
+              })),
+            ]}
             searchable
             className="md:col-span-2"
           />
           <Select
             label="Academic Year *"
-            value={academicYearId ? String(academicYearId) : null}
-            onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-            options={academicYears.map((x) => ({
-              value: String(n(x.fk_academic_year_id)),
-              label: s(x.academic_year),
-            }))}
+            value={academicYearId !== null ? String(academicYearId) : null}
+            onChange={(v) => setAcademicYearId(v ? Number(v) : ALL_VALUE)}
+            options={[
+              {
+                value: String(ALL_VALUE),
+                label: "All",
+              },
+              ...academicYears.map((x) => ({
+                value: String(n(x.fk_academic_year_id)),
+                label: s(x.academic_year),
+              })),
+            ]}
             searchable
             className="md:col-span-2"
           />
           <Select
             label="Course *"
-            value={courseId ? String(courseId) : null}
-            onChange={(v) => setCourseId(v ? Number(v) : null)}
-            options={courses.map((x) => ({
-              value: String(n(x.fk_course_id)),
-              label: s(x.course_code),
-            }))}
+            value={courseId !== null ? String(courseId) : null}
+            onChange={(v) => setCourseId(v ? Number(v) : ALL_VALUE)}
+            options={[
+              {
+                value: String(ALL_VALUE),
+                label: "All",
+              },
+              ...courses.map((x) => ({
+                value: String(n(x.fk_course_id)),
+                label: s(x.course_code),
+              })),
+            ]}
             searchable
             className="md:col-span-2"
           />
           <Select
             label="Course Group *"
-            value={courseGroupId ? String(courseGroupId) : null}
-            onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
-            options={courseGroups.map((x) => ({
-              value: String(n(x.fk_course_group_id)),
-              label: s(x.group_code) || s(x.group_name),
-            }))}
+            value={courseGroupId !== null ? String(courseGroupId) : null}
+            onChange={(v) => setCourseGroupId(v ? Number(v) : ALL_VALUE)}
+            options={[
+              {
+                value: String(ALL_VALUE),
+                label: "All",
+              },
+              ...courseGroups.map((x) => ({
+                value: String(n(x.fk_course_group_id)),
+                label: s(x.group_code) || s(x.group_name),
+              })),
+            ]}
             searchable
             className="md:col-span-2"
           />
           <Select
             label="Course Year *"
-            value={courseYearId ? String(courseYearId) : null}
-            onChange={(v) => setCourseYearId(v ? Number(v) : null)}
-            options={courseYears.map((x) => ({
-              value: String(n(x.fk_course_year_id)),
-              label: s(x.course_year_name),
-            }))}
+            value={courseYearId !== null ? String(courseYearId) : null}
+            onChange={(v) => setCourseYearId(v ? Number(v) : ALL_VALUE)}
+            options={[
+              {
+                value: String(ALL_VALUE),
+                label: "All",
+              },
+              ...courseYears.map((x) => ({
+                value: String(n(x.fk_course_year_id)),
+                label: s(x.course_year_name),
+              })),
+            ]}
             searchable
             className="md:col-span-2"
           />
           <Select
             label="Regulation *"
-            value={regulationId ? String(regulationId) : null}
-            onChange={(v) => setRegulationId(v ? Number(v) : null)}
+            value={regulationId !== null ? String(regulationId) : null}
+            onChange={(v) => setRegulationId(v ? Number(v) : ALL_VALUE)}
             options={regulationOptions}
             searchable
             className="md:col-span-2"

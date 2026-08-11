@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
 import {
@@ -31,6 +31,7 @@ import {
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import { toastError, toastInfo } from "@/lib/toast";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   Building2,
   FileSpreadsheet,
@@ -112,6 +113,9 @@ export default function BatchWiseSgpaReportPage() {
 
   const [semesters, setSemesters] = useState<SgpaSemesterCol[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [showTable, setShowTable] = useState(false);
+  const [dataDetails, setDataDetails] = useState("");
+  const collegeLogo = useCollegeLogo(collegeId);
 
   const colleges = useMemo(() => filterColleges(filtersData), [filtersData]);
   const courses = useMemo(
@@ -178,6 +182,38 @@ export default function BatchWiseSgpaReportPage() {
   function clearResults() {
     setRows([]);
     setSemesters([]);
+    setShowTable(false);
+    setDataDetails("");
+  }
+
+  function buildDataDetails() {
+    const college = colleges.find(
+      (r) => pickNum(r, ["fk_college_id", "collegeId"]) === collegeId,
+    );
+    const course = courses.find(
+      (r) => pickNum(r, ["fk_course_id", "courseId"]) === courseId,
+    );
+    const batch = batches.find(
+      (r) => pickNum(r, ["fk_batch_id", "batchId"]) === batchId,
+    );
+    const group =
+      courseGroupId === 0
+        ? null
+        : courseGroups.find(
+            (r) =>
+              pickNum(r, ["fk_course_group_id", "courseGroupId"]) ===
+              courseGroupId,
+          );
+    return [
+      pickText(college ?? {}, ["college_code", "collegeCode"]),
+      pickText(course ?? {}, ["course_code", "courseCode"]),
+      pickText(batch ?? {}, ["batch_name", "batchName"]),
+      courseGroupId === 0
+        ? "All"
+        : pickText(group ?? {}, ["group_code", "groupCode", "group_name"]),
+    ]
+      .filter(Boolean)
+      .join(" / ");
   }
 
   useEffect(() => {
@@ -309,6 +345,8 @@ export default function BatchWiseSgpaReportPage() {
       }));
       setSemesters(sems.filter((s) => s.course_year_code));
       setRows(pivotSgpaRows(data.semesters ?? [], data.students));
+      setDataDetails(buildDataDetails());
+      setShowTable(true);
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -351,22 +389,11 @@ export default function BatchWiseSgpaReportPage() {
     const college = colleges.find(
       (r) => pickNum(r, ["fk_college_id", "collegeId"]) === collegeId,
     );
-    const course = courses.find(
-      (r) => pickNum(r, ["fk_course_id", "courseId"]) === courseId,
-    );
-    const batch = batches.find(
-      (r) => pickNum(r, ["fk_batch_id", "batchId"]) === batchId,
-    );
     printBatchWiseSgpaReport(rows, {
       title: "Batch Wise SGPA Report",
       collegeName: pickText(college ?? {}, ["college_name", "collegeName"]),
-      filterSummary: [
-        pickText(college ?? {}, ["college_code", "collegeCode"]),
-        pickText(course ?? {}, ["course_code", "courseCode"]),
-        pickText(batch ?? {}, ["batch_name", "batchName"]),
-      ]
-        .filter(Boolean)
-        .join(" / "),
+      filterSummary: dataDetails,
+      logoUrl: collegeLogo,
       semesters,
     });
   }
@@ -491,19 +518,31 @@ export default function BatchWiseSgpaReportPage() {
     <FilteredListPage
       title="Batch Wise SGPA Report"
       filters={filters}
-      rowData={rows}
+      showTable={showTable}
+      rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={showTable}
+      hideEmptyGrid
       pagination
       paginationPageSize={25}
       toolbar={TOOLBAR}
+      tableHeader={
+        showTable ? (
+          <TableContextHeader
+            title="Batch Wise SGPA Report"
+            info={dataDetails || undefined}
+          />
+        ) : null
+      }
       toolbarTrailing={
-        rows.length > 0 ? (
+        showTable && rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="outline"
-              className="h-8 text-[12px]"
+              size="sm"
+              data-table-primary-action
+              className="h-8 px-3 text-[12px]"
               onClick={handleExportExcel}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -511,8 +550,9 @@ export default function BatchWiseSgpaReportPage() {
             </Button>
             <Button
               type="button"
-              variant="outline"
-              className="h-8 text-[12px]"
+              size="sm"
+              data-table-primary-action
+              className="h-8 px-3 text-[12px]"
               onClick={handlePrint}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />

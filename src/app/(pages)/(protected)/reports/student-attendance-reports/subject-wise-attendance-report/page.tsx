@@ -8,11 +8,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
-import { exportHtmlTableAsExcel } from "@/common/export-html-table";
-import { FilteredPage } from "@/components/layout";
+import {
+  buildHtmlTable,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +25,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { printHtmlInIframe } from "@/lib/print";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError, toastInfo } from "@/lib/toast";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   fetchAttendanceSubjectFilterRows,
   fetchSubjectWiseAttendanceReport,
@@ -38,16 +43,9 @@ type AnyRow = Record<string, unknown>;
 
 const REPORT_TITLE = "Subject Wise Attendance Report";
 
-type DateCell = { present: string; per: unknown };
-type StudentPivot = {
-  rollNumber: string;
-  Academic_details: string;
-  firstName: string;
-  Father_Mobile_No: string;
-  subjectAttendance: DateCell[];
-  present: number;
-  total: number;
-};
+function dateFieldKey(date: string): string {
+  return `d_${date}`;
+}
 
 function pickText(row: AnyRow, keys: string[]): string {
   for (const k of keys) {
@@ -65,14 +63,35 @@ function pickNum(row: AnyRow, keys: string[]): number {
   return 0;
 }
 
+function studentCellRenderer(p: ICellRendererParams<AnyRow>) {
+  const name = String(p.data?.firstName ?? "");
+  const mobile = String(p.data?.Father_Mobile_No ?? "");
+  if (!mobile) return name;
+  return (
+    <span>
+      {name} (<span className="text-blue-600">{mobile}</span>)
+    </span>
+  );
+}
+
 function pivotSubjectWiseRows(raw: AnyRow[]): {
   dateKeys: string[];
-  students: StudentPivot[];
+  gridRows: AnyRow[];
   faculty: string;
 } {
   const dateKeys: string[] = [];
-  const students: StudentPivot[] = [];
-  const byRoll = new Map<string, StudentPivot>();
+  const byRoll = new Map<
+    string,
+    {
+      rollNumber: string;
+      Academic_details: string;
+      firstName: string;
+      Father_Mobile_No: string;
+      cells: Record<string, string>;
+      present: number;
+      total: number;
+    }
+  >();
 
   for (const row of raw) {
     const classDate = String(row.class_date ?? "");
@@ -94,7 +113,6 @@ function pivotSubjectWiseRows(raw: AnyRow[]): {
     const c = Number(cRaw) || 0;
 
     const roll = String(row.roll_number ?? "");
-    const cell: DateCell = { present: tpc, per: row.Percentage };
     let student = byRoll.get(roll);
     if (!student) {
       student = {
@@ -102,62 +120,43 @@ function pivotSubjectWiseRows(raw: AnyRow[]): {
         Academic_details: String(row.Academic_details ?? ""),
         firstName: String(row.Student_name ?? ""),
         Father_Mobile_No: String(row.Father_Mobile_No ?? ""),
-        subjectAttendance: [cell],
-        present: p,
-        total: c,
+        cells: {},
+        present: 0,
+        total: 0,
       };
       byRoll.set(roll, student);
-      students.push(student);
-    } else {
-      student.subjectAttendance.push(cell);
-      student.present += p;
-      student.total += c;
     }
+
+    if (classDate) {
+      student.cells[dateFieldKey(classDate)] = tpc;
+    }
+    student.present += p;
+    student.total += c;
   }
 
-  const faculty = pickText(raw[0] ?? {}, ["Faculty", "faculty"]);
-  return { dateKeys, students, faculty };
-}
+  const gridRows: AnyRow[] = Array.from(byRoll.values()).map((s) => {
+    const cells: Record<string, string> = {};
+    for (const date of dateKeys) {
+      const key = dateFieldKey(date);
+      cells[key] = s.cells[key] ?? "-";
+    }
+    return {
+      rollNumber: s.rollNumber,
+      Academic_details: s.Academic_details,
+      firstName: s.firstName,
+      Father_Mobile_No: s.Father_Mobile_No,
+      studentDisplay: `${s.firstName}${s.Father_Mobile_No ? ` (${s.Father_Mobile_No})` : ""}`,
+      present: s.present,
+      total: s.total,
+      totalDisplay: `${s.present}/${s.total}`,
+      percentage:
+        s.total > 0 ? ((s.present / s.total) * 100).toFixed(2) : "0.00",
+      ...cells,
+    };
+  });
 
-function buildTableHtml(dateKeys: string[], students: StudentPivot[]): string {
-  const dateHeaders = dateKeys
-    .map((d) => `<th>${escapeHtml(formatDateHeader(d))}</th>`)
-    .join("");
-  const head = `<tr>
-    <th>S.No</th>
-    <th>Academic Details</th>
-    <th>Roll No.</th>
-    <th>Student</th>
-    ${dateHeaders}
-    <th>Total</th>
-    <th>Percentage(%)</th>
-  </tr>`;
-  const body = students
-    .map((s, i) => {
-      const cells = s.subjectAttendance
-        .map(
-          (a) =>
-            `<td style="text-align:center;mso-number-format:'\\@';">${escapeHtml(a.present)}</td>`,
-        )
-        .join("");
-      const pct =
-        s.total > 0 ? ((s.present / s.total) * 100).toFixed(2) : "0.00";
-      const mobile = s.Father_Mobile_No
-        ? ` (<span style="color:blue;">${escapeHtml(s.Father_Mobile_No)}</span>)`
-        : "";
-      return `<tr>
-        <td style="text-align:center;">${i + 1}</td>
-        <td>${escapeHtml(s.Academic_details)}</td>
-        <td>${escapeHtml(s.rollNumber)}</td>
-        <td>${escapeHtml(s.firstName)}${mobile}</td>
-        ${cells}
-        <td style="text-align:center;mso-number-format:'\\@';">${escapeHtml(`${s.present}/${s.total}`)}</td>
-        <td style="text-align:center;">${escapeHtml(pct)}</td>
-      </tr>`;
-    })
-    .join("");
-  return `<table border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:11px;">
-    <thead>${head}</thead><tbody>${body}</tbody></table>`;
+  const faculty = pickText(raw[0] ?? {}, ["Faculty", "faculty"]);
+  return { dateKeys, gridRows, faculty };
 }
 
 export default function SubjectWiseAttendanceReportPage() {
@@ -177,20 +176,18 @@ export default function SubjectWiseAttendanceReportPage() {
   const [loadingSubjects, setLoadingSubjects] = useState(false);
 
   const [dateKeys, setDateKeys] = useState<string[]>([]);
-  const [students, setStudents] = useState<StudentPivot[]>([]);
+  const [gridRows, setGridRows] = useState<AnyRow[]>([]);
   const [dataDetails, setDataDetails] = useState("");
   const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
-  const [searchText, setSearchText] = useState("");
 
   const clearResults = useCallback(() => {
     setDateKeys([]);
-    setStudents([]);
+    setGridRows([]);
     setShowTable(false);
     setDataDetails("");
     setCollegeName("");
-    setSearchText("");
   }, []);
 
   const f = useAttendanceReportFilters({
@@ -274,6 +271,103 @@ export default function SubjectWiseAttendanceReportPage() {
     clearResults();
   };
 
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
+    const dateCols: ColDef<AnyRow>[] = dateKeys.map((date) => {
+      const field = dateFieldKey(date);
+      return {
+        field,
+        headerName: formatDateHeader(date),
+        minWidth: 100,
+        flex: 0,
+        cellStyle: { textAlign: "center" },
+        valueGetter: (p) => {
+          const v = p.data?.[field];
+          return v == null || v === "" ? "-" : String(v);
+        },
+      };
+    });
+
+    return [
+      {
+        headerName: "S.No",
+        valueGetter: rowIndexGetter,
+        width: 70,
+        flex: 0,
+      },
+      {
+        field: "Academic_details",
+        headerName: "Academic Details",
+        minWidth: 200,
+      },
+      {
+        field: "rollNumber",
+        headerName: "Roll No.",
+        minWidth: 110,
+      },
+      {
+        field: "studentDisplay",
+        headerName: "Student",
+        minWidth: 180,
+        cellRenderer: studentCellRenderer,
+      },
+      ...dateCols,
+      {
+        field: "totalDisplay",
+        headerName: "Total",
+        minWidth: 90,
+        flex: 0,
+        cellStyle: { textAlign: "center" },
+      },
+      {
+        field: "percentage",
+        headerName: "Percentage(%)",
+        minWidth: 120,
+        flex: 0,
+        cellStyle: { textAlign: "center" },
+      },
+    ];
+  }, [dateKeys]);
+
+  const excelColumns = useMemo(() => {
+    const cols: { key: string; header: string }[] = [
+      { key: "siNo", header: "S.No" },
+      { key: "Academic_details", header: "Academic Details" },
+      { key: "rollNumber", header: "Roll No." },
+      { key: "studentDisplay", header: "Student" },
+    ];
+    for (const date of dateKeys) {
+      cols.push({
+        key: dateFieldKey(date),
+        header: formatDateHeader(date),
+      });
+    }
+    cols.push(
+      { key: "totalDisplay", header: "Total" },
+      { key: "percentage", header: "Percentage(%)" },
+    );
+    return cols;
+  }, [dateKeys]);
+
+  const exportFlatRows = useMemo(
+    () =>
+      gridRows.map((row, i) => {
+        const flat: Record<string, unknown> = {
+          siNo: i + 1,
+          Academic_details: String(row.Academic_details ?? ""),
+          rollNumber: String(row.rollNumber ?? ""),
+          studentDisplay: String(row.studentDisplay ?? ""),
+          totalDisplay: String(row.totalDisplay ?? ""),
+          percentage: String(row.percentage ?? ""),
+        };
+        for (const date of dateKeys) {
+          const field = dateFieldKey(date);
+          flat[field] = String(row[field] ?? "-");
+        }
+        return flat;
+      }),
+    [dateKeys, gridRows],
+  );
+
   const handleGetAttendance = async () => {
     const cid = Number(f.collegeId || 0);
     if (!cid) {
@@ -328,12 +422,13 @@ export default function SubjectWiseAttendanceReportPage() {
       setCollegeName(
         String(
           college?.collegeName ??
-            f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
-            "",
+          f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
+          "",
         ),
       );
       if (raw.length === 0) {
         toastInfo("No attendance records found.");
+        setShowTable(false);
         return;
       }
       const pivoted = pivotSubjectWiseRows(raw);
@@ -344,34 +439,18 @@ export default function SubjectWiseAttendanceReportPage() {
       );
       setDataDetails(details);
       setDateKeys(pivoted.dateKeys);
-      setStudents(pivoted.students);
+      setGridRows(pivoted.gridRows);
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
+      setShowTable(false);
     } finally {
       setLoadingList(false);
     }
   };
 
-  const filteredStudents = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter(
-      (s) =>
-        s.rollNumber.toLowerCase().includes(q) ||
-        s.firstName.toLowerCase().includes(q) ||
-        s.Academic_details.toLowerCase().includes(q) ||
-        s.Father_Mobile_No.toLowerCase().includes(q),
-    );
-  }, [students, searchText]);
-
-  const tableHtml = useMemo(
-    () => buildTableHtml(dateKeys, filteredStudents),
-    [dateKeys, filteredStudents],
-  );
-
   const handleExcelExport = useCallback(() => {
-    if (students.length === 0) {
+    if (exportFlatRows.length === 0) {
       toastError("No records to export.");
       return;
     }
@@ -380,13 +459,13 @@ export default function SubjectWiseAttendanceReportPage() {
     </div>`;
     exportHtmlTableAsExcel(
       `${REPORT_TITLE}.xls`,
-      buildTableHtml(dateKeys, students),
+      buildHtmlTable(excelColumns, exportFlatRows),
       headerHtml,
     );
-  }, [dataDetails, dateKeys, students]);
+  }, [dataDetails, excelColumns, exportFlatRows]);
 
   const handlePrintReport = useCallback(() => {
-    if (students.length === 0) {
+    if (exportFlatRows.length === 0) {
       toastError("No records to print.");
       return;
     }
@@ -407,9 +486,16 @@ th,td{border:1px solid #333;padding:3px 5px}
 th{background:#e8f0fe;text-align:center}
 </style></head><body>
 ${headerHtml}
-${buildTableHtml(dateKeys, students)}
+${buildHtmlTable(excelColumns, exportFlatRows)}
 </body></html>`);
-  }, [collegeLogo, collegeName, dataDetails, dateKeys, orgCode, students]);
+  }, [
+    collegeLogo,
+    collegeName,
+    dataDetails,
+    excelColumns,
+    exportFlatRows,
+    orgCode,
+  ]);
 
   const goBack = () => {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
@@ -417,16 +503,17 @@ ${buildTableHtml(dateKeys, students)}
 
   const pageTitle = showTable
     ? dataDetails
-      ? `${REPORT_TITLE} — ${dataDetails}`
+      ? `${REPORT_TITLE} - ${dataDetails}`
       : REPORT_TITLE
     : REPORT_TITLE;
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title={pageTitle}
       filters={
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
+        <div className="space-y-3">
+          {/* Row 1: College → Section */}
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Select
               label="College"
               required
@@ -436,8 +523,6 @@ ${buildTableHtml(dateKeys, students)}
               placeholder="College"
               isLoading={f.loadingFilters}
             />
-          </div>
-          <div className="min-w-[8.5rem] flex-1 basis-[8.5rem] sm:min-w-[9.5rem]">
             <Select
               label="Academic Year"
               required
@@ -446,8 +531,6 @@ ${buildTableHtml(dateKeys, students)}
               options={f.ayOptions}
               placeholder="Academic Year"
             />
-          </div>
-          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
             <Select
               label="Course"
               required
@@ -457,8 +540,6 @@ ${buildTableHtml(dateKeys, students)}
               placeholder="Course"
               disabled={!f.collegeId}
             />
-          </div>
-          <div className="min-w-[8rem] flex-1 basis-[8rem] sm:min-w-[9rem]">
             <Select
               label="Course Group"
               required
@@ -468,8 +549,6 @@ ${buildTableHtml(dateKeys, students)}
               placeholder="Course Group"
               disabled={!f.courseId}
             />
-          </div>
-          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
             <Select
               label="Course Year"
               required
@@ -479,8 +558,6 @@ ${buildTableHtml(dateKeys, students)}
               placeholder="Course Year"
               disabled={!f.courseGroupId}
             />
-          </div>
-          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
             <Select
               label="Section"
               required
@@ -491,129 +568,135 @@ ${buildTableHtml(dateKeys, students)}
               disabled={!f.courseYearId}
             />
           </div>
-          <div className="min-w-[12rem] flex-1 basis-[12rem] sm:min-w-[14rem]">
-            <Select
-              label="Subject"
-              required
-              searchable
-              value={subjectId || null}
-              onChange={(v) => {
-                setSubjectId(v ?? "");
-                clearResults();
-              }}
-              options={subjectOptions}
-              placeholder="Subject"
-              isLoading={loadingSubjects}
-              disabled={!f.courseYearId}
-            />
+
+          {/* Row 2: Subject (wide) + From/To dates */}
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-5">
+            <div className="sm:col-span-3">
+              <Select
+                label="Subject"
+                required
+                searchable
+                value={subjectId || null}
+                onChange={(v) => {
+                  setSubjectId(v ?? "");
+                  clearResults();
+                }}
+                options={subjectOptions}
+                placeholder="Subject"
+                isLoading={loadingSubjects}
+                disabled={!f.courseYearId}
+              />
+            </div>
+            <div className="sm:col-span-1">
+              <DatePicker
+                label="From Date"
+                value={fromDate}
+                onChange={onFromChange}
+                displayFormat="dd-MM-yyyy"
+                clearable={false}
+              />
+            </div>
+            <div className="sm:col-span-1">
+              <DatePicker
+                label="To Date"
+                value={toDate}
+                onChange={onToChange}
+                displayFormat="dd-MM-yyyy"
+                minDate={fromDate ?? undefined}
+                clearable={false}
+              />
+            </div>
           </div>
-          <div className="min-w-[9rem] flex-1 basis-[9rem]">
-            <DatePicker
-              label="From Date"
-              value={fromDate}
-              onChange={onFromChange}
-              displayFormat="dd-MM-yyyy"
-              clearable={false}
-            />
-          </div>
-          <div className="min-w-[9rem] flex-1 basis-[9rem]">
-            <DatePicker
-              label="To Date"
-              value={toDate}
-              onChange={onToChange}
-              displayFormat="dd-MM-yyyy"
-              minDate={fromDate ?? undefined}
-              clearable={false}
-            />
-          </div>
-          <div className="w-[5.5rem]">
-            <Label className="mb-1.5 block text-[12px] font-medium">
-              Min %
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={minPer}
-              onChange={(e) => {
-                setMinPer(Number(e.target.value));
-                clearResults();
-              }}
-              className="h-9"
-            />
-          </div>
-          <div className="w-[5.5rem]">
-            <Label className="mb-1.5 block text-[12px] font-medium">
-              Max %
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={maxPer}
-              onChange={(e) => {
-                setMaxPer(Number(e.target.value));
-                clearResults();
-              }}
-              className="h-9"
-            />
-          </div>
-          <div className="flex shrink-0 items-center gap-2 pb-0.5">
-            <Button
-              type="button"
-              className="h-9 w-fit px-4"
-              disabled={loadingList}
-              onClick={() => void handleGetAttendance()}
-            >
-              {loadingList ? "Loading…" : "Get Attendance"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
-              onClick={goBack}
-            >
-              Back
-            </Button>
+
+          {/* Row 3: Min/Max % + actions */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-[5.5rem]">
+              <Label className="mb-1.5 block text-[12px] font-medium">
+                Min %
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={minPer}
+                onChange={(e) => {
+                  setMinPer(Number(e.target.value));
+                  clearResults();
+                }}
+                className="h-9"
+              />
+            </div>
+            <div className="w-[5.5rem]">
+              <Label className="mb-1.5 block text-[12px] font-medium">
+                Max %
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={maxPer}
+                onChange={(e) => {
+                  setMaxPer(Number(e.target.value));
+                  clearResults();
+                }}
+                className="h-9"
+              />
+            </div>
+            <div className="flex shrink-0 items-center gap-2 pb-0.5">
+              <Button
+                type="button"
+                className="h-9 w-fit px-4"
+                disabled={loadingList}
+                onClick={() => void handleGetAttendance()}
+              >
+                {loadingList ? "Loading…" : "Get Attendance"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-9 w-fit px-4"
+                onClick={goBack}
+              >
+                Back
+              </Button>
+            </div>
           </div>
         </div>
       }
-      body={
+      showTable={showTable}
+      rowData={showTable ? gridRows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      pagination
+      resultsVisible={showTable}
+      hideEmptyGrid
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
+      toolbarTrailing={
         showTable ? (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Input
-                type="search"
-                placeholder="Search"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="h-9 max-w-xs"
-              />
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-9 px-3 text-[12px]"
-                  onClick={handleExcelExport}
-                >
-                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-                  Export Excel
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-9 px-3 text-[12px]"
-                  onClick={handlePrintReport}
-                >
-                  <Printer className="mr-1.5 h-3.5 w-3.5" />
-                  Print Report
-                </Button>
-              </div>
-            </div>
-            <div
-              className="overflow-x-auto"
-              dangerouslySetInnerHTML={{ __html: tableHtml }}
-            />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handlePrintReport}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
           </div>
         ) : undefined
       }

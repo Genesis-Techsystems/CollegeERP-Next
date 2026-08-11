@@ -604,19 +604,6 @@ export default function DailyStatisticalReportPage() {
           </div>
         </div>
       }
-      filtersFooter={
-        showTable ? (
-          <p className="text-[12px]">
-            <span className="font-medium text-green-600">
-              Attendance Capture
-            </span>
-            {" | "}
-            <span className="font-medium text-red-600">
-              Attendance Not Capture
-            </span>
-          </p>
-        ) : null
-      }
       showTable={showTable}
       rowData={showTable ? gridRows : []}
       columnDefs={columnDefs}
@@ -660,6 +647,20 @@ export default function DailyStatisticalReportPage() {
           </>
         ) : null
       }
-    />
+    >
+      {showTable ? (
+        <div className="app-card app-data-table-card -mt-4 rounded-t-none border-t-0 px-5 py-2.5">
+          <p className="text-[12px]">
+            <span className="font-medium text-green-600">
+              Attendance Capture
+            </span>
+            {" | "}
+            <span className="font-medium text-red-600">
+              Attendance Not Capture
+            </span>
+          </p>
+        </div>
+      ) : null}
+    </FilteredListPage>
   );
 }

@@ -24,11 +24,14 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
   Layers,
+  Printer,
   RotateCcw,
   School,
 } from "lucide-react";
+import { printGraceMarksBenefitedStudents } from "../_components/printGraceMarksBenefitedStudents";
 
 type AnyRow = Record<string, any>;
 
@@ -573,6 +576,18 @@ export default function GraceMarksBenefitedStudentsReportPage() {
     exportHtmlTable("Grace Marks Benefited Students Data.xls", title, rowsHtml);
   }
 
+  function handlePrint() {
+    if (groupResults.length === 0) return;
+    const college = colleges.find(
+      (r) => numFrom(r, ["fk_college_id", "collegeId"]) === Number(collegeId),
+    );
+    printGraceMarksBenefitedStudents(groupResults, {
+      title: "Grace Marks Benefited Students Data",
+      examLabel,
+      collegeName: strFrom(college ?? {}, ["college_name", "collegeName"]),
+    });
+  }
+
   return (
     <FilteredPage
       title="GraceMarks Benefited Students"
@@ -762,48 +777,55 @@ export default function GraceMarksBenefitedStudentsReportPage() {
       }
       body={
         groupResults.length > 0 ? (
-          <div className="space-y-4">
-            <div className="min-w-0">
-              <p className="font-semibold text-foreground">
-                Grace Marks Benefited Students Data
-              </p>
-              {dataDetails ? (
-                <p className="text-sm font-medium text-blue-700">
-                  {dataDetails}
-                </p>
-              ) : null}
-              {examLabel ? (
-                <p className="text-sm text-muted-foreground">{examLabel}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-5">
-              {groupResults.map((group) => (
-                <div key={group.courseGroup} className="space-y-2">
-                  <p className="text-sm font-semibold text-[#042956]">
-                    Course Group : {group.courseGroup}
-                  </p>
-                  <DataTable
-                    title=""
-                    subtitle=""
-                    rowData={group.subjects}
-                    columnDefs={columnDefs}
-                    loading={loading}
-                    pagination
-                    paginationPageSize={25}
-                    getRowId={getRowId}
-                    height="auto"
-                    toolbar={{
-                      search: true,
-                      columnPicker: true,
-                      exportExcel: true,
-                      exportPdf: true,
-                    }}
-                    onExportExcel={handleExportExcel}
-                  />
-                </div>
-              ))}
-            </div>
+          <div className="space-y-5">
+            {groupResults.map((group, groupIndex) => (
+              <div key={group.courseGroup}>
+                <DataTable
+                  title=""
+                  subtitle=""
+                  rowData={group.subjects}
+                  columnDefs={columnDefs}
+                  loading={loading}
+                  pagination
+                  paginationPageSize={25}
+                  getRowId={getRowId}
+                  height="auto"
+                  toolbar={{
+                    search: true,
+                    columnPicker: true,
+                    exportExcel: false,
+                    exportPdf: false,
+                  }}
+                  toolbarTrailing={
+                    groupIndex === 0 ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          className="h-8 text-[12px]"
+                          onClick={handleExportExcel}
+                        >
+                          <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                          Export Excel
+                        </Button>
+                        <Button
+                          type="button"
+                          className="h-8 text-[12px]"
+                          onClick={handlePrint}
+                        >
+                          <Printer className="mr-1.5 h-3.5 w-3.5" />
+                          Print Report
+                        </Button>
+                      </div>
+                    ) : undefined
+                  }
+                  toolbarFooter={
+                    <p className="text-sm font-semibold text-[#042956]">
+                      Course Group : {group.courseGroup}
+                    </p>
+                  }
+                />
+              </div>
+            ))}
           </div>
         ) : null
       }

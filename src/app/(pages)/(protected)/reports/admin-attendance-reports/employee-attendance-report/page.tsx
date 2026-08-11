@@ -2,7 +2,8 @@
 
 /**
  * Employee Attendance Report —
- * Angular `reports/admin-attendance-reports/employee-attendance-report` parity.
+ * Admin: `reports/admin-attendance-reports/employee-attendance-report`
+ * HOD:   `staff-reports/admin-attendance-reports/employee-attendance-report`
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -26,10 +27,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   dedupeBy,
   pickNum,
@@ -151,7 +149,9 @@ export default function EmployeeAttendanceReportPage() {
       subjectData.filter(
         (r) => !cid || pickNum(r, ["fk_college_id", "collegeId"]) === cid,
       ),
-      (r) => pickText(r, ["subject_code", "subjectCode"]) || pickNum(r, ["fk_subject_id", "subjectId"]),
+      (r) =>
+        pickText(r, ["subject_code", "subjectCode"]) ||
+        pickNum(r, ["fk_subject_id", "subjectId"]),
     );
     return [
       ALL0,
@@ -296,6 +296,7 @@ export default function EmployeeAttendanceReportPage() {
       });
       if (raw.length === 0) {
         toastInfo("No records found.");
+        setShowTable(false);
         return;
       }
       const dates = collectAttendanceDates(raw);
@@ -304,6 +305,7 @@ export default function EmployeeAttendanceReportPage() {
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
+      setShowTable(false);
     } finally {
       setLoadingList(false);
     }
@@ -434,6 +436,7 @@ export default function EmployeeAttendanceReportPage() {
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? pivotRows : []}
       columnDefs={columnDefs}
       loading={loadingList}

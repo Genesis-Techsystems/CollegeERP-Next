@@ -258,10 +258,7 @@ export default function StudentDetainedListReportPage() {
     ];
   }, [filtersData, collegeId, courseId, courseGroupId]);
 
-  const quotaOptions = useMemo(
-    () => [ALL0, ...gmOptions(gmRows, 8)],
-    [gmRows],
-  );
+  const quotaOptions = useMemo(() => [ALL0, ...gmOptions(gmRows, 8)], [gmRows]);
 
   useEffect(() => {
     if (collegeId || collegeOptions.length === 0) return;
@@ -535,6 +532,7 @@ ${tableHtml}
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       pagination

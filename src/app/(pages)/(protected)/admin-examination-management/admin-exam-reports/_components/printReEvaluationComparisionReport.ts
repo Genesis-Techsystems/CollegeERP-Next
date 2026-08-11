@@ -1,29 +1,36 @@
 /**
  * Re-Evaluation Comparision Report — iframe print (avoids AppShell blank pages).
+ * Header matches Angular: logo + college name + title (+ SUK banner variant).
  */
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
 export type ComparisionPrintMeta = {
-  title?: string
-  examLabel?: string
-  universityName?: string
-}
+  title?: string;
+  examLabel?: string;
+  universityName?: string;
+  logoUrl?: string;
+  orgCode?: string;
+  courseCode?: string;
+  courseYearCode?: string;
+};
+
+const DEFAULT_LOGO = "/assets/images/avatars/default_logo.png";
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function cell(row: AnyRow, keys: string[]): string {
   for (const key of keys) {
-    const v = row?.[key]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row?.[key];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
+  return "";
 }
 
 const PRINT_CSS = `
@@ -38,27 +45,76 @@ const PRINT_CSS = `
     print-color-adjust: exact;
   }
   .wrap { padding: 12px 16px; width: 98%; }
+  .header-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 16px;
+    margin: 0 0 12px;
+  }
+  .logo-col {
+    flex: 0 0 12%;
+    width: 12%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .logo-col img {
+    max-width: 100%;
+    max-height: 90px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+  .title-col {
+    flex: 1 1 88%;
+    text-align: center;
+  }
+  .suk-banner {
+    width: 100%;
+    text-align: center;
+    margin: 0 0 4px;
+  }
+  .suk-banner img {
+    width: 100%;
+    max-width: 1200px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+  }
+  .suk-header {
+    text-align: center;
+    margin: 0 0 8px;
+  }
   .college-name {
     text-align: center;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
-    margin: 8px 0 2px;
+    margin: 0;
+    text-transform: uppercase;
   }
   .title {
     text-align: center;
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 600;
-    margin: 4px 0 8px;
+    margin: 4px 0 0;
   }
   .exam {
     text-align: center;
     font-size: 14px;
-    margin: 0 0 16px;
+    margin: 4px 0 0;
+  }
+  .meta-line {
+    text-align: left;
+    font-size: 13px;
+    margin: 2px 0;
+    color: #000;
   }
   table.data {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 12px;
+    margin: 10px 0 12px;
     font-size: 11px;
   }
   table.data th,
@@ -73,39 +129,81 @@ const PRINT_CSS = `
     font-weight: 600;
   }
   @page { margin: 10mm; }
-`
+  @media print {
+    html, body { background: #fff !important; }
+    tr { page-break-inside: avoid; }
+  }
+`;
+
+function buildBannerHtml(meta: ComparisionPrintMeta, title: string): string {
+  const collegeName = meta.universityName
+    ? `<p class="college-name">${escapeHtml(meta.universityName)}</p>`
+    : "";
+  const exam = meta.examLabel
+    ? `<p class="exam">${escapeHtml(meta.examLabel)}</p>`
+    : "";
+  const logoSrc = escapeHtml(meta.logoUrl || DEFAULT_LOGO);
+  const isSuk =
+    String(meta.orgCode ?? "")
+      .trim()
+      .toUpperCase() === "SUK";
+
+  if (isSuk) {
+    return `
+    <div class="suk-banner">
+      <img src="${logoSrc}" alt="" />
+    </div>
+    <div class="suk-header">
+      ${collegeName}
+      <p class="title">${escapeHtml(title)}</p>
+      ${exam}
+    </div>`;
+  }
+
+  return `
+    <div class="header-row">
+      <div class="logo-col">
+        <img src="${logoSrc}" alt="" />
+      </div>
+      <div class="title-col">
+        ${collegeName}
+        <p class="title">${escapeHtml(title)}</p>
+        ${exam}
+      </div>
+    </div>`;
+}
 
 export function printReEvaluationComparisionReport(
   rows: AnyRow[],
   meta: ComparisionPrintMeta,
 ): void {
-  if (rows.length === 0) return
+  if (rows.length === 0) return;
 
-  const title = meta.title ?? 'Re-Evaluation Comparision Result Report'
-  const collegeName = meta.universityName
-    ? `<div class="college-name">${escapeHtml(meta.universityName)}</div>`
-    : ''
-  const exam = meta.examLabel
-    ? `<div class="exam">${escapeHtml(meta.examLabel)}</div>`
-    : ''
+  const title = meta.title ?? "Re-Evaluation Comparision Result Report";
+  const courseLine = meta.courseCode
+    ? `<p class="meta-line">Course : ${escapeHtml(meta.courseCode)}</p>`
+    : "";
+  const semesterLine = meta.courseYearCode
+    ? `<p class="meta-line">Semester : ${escapeHtml(meta.courseYearCode)}</p>`
+    : "";
 
   const body = rows
     .map(
       (row, i) => `<tr>
       <td>${i + 1}</td>
-      <td>${escapeHtml(cell(row, ['Subject_Code', 'subject_code']))}</td>
-      <td>${escapeHtml(cell(row, ['Subject_Name', 'subject_name']))}</td>
-      <td>${escapeHtml(cell(row, ['Total_Registered', 'total_registered']))}</td>
-      <td>${escapeHtml(cell(row, ['Total_Appeared', 'total_appeared']))}</td>
-      <td>${escapeHtml(cell(row, ['Pass_Before_RV', 'pass_before_rv']))}</td>
-      <td>${escapeHtml(cell(row, ['Before_RV', 'before_rv']))}</td>
-      <td>${escapeHtml(cell(row, ['Students_Applied_RV', 'students_applied_rv']))}</td>
-      <td>${escapeHtml(cell(row, ['Students_Benefitted', 'students_benefitted']))}</td>
-      <td>${escapeHtml(cell(row, ['Pass_After_RV', 'pass_after_rv']))}</td>
-      <td>${escapeHtml(cell(row, ['Final_Pass', 'final_pass']))}</td>
+      <td>${escapeHtml(cell(row, ["Subject_Code", "subject_code"]))}</td>
+      <td>${escapeHtml(cell(row, ["Subject_Name", "subject_name"]))}</td>
+      <td>${escapeHtml(cell(row, ["Total_Registered", "total_registered"]))}</td>
+      <td>${escapeHtml(cell(row, ["Total_Appeared", "total_appeared"]))}</td>
+      <td>${escapeHtml(cell(row, ["Pass_Before_RV", "pass_before_rv"]))}</td>
+      <td>${escapeHtml(cell(row, ["Before_RV", "before_rv"]))}</td>
+      <td>${escapeHtml(cell(row, ["Students_Applied_RV", "students_applied_rv"]))}</td>
+      <td>${escapeHtml(cell(row, ["Students_Benefitted", "students_benefitted"]))}</td>
+      <td>${escapeHtml(cell(row, ["Pass_After_RV", "pass_after_rv"]))}</td>
+      <td>${escapeHtml(cell(row, ["Final_Pass", "final_pass"]))}</td>
     </tr>`,
     )
-    .join('')
+    .join("");
 
   const html = `<!DOCTYPE html>
 <html>
@@ -116,9 +214,9 @@ export function printReEvaluationComparisionReport(
 </head>
 <body>
   <div class="wrap">
-    ${collegeName}
-    <div class="title">${escapeHtml(title)}</div>
-    ${exam}
+    ${buildBannerHtml(meta, title)}
+    ${courseLine}
+    ${semesterLine}
     <table class="data">
       <thead>
         <tr>
@@ -145,41 +243,41 @@ export function printReEvaluationComparisionReport(
     </table>
   </div>
 </body>
-</html>`
+</html>`;
 
-  const iframe = document.createElement('iframe')
-  iframe.style.position = 'fixed'
-  iframe.style.right = '0'
-  iframe.style.bottom = '0'
-  iframe.style.width = '0'
-  iframe.style.height = '0'
-  iframe.style.border = 'none'
-  document.body.appendChild(iframe)
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  document.body.appendChild(iframe);
 
-  const doc = iframe.contentDocument ?? iframe.contentWindow?.document
+  const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
   if (!doc) {
-    document.body.removeChild(iframe)
-    return
+    document.body.removeChild(iframe);
+    return;
   }
 
-  doc.open()
-  doc.write(html)
-  doc.close()
+  doc.open();
+  doc.write(html);
+  doc.close();
 
   const printFrame = () => {
     try {
-      iframe.contentWindow?.focus()
-      iframe.contentWindow?.print()
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
     } finally {
       setTimeout(() => {
-        if (iframe.parentNode) document.body.removeChild(iframe)
-      }, 1000)
+        if (iframe.parentNode) document.body.removeChild(iframe);
+      }, 1000);
     }
-  }
+  };
 
-  if (iframe.contentWindow?.document.readyState === 'complete') {
-    setTimeout(printFrame, 250)
+  if (iframe.contentWindow?.document.readyState === "complete") {
+    setTimeout(printFrame, 250);
   } else {
-    iframe.onload = () => setTimeout(printFrame, 250)
+    iframe.onload = () => setTimeout(printFrame, 250);
   }
 }
