@@ -1,11 +1,5 @@
-import { ModerationRulePage } from '../_components/ModerationRulePage'
+"use client";
 
-export default function ModerationRuleSetupPage() {
-  return (
-    <ModerationRulePage
-      title="Moderation Rule Setup"
-      subtitle="Result Processing"
-    />
-  )
-}
+import GradeRuleSettingsPage from "../grade-rule-settings/page";
 
+export default GradeRuleSettingsPage;

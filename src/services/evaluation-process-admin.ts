@@ -1,10 +1,11 @@
-import { EXAM_EVAL_API } from "@/config/constants/api";
+import { EXAM_EVAL_API, UNIV_EXAM_CENTER_API } from "@/config/constants/api";
 import {
   buildQuery,
   domainList,
   fetchDetails,
   getAllRecords,
   postDetails,
+  putDetails,
   uploadFile,
   crud,
 } from "@/services/crud";
@@ -190,4 +191,55 @@ export async function getExamQpTemplateAndDetails(
     EXAM_EVAL_API.GET_EXAM_QP_TEMPLATE_DETAILS,
     { examQpTemplateId },
   );
+}
+
+/**
+ * Angular exam-omr-rejection `getDetails`:
+ * getAllRecords/s_get_exam_reject_details
+ * in_flag=reject_details, in_flag_type='' (empty)
+ * → result[0] pending, result[1] processed
+ */
+export async function getExamRejectDetails(params: {
+  academicYearId: number;
+  examGroupId: number;
+  examCenterId: number;
+}): Promise<{ pending: AnyRow[]; processed: AnyRow[] }> {
+  const data = await getAllRecords<{ result?: AnyRow[][] }>(
+    UNIV_EXAM_CENTER_API.GET_EXAM_REJECT_DETAILS,
+    {
+      in_flag: "reject_details",
+      in_flag_type: "",
+      in_univ_examcenter_id: params.examCenterId || 0,
+      in_exam_group_id: params.examGroupId || 0,
+      in_exam_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_academic_year_id: params.academicYearId || 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_university_id: 0,
+      in_exam_date: "1900-01-01",
+      in_questionpaper_code: "",
+      in_univ_evaluation_center_id: 0,
+    },
+  ).catch(() => ({ result: [] }));
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  const pending = Array.isArray(groups[0]) ? groups[0] : [];
+  const processed = Array.isArray(groups[1]) ? groups[1] : [];
+  return { pending, processed };
+}
+
+export type RejectProcessedPayloadItem = {
+  examEvaluationAssignmentId: number;
+  rejectProcessed: boolean;
+  rejectProcessedReason: string;
+};
+
+/** Angular exam-omr-rejection `save`: PUT updateRejectProcessedReason body = array */
+export async function updateRejectProcessedReason(
+  rows: RejectProcessedPayloadItem[],
+): Promise<unknown> {
+  return putDetails(UNIV_EXAM_CENTER_API.UPDATE_REJECT_PROCESSED_REASON, rows);
 }

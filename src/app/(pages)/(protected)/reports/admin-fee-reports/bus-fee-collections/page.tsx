@@ -15,7 +15,7 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { printHtmlInIframe } from "@/lib/print";
-import { escapeHtml } from "@/common/export-html-table";
+import { buildHtmlTable, escapeHtml } from "@/common/export-html-table";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastInfo } from "@/lib/toast";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
@@ -35,6 +35,8 @@ import {
   searchEmployeesForTransport,
   searchStudentsInCollege,
 } from "@/services";
+
+import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 
 type AnyRow = Record<string, unknown>;
 
@@ -152,6 +154,8 @@ export default function BusFeeCollectionsPage() {
     };
   }, []);
 
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
+
   const collegeOptions = useMemo(
     () =>
       filterColleges(filtersData).map((r) => ({
@@ -174,11 +178,64 @@ export default function BusFeeCollectionsPage() {
     ];
   }, [academicData, collegeId, filtersData]);
 
-  const quotaOptions = useMemo(
-    () => [SELECT0, ...gmQuotaOptions(gmRows)],
-    [gmRows],
-  );
+  // const columnDefs = pivot ? pivotColumnDefs : flatColumnDefs;
 
+  const handlePrintReport = () => {
+    const collegeLabel =
+      collegeOptions.find((o) => o.value === collegeId)?.label || "";
+
+    // Build columns including S.No
+    const columns = [
+      { key: "siNo", header: "SI.No" },
+      ...columnsDefs
+        .filter(
+          (col: any) =>
+            !col.children && col.headerName && col.headerName !== "SI.No",
+        )
+        .map((col: any) => ({
+          key:
+            col.field ||
+            col.headerName?.toLowerCase().replace(/[^a-z0-9]/g, "_"),
+          header: col.headerName || "",
+        })),
+    ];
+
+    // Add S.No to rows
+    const rowsWithIndex = rows.map((row: any, idx: number) => ({
+      ...row,
+      siNo: idx + 1,
+    }));
+
+    const tableHtml = buildHtmlTable(columns as any, rowsWithIndex as any);
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>Fee Due List Report</title>
+<style>
+@page{margin:12mm}
+body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
+.header{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
+.header img{width:90px;height:auto;max-height:100px;object-fit:contain}
+.header-text{flex:1}
+.collegeName{font-size:24px;font-weight:600;margin:0 0 6px}
+.title{font-size:20px;font-weight:550;margin:0 0 6px}
+.details{font-size:12px;color:#666;margin:0}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+th,td{border:1px solid #333;padding:6px 5px}
+th{background:#f2f2f2;font-weight:600}
+</style></head><body>
+<div class="header">
+  <img src="${collegeLogo}" alt="College Logo" onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'" />
+  <div class="header-text">
+    <p class="collegeName">${escapeHtml(collegeLabel)}</p>
+    ${dataDetails ? `<p class="details">${escapeHtml(dataDetails)}</p>` : ""}
+    <p class="title">Fee Due List Report</p>
+  </div>
+</div>
+${tableHtml}
+</body></html>`;
+
+    printHtmlInIframe(html);
+  };
   const courseOptions = useMemo(() => {
     const cid = Number(collegeId ?? 0);
     return [
@@ -220,6 +277,8 @@ export default function BusFeeCollectionsPage() {
         })),
     ];
   }, [filtersData, collegeId, courseId, courseGroupId]);
+
+  const quotaOptions = useMemo(() => gmQuotaOptions(gmRows), [gmRows]);
 
   // Default college
   useEffect(() => {
@@ -310,7 +369,9 @@ export default function BusFeeCollectionsPage() {
       (o) => o.value === academicYearId && o.value !== "0",
     );
     if (ay?.label) parts.push(ay.label);
-    const cr = courseOptions.find((o) => o.value === courseId && o.value !== "0");
+    const cr = courseOptions.find(
+      (o) => o.value === courseId && o.value !== "0",
+    );
     if (cr?.label) parts.push(cr.label);
     const g = groupOptions.find(
       (o) => o.value === courseGroupId && o.value !== "0",
@@ -446,25 +507,98 @@ export default function BusFeeCollectionsPage() {
 
   const printReport = () => {
     if (!excelTableRef.current) return;
+
+    const collegeLabel =
+      collegeOptions.find((o) => o.value === collegeId)?.label || "";
+
     printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Bus Fee Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px}
-th{background:#e8f0fe}
-</style></head><body>
-<p style="font-weight:600">Bus Fee Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</p>
-${excelTableRef.current.innerHTML}
-</body></html>`);
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Bus Fee Report</title>
+  <style>
+    @page{margin:12mm}
+    body{
+      font-family:Arial,sans-serif;
+      padding:12px;
+      color:#111;
+      margin:0
+    }
+    .header{
+      display:flex;
+      align-items:flex-start;
+      gap:16px;
+      margin-bottom:16px
+    }
+    .header img{
+      width:90px;
+      height:auto;
+      max-height:100px;
+      object-fit:contain
+    }
+    .header-text{
+      flex:1
+    }
+    .collegeName{
+      font-size:24px;
+      font-weight:600;
+      margin:0 0 6px
+    }
+    .title{
+      font-size:20px;
+      font-weight:550;
+      margin:0 0 6px
+    }
+    .details{
+      font-size:12px;
+      color:#666;
+      margin:0
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:11px;
+      margin-top:8px
+    }
+    th,td{
+      border:1px solid #333;
+      padding:6px 5px
+    }
+    th{
+      background:#f2f2f2;
+      font-weight:600
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img
+      src="${collegeLogo}"
+      alt="College Logo"
+      onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'"
+    />
+
+    <div class="header-text">
+      <p class="collegeName">${escapeHtml(collegeLabel)}</p>
+
+      ${dataDetails ? `<p class="details">${escapeHtml(dataDetails)}</p>` : ""}
+
+      <p class="title">Bus Fee Report</p>
+    </div>
+  </div>
+
+  ${excelTableRef.current.innerHTML}
+
+</body>
+</html>`);
   };
 
   const goBack = () => {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
 
-  const pageTitle =
-    showTable && dataDetails ? dataDetails : "Bus Fee Report";
+  const pageTitle = showTable && dataDetails ? dataDetails : "Bus Fee Report";
 
   const employeeOptions = useMemo(
     () =>
@@ -671,6 +805,7 @@ ${excelTableRef.current.innerHTML}
                 </Button>
                 <Button
                   type="button"
+                  variant="outline"
                   size="sm"
                   className="h-9 px-3 text-[12px]"
                   onClick={printReport}
@@ -682,9 +817,7 @@ ${excelTableRef.current.innerHTML}
             </div>
 
             <div ref={excelTableRef} className="overflow-x-auto">
-              <strong className="hidden">
-                Bus Fee Report - {dataDetails}
-              </strong>
+              <strong className="hidden">Bus Fee Report - {dataDetails}</strong>
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-sky-50">

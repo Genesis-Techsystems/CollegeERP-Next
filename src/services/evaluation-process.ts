@@ -1047,7 +1047,7 @@ export async function listFinalizableQuestionPapers(params: {
       in_exam_date: "1990-01-01",
       in_emp_id: 0,
       in_questionpaper_id: 0,
-      in_evaluator_role_id: params.evaluatorRoleId ?? 0,
+      in_evaluator_role_id: params.evaluatorRoleId ?? 64,
       in_academic_year: "",
       in_exam_short_name: "",
       in_affiliatedto_catdet_id: 0,
@@ -1063,6 +1063,58 @@ export async function listFinalizableQuestionPapers(params: {
   const groups = data?.result ?? [];
   // Angular getQuestionpapers: use proc rows only (no ExamQuestionPapers domain).
   return (groups[0] ?? []).filter(Boolean);
+}
+
+/**
+ * Angular exam-final-question-paper `verify()`:
+ * getAllRecords/s_get_question_paper_finalise
+ * in_flag=verify_questionpaper_list → result[0]
+ * Success when result[0][0].message === 'Success'
+ */
+export async function verifyFinalQuestionPapers(params: {
+  employeeId: number;
+  examId: number;
+  courseYearId?: number;
+  subjectId?: number;
+  regulationId?: number;
+  organizationId?: number;
+  evaluatorRoleId?: number;
+}): Promise<{ rows: AnyRow[]; message?: string }> {
+  const orgId =
+    Number(
+      params.organizationId ??
+        (typeof globalThis !== "undefined"
+          ? globalThis.localStorage?.getItem("organizationId")
+          : 0) ??
+        1,
+    ) || 1;
+  const data = await getAllRecords<{
+    result?: AnyRow[][];
+    message?: string;
+  }>("s_get_question_paper_finalise", {
+    in_flag: "verify_questionpaper_list",
+    in_orgid: orgId,
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
+    in_evalutor_profileid: 0,
+    in_exam_date: "1990-01-01",
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: params.evaluatorRoleId ?? 64,
+    in_academic_year: "",
+    in_exam_short_name: "",
+    in_affiliatedto_catdet_id: 0,
+    in_exam_id: params.examId,
+    in_course_year_id: params.courseYearId ?? 0,
+    in_subject_id: params.subjectId ?? 0,
+    in_regulation_id: params.regulationId ?? 0,
+    in_course_id: 0,
+    in_academic_year_id: 0,
+    in_loginuser_empid: params.employeeId || 0,
+  });
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  const rows = Array.isArray(groups[0]) ? groups[0].filter(Boolean) : [];
+  return { rows, message: data?.message };
 }
 
 export async function finalizeOneQuestionPaper(params: {
@@ -2142,6 +2194,55 @@ export async function sendEvaluatorCredentials(
   payload: Record<string, unknown> | Record<string, unknown>[],
 ): Promise<AnyRow> {
   return postDetails<AnyRow>(EXAM_EVAL_API.SEND_EVALUATOR_CREDENTIALS, payload);
+}
+
+/**
+ * Angular send-emails-to-evaluators `getEvaluatorsList` (updated):
+ * getAllRecords/s_get_evaluator_profile_details
+ * in_flag=list_of_evaluators_by_exam → result[0]
+ */
+export async function getEvaluatorsByExam(params: {
+  examId: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: AnyRow[][] }>(
+    EXAM_EVAL_API.GET_EVALUATOR_PROFILE_DETAILS,
+    {
+      in_flag: "list_of_evaluators_by_exam",
+      in_exam_id: params.examId || 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_evaluator_role_id: 0,
+      in_evaluator_profileid: 0,
+    },
+  ).catch(() => ({ result: [] }));
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  return Array.isArray(groups[0]) ? groups[0] : [];
+}
+
+/** @deprecated Prefer getEvaluatorsByExam — kept for older subject-scoped callers */
+export async function getEvaluatorsBySubject(params: {
+  examId: number;
+  courseYearId: number;
+  regulationId: number;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result?: AnyRow[][] }>(
+    EXAM_EVAL_API.GET_EVALUATOR_PROFILE_DETAILS,
+    {
+      in_flag: "list_of_evaluators_by_subject",
+      in_exam_id: params.examId || 0,
+      in_course_group_id: 0,
+      in_course_year_id: params.courseYearId || 0,
+      in_regulation_id: params.regulationId || 0,
+      in_subject_id: params.subjectId || 0,
+      in_evaluator_role_id: 0,
+      in_evaluator_profileid: 0,
+    },
+  ).catch(() => ({ result: [] }));
+  const groups = Array.isArray(data?.result) ? data.result : [];
+  return Array.isArray(groups[0]) ? groups[0] : [];
 }
 
 /** Active courses — Angular preferences modal `listDetailsByIdsWithSort` on Course. */

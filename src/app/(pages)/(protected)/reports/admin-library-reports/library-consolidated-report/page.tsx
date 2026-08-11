@@ -1,0 +1,437 @@
+"use client";
+
+/**
+ * Library Books / Consolidated Report —
+ * Angular `reports/admin-library-reports/library-consolidated-report` parity.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { FileSpreadsheet, Printer } from "lucide-react";
+import { Select } from "@/common/components/select";
+import {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { printHtmlInIframe } from "@/lib/print";
+import { QK } from "@/lib/query-keys";
+import { getErrorMessage } from "@/lib/errors";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
+import { toastError, toastInfo } from "@/lib/toast";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  getCollegeById,
+  getLibraryConsolidatedReport,
+  listActiveLibraryDetails,
+  listLibrariesByCollege,
+} from "@/services";
+import {
+  attendancePrintShell as libraryPrintShell,
+  resolveAttendancePrintLogo as resolveLibraryPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
+import type { AnyRow } from "../_lib/library-report-columns";
+
+const REPORT_TITLE = "Library Books Report";
+const PRINT_REPORT_TITLE = "Library Books Report";
+
+type ConsolRow = {
+  __rowId: string;
+  __isTotal?: boolean;
+  libraryCode: string;
+  category: string;
+  totalTitleCount: number;
+  totalBooks: number;
+  inLibrary: number;
+  issuedBooks: number;
+  dueBooks: number;
+  totalBooksCost: number;
+};
+
+function toNum(v: unknown): number {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Angular consolidated Indian amount formatting. */
+function formatIndianAmount(value: number): string {
+  const neg = value < 0;
+  const abs = Math.abs(value);
+  const [intPart, decPart] = abs.toFixed(2).split(".");
+  const last3 = intPart.slice(-3);
+  const rest = intPart.slice(0, -3);
+  const grouped = rest
+    ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${last3}`
+    : last3;
+  return `${neg ? "-" : ""}${grouped}.${decPart}`;
+}
+
+function mapRow(row: AnyRow, idx: number): ConsolRow {
+  return {
+    __rowId: `r-${idx}`,
+    libraryCode: String(row.library_code ?? row.libraryCode ?? ""),
+    category: String(row.Category ?? row.category ?? ""),
+    totalTitleCount: toNum(row.Total_title_count ?? row.totalTitleCount),
+    totalBooks: toNum(row.Total_Books ?? row.totalBooks),
+    inLibrary: toNum(row.In_Library ?? row.inLibrary),
+    issuedBooks: toNum(row.Issued_Books ?? row.issuedBooks),
+    dueBooks: toNum(row.Due_Books ?? row.dueBooks),
+    totalBooksCost: toNum(row.Total_books_cost ?? row.totalBooksCost),
+  };
+}
+
+function amountRenderer(p: ICellRendererParams<ConsolRow>) {
+  const v = p.data?.totalBooksCost ?? 0;
+  return <span>{formatIndianAmount(v)}</span>;
+}
+
+const COL_DEFS = {
+  siNo: {
+    headerName: "S.No",
+    valueGetter: (p: { data?: ConsolRow; node?: { rowIndex: number | null } }) =>
+      p.data?.__isTotal ? "" : (p.node?.rowIndex ?? 0) + 1,
+    width: 70,
+    flex: 0,
+  } as ColDef<ConsolRow>,
+  libraryCode: {
+    field: "libraryCode",
+    headerName: "Library",
+    minWidth: 110,
+  } as ColDef<ConsolRow>,
+  category: {
+    field: "category",
+    headerName: "Book Department",
+    minWidth: 140,
+  } as ColDef<ConsolRow>,
+  totalTitleCount: {
+    field: "totalTitleCount",
+    headerName: "Titles Count",
+    minWidth: 110,
+  } as ColDef<ConsolRow>,
+  totalBooks: {
+    field: "totalBooks",
+    headerName: "Total Books",
+    minWidth: 110,
+  } as ColDef<ConsolRow>,
+  inLibrary: {
+    field: "inLibrary",
+    headerName: "In Library",
+    minWidth: 100,
+  } as ColDef<ConsolRow>,
+  issuedBooks: {
+    field: "issuedBooks",
+    headerName: "Issued Books",
+    minWidth: 110,
+  } as ColDef<ConsolRow>,
+  dueBooks: {
+    field: "dueBooks",
+    headerName: "Due Books",
+    minWidth: 100,
+  } as ColDef<ConsolRow>,
+  totalBooksCost: {
+    field: "totalBooksCost",
+    headerName: "Total Books Amount",
+    minWidth: 150,
+    cellRenderer: amountRenderer,
+  } as ColDef<ConsolRow>,
+};
+
+const EXCEL_COLUMNS = [
+  { key: "siNo", header: "S.No" },
+  { key: "libraryCode", header: "Library" },
+  { key: "category", header: "Book Department" },
+  { key: "totalTitleCount", header: "Titles Count" },
+  { key: "totalBooks", header: "Total Books" },
+  { key: "inLibrary", header: "In Library" },
+  { key: "issuedBooks", header: "Issued Books" },
+  { key: "dueBooks", header: "Due Books" },
+  { key: "totalBooksCost", header: "Total Books Amount" },
+];
+
+export default function LibraryConsolidatedReportPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const collegeId = Number(globalThis?.localStorage?.getItem("collegeId") ?? 0);
+  const autoLoadKey = useRef<string | null>(null);
+
+  const [libraryId, setLibraryId] = useState<string | null>(null);
+  const [rows, setRows] = useState<ConsolRow[]>([]);
+  const [collegeName, setCollegeName] = useState("");
+  const [dataDetails, setDataDetails] = useState("");
+  const [loadingList, setLoadingList] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+
+  const librariesQuery = useQuery({
+    queryKey: QK.libraryReports.libraries(collegeId),
+    queryFn: async () => {
+      if (collegeId > 0) {
+        const byCollege = await listLibrariesByCollege(collegeId);
+        if (byCollege.length > 0) return byCollege;
+      }
+      return listActiveLibraryDetails();
+    },
+  });
+
+  const selectedLib = useMemo(
+    () =>
+      (librariesQuery.data ?? []).find(
+        (l) => String(l.libraryId) === String(libraryId),
+      ),
+    [librariesQuery.data, libraryId],
+  );
+
+  const libraryCollegeId = Number(selectedLib?.collegeId ?? collegeId);
+  const collegeLogo = useCollegeLogo(
+    libraryCollegeId > 0 ? libraryCollegeId : null,
+  );
+
+  const clearResults = useCallback(() => {
+    setRows([]);
+    setShowTable(false);
+    setDataDetails("");
+    setCollegeName("");
+  }, []);
+
+  const libraryOptions = useMemo(
+    () => [
+      { value: "0", label: "All" },
+      ...(librariesQuery.data ?? []).map((lib) => ({
+        value: String(lib.libraryId),
+        label: String(lib.libraryCode ?? lib.libraryName ?? lib.libraryId),
+      })),
+    ],
+    [librariesQuery.data],
+  );
+
+  useEffect(() => {
+    if (libraryId || libraryOptions.length <= 1) return;
+    // Angular defaults to first real library after options build.
+    const firstReal = libraryOptions.find((o) => o.value !== "0");
+    setLibraryId(firstReal?.value ?? "0");
+  }, [libraryId, libraryOptions]);
+
+  const loadReport = useCallback(
+    async (lidStr: string) => {
+      const lid = Number(lidStr);
+      if (Number.isNaN(lid)) return;
+
+      const libCode =
+        lid === 0
+          ? "All"
+          : String(selectedLib?.libraryCode ?? lidStr);
+      const details = libCode;
+
+      let name = "College";
+      if (lid !== 0) {
+        const cid = Number(selectedLib?.collegeId ?? collegeId);
+        name = String(selectedLib?.collegeCode ?? "College");
+        try {
+          if (cid > 0) {
+            const full = await getCollegeById(cid);
+            if (full?.collegeName) name = String(full.collegeName);
+          }
+        } catch {
+          /* keep fallback */
+        }
+      }
+
+      setLoadingList(true);
+      clearResults();
+      setDataDetails(details);
+      setCollegeName(name);
+      try {
+        const raw = await getLibraryConsolidatedReport(lid);
+        if (raw.length === 0) {
+          toastInfo("No records found.");
+          return;
+        }
+        const mapped = raw.map(mapRow);
+        const totals: ConsolRow = {
+          __rowId: "total",
+          __isTotal: true,
+          libraryCode: "Total",
+          category: "",
+          totalTitleCount: mapped.reduce((s, r) => s + r.totalTitleCount, 0),
+          totalBooks: mapped.reduce((s, r) => s + r.totalBooks, 0),
+          inLibrary: mapped.reduce((s, r) => s + r.inLibrary, 0),
+          issuedBooks: mapped.reduce((s, r) => s + r.issuedBooks, 0),
+          dueBooks: mapped.reduce((s, r) => s + r.dueBooks, 0),
+          totalBooksCost: mapped.reduce((s, r) => s + r.totalBooksCost, 0),
+        };
+        setRows([...mapped, totals]);
+        setShowTable(true);
+      } catch (err) {
+        toastError(getErrorMessage(err));
+      } finally {
+        setLoadingList(false);
+      }
+    },
+    [clearResults, collegeId, selectedLib],
+  );
+
+  useEffect(() => {
+    if (!libraryId) return;
+    if (librariesQuery.isLoading) return;
+    if (libraryId !== "0" && !selectedLib) return;
+    const key = libraryId;
+    if (autoLoadKey.current === key) return;
+    autoLoadKey.current = key;
+    void loadReport(key);
+  }, [libraryId, librariesQuery.isLoading, loadReport, selectedLib]);
+
+  const columnDefs = useMemo<ColDef<ConsolRow>[]>(
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.libraryCode,
+      COL_DEFS.category,
+      COL_DEFS.totalTitleCount,
+      COL_DEFS.totalBooks,
+      COL_DEFS.inLibrary,
+      COL_DEFS.issuedBooks,
+      COL_DEFS.dueBooks,
+      COL_DEFS.totalBooksCost,
+    ],
+    [],
+  );
+
+  const exportRows = useMemo(
+    () =>
+      rows.map((row, i) => ({
+        siNo: row.__isTotal ? "" : i + 1,
+        libraryCode: row.libraryCode,
+        category: row.category,
+        totalTitleCount: row.totalTitleCount,
+        totalBooks: row.totalBooks,
+        inLibrary: row.inLibrary,
+        issuedBooks: row.issuedBooks,
+        dueBooks: row.dueBooks,
+        totalBooksCost: formatIndianAmount(row.totalBooksCost),
+      })),
+    [rows],
+  );
+
+  const handleExcelExport = () => {
+    if (exportRows.length === 0) {
+      toastInfo("No records to export.");
+      return;
+    }
+    const headerHtml = `<div style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:600;">${escapeHtml(collegeName || "College")}</div>
+      ${dataDetails ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(dataDetails)}</div>` : ""}
+      <div style="font-size:16px;font-weight:550;margin-top:4px;">${escapeHtml(PRINT_REPORT_TITLE)}</div>
+    </div>`;
+    exportHtmlTableAsExcel(
+      "Library Books Report.xls",
+      buildHtmlTable(EXCEL_COLUMNS, exportRows),
+      headerHtml,
+    );
+  };
+
+  const printReport = async () => {
+    if (exportRows.length === 0) {
+      toastInfo("No records to print.");
+      return;
+    }
+    const logoSrc = await resolveLibraryPrintLogo(
+      null,
+      libraryCollegeId > 0 ? libraryCollegeId : collegeId,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+    printHtmlInIframe(
+      libraryPrintShell({
+        title: escapeHtml(PRINT_REPORT_TITLE),
+        logoSrc: escapeHtml(logoSrc),
+        fallbackLogo: escapeHtml(fallbackLogo),
+        collegeName: escapeHtml(collegeName || "College"),
+        dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
+        tableHtml: buildHtmlTable(EXCEL_COLUMNS, exportRows),
+      }),
+    );
+  };
+
+  const goBack = () => {
+    router.push(resolveReportCatalogHref(searchParams.get("path")));
+  };
+
+  return (
+    <FilteredListPage<ConsolRow>
+      title={
+        showTable && dataDetails
+          ? `${REPORT_TITLE} - ( ${dataDetails} )`
+          : REPORT_TITLE
+      }
+      filters={
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[10rem] flex-1 basis-[10rem] sm:max-w-[16rem]">
+            <Select
+              label="Library"
+              required
+              value={libraryId}
+              onChange={(v) => {
+                setLibraryId(v);
+                autoLoadKey.current = null;
+                clearResults();
+              }}
+              options={libraryOptions}
+              placeholder="Library"
+              isLoading={librariesQuery.isLoading}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-9 w-fit px-4"
+            onClick={goBack}
+          >
+            Back
+          </Button>
+        </div>
+      }
+      rowData={showTable ? rows : []}
+      columnDefs={columnDefs}
+      loading={loadingList}
+      resultsVisible={showTable}
+      hideEmptyGrid
+      pagination={false}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+        columnPicker: true,
+      }}
+      toolbarTrailing={
+        showTable ? (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              data-table-primary-action
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              data-table-primary-action
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
+        ) : null
+      }
+    />
+  );
+}

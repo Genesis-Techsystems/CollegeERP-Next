@@ -97,7 +97,12 @@ export * from "./curriculum-report";
 export * from "./student-subjects-report";
 export * from "./answer-paper-bags-report";
 export * from "./exam-registration-reports";
-export { getExamTimetableFilterRows, dedupeBy } from "./exam-papers-delivery";
+export {
+  getExamTimetableFilterRows,
+  dedupeBy,
+  getExamCenterFilterGroups,
+  pickEgAyFilterRows,
+} from "./exam-papers-delivery";
 // pre-examination: listActiveColleges conflicts with invigilator-remuneration; listCoursesByUniversity
 // conflicts with revision-master; listExamRoomAllotments and listExamInvigilationAllotments conflict
 // with seating-plan (different signatures — seating-plan variants are exported without collegeId param).

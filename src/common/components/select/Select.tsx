@@ -9,7 +9,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { ChevronDown, X, Search, Check, Loader2 } from "lucide-react";
+import { ChevronDown, X, Loader2 } from "lucide-react";
 import {
   Popover,
   PopoverTrigger,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { OptionTooltip } from "./OptionTooltip";
+import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,6 +64,11 @@ export interface SelectProps {
   /** Preferred dropdown direction. Radix may flip it unless avoidCollisions is false. */
   side?: "top" | "right" | "bottom" | "left";
   avoidCollisions?: boolean;
+  /**
+   * `outlined` — bordered box.
+   * `standard` — Fuse / Angular Material underline-only field (app default).
+   */
+  variant?: "outlined" | "standard";
   className?: string;
 }
 
@@ -153,8 +159,11 @@ export function Select({
   contentClassName,
   side,
   avoidCollisions,
+  variant: variantProp,
   className,
 }: SelectProps) {
+  const variant = useFormFieldVariant(variantProp);
+  const isStandard = variant === "standard";
   const id = useId();
   const triggerId = `select-trigger-${id}`;
   const searchId = `select-search-${id}`;
@@ -232,7 +241,7 @@ export function Select({
       {label && (
         <label
           htmlFor={triggerId}
-          className="text-sm font-medium text-foreground"
+          className="text-[12px] font-normal text-black/54"
         >
           {label}
           {required && (
@@ -262,14 +271,25 @@ export function Select({
             disabled={disabled}
             title={selectOptionTooltip(selectedOption)}
             className={cn(
-              "app-control flex min-w-0 w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
+              "app-control flex min-w-0 w-full items-center justify-between text-[length:var(--app-control-font-size)] text-slate-900 transition-colors",
               "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              open && "border-[hsl(var(--ring))]",
-              error
-                ? "border-destructive focus-visible:border-destructive"
-                : "border-slate-300",
-              !error && "focus-visible:border-[hsl(var(--ring))]",
+              isStandard
+                ? cn(
+                    "h-9 rounded-none border-0 border-b border-black/12 bg-transparent px-0 py-1.5 shadow-none",
+                    open && "border-b-2 border-[#0c51a4]",
+                    error
+                      ? "border-b-2 border-destructive"
+                      : "focus-visible:border-b-2 focus-visible:border-[#0c51a4]",
+                  )
+                : cn(
+                    "rounded-md border bg-white px-3 py-1.5 shadow-sm",
+                    open && "border-[hsl(var(--ring))]",
+                    error
+                      ? "border-destructive focus-visible:border-destructive"
+                      : "border-slate-300",
+                    !error && "focus-visible:border-[hsl(var(--ring))]",
+                  ),
             )}
           >
             {/* Label / placeholder */}
@@ -309,14 +329,14 @@ export function Select({
           </button>
         </PopoverTrigger>
 
-        {/* Dropdown */}
+        {/* Dropdown — Angular mat-select-panel + ngx-mat-select-search */}
         <PopoverContent
           align="start"
           side={side}
           avoidCollisions={avoidCollisions}
           sideOffset={4}
           className={cn(
-            "w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0",
+            "mat-select-panel w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0",
             contentClassName,
           )}
           onWheel={(e) => scrollListOnWheel(e, listRef.current)}
@@ -329,21 +349,18 @@ export function Select({
         >
           {/* Search input */}
           {searchable && (
-            <div className="border-b px-2 py-1.5">
-              <div className="relative flex items-center">
-                <Search className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-slate-400" />
-                <input
-                  ref={searchInputRef}
-                  id={searchId}
-                  type="text"
-                  role="searchbox"
-                  aria-label="Search options"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  placeholder="Search…"
-                  className="h-8 w-full rounded-md bg-transparent pl-7 pr-2 text-sm placeholder:text-slate-400 focus:outline-none"
-                />
-              </div>
+            <div className="mat-select-panel__search">
+              <input
+                ref={searchInputRef}
+                id={searchId}
+                type="text"
+                role="searchbox"
+                aria-label="Search options"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Search..."
+                className="mat-select-panel__search-input"
+              />
             </div>
           )}
 
@@ -352,7 +369,7 @@ export function Select({
             ref={listRef}
             role="listbox"
             className={cn(
-              "overflow-y-auto overscroll-contain py-1 touch-pan-y",
+              "mat-select-panel__list overflow-y-auto overscroll-contain touch-pan-y",
               listClassName ?? "max-h-60",
             )}
           >
@@ -362,8 +379,8 @@ export function Select({
                 <span>Loading…</span>
               </div>
             ) : filteredOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                No results found
+              <div className="mat-select-panel__empty">
+                no matching data found
               </div>
             ) : (
               filteredOptions.map((opt, idx) => {
@@ -378,20 +395,13 @@ export function Select({
                     disabled={opt.disabled}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
-                      "flex w-full gap-2 px-3 py-2 text-sm transition-colors",
-                      wrapOptionLabels ? "items-start" : "items-center",
-                      "hover:bg-muted hover:text-foreground",
-                      "focus:bg-muted focus:text-foreground focus:outline-none",
-                      "disabled:cursor-not-allowed disabled:opacity-50",
-                      isSelected && "bg-muted font-medium text-[#042956]",
+                      "mat-select-panel__option",
+                      wrapOptionLabels || opt.description
+                        ? "items-start"
+                        : "items-center",
+                      isSelected && "mat-select-panel__option--active",
                     )}
                   >
-                    {/* Checkmark slot — keeps label alignment consistent */}
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                      {isSelected && (
-                        <Check className="h-3.5 w-3.5 text-primary" />
-                      )}
-                    </span>
                     <OptionTooltip
                       content={tip}
                       className={cn(
@@ -418,7 +428,7 @@ export function Select({
                           {opt.label}
                         </span>
                         {opt.description ? (
-                          <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground leading-4 whitespace-normal break-words">
+                          <span className="mt-0.5 block text-[12px] font-normal text-black/54 leading-4 whitespace-normal break-words">
                             {opt.description}
                           </span>
                         ) : null}

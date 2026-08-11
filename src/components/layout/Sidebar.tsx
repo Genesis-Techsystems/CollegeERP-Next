@@ -11,8 +11,6 @@ import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
 import smartLogo from "@/assets/images/smart-campus-logo.png";
 import { logout } from "@/services/auth";
-import { getCollegeById } from "@/services";
-import { MINIO_URL } from "@/config/constants/api";
 import { IS_DEBUG_MODE, DebugTrigger, useDebugStore } from "@/debug";
 
 /** Static "Home" entry — always first; href is filled from the role home path. */
@@ -53,44 +51,6 @@ export function Sidebar() {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  // ── Dynamic college logo ──────────────────────────────────────────────────
-  // Primary source: the login DTO's collegeLogo (Angular navbar binds
-  // `loginUser.collegeLogo` directly). Fallback: the College record's `logo`
-  // path on MinIO for sessions created before collegeLogo was stored.
-  const [collegeLogoUrl, setCollegeLogoUrl] = useState<string | null>(null);
-  const [collegeLogoFailed, setCollegeLogoFailed] = useState(false);
-
-  const toLogoUrl = (path: string) =>
-    /^(https?:\/\/|data:)/i.test(path)
-      ? path
-      : `${MINIO_URL}${path.replace(/^\/+/, "")}`;
-
-  useEffect(() => {
-    if (user?.collegeLogo) {
-      setCollegeLogoUrl(toLogoUrl(user.collegeLogo));
-      setCollegeLogoFailed(false);
-      return;
-    }
-    if (!user?.collegeId) return;
-    let cancelled = false;
-    getCollegeById(user.collegeId)
-      .then((college) => {
-        if (!cancelled && college?.logo) {
-          setCollegeLogoUrl(toLogoUrl(college.logo));
-          setCollegeLogoFailed(false);
-        }
-      })
-      .catch(() => {
-        // Keep the static fallback logo when the lookup fails.
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.collegeId, user?.collegeLogo]);
-
-  const showCollegeLogo = !!collegeLogoUrl && !collegeLogoFailed;
 
   // Same mounted guard as AppShell to stay in sync and avoid mismatches
   const [mounted, setMounted] = useState(false);
@@ -149,10 +109,8 @@ export function Sidebar() {
         return false;
       return true;
     });
-    let items = [
-      buildHomeNavItem(homeHref),
-      ...withoutDashboard.slice().sort((a, b) => a.sortOrder - b.sortOrder),
-    ];
+    // Order comes from buildNavTree (Angular parity) — do not re-sort top-level items.
+    let items = [buildHomeNavItem(homeHref), ...withoutDashboard];
     if (searchTerm.trim()) items = filterBySearch(items, searchTerm);
     if (IS_DEBUG_MODE && debugSettings.nav.hiddenIds.length > 0) {
       items = filterByDebug(items, new Set(debugSettings.nav.hiddenIds));
@@ -189,9 +147,10 @@ export function Sidebar() {
     }
   }, [isExpanded]);
 
-  // On first load only: scroll the nav container so the active item is visible.
-  // Do NOT repeat on every route change; users expect the sidebar scroll position
-  // to stay fixed while navigating.
+  // On first load only: scroll the nav so the active item is visible — but only
+  // when it is outside the viewport. Always scrolling the active item to the top
+  // (e.g. Home on dashboard) pushes the "Main Menu" label up and clips it.
+  // Do NOT repeat on every route change; users expect scroll position to stay put.
   useEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
@@ -205,9 +164,18 @@ export function Sidebar() {
         ) ?? nav.querySelector<HTMLElement>('a[aria-current="page"]');
       if (!target) return;
 
-      const navTop = nav.getBoundingClientRect().top;
-      const targetTop = target.getBoundingClientRect().top;
-      const newScrollTop = nav.scrollTop + (targetTop - navTop) - 8; // 8px breathing room
+      const navRect = nav.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const fullyVisible =
+        targetRect.top >= navRect.top + 4 &&
+        targetRect.bottom <= navRect.bottom - 4;
+      if (fullyVisible) return;
+
+      // Keep "Main Menu" (and other section labels) in view when scrolling up.
+      const label = nav.querySelector<HTMLElement>(".sidebar-section-label");
+      const labelOffset = label ? label.offsetHeight + 4 : 8;
+      const newScrollTop =
+        nav.scrollTop + (targetRect.top - navRect.top) - labelOffset;
       nav.scrollTo({ top: Math.max(0, newScrollTop), behavior: "instant" });
     };
 
@@ -249,43 +217,32 @@ export function Sidebar() {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {/* ── Brand header — white strip like Angular navbar-top (55px) ── */}
+      {/* ── Brand header — white strip; Smart Campus mark (not college seal) ── */}
       <div
         className={cn(
           "app-sidebar-brand flex shrink-0 items-center",
           isExpanded ? "gap-2.5 px-3" : "justify-center px-2",
         )}
       >
-        {showCollegeLogo ? (
-          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={collegeLogoUrl ?? ""}
-              alt={user?.collegeName ?? "College logo"}
-              className="h-full w-full object-contain"
-              onError={() => setCollegeLogoFailed(true)}
-            />
-          </span>
-        ) : (
-          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center">
-            <Image
-              src={smartLogo}
-              alt="Smart Campus"
-              width={30}
-              height={30}
-              className="h-[30px] w-[30px] object-contain"
-            />
-          </div>
-        )}
+        <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center">
+          <Image
+            src={smartLogo}
+            alt="University Campus"
+            width={30}
+            height={30}
+            className="h-[30px] w-[30px] object-contain"
+            priority
+          />
+        </div>
         {isExpanded && (
           <p
             className="min-w-0 flex-1 mr-1 text-[12px] font-medium text-[#042956] leading-[1.2] tracking-tight break-words"
             style={{
               fontFamily: "var(--font-body), Inter, system-ui, sans-serif",
             }}
-            title={user?.collegeName ?? "University Campus"}
+            title="University Campus"
           >
-            {user?.collegeName ?? "University Campus"}
+            University Campus
           </p>
         )}
 

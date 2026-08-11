@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { FileText, Mail, PencilIcon } from "lucide-react";
+import { FileText, PencilIcon } from "lucide-react";
 import {
   Select,
   MultiSelect,
@@ -38,8 +38,6 @@ import { listRegulations } from "@/services/examination";
 import {
   createEvaluatorBankDetails,
   createEvaluatorProfile,
-  getAssignSubjectsEvaluatorRoles,
-  getEvaluationExamFilters,
   getEvaluatorBankDetails,
   listActiveCourses,
   listEvaluatorProfiles,
@@ -48,7 +46,6 @@ import {
   listExamEvaluatorPreferences,
   listSubjectsByCourseForPreferences,
   searchEvaluatorEmployees,
-  sendEvaluatorCredentials,
   updateEvaluatorProfile,
   updateExamEvaluatorPreferences,
 } from "@/services/evaluation-process";
@@ -123,30 +120,6 @@ function normalizePrefRow(row: AnyRow, profileId: number): AnyRow {
   };
 }
 
-function dedupeBy<T>(rows: T[], keyFn: (r: T) => string | number) {
-  const seen = new Set<string | number>();
-  return rows.filter((r) => {
-    const key = keyFn(r);
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function formatYmd(v: unknown) {
-  if (v == null || v === "") return "";
-  let raw: string | number | Date = "";
-  if (typeof v === "string" || typeof v === "number") raw = v;
-  else if (v instanceof Date) raw = v.getTime();
-  if (raw === "") return "";
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return "";
-  const day = String(d.getDate()).padStart(2, "0");
-  const mon = String(d.getMonth() + 1).padStart(2, "0");
-  const y = d.getFullYear();
-  return `${day}-${mon}-${y}`;
-}
-
 const toYmd = (v?: string | Date) => {
   if (!v) return "";
   const d = new Date(v);
@@ -196,7 +169,6 @@ function BankSummaryRow({ label, value }: { label: string; value: string }) {
 
 function makeActionsRenderer(
   openEdit: (row: AnyRow) => void,
-  sendOne: (row: AnyRow) => void,
   openBank: (row: AnyRow) => void,
 ) {
   return (p: { data?: AnyRow }) => (
@@ -210,16 +182,6 @@ function makeActionsRenderer(
         onClick={() => openEdit(p.data ?? {})}
       >
         <PencilIcon className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        aria-label="Send credentials"
-        onClick={() => sendOne(p.data ?? {})}
-      >
-        <Mail className="h-3.5 w-3.5" />
       </Button>
       <Button
         type="button"
@@ -409,22 +371,6 @@ export default function CreateEvaluatorsPage() {
   const [prefSubjectIds, setPrefSubjectIds] = useState<string[]>([]);
   const [prefLoading, setPrefLoading] = useState(false);
 
-  const [credOpen, setCredOpen] = useState(false);
-  const [credFieldErrors, setCredFieldErrors] = useState<
-    Record<string, string>
-  >({});
-  const [credMode, setCredMode] = useState<"bulk" | "single">("bulk");
-  const [credSingleRow, setCredSingleRow] = useState<AnyRow | null>(null);
-  const [credFilterRows, setCredFilterRows] = useState<AnyRow[]>([]);
-  const [credCourseId, setCredCourseId] = useState<number | null>(null);
-  const [credAcademicYearId, setCredAcademicYearId] = useState<number | null>(
-    null,
-  );
-  const [credExamId, setCredExamId] = useState<number | null>(null);
-  const [credExamSearch, setCredExamSearch] = useState("");
-  const [credRoleId, setCredRoleId] = useState<number | null>(null);
-  const [credRoles, setCredRoles] = useState<AnyRow[]>([]);
-
   const [bankOpen, setBankOpen] = useState(false);
   const [bankProfile, setBankProfile] = useState<AnyRow | null>(null);
   const [bankEditId, setBankEditId] = useState<number | null>(null);
@@ -474,175 +420,6 @@ export default function CreateEvaluatorsPage() {
       })),
     [titles],
   );
-
-  const credCourses = useMemo(
-    () =>
-      dedupeBy(credFilterRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
-    [credFilterRows],
-  );
-  const credAcademicYears = useMemo(() => {
-    if (!credCourseId) return [];
-    return dedupeBy(
-      credFilterRows.filter(
-        (r) =>
-          pickNum(r, ["fk_course_id", "courseId"]) === Number(credCourseId),
-      ),
-      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
-    ).sort((a, b) => {
-      const ya = Number.parseInt(
-        String(pickText(a, ["academic_year"]) || "0"),
-        10,
-      );
-      const yb = Number.parseInt(
-        String(pickText(b, ["academic_year"]) || "0"),
-        10,
-      );
-      return yb - ya;
-    });
-  }, [credFilterRows, credCourseId]);
-
-  const credExams = useMemo(() => {
-    if (!credCourseId || !credAcademicYearId) return [];
-    return dedupeBy(
-      credFilterRows.filter(
-        (r) =>
-          pickNum(r, ["fk_course_id", "courseId"]) === Number(credCourseId) &&
-          pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
-            Number(credAcademicYearId),
-      ),
-      (r) => pickNum(r, ["fk_exam_id", "examId"]),
-    );
-  }, [credFilterRows, credCourseId, credAcademicYearId]);
-
-  const credExamsFiltered = useMemo(() => {
-    const t = credExamSearch.trim().toLowerCase();
-    if (!t) return credExams;
-    return credExams.filter((e) =>
-      pickText(e, ["exam_name", "examName"]).toLowerCase().includes(t),
-    );
-  }, [credExams, credExamSearch]);
-
-  useEffect(() => {
-    if (!credOpen) return;
-    void (async () => {
-      const [f, roles] = await Promise.all([
-        getEvaluationExamFilters(employeeId).catch(() => []),
-        getAssignSubjectsEvaluatorRoles().catch(() => []),
-      ]);
-      setCredFilterRows(Array.isArray(f) ? f : []);
-      setCredRoles(Array.isArray(roles) ? roles : []);
-    })();
-  }, [credOpen, employeeId]);
-
-  useEffect(() => {
-    if (!credOpen || credCourseId != null || credCourses.length === 0) return;
-    setCredCourseId(pickNum(credCourses[0], ["fk_course_id", "courseId"]));
-  }, [credOpen, credCourseId, credCourses]);
-
-  useEffect(() => {
-    if (
-      !credOpen ||
-      credAcademicYearId != null ||
-      credAcademicYears.length === 0
-    )
-      return;
-    setCredAcademicYearId(
-      pickNum(credAcademicYears[0], ["fk_academic_year_id", "academicYearId"]),
-    );
-  }, [credOpen, credAcademicYearId, credAcademicYears]);
-
-  useEffect(() => {
-    if (!credOpen || credExamId != null || credExams.length === 0) return;
-    setCredExamId(pickNum(credExams[0], ["fk_exam_id", "examId"]));
-  }, [credOpen, credExamId, credExams]);
-
-  function resetCredForm() {
-    setCredExamSearch("");
-    setCredCourseId(null);
-    setCredAcademicYearId(null);
-    setCredExamId(null);
-    setCredRoleId(null);
-    setCredFieldErrors({});
-  }
-
-  const credRoleOptions: SelectOption[] = useMemo(
-    () =>
-      credRoles.map((r) => ({
-        value: String(pickNum(r, ["pk_role_id", "roleId"])),
-        label: pickText(r, ["role_name", "roleName"]),
-      })),
-    [credRoles],
-  );
-
-  function openSendCredentialsModal(mode: "bulk" | "single", row?: AnyRow) {
-    setCredMode(mode);
-    setCredSingleRow(row ?? null);
-    resetCredForm();
-    setCredOpen(true);
-  }
-
-  function buildSendCredentialsItem(
-    examEvaluatorProfileId: number,
-    examId: number,
-    evaluatorRoleId: number,
-  ): AnyRow {
-    return {
-      examEvaluatorProfileId,
-      examId,
-      examEvaluatorProfileDetailsDTOS: [{ evaluatorRoleId }],
-    };
-  }
-
-  function validateCredSend(): boolean {
-    const next: Record<string, string> = {};
-    if (!credCourseId) next.courseId = "Course is required.";
-    if (!credAcademicYearId) next.academicYearId = "Academic year is required.";
-    if (!credExamId) next.examId = "Exam is required.";
-    if (!credRoleId) next.roleId = "Role is required.";
-    setCredFieldErrors(next);
-    return Object.keys(next).length === 0;
-  }
-
-  async function submitSendCredentials() {
-    if (!validateCredSend()) return;
-    const examId = credExamId!;
-    const roleId = credRoleId!;
-    setLoading(true);
-    try {
-      let payload: AnyRow[];
-      if (credMode === "single" && credSingleRow?.examEvaluatorProfileId) {
-        payload = [
-          buildSendCredentialsItem(
-            Number(credSingleRow.examEvaluatorProfileId),
-            examId,
-            roleId,
-          ),
-        ];
-      } else {
-        payload = rows
-          .map((r) =>
-            buildSendCredentialsItem(
-              Number(r.examEvaluatorProfileId),
-              examId,
-              roleId,
-            ),
-          )
-          .filter((p) => Number(p.examEvaluatorProfileId) > 0);
-      }
-      if (payload.length === 0) {
-        toastError("No evaluator profiles to send.");
-        return;
-      }
-      await sendEvaluatorCredentials(payload);
-      toastSuccess("Credentials sent.");
-      setCredOpen(false);
-      await loadList();
-    } catch (error) {
-      toastError(error, "Failed to send credentials.");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   // Angular AddBankDetails(): look up existing bank row by profile; edit it if
   // present, else open a blank create form (phone defaults to the evaluator's).
@@ -1119,12 +896,8 @@ export default function CreateEvaluatorsPage() {
       },
       {
         headerName: "Actions",
-        minWidth: 130,
-        cellRenderer: makeActionsRenderer(
-          openEdit,
-          (row) => openSendCredentialsModal("single", row),
-          openBank,
-        ),
+        minWidth: 100,
+        cellRenderer: makeActionsRenderer(openEdit, openBank),
       },
     ],
     [openSubjects, openPreferences],
@@ -1145,19 +918,9 @@ export default function CreateEvaluatorsPage() {
         pdfDocumentTitle: "Create Evaluators",
       }}
       toolbarTrailing={
-        <>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => openSendCredentialsModal("bulk")}
-            disabled={loading}
-          >
-            Send Evaluator Credentials
-          </Button>
-          <Button type="button" onClick={openAdd} disabled={loading}>
-            Create Evaluator
-          </Button>
-        </>
+        <Button type="button" onClick={openAdd} disabled={loading}>
+          Create Evaluator
+        </Button>
       }
     >
       <Dialog
@@ -1549,157 +1312,6 @@ export default function CreateEvaluatorsPage() {
               disabled={loading || prefLoading}
             >
               Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={credOpen} onOpenChange={setCredOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Send Credentials</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
-              <div className="md:col-span-3 space-y-1">
-                <Label className="text-[12px]">
-                  Course <span className="text-red-600">*</span>
-                </Label>
-                <Select
-                  value={credCourseId ? String(credCourseId) : null}
-                  onChange={(v) => {
-                    setCredCourseId(v ? Number(v) : null);
-                    setCredAcademicYearId(null);
-                    setCredExamId(null);
-                    if (credFieldErrors.courseId) {
-                      setCredFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.courseId;
-                        return next;
-                      });
-                    }
-                  }}
-                  options={credCourses.map(
-                    (c) =>
-                      ({
-                        value: String(pickNum(c, ["fk_course_id"])),
-                        label: pickText(c, ["course_code", "courseCode"]),
-                      }) as SelectOption,
-                  )}
-                  placeholder="Course"
-                  error={credFieldErrors.courseId}
-                />
-              </div>
-              <div className="md:col-span-3 space-y-1">
-                <Label className="text-[12px]">
-                  Academic Year <span className="text-red-600">*</span>
-                </Label>
-                <Select
-                  value={credAcademicYearId ? String(credAcademicYearId) : null}
-                  onChange={(v) => {
-                    setCredAcademicYearId(v ? Number(v) : null);
-                    setCredExamId(null);
-                    if (credFieldErrors.academicYearId) {
-                      setCredFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.academicYearId;
-                        return next;
-                      });
-                    }
-                  }}
-                  options={credAcademicYears.map(
-                    (a) =>
-                      ({
-                        value: String(pickNum(a, ["fk_academic_year_id"])),
-                        label: pickText(a, ["academic_year"]),
-                      }) as SelectOption,
-                  )}
-                  placeholder="Academic Year"
-                  disabled={!credCourseId}
-                  error={credFieldErrors.academicYearId}
-                />
-              </div>
-              <div className="md:col-span-6 space-y-1">
-                <Label className="text-[12px]">
-                  Exam <span className="text-red-600">*</span>
-                </Label>
-                <Select
-                  value={credExamId ? String(credExamId) : null}
-                  onChange={(v) => {
-                    setCredExamId(v ? Number(v) : null);
-                    if (credFieldErrors.examId) {
-                      setCredFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.examId;
-                        return next;
-                      });
-                    }
-                  }}
-                  options={credExams.map(
-                    (e) =>
-                      ({
-                        value: String(pickNum(e, ["fk_exam_id"])),
-                        label: `${pickText(e, ["exam_name"])} (${formatYmd(e.from_date ?? e.fromDate)} – ${formatYmd(e.to_date ?? e.toDate)})`,
-                      }) as SelectOption,
-                  )}
-                  placeholder="Exam"
-                  searchable
-                  wrapOptionLabels
-                  disabled={!credCourseId || !credAcademicYearId}
-                  error={credFieldErrors.examId}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
-              <div className="md:col-span-6 space-y-1">
-                <Label className="text-[12px]">
-                  Select Role <span className="text-red-600">*</span>
-                </Label>
-                <Select
-                  value={credRoleId ? String(credRoleId) : null}
-                  onChange={(v) => {
-                    setCredRoleId(v ? Number(v) : null);
-                    if (credFieldErrors.roleId) {
-                      setCredFieldErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.roleId;
-                        return next;
-                      });
-                    }
-                  }}
-                  options={credRoleOptions}
-                  placeholder="Select Role"
-                  wrapOptionLabels
-                  error={credFieldErrors.roleId}
-                />
-              </div>
-            </div>
-            <p className="text-[13px] text-slate-700">
-              Send Credentials to{" "}
-              {credMode === "single" ? (
-                <span className="font-medium text-blue-700">
-                  {pickText(credSingleRow, ["evaluatorName"]) || "—"}
-                </span>
-              ) : (
-                <span className="font-medium text-blue-700">
-                  All Evaluators
-                </span>
-              )}
-            </p>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button
-              onClick={() => void submitSendCredentials()}
-              disabled={loading}
-            >
-              Send
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setCredOpen(false)}
-              disabled={loading}
-            >
-              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

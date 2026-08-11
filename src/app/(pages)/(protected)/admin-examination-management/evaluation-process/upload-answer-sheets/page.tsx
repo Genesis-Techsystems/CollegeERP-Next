@@ -425,6 +425,7 @@ export default function UploadAnswerSheetsPage() {
   return (
     <FilteredPage
       title="Upload Answer Sheets"
+      tableHeader={null}
       filters={
         <GlobalFilterBarRow>
           <GlobalFilterField label="Course">
@@ -480,146 +481,153 @@ export default function UploadAnswerSheetsPage() {
         </GlobalFilterBarRow>
       }
       body={
-        num(subjectId) > 0 ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  webkitdirectory=""
-                  multiple
-                  onChange={(e) => onFilesSelected(e.target.files)}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mx-auto flex h-[215px] w-full max-w-[290px] flex-col items-center justify-center gap-5 rounded-md bg-[#1fb0e8] px-6 py-8 text-center shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition-colors hover:bg-[#14a6df]"
-                >
-                  <div className="flex h-[106px] w-[106px] items-center justify-center rounded-full bg-white shadow-sm">
-                    <Upload className="h-10 w-10 text-[#1f2fa3]" strokeWidth={2.4} />
-                  </div>
-                  <div className="text-[18px] font-bold leading-tight text-black">
-                    Upload Answer Papers
-                  </div>
-                </button>
-              </div>
-              <div className="md:col-span-9 border-2 border-cyan-400 rounded-sm p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Button
-                    type="button"
-                    className="h-8 px-3 text-[12px]"
-                    onClick={checkUploadStatus}
-                    disabled={
-                      loading ||
-                      !academicYearId ||
-                      !examId ||
-                      !subjectId ||
-                      !examDate
-                    }
-                  >
-                    Check Upload Status
-                  </Button>
-                  {subjectLabel && (
-                    <span className="text-[12px] font-medium">
-                      ({subjectLabel} / {examDate})
-                    </span>
-                  )}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+            <div className="md:col-span-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                // Angular: webkitdirectory multiple — folder pick for answer papers
+                {...({ webkitdirectory: "", directory: "" } as Record<
+                  string,
+                  string
+                >)}
+                multiple
+                disabled={uploading}
+                onChange={(e) => onFilesSelected(e.target.files)}
+              />
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="mx-auto flex h-[215px] w-full max-w-[290px] flex-col items-center justify-center gap-5 rounded-md bg-[#1fb0e8] px-6 py-8 text-center shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition-colors hover:bg-[#14a6df] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <div className="flex h-[106px] w-[106px] items-center justify-center rounded-full bg-white shadow-sm">
+                  <Upload
+                    className="h-10 w-10 text-[#1f2fa3]"
+                    strokeWidth={2.4}
+                  />
                 </div>
-                <div className="text-[14px] font-semibold leading-7">
-                  <div>
-                    Total Number of Students :{" "}
-                    <span className="text-red-600">
-                      {num(summary?.total_students)}
-                    </span>{" "}
-                    | Student Attendance Marked :{" "}
-                    <span className="text-red-600">
-                      {num(summary?.attendance_marked)}
-                    </span>{" "}
-                    | Not Marked :{" "}
-                    <span className="text-red-600">
-                      {num(summary?.attendance_not_marked)}
-                    </span>
-                  </div>
-                  <div>
-                    Student Attendance - Present :{" "}
-                    <span className="text-red-600">
-                      {num(summary?.presented_Students)}
-                    </span>{" "}
-                    | Absent : <span className="text-red-600">{absent}</span> |
-                    Number of Answer Sheets - Uploaded :{" "}
-                    <span className="text-red-600">
-                      {num(summary?.no_oof_answerpaper_uploaded)}
-                    </span>{" "}
-                    | Not Uploaded :{" "}
-                    <span className="text-red-600">{notUploaded}</span>
-                  </div>
+                <div className="text-[18px] font-bold leading-tight text-black">
+                  Upload Answer Papers
+                </div>
+              </button>
+            </div>
+            <div className="rounded-sm border-2 border-cyan-400 p-3 md:col-span-9">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  className="h-8 px-3 text-[12px]"
+                  onClick={() => void checkUploadStatus()}
+                  disabled={
+                    loading ||
+                    !academicYearId ||
+                    !examId ||
+                    !subjectId ||
+                    !examDate
+                  }
+                >
+                  Check Upload Status
+                </Button>
+                {subjectLabel ? (
+                  <span className="text-[12px] font-medium">
+                    ({subjectLabel} / {examDate})
+                  </span>
+                ) : null}
+              </div>
+              <div className="text-[14px] font-semibold leading-7">
+                <div>
+                  Total Number of Students :{" "}
+                  <span className="text-red-600">
+                    {num(summary?.total_students)}
+                  </span>{" "}
+                  | Student Attendance Marked :{" "}
+                  <span className="text-red-600">
+                    {num(summary?.attendance_marked)}
+                  </span>{" "}
+                  | Not Marked :{" "}
+                  <span className="text-red-600">
+                    {num(summary?.attendance_not_marked)}
+                  </span>
+                </div>
+                <div>
+                  Student Attendance - Present :{" "}
+                  <span className="text-red-600">
+                    {num(summary?.presented_Students)}
+                  </span>{" "}
+                  | Absent : <span className="text-red-600">{absent}</span> |
+                  Number of Answer Sheets - Uploaded :{" "}
+                  <span className="text-red-600">
+                    {num(summary?.no_oof_answerpaper_uploaded)}
+                  </span>{" "}
+                  | Not Uploaded :{" "}
+                  <span className="text-red-600">{notUploaded}</span>
                 </div>
               </div>
             </div>
-            {uploadedFiles.length > 0 && (
-              <div className="max-h-[320px] overflow-auto rounded border border-border">
-                <table className="w-full text-[12px]">
-                  <thead className="sticky top-0 bg-muted/40">
-                    <tr className="border-b border-border text-left">
-                      <th className="px-2 py-2 w-12">Sl.No</th>
-                      <th className="px-2 py-2">File Name</th>
-                      <th className="px-2 py-2 w-40">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {uploadedFiles.map((u, i) => (
-                      <tr
-                        key={`uf-${i}-${u.fileName}`}
-                        className="border-b border-slate-100"
-                      >
-                        <td className="px-2 py-1.5">{i + 1}</td>
-                        <td className="px-2 py-1.5">{u.fileName}</td>
-                        <td className="px-2 py-1.5">
-                          <span
-                            className={
-                              u.status === "Success"
-                                ? "text-emerald-700 font-medium"
-                                : u.status === "File not found"
-                                  ? "text-red-600"
-                                  : u.status === "Progress"
-                                    ? "text-amber-600"
-                                    : "text-slate-600"
-                            }
-                          >
-                            {u.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {selectedFilesCount > 0 && (
-                  <div className="flex justify-end gap-3 border-t border-border bg-background px-4 py-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-8 px-5 text-[12px]"
-                      onClick={clearSelectedFiles}
-                      disabled={uploading}
-                    >
-                      Back
-                    </Button>
-                    <Button
-                      type="button"
-                      className="h-8 px-5 text-[12px]"
-                      disabled={uploading || selectedFilesCount === 0}
-                      onClick={handleUpload}
-                    >
-                      {uploading ? "Uploading..." : "Upload"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-        ) : null
+          {uploadedFiles.length > 0 ? (
+            <div className="max-h-[320px] overflow-auto rounded border border-border">
+              <table className="w-full text-[12px]">
+                <thead className="sticky top-0 bg-muted/40">
+                  <tr className="border-b border-border text-left">
+                    <th className="w-12 px-2 py-2">Sl.No</th>
+                    <th className="px-2 py-2">File Name</th>
+                    <th className="w-40 px-2 py-2">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploadedFiles.map((u, i) => (
+                    <tr
+                      key={`uf-${i}-${u.fileName}`}
+                      className="border-b border-slate-100"
+                    >
+                      <td className="px-2 py-1.5">{i + 1}</td>
+                      <td className="px-2 py-1.5">{u.fileName}</td>
+                      <td className="px-2 py-1.5">
+                        <span
+                          className={
+                            u.status === "Success"
+                              ? "font-medium text-emerald-700"
+                              : u.status === "File not found"
+                                ? "text-red-600"
+                                : u.status === "Progress"
+                                  ? "text-amber-600"
+                                  : "text-slate-600"
+                          }
+                        >
+                          {u.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {selectedFilesCount > 0 ? (
+                <div className="flex justify-end gap-3 border-t border-border bg-background px-4 py-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 px-5 text-[12px]"
+                    onClick={clearSelectedFiles}
+                    disabled={uploading}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-8 px-5 text-[12px]"
+                    disabled={uploading || selectedFilesCount === 0}
+                    onClick={() => void handleUpload()}
+                  >
+                    {uploading ? "Uploading..." : "Upload"}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       }
     />
   );

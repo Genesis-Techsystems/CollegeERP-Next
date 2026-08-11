@@ -141,7 +141,12 @@ export function LoginCard() {
         /* Form */
         <div className="px-8 pb-8">
           <form
-            onSubmit={handleSubmit(onSubmit)}
+            method="post"
+            action="#"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSubmit(onSubmit)(e);
+            }}
             className="space-y-4"
             noValidate
           >
@@ -225,13 +230,13 @@ export function LoginCard() {
                 />
                 Remember Me
               </label>
-              <a
-                href="#"
+              <button
+                type="button"
                 className="text-[13px] font-medium text-primary hover:underline"
                 tabIndex={-1}
               >
                 Forgot Password?
-              </a>
+              </button>
             </div>
 
             {/* Error banner */}

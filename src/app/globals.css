@@ -132,10 +132,16 @@
   --app-control-height: 36px;
   --app-control-font-size: 14px;
   --app-label-font-size: 13px;
-  --app-table-header-font-size: 13px;
-  --app-table-row-font-size: 13px;
-  --app-table-row-height: 36px;
-  --app-table-header-color: var(--primary);
+  --app-table-header-font-size: 15px;
+  --app-table-row-font-size: 14px;
+  --app-table-row-height: 35px;
+  --app-table-header-color: #000000;
+  /* Angular mat-table tokens (styles.scss) */
+  --mat-table-header-bg: #ecf3ff;
+  --mat-table-border: #e3edf8;
+  --mat-table-row-even: #f8fbff;
+  --mat-table-row-odd: #ffffff;
+  --mat-table-header-height: 32px;
 
   /* Angular toolbar */
   --toolbar-background: 44 100% 64%; /* #ffcf46 */
@@ -273,6 +279,219 @@
 }
 
 .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Evaluation Rejection — Academic Year / Exam Group / Exam Center / Get List */
+.global-filter-bar__row--eval-reject > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx30 {
+  flex: 0 0 30% !important;
+  width: 30% !important;
+  max-width: 30% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx25 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--eval-reject > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Send Mails to Evaluators — Course / AY / Exam / Role / Re-Eval / Get List */
+.global-filter-bar__row--send-mail-eval > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx18 {
+  flex: 0 0 18% !important;
+  width: 18% !important;
+  max-width: 18% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx12 {
+  flex: 0 0 12% !important;
+  width: 12% !important;
+  max-width: 12% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--send-mail-eval > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
+/* Assign Mails to Evaluators — Angular yar-bordr dual pick-list */
+.send-mail-eval-panel {
+  border: 2px solid #89c5ff;
+  border-radius: 3px;
+  padding: 6px 10px;
+  background: #fff;
+  margin: 0;
+}
+
+.send-mail-eval-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  gap: 0;
+}
+
+.send-mail-eval-panel__col {
+  border: 1px solid #dedede;
+  box-sizing: border-box;
+  min-height: 320px;
+  background: #fff;
+}
+
+.send-mail-eval-panel__col--left,
+.send-mail-eval-panel__col--right {
+  flex: 1 1 45%;
+  max-width: 50%;
+  min-width: 280px;
+}
+
+.send-mail-eval-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 6px 8px 8px;
+}
+
+.send-mail-eval-panel__total {
+  color: #0c51a4;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.send-mail-eval-table-wrap {
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.send-mail-eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 13px;
+  margin: 0;
+}
+
+.send-mail-eval-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #c3d9ff;
+  color: #0c51a4;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 5px solid #c3d9ff;
+}
+
+.send-mail-eval-table td {
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #dce8ff;
+  color: #1a1a1a;
+  font-weight: 500;
+}
+
+.send-mail-eval-table tbody tr:nth-child(even) {
+  background: #f1f6ff;
+}
+
+.send-mail-eval-table tbody tr:nth-child(odd) {
+  background: #fff;
+}
+
+.send-mail-eval-table__selected-name {
+  color: #0c51a4 !important;
+}
+
+.send-mail-eval-table th.send-mail-eval-table__selected-head {
+  color: #0c51a4;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .send-mail-eval-panel__col--left,
+  .send-mail-eval-panel__col--right {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
+
+/* Re-Assign Evaluators — row2: CourseYear / Regulation / Subject / IsReEval / Get List */
+.global-filter-bar__row--reassign-r2 {
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--reassign-r2 > .global-filter-field--fx10 {
   flex: 0 0 auto !important;
   width: auto !important;
   max-width: 7.5rem !important;
@@ -491,6 +710,18 @@
   .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx15,
   .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx49,
   .global-filter-bar__row--eval-mod-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx20,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx30,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx25,
+  .global-filter-bar__row--eval-reject > .global-filter-field--fx10,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx15,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx18,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx40,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx12,
+  .global-filter-bar__row--send-mail-eval > .global-filter-field--fx10,
+  .global-filter-bar__row--reassign-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--reassign-r2 > .global-filter-field--fx40,
+  .global-filter-bar__row--reassign-r2 > .global-filter-field--fx10,
   .global-filter-bar__row--ecr-r1 > .global-filter-field--fx20,
   .global-filter-bar__row--ecr-r1 > .global-filter-field--fx18,
   .global-filter-bar__row--ecr-r1 > .global-filter-field--fx40,
@@ -562,16 +793,17 @@
 }
 
 .global-filter-field__label {
+  /* Angular mat-form-field-label (legacy/standard) — not all-caps chips */
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  margin-bottom: 0.375rem;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: hsl(210 15% 52%);
-  line-height: 1.2;
+  margin-bottom: 0.125rem;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: rgba(0, 0, 0, 0.54);
+  line-height: 1.25;
 }
 
 .global-filter-field__icon {
@@ -585,14 +817,12 @@
   width: 100%;
 }
 
+/* Angular mat-form-field underline — Select/Input use variant=standard via context;
+   keep these as a safety net for any nested native controls */
 .global-filter-field__control > button[role="combobox"],
 .global-filter-field__control .global-filter-trigger {
   width: 100%;
-  min-height: 2.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
-  background: hsl(var(--card));
-  font-size: 13px;
+  min-height: 2rem;
 }
 
 /* Legacy page filter cards — card shell + filter body restyle.
@@ -823,38 +1053,41 @@
   --ag-font-size: var(--app-table-row-font-size);
   --ag-grid-size: 4px;
   --ag-list-item-height: 22px;
-  --ag-header-height: 42px;
-  --ag-row-height: 40px;
-  --ag-cell-horizontal-padding: 14px;
+  --ag-header-height: var(--mat-table-header-height);
+  --ag-row-height: var(--app-table-row-height);
+  --ag-cell-horizontal-padding: 8px;
   --ag-font-family: var(--font-body), "Manrope", system-ui, sans-serif;
-  --ag-background-color: hsl(var(--card));
-  --ag-header-background-color: hsl(var(--primary) / 0.06);
-  --ag-border-color: hsl(var(--border));
-  --ag-row-border-color: hsl(var(--border));
-  --ag-row-hover-color: hsl(var(--muted) / 0.45);
-  --ag-selected-row-background-color: hsl(var(--primary) / 0.06);
+  --ag-background-color: var(--mat-table-row-odd);
+  --ag-header-background-color: var(--mat-table-header-bg);
+  --ag-border-color: var(--mat-table-border);
+  --ag-row-border-color: var(--mat-table-border);
+  --ag-row-hover-color: transparent;
+  --ag-selected-row-background-color: transparent;
+  --ag-odd-row-background-color: var(--mat-table-row-odd);
+  --ag-even-row-background-color: var(--mat-table-row-even);
   --ag-header-column-separator-display: block;
-  --ag-header-column-separator-color: hsl(var(--border));
-  --ag-header-column-resize-handle-color: hsl(var(--border));
-  border: 0;
+  --ag-header-column-separator-color: var(--mat-table-border);
+  --ag-header-column-resize-handle-color: var(--mat-table-border);
+  border: 1px solid var(--mat-table-border);
   border-radius: 0;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell-text {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: hsl(var(--primary));
-  text-transform: uppercase;
+  font-size: var(--app-table-header-font-size);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: #000000;
+  text-transform: none;
   white-space: normal;
   line-height: 1.25;
   overflow: visible;
   text-overflow: unset;
 }
 
-/* Column-group headers (Appeared / Passed / …) — match leaf header row */
+/* Column-group headers — same mat-table header treatment */
 .app-data-table .ag-theme-quartz .ag-header-group-cell {
-  background-color: hsl(var(--primary) / 0.06) !important;
+  background-color: var(--mat-table-header-bg) !important;
+  border-color: var(--mat-table-border) !important;
 }
 
 .app-data-table
@@ -862,16 +1095,16 @@
   .ag-header-group-cell
   .ag-header-group-cell-label,
 .app-data-table .ag-theme-quartz .ag-header-group-cell .ag-header-group-text {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: hsl(var(--primary)) !important;
-  text-transform: uppercase;
+  font-size: var(--app-table-header-font-size);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: #000000 !important;
+  text-transform: none;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-group-cell.app-table-header-group,
 .app-data-table .ag-theme-quartz .ag-header-cell.app-table-header-group {
-  background-color: hsl(var(--primary) / 0.06) !important;
+  background-color: var(--mat-table-header-bg) !important;
 }
 
 .app-data-table
@@ -889,38 +1122,56 @@
   .ag-theme-quartz
   .ag-header-cell.app-table-header-group
   .ag-header-cell-text {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: hsl(var(--primary)) !important;
-  text-transform: uppercase;
+  font-size: var(--app-table-header-font-size);
+  font-weight: 500;
+  letter-spacing: normal;
+  color: #000000 !important;
+  text-transform: none;
+}
+
+.app-data-table .ag-theme-quartz .ag-header {
+  background-color: var(--mat-table-header-bg);
+  border-bottom: 1px solid var(--mat-table-border) !important;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-row {
-  border-bottom: 1px solid hsl(var(--primary) / 0.12);
+  border-bottom: 1px solid var(--mat-table-border);
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell {
-  padding-inline: 12px;
+  padding-inline: 8px;
+  background-color: var(--mat-table-header-bg) !important;
+  border-right: 1px solid var(--mat-table-border) !important;
+  border-top: 1px solid var(--mat-table-border) !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-header-cell:last-child {
+  border-right: none !important;
 }
 
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-icon-filter,
 .app-data-table .ag-theme-quartz .ag-header-cell .ag-sort-indicator-icon {
-  opacity: 0.9;
-  color: hsl(var(--primary));
+  opacity: 0.85;
+  color: #0c51a4;
 }
 
 .app-data-table .ag-theme-quartz .ag-cell {
   font-size: var(--app-table-row-font-size) !important;
-  line-height: 1.4;
-  font-weight: 500;
+  line-height: 1.35;
+  font-weight: 400;
   display: flex;
   align-items: center;
-  color: hsl(var(--foreground));
+  color: #000000;
   user-select: text;
   -webkit-user-select: text;
   overflow: hidden;
   min-width: 0;
+  border-right: 1px solid var(--mat-table-border) !important;
+  padding-inline: 8px !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-cell:last-child {
+  border-right: none !important;
 }
 
 .app-data-table .ag-theme-quartz .ag-cell.app-cell-actions {
@@ -941,9 +1192,9 @@
 
 .app-data-table .ag-theme-quartz .ag-cell-value {
   font-size: var(--app-table-row-font-size) !important;
-  line-height: 1.4;
-  font-weight: 500;
-  color: hsl(var(--foreground));
+  line-height: 1.35;
+  font-weight: 400;
+  color: #000000;
   user-select: text;
   -webkit-user-select: text;
   overflow: hidden;
@@ -977,16 +1228,42 @@
 }
 
 .app-data-table .ag-theme-quartz .ag-row {
-  min-height: 40px !important;
-  border-bottom: 1px solid hsl(var(--border) / 0.85);
+  min-height: var(--app-table-row-height) !important;
+  border-bottom: 1px solid var(--mat-table-border);
+  background-color: var(--mat-table-row-odd);
+}
+
+/* AG Grid index 0/2/4 = even → Angular 1st/3rd row (white); odd → #f8fbff */
+.app-data-table .ag-theme-quartz .ag-row.ag-row-even {
+  background-color: var(--mat-table-row-odd);
+}
+
+.app-data-table .ag-theme-quartz .ag-row.ag-row-odd {
+  background-color: var(--mat-table-row-even);
+}
+
+/* No row hover tint — keep alternating row colors only */
+.app-data-table .ag-theme-quartz .ag-row-hover,
+.app-data-table .ag-theme-quartz .ag-row.ag-row-hover,
+.app-data-table .ag-theme-quartz .ag-row-hover.ag-row-even,
+.app-data-table .ag-theme-quartz .ag-row-hover.ag-row-odd {
+  background-color: inherit !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-row.ag-row-hover.ag-row-even {
+  background-color: var(--mat-table-row-odd) !important;
+}
+
+.app-data-table .ag-theme-quartz .ag-row.ag-row-hover.ag-row-odd {
+  background-color: var(--mat-table-row-even) !important;
 }
 
 .app-data-table .ag-theme-quartz .ag-row:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--mat-table-border);
 }
 
 .app-data-table .ag-theme-quartz .ag-root-wrapper {
-  border: 0 !important;
+  border: 1px solid var(--mat-table-border) !important;
   border-radius: 0 !important;
 }
 
@@ -1010,26 +1287,29 @@
 
 .app-data-table .ag-overlay-no-rows-center,
 .app-data-table .app-data-table-no-rows-msg {
-  color: hsl(210 12% 42%);
-  font-size: 13px;
-  font-weight: 500;
+  color: rgba(0, 0, 0, 0.54);
+  font-size: 14px;
+  font-weight: 400;
   line-height: 1.5;
   letter-spacing: 0.01em;
 }
 
 /* AG Grid column filter popup — app-wide (DataTable) */
 .ag-theme-quartz.ag-popup {
-  border: 1px solid hsl(var(--border));
-  border-radius: calc(var(--radius) - 2px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  border: 1px solid var(--mat-table-border);
+  border-radius: 4px;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12);
   overflow: visible !important;
-  background: hsl(var(--card));
+  background: #fff;
 }
 
 .ag-theme-quartz .ag-filter {
   padding: 12px;
   min-width: 240px;
-  background: hsl(var(--card));
+  background: #fff;
 }
 
 .ag-theme-quartz .ag-filter-body-wrapper,
@@ -1120,25 +1400,37 @@ a.app-control[data-app-add]:hover {
   color: #fff !important;
 }
 
-/* Action column buttons */
+/* Action column buttons — Angular edit (blue) / delete (red ×) */
 .app-data-table .app-table-action-edit {
-  border-color: hsl(var(--primary) / 0.45) !important;
-  color: hsl(var(--primary)) !important;
-  background: hsl(var(--card)) !important;
+  border: none !important;
+  color: #0c51a4 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .app-data-table .app-table-action-edit:hover {
-  background: hsl(var(--primary) / 0.08) !important;
+  background: rgba(12, 81, 164, 0.08) !important;
+}
+
+.app-data-table .app-table-action-delete {
+  border: none !important;
+  color: #e53935 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.app-data-table .app-table-action-delete:hover {
+  background: rgba(229, 57, 53, 0.08) !important;
 }
 
 .app-data-table
   .ag-row
   .ag-cell:last-child
   button.h-8.w-8.p-0:not(.app-table-action-delete):not(.app-table-action-edit) {
-  border-radius: 0.375rem;
-  border: 1px solid hsl(var(--primary) / 0.4);
-  color: hsl(var(--primary));
-  background: hsl(var(--card));
+  border-radius: 0.25rem;
+  border: none;
+  color: #0c51a4;
+  background: transparent;
 }
 
 .app-data-table
@@ -1147,7 +1439,7 @@ a.app-control[data-app-add]:hover {
   button.h-8.w-8.p-0:not(.app-table-action-delete):not(
     .app-table-action-edit
   ):hover {
-  background: hsl(var(--primary) / 0.08);
+  background: rgba(12, 81, 164, 0.08);
 }
 
 /* ── Legacy page shells — DataTable replaces the old app-card table chrome ─ */
@@ -1366,7 +1658,9 @@ input[type="reset"]:disabled,
 }
 
 .app-label {
-  font-size: var(--app-label-font-size);
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.54);
 }
 
 /* Organization modal — pin native date picker icon to the right edge */
@@ -2078,6 +2372,97 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   ANGULAR FILTER CARD — separate from table (Subject Master pattern)
+   ───────────────────────────────────────────────────────────────────────── */
+.angular-filter-card {
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  border: 1px solid #e8e8e8;
+}
+
+/* One full-width gold rule under the header (do not also border the inner button). */
+.angular-filter-card__header {
+  padding: 0;
+  border-bottom: 2px solid #ffcf46 !important;
+}
+
+.angular-filter-card__title-btn,
+.angular-filter-card__title-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 14px 24px;
+  border: none !important;
+  border-bottom: none !important;
+  background: transparent;
+  text-align: left;
+}
+
+.angular-filter-card__filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.54);
+  flex-shrink: 0;
+}
+
+.angular-filter-card__body {
+  padding: 0.5rem 1rem 1rem;
+}
+
+/* Above-table context: book icon + list title + selected filter summary.
+   Full-bleed gold underline across the table card (cancels filtersFooter px-5). */
+.table-context-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: -0.5rem -1.25rem 0.5rem;
+  padding: 14px 24px;
+  border-bottom: 2px solid #ffcf46;
+  background: #fff;
+}
+
+.table-context-header__icon {
+  font-size: 18px !important;
+  width: 20px;
+  height: 20px;
+  line-height: 20px !important;
+  color: #0c51a4;
+}
+
+.table-context-header__title {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: #0c51a4;
+}
+
+.table-context-header__info {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.table-context-header__info::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  margin-right: 0.15rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    CARD TITLE — Angular filters card: Material `book` + #0c51a4 title + #ffcf46 underline
    ───────────────────────────────────────────────────────────────────────── */
 .app-card-title {
@@ -2147,11 +2532,12 @@ h4,
 }
 
 /* Header rows hosting a card title: Angular expansion-panel header padding
-   (~14px / 24px) + gold underline under the full width. */
-.app-card > div:has(> .app-card-title),
-.app-card > button:has(> .app-card-title),
-.app-card > div:has(> * > .app-card-title),
-.app-card > div:first-child:has(> h1, > h2, > h3) {
+   (~14px / 24px) + gold underline under the full width.
+   Skip `.angular-filter-card` — it owns a single full-width rule on `__header`. */
+.app-card:not(.angular-filter-card) > div:has(> .app-card-title),
+.app-card:not(.angular-filter-card) > button:has(> .app-card-title),
+.app-card:not(.angular-filter-card) > div:has(> * > .app-card-title),
+.app-card:not(.angular-filter-card) > div:first-child:has(> h1, > h2, > h3) {
   padding: 14px 24px !important;
   background: transparent;
   border-bottom: 2px solid #ffcf46;
@@ -2299,6 +2685,158 @@ h4,
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAT-TABLE — Angular Material table (native HTML Table + shared tokens)
+   ───────────────────────────────────────────────────────────────────────── */
+.mat-table-shell {
+  border: 1px solid var(--mat-table-border, #e3edf8);
+  background: #fff;
+}
+
+.mat-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mat-table .mat-header-cell {
+  font-size: var(--app-table-header-font-size, 15px);
+  font-weight: 500;
+  color: #000;
+  background: var(--mat-table-header-bg, #ecf3ff);
+  border: 1px solid var(--mat-table-border, #e3edf8);
+  border-bottom: 1px solid var(--mat-table-border, #e3edf8);
+  vertical-align: middle;
+}
+
+.mat-table .mat-header-row {
+  height: var(--mat-table-header-height, 32px);
+}
+
+.mat-table .mat-row {
+  height: var(--app-table-row-height, 35px);
+}
+
+.mat-table .mat-row:nth-child(odd) {
+  background: var(--mat-table-row-odd, #fff);
+}
+
+.mat-table .mat-row:nth-child(even) {
+  background: var(--mat-table-row-even, #f8fbff);
+}
+
+.mat-table .mat-cell {
+  font-size: var(--app-table-row-font-size, 14px);
+  font-weight: 400;
+  color: #000;
+  border: 1px solid var(--mat-table-border, #e3edf8);
+  vertical-align: middle;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   MAT-SELECT PANEL — Angular Fuse mat-select + ngx-mat-select-search
+   ───────────────────────────────────────────────────────────────────────── */
+.mat-select-panel {
+  border: none !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  color: rgba(0, 0, 0, 0.87);
+  /* Material elevation-8 (cdk overlay panel) */
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12) !important;
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+.mat-select-panel__search {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 0 16px;
+  background: #fff;
+}
+
+.mat-select-panel__search-input {
+  display: block;
+  width: 100%;
+  height: 48px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1.25;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.mat-select-panel__search-input::placeholder {
+  color: rgba(0, 0, 0, 0.42);
+}
+
+.mat-select-panel__list {
+  padding: 0;
+  background: #fff;
+}
+
+.mat-select-panel__list::-webkit-scrollbar {
+  width: 6px;
+}
+.mat-select-panel__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mat-select-panel__list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+}
+.mat-select-panel__list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.mat-select-panel__option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 16px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.87);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 90ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mat-select-panel__option:hover,
+.mat-select-panel__option:focus {
+  background: rgba(0, 0, 0, 0.04);
+  outline: none;
+}
+
+.mat-select-panel__option--active,
+.mat-select-panel__option[aria-selected="true"] {
+  background: rgba(0, 0, 0, 0.04);
+  color: #0c51a4;
+}
+
+.mat-select-panel__option:disabled,
+.mat-select-panel__option[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.mat-select-panel__empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.54);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

@@ -1,10 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ColDef } from 'ag-grid-community'
+import type { LucideIcon } from 'lucide-react'
+import {
+  CloudUpload,
+  FileText,
+  GraduationCap,
+  SquareCheck,
+  User,
+  UserMinus,
+  Users,
+} from 'lucide-react'
 import { SearchInput } from '@/common/components/search'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
 import { Select, type SelectOption } from '@/common/components/select'
+import { DataTable } from '@/common/components/table'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toastError, toastSuccess } from '@/lib/toast'
@@ -15,9 +26,83 @@ import {
   getRegSupRestFilters,
   getRegSupSubjectFilters,
 } from '@/services/evaluation'
-import { FilteredListPage } from '@/components/layout'
+import { FilteredPage } from '@/components/layout'
+import {
+  subjectSelectLabel,
+  withSubjectGroupNames,
+} from '@/common/utils/data-helpers'
+import { cn } from '@/lib/utils'
 
 type AnyRow = Record<string, unknown>
+
+function ReevalStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon
+  label: string
+  value: number
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-medium text-[#0c51a4]">{label}</p>
+        <p className="text-[18px] font-semibold leading-tight text-[#0c51a4]">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+function ReevalPanel({
+  title,
+  icon: Icon,
+  children,
+  className,
+}: {
+  title: string
+  icon: LucideIcon
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card',
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border/70 px-3 py-2.5">
+        <Icon className="h-4 w-4 shrink-0 text-[#0c51a4]" aria-hidden />
+        <p className="text-[13px] font-semibold text-[#0c51a4]">{title}</p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    </div>
+  )
+}
+
+function ReevalEmpty({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+      <span className="mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]/80">
+        <Icon className="h-7 w-7" aria-hidden />
+      </span>
+      <p className="text-sm font-semibold text-[#0c51a4]">{title}</p>
+      <p className="max-w-[15rem] text-xs leading-relaxed text-muted-foreground">{description}</p>
+    </div>
+  )
+}
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
   if (!row) return 0
@@ -120,98 +205,260 @@ export default function ReEvaluationMultiAssignPage() {
     setOmrSearch('')
   }
 
-  const courses = useMemo(() => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])), [baseRows])
+  const restReqSeq = useRef(0)
+  const subjectReqSeq = useRef(0)
+
+  const courses = useMemo(
+    () => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
+    [baseRows],
+  )
   const academicYears = useMemo(() => {
+    if (!courseId) return []
     const rows = dedupeBy(
-      baseRows.filter((r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId)),
+      baseRows.filter(
+        (r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId),
+      ),
       (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
     )
     return [...rows].sort(
       (a, b) =>
-        parseInt(pickText(b, ['academic_year', 'academicYear']), 10) -
-        parseInt(pickText(a, ['academic_year', 'academicYear']), 10),
+        parseInt(pickText(b, ['academic_year', 'academicYear']) || '0', 10) -
+        parseInt(pickText(a, ['academic_year', 'academicYear']) || '0', 10),
     )
   }, [baseRows, courseId])
-  const exams = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter(
-          (r) =>
-            pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
-            pickNum(r, ['fk_academic_year_id', 'academicYearId']) === Number(academicYearId),
-        ),
-        (r) => pickNum(r, ['fk_exam_id', 'examId']),
+  const exams = useMemo(() => {
+    if (!courseId || !academicYearId) return []
+    return dedupeBy(
+      baseRows.filter(
+        (r) =>
+          pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
+          pickNum(r, ['fk_academic_year_id', 'academicYearId']) ===
+            Number(academicYearId),
       ),
-    [baseRows, courseId, academicYearId],
-  )
+      (r) => pickNum(r, ['fk_exam_id', 'examId']),
+    )
+  }, [baseRows, courseId, academicYearId])
   const courseYears = useMemo(
-    () => dedupeBy(restRows, (r) => pickNum(r, ['fk_course_year_id', 'courseYearId'])),
+    () =>
+      dedupeBy(restRows, (r) => pickNum(r, ['fk_course_year_id', 'courseYearId'])),
     [restRows],
   )
-  const regulations = useMemo(
-    () =>
-      dedupeBy(
-        restRows.filter((r) => pickNum(r, ['fk_course_year_id', 'courseYearId']) === Number(courseYearId)),
-        (r) => pickNum(r, ['fk_regulation_id', 'regulationId']),
+  // Angular selectedCourseYr: regulations only for the selected course year.
+  const regulations = useMemo(() => {
+    if (!courseYearId) return []
+    return dedupeBy(
+      restRows.filter(
+        (r) =>
+          pickNum(r, ['fk_course_year_id', 'courseYearId']) ===
+          Number(courseYearId),
       ),
-    [restRows, courseYearId],
-  )
+      (r) => pickNum(r, ['fk_regulation_id', 'regulationId']),
+    )
+  }, [restRows, courseYearId])
   const subjects = useMemo(
-    () => dedupeBy(subjectRows, (r) => pickNum(r, ['fk_subject_id', 'subjectId'])),
+    () => withSubjectGroupNames(subjectRows as AnyRow[]),
     [subjectRows],
   )
+
+  function clearBelowCourse() {
+    setAcademicYearId(null)
+    setExamId(null)
+    setCourseYearId(null)
+    setRegulationId(null)
+    setSubjectId(null)
+    setRestRows([])
+    setSubjectRows([])
+  }
+
+  function clearBelowAcademicYear() {
+    setExamId(null)
+    setCourseYearId(null)
+    setRegulationId(null)
+    setSubjectId(null)
+    setRestRows([])
+    setSubjectRows([])
+  }
+
+  function clearBelowExam() {
+    setCourseYearId(null)
+    setRegulationId(null)
+    setSubjectId(null)
+    setRestRows([])
+    setSubjectRows([])
+  }
+
+  function clearBelowCourseYear() {
+    setRegulationId(null)
+    setSubjectId(null)
+    setSubjectRows([])
+  }
+
+  function clearBelowRegulation() {
+    setSubjectId(null)
+    setSubjectRows([])
+  }
+
+  type CascadeCtx = {
+    courseId: number
+    academicYearId: number
+    examId: number
+    courseYearId: number
+  }
+
+  function applyCourse(nextCourseId: number | null, fromBase: AnyRow[] = baseRows) {
+    resetFetchedState()
+    restReqSeq.current += 1
+    subjectReqSeq.current += 1
+    setCourseId(nextCourseId)
+    clearBelowCourse()
+    if (!nextCourseId) return
+    const ayRows = dedupeBy(
+      fromBase.filter(
+        (r) => pickNum(r, ['fk_course_id', 'courseId']) === nextCourseId,
+      ),
+      (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
+    )
+    const sorted = [...ayRows].sort(
+      (a, b) =>
+        parseInt(pickText(b, ['academic_year', 'academicYear']) || '0', 10) -
+        parseInt(pickText(a, ['academic_year', 'academicYear']) || '0', 10),
+    )
+    const firstAy =
+      pickNum(sorted[0], ['fk_academic_year_id', 'academicYearId']) || null
+    if (firstAy) applyAcademicYear(firstAy, nextCourseId, fromBase)
+  }
+
+  function applyAcademicYear(
+    nextAyId: number | null,
+    forCourseId = courseId,
+    fromBase: AnyRow[] = baseRows,
+  ) {
+    resetFetchedState()
+    restReqSeq.current += 1
+    subjectReqSeq.current += 1
+    setAcademicYearId(nextAyId)
+    clearBelowAcademicYear()
+    if (!nextAyId || !forCourseId) return
+    const examRows = dedupeBy(
+      fromBase.filter(
+        (r) =>
+          pickNum(r, ['fk_course_id', 'courseId']) === Number(forCourseId) &&
+          pickNum(r, ['fk_academic_year_id', 'academicYearId']) === nextAyId,
+      ),
+      (r) => pickNum(r, ['fk_exam_id', 'examId']),
+    )
+    const firstExam = pickNum(examRows[0], ['fk_exam_id', 'examId']) || null
+    if (firstExam) applyExam(firstExam, forCourseId, nextAyId)
+  }
+
+  function applyExam(
+    nextExamId: number | null,
+    forCourseId = courseId,
+    forAyId = academicYearId,
+  ) {
+    resetFetchedState()
+    subjectReqSeq.current += 1
+    setExamId(nextExamId)
+    clearBelowExam()
+    if (!nextExamId || !forCourseId || !forAyId) return
+    const seq = ++restReqSeq.current
+    void (async () => {
+      const list = await getRegSupRestFilters({
+        courseId: forCourseId,
+        academicYearId: forAyId,
+        examId: nextExamId,
+        employeeId,
+      }).catch(() => [] as AnyRow[])
+      if (seq !== restReqSeq.current) return
+      const rows = Array.isArray(list) ? list : []
+      setRestRows(rows)
+      const years = dedupeBy(rows, (r) =>
+        pickNum(r, ['fk_course_year_id', 'courseYearId']),
+      )
+      const firstYear =
+        pickNum(years[0], ['fk_course_year_id', 'courseYearId']) || null
+      if (firstYear) {
+        applyCourseYear(firstYear, rows, {
+          courseId: forCourseId,
+          academicYearId: forAyId,
+          examId: nextExamId,
+          courseYearId: firstYear,
+        })
+      }
+    })()
+  }
+
+  function applyCourseYear(
+    nextYearId: number | null,
+    fromRest: AnyRow[] = restRows,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    resetFetchedState()
+    subjectReqSeq.current += 1
+    setCourseYearId(nextYearId)
+    clearBelowCourseYear()
+    if (!nextYearId) return
+    const regs = dedupeBy(
+      fromRest.filter(
+        (r) =>
+          pickNum(r, ['fk_course_year_id', 'courseYearId']) === nextYearId,
+      ),
+      (r) => pickNum(r, ['fk_regulation_id', 'regulationId']),
+    )
+    const firstReg =
+      pickNum(regs[0], ['fk_regulation_id', 'regulationId']) || null
+    if (!firstReg) return
+    applyRegulation(firstReg, {
+      courseId: Number(ctx?.courseId ?? courseId),
+      academicYearId: Number(ctx?.academicYearId ?? academicYearId),
+      examId: Number(ctx?.examId ?? examId),
+      courseYearId: nextYearId,
+    })
+  }
+
+  function applyRegulation(nextRegId: number | null, ctx?: Partial<CascadeCtx>) {
+    resetFetchedState()
+    setRegulationId(nextRegId)
+    clearBelowRegulation()
+    const cId = Number(ctx?.courseId ?? courseId)
+    const ayId = Number(ctx?.academicYearId ?? academicYearId)
+    const eId = Number(ctx?.examId ?? examId)
+    const yId = Number(ctx?.courseYearId ?? courseYearId)
+    if (!nextRegId || !cId || !ayId || !eId || !yId) return
+    const seq = ++subjectReqSeq.current
+    void (async () => {
+      const list = await getRegSupSubjectFilters({
+        courseId: cId,
+        academicYearId: ayId,
+        examId: eId,
+        courseYearId: yId,
+        regulationId: nextRegId,
+        employeeId,
+      }).catch(() => [] as AnyRow[])
+      if (seq !== subjectReqSeq.current) return
+      const rows = Array.isArray(list) ? list : []
+      setSubjectRows(rows)
+      setSubjectId(pickNum(rows[0], ['fk_subject_id', 'subjectId']) || null)
+    })()
+  }
 
   useEffect(() => {
     async function init() {
       setLoading(true)
       try {
-        const rows = await getRegSupBaseFilters(employeeId)
+        const list = await getRegSupBaseFilters(employeeId).catch(() => [])
+        const rows = Array.isArray(list) ? list : []
         setBaseRows(rows)
-        if (rows[0]) setCourseId(pickNum(rows[0], ['fk_course_id', 'courseId']))
+        const firstCourse =
+          pickNum(rows[0], ['fk_course_id', 'courseId']) || null
+        if (firstCourse) applyCourse(firstCourse, rows)
       } finally {
         setLoading(false)
       }
     }
     void init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Angular getFiltersData() once on mount
   }, [employeeId])
-
-  useEffect(() => {
-    if (academicYears[0]) setAcademicYearId(pickNum(academicYears[0], ['fk_academic_year_id', 'academicYearId']))
-  }, [academicYears])
-  useEffect(() => {
-    if (exams[0]) setExamId(pickNum(exams[0], ['fk_exam_id', 'examId']))
-  }, [exams])
-
-  useEffect(() => {
-    async function loadRest() {
-      if (!courseId || !academicYearId || !examId) return
-      const rows = await getRegSupRestFilters({ courseId, academicYearId, examId, employeeId })
-      setRestRows(rows)
-      if (rows[0]) setCourseYearId(pickNum(rows[0], ['fk_course_year_id', 'courseYearId']))
-    }
-    void loadRest()
-  }, [employeeId, courseId, academicYearId, examId])
-
-  useEffect(() => {
-    if (regulations[0]) setRegulationId(pickNum(regulations[0], ['fk_regulation_id', 'regulationId']))
-  }, [regulations])
-
-  useEffect(() => {
-    async function loadSubjects() {
-      if (!courseId || !academicYearId || !examId || !courseYearId || !regulationId) return
-      const rows = await getRegSupSubjectFilters({
-        courseId,
-        academicYearId,
-        examId,
-        courseYearId,
-        regulationId,
-        employeeId,
-      })
-      setSubjectRows(rows)
-      if (rows[0]) setSubjectId(pickNum(rows[0], ['fk_subject_id', 'subjectId']))
-    }
-    void loadSubjects()
-  }, [employeeId, courseId, academicYearId, examId, courseYearId, regulationId])
 
   async function onGetList() {
     if (!courseId || !academicYearId || !examId || !courseYearId || !regulationId || !subjectId) {
@@ -404,26 +651,48 @@ export default function ReEvaluationMultiAssignPage() {
         <GlobalFilterField label="Course" className="global-filter-field--fx15">
           <Select
             value={courseId ? String(courseId) : null}
-            onChange={(v) => { resetFetchedState(); setCourseId(v ? Number(v) : null) }}
-            options={courses.map((c) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId'])), label: pickText(c, ['course_code', 'courseCode']) } as SelectOption))}
+            onChange={(v) => applyCourse(v ? Number(v) : null)}
+            options={courses.map(
+              (c) =>
+                ({
+                  value: String(pickNum(c, ['fk_course_id', 'courseId'])),
+                  label: pickText(c, ['course_code', 'courseCode']),
+                }) as SelectOption,
+            )}
             placeholder="Course"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Academic Year" className="global-filter-field--fx15">
+        <GlobalFilterField label="Exam Year" className="global-filter-field--fx15">
           <Select
             value={academicYearId ? String(academicYearId) : null}
-            onChange={(v) => { resetFetchedState(); setAcademicYearId(v ? Number(v) : null) }}
-            options={academicYears.map((a) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId'])), label: pickText(a, ['academic_year', 'academicYear']) } as SelectOption))}
-            placeholder="Academic Year"
+            onChange={(v) => applyAcademicYear(v ? Number(v) : null)}
+            options={academicYears.map(
+              (a) =>
+                ({
+                  value: String(
+                    pickNum(a, ['fk_academic_year_id', 'academicYearId']),
+                  ),
+                  label: pickText(a, ['academic_year', 'academicYear']),
+                }) as SelectOption,
+            )}
+            placeholder="Exam Year"
+            disabled={!courseId}
           />
         </GlobalFilterField>
         <GlobalFilterField label="Exam" className="global-filter-field--fx69">
           <Select
             value={examId ? String(examId) : null}
-            onChange={(v) => { resetFetchedState(); setExamId(v ? Number(v) : null) }}
-            options={exams.map((e) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId'])), label: pickText(e, ['exam_name', 'examName']) } as SelectOption))}
+            onChange={(v) => applyExam(v ? Number(v) : null)}
+            options={exams.map(
+              (e) =>
+                ({
+                  value: String(pickNum(e, ['fk_exam_id', 'examId'])),
+                  label: pickText(e, ['exam_name', 'examName']),
+                }) as SelectOption,
+            )}
             placeholder="Exam"
             searchable
+            disabled={!academicYearId}
           />
         </GlobalFilterField>
       </GlobalFilterBarRow>
@@ -431,30 +700,82 @@ export default function ReEvaluationMultiAssignPage() {
         <GlobalFilterField label="Course Year" className="global-filter-field--fx15">
           <Select
             value={courseYearId ? String(courseYearId) : null}
-            onChange={(v) => { resetFetchedState(); setCourseYearId(v ? Number(v) : null) }}
-            options={courseYears.map((y) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId'])), label: pickText(y, ['course_year_code', 'courseYearCode']) } as SelectOption))}
+            onChange={(v) =>
+              applyCourseYear(v ? Number(v) : null, restRows, {
+                courseId: Number(courseId),
+                academicYearId: Number(academicYearId),
+                examId: Number(examId),
+              })
+            }
+            options={courseYears.map(
+              (y) =>
+                ({
+                  value: String(
+                    pickNum(y, ['fk_course_year_id', 'courseYearId']),
+                  ),
+                  label: pickText(y, ['course_year_code', 'courseYearCode']),
+                }) as SelectOption,
+            )}
             placeholder="Course Year"
+            disabled={!examId}
           />
         </GlobalFilterField>
         <GlobalFilterField label="Regulation" className="global-filter-field--fx15">
           <Select
             value={regulationId ? String(regulationId) : null}
-            onChange={(v) => { resetFetchedState(); setRegulationId(v ? Number(v) : null) }}
-            options={regulations.map((r) => ({ value: String(pickNum(r, ['fk_regulation_id', 'regulationId'])), label: pickText(r, ['regulation_code', 'regulationCode']) } as SelectOption))}
+            onChange={(v) =>
+              applyRegulation(v ? Number(v) : null, {
+                courseId: Number(courseId),
+                academicYearId: Number(academicYearId),
+                examId: Number(examId),
+                courseYearId: Number(courseYearId),
+              })
+            }
+            options={regulations.map(
+              (r) =>
+                ({
+                  value: String(
+                    pickNum(r, ['fk_regulation_id', 'regulationId']),
+                  ),
+                  label: pickText(r, ['regulation_code', 'regulationCode']),
+                }) as SelectOption,
+            )}
             placeholder="Regulation"
+            disabled={!courseYearId}
           />
         </GlobalFilterField>
         <GlobalFilterField label="Subject" className="global-filter-field--fx49">
           <Select
             value={subjectId ? String(subjectId) : null}
-            onChange={(v) => { resetFetchedState(); setSubjectId(v ? Number(v) : null) }}
-            options={subjects.map((s) => ({ value: String(pickNum(s, ['fk_subject_id', 'subjectId'])), label: `${pickText(s, ['subject_name', 'subjectName'])} - ${pickText(s, ['subject_code', 'subjectCode'])}` } as SelectOption))}
+            onChange={(v) => {
+              resetFetchedState()
+              setSubjectId(v ? Number(v) : null)
+            }}
+            options={subjects.map((s) => {
+              const label = subjectSelectLabel(s)
+              const groupNames = pickText(s, ['groupNames'])
+              return {
+                value: String(pickNum(s, ['fk_subject_id', 'subjectId'])),
+                label,
+                title: label,
+                description: groupNames || undefined,
+              } as SelectOption
+            })}
             placeholder="Subject"
             searchable
+            disabled={!regulationId}
           />
         </GlobalFilterField>
-        <GlobalFilterField label=" " className="global-filter-field--action global-filter-field--fx10">
-          <Button size="sm" onClick={() => void onGetList()} disabled={loading} className="h-10 shrink-0 w-full">
+        <GlobalFilterField
+          label=" "
+          className="global-filter-field--action global-filter-field--fx10"
+        >
+          <Button
+            size="sm"
+            onClick={() => void onGetList()}
+            disabled={loading}
+            className="h-10 shrink-0 w-full"
+          >
             Get List
           </Button>
         </GlobalFilterField>
@@ -463,156 +784,271 @@ export default function ReEvaluationMultiAssignPage() {
   )
 
   return (
-    <FilteredListPage
+    <FilteredPage
       title="Re-Evaluation Multi Assign"
       filters={filterFields}
-      filtersDefaultOpen={false}
-      filtersFooter={
+      filtersDefaultOpen
+      body={
         hasFetched ? (
-          <>
-            <div className="app-card p-3 text-[13px]">
-            <span className="font-semibold">Total Students:</span> {totalStudents} |{' '}
-            <span className="font-semibold">Uploaded:</span> {uploaded} |{' '}
-            <span className="font-semibold">UnAssigned:</span> {unassigned} |{' '}
-            <span className="font-semibold">Assigned:</span> {assigned} |{' '}
-            <span className="font-semibold">No of Evaluators:</span> {evaluatorRows.length}
-          </div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-stretch overflow-hidden rounded-lg border border-border/70 bg-card divide-x divide-border/70">
+              <ReevalStat icon={GraduationCap} label="Total Students" value={totalStudents} />
+              <ReevalStat icon={CloudUpload} label="Uploaded" value={uploaded} />
+              <ReevalStat icon={UserMinus} label="UnAssigned" value={unassigned} />
+              <ReevalStat icon={Users} label="Assigned" value={assigned} />
+              <ReevalStat icon={User} label="No of Evaluators" value={evaluatorRows.length} />
+            </div>
 
-          <div className="app-card p-3 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-              <div className="md:col-span-3 border rounded-md p-2">
-                <p className="text-[13px] font-semibold mb-2">Evaluator List / Assigned Count</p>
-                <div className="space-y-1 max-h-[280px] overflow-auto">
-                  {evaluatorRows.map((e, idx) => {
-                    const detId = evaluatorProfileDetId(e)
-                    const checked = selectedEvaluatorDetId === detId
-                    return (
-                      <label key={`ev-${detId}-${idx}`} className="flex items-center gap-2 text-[12px]">
-                        <input
-                          type="radio"
-                          checked={checked}
-                          onChange={() => { setSelectedEvaluatorDetId(detId); setSelectedOmr([]) }}
-                        />
-                        <span>{pickText(e, ['evaluator_name', 'evaluatorName'])} / ({pickNum(e, ['no_of_students_assigned'])})</span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+              <ReevalPanel
+                title="Evaluator List / Assigned Count"
+                icon={Users}
+                className="md:col-span-3"
+              >
+                {evaluatorRows.length === 0 ? (
+                  <ReevalEmpty
+                    icon={Users}
+                    title="No evaluator selected"
+                    description="Select an evaluator to view assigned count."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
+                    {evaluatorRows.map((e, idx) => {
+                      const detId = evaluatorProfileDetId(e)
+                      const checked = selectedEvaluatorDetId === detId
+                      return (
+                        <label
+                          key={`ev-${detId}-${idx}`}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors',
+                            checked
+                              ? 'bg-[#0c51a4]/10 text-[#0c51a4]'
+                              : 'hover:bg-muted/50',
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            checked={checked}
+                            onChange={() => {
+                              setSelectedEvaluatorDetId(detId)
+                              setSelectedOmr([])
+                            }}
+                          />
+                          <span>
+                            {pickText(e, ['evaluator_name', 'evaluatorName'])} / (
+                            {pickNum(e, ['no_of_students_assigned'])})
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </ReevalPanel>
 
-              <div className="md:col-span-5 border rounded-md p-2">
-                <div className="flex items-center justify-between mb-2 gap-2">
-                  <SearchInput value={omrSearch} onChange={setOmrSearch} placeholder="Search…" className="w-full max-w-sm" />
-                  <span className="shrink-0 text-[12px] font-semibold text-blue-700">
+              <div className="flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card md:col-span-5">
+                <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+                  <SearchInput
+                    value={omrSearch}
+                    onChange={setOmrSearch}
+                    placeholder="Search evaluator..."
+                    className="w-full max-w-sm"
+                  />
+                  <span className="shrink-0 text-[12px] font-semibold text-[#0c51a4]">
                     Total : {selectedEvaluatorProfileId ? assignableStudents.length : 0}
                   </span>
                 </div>
-                <div className="max-h-[280px] overflow-auto border rounded">
-                  <table className="w-full text-[12px]">
-                    <thead>
-                      <tr className="bg-muted/40">
-                        <th className="text-left px-2 py-1 w-14">
-                          <label className="inline-flex items-center gap-1 font-normal">
-                            <input
-                              type="checkbox"
-                              checked={areAllVisibleSelected}
-                              disabled={!selectedEvaluatorProfileId || visibleAssignableOmrs.length === 0}
-                              onChange={() => toggleSelectAllVisible()}
-                            />
-                            All
-                          </label>
-                        </th>
-                        <th className="text-left px-2 py-1">Serial No</th>
-                        <th className="text-center px-2 py-1">Answer Papers Assigned</th>
-                        <th className="text-left px-2 py-1">Evaluated Total Marks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {assignableStudents.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-2 py-3 text-center text-muted-foreground">
-                            {selectedEvaluatorProfileId ? 'No OMR sheets found.' : 'Select an evaluator to list OMR sheets.'}
-                          </td>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="max-h-[280px] flex-1 overflow-auto">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="bg-sky-50 text-[#0c51a4]">
+                          <th className="w-14 px-2 py-2 text-left font-semibold">
+                            <label className="inline-flex items-center gap-1 font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={areAllVisibleSelected}
+                                disabled={
+                                  !selectedEvaluatorProfileId ||
+                                  visibleAssignableOmrs.length === 0
+                                }
+                                onChange={() => toggleSelectAllVisible()}
+                              />
+                              All
+                            </label>
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">Serial No</th>
+                          <th className="px-2 py-2 text-center font-semibold">
+                            Answer Papers Assigned
+                          </th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Evaluated Total Marks
+                          </th>
                         </tr>
-                      ) : (
-                        assignableStudents.map((s, idx) => {
-                          const omr = String(s?.omr_serial_no ?? '')
-                          const disabled = isOmrDisabledFor(s, selectedEvaluatorProfileId)
-                          const checked = selectedOmr.includes(omr)
-                          return (
-                            <tr key={`omr-${omr}-${idx}`} className={`border-t ${disabled ? 'opacity-50' : ''}`}>
-                              <td className="px-2 py-1">
-                                <input
-                                  type="checkbox"
-                                  disabled={disabled}
-                                  checked={checked}
-                                  onChange={(e) => toggleOmrSelection(omr, e.target.checked)}
-                                />
-                              </td>
-                              <td className="px-2 py-1">{omr || '-'}</td>
-                              <td className="px-2 py-1 text-center">{Number(s?.omr_mapped ?? 0)}</td>
-                              <td className="px-2 py-1">
-                                {s?.list_evaluated_totalmarks != null && String(s.list_evaluated_totalmarks).trim() !== ''
-                                  ? String(s.list_evaluated_totalmarks)
-                                  : ''}
-                              </td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2 flex items-center justify-end gap-2">
-                  <span className="text-[12px] font-semibold text-blue-700">Selected : {selectedOmr.length}</span>
+                      </thead>
+                      <tbody>
+                        {assignableStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-0">
+                              <ReevalEmpty
+                                icon={FileText}
+                                title={
+                                  selectedEvaluatorProfileId
+                                    ? 'No OMR sheets found'
+                                    : 'Select an evaluator'
+                                }
+                                description={
+                                  selectedEvaluatorProfileId
+                                    ? 'No assignable OMR sheets for this evaluator.'
+                                    : 'Select an evaluator to list OMR sheets.'
+                                }
+                              />
+                            </td>
+                          </tr>
+                        ) : (
+                          assignableStudents.map((s, idx) => {
+                            const omr = String(s?.omr_serial_no ?? '')
+                            const disabled = isOmrDisabledFor(s, selectedEvaluatorProfileId)
+                            const checked = selectedOmr.includes(omr)
+                            return (
+                              <tr
+                                key={`omr-${omr}-${idx}`}
+                                className={cn(
+                                  'border-t border-border/60',
+                                  disabled && 'opacity-50',
+                                )}
+                              >
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="checkbox"
+                                    disabled={disabled}
+                                    checked={checked}
+                                    onChange={(e) => toggleOmrSelection(omr, e.target.checked)}
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5">{omr || '-'}</td>
+                                <td className="px-2 py-1.5 text-center">
+                                  {Number(s?.omr_mapped ?? 0)}
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  {s?.list_evaluated_totalmarks != null &&
+                                  String(s.list_evaluated_totalmarks).trim() !== ''
+                                    ? String(s.list_evaluated_totalmarks)
+                                    : ''}
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-end border-t border-border/60 px-3 py-2">
+                    <span className="text-[12px] font-semibold text-[#0c51a4]">
+                      Selected : {selectedOmr.length}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="md:col-span-2 border rounded-md p-2">
-                <p className="text-[12px] font-semibold mb-2">Selected ({selectedOmr.length})</p>
-                <div className="max-h-[280px] overflow-auto space-y-1">
-                  {selectedOmr.map((omr) => <div key={`sel-${omr}`} className="text-[12px] text-blue-700">{omr}</div>)}
-                </div>
-              </div>
+              <ReevalPanel
+                title={`Selected (${selectedOmr.length})`}
+                icon={SquareCheck}
+                className="md:col-span-2"
+              >
+                {selectedOmr.length === 0 ? (
+                  <ReevalEmpty
+                    icon={SquareCheck}
+                    title="No items selected"
+                    description="Selected OMR sheets will appear here."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
+                    {selectedOmr.map((omr) => (
+                      <div
+                        key={`sel-${omr}`}
+                        className="rounded-md bg-[#0c51a4]/5 px-2 py-1 text-[12px] font-medium text-[#0c51a4]"
+                      >
+                        {omr}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ReevalPanel>
 
-              <div className="md:col-span-2 border rounded-md p-2">
-                <p className="text-[12px] font-semibold mb-2">Assigned OMR List ({alreadyAssignedStudents.length})</p>
-                <div className="max-h-[280px] overflow-auto space-y-1">
-                  {alreadyAssignedStudents.map((s) => {
-                    const omr = String(s?.omr_serial_no ?? '')
-                    return <div key={`as-${omr}`} className="text-[12px] text-blue-700">{omr}</div>
-                  })}
-                </div>
-              </div>
+              <ReevalPanel
+                title={`Assigned OMR List (${alreadyAssignedStudents.length})`}
+                icon={FileText}
+                className="md:col-span-2"
+              >
+                {alreadyAssignedStudents.length === 0 ? (
+                  <ReevalEmpty
+                    icon={FileText}
+                    title="No OMR sheets assigned"
+                    description="Assigned OMR sheets will appear here."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
+                    {alreadyAssignedStudents.map((s) => {
+                      const omr = String(s?.omr_serial_no ?? '')
+                      return (
+                        <div
+                          key={`as-${omr}`}
+                          className="rounded-md bg-[#0c51a4]/5 px-2 py-1 text-[12px] font-medium text-[#0c51a4]"
+                        >
+                          {omr}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </ReevalPanel>
             </div>
+
             <div className="flex justify-end">
-              <Button disabled={assigning || loading || !selectedEvaluator || selectedOmr.length === 0} onClick={() => void onAssign()}>
+              <Button
+                disabled={
+                  assigning || loading || !selectedEvaluator || selectedOmr.length === 0
+                }
+                onClick={() => void onAssign()}
+              >
                 {assigning ? 'Assigning…' : 'Assign'}
               </Button>
             </div>
-            </div>
-          </>
-        ) : null
+          </div>
+        ) : undefined
       }
-      toolbarLeading={<span className="hidden" />}
-      rowData={hasFetched ? evaluatorRows : []}
-      columnDefs={cols}
-      pagination
-      loading={loading}
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search…',
-        pdfDocumentTitle: 'Re-Evaluation Multi Assign',
-      }}
     >
+      {hasFetched ? (
+        <DataTable
+          title=""
+          bordered
+          rowData={evaluatorRows}
+          columnDefs={cols}
+          pagination
+          loading={loading}
+          toolbar={{
+            search: true,
+            searchPlaceholder: 'Search…',
+            pdfDocumentTitle: 'Re-Evaluation Multi Assign',
+          }}
+        />
+      ) : null}
+
       <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">{popupTitle}</DialogTitle>
+            <DialogTitle className="text-[16px] font-semibold text-[#0c51a4]">
+              {popupTitle}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="w-full max-w-sm">
-              <SearchInput value={popupSearch} onChange={setPopupSearch} placeholder="Search…" className="w-full max-w-sm" />
+              <SearchInput
+                value={popupSearch}
+                onChange={setPopupSearch}
+                placeholder="Search…"
+                className="w-full max-w-sm"
+              />
             </div>
             <div className="max-h-[420px] overflow-auto border rounded">
               <table className="w-full text-[13px]">
@@ -636,10 +1072,12 @@ export default function ReEvaluationMultiAssignPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPopupOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setPopupOpen(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredListPage>
+    </FilteredPage>
   )
 }

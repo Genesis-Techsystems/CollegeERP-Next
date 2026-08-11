@@ -144,6 +144,18 @@
     "route": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status"
   },
   {
+    "label": "evaluation rejection",
+    "route": "/admin-examination-management/evaluation-process/exam-omr-rejection"
+  },
+  {
+    "label": "send mails to evaluators",
+    "route": "/admin-examination-management/evaluation-process/send-email-to-evaluators"
+  },
+  {
+    "label": "send email to evaluators",
+    "route": "/admin-examination-management/evaluation-process/send-email-to-evaluators"
+  },
+  {
     "label": "evaluator",
     "route": "/admin-examination-management/evaluation-process/create-evaluators"
   },

@@ -9,7 +9,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { ChevronDown, X, Search, Loader2 } from "lucide-react";
+import { ChevronDown, X, Loader2 } from "lucide-react";
 import {
   Popover,
   PopoverTrigger,
@@ -23,6 +23,7 @@ import {
   type SelectOption,
 } from "./Select";
 import { OptionTooltip } from "./OptionTooltip";
+import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +48,11 @@ export interface MultiSelectProps {
   showSelectAll?: boolean;
   /** Max number of selected labels shown in trigger before "+N more". Default: 2. */
   maxDisplay?: number;
+  /**
+   * `outlined` — bordered box.
+   * `standard` — Fuse / Angular Material underline (app default).
+   */
+  variant?: "outlined" | "standard";
   className?: string;
 }
 
@@ -98,8 +104,11 @@ export function MultiSelect({
   isLoading = false,
   showSelectAll = true,
   maxDisplay = 2,
+  variant: variantProp,
   className,
 }: MultiSelectProps) {
+  const variant = useFormFieldVariant(variantProp);
+  const isStandard = variant === "standard";
   const id = useId();
   const triggerId = `multiselect-trigger-${id}`;
   const searchId = `multiselect-search-${id}`;
@@ -230,7 +239,7 @@ export function MultiSelect({
       {label && (
         <label
           htmlFor={triggerId}
-          className="text-sm font-medium text-foreground"
+          className="text-[12px] font-normal text-black/54"
         >
           {label}
           {required && (
@@ -257,14 +266,25 @@ export function MultiSelect({
             aria-multiselectable="true"
             disabled={disabled}
             className={cn(
-              "app-control flex w-full items-center justify-between rounded-md border bg-white px-3 py-1.5 text-[length:var(--app-control-font-size)] text-slate-900 shadow-sm transition-colors",
+              "app-control flex w-full items-center justify-between text-[length:var(--app-control-font-size)] text-slate-900 transition-colors",
               "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              open && "border-[hsl(var(--ring))]",
-              error
-                ? "border-destructive focus-visible:border-destructive"
-                : "border-slate-300",
-              !error && "focus-visible:border-[hsl(var(--ring))]",
+              isStandard
+                ? cn(
+                    "h-9 rounded-none border-0 border-b border-black/12 bg-transparent px-0 py-1.5 shadow-none",
+                    open && "border-b-2 border-[#0c51a4]",
+                    error
+                      ? "border-b-2 border-destructive"
+                      : "focus-visible:border-b-2 focus-visible:border-[#0c51a4]",
+                  )
+                : cn(
+                    "rounded-md border bg-white px-3 py-1.5 shadow-sm",
+                    open && "border-[hsl(var(--ring))]",
+                    error
+                      ? "border-destructive focus-visible:border-destructive"
+                      : "border-slate-300",
+                    !error && "focus-visible:border-[hsl(var(--ring))]",
+                  ),
             )}
           >
             {/* Pills / placeholder */}
@@ -299,11 +319,11 @@ export function MultiSelect({
           </button>
         </PopoverTrigger>
 
-        {/* Dropdown */}
+        {/* Dropdown — Angular mat-select-panel + ngx-mat-select-search */}
         <PopoverContent
           align="start"
           sideOffset={4}
-          className="w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
+          className="mat-select-panel w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0"
           onWheel={(e) => scrollListOnWheel(e, listRef.current)}
           onInteractOutside={(e) => {
             if (searchInputRef.current?.contains(e.target as Node)) {
@@ -313,21 +333,18 @@ export function MultiSelect({
         >
           {/* Search input */}
           {searchable && (
-            <div className="border-b px-2 py-1.5">
-              <div className="relative flex items-center">
-                <Search className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-slate-400" />
-                <input
-                  ref={searchInputRef}
-                  id={searchId}
-                  type="text"
-                  role="searchbox"
-                  aria-label="Search options"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  placeholder="Search…"
-                  className="h-8 w-full rounded-md bg-transparent pl-7 pr-2 text-sm placeholder:text-slate-400 focus:outline-none"
-                />
-              </div>
+            <div className="mat-select-panel__search">
+              <input
+                ref={searchInputRef}
+                id={searchId}
+                type="text"
+                role="searchbox"
+                aria-label="Search options"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Search..."
+                className="mat-select-panel__search-input"
+              />
             </div>
           )}
 
@@ -336,14 +353,14 @@ export function MultiSelect({
             !isLoading &&
             filteredOptions.length > 0 &&
             !searchTerm && (
-              <div className="border-b">
+              <div className="mat-select-panel__search border-b-0 border-t-0">
                 <div
                   role="option"
                   aria-selected={allSelected}
                   onClick={handleSelectAll}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors",
-                    "hover:bg-muted hover:text-foreground select-none",
+                    "mat-select-panel__option select-none",
+                    allSelected && "mat-select-panel__option--active",
                   )}
                 >
                   <Checkbox
@@ -356,7 +373,6 @@ export function MultiSelect({
                     }
                     onCheckedChange={handleSelectAll}
                     aria-label="Select all"
-                    // Prevent the div's onClick from firing twice
                     onClick={(e) => e.stopPropagation()}
                   />
                   <span className="font-medium">
@@ -371,7 +387,7 @@ export function MultiSelect({
             ref={listRef}
             role="listbox"
             aria-multiselectable="true"
-            className="max-h-60 overflow-y-auto overscroll-contain py-1 touch-pan-y"
+            className="mat-select-panel__list max-h-60 overflow-y-auto overscroll-contain touch-pan-y"
           >
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
@@ -379,8 +395,8 @@ export function MultiSelect({
                 <span>Loading…</span>
               </div>
             ) : filteredOptions.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                No results found
+              <div className="mat-select-panel__empty">
+                no matching data found
               </div>
             ) : (
               filteredOptions.map((opt, idx) => {
@@ -393,9 +409,8 @@ export function MultiSelect({
                     aria-disabled={opt.disabled}
                     onClick={() => !opt.disabled && toggle(opt.value)}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors select-none",
-                      "hover:bg-muted hover:text-foreground",
-                      isSelected && "bg-muted font-medium text-[#042956]",
+                      "mat-select-panel__option select-none",
+                      isSelected && "mat-select-panel__option--active",
                       opt.disabled && "cursor-not-allowed opacity-50",
                     )}
                   >
@@ -403,7 +418,6 @@ export function MultiSelect({
                       checked={isSelected}
                       disabled={opt.disabled}
                       onCheckedChange={() => !opt.disabled && toggle(opt.value)}
-                      // Prevent the div's onClick from firing twice
                       onClick={(e) => e.stopPropagation()}
                       aria-label={opt.label}
                     />

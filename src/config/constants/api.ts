@@ -531,6 +531,8 @@ export const EXAM_EVAL_API = {
   EVALUATOR_BANK_DETAILS: "ExamEvaluatorBankDetails",
   /** POST: send user ID and password to evaluator */
   SEND_EVALUATOR_CREDENTIALS: "sendUserIdAndPasswordToEvaluator",
+  /** Angular getEvaluatorProfileDetailsUrl → getAllRecords/s_get_evaluator_profile_details */
+  GET_EVALUATOR_PROFILE_DETAILS: "s_get_evaluator_profile_details",
   /** POST: add exam student evaluation pages list */
   ADD_STUDENT_EVAL_PAGES: "addExamStudentEvaluationPagesList",
   /** PUT: update evaluation assignments start date */
@@ -1220,6 +1222,10 @@ export const LIBRARY_API = {
   TOTAL_BOOK_REPORT: "totalbookreport",
   /** Angular `bookWiseReportUrl` */
   BOOK_WISE_REPORT: "bookwisecountreport",
+  /** Angular `consolidatedReportUrl` — Library Books / consolidated report */
+  BOOKS_CONSOLIDATED_REPORT: "getAllRecords/s_books_consolidated_report",
+  /** Angular `periodicalReportsUrl` */
+  LIB_PERIODICALS_REPORT: "getAllRecords/s_rep_lib_periodcalls",
   /** Angular `libStudentVisitsUrl` */
   LIB_STUDENT_VISITS: "libStudentVisits",
   /** Angular `finChequeBooksUrl` */
@@ -2134,6 +2140,8 @@ export const UNIV_EXAM_CENTER_API = {
   GENERATE_BAR_CODE: "generate-barcode/examstudents",
   /** Angular `updateRejectProcessedReasonUrl` */
   UPDATE_REJECT_PROCESSED_REASON: "updateRejectProcessedReason",
+  /** Angular `getExamRejectDetailsUrl` → getAllRecords/s_get_exam_reject_details */
+  GET_EXAM_REJECT_DETAILS: "s_get_exam_reject_details",
 } as const;
 
 // ─── University Committees ───────────────────────────────────────────────────

@@ -104,12 +104,34 @@ function examReportsModuleBreadcrumb(
  * Fee report pages live under Reports → Fee Reports in the menu even though
  * App Router paths are under `/accounts-and-fees/fee-reports/…`.
  * Breadcrumb: Reports > Fee Reports > {page}.
+ *
+ * Exception — Angular Student Fee Report (drilldown-summary-report):
+ * Home > Accounts and Fees > Fee Reports > Student Fee Report
  */
 function feeReportsMenuBreadcrumb(
   pathname: string,
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
   const path = pathname.replace(/\/$/, "") || "/";
+
+  if (
+    /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/drilldown-summary-report$/i.test(
+      path,
+    )
+  ) {
+    const labels = items.map((i) => i.label.toLowerCase());
+    const alreadyCorrect =
+      labels.some((l) => l === "accounts and fees") &&
+      labels.some((l) => l === "fee reports") &&
+      labels.some((l) => l === "student fee report");
+    if (alreadyCorrect) return items;
+    return [
+      { label: "Home", href: "/dashboard" },
+      { label: "Accounts and Fees" },
+      { label: "Fee Reports" },
+      { label: "Student Fee Report" },
+    ];
+  }
 
   const leaf =
     /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/daywise-fee-report$/i.test(
@@ -347,21 +369,41 @@ function attendanceReportsMenuBreadcrumb(
 }
 
 /**
- * Staff Proxy Report breadcrumb under Reports → Timetable Reports.
+ * Timetable Reports breadcrumb under Reports → Timetable Reports.
  */
 function timetableReportsMenuBreadcrumb(
   pathname: string,
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
   const path = pathname.replace(/\/$/, "") || "/";
-  if (!/\/reports\/admin-timetable-reports\/staff-proxy-report$/i.test(path)) {
-    return items;
-  }
+  const isStaffReports = path.startsWith(
+    "/staff-reports/admin-timetable-reports/",
+  );
+  const reportsRoot = isStaffReports
+    ? "/staff-reports/admin-timetable-reports"
+    : "/reports/admin-timetable-reports";
+  const leafBySlug: Record<string, string> = {
+    "dialy-timetable-report": "Daily Timetable Report",
+    "weekly-timetable-report": "Weekly Timetable Report",
+    "daily-statistical-report": "Daily Attendance Statistical Report",
+    "semester-wise-timetable-report": "Semester Wise Timetable Report",
+    "department-wise-timetable-report": "Department Wise Timetable Report",
+    "master-timetable-report": "Master Timetable Report",
+    "staff-timetable-report": "Staff Timetable Report",
+    "staff-workload-report": "Staff Workload Report",
+    "staff-proxy-report": "Staff Proxy Report",
+    "cca-activity-report": "CCA Activity Report",
+  };
+  const slug = path.startsWith(`${reportsRoot}/`)
+    ? path.slice(reportsRoot.length + 1)
+    : "";
+  const leaf = leafBySlug[slug];
+  if (!leaf) return items;
 
-  const leaf = "Staff Proxy Report";
+  const rootLabel = isStaffReports ? "Staff Reports" : "Reports";
   const labels = items.map((i) => i.label.toLowerCase());
   const alreadyCorrect =
-    labels.some((l) => l === "reports") &&
+    labels.some((l) => l === rootLabel.toLowerCase()) &&
     labels.some(
       (l) => l === "timetable reports" || l === "time table reports",
     ) &&
@@ -370,7 +412,7 @@ function timetableReportsMenuBreadcrumb(
 
   return [
     { label: "Home", href: "/dashboard" },
-    { label: "Reports" },
+    { label: rootLabel },
     { label: "Timetable Reports" },
     { label: leaf },
   ];
@@ -393,6 +435,12 @@ function libraryReportsMenuBreadcrumb(
     "/reports/admin-library-reports/total-titles-report": "Titles Report",
     "/reports/admin-library-reports/book-count-course-author-report":
       "Book Count by Course/Author Report",
+    "/reports/admin-library-reports/book-wise-report": "Book Wise Count",
+    "/reports/admin-library-reports/total-books-report": "Total Books Reports",
+    "/reports/admin-library-reports/library-consolidated-report":
+      "Library Books Report",
+    "/reports/admin-library-reports/book-search-report": "Book Search Report",
+    "/reports/admin-library-reports/periodical-reports": "Periodical Reports",
   };
   const leaf = leafByPath[path];
   if (!leaf) return items;
@@ -778,6 +826,170 @@ function unitTopicBulkUploadBreadcrumb(
 }
 
 /**
+ * Angular student bulk uploads:
+ * Home → Admin → Bulk Uploads → Student Bulk Upload
+ */
+function studentBulkUploadBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/admin\/bulk-uploads\/students-upload$/i.test(path)) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Admin", href: "/admin" },
+    { label: "Bulk Uploads" },
+    { label: "Student Bulk Upload" },
+  ];
+}
+
+/**
+ * Angular books bulk uploads:
+ * Home → Admin → Bulk Uploads → Books Bulk Upload
+ */
+function booksBulkUploadBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/admin\/bulk-uploads\/books-bulk-upload$/i.test(path)) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Admin", href: "/admin" },
+    { label: "Bulk Uploads" },
+    { label: "Books Bulk Upload" },
+  ];
+}
+
+/**
+ * Angular temporary staging bulk uploads:
+ * Home → Admin → Bulk Uploads → Temporary Staging Tables Bulk Upload
+ */
+function tempStagingBulkUploadBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin\/bulk-uploads\/temporary-staging-tables-bulk-upload$/i.test(path)
+  ) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Admin", href: "/admin" },
+    { label: "Bulk Uploads" },
+    { label: "Temporary Staging Tables Bulk Upload" },
+  ];
+}
+
+/**
+ * Angular student dost bulk uploads:
+ * Home → Admin → Bulk Uploads → Dost Bulk Upload
+ */
+function studentDostUploadBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/admin\/bulk-uploads\/student-dost-upload$/i.test(path)) {
+    return items;
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Admin", href: "/admin" },
+    { label: "Bulk Uploads" },
+    { label: "Dost Bulk Upload" },
+  ];
+}
+
+/**
+ * Angular result processing pages:
+ * Home → Examination Management → Result Processing → {Page}
+ */
+function resultProcessingBreadcrumbs(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin-examination-management\/result-processing\/(grade-rule-settings|apply-moderation-rule|t-sheets|moderation-rule-setup)$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+
+  const segment = path.split("/").pop() ?? "";
+  let leafLabel = "";
+  if (segment === "grade-rule-settings") {
+    leafLabel = "Grade Rule Settings";
+  } else if (segment === "apply-moderation-rule") {
+    leafLabel = "Apply Moderation Rule";
+  } else if (segment === "t-sheets") {
+    leafLabel = "T Sheets";
+  } else if (segment === "moderation-rule-setup") {
+    leafLabel = "Grade Rule Settings";
+  } else {
+    leafLabel = segmentToLabel(segment);
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Examination Management" },
+    { label: "Result Processing" },
+    { label: leafLabel },
+  ];
+}
+
+/**
+ * Angular evaluation process pages:
+ * Home → Examination Management → Evaluation Process → {Page}
+ */
+function evaluationProcessBreadcrumbs(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin-examination-management\/evaluation-process\/(assign-evaluators|assign-evaluators-manual|evaluation-approvals|create-questionpaper-template)$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+
+  const segment = path.split("/").pop() ?? "";
+  let leafLabel = "";
+  if (segment === "assign-evaluators") {
+    leafLabel = "Assign Answerpapers Dynamic";
+  } else if (segment === "assign-evaluators-manual") {
+    leafLabel = "Assign Answer Papers Manual";
+  } else if (segment === "evaluation-approvals") {
+    leafLabel = "Evaluation Approvals";
+  } else if (segment === "create-questionpaper-template") {
+    leafLabel = "Create Template";
+  } else {
+    leafLabel = segmentToLabel(segment);
+  }
+
+  return [
+    { label: "Home", href: "/dashboard" },
+    { label: "Examination Management" },
+    { label: "Evaluation Process" },
+    { label: leafLabel },
+  ];
+}
+
+/**
  * Angular staff-classes breadcrumb parity (exact trails from Angular UI):
  *   My Classes        → Home → My Classes
  *   My Timetable      → Home → My Timetable
@@ -796,7 +1008,15 @@ const STAFF_ACADEMICS_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
     { label: "Classes" },
     { label: "Assignments" },
   ],
+  "/student-academics/student-assignments": [
+    { label: "Academics" },
+    { label: "Assignments" },
+  ],
   "/staff-classes/class-dairy": [{ label: "Class Diary" }],
+  "/student-academics/student-class-dairy": [
+    { label: "Academics" },
+    { label: "Class Diary" },
+  ],
   "/staff-classes/attendance-update": [
     { label: "Academics" },
     { label: "Attendance Management" },
@@ -805,6 +1025,10 @@ const STAFF_ACADEMICS_BREADCRUMBS: Record<string, BreadcrumbItem[]> = {
   "/attendance-management/mark-attendance": [
     { label: "Academics" },
     { label: "Attendance Management" },
+  ],
+  "/attendance-management/staff-attendance-not-markedlist": [
+    { label: "Attendance Management" },
+    { label: "Attendance Not Taken list Staff" },
   ],
 };
 
@@ -1091,6 +1315,12 @@ export function useBreadcrumb(
   items = hostelRoomsBreadcrumb(pathname, items);
   items = examScanProfileDetailsBreadcrumb(pathname, items);
   items = unitTopicBulkUploadBreadcrumb(pathname, items);
+  items = studentBulkUploadBreadcrumb(pathname, items);
+  items = booksBulkUploadBreadcrumb(pathname, items);
+  items = tempStagingBulkUploadBreadcrumb(pathname, items);
+  items = studentDostUploadBreadcrumb(pathname, items);
+  items = resultProcessingBreadcrumbs(pathname, items);
+  items = evaluationProcessBreadcrumbs(pathname, items);
   items = staffAcademicsBreadcrumb(pathname, items);
   items = leaveRequestsBreadcrumb(pathname, items);
   items = principalCommunicationsNotificationsBreadcrumb(pathname, items);

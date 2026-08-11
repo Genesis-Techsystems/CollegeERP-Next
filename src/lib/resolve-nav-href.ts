@@ -15,6 +15,8 @@ import {
   toNavSlug,
 } from "@/lib/navigation";
 import {
+  isStudentClassDiaryViewer,
+  isStudentPortalViewer,
   mapErpModuleLabelToRoute,
   mapErpModuleNavRoute,
 } from "@/lib/erp-modules-navigation";
@@ -827,6 +829,7 @@ export function resolveForcedNavRoute(
 
   // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
   // hrefs do not make both sidebar leaves active on the staff Class Diary page.
+  // Student portal bare "Class Dairy" must not open the staff Class Diary UI.
   if (
     labelKey === "staff class diary" ||
     labelKey === "staff class dairy" ||
@@ -842,7 +845,12 @@ export function resolveForcedNavRoute(
     hrefLower.includes("staff-class-dairy") ||
     (hrefLower.includes("student-academics") &&
       (labelLower.includes("class diary") ||
-        labelLower.includes("class dairy")))
+        labelLower.includes("class dairy"))) ||
+    ((labelKey === "class diary" || labelKey === "class dairy") &&
+      isStudentClassDiaryViewer()) ||
+    ((hrefLower.includes("staff-classes/class-diary") ||
+      hrefLower.includes("staff-classes/class-dairy")) &&
+      isStudentClassDiaryViewer())
   ) {
     return "/student-academics/student-class-dairy";
   }
@@ -857,10 +865,15 @@ export function resolveForcedNavRoute(
     return "/staff-classes/class-dairy";
   }
 
-  // Student Academics Assignments — pin early so missing route does not 404→dashboard
+  // Student Academics Assignments — pin early so missing route does not 404→dashboard.
+  // Bare "Assignments" / staff-classes/assignments menus under student login.
   if (
     hrefLower.includes("student-assignments") ||
     hrefLower.includes("student-academics/student-assignments") ||
+    ((labelKey === "assignments" || labelKey === "student assignments") &&
+      isStudentPortalViewer()) ||
+    (hrefLower.includes("staff-classes/assignments") &&
+      isStudentPortalViewer()) ||
     (hrefLower.includes("student-academics") &&
       (labelKey === "assignments" ||
         labelKey === "student assignments" ||
@@ -1440,6 +1453,18 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fees-collection/update-online-receipt-status";
     }
     if (
+      hrefLower.includes("faculty-transport-payment") ||
+      hrefLower.includes("faculty-transport") ||
+      (labelLower.includes("faculty") &&
+        labelLower.includes("bus") &&
+        (labelLower.includes("fee") || labelLower.includes("collection"))) ||
+      (labelLower.includes("faculty") &&
+        labelLower.includes("transport") &&
+        labelLower.includes("payment"))
+    ) {
+      return "/accounts-and-fees/fees-collection/faculty-transport-payment";
+    }
+    if (
       hrefLower.includes("fees-collection/bus-payment") ||
       hrefLower.includes("/bus-fee-payment") ||
       (labelLower.includes("bus") &&
@@ -1733,14 +1758,29 @@ export function resolveForcedNavRoute(
       return "/reports/admin-student-reports/daily-smscommunication-detail-report";
     }
     if (
+      hrefLower.includes("drilldown-summary-report") ||
+      hrefLower.includes("fee-reports/drilldown") ||
+      hrefLower.includes("admin-fee-reports/drilldown") ||
+      (labelLower.includes("student fee") &&
+        (labelLower.includes("drilldown") ||
+          labelLower === "student fee report")) ||
+      (labelLower.includes("fee") &&
+        labelLower.includes("drilldown") &&
+        labelLower.includes("report"))
+    ) {
+      return "/accounts-and-fees/fee-reports/drilldown-summary-report";
+    }
+    if (
       hrefLower.includes("studentcount-drilldown-report") ||
       hrefLower.includes("student-drilldown-report") ||
       (labelLower.includes("student") &&
         labelLower.includes("drilldown") &&
-        labelLower.includes("report")) ||
+        labelLower.includes("report") &&
+        !labelLower.includes("fee")) ||
       (labelLower.includes("student count report") &&
         !labelLower.includes("caste") &&
-        !labelLower.includes("gender"))
+        !labelLower.includes("gender") &&
+        !labelLower.includes("fee"))
     ) {
       return "/reports/admin-student-reports/studentcount-drilldown-report";
     }
@@ -1810,11 +1850,15 @@ export function resolveForcedNavRoute(
       return "/reports/admin-student-reports/students-list-report";
     }
     // Angular Semister wise Students Report
+    // Do not match "Semester Wise Timetable Report" (timetable reports).
     if (
       hrefLower.includes("sem-list-report") ||
       hrefLower.includes("sem_list") ||
       labelLower.includes("semister") ||
-      (labelLower.includes("semester") && labelLower.includes("wise"))
+      (labelLower.includes("semester") &&
+        labelLower.includes("wise") &&
+        !labelLower.includes("timetable") &&
+        !hrefLower.includes("timetable"))
     ) {
       return "/reports/admin-student-reports/sem-list-report";
     }
@@ -2085,14 +2129,99 @@ export function resolveForcedNavRoute(
     ) {
       return "/reports/admin-attendance-reports/parent-teacher-meeting-report";
     }
-    // Timetable Reports — Staff Proxy only
-    if (
-      hrefLower.includes("staff-proxy-report") ||
-      (labelLower.includes("staff") &&
-        labelLower.includes("proxy") &&
-        labelLower.includes("report"))
-    ) {
-      return "/reports/admin-timetable-reports/staff-proxy-report";
+    // Timetable Reports —
+    // Admin: /reports/admin-timetable-reports/*
+    // HOD Angular: staff-reports/admin-timetable-reports/* → keep staff-reports prefix
+    {
+      const ttBase = hrefLower.includes("staff-reports")
+        ? "/staff-reports/admin-timetable-reports"
+        : "/reports/admin-timetable-reports";
+      if (
+        hrefLower.includes("daily-statistical-report") ||
+        (labelLower.includes("daily") &&
+          labelLower.includes("statistical") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/daily-statistical-report`;
+      }
+      if (
+        hrefLower.includes("dialy-timetable-report") ||
+        hrefLower.includes("daily-timetable-report") ||
+        (labelLower.includes("daily") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("statistical"))
+      ) {
+        return `${ttBase}/dialy-timetable-report`;
+      }
+      if (
+        hrefLower.includes("weekly-timetable-report") ||
+        (labelLower.includes("weekly") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/weekly-timetable-report`;
+      }
+      if (
+        hrefLower.includes("semester-wise-timetable-report") ||
+        (labelLower.includes("semester") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/semester-wise-timetable-report`;
+      }
+      if (
+        hrefLower.includes("department-wise-timetable") ||
+        (labelLower.includes("department") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/department-wise-timetable-report`;
+      }
+      if (
+        hrefLower.includes("master-timetable-report") ||
+        hrefLower.includes("master-timetable") ||
+        (labelLower.includes("master") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/master-timetable-report`;
+      }
+      if (
+        hrefLower.includes("staff-workload-report") ||
+        hrefLower.includes("staffworkload") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("workload") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/staff-workload-report`;
+      }
+      if (
+        hrefLower.includes("staff-timetable-report") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("timetable") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("proxy") &&
+          !labelLower.includes("workload"))
+      ) {
+        return `${ttBase}/staff-timetable-report`;
+      }
+      if (
+        hrefLower.includes("staff-proxy-report") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("proxy") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/staff-proxy-report`;
+      }
+      if (
+        hrefLower.includes("cca-activity-report") ||
+        (labelLower.includes("cca") &&
+          labelLower.includes("activity") &&
+          labelLower.includes("report"))
+      ) {
+        return `${ttBase}/cca-activity-report`;
+      }
     }
     if (
       hrefLower.includes("report-catalyst") ||
@@ -2339,6 +2468,42 @@ export function resolveForcedNavRoute(
         (labelLower.includes("course") || labelLower.includes("author")))
     ) {
       return "/reports/admin-library-reports/book-count-course-author-report";
+    }
+    if (
+      hrefLower.includes("book-wise-report") ||
+      hrefLower.includes("book-wise-count") ||
+      (labelLower.includes("book wise") && labelLower.includes("count"))
+    ) {
+      return "/reports/admin-library-reports/book-wise-report";
+    }
+    if (
+      hrefLower.includes("total-books-report") ||
+      (labelLower.includes("total books") && labelLower.includes("report"))
+    ) {
+      return "/reports/admin-library-reports/total-books-report";
+    }
+    if (
+      hrefLower.includes("library-consolidated-report") ||
+      hrefLower.includes("library-conslidated-report") ||
+      (labelLower.includes("library books") && labelLower.includes("report")) ||
+      (labelLower.includes("consolidated") &&
+        labelLower.includes("library") &&
+        labelLower.includes("report"))
+    ) {
+      return "/reports/admin-library-reports/library-consolidated-report";
+    }
+    if (
+      hrefLower.includes("book-search-report") ||
+      (labelLower.includes("book search") && labelLower.includes("report"))
+    ) {
+      return "/reports/admin-library-reports/book-search-report";
+    }
+    if (
+      hrefLower.includes("periodical-reports") ||
+      hrefLower.includes("periodical-report") ||
+      (labelLower.includes("periodical") && labelLower.includes("report"))
+    ) {
+      return "/reports/admin-library-reports/periodical-reports";
     }
     // Angular: /reports/admin-library-reports/library-report
     if (
@@ -2833,7 +2998,7 @@ export function resolveForcedNavRoute(
     labelLower.includes("complete exam fee registration") ||
     labelLower.includes("complete examfee registration")
   ) {
-    return `${preExamBase}/complete-exam-fee-registration`;
+    return "/admin-examination-management/result-processing/complete-exam-process";
   }
   if (labelLower.includes("exam center barcode")) {
     return "/admin-examination-management/exam-papers-delivery-process/exam-center-barcodes";

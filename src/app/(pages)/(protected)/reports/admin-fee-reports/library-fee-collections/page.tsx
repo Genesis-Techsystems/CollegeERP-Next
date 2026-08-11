@@ -14,7 +14,7 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { printHtmlInIframe } from "@/lib/print";
-import { escapeHtml } from "@/common/export-html-table";
+import { buildHtmlTable, escapeHtml } from "@/common/export-html-table";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError, toastInfo } from "@/lib/toast";
@@ -33,6 +33,7 @@ import {
   getFeePaylinkCollegeFilters,
 } from "@/services";
 
+import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 type AnyRow = Record<string, unknown>;
 
 const SELECT_EMPTY = { value: "", label: "Select" };
@@ -343,7 +344,7 @@ export default function LibraryFeeCollectionsPage() {
       return blob.includes(q);
     });
   }, [rows, searchText]);
-
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
   const exportAsExcel = () => {
     if (!excelTableRef.current) return;
     const uri = "data:application/vnd.ms-excel;base64,";
@@ -364,21 +365,134 @@ export default function LibraryFeeCollectionsPage() {
     link.click();
   };
 
-  const printReport = () => {
+  const handlePrintReport = () => {
     if (!excelTableRef.current) return;
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Library Fee Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px}
-th{background:#e8f0fe}
-</style></head><body>
-<p style="font-weight:600">Library Fee Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</p>
-${excelTableRef.current.innerHTML}
-</body></html>`);
-  };
 
+    const collegeLabel =
+      collegeOptions.find((o) => o.value === collegeId)?.label || "";
+
+    const columns = [
+      { key: "siNo", header: "SI.No" },
+      { key: "studentRollNo", header: "Roll No." },
+      { key: "studentName", header: "Student" },
+      { key: "quotaName", header: "Quota" },
+      { key: "course", header: "Course" },
+      { key: "receiptDt", header: "Payment Date" },
+      { key: "paymentReceiptsNo", header: "Receipt" },
+      { key: "receiptAmount", header: "Amount" },
+    ];
+
+    const rowsWithIndex = filteredRows.map((row: AnyRow, idx: number) => ({
+      ...row,
+      siNo: idx + 1,
+      course: courseCell(row),
+      receiptDt: fmtDate(row.receiptDt),
+    }));
+
+    const tableHtml = buildHtmlTable(columns, rowsWithIndex);
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Library Fee Report</title>
+  <style>
+    @page {
+      margin: 12mm;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      padding: 12px;
+      color: #111;
+      margin: 0;
+    }
+
+    .header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .header img {
+      width: 90px;
+      height: auto;
+      max-height: 100px;
+      object-fit: contain;
+    }
+
+    .header-text {
+      flex: 1;
+    }
+
+    .collegeName {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 6px;
+    }
+
+    .details {
+      font-size: 12px;
+      color: #666;
+      margin: 0 0 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-top: 8px;
+    }
+
+    th,
+    td {
+      border: 1px solid #333;
+      padding: 6px 5px;
+    }
+
+    th {
+      background: #f2f2f2;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="header">
+    <img
+      src="${collegeLogo}"
+      alt="College Logo"
+      onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'"
+    />
+
+    <div class="header-text">
+      <p class="collegeName">
+        ${escapeHtml(collegeLabel)}
+      </p>
+
+      ${dataDetails ? `<p class="details">${escapeHtml(dataDetails)}</p>` : ""}
+
+      <p class="title">
+        Library Fee Report
+      </p>
+    </div>
+  </div>
+
+  ${tableHtml}
+
+</body>
+</html>`;
+
+    printHtmlInIframe(html);
+  };
   const goBack = () => {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
@@ -502,7 +616,7 @@ ${excelTableRef.current.innerHTML}
                   type="button"
                   size="sm"
                   className="h-9 px-3 text-[12px]"
-                  onClick={printReport}
+                  onClick={() => handlePrintReport()}
                 >
                   <Printer className="mr-1.5 h-3.5 w-3.5" />
                   Print Report

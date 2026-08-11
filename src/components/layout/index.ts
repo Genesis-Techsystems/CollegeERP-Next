@@ -9,5 +9,13 @@ export { FilteredListPage } from './FilteredListPage'
 export type { FilteredListPageProps } from './FilteredListPage'
 export { FilteredPage } from './FilteredPage'
 export type { FilteredPageProps } from './FilteredPage'
+export {
+  AngularFilterCard,
+  TableContextHeader,
+} from './AngularFilterCard'
+export type {
+  AngularFilterCardProps,
+  TableContextHeaderProps,
+} from './AngularFilterCard'
 export { Sidebar } from './Sidebar'
 export { NavItem } from './NavItem'

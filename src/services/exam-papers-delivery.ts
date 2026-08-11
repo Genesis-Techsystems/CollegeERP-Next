@@ -19,6 +19,7 @@ import {
   getAllRecords,
   getAllRecordsEnvelope,
   postDetails,
+  postDetailsEnvelope,
   putDetails,
 } from "@/services/crud";
 import {
@@ -358,6 +359,45 @@ export async function listAllActiveUnivExamAnswerPaperBags(): Promise<
     UNIV_EXAM_CENTER_API.ANSWER_PAPER_BAGS,
     buildQuery({ isActive: true }),
   );
+}
+
+/**
+ * Angular `selectedExamBag` → listDetailsByTwoIds(UnivExamAnswerPaperBags,
+ * univExamBagId, true, 'univExamBags.univExamBagId', 'isActive').
+ */
+export async function listUnivExamAnswerPaperBagsByBag(
+  univExamBagId: number,
+): Promise<AnyRow[]> {
+  if (!univExamBagId) return [];
+  try {
+    return await domainList<AnyRow>(
+      UNIV_EXAM_CENTER_API.ANSWER_PAPER_BAGS,
+      buildQuery({
+        "univExamBags.univExamBagId": univExamBagId,
+        isActive: true,
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular Save → add(addListUnivExamAnswerPaperBagsUrl, selectedOmrDetails).
+ * Response may include `existingOmrIds` when some OMRs were already assigned.
+ */
+export async function addListUnivExamAnswerPaperBags(
+  rows: Record<string, unknown>[],
+): Promise<{ existingOmrIds?: unknown; message?: string }> {
+  if (!rows.length) return {};
+  const envelope = await postDetailsEnvelope<{ existingOmrIds?: unknown }>(
+    UNIV_EXAM_CENTER_API.ADD_ANSWER_PAPER_BAGS,
+    rows,
+  );
+  return {
+    existingOmrIds: envelope.data?.existingOmrIds,
+    message: envelope.message,
+  };
 }
 
 export function pickUnivExamAnswerPaperBagId(row: AnyRow): number {

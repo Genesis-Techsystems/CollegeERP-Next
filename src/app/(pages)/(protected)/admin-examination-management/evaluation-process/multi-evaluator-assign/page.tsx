@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ColDef } from "ag-grid-community";
+import type { LucideIcon } from "lucide-react";
+import {
+  CloudUpload,
+  FileText,
+  GraduationCap,
+  SquareCheck,
+  User,
+  UserMinus,
+  Users,
+} from "lucide-react";
 import { SearchInput } from "@/common/components/search";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
 import { Select, type SelectOption } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,10 +35,92 @@ import {
   getRegSupRestFilters,
   getRegSupSubjectFilters,
 } from "@/services/evaluation";
-import { FilteredListPage } from "@/components/layout";
-import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
+import { FilteredPage } from "@/components/layout";
+import {
+  dedupeBy,
+  num,
+  subjectSelectLabel,
+  txt,
+  withSubjectGroupNames,
+} from "@/common/utils/data-helpers";
+import { cn } from "@/lib/utils";
 
 type AnyRow = Record<string, unknown>;
+
+function MultiStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-medium text-[#0c51a4]">
+          {label}
+        </p>
+        <p className="text-[18px] font-semibold leading-tight text-[#0c51a4]">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MultiPanel({
+  title,
+  icon: Icon,
+  children,
+  className,
+}: {
+  title: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-border/70 px-3 py-2.5">
+        <Icon className="h-4 w-4 shrink-0 text-[#0c51a4]" aria-hidden />
+        <p className="text-[13px] font-semibold text-[#0c51a4]">{title}</p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+    </div>
+  );
+}
+
+function MultiEmpty({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+      <span className="mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-[#0c51a4]/10 text-[#0c51a4]/80">
+        <Icon className="h-7 w-7" aria-hidden />
+      </span>
+      <p className="text-sm font-semibold text-[#0c51a4]">{title}</p>
+      <p className="max-w-[15rem] text-xs leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </div>
+  );
+}
 
 function makeAssignedRenderer(
   onOpen: (
@@ -185,7 +278,7 @@ export default function MultiEvaluatorAssignPage() {
     );
   }, [restRows, courseYearId]);
   const subjects = useMemo(
-    () => dedupeBy(subjectRows, (r) => num(r.fk_subject_id)),
+    () => withSubjectGroupNames(subjectRows),
     [subjectRows],
   );
 
@@ -837,13 +930,16 @@ export default function MultiEvaluatorAssignPage() {
               resetFetchedState();
               setSubjectId(v ? Number(v) : null);
             }}
-            options={subjects.map(
-              (s) =>
-                ({
-                  value: String(num(s.fk_subject_id)),
-                  label: `${txt(s.subject_name)} - ${txt(s.subject_code)}`,
-                }) as SelectOption,
-            )}
+            options={subjects.map((s) => {
+              const label = subjectSelectLabel(s);
+              const groupNames = txt(s.groupNames);
+              return {
+                value: String(num(s.fk_subject_id)),
+                label,
+                title: label,
+                description: groupNames || undefined,
+              } as SelectOption;
+            })}
             placeholder="Subject"
             searchable
             disabled={!regulationId}
@@ -867,37 +963,59 @@ export default function MultiEvaluatorAssignPage() {
   );
 
   return (
-    <FilteredListPage
+    <FilteredPage
       title="Assign Multi Evaluator"
       filters={filterFields}
-      filtersDefaultOpen={true}
-      filtersFooter={
+      filtersDefaultOpen
+      body={
         hasFetched ? (
-          <>
-            <div className="app-card p-3 text-[13px]">
-              <span className="font-semibold">Total Students:</span>{" "}
-              {totalStudents} | <span className="font-semibold">Uploaded:</span>{" "}
-              {uploaded} | <span className="font-semibold">UnAssigned:</span>{" "}
-              {unassigned} | <span className="font-semibold">Assigned:</span>{" "}
-              {assigned} |{" "}
-              <span className="font-semibold">No of Evaluators:</span>{" "}
-              {evaluatorRows.length}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-stretch overflow-hidden rounded-lg border border-border/70 bg-card divide-x divide-border/70">
+              <MultiStat
+                icon={GraduationCap}
+                label="Total Students"
+                value={totalStudents}
+              />
+              <MultiStat icon={CloudUpload} label="Uploaded" value={uploaded} />
+              <MultiStat
+                icon={UserMinus}
+                label="UnAssigned"
+                value={unassigned}
+              />
+              <MultiStat icon={Users} label="Assigned" value={assigned} />
+              <MultiStat
+                icon={User}
+                label="No of Evaluators"
+                value={evaluatorRows.length}
+              />
             </div>
 
-            <div className="app-card p-3 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                <div className="md:col-span-3 border rounded-md p-2">
-                  <p className="text-[13px] font-semibold mb-2">
-                    Evaluator List / Assigned Count
-                  </p>
-                  <div className="space-y-1 max-h-[280px] overflow-auto">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
+              <MultiPanel
+                title="Evaluator List / Assigned Count"
+                icon={Users}
+                className="md:col-span-3"
+              >
+                {evaluatorRows.length === 0 ? (
+                  <MultiEmpty
+                    icon={Users}
+                    title="No evaluator selected"
+                    description="Select an evaluator to view assigned count."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {evaluatorRows.map((e, idx) => {
                       const detId = evaluatorProfileDetId(e);
                       const checked = selectedEvaluatorDetId === detId;
                       return (
                         <label
                           key={`ev-${detId}-${idx}`}
-                          className="flex items-center gap-2 text-[12px]"
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors",
+                            checked
+                              ? "bg-[#0c51a4]/10 text-[#0c51a4]"
+                              : "hover:bg-muted/50",
+                          )}
                         >
                           <input
                             type="radio"
@@ -915,29 +1033,29 @@ export default function MultiEvaluatorAssignPage() {
                       );
                     })}
                   </div>
-                </div>
+                )}
+              </MultiPanel>
 
-                <div className="md:col-span-5 border rounded-md p-2">
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <SearchInput
-                      value={omrSearch}
-                      onChange={setOmrSearch}
-                      placeholder="Search…"
-                      className="w-full max-w-sm"
-                    />
-                    <span className="shrink-0 text-[12px] font-semibold text-blue-700">
-                      Total :{" "}
-                      {selectedEvaluatorProfileId
-                        ? assignableStudents.length
-                        : 0}
-                    </span>
-                  </div>
-                  <div className="max-h-[280px] overflow-auto border rounded">
+              <div className="flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card md:col-span-5">
+                <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+                  <SearchInput
+                    value={omrSearch}
+                    onChange={setOmrSearch}
+                    placeholder="Search evaluator..."
+                    className="w-full max-w-sm"
+                  />
+                  <span className="shrink-0 text-[12px] font-semibold text-[#0c51a4]">
+                    Total :{" "}
+                    {selectedEvaluatorProfileId ? assignableStudents.length : 0}
+                  </span>
+                </div>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="max-h-[280px] flex-1 overflow-auto">
                     <table className="w-full text-[12px]">
                       <thead>
-                        <tr className="bg-muted/40">
-                          <th className="text-left px-2 py-1 w-14">
-                            <label className="inline-flex items-center gap-1 font-normal">
+                        <tr className="bg-sky-50 text-[#0c51a4]">
+                          <th className="w-14 px-2 py-2 text-left font-semibold">
+                            <label className="inline-flex items-center gap-1 font-semibold">
                               <input
                                 type="checkbox"
                                 checked={areAllVisibleSelected}
@@ -950,11 +1068,13 @@ export default function MultiEvaluatorAssignPage() {
                               All
                             </label>
                           </th>
-                          <th className="text-left px-2 py-1">Serial No</th>
-                          <th className="text-center px-2 py-1">
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Serial No
+                          </th>
+                          <th className="px-2 py-2 text-center font-semibold">
                             Answer Papers Assigned
                           </th>
-                          <th className="text-left px-2 py-1">
+                          <th className="px-2 py-2 text-left font-semibold">
                             Evaluated Total Marks
                           </th>
                         </tr>
@@ -962,13 +1082,20 @@ export default function MultiEvaluatorAssignPage() {
                       <tbody>
                         {assignableStudents.length === 0 ? (
                           <tr>
-                            <td
-                              colSpan={4}
-                              className="px-2 py-3 text-center text-muted-foreground"
-                            >
-                              {selectedEvaluatorProfileId
-                                ? "No OMR sheets found."
-                                : "Select an evaluator to list OMR sheets."}
+                            <td colSpan={4} className="p-0">
+                              <MultiEmpty
+                                icon={FileText}
+                                title={
+                                  selectedEvaluatorProfileId
+                                    ? "No OMR sheets found"
+                                    : "Select an evaluator"
+                                }
+                                description={
+                                  selectedEvaluatorProfileId
+                                    ? "No assignable OMR sheets for this evaluator."
+                                    : "Select an evaluator to list OMR sheets."
+                                }
+                              />
                             </td>
                           </tr>
                         ) : (
@@ -982,9 +1109,12 @@ export default function MultiEvaluatorAssignPage() {
                             return (
                               <tr
                                 key={`omr-${omr}-${idx}`}
-                                className={`border-t ${disabled ? "opacity-50" : ""}`}
+                                className={cn(
+                                  "border-t border-border/60",
+                                  disabled && "opacity-50",
+                                )}
                               >
-                                <td className="px-2 py-1">
+                                <td className="px-2 py-1.5">
                                   <input
                                     type="checkbox"
                                     disabled={disabled}
@@ -994,11 +1124,11 @@ export default function MultiEvaluatorAssignPage() {
                                     }
                                   />
                                 </td>
-                                <td className="px-2 py-1">{omr || "-"}</td>
-                                <td className="px-2 py-1 text-center">
+                                <td className="px-2 py-1.5">{omr || "-"}</td>
+                                <td className="px-2 py-1.5 text-center">
                                   {num(s.omr_mapped)}
                                 </td>
-                                <td className="px-2 py-1">
+                                <td className="px-2 py-1.5">
                                   {s?.list_evaluated_totalmarks != null &&
                                   String(s.list_evaluated_totalmarks).trim() !==
                                     ""
@@ -1012,80 +1142,105 @@ export default function MultiEvaluatorAssignPage() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="mt-2 flex items-center justify-end gap-2">
-                    <span className="text-[12px] font-semibold text-blue-700">
+                  <div className="flex items-center justify-end border-t border-border/60 px-3 py-2">
+                    <span className="text-[12px] font-semibold text-[#0c51a4]">
                       Selected : {selectedOmr.length}
                     </span>
                   </div>
                 </div>
+              </div>
 
-                <div className="md:col-span-2 border rounded-md p-2">
-                  <p className="text-[12px] font-semibold mb-2">
-                    Selected ({selectedOmr.length})
-                  </p>
-                  <div className="max-h-[280px] overflow-auto space-y-1">
+              <MultiPanel
+                title={`Selected (${selectedOmr.length})`}
+                icon={SquareCheck}
+                className="md:col-span-2"
+              >
+                {selectedOmr.length === 0 ? (
+                  <MultiEmpty
+                    icon={SquareCheck}
+                    title="No items selected"
+                    description="Selected OMR sheets will appear here."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {selectedOmr.map((omr) => (
                       <div
                         key={`sel-${omr}`}
-                        className="text-[12px] text-blue-700"
+                        className="rounded-md bg-[#0c51a4]/5 px-2 py-1 text-[12px] font-medium text-[#0c51a4]"
                       >
                         {omr}
                       </div>
                     ))}
                   </div>
-                </div>
+                )}
+              </MultiPanel>
 
-                <div className="md:col-span-2 border rounded-md p-2">
-                  <p className="text-[12px] font-semibold mb-2">
-                    Assigned OMR List ({alreadyAssignedStudents.length})
-                  </p>
-                  <div className="max-h-[280px] overflow-auto space-y-1">
+              <MultiPanel
+                title={`Assigned OMR List (${alreadyAssignedStudents.length})`}
+                icon={FileText}
+                className="md:col-span-2"
+              >
+                {alreadyAssignedStudents.length === 0 ? (
+                  <MultiEmpty
+                    icon={FileText}
+                    title="No OMR sheets assigned"
+                    description="Assigned OMR sheets will appear here."
+                  />
+                ) : (
+                  <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {alreadyAssignedStudents.map((s) => {
                       const omr = txt(s.omr_serial_no);
                       return (
                         <div
                           key={`as-${omr}`}
-                          className="text-[12px] text-blue-700"
+                          className="rounded-md bg-[#0c51a4]/5 px-2 py-1 text-[12px] font-medium text-[#0c51a4]"
                         >
                           {omr}
                         </div>
                       );
                     })}
                   </div>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  disabled={
-                    assigning ||
-                    loading ||
-                    !selectedEvaluator ||
-                    selectedOmr.length === 0
-                  }
-                  onClick={() => void onAssign()}
-                >
-                  {assigning ? "Assigning…" : "Assign"}
-                </Button>
-              </div>
+                )}
+              </MultiPanel>
             </div>
-          </>
-        ) : null
+
+            <div className="flex justify-end">
+              <Button
+                disabled={
+                  assigning ||
+                  loading ||
+                  !selectedEvaluator ||
+                  selectedOmr.length === 0
+                }
+                onClick={() => void onAssign()}
+              >
+                {assigning ? "Assigning…" : "Assign"}
+              </Button>
+            </div>
+          </div>
+        ) : undefined
       }
-      toolbarLeading={<span className="hidden" />}
-      rowData={hasFetched ? evaluatorRows : []}
-      columnDefs={cols}
-      pagination
-      loading={loading}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Assign Multi Evaluator",
-      }}
     >
+      {hasFetched ? (
+        <DataTable
+          title=""
+          bordered
+          rowData={evaluatorRows}
+          columnDefs={cols}
+          pagination
+          loading={loading}
+          toolbar={{
+            search: true,
+            searchPlaceholder: "Search…",
+            pdfDocumentTitle: "Assign Multi Evaluator",
+          }}
+        />
+      ) : null}
+
       <Dialog open={popupOpen} onOpenChange={setPopupOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="text-[16px] font-semibold text-[hsl(var(--primary))]">
+            <DialogTitle className="text-[16px] font-semibold text-[#0c51a4]">
               {popupTitle}
             </DialogTitle>
           </DialogHeader>
@@ -1135,6 +1290,6 @@ export default function MultiEvaluatorAssignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredListPage>
+    </FilteredPage>
   );
 }

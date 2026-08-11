@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { DATE_FORMATS } from "@/config/constants";
 import { useSessionContext } from "@/context/SessionContext";
 import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
+import { isStudentPortalViewer } from "@/lib/erp-modules-navigation";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
@@ -93,10 +94,7 @@ function makeSubmissionsRenderer(onView: (row: AnyRow) => void) {
   };
 }
 
-function makeEditRenderer(
-  canEdit: boolean,
-  onEdit: (row: AnyRow) => void,
-) {
+function makeEditRenderer(canEdit: boolean, onEdit: (row: AnyRow) => void) {
   return (p: ICellRendererParams<AnyRow>) => {
     if (!canEdit) return <span className="text-muted-foreground">—</span>;
     const row = p.data;
@@ -126,7 +124,11 @@ const COL_DEFS = {
     headerName: "Subject",
     minWidth: 160,
   } as ColDef<AnyRow>,
-  title: { field: "title", headerName: "Title", minWidth: 180 } as ColDef<AnyRow>,
+  title: {
+    field: "title",
+    headerName: "Title",
+    minWidth: 180,
+  } as ColDef<AnyRow>,
   submissionDueDate: {
     field: "submissionDueDate",
     headerName: "Submission Date",
@@ -177,6 +179,14 @@ export function AssignmentsPage() {
     isResolving,
   } = useStaffLoginContext(user, sessionLoading);
 
+  // Student Academics "Assignments" menus often share staff-classes/assignments.
+  const studentViewer = !sessionLoading && isStudentPortalViewer();
+  useEffect(() => {
+    if (studentViewer) {
+      router.replace("/student-academics/student-assignments");
+    }
+  }, [studentViewer, router]);
+
   const [check, setCheck] = useState<"1" | "2">("1");
   const [groupSectionId, setGroupSectionId] = useState<string>("0");
   const [courseOptions, setCourseOptions] = useState<StaffSubjectClass[]>([]);
@@ -218,8 +228,7 @@ export function AssignmentsPage() {
     }
     setLoading(true);
     try {
-      const sectionId =
-        check === "1" ? positiveId(groupSectionId) : 0;
+      const sectionId = check === "1" ? positiveId(groupSectionId) : 0;
       const list = await listStaffAssignments({
         employeeId: employeeIdForList,
         groupSectionId: sectionId > 0 ? sectionId : undefined,
@@ -236,9 +245,16 @@ export function AssignmentsPage() {
   }, [employeeIdForList, groupSectionId, check]);
 
   useEffect(() => {
-    if (sessionLoading || isResolving || !loginEmployeeId) return;
+    if (studentViewer || sessionLoading || isResolving || !loginEmployeeId)
+      return;
     void loadCourses();
-  }, [sessionLoading, isResolving, loginEmployeeId, loadCourses]);
+  }, [
+    studentViewer,
+    sessionLoading,
+    isResolving,
+    loginEmployeeId,
+    loadCourses,
+  ]);
 
   useEffect(() => {
     const qpCheck = searchParams.get("check");
@@ -290,13 +306,14 @@ export function AssignmentsPage() {
   }, [check, isHod, deptId, loginCtx?.uName, user?.userName]);
 
   useEffect(() => {
-    if (sessionLoading || isResolving || !loginEmployeeId) return;
+    if (studentViewer || sessionLoading || isResolving || !loginEmployeeId)
+      return;
     if (check === "2") {
       if (!selectedEmployeeId || !employeeListRequested) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
+        setRows([]);
+        setLoading(false);
+        return;
+      }
     }
     void loadAssignments().then((list) => {
       if (
@@ -309,6 +326,7 @@ export function AssignmentsPage() {
       }
     });
   }, [
+    studentViewer,
     sessionLoading,
     isResolving,
     loginEmployeeId,
@@ -352,25 +370,25 @@ export function AssignmentsPage() {
     // Angular selectedSection: reload immediately when course year changes
     if (check !== "1") return;
     if (!loginEmployeeId) return;
-      void (async () => {
-        setLoading(true);
-        try {
+    void (async () => {
+      setLoading(true);
+      try {
         const sectionId = positiveId(next);
-          const list = await listStaffAssignments({
+        const list = await listStaffAssignments({
           employeeId: loginEmployeeId,
           groupSectionId: sectionId > 0 ? sectionId : undefined,
-          });
-          setRows(list);
+        });
+        setRows(list);
         if (list.length === 0) {
           toastInfo("No assignments found.");
         }
-        } catch (e) {
-          toastError(e, "Failed to load assignments");
+      } catch (e) {
+        toastError(e, "Failed to load assignments");
         setRows([]);
-        } finally {
-          setLoading(false);
-        }
-      })();
+      } finally {
+        setLoading(false);
+      }
+    })();
   };
 
   const handleEmployeeSearch = async (term: string) => {
@@ -381,7 +399,9 @@ export function AssignmentsPage() {
     }
     // Angular filterEmp: local filter when search is short
     if (q.length < 5) {
-      setEmployeeOptions(mapEmployeesToOptions(filterEmployeesLocal(employeeCache, q)));
+      setEmployeeOptions(
+        mapEmployeesToOptions(filterEmployeesLocal(employeeCache, q)),
+      );
       return;
     }
     try {
@@ -476,6 +496,10 @@ export function AssignmentsPage() {
     ],
     [viewSubmissions, check],
   );
+
+  if (studentViewer) {
+    return null;
+  }
 
   return (
     <>

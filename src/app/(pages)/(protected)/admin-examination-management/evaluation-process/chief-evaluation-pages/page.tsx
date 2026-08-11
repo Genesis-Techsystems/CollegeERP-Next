@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,10 @@ import {
   DataTableFooter,
   type DataTablePageSize,
 } from "@/common/components/table";
+import {
+  subjectSelectLabel,
+  withSubjectGroupNames,
+} from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   assignChiefEvaluation,
@@ -57,18 +61,6 @@ function examOptionMeta(row: AnyRow): { label: string; title: string } {
   const label = `${name}${range}${tags ? ` ${tags}` : ""}`;
   const title = from && to ? `${name} (${from} - ${to})` : name;
   return { label, title };
-}
-
-/** Angular subject option: `name - code (regulation)` */
-function subjectOptionMeta(row: AnyRow): { label: string; title: string } {
-  const name = pickText(row, ["subject_name", "subjectName"]);
-  const code = pickText(row, ["subject_code", "subjectCode"]);
-  const reg = pickText(row, ["regulation_code", "regulationCode"]);
-  const label = [name, code ? `- ${code}` : "", reg ? `(${reg})` : ""]
-    .filter(Boolean)
-    .join(" ");
-  const title = `${name}${code ? ` - ${code}` : ""}${reg ? ` (${reg})` : ""}`;
-  return { label: label || title, title };
 }
 
 /**
@@ -185,39 +177,37 @@ export default function ChiefEvaluationPagesPage() {
       ),
     [baseRows, courseId, academicYearId],
   );
-  const courseYears = useMemo(
-    () =>
-      dedupeBy(subjectFilterRows, (r) =>
-        pickNum(r, ["fk_course_year_id", "courseYearId"]),
+  // Course years / regulations / subjects come from exam subject-filter rows
+  // (Angular courseyearcode1). Each level is gated on the parent selection.
+  const courseYears = useMemo(() => {
+    if (!examId) return [];
+    return dedupeBy(subjectFilterRows, (r) =>
+      pickNum(r, ["fk_course_year_id", "courseYearId"]),
+    );
+  }, [subjectFilterRows, examId]);
+  const regulations = useMemo(() => {
+    if (!courseYearId) return [];
+    return dedupeBy(
+      subjectFilterRows.filter(
+        (r) =>
+          pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
+          Number(courseYearId),
       ),
-    [subjectFilterRows],
-  );
-  const regulations = useMemo(
-    () =>
-      dedupeBy(
-        subjectFilterRows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
-            Number(courseYearId),
-        ),
-        (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+    );
+  }, [subjectFilterRows, courseYearId]);
+  const subjects = useMemo(() => {
+    if (!courseYearId || !regulationId) return [];
+    return withSubjectGroupNames(
+      subjectFilterRows.filter(
+        (r) =>
+          pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
+            Number(courseYearId) &&
+          pickNum(r, ["fk_regulation_id", "regulationId"]) ===
+            Number(regulationId),
       ),
-    [subjectFilterRows, courseYearId],
-  );
-  const subjects = useMemo(
-    () =>
-      dedupeBy(
-        subjectFilterRows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
-              Number(courseYearId) &&
-            pickNum(r, ["fk_regulation_id", "regulationId"]) ===
-              Number(regulationId),
-        ),
-        (r) => pickNum(r, ["fk_subject_id", "subjectId"]),
-      ),
-    [subjectFilterRows, courseYearId, regulationId],
-  );
+    );
+  }, [subjectFilterRows, courseYearId, regulationId]);
 
   const uniqueOmrRows = useMemo(
     () =>
@@ -291,6 +281,169 @@ export default function ChiefEvaluationPagesPage() {
     [subjects, subjectId],
   );
 
+  const subjectFilterReqSeq = useRef(0);
+
+  function resetFetchedState() {
+    setEvaluationRows([]);
+    setChiefDetails([]);
+    setChiefEvaluations([]);
+    setHasFetched(false);
+  }
+
+  function clearBelowCourse() {
+    setAcademicYearId(null);
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectFilterRows([]);
+  }
+
+  function clearBelowAcademicYear() {
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectFilterRows([]);
+  }
+
+  function clearBelowExam() {
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectFilterRows([]);
+  }
+
+  function clearBelowCourseYear() {
+    setRegulationId(null);
+    setSubjectId(null);
+  }
+
+  function clearBelowRegulation() {
+    setSubjectId(null);
+  }
+
+  /** Angular selectedCourse → AY[0] → selectedAcademicYear. */
+  function applyCourse(
+    nextCourseId: number | null,
+    fromBase: AnyRow[] = baseRows,
+  ) {
+    resetFetchedState();
+    subjectFilterReqSeq.current += 1;
+    setCourseId(nextCourseId);
+    clearBelowCourse();
+    if (!nextCourseId) return;
+    const ayRows = dedupeBy(
+      fromBase.filter(
+        (r) => pickNum(r, ["fk_course_id", "courseId"]) === nextCourseId,
+      ),
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+    ).sort(
+      (a, b) =>
+        Number.parseInt(pickText(b, ["academic_year"]) || "0", 10) -
+        Number.parseInt(pickText(a, ["academic_year"]) || "0", 10),
+    );
+    const firstAy =
+      pickNum(ayRows[0], ["fk_academic_year_id", "academicYearId"]) || null;
+    if (firstAy) applyAcademicYear(firstAy, nextCourseId, fromBase);
+  }
+
+  /** Angular selectedAcademicYear → exam[0] → selectedExam. */
+  function applyAcademicYear(
+    nextAyId: number | null,
+    forCourseId = courseId,
+    fromBase: AnyRow[] = baseRows,
+  ) {
+    resetFetchedState();
+    subjectFilterReqSeq.current += 1;
+    setAcademicYearId(nextAyId);
+    clearBelowAcademicYear();
+    if (!nextAyId || !forCourseId) return;
+    const examRows = dedupeBy(
+      fromBase.filter(
+        (r) =>
+          pickNum(r, ["fk_course_id", "courseId"]) === Number(forCourseId) &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) === nextAyId,
+      ),
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+    const firstExam = pickNum(examRows[0], ["fk_exam_id", "examId"]) || null;
+    if (firstExam) applyExam(firstExam, forCourseId, nextAyId);
+  }
+
+  /** Angular selectedExam → load courseyearcode1 → course year[0]. */
+  function applyExam(
+    nextExamId: number | null,
+    forCourseId = courseId,
+    forAyId = academicYearId,
+  ) {
+    resetFetchedState();
+    setExamId(nextExamId);
+    clearBelowExam();
+    if (!nextExamId || !forCourseId || !forAyId) return;
+    const seq = ++subjectFilterReqSeq.current;
+    void (async () => {
+      const rows = await getChiefEvaluationSubjectFilters({
+        courseId: forCourseId,
+        academicYearId: forAyId,
+        examId: nextExamId,
+        employeeId,
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== subjectFilterReqSeq.current) return;
+      const list = Array.isArray(rows) ? rows : [];
+      setSubjectFilterRows(list);
+      const years = dedupeBy(list, (r) =>
+        pickNum(r, ["fk_course_year_id", "courseYearId"]),
+      );
+      const firstYear =
+        pickNum(years[0], ["fk_course_year_id", "courseYearId"]) || null;
+      if (firstYear) applyCourseYear(firstYear, list);
+    })();
+  }
+
+  /** Angular selectedCourseYr → regulations for that year → regulation[0]. */
+  function applyCourseYear(
+    nextYearId: number | null,
+    fromRows: AnyRow[] = subjectFilterRows,
+  ) {
+    resetFetchedState();
+    setCourseYearId(nextYearId);
+    clearBelowCourseYear();
+    if (!nextYearId) return;
+    const regs = dedupeBy(
+      fromRows.filter(
+        (r) => pickNum(r, ["fk_course_year_id", "courseYearId"]) === nextYearId,
+      ),
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+    );
+    const firstReg =
+      pickNum(regs[0], ["fk_regulation_id", "regulationId"]) || null;
+    if (firstReg) applyRegulation(firstReg, nextYearId, fromRows);
+  }
+
+  /** Angular selectedRegulation → subjects (+ groupNames) → subject[0]. */
+  function applyRegulation(
+    nextRegId: number | null,
+    forCourseYearId = courseYearId,
+    fromRows: AnyRow[] = subjectFilterRows,
+  ) {
+    resetFetchedState();
+    setRegulationId(nextRegId);
+    clearBelowRegulation();
+    if (!nextRegId || !forCourseYearId) return;
+    const withGroups = withSubjectGroupNames(
+      fromRows.filter(
+        (r) =>
+          pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
+            Number(forCourseYearId) &&
+          pickNum(r, ["fk_regulation_id", "regulationId"]) === nextRegId,
+      ),
+    );
+    const firstSubject =
+      pickNum(withGroups[0], ["fk_subject_id", "subjectId"]) || null;
+    if (firstSubject) setSubjectId(firstSubject);
+  }
+
   useEffect(() => {
     async function init() {
       setLoading(true);
@@ -302,63 +455,16 @@ export default function ChiefEvaluationPagesPage() {
         const rows = Array.isArray(filters) ? filters : [];
         setBaseRows(rows);
         setSettingValue(pdfSetting ?? "");
-        if (rows[0]) {
-          setCourseId(pickNum(rows[0], ["fk_course_id", "courseId"]));
-        }
+        const firstCourse =
+          pickNum(rows[0], ["fk_course_id", "courseId"]) || null;
+        if (firstCourse) applyCourse(firstCourse, rows);
       } finally {
         setLoading(false);
       }
     }
     void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init once per employee
   }, [employeeId]);
-
-  useEffect(() => {
-    if (academicYears[0])
-      setAcademicYearId(
-        pickNum(academicYears[0], ["fk_academic_year_id", "academicYearId"]),
-      );
-  }, [academicYears]);
-
-  useEffect(() => {
-    if (exams[0]) setExamId(pickNum(exams[0], ["fk_exam_id", "examId"]));
-  }, [exams]);
-
-  useEffect(() => {
-    async function loadSubjectFilters() {
-      if (!courseId || !academicYearId || !examId) return;
-      const rows = await getChiefEvaluationSubjectFilters({
-        courseId,
-        academicYearId,
-        examId,
-        employeeId,
-      }).catch(() => []);
-      const list = Array.isArray(rows) ? rows : [];
-      setSubjectFilterRows(list);
-      setCourseYearId(
-        pickNum(list[0], ["fk_course_year_id", "courseYearId"]) || null,
-      );
-    }
-    void loadSubjectFilters();
-  }, [courseId, academicYearId, examId, employeeId]);
-
-  useEffect(() => {
-    if (regulations[0])
-      setRegulationId(
-        pickNum(regulations[0], ["fk_regulation_id", "regulationId"]),
-      );
-  }, [regulations]);
-
-  useEffect(() => {
-    if (subjects[0])
-      setSubjectId(pickNum(subjects[0], ["fk_subject_id", "subjectId"]));
-  }, [subjects]);
-
-  useEffect(() => {
-    setEvaluationRows([]);
-    setChiefDetails([]);
-    setChiefEvaluations([]);
-    setHasFetched(false);
-  }, [courseId, academicYearId, examId, courseYearId, regulationId, subjectId]);
 
   // allowChiefEval gates the per-evaluator Edit (Angular chiefEvaluatorDetails[0].assignment_allowed).
   const allowChiefEval = Number(chiefDetails[0]?.assignment_allowed ?? 0) === 1;
@@ -657,11 +763,13 @@ export default function ChiefEvaluationPagesPage() {
   const subjectOptions = useMemo<SelectOption[]>(
     () =>
       subjects.map((row) => {
-        const meta = subjectOptionMeta(row);
+        const label = subjectSelectLabel(row);
+        const groupNames = pickText(row, ["groupNames"]);
         return {
           value: String(pickNum(row, ["fk_subject_id", "subjectId"])),
-          label: meta.label,
-          title: meta.title,
+          label,
+          title: label,
+          description: groupNames || undefined,
         };
       }),
     [subjects],
@@ -679,7 +787,7 @@ export default function ChiefEvaluationPagesPage() {
             >
               <Select
                 value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                onChange={(v) => applyCourse(v ? Number(v) : null)}
                 options={courseOptions}
                 placeholder="Course"
               />
@@ -690,9 +798,10 @@ export default function ChiefEvaluationPagesPage() {
             >
               <Select
                 value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                onChange={(v) => applyAcademicYear(v ? Number(v) : null)}
                 options={yearOptions}
                 placeholder="Academic Year"
+                disabled={!courseId}
               />
             </GlobalFilterField>
             <GlobalFilterField
@@ -701,10 +810,11 @@ export default function ChiefEvaluationPagesPage() {
             >
               <Select
                 value={examId ? String(examId) : null}
-                onChange={(v) => setExamId(v ? Number(v) : null)}
+                onChange={(v) => applyExam(v ? Number(v) : null)}
                 options={examOptions}
                 placeholder="Exam"
                 searchable
+                disabled={!academicYearId}
               />
             </GlobalFilterField>
           </GlobalFilterBarRow>
@@ -715,9 +825,10 @@ export default function ChiefEvaluationPagesPage() {
             >
               <Select
                 value={courseYearId ? String(courseYearId) : null}
-                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                onChange={(v) => applyCourseYear(v ? Number(v) : null)}
                 options={courseYearOptions}
                 placeholder="Course Year"
+                disabled={!examId}
               />
             </GlobalFilterField>
             <GlobalFilterField
@@ -726,9 +837,10 @@ export default function ChiefEvaluationPagesPage() {
             >
               <Select
                 value={regulationId ? String(regulationId) : null}
-                onChange={(v) => setRegulationId(v ? Number(v) : null)}
+                onChange={(v) => applyRegulation(v ? Number(v) : null)}
                 options={regulationOptions}
                 placeholder="Regulation"
+                disabled={!courseYearId}
               />
             </GlobalFilterField>
             <GlobalFilterField
@@ -737,10 +849,14 @@ export default function ChiefEvaluationPagesPage() {
             >
               <Select
                 value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  resetFetchedState();
+                  setSubjectId(v ? Number(v) : null);
+                }}
                 options={subjectOptions}
                 placeholder="Subject"
                 searchable
+                disabled={!regulationId}
               />
             </GlobalFilterField>
             <GlobalFilterField
