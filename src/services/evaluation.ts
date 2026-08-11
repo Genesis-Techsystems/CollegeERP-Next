@@ -1089,7 +1089,11 @@ export async function getEvaluatorAssignmentBundle(params: {
   courseId: number;
   academicYearId: number;
   employeeId: number;
-}): Promise<{ evaluators: ProcRows; students: ProcRows }> {
+}): Promise<{
+  evaluators: ProcRows;
+  students: ProcRows;
+  stats?: Record<string, any>;
+}> {
   const common = {
     in_orgid: params.organizationId || 1,
     in_fdate: "1990-01-01",
@@ -1126,9 +1130,15 @@ export async function getEvaluatorAssignmentBundle(params: {
       .catch(() => ({ result: [] })),
   ]);
 
+  const statsObj =
+    Array.isArray(evalData?.result?.[1]) && evalData.result[1].length > 0
+      ? evalData.result[1][0]
+      : undefined;
+
   return {
     evaluators: Array.isArray(evalData?.result?.[0]) ? evalData.result[0] : [],
     students: Array.isArray(stdData?.result?.[0]) ? stdData.result[0] : [],
+    stats: statsObj,
   };
 }
 

@@ -279,7 +279,7 @@ export default function RevisionMasterPage() {
     const today = toDateOnlyISO(new Date());
     setFromDate(today);
     setToDate(today);
-    setAmount("");
+    setAmount("0");
     setIsActive(true);
     setReason("active");
     setOpen(true);
@@ -355,11 +355,16 @@ export default function RevisionMasterPage() {
             <CommonSelect
               placeholder="Select college"
               value={collegeId != null ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
+              onChange={(v) => {
+                setCollegeId(v ? Number(v) : null);
+                setCourseId(null);
+                setRows([]);
+              }}
               options={collegeOptions}
               disabled={collegeOptions.length === 0}
             />
           </GlobalFilterField>
+
           <GlobalFilterField
             label="Course"
             icon={GraduationCap}
@@ -368,43 +373,51 @@ export default function RevisionMasterPage() {
             <CommonSelect
               placeholder="Select course"
               value={courseId != null ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              onChange={(v) => {
+                setCourseId(v ? Number(v) : null);
+              }}
               options={courseOptions}
+              disabled={!collegeId || courseOptions.length === 0}
             />
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      rowData={courseId != null ? rows : []}
-      columnDefs={columnDefs}
-      loading={loadingRows}
-      pagination
-      getRowId={(p) =>
-        String(
-          p.data.revisionMasterId ??
-            `row-${String(p.data.examRevisionTypeId)}-${String(p.data.fromDate)}-${String(p.data.toDate)}`,
-        )
-      }
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search revision masters…",
-        columnPicker: true,
-        exportPdf: true,
-        pdfDocumentTitle: "Exam Revision Master",
-        lockColumnIds: ["siNo", "actions"],
-      }}
-      toolbarTrailing={
-        <Button
-          type="button"
-          size="sm"
-          className="h-[30px] px-3 text-[12px]"
-          onClick={openAdd}
-          disabled={!courseId}
-        >
-          <PlusIcon className="mr-1 h-3.5 w-3.5" />
-          Add Revision Master
-        </Button>
-      }
+      {...(collegeId != null && courseId != null
+        ? {
+            rowData: rows,
+            columnDefs,
+            loading: loadingRows,
+            pagination: true,
+            getRowId: (p: { data: RevisionRow }) =>
+              String(
+                p.data.revisionMasterId ??
+                  `row-${String(p.data.examRevisionTypeId)}-${String(
+                    p.data.fromDate,
+                  )}-${String(p.data.toDate)}`,
+              ),
+            toolbar: {
+              search: true,
+              searchPlaceholder: "Search revision masters…",
+              columnPicker: true,
+              exportPdf: true,
+              pdfDocumentTitle: "Exam Revision Master",
+              lockColumnIds: ["siNo", "actions"],
+            },
+            toolbarTrailing: (
+              <Button
+                type="button"
+                size="sm"
+                className="h-[30px] px-3 text-[12px]"
+                onClick={openAdd}
+              >
+                <PlusIcon className="mr-1 h-3.5 w-3.5" />
+                Add Revision Master
+              </Button>
+            ),
+          }
+        : {})}
     >
+      {/* Dialog stays here */}
       <Dialog
         open={open}
         onOpenChange={(v) => {
@@ -450,6 +463,7 @@ export default function RevisionMasterPage() {
               <Label className="text-[12px]">
                 Amount <span className="text-red-500">*</span>
               </Label>
+
               <Input
                 className="h-8 text-[12px]"
                 type="number"
@@ -459,6 +473,7 @@ export default function RevisionMasterPage() {
                 aria-invalid={Boolean(fieldErrors.amount)}
                 onChange={(e) => {
                   setAmount(e.target.value);
+
                   if (fieldErrors.amount) {
                     setFieldErrors((prev) => {
                       const next = { ...prev };
@@ -468,6 +483,7 @@ export default function RevisionMasterPage() {
                   }
                 }}
               />
+
               {fieldErrors.amount ? (
                 <p className="text-[11px] text-destructive">
                   {fieldErrors.amount}
@@ -493,14 +509,25 @@ export default function RevisionMasterPage() {
                 onChange={(e) => setToDate(e.target.value)}
               />
             </div>
-            <div className="space-y-1">
-              <CommonSelect
-                label="Status"
-                placeholder="Select status"
-                value={isActive ? "1" : "0"}
-                onChange={(v) => setIsActive(v === "1")}
-                options={statusModalOptions}
-              />
+            <div className="space-y-1 mt-5">
+              {/* <Label className="text-[12px]">Status</Label> */}
+
+              <div className="flex h-8 items-center gap-2">
+                <input
+                  id="isActive"
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="h-4 w-4"
+                />
+
+                <Label
+                  htmlFor="isActive"
+                  className="cursor-pointer text-[12px]"
+                >
+                  Is Active
+                </Label>
+              </div>
             </div>
             {!isActive && (
               <div className="space-y-1 md:col-span-2">

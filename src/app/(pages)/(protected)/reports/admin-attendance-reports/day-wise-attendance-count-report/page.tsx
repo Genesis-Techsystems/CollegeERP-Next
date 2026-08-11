@@ -101,21 +101,30 @@ function mapDayWiseRow(row: AnyRow): DayWiseRow {
         row.Course_Details ??
         "",
     ),
+
     noOfPresent: String(
-      row.No_of_Present ??
-        row.no_of_present ??
-        row.NoOfPresent ??
+      row.Present_Classes ??
+        row.present_classes ??
+        row.PresentClasses ??
         row.present ??
         "",
     ),
+
     noOfAbsentees: String(
-      row.No_of_Absentees ??
-        row.no_of_absentees ??
-        row.NoOfAbsentees ??
+      row.Absent_Classes ??
+        row.absent_classes ??
+        row.AbsentClasses ??
         row.absentees ??
         "",
     ),
-    total: String(row.Total ?? row.total ?? ""),
+
+    total: String(
+      row.Total_Classes ??
+        row.total_classes ??
+        row.TotalClasses ??
+        row.total ??
+        "",
+    ),
   };
 }
 

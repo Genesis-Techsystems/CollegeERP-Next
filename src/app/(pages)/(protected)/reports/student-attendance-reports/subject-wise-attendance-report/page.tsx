@@ -121,43 +121,53 @@ function pivotSubjectWiseRows(raw: AnyRow[]): {
 
 function buildTableHtml(dateKeys: string[], students: StudentPivot[]): string {
   const dateHeaders = dateKeys
-    .map((d) => `<th>${escapeHtml(formatDateHeader(d))}</th>`)
+    .map(
+      (d) =>
+        `<th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: center; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">${escapeHtml(formatDateHeader(d))}</th>`,
+    )
     .join("");
-  const head = `<tr>
-    <th>S.No</th>
-    <th>Academic Details</th>
-    <th>Roll No.</th>
-    <th>Student</th>
-    ${dateHeaders}
-    <th>Total</th>
-    <th>Percentage(%)</th>
-  </tr>`;
+
+  const head = `
+    <tr style="background-color: #dbeafe;">
+      <th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: left; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">S.No</th>
+      <th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: left; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">Academic Details</th>
+      <th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: left; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">Roll No.</th>
+      <th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: left; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">Student</th>
+      ${dateHeaders}
+      <th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: center; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">Total</th>
+      <th style="padding: 10px 12px; background-color: #dbeafe; color: #1e3a8a; font-weight: 600; text-align: center; border: 1px solid #bfdbfe; font-size: 13px; white-space: nowrap;">Percentage(%)</th>
+    </tr>`;
+
   const body = students
     .map((s, i) => {
       const cells = s.subjectAttendance
         .map(
           (a) =>
-            `<td style="text-align:center;mso-number-format:'\\@';">${escapeHtml(a.present)}</td>`,
+            `<td style="padding: 8px 12px; text-align: center; border: 1px solid #e2e8f0; font-size: 13px; color: #334155; mso-number-format:'\\@';">${escapeHtml(a.present)}</td>`,
         )
         .join("");
       const pct =
         s.total > 0 ? ((s.present / s.total) * 100).toFixed(2) : "0.00";
       const mobile = s.Father_Mobile_No
-        ? ` (<span style="color:blue;">${escapeHtml(s.Father_Mobile_No)}</span>)`
+        ? ` (<span style="color:#2563eb; font-weight: 500;">${escapeHtml(s.Father_Mobile_No)}</span>)`
         : "";
-      return `<tr>
-        <td style="text-align:center;">${i + 1}</td>
-        <td>${escapeHtml(s.Academic_details)}</td>
-        <td>${escapeHtml(s.rollNumber)}</td>
-        <td>${escapeHtml(s.firstName)}${mobile}</td>
+      const bg = i % 2 === 0 ? "#ffffff" : "#f8fafc";
+      return `<tr style="background-color: ${bg}; transition: background-color 0.15s ease;" onmouseover="this.style.backgroundColor='#f1f5f9'" onmouseout="this.style.backgroundColor='${bg}'">
+        <td style="padding: 8px 12px; text-align: center; border: 1px solid #e2e8f0; font-size: 13px; color: #334155;">${i + 1}</td>
+        <td style="padding: 8px 12px; text-align: left; border: 1px solid #e2e8f0; font-size: 13px; color: #334155;">${escapeHtml(s.Academic_details)}</td>
+        <td style="padding: 8px 12px; text-align: left; border: 1px solid #e2e8f0; font-size: 13px; color: #334155; font-weight: 500;">${escapeHtml(s.rollNumber)}</td>
+        <td style="padding: 8px 12px; text-align: left; border: 1px solid #e2e8f0; font-size: 13px; color: #334155;">${escapeHtml(s.firstName)}${mobile}</td>
         ${cells}
-        <td style="text-align:center;mso-number-format:'\\@';">${escapeHtml(`${s.present}/${s.total}`)}</td>
-        <td style="text-align:center;">${escapeHtml(pct)}</td>
+        <td style="padding: 8px 12px; text-align: center; border: 1px solid #e2e8f0; font-size: 13px; color: #334155; font-weight: 500; mso-number-format:'\\@';">${escapeHtml(`${s.present}/${s.total}`)}</td>
+        <td style="padding: 8px 12px; text-align: center; border: 1px solid #e2e8f0; font-size: 13px; color: #334155; font-weight: 500;">${escapeHtml(pct)}</td>
       </tr>`;
     })
     .join("");
-  return `<table border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:11px;">
-    <thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+  return `<table style="width: 100%; border-collapse: collapse; font-family: inherit; font-size: 13px; border: 1px solid #bfdbfe;">
+    <thead>${head}</thead>
+    <tbody>${body}</tbody>
+  </table>`;
 }
 
 export default function SubjectWiseAttendanceReportPage() {
@@ -328,8 +338,8 @@ export default function SubjectWiseAttendanceReportPage() {
       setCollegeName(
         String(
           college?.collegeName ??
-            f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
-            "",
+          f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
+          "",
         ),
       );
       if (raw.length === 0) {
@@ -593,7 +603,7 @@ ${buildTableHtml(dateKeys, students)}
                 <Button
                   type="button"
                   size="sm"
-                  className="h-9 px-3 text-[12px]"
+                  className="h-9 bg-[#1e3a8a] px-3 text-[12px] text-white hover:bg-[#1e40af]"
                   onClick={handleExcelExport}
                 >
                   <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -602,7 +612,7 @@ ${buildTableHtml(dateKeys, students)}
                 <Button
                   type="button"
                   size="sm"
-                  className="h-9 px-3 text-[12px]"
+                  className="h-9 bg-[#1e3a8a] px-3 text-[12px] text-white hover:bg-[#1e40af]"
                   onClick={handlePrintReport}
                 >
                   <Printer className="mr-1.5 h-3.5 w-3.5" />

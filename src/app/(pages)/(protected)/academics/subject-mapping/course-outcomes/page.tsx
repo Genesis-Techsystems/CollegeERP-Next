@@ -314,8 +314,7 @@ export default function CourseOutcomesPage() {
     if (!prgoutcomeCatdetId)
       nextErrors.category = "Program Outcomes Category is required";
     if (!coCredits.trim()) nextErrors.credits = "Credits is required";
-    if (!coDescription.trim())
-      nextErrors.description = "Description is required";
+    if (!coDescription) nextErrors.description = "Description is required";
     if (!coActive && !coReason.trim()) nextErrors.reason = "Reason is required";
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;

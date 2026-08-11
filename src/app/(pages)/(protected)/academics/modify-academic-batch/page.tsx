@@ -233,8 +233,15 @@ export default function ModifyAcademicBatchPage() {
         />
       }
       rowData={student ? studentDetailsRows : []}
-      columnDefs={studentDetailsColumnDefs}
-      toolbar={student ? { search: true, searchPlaceholder: "Search" } : false}
+      columnDefs={student ? studentDetailsColumnDefs : []}
+      toolbar={
+        student
+          ? {
+              search: true,
+              searchPlaceholder: "Search",
+            }
+          : false
+      }
       pagination={false}
       rightRail={
         student ? (
