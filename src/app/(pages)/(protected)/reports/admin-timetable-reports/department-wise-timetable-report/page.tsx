@@ -37,7 +37,7 @@ import {
 import {
   buildDepartmentWiseMatrix,
   buildDepartmentWiseTableHtml,
-  formatDeptWiseCell,
+  type DeptCourseCell,
   type WeekdayKey,
 } from "../_lib/timetable-matrix";
 import {
@@ -54,7 +54,7 @@ const DEPT_KEYS = ["fk_dept_id", "deptId", "departmentId", "emp_dept_id"];
 
 type DeptMatrixDisplayRow = {
   label: string;
-  cells: string[];
+  cells: (DeptCourseCell[] | undefined)[];
 };
 
 function pickDeptId(row: Record<string, unknown>): number {
@@ -294,9 +294,7 @@ export default function DepartmentWiseTimetableReportPage() {
       setMatrixRows(
         matrix.studentTimetable.map((r) => ({
           label: r.Faculty,
-          cells: matrix.keys.map((k) =>
-            formatDeptWiseCell(r.cells[k.weekday_name]),
-          ),
+          cells: matrix.keys.map((k) => r.cells[k.weekday_name]),
         })),
       );
       setShowTable(true);
@@ -464,22 +462,42 @@ export default function DepartmentWiseTimetableReportPage() {
                       <th className="border border-[#e0e0e0] bg-white px-2 py-3 text-center font-semibold text-blue-600">
                         {row.label}
                       </th>
-                      {row.cells.map((cell, idx) => {
-                        const isEmpty = !cell;
+                      {row.cells.map((courses, idx) => {
+                        const isEmpty = !courses?.length;
                         return (
                           <td
                             key={`${row.label}-${weekdayKeys[idx]?.weekday_name ?? idx}`}
-                            className={`border border-[#e0e0e0] px-2 py-3 text-center align-middle text-[12px] text-foreground ${
+                            className={`border border-[#e0e0e0] px-2 py-2 text-center align-middle text-[12px] text-foreground ${
                               isEmpty
                                 ? "bg-[#f5f5f5] text-muted-foreground"
                                 : "bg-white"
                             }`}
-                            style={{
-                              whiteSpace: "pre-line",
-                              wordBreak: "break-word",
-                            }}
+                            style={{ wordBreak: "break-word" }}
                           >
-                            {cell || ""}
+                            {courses?.map((co, periodIdx) => (
+                              <p
+                                key={`${row.label}-${idx}-${periodIdx}-${co.time}-${co.sub}`}
+                                className="my-2.5 border-b border-[#dedede] text-center font-medium leading-snug"
+                              >
+                                {co.sub ? <span>{co.sub}</span> : null}
+                                {co.batch ? (
+                                  <>
+                                    <br />
+                                    <span className="text-[#888888]">
+                                      {co.batch}
+                                    </span>
+                                  </>
+                                ) : null}
+                                {co.time ? (
+                                  <>
+                                    <br />
+                                    <span className="text-[#888888]">
+                                      {co.time}
+                                    </span>
+                                  </>
+                                ) : null}
+                              </p>
+                            ))}
                           </td>
                         );
                       })}

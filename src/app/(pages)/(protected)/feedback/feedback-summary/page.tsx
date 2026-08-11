@@ -424,6 +424,55 @@ export default function FeedbackSummaryPage() {
     Boolean(surveyFormId) &&
     percentageValue !== "";
 
+  // Angular parity: load results when all filters are selected (not only on Get click).
+  useEffect(() => {
+    if (!canGetList) {
+      setRows([]);
+      setHasFetched(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setLoadingList(true);
+        setHasFetched(true);
+        try {
+          const list = await getFeedbackSummaryReportRows({
+            surveyFormId: n(surveyFormId),
+            groupSectionId: n(groupSectionId),
+            courseYearId: n(courseYearId),
+            percentageValue: Number(percentageValue) || 0,
+          });
+          if (cancelled) return;
+          setRows(list);
+          if (list.length === 0) toastSuccess("No records found.");
+        } catch (e) {
+          if (cancelled) return;
+          setRows([]);
+          toastError(getErrorMessage(e) || "Failed to load feedback summary");
+        } finally {
+          if (!cancelled) setLoadingList(false);
+        }
+      })();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    canGetList,
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    groupSectionId,
+    surveyFormId,
+    percentageValue,
+  ]);
+
   async function handleGetList() {
     if (!canGetList) {
       toastError("Please fill all required filters.");
@@ -450,24 +499,30 @@ export default function FeedbackSummaryPage() {
 
   function handlePrint() {
     if (rows.length === 0) return;
+    const logoUrl = `${window.location.origin}/assets/images/logo.jpg`;
     const printContents = `
-      <div style="width:100%;text-align:center;">
-        <p style="font-size:15px;line-height:15px;margin:4px 0;">Viswambhara Educational Society</p>
-        <p style="font-size:17px;line-height:15px;margin:4px 0;">${collegeName || collegeCode}</p>
-        <p style="font-size:17px;line-height:15px;margin:4px 0;">UGC AUTONOMOUS</p>
-        <p style="font-size:14px;line-height:13px;margin:4px 0;">P.O.Bollikunta, Warangal - 506 005 (Telangana State)</p>
-        <p style="font-size:13px;line-height:15px;margin:4px 0;">Department of ${groupLabel} / ${academicYearLabel} (${yearLabel} Section - ${sectionLabel})</p>
-        <p style="color:blue;font-size:18px;margin-top:15px;font-weight:500;">${surveyLabel}</p>
+      <div style="position:relative;width:100%;text-align:center;min-height:75px;margin-bottom:15px;">
+        <div style="position:absolute;left:0;top:0;">
+          <img src="${logoUrl}" style="height:55px;width:auto;" alt="Campus Connect Logo" />
+        </div>
+        <div style="display:inline-block;text-align:center;">
+          <p style="font-size:14px;line-height:14px;margin:3px 0;">Viswambhara Educational Society</p>
+          <p style="font-size:16px;line-height:16px;margin:3px 0;font-weight:600;">${collegeName || collegeCode}</p>
+          <p style="font-size:16px;line-height:16px;margin:3px 0;font-weight:600;">UGC AUTONOMOUS</p>
+          <p style="font-size:13px;line-height:13px;margin:3px 0;">P.O.Bollikunta, Warangal - 506 005 (Telangana State)</p>
+          <p style="font-size:12px;line-height:14px;margin:3px 0;">Department of ${groupLabel} / ${academicYearLabel} (${yearLabel} Section - ${sectionLabel})</p>
+          <p style="color:#0014ff;font-size:16px;margin-top:10px;margin-bottom:5px;font-weight:600;">${surveyLabel}</p>
+        </div>
       </div>
-      <table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;margin-top:20px;font-size:12px;">
+      <table border="1" cellspacing="0" cellpadding="6" style="width:100%;border-collapse:collapse;margin-top:15px;font-size:12px;">
         <thead>
           <tr>
-            <th>S.No</th>
-            <th>Subject Name</th>
-            <th>Faculty Name</th>
-            <th>Participants</th>
-            <th>Subject Wise Mean(μ)</th>
-            <th>Subject Wise Standard Deviation</th>
+            <th style="width:45px;text-align:center;">S.No</th>
+            <th style="text-align:left;">Subject Name</th>
+            <th style="text-align:left;">Faculty Name</th>
+            <th style="width:85px;text-align:center;">Participants</th>
+            <th style="width:110px;text-align:center;">Subject Wise Mean(μ)</th>
+            <th style="width:130px;text-align:center;">Subject Wise Standard Deviation</th>
           </tr>
         </thead>
         <tbody>
@@ -491,7 +546,16 @@ export default function FeedbackSummaryPage() {
     popupWin.document.open();
     popupWin.document.write(`
       <html>
-        <head><title>Feedback Summary</title></head>
+        <head>
+          <title>Feedback Summary</title>
+          <style>
+            @page { size: portrait; margin: 12mm; }
+            body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 10px; color: #000; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #000; padding: 6px; font-size: 11px; }
+            th { background-color: #fff; font-weight: bold; }
+          </style>
+        </head>
         <body onload="window.print();window.close()">${printContents}</body>
       </html>
     `);
@@ -617,6 +681,7 @@ export default function FeedbackSummaryPage() {
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList || filtersQuery.isLoading}

@@ -416,7 +416,11 @@ export default function DayWiseAdmissionReportPage() {
         getCollegeById(cid).catch(() => null),
       ]);
       setCollegeName(
-        String(college?.collegeName ?? collegeOptions.find((o) => o.value === collegeId)?.label ?? ""),
+        String(
+          college?.collegeName ??
+            collegeOptions.find((o) => o.value === collegeId)?.label ??
+            "",
+        ),
       );
       if (raw.length === 0) {
         toastInfo("No admissions found.");
@@ -616,6 +620,7 @@ ${tableHtml}
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       pagination

@@ -22,19 +22,8 @@ import {
   getUnivExamSubjectUc,
 } from "@/services";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  BookOpen,
-  Building2,
-  CalendarDays,
-  ClipboardList,
-  FileSpreadsheet,
-  GraduationCap,
-  Layers,
-  Printer,
-  RotateCcw,
-  Scale,
-  School,
-} from "lucide-react";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { FileSpreadsheet, Printer, RotateCcw } from "lucide-react";
 import { printExamAbsenteesReport } from "../_components/printExamAbsenteesReport";
 
 type AnyRow = Record<string, any>;
@@ -157,6 +146,8 @@ export default function ExamAbsenteesReportPage() {
 
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [examLabel, setExamLabel] = useState("");
+  const [showTable, setShowTable] = useState(false);
+  const collegeLogo = useCollegeLogo(collegeId > 0 ? collegeId : null);
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -260,6 +251,7 @@ export default function ExamAbsenteesReportPage() {
   function clearResults() {
     setRows([]);
     setExamLabel("");
+    setShowTable(false);
   }
 
   useEffect(() => {
@@ -523,6 +515,7 @@ export default function ExamAbsenteesReportPage() {
           ),
       );
       setRows(data);
+      setShowTable(true);
     } catch (e) {
       toastError(e instanceof Error ? e.message : "Failed to load report");
     } finally {
@@ -576,17 +569,21 @@ export default function ExamAbsenteesReportPage() {
     printExamAbsenteesReport(rows, {
       title: "Exam Absentees Report",
       examLabel,
-      collegeName: strFrom(college ?? {}, ["college_name", "collegeName"]),
+      collegeName:
+        collegeId > 0
+          ? strFrom(college ?? {}, ["college_name", "collegeName"])
+          : "",
+      logoUrl: collegeLogo,
     });
   }
 
+  /** Angular: exactly 2 rows — 20/20/60 then 20/20/20/15/30 + Get List */
   const filters = (
-    <div className="space-y-3">
-      <GlobalFilterBarRow>
+    <>
+      <GlobalFilterBarRow className="global-filter-bar__row--ear-r1">
         <GlobalFilterField
-          label="Course"
-          icon={GraduationCap}
-          className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+          label="Course *"
+          className="global-filter-field--fx20"
         >
           <Select
             value={courseId ? String(courseId) : null}
@@ -605,9 +602,8 @@ export default function ExamAbsenteesReportPage() {
           />
         </GlobalFilterField>
         <GlobalFilterField
-          label="Exam Year"
-          icon={CalendarDays}
-          className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+          label="Exam Year *"
+          className="global-filter-field--fx20"
         >
           <Select
             value={academicYearId ? String(academicYearId) : null}
@@ -627,9 +623,8 @@ export default function ExamAbsenteesReportPage() {
           />
         </GlobalFilterField>
         <GlobalFilterField
-          label="Exam"
-          icon={ClipboardList}
-          className="!flex-[1_1_22rem] !min-w-[16rem]"
+          label="Exam Master *"
+          className="global-filter-field--fx60"
         >
           <Select
             value={examId ? String(examId) : null}
@@ -646,10 +641,12 @@ export default function ExamAbsenteesReportPage() {
             searchable
           />
         </GlobalFilterField>
+      </GlobalFilterBarRow>
+
+      <GlobalFilterBarRow className="global-filter-bar__row--ear-r2">
         <GlobalFilterField
-          label="College"
-          icon={Building2}
-          className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+          label="College *"
+          className="global-filter-field--fx20"
         >
           <Select
             value={String(collegeId)}
@@ -675,9 +672,8 @@ export default function ExamAbsenteesReportPage() {
           />
         </GlobalFilterField>
         <GlobalFilterField
-          label="Group"
-          icon={School}
-          className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+          label="Course Group *"
+          className="global-filter-field--fx20"
         >
           <Select
             value={String(courseGroupId)}
@@ -703,10 +699,10 @@ export default function ExamAbsenteesReportPage() {
             searchable
           />
         </GlobalFilterField>
-      </GlobalFilterBarRow>
-
-      <GlobalFilterBarRow>
-        <GlobalFilterField label="Year" icon={Layers}>
+        <GlobalFilterField
+          label="Course Years *"
+          className="global-filter-field--fx20"
+        >
           <Select
             value={String(courseYearId)}
             onChange={(v) => {
@@ -730,7 +726,10 @@ export default function ExamAbsenteesReportPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Regulation" icon={Scale}>
+        <GlobalFilterField
+          label="Regulation"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={String(regulationId)}
             onChange={(v) => {
@@ -748,7 +747,10 @@ export default function ExamAbsenteesReportPage() {
             searchable
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Subject" icon={BookOpen}>
+        <GlobalFilterField
+          label="Subject *"
+          className="global-filter-field--fx30"
+        >
           <Select
             value={String(subjectId)}
             onChange={(v) => {
@@ -766,46 +768,51 @@ export default function ExamAbsenteesReportPage() {
             searchable
           />
         </GlobalFilterField>
-        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
-          <Button
-            type="button"
-            className="h-8 text-[12px]"
-            onClick={() => void handleGetReport()}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Get List"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8 gap-1.5 text-[12px]"
-            onClick={handleReset}
-            title="Reset"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </Button>
-        </div>
+        <GlobalFilterField
+          label=" "
+          className="global-filter-field--action global-filter-field--fx10"
+        >
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              className="h-[30px] shrink-0 px-3 text-[12px]"
+              onClick={() => void handleGetReport()}
+              disabled={loading}
+            >
+              {loading ? "Loading..." : "Get List"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[30px] shrink-0 gap-1.5 px-2.5 text-[12px]"
+              onClick={handleReset}
+              title="Reset"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
+            </Button>
+          </div>
+        </GlobalFilterField>
       </GlobalFilterBarRow>
-    </div>
+    </>
   );
 
   return (
     <FilteredListPage
       title="Exam Absentees Report"
       filters={filters}
-      rowData={rows}
+      showTable={showTable}
+      rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
       pagination
       paginationPageSize={25}
       toolbar={TOOLBAR}
       toolbarTrailing={
-        rows.length > 0 ? (
+        showTable && rows.length > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="outline"
               className="h-8 text-[12px]"
               onClick={handleExportExcel}
             >
@@ -814,7 +821,6 @@ export default function ExamAbsenteesReportPage() {
             </Button>
             <Button
               type="button"
-              variant="outline"
               className="h-8 text-[12px]"
               onClick={handlePrint}
             >

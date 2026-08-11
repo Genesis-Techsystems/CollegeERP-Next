@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { FilteredPage } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/common/components/select";
-import { DataTable } from "@/common/components/table";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
@@ -21,6 +19,7 @@ import {
 } from "@/services";
 import { GM_CODES } from "@/config/constants/ui";
 import { toastError, toastInfo } from "@/lib/toast";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   BookOpen,
   Building2,
@@ -28,6 +27,7 @@ import {
   ClipboardList,
   GraduationCap,
   Layers,
+  Printer,
   RotateCcw,
   School,
 } from "lucide-react";
@@ -44,7 +44,7 @@ const TABLE_TOOLBAR = {
   search: true,
   searchPlaceholder: "Search roll no",
   columnPicker: false,
-  exportPdf: true,
+  exportPdf: false,
   exportExcel: true,
 } as const;
 
@@ -54,6 +54,14 @@ const COL_DEFS = {
     valueGetter: rowIndexGetter,
     width: 80,
     flex: 0,
+  } as ColDef<AnyRow>,
+  group: {
+    headerName: "Group",
+    minWidth: 120,
+    flex: 0,
+    width: 140,
+    valueGetter: (p) =>
+      strFrom(p.data ?? {}, ["_groupCode", "group_code", "groupCode"]),
   } as ColDef<AnyRow>,
   hallticket: {
     headerName: "Roll No",
@@ -100,23 +108,10 @@ export function GroupWiseResultSheetsPage({
   resultStatus: "Passed" | "Failed" | "Promoted";
   title: string;
 }) {
-  const employeeId = Number(
-    globalThis?.localStorage?.getItem("employeeId") ?? 0,
-  );
-  // Angular: JSON.parse(localStorage.getItem('isAdmin'))
-  const isAdmin = (() => {
-    try {
-      const raw = globalThis?.localStorage?.getItem("isAdmin");
-      if (raw == null || raw === "") return false;
-      return Boolean(JSON.parse(raw));
-    } catch {
-      return (
-        String(
-          globalThis?.localStorage?.getItem("isAdmin") ?? "",
-        ).toLowerCase() === "true"
-      );
-    }
-  })();
+  // Read localStorage after mount — SSR has no storage, so reading during render
+  // hydrates Course Group/Year as placeholder vs "All" when isAdmin is true.
+  const [employeeId, setEmployeeId] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -204,17 +199,37 @@ export function GroupWiseResultSheetsPage({
     [restRows, collegeId, courseGroupId],
   );
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [COL_DEFS.sno, COL_DEFS.hallticket],
-    [],
+  const flatRows = useMemo(
+    () =>
+      groupResults.flatMap((group) =>
+        group.students.map((student) => ({
+          ...student,
+          _groupCode: group.groupCode,
+        })),
+      ),
+    [groupResults],
   );
 
-  const getRowId = useCallback(
-    (p: { data?: AnyRow }) =>
-      strFrom(p.data ?? {}, ["hallticket_number", "hall_ticketno"]) ||
-      `row-${Math.random()}`,
-    [],
+  const showGroupColumn = groupResults.length > 1;
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      COL_DEFS.sno,
+      ...(showGroupColumn ? [COL_DEFS.group] : []),
+      COL_DEFS.hallticket,
+    ],
+    [showGroupColumn],
   );
+
+  const getRowId = useCallback((p: { data?: AnyRow }) => {
+    const ht = strFrom(p.data ?? {}, ["hallticket_number", "hall_ticketno"]);
+    const group = strFrom(p.data ?? {}, [
+      "_groupCode",
+      "group_code",
+      "groupCode",
+    ]);
+    return ht ? `${group}-${ht}` : `row-${Math.random()}`;
+  }, []);
 
   function clearResults() {
     setGroupResults([]);
@@ -222,6 +237,26 @@ export function GroupWiseResultSheetsPage({
   }
 
   useEffect(() => {
+    setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
+    // Angular: JSON.parse(localStorage.getItem('isAdmin'))
+    try {
+      const raw = globalThis?.localStorage?.getItem("isAdmin");
+      if (raw == null || raw === "") {
+        setIsAdmin(false);
+      } else {
+        setIsAdmin(Boolean(JSON.parse(raw)));
+      }
+    } catch {
+      setIsAdmin(
+        String(
+          globalThis?.localStorage?.getItem("isAdmin") ?? "",
+        ).toLowerCase() === "true",
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!employeeId) return;
     let cancelled = false;
     async function init() {
       setLoading(true);
@@ -522,6 +557,20 @@ export function GroupWiseResultSheetsPage({
   }
 
   const pageTitle = isReevaluation ? `Re-Evaluation ${title}` : title;
+  const collegeLogo = useCollegeLogo(collegeId);
+  const selectedCollege = useMemo(
+    () =>
+      colleges.find(
+        (r) => numFrom(r, ["fk_college_id", "collegeId"]) === Number(collegeId),
+      ) ?? null,
+    [colleges, collegeId],
+  );
+  const collegeName = strFrom(selectedCollege ?? {}, [
+    "college_name",
+    "collegeName",
+    "college_code",
+    "collegeCode",
+  ]);
   const printGroupCode =
     courseGroupId > 0
       ? strFrom(
@@ -541,12 +590,53 @@ export function GroupWiseResultSheetsPage({
       examLabel,
       courseGroupCode: printGroupCode,
       resultStatus,
+      collegeName,
+      collegeLogo,
     });
-  }, [groupResults, pageTitle, examLabel, printGroupCode, resultStatus]);
+  }, [
+    groupResults,
+    pageTitle,
+    examLabel,
+    printGroupCode,
+    resultStatus,
+    collegeName,
+    collegeLogo,
+  ]);
+
+  const groupSummary =
+    groupResults.length === 1
+      ? `${groupResults[0].groupCode} / ${resultStatus} (${groupResults[0].students.length})`
+      : groupResults.length > 1
+        ? `${groupResults.length} groups / ${resultStatus} (${flatRows.length})`
+        : "";
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title={pageTitle}
+      showTable={flatRows.length > 0}
+      tableHeader={
+        <div className="table-context-header flex flex-wrap items-center gap-x-4 gap-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              book
+            </span>
+            <strong className="table-context-header__title">{pageTitle}</strong>
+          </div>
+          {examLabel ? (
+            <span className="text-[12px] text-muted-foreground">
+              {examLabel}
+            </span>
+          ) : null}
+          {groupSummary ? (
+            <span className="text-[12px] font-medium text-blue-700">
+              {groupSummary}
+            </span>
+          ) : null}
+        </div>
+      }
       filters={
         <div className="space-y-3">
           <GlobalFilterBarRow>
@@ -741,43 +831,29 @@ export function GroupWiseResultSheetsPage({
           </GlobalFilterBarRow>
         </div>
       }
-      body={
-        groupResults.length > 0 ? (
-          <div className="space-y-4">
-            {examLabel ? (
-              <p className="text-sm text-muted-foreground">{examLabel}</p>
-            ) : null}
-
-            <div className="space-y-5">
-              {groupResults.map((group) => (
-                <div key={group.groupCode} className="space-y-2">
-                  <p className="text-sm font-semibold text-[#042956]">
-                    {group.groupCode} / {resultStatus} ({group.students.length})
-                  </p>
-                  <DataTable
-                    title=""
-                    subtitle=""
-                    bordered={false}
-                    rowData={group.students}
-                    columnDefs={columnDefs}
-                    loading={loading}
-                    pagination
-                    paginationPageSize={25}
-                    getRowId={getRowId}
-                    height="auto"
-                    onExportPdf={handlePrint}
-                    toolbar={{
-                      ...TABLE_TOOLBAR,
-                      excelDocumentTitle: `${group.groupCode} / ${resultStatus}`,
-                      excelFileName: `${pageTitle} - ${group.groupCode}.xls`,
-                      pdfDocumentTitle: pageTitle,
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null
+      rowData={flatRows}
+      columnDefs={columnDefs}
+      loading={loading}
+      pagination
+      paginationPageSize={25}
+      getRowId={getRowId}
+      toolbar={{
+        ...TABLE_TOOLBAR,
+        excelDocumentTitle: pageTitle,
+        excelFileName: `${pageTitle}.xls`,
+      }}
+      toolbarTrailing={
+        flatRows.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 text-[12px]"
+            onClick={handlePrint}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        ) : undefined
       }
     />
   );

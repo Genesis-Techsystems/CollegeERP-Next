@@ -1,28 +1,40 @@
 /**
  * Batch Wise SGPA Report — iframe print (avoids AppShell blank pages).
+ * Header matches sibling exam reports: logo + college name + title.
  */
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
 export type SgpaSemesterCol = {
-  course_year_code: string
-  course_year_name: string
-  pk_course_year_id?: number
-}
+  course_year_code: string;
+  course_year_name: string;
+  pk_course_year_id?: number;
+};
 
 export type SgpaPrintMeta = {
-  title?: string
-  collegeName?: string
-  filterSummary?: string
-  semesters: SgpaSemesterCol[]
-}
+  title?: string;
+  collegeName?: string;
+  filterSummary?: string;
+  logoUrl?: string;
+  semesters: SgpaSemesterCol[];
+};
+
+const DEFAULT_LOGO = "/assets/images/avatars/default_logo.png";
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function toAbsoluteLogoUrl(url: string): string {
+  if (/^(https?:\/\/|data:|blob:)/i.test(url)) return url;
+  if (typeof globalThis.location?.origin === "string") {
+    return `${globalThis.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+  return url;
 }
 
 const PRINT_CSS = `
@@ -33,9 +45,34 @@ const PRINT_CSS = `
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   .wrap { padding: 12px 16px; width: 98%; }
-  .college-name { text-align: center; font-size: 22px; font-weight: 700; margin: 8px 0 2px; }
-  .title { text-align: center; font-size: 18px; font-weight: 600; margin: 4px 0 8px; }
-  .exam { text-align: center; font-size: 13px; margin: 0 0 16px; }
+  .header-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0 0 8px;
+  }
+  .logo-col {
+    flex: 0 0 15%;
+    width: 15%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .logo-col img {
+    max-width: 90%;
+    max-height: 90px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+  .title-col {
+    flex: 1 1 85%;
+    text-align: center;
+  }
+  .college-name { font-size: 22px; font-weight: 700; margin: 0 0 2px; }
+  .title { font-size: 18px; font-weight: 600; margin: 4px 0 4px; }
+  .exam { font-size: 13px; margin: 0; }
   table.data { width: 100%; border-collapse: collapse; font-size: 11px; }
   table.data th, table.data td {
     border: 1px solid #333; padding: 3px 4px; text-align: center; vertical-align: middle;
@@ -43,45 +80,61 @@ const PRINT_CSS = `
   table.data th { background: #f2f2f2; font-weight: 600; }
   .left { text-align: left !important; }
   @page { margin: 10mm; }
-`
+`;
 
-export function printBatchWiseSgpaReport(rows: AnyRow[], meta: SgpaPrintMeta): void {
-  if (rows.length === 0) return
+export function printBatchWiseSgpaReport(
+  rows: AnyRow[],
+  meta: SgpaPrintMeta,
+): void {
+  if (rows.length === 0) return;
 
-  const title = meta.title ?? 'Batch Wise SGPA Report'
+  const title = meta.title ?? "Batch Wise SGPA Report";
   const collegeName = meta.collegeName
     ? `<div class="college-name">${escapeHtml(meta.collegeName)}</div>`
-    : ''
+    : "";
   const exam = meta.filterSummary
     ? `<div class="exam">${escapeHtml(meta.filterSummary)}</div>`
-    : ''
+    : "";
+  const logoSrc = escapeHtml(toAbsoluteLogoUrl(meta.logoUrl || DEFAULT_LOGO));
 
   const semHeads = meta.semesters
-    .map((s) => `<th>${escapeHtml(s.course_year_name || s.course_year_code)}</th>`)
-    .join('')
+    .map(
+      (s) => `<th>${escapeHtml(s.course_year_name || s.course_year_code)}</th>`,
+    )
+    .join("");
 
   const body = rows
     .map((row, i) => {
       const semCells = meta.semesters
-        .map((s) => `<td>${escapeHtml(String(row[s.course_year_code] ?? ''))}</td>`)
-        .join('')
+        .map(
+          (s) =>
+            `<td>${escapeHtml(String(row[s.course_year_code] ?? ""))}</td>`,
+        )
+        .join("");
       return `<tr>
         <td>${i + 1}</td>
-        <td class="left">${escapeHtml(String(row.hallticket_number ?? ''))}</td>
-        <td class="left">${escapeHtml(String(row.first_name ?? ''))}</td>
+        <td class="left">${escapeHtml(String(row.hallticket_number ?? ""))}</td>
+        <td class="left">${escapeHtml(String(row.first_name ?? ""))}</td>
         ${semCells}
-      </tr>`
+      </tr>`;
     })
-    .join('')
+    .join("");
 
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>${PRINT_CSS}</style></head>
 <body>
   <div class="wrap">
-    ${collegeName}
-    <div class="title">${escapeHtml(title)}</div>
-    ${exam}
+    <div class="header-row">
+      <div class="logo-col">
+        <img src="${logoSrc}" alt="" />
+      </div>
+      <div class="title-col">
+        ${collegeName}
+        <div class="title">${escapeHtml(title)}</div>
+        ${exam}
+      </div>
+    </div>
     <table class="data">
       <thead>
         <tr>
@@ -95,34 +148,37 @@ export function printBatchWiseSgpaReport(rows: AnyRow[], meta: SgpaPrintMeta): v
     </table>
   </div>
 </body>
-</html>`
+</html>`;
 
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('style', 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;')
-  document.body.appendChild(iframe)
-  const doc = iframe.contentDocument ?? iframe.contentWindow?.document
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute(
+    "style",
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;",
+  );
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
   if (!doc) {
-    document.body.removeChild(iframe)
-    return
+    document.body.removeChild(iframe);
+    return;
   }
-  doc.open()
-  doc.write(html)
-  doc.close()
-  const win = iframe.contentWindow
+  doc.open();
+  doc.write(html);
+  doc.close();
+  const win = iframe.contentWindow;
   if (!win) {
-    document.body.removeChild(iframe)
-    return
+    document.body.removeChild(iframe);
+    return;
   }
   const cleanup = () => {
     try {
-      document.body.removeChild(iframe)
+      document.body.removeChild(iframe);
     } catch {
       /* ignore */
     }
-  }
-  win.focus()
+  };
+  win.focus();
   setTimeout(() => {
-    win.print()
-    setTimeout(cleanup, 1000)
-  }, 250)
+    win.print();
+    setTimeout(cleanup, 1000);
+  }, 250);
 }

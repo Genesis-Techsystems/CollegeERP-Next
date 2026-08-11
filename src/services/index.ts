@@ -321,3 +321,4 @@ export * from "./upload";
 export * from "./allocate-student-subject";
 export * from "./co-po-mappings";
 export * from "./elective-group-mapping";
+export * from "./post-examination";

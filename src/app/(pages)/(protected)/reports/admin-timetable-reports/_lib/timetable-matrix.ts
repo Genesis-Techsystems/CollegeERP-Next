@@ -72,7 +72,8 @@ function txt(v: unknown): string {
 
 function periodOf(row: AnyRow, ...keys: string[]): string | number {
   for (const k of keys) {
-    if (row[k] != null && String(row[k]).trim() !== "") return row[k] as string | number;
+    if (row[k] != null && String(row[k]).trim() !== "")
+      return row[k] as string | number;
   }
   return "";
 }
@@ -101,7 +102,9 @@ export function buildDailyTimetableMatrix(rows: AnyRow[]): {
     const subject = txt(row.Subject_Name);
     const periodIdx = keys.findIndex((k) => k.Period === period);
 
-    const existing = studentTimetable.find((x) => x.Section_Details === section);
+    const existing = studentTimetable.find(
+      (x) => x.Section_Details === section,
+    );
     if (existing) {
       existing.subjectTimetable[periodIdx] = subject;
     } else {
@@ -182,15 +185,10 @@ export function buildWeeklyTimetableMatrix(rows: AnyRow[]): {
           studentTimetable.push({
             Period: period,
             WeekDay_Name: weekDay,
-            subjectTimetable: [
-              { subject, Period: subjectKeys[j].Period },
-            ],
+            subjectTimetable: [{ subject, Period: subjectKeys[j].Period }],
           });
         }
-        if (
-          j > 0 &&
-          studentTimetable.some((x) => x.WeekDay_Name === weekDay)
-        ) {
+        if (j > 0 && studentTimetable.some((x) => x.WeekDay_Name === weekDay)) {
           studentTimetable
             .find((x) => x.WeekDay_Name === weekDay)!
             .subjectTimetable.push({
@@ -255,9 +253,7 @@ export function subjectForStaffPeriod(
   row: StaffTimetableRow,
   period: string | number,
 ): string {
-  return (
-    row.subjectTimetable.find((c) => c.peroid === period)?.subject ?? ""
-  );
+  return row.subjectTimetable.find((c) => c.peroid === period)?.subject ?? "";
 }
 
 /** Angular daily-statistical-report pivot. */
@@ -285,13 +281,21 @@ export function buildDailyStatisticalMatrix(rows: AnyRow[]): {
     const cellText = `${txt(row.Period)}(${section})`;
     const attendanceTaken = num(row.Attendance_Taken);
 
-    const existing = studentTimetable.find((x) => x.SEC_Display_Name === section);
+    const existing = studentTimetable.find(
+      (x) => x.SEC_Display_Name === section,
+    );
     if (existing) {
       if (periodIdx >= 0) {
-        existing.subjectTimetable[periodIdx] = { text: cellText, attendanceTaken };
+        existing.subjectTimetable[periodIdx] = {
+          text: cellText,
+          attendanceTaken,
+        };
       }
     } else {
-      const subjectTimetable = keys.map(() => ({ text: "", attendanceTaken: 0 }));
+      const subjectTimetable = keys.map(() => ({
+        text: "",
+        attendanceTaken: 0,
+      }));
       if (periodIdx >= 0) {
         subjectTimetable[periodIdx] = { text: cellText, attendanceTaken };
       }
@@ -343,11 +347,35 @@ export function buildDepartmentWiseMatrix(rows: AnyRow[]): {
   return { keys, studentTimetable };
 }
 
-export function formatDeptWiseCell(courses: DeptCourseCell[] | undefined): string {
+export function formatDeptWiseCell(
+  courses: DeptCourseCell[] | undefined,
+): string {
   if (!courses?.length) return "";
   return courses
     .map((c) => [c.sub, c.batch, c.time].filter(Boolean).join("\n"))
     .join("\n\n");
+}
+
+/**
+ * Angular department-wise-timetable print/excel cell markup:
+ * each period ends with `<hr style="border:2px solid #888888">`.
+ */
+export function formatDeptWiseCellHtml(
+  courses: DeptCourseCell[] | undefined,
+): string {
+  if (!courses?.length) return "";
+  return courses
+    .map((c) => {
+      const subject = escape(c.sub);
+      const batch = c.batch
+        ? `<span style="color:#888888">${escape(c.batch)}</span><br/>`
+        : "";
+      const time = c.time
+        ? `<span style="color:#888888">${escape(c.time)}</span>`
+        : "";
+      return `${subject}<br/>${batch}${time}<hr style="border:2px solid #888888"/>`;
+    })
+    .join("");
 }
 
 export function statisticalPeriodField(periodno: string | number): string {
@@ -418,8 +446,7 @@ export function buildStatisticalTableHtml(opts: {
     })
     .join("");
 
-  const legend =
-    `<p style="margin-top:8px;font-size:11px"><span style="color:green;font-weight:500">Attendance Capture</span> | <span style="color:red;font-weight:500">Not Capture</span></p>`;
+  const legend = `<p style="margin-top:8px;font-size:11px"><span style="color:green;font-weight:500">Attendance Capture</span> | <span style="color:red;font-weight:500">Not Capture</span></p>`;
 
   return `<table border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${legend}`;
 }
@@ -437,9 +464,10 @@ export function buildDepartmentWiseTableHtml(opts: {
     .map((r) => {
       const cells = opts.keys
         .map((k) => {
-          const text = formatDeptWiseCell(r.cells[k.weekday_name]);
-          const isBrk = !text;
-          return `<td style="text-align:center;white-space:pre-line;${isBrk ? "background:#f5f5f5;" : ""}">${escape(text)}</td>`;
+          const courses = r.cells[k.weekday_name];
+          const isBrk = !courses?.length;
+          const inner = formatDeptWiseCellHtml(courses);
+          return `<td style="text-align:center;${isBrk ? "background:#f5f5f5;" : ""}">${inner}</td>`;
         })
         .join("");
       return `<tr><th style="text-align:center;color:blue">${escape(r.Faculty)}</th>${cells}</tr>`;

@@ -241,10 +241,7 @@ export default function SemListReportPage() {
     ];
   }, [filtersData, collegeId, courseId, courseGroupId]);
 
-  const quotaOptions = useMemo(
-    () => [ALL0, ...gmOptions(gmRows, 8)],
-    [gmRows],
-  );
+  const quotaOptions = useMemo(() => [ALL0, ...gmOptions(gmRows, 8)], [gmRows]);
   const statusOptions = useMemo(
     () => [ALL0, ...gmOptions(gmRows, 51)],
     [gmRows],
@@ -599,6 +596,7 @@ ${tableHtml}
           </div>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       pagination

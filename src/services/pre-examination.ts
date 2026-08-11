@@ -8,6 +8,7 @@ import {
   getAllRecordsEnvelope,
   postDetails,
   postDetailsEnvelope,
+  putDetails,
   uploadFile,
 } from "@/services/crud";
 import {
@@ -2937,4 +2938,81 @@ export async function getStudentExamFeeStructure(params: {
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Exam Setup Details & Subject Source Outcome Mapping Services (Angular parity)
+// ---------------------------------------------------------------------------
+
+export async function getExamSetupDetailsList(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  try {
+    const list = await domainList<AnyRow>(
+      "ExamFCARSetupDetail",
+      buildQuery({ "College.collegeId": collegeId }),
+    );
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getExamSetupMasterList(
+  collegeId: number,
+  courseId?: number,
+): Promise<AnyRow[]> {
+  try {
+    const q: Record<string, any> = { collegeId };
+    if (courseId) q.courseId = courseId;
+    const list = await domainList<AnyRow>("ExamFCARSetupMaster", buildQuery(q));
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveExamSetupDetail(details: AnyRow): Promise<AnyRow> {
+  const id = details?.examFCARSetDetId;
+  if (id) {
+    return putDetails(
+      `cms/domain/update/ExamFCARSetupDetail?query=examFCARSetDetId==${id}`,
+      details,
+    );
+  }
+  return postDetails("cms/domain/create/ExamFCARSetupDetail", details);
+}
+
+export async function getSubjectSyllabusList(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  try {
+    const list = await domainList<AnyRow>(
+      "ExamFCARSubjectSyllabus",
+      buildQuery({ collegeId, isActive: true }),
+    );
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getSubjectUnitsByRegulation(
+  subjectRegulationId: number,
+): Promise<AnyRow[]> {
+  try {
+    const list = await domainList<AnyRow>(
+      "SubjectUnits",
+      buildQuery({ subjectRegulationId, isActive: true }),
+    );
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveSubjectSourceOutcomeMapping(
+  jsonPayload: AnyRow[],
+): Promise<AnyRow> {
+  return postDetails("ExamFCARSubjectSyllabus", jsonPayload);
 }

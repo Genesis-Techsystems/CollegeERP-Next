@@ -2,14 +2,15 @@
 
 /**
  * Parent Teacher Meeting Report —
- * Angular `reports/admin-attendance-reports/parent-teacher-meeting-report` parity.
+ * Admin: `reports/admin-attendance-reports/parent-teacher-meeting-report`
+ * HOD:   `staff-reports/admin-attendance-reports/parent-teacher-meeting-report`
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import type { SelectOption } from "@/common/components/select";
@@ -80,21 +81,53 @@ const COL_DEFS = {
   } as ColDef<PtmRow>,
 };
 
+function pickRowValue(row: AnyRow, keys: string[]): string {
+  const asText = (v: unknown): string | null => {
+    if (v == null) return null;
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+    const s = String(v).trim();
+    return s === "" ? null : s;
+  };
+
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+    const text = asText(row[key]);
+    if (text != null) return text;
+  }
+  const wanted = new Set(
+    keys.map((k) => k.toLowerCase().replace(/[\s_]+/g, "")),
+  );
+  for (const [k, v] of Object.entries(row)) {
+    const norm = k.toLowerCase().replace(/[\s_]+/g, "");
+    if (!wanted.has(norm)) continue;
+    const text = asText(v);
+    if (text != null) return text;
+  }
+  return "";
+}
+
 function mapPtmRow(row: AnyRow): PtmRow {
   return {
-    counselorName: String(
-      row.Counselor_Name ?? row.counselor_name ?? row.CounselorName ?? "",
-    ),
-    activityDate: String(
-      row.activity_date ?? row.Activity_Date ?? row.activityDate ?? "",
-    ),
-    noOfStudents: String(
-      row.No_of_students ??
-        row.no_of_students ??
-        row.No_Of_Students ??
-        row.NoOfStudents ??
-        "",
-    ),
+    counselorName: pickRowValue(row, [
+      "Counselor_Name",
+      "counselor_name",
+      "CounselorName",
+      "Counselor Name",
+    ]),
+    activityDate: pickRowValue(row, [
+      "activity_date",
+      "Activity_Date",
+      "activityDate",
+      "Activity Date",
+    ]),
+    noOfStudents: pickRowValue(row, [
+      "No_of_students",
+      "no_of_students",
+      "No_Of_Students",
+      "NoOfStudents",
+      "No. of Students",
+      "No of Students",
+    ]),
   };
 }
 
@@ -227,12 +260,14 @@ export default function ParentTeacherMeetingReportPage() {
       const raw = await getParentTeacherMeetingReport(params);
       if (raw.length === 0) {
         toastInfo("No records found.");
+        setShowTable(false);
         return;
       }
       setRows(raw);
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
+      setShowTable(false);
     } finally {
       setLoadingList(false);
     }
@@ -286,8 +321,8 @@ export default function ParentTeacherMeetingReportPage() {
     <FilteredListPage<PtmRow>
       title="Parent Teacher Meeting Report"
       filters={
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-nowrap items-end gap-3 overflow-x-auto pb-0.5">
+          <div className="w-[11rem] shrink-0">
             <DatePicker
               label="From Date"
               required
@@ -300,6 +335,8 @@ export default function ParentTeacherMeetingReportPage() {
               clearable={false}
               placeholder="From Date"
             />
+          </div>
+          <div className="w-[11rem] shrink-0">
             <DatePicker
               label="To Date"
               required
@@ -313,6 +350,8 @@ export default function ParentTeacherMeetingReportPage() {
               placeholder="To Date"
               minDate={fromDate ?? undefined}
             />
+          </div>
+          <div className="w-[24rem] min-w-[22rem] max-w-[26rem] shrink-0">
             <Select
               label="Employee"
               value={employeeId}
@@ -325,26 +364,25 @@ export default function ParentTeacherMeetingReportPage() {
               clearable
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              className="h-9 w-fit px-4"
-              disabled={loadingList}
-              onClick={() => void handleGetList()}
-            >
-              {loadingList ? "Loading…" : "Get Meetings"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
-              onClick={goBack}
-            >
-              Back
-            </Button>
-          </div>
+          <Button
+            type="button"
+            className="h-9 w-fit shrink-0 px-4"
+            disabled={loadingList}
+            onClick={() => void handleGetList()}
+          >
+            {loadingList ? "Loading…" : "Get Meetings"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="h-9 w-fit shrink-0 px-4"
+            onClick={goBack}
+          >
+            Back
+          </Button>
         </div>
       }
+      showTable={showTable}
       rowData={showTable ? displayRows : []}
       columnDefs={columnDefs}
       loading={loadingList}
@@ -355,22 +393,31 @@ export default function ParentTeacherMeetingReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
-      onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

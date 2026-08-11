@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { format } from "date-fns";
+import { format, isValid, parseISO } from "date-fns";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
@@ -47,6 +47,15 @@ import {
   getCollegeById,
   getStaffWorkloadReport,
 } from "@/services";
+
+function formatHolidayDate(value: string): string {
+  if (!value) return "—";
+  const iso = parseISO(value);
+  if (isValid(iso)) return format(iso, "dd/MM/yyyy");
+  const fallback = new Date(value);
+  if (isValid(fallback)) return format(fallback, "dd/MM/yyyy");
+  return value;
+}
 
 const REPORT_TITLE = "Staff Workload Report";
 
@@ -500,28 +509,34 @@ export default function StaffWorkloadReportPage() {
           </>
         ) : null
       }
-    >
-      {showTable && holidays.length > 0 ? (
-        <div className="app-card mt-4 overflow-x-auto p-4">
-          <p className="mb-2 text-sm font-medium">Holidays</p>
-          <table className="w-full min-w-[320px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b bg-muted/40">
-                <th className="px-3 py-2 text-left font-medium">Date</th>
-                <th className="px-3 py-2 text-left font-medium">Event</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holidays.map((h, i) => (
-                <tr key={`${h.startDate}-${i}`} className="border-b">
-                  <td className="px-3 py-2">{h.startDate || "—"}</td>
-                  <td className="px-3 py-2">{h.eventName || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-    </FilteredListPage>
+      rightRail={
+        showTable ? (
+          <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
+            <h3 className="bg-[#ecf3ff] px-3 py-2 text-left text-[14px] font-medium text-slate-700">
+              Holidays List
+            </h3>
+            <div className="max-h-[420px] overflow-auto p-3 text-[13px]">
+              {holidays.length === 0 ? (
+                <p className="text-[#A86326]">No holidays are found.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {holidays.map((h, i) => (
+                    <li
+                      key={`${h.startDate}-${h.eventName}-${i}`}
+                      className="border-b border-border/50 pb-2 last:border-b-0 last:pb-0"
+                    >
+                      <div className="font-medium text-slate-800">
+                        {formatHolidayDate(h.startDate)}
+                      </div>
+                      <div className="text-slate-600">{h.eventName || "—"}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : undefined
+      }
+    />
   );
 }

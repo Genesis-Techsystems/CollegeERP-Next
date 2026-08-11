@@ -24,9 +24,10 @@ import {
   listStudents,
   saveRegisteredExamSubjects,
   uploadExamRegForms,
+  getStudentExamFeeStructure,
 } from "@/services/pre-examination";
 import { MINIO_URL } from "@/config/constants/api";
-import { FilteredPage } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
 import { GlobalFilterBarRow } from "@/common/components/forms";
 
 type AnyRow = Record<string, any>;
@@ -302,6 +303,26 @@ export default function ExamRegistrationManualFeelessPage() {
     failAbsentOnly: boolean,
   ) {
     const stu = studentRef.current;
+
+    // Call getStudentExamFeeStructure when filters are selected and show errors if any
+    void getStudentExamFeeStructure({
+      collegeId: Number(stu.collegeId),
+      examId: eid,
+      courseGroupId: stu.courseGroupId
+        ? Number(stu.courseGroupId)
+        : (null as any),
+      courseYearId: cyId,
+    })
+      .then((res) => {
+        if (res && res.success === false) {
+          toastError(
+            res.message ||
+              "Internal Server error. Please contact system admin.",
+          );
+        }
+      })
+      .catch(() => null);
+
     let rows: AnyRow[] = [];
     let examType: "Regular" | "Supple";
     if (Number(stu.courseYearId) === Number(cyId)) {
@@ -560,10 +581,23 @@ export default function ExamRegistrationManualFeelessPage() {
   }
 
   return (
-    <FilteredPage
-      title="Exam Registration Manual Feeless"
-      filters={(
-        <GlobalFilterBarRow>
+    <PageContainer>
+      <div className="app-card overflow-hidden p-3 space-y-4">
+        {/* Sub Header */}
+        <div className="flex items-center gap-2 border-b border-[#dedede] pb-2 mb-3">
+          <span
+            className="material-icons text-[#0f2d59]"
+            style={{ fontSize: 20 }}
+          >
+            money
+          </span>
+          <h1 className="text-[16px] font-bold text-[#0f2d59]">
+            Exam Registration Manual Feeless
+          </h1>
+        </div>
+
+        {/* Filters Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#f8f9fa] p-3 rounded border border-[#e9ecef]">
           <div className="md:col-span-5 space-y-1">
             <StudentSearchSelect
               label="Student"
@@ -593,13 +627,12 @@ export default function ExamRegistrationManualFeelessPage() {
               searchable
             />
           </div>
-        </GlobalFilterBarRow>
-      )}
-    >
-      <div className="space-y-3">
+        </div>
+
+        <div className="space-y-3">
           {/* Student banner */}
           {!isEmptyObject(student) && flag && (
-            <div className="rounded border-4 border-[#c3d9ff] p-3">
+            <div className="rounded border border-[#c3d9ff] p-3">
               <div className="flex gap-4">
                 <div className="w-[120px] shrink-0">
                   {student.studentPhotoPath && !photoError ? (
@@ -612,15 +645,13 @@ export default function ExamRegistrationManualFeelessPage() {
                       onError={() => setPhotoError(true)}
                     />
                   ) : (
-                    <div
-                      className="flex w-full items-center justify-center bg-[#c3d9ff] p-1.5 text-[28px] font-semibold text-white"
-                      style={{ height: 110 }}
-                    >
-                      {String(student.firstName ?? "?")
-                        .trim()
-                        .charAt(0)
-                        .toUpperCase() || "?"}
-                    </div>
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src="/assets/images/avatars/default_Student.png"
+                      alt="student"
+                      className="w-full bg-[#c3d9ff] p-1.5"
+                      style={{ maxHeight: 110 }}
+                    />
                   )}
                 </div>
                 <div className="flex-1 text-[13px] leading-5">
@@ -842,7 +873,10 @@ export default function ExamRegistrationManualFeelessPage() {
 
               {selectedSubjects.length > 0 && (
                 <div className="mt-2 flex justify-end">
-                  <Button className="h-8 text-[12px]" onClick={addExamSubjects}>
+                  <Button
+                    className="h-8 text-[12px] bg-[#0f2d59] text-white hover:bg-[#0c2340]"
+                    onClick={addExamSubjects}
+                  >
                     Add Subjects
                   </Button>
                 </div>
@@ -906,8 +940,7 @@ export default function ExamRegistrationManualFeelessPage() {
                         </td>
                         <td className="px-2 py-1 text-center">
                           <Button
-                            variant="outline"
-                            className="h-7 text-[12px]"
+                            className="h-7 text-[12px] bg-[#f0c243] text-black hover:bg-[#d8ae3c] border-none"
                             onClick={() => void viewExamForm()}
                           >
                             View
@@ -915,7 +948,7 @@ export default function ExamRegistrationManualFeelessPage() {
                         </td>
                         <td className="px-2 py-1 text-center">
                           <Button
-                            className="h-7 text-[12px]"
+                            className="h-7 text-[12px] bg-[#0f2d59] text-white hover:bg-[#0c2340]"
                             onClick={onRegister}
                             disabled={saving}
                           >
@@ -968,15 +1001,13 @@ export default function ExamRegistrationManualFeelessPage() {
                       <td className="px-2 py-1 text-center">
                         <div className="flex justify-center gap-2">
                           <Button
-                            variant="outline"
-                            className="h-7 text-[12px]"
+                            className="h-7 text-[12px] bg-[#f0c243] text-black hover:bg-[#d8ae3c] border-none"
                             onClick={() => void viewExamForm()}
                           >
                             View
                           </Button>
                           <Button
-                            variant="outline"
-                            className="h-7 text-[12px]"
+                            className="h-7 text-[12px] bg-[#0f2d59] text-white hover:bg-[#0c2340]"
                             onClick={openUpload}
                           >
                             Upload
@@ -989,147 +1020,148 @@ export default function ExamRegistrationManualFeelessPage() {
               </div>
             </div>
           )}
-      </div>
+        </div>
 
-      {/* Pay / confirm dialog */}
-      <Dialog open={payOpen} onOpenChange={setPayOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Exam Registration</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 text-[13px]">
-            <div>
-              <span className="text-muted-foreground">Student: </span>
-              {student.firstName} ({student.hallticketNumber})
+        {/* Pay / confirm dialog */}
+        <Dialog open={payOpen} onOpenChange={setPayOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Exam Registration</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 text-[13px]">
+              <div>
+                <span className="text-muted-foreground">Student: </span>
+                {student.firstName} ({student.hallticketNumber})
+              </div>
+              <div>
+                <span className="text-muted-foreground">Exam: </span>
+                {g(
+                  examsList.find((e) => Number(e.examId) === Number(examId)),
+                  ["examName", "exam_name"],
+                )}
+              </div>
+              <div className="overflow-auto rounded border">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-muted/40">
+                    <tr>
+                      <th className="px-2 py-1 text-left">SI.No</th>
+                      <th className="px-2 py-1 text-left">Course Year</th>
+                      <th className="px-2 py-1 text-right">No of Subjects</th>
+                      <th className="px-2 py-1 text-left">Exam Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payReceiptsRef.current.map((r, i) => (
+                      <tr key={`pr-${i}`} className="border-t">
+                        <td className="px-2 py-1">{i + 1}</td>
+                        <td className="px-2 py-1">{r.courseYearName}</td>
+                        <td className="px-2 py-1 text-right">
+                          {(r.examStudentDetailDTOs ?? []).length}
+                        </td>
+                        <td className="px-2 py-1">{r.examType}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[12px] text-muted-foreground">
+                  Upload Exam Form (optional)
+                </label>
+                <Input
+                  type="file"
+                  className="text-[12px]"
+                  onChange={(e) => setPayFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
             </div>
-            <div>
-              <span className="text-muted-foreground">Exam: </span>
-              {g(
-                examsList.find((e) => Number(e.examId) === Number(examId)),
-                ["examName", "exam_name"],
-              )}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setPayOpen(false)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={confirmPay} disabled={saving}>
+                {saving ? "Registering…" : "Register"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Upload exam form dialog */}
+        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Upload Student Exam Form</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Input
+                type="file"
+                className="text-[12px]"
+                onChange={(e) => setUploadFile2(e.target.files?.[0] ?? null)}
+              />
             </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setUploadOpen(false)}
+                disabled={uploading}
+              >
+                Close
+              </Button>
+              <Button onClick={submitUpload} disabled={uploading}>
+                {uploading ? "Uploading…" : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* View subjects dialog */}
+        <Dialog open={viewSubjOpen} onOpenChange={setViewSubjOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Subjects</DialogTitle>
+            </DialogHeader>
             <div className="overflow-auto rounded border">
               <table className="w-full text-[12px]">
                 <thead className="bg-muted/40">
                   <tr>
                     <th className="px-2 py-1 text-left">SI.No</th>
-                    <th className="px-2 py-1 text-left">Course Year</th>
-                    <th className="px-2 py-1 text-right">No of Subjects</th>
-                    <th className="px-2 py-1 text-left">Exam Type</th>
+                    <th className="px-2 py-1 text-left">Subject Code</th>
+                    <th className="px-2 py-1 text-left">Subject Name</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {payReceiptsRef.current.map((r, i) => (
-                    <tr key={`pr-${i}`} className="border-t">
+                  {viewSubjRows.map((s, i) => (
+                    <tr key={`vs-${i}`} className="border-t">
                       <td className="px-2 py-1">{i + 1}</td>
-                      <td className="px-2 py-1">{r.courseYearName}</td>
-                      <td className="px-2 py-1 text-right">
-                        {(r.examStudentDetailDTOs ?? []).length}
+                      <td className="px-2 py-1">
+                        {g(s, ["subjectCode", "subject_code"]) || "-"}
                       </td>
-                      <td className="px-2 py-1">{r.examType}</td>
+                      <td className="px-2 py-1">
+                        {g(s, ["subjectName", "subject_name", "shortName"]) ||
+                          "-"}
+                      </td>
                     </tr>
                   ))}
+                  {viewSubjRows.length === 0 && (
+                    <tr className="border-t">
+                      <td
+                        colSpan={3}
+                        className="px-2 py-6 text-center text-muted-foreground"
+                      >
+                        No subjects found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            <div className="space-y-1">
-              <label className="text-[12px] text-muted-foreground">
-                Upload Exam Form (optional)
-              </label>
-              <Input
-                type="file"
-                className="text-[12px]"
-                onChange={(e) => setPayFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPayOpen(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button onClick={confirmPay} disabled={saving}>
-              {saving ? "Registering…" : "Register"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Upload exam form dialog */}
-      <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Upload Student Exam Form</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Input
-              type="file"
-              className="text-[12px]"
-              onChange={(e) => setUploadFile2(e.target.files?.[0] ?? null)}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setUploadOpen(false)}
-              disabled={uploading}
-            >
-              Close
-            </Button>
-            <Button onClick={submitUpload} disabled={uploading}>
-              {uploading ? "Uploading…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View subjects dialog */}
-      <Dialog open={viewSubjOpen} onOpenChange={setViewSubjOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Subjects</DialogTitle>
-          </DialogHeader>
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Subject Code</th>
-                  <th className="px-2 py-1 text-left">Subject Name</th>
-                </tr>
-              </thead>
-              <tbody>
-                {viewSubjRows.map((s, i) => (
-                  <tr key={`vs-${i}`} className="border-t">
-                    <td className="px-2 py-1">{i + 1}</td>
-                    <td className="px-2 py-1">
-                      {g(s, ["subjectCode", "subject_code"]) || "-"}
-                    </td>
-                    <td className="px-2 py-1">
-                      {g(s, ["subjectName", "subject_name", "shortName"]) ||
-                        "-"}
-                    </td>
-                  </tr>
-                ))}
-                {viewSubjRows.length === 0 && (
-                  <tr className="border-t">
-                    <td
-                      colSpan={3}
-                      className="px-2 py-6 text-center text-muted-foreground"
-                    >
-                      No subjects found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </FilteredPage>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PageContainer>
   );
 }
