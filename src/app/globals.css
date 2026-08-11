@@ -1042,10 +1042,15 @@
         svg[class*="lucide-chevron"]
       )
   ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
-  button[data-slot="popover-trigger"] {
+  button[data-slot="popover-trigger"],
+.angular-filter-card [role="combobox"] {
   min-height: 2.25rem;
+  width: 100%;
   border-radius: 0.5rem;
+  border-width: 1px;
+  border-style: solid;
   border-color: #e5e7eb;
+  background-color: #fff;
   font-size: 13px;
 }
 
@@ -2500,8 +2505,10 @@ h4,
 .app-card > div:first-child > h3:not(.app-card-title)::before,
 .app-data-table-heading > div > div > h1:not(.app-card-title)::before,
 .app-data-table-heading > div > div > h2:not(.app-card-title)::before,
-.app-data-table-heading h1:not(:has(.app-card-title__icon)):not(.app-card-title)::before,
-.app-data-table-heading h2:not(:has(.app-card-title__icon)):not(.app-card-title)::before {
+.app-data-table-heading
+  h1:not(:has(.app-card-title__icon)):not(.app-card-title)::before,
+.app-data-table-heading
+  h2:not(:has(.app-card-title__icon)):not(.app-card-title)::before {
   content: "book";
   font-family: "Material Icons", sans-serif;
   font-size: 18px;
@@ -2568,8 +2575,7 @@ h4,
   vertical-align: middle;
   -webkit-font-smoothing: antialiased;
 }
-[data-page-first-card]
-  .app-card-title:not(:has(.app-card-title__text))::after {
+[data-page-first-card] .app-card-title:not(:has(.app-card-title__text))::after {
   content: var(--page-name, none);
   font-size: 18px;
   font-weight: 500;
@@ -2881,14 +2887,25 @@ h4,
 }
 
 /* Open ancestors must not look filled — gold only when they own aria-current / self-active */
-[data-theme="university-blue"] .nav-item[data-state="open"]:not([aria-current="page"]):not([data-active="true"]) {
+[data-theme="university-blue"]
+  .nav-item[data-state="open"]:not([aria-current="page"]):not(
+    [data-active="true"]
+  ) {
   background-color: transparent !important;
   color: inherit;
   border-left-color: transparent;
 }
 
-[data-theme="university-blue"] .nav-item[data-state="open"]:not([aria-current="page"]):not([data-active="true"]) > span:first-of-type,
-[data-theme="university-blue"] .nav-item[data-state="open"]:not([aria-current="page"]):not([data-active="true"]) .nav-link-icon {
+[data-theme="university-blue"]
+  .nav-item[data-state="open"]:not([aria-current="page"]):not(
+    [data-active="true"]
+  )
+  > span:first-of-type,
+[data-theme="university-blue"]
+  .nav-item[data-state="open"]:not([aria-current="page"]):not(
+    [data-active="true"]
+  )
+  .nav-link-icon {
   color: #ffcf46 !important;
 }
 
@@ -2900,7 +2917,12 @@ h4,
 
 /* Collapse arrows stay white (Angular chevron) — override gold icon rule */
 [data-theme="university-blue"] aside nav .nav-item > svg.lucide-chevron-right,
-[data-theme="university-blue"] aside nav .nav-item span > svg.lucide-chevron-right {
+[data-theme="university-blue"]
+  aside
+  nav
+  .nav-item
+  span
+  > svg.lucide-chevron-right {
   color: #fff !important;
   stroke: #fff !important;
 }

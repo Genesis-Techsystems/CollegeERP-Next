@@ -16,7 +16,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { OptionTooltip } from "./OptionTooltip";
+import { SELECT_TOOLTIP_MIN_LENGTH } from "./OptionTooltip";
 import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 // ---------------------------------------------------------------------------
@@ -91,13 +91,14 @@ export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
   return out;
 }
 
-/** Full tooltip text for an option; OptionTooltip decides when to show it. */
+/** Tooltip text for long/truncated select options; short labels return undefined. */
 export function selectOptionTooltip(
   opt: Pick<SelectOption, "label" | "title"> | null | undefined,
 ): string | undefined {
   if (!opt) return undefined;
   const text = String(opt.title ?? opt.label ?? "").trim();
-  return text || undefined;
+  if (!text || text.length <= SELECT_TOOLTIP_MIN_LENGTH) return undefined;
+  return text;
 }
 
 /** Radix Dialog scroll-lock can swallow wheel events on portaled popovers — scroll the list manually. */
@@ -269,7 +270,7 @@ export function Select({
             aria-invalid={error ? true : undefined}
             aria-haspopup="listbox"
             disabled={disabled}
-            title={selectOptionTooltip(selectedOption)}
+            title={selectedOption?.title || undefined}
             className={cn(
               "app-control flex min-w-0 w-full items-center justify-between text-[length:var(--app-control-font-size)] text-slate-900 transition-colors",
               "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
@@ -295,7 +296,7 @@ export function Select({
             {/* Label / placeholder */}
             <span
               className={cn(
-                "min-w-0 truncate text-left",
+                "min-w-0 truncate",
                 !selectedOption && "text-slate-400",
               )}
             >
@@ -385,7 +386,6 @@ export function Select({
             ) : (
               filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value;
-                const tip = selectOptionTooltip(opt);
                 return (
                   <button
                     key={`${String(opt.value)}::${idx}`}
@@ -393,6 +393,7 @@ export function Select({
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
+                    title={opt.title || undefined}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
                       "mat-select-panel__option",
@@ -402,38 +403,28 @@ export function Select({
                       isSelected && "mat-select-panel__option--active",
                     )}
                   >
-                    <OptionTooltip
-                      content={tip}
+                    <span
                       className={cn(
                         "min-w-0 flex-1 text-left",
                         wrapOptionLabels || opt.description
                           ? "whitespace-normal leading-snug"
-                          : undefined,
+                          : "truncate",
                       )}
                     >
                       <span
                         className={cn(
                           "block",
-                          wrapOptionLabels || opt.description
-                            ? "whitespace-normal leading-snug"
-                            : "truncate",
+                          opt.description ? "truncate" : undefined,
                         )}
                       >
-                        <span
-                          className={cn(
-                            "block",
-                            opt.description ? "truncate" : undefined,
-                          )}
-                        >
-                          {opt.label}
-                        </span>
-                        {opt.description ? (
-                          <span className="mt-0.5 block text-[12px] font-normal text-black/54 leading-4 whitespace-normal break-words">
-                            {opt.description}
-                          </span>
-                        ) : null}
+                        {opt.label}
                       </span>
-                    </OptionTooltip>
+                      {opt.description ? (
+                        <span className="mt-0.5 block text-[12px] font-normal text-black/54 leading-4 whitespace-normal break-words">
+                          {opt.description}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                 );
               })
