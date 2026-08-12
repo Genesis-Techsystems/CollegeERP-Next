@@ -60,7 +60,12 @@ export default function FeeStagingMerchantPaymentDetailsPage() {
             <Upload className="mr-1.5 h-3.5 w-3.5" />
             {uploading ? "Uploading…" : "Upload"}
           </Button>
-          <Button type="button" size="sm" variant="secondary" asChild>
+          <Button
+            type="button"
+            size="sm"
+            style={{ backgroundColor: "#ffcf46", color: "black" }}
+            asChild
+          >
             <a href={SAMPLE_HREF} download>
               <Download className="mr-1.5 h-3.5 w-3.5" />
               Download Sample XLSX

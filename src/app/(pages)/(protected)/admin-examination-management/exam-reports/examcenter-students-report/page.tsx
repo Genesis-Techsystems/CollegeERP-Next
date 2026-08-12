@@ -402,7 +402,7 @@ export default function ExamcenterStudentsReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Course *">
           <Select
-            value={courseId || undefined}
+            value={courseId || null}
             onChange={(v) => setCourseId(v ?? "")}
             isLoading={loadingFilters}
             options={courses.map((c) => ({
@@ -415,7 +415,7 @@ export default function ExamcenterStudentsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Academic Year *">
           <Select
-            value={academicYearId || undefined}
+            value={academicYearId || null}
             onChange={(v) => setAcademicYearId(v ?? "")}
             isLoading={loadingFilters}
             options={academicYears.map((y) => ({
@@ -428,7 +428,7 @@ export default function ExamcenterStudentsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Exam" className="min-w-[260px] flex-[2]">
           <Select
-            value={examId || undefined}
+            value={examId || null}
             onChange={(v) => setExamId(v ?? "")}
             isLoading={loadingFilters}
             options={exams.map((e) => ({
@@ -441,7 +441,7 @@ export default function ExamcenterStudentsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Subjects" className="min-w-[200px] flex-[2]">
           <Select
-            value={subjectId || undefined}
+            value={subjectId || null}
             onChange={(v) => setSubjectId(v ?? "")}
             isLoading={loadingFilters}
             options={subjects.map((s) => ({
@@ -456,7 +456,7 @@ export default function ExamcenterStudentsReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Exam Center *">
           <Select
-            value={univExamcenterId || undefined}
+            value={univExamcenterId || null}
             onChange={(v) => {
               setUnivExamcenterId(v ?? "");
               clearResults();
@@ -498,6 +498,7 @@ export default function ExamcenterStudentsReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={

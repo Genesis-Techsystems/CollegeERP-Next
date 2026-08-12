@@ -7,7 +7,8 @@ import { crud } from "@/services/crud";
 import { EXAM_EVAL_API } from "@/config/constants/api";
 import { txt } from "@/common/utils/data-helpers";
 
-type AnyRow = Record<string, unknown>;
+export type GroupYearwiseResultRow = Record<string, unknown>;
+type AnyRow = GroupYearwiseResultRow;
 type ProcRows = AnyRow[];
 
 function firstGroupByFlag(groups: ProcRows[], flags: string[]): ProcRows {

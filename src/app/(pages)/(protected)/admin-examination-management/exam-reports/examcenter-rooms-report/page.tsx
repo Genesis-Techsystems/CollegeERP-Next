@@ -89,7 +89,9 @@ function floorLabel(row: AnyRow): string {
 function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   return rows.map((row, i) => ({
     si: i + 1,
-    examCenter: txt(row.examCenterName ?? row.examcenterName ?? row.examcenter_name),
+    examCenter: txt(
+      row.examCenterName ?? row.examcenterName ?? row.examcenter_name,
+    ),
     building: txt(row.buildingId ?? row.buildingCode ?? row.building_code),
     roomName: txt(row.roomName ?? row.room_name),
     roomCode: txt(row.roomCode ?? row.room_code),
@@ -190,8 +192,7 @@ export default function ExamcenterRoomsReportPage() {
     [centers, univExamcenterId],
   );
   const selectedBuilding = useMemo(
-    () =>
-      buildings.find((b) => num(b.buildingId) === Number(buildingId)),
+    () => buildings.find((b) => num(b.buildingId) === Number(buildingId)),
     [buildings, buildingId],
   );
   const selectedBlock = useMemo(
@@ -456,9 +457,7 @@ export default function ExamcenterRoomsReportPage() {
         minWidth: 120,
         valueGetter: (p) =>
           txt(
-            p.data?.buildingId ??
-              p.data?.buildingCode ??
-              p.data?.building_code,
+            p.data?.buildingId ?? p.data?.buildingCode ?? p.data?.building_code,
           ),
       },
       {
@@ -480,7 +479,7 @@ export default function ExamcenterRoomsReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Course *">
           <Select
-            value={courseId || undefined}
+            value={courseId || null}
             onChange={(v) => setCourseId(v ?? "")}
             isLoading={loadingFilters}
             options={courses.map((c) => ({
@@ -493,7 +492,7 @@ export default function ExamcenterRoomsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Academic Year *">
           <Select
-            value={academicYearId || undefined}
+            value={academicYearId || null}
             onChange={(v) => setAcademicYearId(v ?? "")}
             isLoading={loadingFilters}
             options={academicYears.map((y) => ({
@@ -506,7 +505,7 @@ export default function ExamcenterRoomsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Exam" className="min-w-[240px] flex-[2]">
           <Select
-            value={examId || undefined}
+            value={examId || null}
             onChange={(v) => setExamId(v ?? "")}
             isLoading={loadingFilters}
             options={exams.map((e) => ({
@@ -519,7 +518,7 @@ export default function ExamcenterRoomsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Exam Center *">
           <Select
-            value={univExamcenterId || undefined}
+            value={univExamcenterId || null}
             onChange={(v) => {
               setUnivExamcenterId(v ?? "");
               clearResults();
@@ -535,9 +534,12 @@ export default function ExamcenterRoomsReportPage() {
         </GlobalFilterField>
       </GlobalFilterBarRow>
       <GlobalFilterBarRow>
-        <GlobalFilterField label="Campus - Building" className="min-w-[220px] flex-[2]">
+        <GlobalFilterField
+          label="Campus - Building"
+          className="min-w-[220px] flex-[2]"
+        >
           <Select
-            value={buildingId || undefined}
+            value={buildingId || null}
             onChange={(v) => setBuildingId(v ?? "")}
             isLoading={loadingFilters}
             options={[
@@ -553,7 +555,7 @@ export default function ExamcenterRoomsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Block">
           <Select
-            value={blockId || undefined}
+            value={blockId || null}
             onChange={(v) => setBlockId(v ?? "")}
             isLoading={loadingFilters}
             options={[
@@ -569,7 +571,7 @@ export default function ExamcenterRoomsReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Floor - No">
           <Select
-            value={floorId || undefined}
+            value={floorId || null}
             onChange={(v) => {
               setFloorId(v ?? "");
               clearResults();
@@ -614,6 +616,7 @@ export default function ExamcenterRoomsReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={

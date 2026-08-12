@@ -19,6 +19,7 @@ import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
 } from "../../_lib/export-html-table";
+import { printEvaluatorsBankCopyReport } from "./printEvaluatorsBankCopyReport";
 import {
   getBankCopyBaseFilters,
   getBankCopyEvaluators,
@@ -57,157 +58,6 @@ function formatExamLabel(exam: AnyRow): string {
 
 function payableAmount(total: number): number {
   return total > 500 ? total : 500;
-}
-
-const REPORT_PRINT_CSS = `
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: #fff;
-    color: #000;
-    font-family: Arial, Helvetica, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .wrap { padding: 12px 16px; width: 98%; }
-  .college-name {
-    text-align: center;
-    font-size: 26px;
-    font-weight: 700;
-    margin: 8px 0 2px;
-  }
-  .title {
-    text-align: center;
-    font-size: 22px;
-    font-weight: 600;
-    margin: 4px 0 16px;
-  }
-  table.data {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  table.data th,
-  table.data td {
-    border: 1px solid #333;
-    padding: 4px 6px;
-    font-size: 11px;
-    text-align: left;
-    vertical-align: top;
-  }
-  table.data th {
-    background: #f2f2f2;
-    font-weight: 700;
-    text-align: center;
-  }
-  table.data td.center { text-align: center; }
-  @page { margin: 1cm; }
-  @media print {
-    html, body { background: #fff !important; }
-    tr { page-break-inside: avoid; }
-  }
-`;
-
-function printProfileReports(
-  examName: string,
-  collegeLabel: string,
-  rows: AnyRow[],
-) {
-  if (!rows.length) return;
-
-  const body = rows
-    .map(
-      (row, index) => `<tr>
-        <td class="center">${index + 1}</td>
-        <td>${escapeHtml(txt(row.evaluator_name))}</td>
-        <td>${escapeHtml(txt(row.subject_code))}</td>
-        <td class="center">${num(row.no_of_students_assigned)}</td>
-        <td class="center">${num(row.no_of_evaluations_completed)}</td>
-        <td class="center">${num(row.amount)}</td>
-        <td class="center">${num(row.final_amount)}</td>
-        <td>${escapeHtml(txt(row.account_number))}</td>
-        <td>${escapeHtml(txt(row.ifsc_code))}</td>
-      </tr>`,
-    )
-    .join("");
-
-  const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Evaluators Bank Copy Report</title>
-  <style>${REPORT_PRINT_CSS}</style>
-</head>
-<body>
-  <div class="wrap">
-    ${collegeLabel ? `<p class="college-name">${escapeHtml(collegeLabel)}</p>` : ""}
-    <p class="title">${escapeHtml(examName || "Evaluators Bank Copy Report")}</p>
-    <table class="data" cellspacing="0" cellpadding="0">
-      <thead>
-        <tr>
-          <th>S.No</th>
-          <th>Evaluator Name</th>
-          <th>Subject Code</th>
-          <th>Assigned Answer Sheets</th>
-          <th>Evaluated Answer Sheets</th>
-          <th>Amount</th>
-          <th>Total Amount</th>
-          <th>Account No.</th>
-          <th>IFSC Code</th>
-        </tr>
-      </thead>
-      <tbody>${body}</tbody>
-    </table>
-  </div>
-</body>
-</html>`;
-
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-
-  const images = Array.from(fdoc.images);
-  const waitForImages =
-    images.length === 0
-      ? Promise.resolve()
-      : Promise.all(
-          images.map(
-            (img) =>
-              new Promise<void>((resolve) => {
-                if (img.complete) {
-                  resolve();
-                  return;
-                }
-                img.addEventListener("load", () => resolve(), { once: true });
-                img.addEventListener("error", () => resolve(), { once: true });
-              }),
-          ),
-        );
-
-  void waitForImages.then(() => {
-    win.focus();
-    win.print();
-  });
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 export default function EvaluatorsBankCopyReportPage() {
@@ -262,8 +112,7 @@ export default function EvaluatorsBankCopyReportPage() {
     const cid = Number(courseId);
     const ay = Number(academicYearId);
     const list = baseRows.filter(
-      (r) =>
-        num(r.fk_course_id) === cid && num(r.fk_academic_year_id) === ay,
+      (r) => num(r.fk_course_id) === cid && num(r.fk_academic_year_id) === ay,
     );
     return dedupeBy(list, (r) => num(r.fk_exam_id));
   }, [baseRows, courseId, academicYearId]);
@@ -303,8 +152,7 @@ export default function EvaluatorsBankCopyReportPage() {
   );
 
   const evaluators = useMemo(
-    () =>
-      dedupeBy(evaluatorRows, (r) => num(r.pk_exam_evaluator_profile_id)),
+    () => dedupeBy(evaluatorRows, (r) => num(r.pk_exam_evaluator_profile_id)),
     [evaluatorRows],
   );
 
@@ -313,10 +161,10 @@ export default function EvaluatorsBankCopyReportPage() {
     return txt(row?.exam_name);
   }, [exams, examId]);
 
-  const collegeLabel = useMemo(() => {
-    const row = colleges.find((c) => num(c.fk_college_id) === Number(collegeId));
-    return txt(row?.college_name) || txt(row?.college_code);
-  }, [colleges, collegeId]);
+  const universityCode = useMemo(() => {
+    const row = courses.find((c) => num(c.fk_course_id) === Number(courseId));
+    return txt(row?.university_code);
+  }, [courses, courseId]);
 
   // Initial load
   useEffect(() => {
@@ -544,9 +392,8 @@ export default function EvaluatorsBankCopyReportPage() {
           employeeId,
         });
         setEvaluatorRows(list);
-        const first = dedupeBy(
-          list,
-          (r) => num(r.pk_exam_evaluator_profile_id),
+        const first = dedupeBy(list, (r) =>
+          num(r.pk_exam_evaluator_profile_id),
         )[0];
         if (first)
           setEvaluatorProfileId(
@@ -652,6 +499,17 @@ export default function EvaluatorsBankCopyReportPage() {
     );
   }
 
+  function handlePrintReport() {
+    if (!profileReports.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    printEvaluatorsBankCopyReport(profileReports, {
+      examName,
+      universityCode,
+    });
+  }
+
   const columnDefs = useMemo(
     (): ColDef<AnyRow>[] => [
       {
@@ -731,7 +589,10 @@ export default function EvaluatorsBankCopyReportPage() {
             placeholder="Exam Year"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Exam Master *" className="min-w-[280px] flex-[2]">
+        <GlobalFilterField
+          label="Exam Master *"
+          className="min-w-[280px] flex-[2]"
+        >
           <Select
             options={exams.map((e) => ({
               value: String(num(e.fk_exam_id)),
@@ -885,6 +746,8 @@ export default function EvaluatorsBankCopyReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
+      resultsVisible={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
@@ -892,15 +755,15 @@ export default function EvaluatorsBankCopyReportPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="h-[30px] bg-blue-600 px-3 text-[12px] text-white hover:bg-blue-700"
+              className="h-[30px] px-3 text-[12px]"
               onClick={exportAsExcel}
             >
               Export Excel
             </Button>
             <Button
               type="button"
-              className="h-[30px] bg-blue-600 px-3 text-[12px] text-white hover:bg-blue-700"
-              onClick={() => printProfileReports(examName, collegeLabel, rows)}
+              className="h-[30px] px-3 text-[12px]"
+              onClick={handlePrintReport}
             >
               Print Report
             </Button>

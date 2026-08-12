@@ -1,20 +1,42 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
+import { FileSpreadsheet, FileText } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
+import {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
 import { QK } from "@/lib/query-keys";
-import { toastInfo } from "@/lib/toast";
+import { printHtmlInIframe } from "@/lib/print";
+import { toastError, toastInfo } from "@/lib/toast";
 import { useApiQueryToasts } from "@/hooks";
-import { getCertificateSummaryReport } from "@/services";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { getCertificateSummaryReport, getCollegeById } from "@/services";
 import type { CertificateSummaryReportRow } from "@/types/tc-no-due";
 import { useTcCollegeCascade } from "@/app/(pages)/(protected)/tc-no-due-approval/_lib/use-tc-college-cascade";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
+import { buildBannerHtml } from "@/app/(pages)/(protected)/reports/student-attendance-reports/_lib/useAttendanceReportFilters";
+import { resolveAttendancePrintLogo } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
+
+const REPORT_TITLE = "Certificate Request Report";
+
+const EXCEL_COLUMNS: { key: string; header: string }[] = [
+  { key: "id", header: "S.No" },
+  { key: "college_shortname", header: "College" },
+  { key: "academic_year", header: "Academic Year" },
+  { key: "Transfer_Certificates", header: "Transfer Certificate" },
+  { key: "Bonafide_Certificates", header: "Bonafide Certificate" },
+  { key: "Other_Certificates", header: "Other Certificates" },
+];
 
 const COL_DEFS: ColDef<CertificateSummaryReportRow>[] = [
   {
@@ -61,14 +83,35 @@ const COL_DEFS: ColDef<CertificateSummaryReportRow>[] = [
   },
 ];
 
+/** Angular `getExcelExportProperties` header rows (portrait report title + dataDetails). */
+function buildExcelExportHeaderHtml(
+  collegeName: string,
+  dataDetails: string,
+): string {
+  const details = dataDetails.trim();
+  return `<div style="text-align:center;margin-bottom:12px;">
+    <div style="font-size:20px;font-weight:bold;color:#466884;">${escapeHtml(collegeName)}</div>
+    <div style="height:8px;"></div>
+    <div style="font-size:20px;font-weight:bold;color:#C67878;">( ${escapeHtml(REPORT_TITLE)} )</div>
+    ${details ? `<div style="height:8px;"></div><div style="font-size:20px;font-weight:bold;color:#C67878;">${escapeHtml(details)}</div>` : ""}
+  </div>`;
+}
+
 export default function CertificateRequestReportPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const orgCode =
+    typeof globalThis.localStorage !== "undefined"
+      ? String(globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
+
   const [collegeId, setCollegeId] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState<Date | null>(new Date());
   const [toDate, setToDate] = useState<Date | null>(new Date());
   const [loadKey, setLoadKey] = useState<string | null>(null);
 
   const collegeNum = Number(collegeId ?? 0);
+  const collegeLogo = useCollegeLogo(collegeNum);
   const { colleges, loadingColleges } = useTcCollegeCascade(collegeNum);
 
   useEffect(() => {
@@ -109,7 +152,7 @@ export default function CertificateRequestReportPage() {
     rowCount: rows.length,
   });
 
-  const tableRows = useMemo(
+  const tableRows = useMemo<CertificateSummaryReportRow[]>(
     () =>
       rows.map((row, i) => ({
         ...row,
@@ -117,6 +160,100 @@ export default function CertificateRequestReportPage() {
       })),
     [rows],
   );
+
+  const dataDetails = useMemo(() => {
+    const collegeCode =
+      colleges.find((c) => c.value === collegeId)?.label?.trim() ?? "";
+    if (!fromDate || !toDate) return "";
+    const from = format(fromDate, "yyyy-MM-dd");
+    const to = format(toDate, "yyyy-MM-dd");
+    if (!collegeCode) return `${from} to ${to}`;
+    return `${collegeCode} / ${from} to ${to}`;
+  }, [colleges, collegeId, fromDate, toDate]);
+
+  const exportFlatRows = useMemo(
+    () =>
+      tableRows.map((row) => ({
+        id: String(row.id ?? ""),
+        college_shortname: String(row.college_shortname ?? ""),
+        academic_year: String(row.academic_year ?? ""),
+        Transfer_Certificates: String(row.Transfer_Certificates ?? ""),
+        Bonafide_Certificates: String(row.Bonafide_Certificates ?? ""),
+        Other_Certificates: String(row.Other_Certificates ?? ""),
+      })),
+    [tableRows],
+  );
+
+  const resolveCollegeName = useCallback(async (): Promise<string> => {
+    if (!collegeNum) return "";
+    try {
+      const college = await getCollegeById(collegeNum);
+      return String(
+        college?.collegeName ??
+          college?.collegeCode ??
+          dataDetails.split("/")[0]?.trim() ??
+          "",
+      );
+    } catch {
+      return dataDetails.split("/")[0]?.trim() ?? "";
+    }
+  }, [collegeNum, dataDetails]);
+
+  const handleExcelExport = useCallback(async () => {
+    if (exportFlatRows.length === 0) {
+      toastError("No records to export.");
+      return;
+    }
+    const collegeName = await resolveCollegeName();
+    const headerHtml = buildExcelExportHeaderHtml(collegeName, dataDetails);
+    const tableHtml = buildHtmlTable(EXCEL_COLUMNS, exportFlatRows);
+    exportHtmlTableAsExcel(
+      "Certificate Request Report.xls",
+      tableHtml,
+      headerHtml,
+    );
+  }, [dataDetails, exportFlatRows, resolveCollegeName]);
+
+  const handlePdfExport = useCallback(async () => {
+    if (exportFlatRows.length === 0) {
+      toastError("No records to export.");
+      return;
+    }
+    const collegeName = await resolveCollegeName();
+    const logoSrc = await resolveAttendancePrintLogo(
+      null,
+      collegeNum,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const headerHtml = buildBannerHtml({
+      logoSrc,
+      collegeName,
+      dataDetails,
+      reportTitle: REPORT_TITLE,
+      orgCode,
+    });
+    const tableHtml = buildHtmlTable(EXCEL_COLUMNS, exportFlatRows);
+    printHtmlInIframe(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
+<style>
+@page { size: A4 portrait; margin: 12mm; }
+body { font-family: Arial, sans-serif; padding: 16px; color: #111; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th, td { border: 1px solid #333; padding: 3px 5px; }
+th { background: #e8f0fe; text-align: center; }
+tr { break-inside: avoid; }
+</style></head><body>
+${headerHtml}
+${tableHtml}
+</body></html>`);
+  }, [
+    collegeLogo,
+    collegeNum,
+    dataDetails,
+    exportFlatRows,
+    orgCode,
+    resolveCollegeName,
+  ]);
 
   function handleGetList() {
     if (!collegeNum) {
@@ -135,6 +272,11 @@ export default function CertificateRequestReportPage() {
         toDate: format(toDate, "yyyy-MM-dd"),
       }),
     );
+  }
+
+  /** Angular goBack(): navigate to `?path=` or Report Catalog (`report-catalyst`). */
+  function onBack() {
+    router.push(resolveReportCatalogHref(searchParams.get("path")));
   }
 
   const resultsVisible = loadKey != null && !isFetching && rows.length > 0;
@@ -188,6 +330,14 @@ export default function CertificateRequestReportPage() {
           >
             {isFetching ? "Loading…" : "Get List"}
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onBack}
+            className="h-[30px] px-3 text-[12px] bg-amber-400 text-black hover:bg-amber-500"
+          >
+            Back
+          </Button>
         </div>
       }
       rowData={tableRows}
@@ -201,12 +351,36 @@ export default function CertificateRequestReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
-        exportPdf: true,
+        exportExcel: false,
+        exportPdf: false,
         columnPicker: false,
-        excelDocumentTitle: "Certificate Request Report",
-        excelFileName: "Certificate Request Report.xls",
       }}
+      toolbarTrailing={
+        resultsVisible ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+              onClick={() => void handleExcelExport()}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+              onClick={() => void handlePdfExport()}
+            >
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              PDF
+            </Button>
+          </>
+        ) : null
+      }
     />
   );
 }

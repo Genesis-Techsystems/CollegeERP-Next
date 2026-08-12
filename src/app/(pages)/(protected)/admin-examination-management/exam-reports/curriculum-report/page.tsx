@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
@@ -14,6 +14,8 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
@@ -22,7 +24,13 @@ import {
   buildCurriculumDisplayColumnKeys,
   getCurriculumReportFilters,
   getCurriculumReportList,
+  getCollegeById,
 } from "@/services";
+import {
+  isDefaultLogoUrl,
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
 type AnyRow = Record<string, unknown>;
 
@@ -61,8 +69,48 @@ function yearIdOf(row: AnyRow): number {
   return num(row.fk_course_year_id);
 }
 
-function printReport(rows: AnyRow[], columnKeys: string[], subtitle: string) {
-  if (!rows.length || !columnKeys.length) return;
+const REPORT_TITLE = "University Curriculum Report";
+
+/** Angular getColleges(): only the selected college logo, else default_logo.png — no session college fallback. */
+async function resolveCurriculumPrintLogo(collegeId: number): Promise<string> {
+  if (collegeId > 0) {
+    try {
+      const college = await getCollegeById(collegeId);
+      const raw = college?.logo ? String(college.logo).trim() : "";
+      if (raw) {
+        const url = toPrintLogoUrl(raw);
+        if (!isDefaultLogoUrl(url)) {
+          return logoToDataUrl(url);
+        }
+      }
+    } catch {
+      // fall through to default placeholder
+    }
+  }
+  return logoToDataUrl(DEFAULT_COLLEGE_LOGO);
+}
+
+function buildCurriculumPrintHtml(opts: {
+  rows: AnyRow[];
+  columnKeys: string[];
+  collegeName: string;
+  logoSrc: string;
+  fallbackLogo: string;
+  courseGroupCode: string | null;
+  courseYearName: string | null;
+  orgCode: string;
+}): string {
+  const {
+    rows,
+    columnKeys,
+    collegeName,
+    logoSrc,
+    fallbackLogo,
+    courseGroupCode,
+    courseYearName,
+    orgCode,
+  } = opts;
+
   const columns = [
     { key: "si", header: "S.No" },
     ...columnKeys.map((key) => ({ key, header: key })),
@@ -72,41 +120,87 @@ function printReport(rows: AnyRow[], columnKeys: string[], subtitle: string) {
     for (const key of columnKeys) out[key] = row[key] ?? "";
     return out;
   });
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>University Curriculum Report</title>
-<style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
-</style></head>
-<body>
-  <p class="title">University Curriculum Report</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable(columns, data)}
-</body></html>`;
+  const tableHtml = buildHtmlTable(columns, data);
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+  const courseGroupLine = courseGroupCode
+    ? `<p class="meta-left">Course : ${escapeHtml(courseGroupCode)}</p>`
+    : "";
+  const courseYearLine = courseYearName
+    ? `<p class="meta-right">Course Year : ${escapeHtml(courseYearName)}</p>`
+    : "";
+  const metaRow =
+    courseGroupLine || courseYearLine
+      ? `<div class="meta-row">${courseGroupLine}${courseYearLine}</div>`
+      : "";
+
+  const headerHtml =
+    orgCode === "SUK"
+      ? `<div class="suk-header">
+      <img src="${escapeHtml(logoSrc)}" alt="" class="suk-logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+      <p class="collegeName">${escapeHtml(collegeName)}</p>
+      <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+    </div>`
+      : `<div class="banner-row">
+      <div class="logo-col">
+        <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo"
+          onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+      </div>
+      <div class="banner-text">
+        <p class="collegeName">${escapeHtml(collegeName)}</p>
+        <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+      </div>
+    </div>`;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
+<style>
+@page { size: A4 portrait; margin: 12mm; }
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 8px; }
+.logo-col { width: 15%; flex-shrink: 0; }
+.portraitLogo { height: 80%; width: 80%; object-fit: contain; }
+.banner-text { width: 85%; }
+.suk-header { text-align: center; margin-bottom: 12px; }
+.suk-logo { height: auto; max-width: 90%; object-fit: contain; }
+.collegeName {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 550;
+  color: #000;
+  margin: 16px 0 -8px;
+}
+.title {
+  text-align: center;
+  font-size: 21px;
+  font-weight: 550;
+  color: #000;
+  margin: 4px 0;
+}
+.meta-row { display: flex; width: 100%; margin: 8px 0 4px; }
+.meta-left {
+  width: 50%;
+  text-align: left;
+  color: #000;
+  margin: 0;
+  font-size: 14px;
+}
+.meta-right {
+  width: 50%;
+  text-align: right;
+  color: #000;
+  margin: 0;
+  font-size: 14px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; vertical-align: top; }
+th { background: #c3d9ff; font-weight: 550; }
+tr { break-inside: avoid; }
+</style></head><body>
+${headerHtml}
+${metaRow}
+${tableHtml}
+</body></html>`;
 }
 
 export default function CurriculumReportPage() {
@@ -123,6 +217,12 @@ export default function CurriculumReportPage() {
   const [courseYearId, setCourseYearId] = useState("");
   const [courseGroupId, setCourseGroupId] = useState("");
   const [regulationId, setRegulationId] = useState("");
+
+  const collegeNum = Number(collegeId) || 0;
+  const orgCode =
+    typeof globalThis.localStorage !== "undefined"
+      ? String(globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
 
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
@@ -216,6 +316,60 @@ export default function CurriculumReportPage() {
     selectedGroup,
     selectedYear,
     courseGroupId,
+  ]);
+
+  const courseGroupCodeForPrint = useMemo(() => {
+    if (Number(courseGroupId) === 0) return null;
+    const code = txt(selectedGroup?.group_code);
+    return code || null;
+  }, [courseGroupId, selectedGroup]);
+
+  const courseYearNameForPrint = useMemo(() => {
+    const name = txt(selectedYear?.course_year_name);
+    return name || null;
+  }, [selectedYear]);
+
+  const resolveCollegeDisplayName = useCallback(async (): Promise<string> => {
+    const fromFilter = txt(
+      selectedCollege?.college_name ?? selectedCollege?.college_code,
+    );
+    if (!collegeNum) return fromFilter;
+    try {
+      const college = await getCollegeById(collegeNum);
+      return String(college?.collegeName ?? college?.collegeCode ?? fromFilter);
+    } catch {
+      return fromFilter;
+    }
+  }, [collegeNum, selectedCollege]);
+
+  const handlePrintReport = useCallback(async () => {
+    if (!rows.length || !columnKeys.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    const collegeName = await resolveCollegeDisplayName();
+    const logoSrc = await resolveCurriculumPrintLogo(collegeNum);
+    const fallbackLogo = await logoToDataUrl(DEFAULT_COLLEGE_LOGO);
+    printHtmlInIframe(
+      buildCurriculumPrintHtml({
+        rows,
+        columnKeys,
+        collegeName,
+        logoSrc,
+        fallbackLogo,
+        courseGroupCode: courseGroupCodeForPrint,
+        courseYearName: courseYearNameForPrint,
+        orgCode,
+      }),
+    );
+  }, [
+    rows,
+    columnKeys,
+    collegeNum,
+    courseGroupCodeForPrint,
+    courseYearNameForPrint,
+    orgCode,
+    resolveCollegeDisplayName,
   ]);
 
   function clearResults() {
@@ -495,6 +649,7 @@ export default function CurriculumReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
@@ -515,7 +670,7 @@ export default function CurriculumReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows, columnKeys, reportSubtitle)}
+              onClick={() => void handlePrintReport()}
             >
               Print Report
             </Button>

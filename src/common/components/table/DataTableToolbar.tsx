@@ -181,7 +181,6 @@ export function DataTableToolbar({
         {exportExcelEnabled ? (
           <Button
             type="button"
-            variant="outline"
             size="sm"
             className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
             onClick={onExportExcel}

@@ -1,60 +1,54 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { IndianRupee, Wallet } from 'lucide-react'
-import { PageContainer } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { listUnivPaymentWalletTransactions } from '@/services'
-import { WalletPayNowDialog } from '../_components/WalletPayNowDialog'
-import { WalletPassbookHeader } from '../_components/WalletPassbookHeader'
-import { WalletTransactionTable } from '../_components/WalletTransactionTable'
-import { WalletPageLoading } from '../_components/WalletPageLoading'
-import { useUnivPaymentWallet, walletBalanceAmount, walletNumberLabel } from '../_lib/use-univ-payment-wallet'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { listUnivPaymentWalletTransactions } from "@/services";
+import { PageContainer } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { WalletPayNowDialog } from "./WalletPayNowDialog";
+import { WalletPassbookHeader } from "./WalletPassbookHeader";
+import { WalletBalancePanel } from "./WalletBalancePanel";
+import { WalletTransactionTable } from "./WalletTransactionTable";
+import { WalletPageLoading } from "./WalletPageLoading";
+import { useUnivPaymentWallet } from "../_lib/use-univ-payment-wallet";
+
+const WALLET_ACTION_BTN =
+  "h-10 min-w-[140px] rounded-sm text-sm font-medium shadow-none";
 
 export function UniversityPaymentWalletPage() {
-  const router = useRouter()
-  const [payOpen, setPayOpen] = useState(false)
-  const { wallet, isLoading, refetchWallet } = useUnivPaymentWallet()
-  const balance = walletBalanceAmount(wallet)
+  const router = useRouter();
+  const [payOpen, setPayOpen] = useState(false);
+  const { wallet, isLoading, refetchWallet } = useUnivPaymentWallet();
 
-  const { data: transactions = [], isLoading: txLoading, invalidate } = useCrudList({
-    queryKey: QK.univPaymentWalletTransactions.list(wallet?.univPaymentWalletId),
-    queryFn: () => listUnivPaymentWalletTransactions(wallet?.univPaymentWalletId),
+  const {
+    data: transactions = [],
+    isLoading: txLoading,
+    invalidate,
+  } = useCrudList({
+    queryKey: QK.univPaymentWalletTransactions.list(
+      wallet?.univPaymentWalletId,
+    ),
+    queryFn: () =>
+      listUnivPaymentWalletTransactions(wallet?.univPaymentWalletId),
     enabled: !!wallet?.univPaymentWalletId,
-  })
+  });
 
-  if (isLoading) return <WalletPageLoading />
+  if (isLoading) return <WalletPageLoading />;
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="border-b bg-[hsl(var(--primary))] px-4 py-2.5 text-white">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 shrink-0" aria-hidden />
-            <h2 className="text-sm font-semibold">University Payment Wallet</h2>
-          </div>
-        </div>
+      <div className="app-card overflow-hidden" data-page-first-card="">
+        <WalletPassbookHeader title="University Payment Wallet" />
 
-        <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-stretch">
-          <div className="flex min-h-[180px] min-w-[220px] flex-col items-center justify-center rounded-xl border bg-card px-6 py-8 shadow-sm">
-            <p className="text-sm font-medium text-muted-foreground">Wallet Balance</p>
-            <div className="mt-4 flex items-center gap-1 text-3xl font-semibold text-orange-500">
-              <IndianRupee className="h-8 w-8" aria-hidden />
-              <span className="tabular-nums">
-                {balance != null ? balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-              </span>
-            </div>
-            <p className="mt-6 text-xs text-muted-foreground">Wallet Number</p>
-            <p className="mt-1 text-sm font-medium tabular-nums">{walletNumberLabel(wallet)}</p>
-          </div>
+        <div className="flex flex-col items-stretch gap-6 p-6 lg:flex-row lg:items-center">
+          <WalletBalancePanel wallet={wallet} />
 
           <div className="flex flex-col justify-center gap-3 lg:min-w-[160px]">
             <Button
               type="button"
-              className="h-10 min-w-[140px]"
+              className={`${WALLET_ACTION_BTN} bg-[#0c51a4] text-white hover:bg-[#0a4488]`}
               disabled={!wallet}
               onClick={() => setPayOpen(true)}
             >
@@ -62,9 +56,10 @@ export function UniversityPaymentWalletPage() {
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-10 min-w-[140px] bg-amber-400 text-black hover:bg-amber-500"
-              onClick={() => router.push('/wallet/university-payment-wallet-transactions')}
+              className={`${WALLET_ACTION_BTN} bg-[#ffcf46] text-black hover:bg-[#f5c638]`}
+              onClick={() =>
+                router.push("/wallet/university-payment-wallet-transactions")
+              }
             >
               Pass Book
             </Button>
@@ -72,9 +67,19 @@ export function UniversityPaymentWalletPage() {
         </div>
       </div>
 
-      <div className="app-card overflow-hidden shadow-sm">
-        <WalletPassbookHeader title="Recent Transactions" />
-        <div className="p-4 pt-3">
+      <div className="app-card overflow-hidden">
+        <WalletPassbookHeader
+          title="Recent Transactions"
+          icon={
+            <span
+              className="material-icons text-[20px] leading-none"
+              aria-hidden
+            >
+              grid_view
+            </span>
+          }
+        />
+        <div className="px-6 pb-4 pt-3">
           <WalletTransactionTable
             rowData={wallet ? transactions : []}
             loading={txLoading}
@@ -94,31 +99,44 @@ export function UniversityPaymentWalletPage() {
         onClose={() => setPayOpen(false)}
         wallet={wallet}
         onSuccess={() => {
-          void refetchWallet()
-          void invalidate()
+          void refetchWallet();
+          void invalidate();
         }}
       />
     </PageContainer>
-  )
+  );
 }
 
 export function UniversityPaymentWalletTransactionsPage() {
-  const { wallet, isLoading } = useUnivPaymentWallet()
+  const { wallet, isLoading } = useUnivPaymentWallet();
 
   const { data: transactions = [], isLoading: txLoading } = useCrudList({
-    queryKey: QK.univPaymentWalletTransactions.list(wallet?.univPaymentWalletId),
-    queryFn: () => listUnivPaymentWalletTransactions(wallet?.univPaymentWalletId),
+    queryKey: QK.univPaymentWalletTransactions.list(
+      wallet?.univPaymentWalletId,
+    ),
+    queryFn: () =>
+      listUnivPaymentWalletTransactions(wallet?.univPaymentWalletId),
     enabled: !!wallet?.univPaymentWalletId,
-  })
+  });
 
-  if (isLoading) return <WalletPageLoading />
+  if (isLoading) return <WalletPageLoading />;
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden shadow-sm">
-        <WalletPassbookHeader title="Wallet Transactions" />
+      <div className="app-card overflow-hidden" data-page-first-card="">
+        <WalletPassbookHeader
+          title="Wallet Transactions"
+          icon={
+            <span
+              className="material-icons text-[20px] leading-none"
+              aria-hidden
+            >
+              grid_view
+            </span>
+          }
+        />
 
-        <div className="p-4 pt-3">
+        <div className="px-6 pb-4 pt-3">
           <WalletTransactionTable
             rowData={wallet ? transactions : []}
             loading={txLoading}
@@ -133,5 +151,5 @@ export function UniversityPaymentWalletTransactionsPage() {
         </div>
       </div>
     </PageContainer>
-  )
+  );
 }

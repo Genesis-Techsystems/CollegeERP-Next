@@ -1,24 +1,30 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { PrinterIcon } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
-import { SearchInput } from "@/common/components/search";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
-import { printElementInIframe } from "@/lib/print";
+import { printHtmlInIframe } from "@/lib/print";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastInfo } from "@/lib/toast";
 import { useApiQueryToasts } from "@/hooks";
-import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  isDefaultLogoUrl,
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   filterAcademicYears,
   filterColleges,
@@ -30,6 +36,7 @@ import {
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
+  getCollegeById,
   getFeeMasterCollegeFilters,
   type CollegeCourseFeeReportParams,
   type FeeCollectionReportRow,
@@ -37,40 +44,112 @@ import {
 
 const ALL = { value: "0", label: "All" };
 
-const TH: CSSProperties = {
-  padding: "8px 5px",
-  background: "#C3D9FF",
-  fontWeight: 550,
-  border: "1px solid #96aacb",
-  textAlign: "left",
-};
-
-const TD: CSSProperties = {
-  padding: "8px",
-  textAlign: "left",
-  fontWeight: 400,
-  border: "1px solid #96aacb",
-};
-
-function exportHtmlTableAsExcel(root: HTMLElement, fileName: string) {
-  const uri = "data:application/vnd.ms-excel;base64,";
-  const template =
-    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>';
-  const base64 = (s: string) => window.btoa(unescape(encodeURIComponent(s)));
-  const formatTpl = (s: string, c: Record<string, string>) =>
-    s.replace(/{(\w+)}/g, (_, p: string) => c[p] ?? "");
-  const ctx = { worksheet: "Worksheet", table: root.innerHTML };
-  const link = document.createElement("a");
-  link.download = `${fileName}.xls`;
-  link.href = uri + base64(formatTpl(template, ctx));
-  link.click();
-}
+const TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 function humanizeField(field: string): string {
   return field
     .replace(/_/g, " ")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Angular print: selected college logo only, else default_logo.png. */
+async function resolveCollegePrintLogo(collegeId: number): Promise<string> {
+  if (collegeId > 0) {
+    try {
+      const college = await getCollegeById(collegeId);
+      const raw = college?.logo ? String(college.logo).trim() : "";
+      if (raw) {
+        const url = toPrintLogoUrl(raw);
+        if (!isDefaultLogoUrl(url)) return logoToDataUrl(url);
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return logoToDataUrl(toPrintLogoUrl(DEFAULT_COLLEGE_LOGO));
+}
+
+function buildPrintHtml(args: {
+  title: string;
+  dataDetails: string;
+  collegeName: string;
+  logoSrc: string;
+  fallbackLogo: string;
+  orgCode: string | null;
+  dataFields: string[];
+  rows: FeeCollectionReportRow[];
+}): string {
+  const head = args.dataFields
+    .map((f) => `<th class="table-th">${escapeHtml(humanizeField(f))}</th>`)
+    .join("");
+  const body = args.rows
+    .map((row, i) => {
+      const cells = args.dataFields
+        .map((f) => {
+          const v = row[f];
+          return `<td class="table-td">${escapeHtml(v == null ? "" : String(v))}</td>`;
+        })
+        .join("");
+      return `<tr><td class="table-td text-center">${i + 1}</td>${cells}</tr>`;
+    })
+    .join("");
+
+  const headerHtml =
+    args.orgCode === "SUK"
+      ? `<div class="suk-header">
+      <img src="${escapeHtml(args.logoSrc)}" alt="" class="suk-logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
+      <p class="title-2">${escapeHtml(args.dataDetails)}</p>
+      <p class="title">${escapeHtml(args.title)}</p>
+    </div>`
+      : `<div class="banner-row">
+      <div class="logo-col">
+        <img src="${escapeHtml(args.logoSrc)}" alt="" class="portraitLogo"
+          onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
+      </div>
+      <div class="banner-text">
+        ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
+        <p class="title-2">${escapeHtml(args.dataDetails)}</p>
+        <p class="title">${escapeHtml(args.title)}</p>
+      </div>
+    </div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(args.title)}</title>
+<style>
+@page { size: A4 landscape; margin: 8mm; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; color: #000; font-family: Arial, sans-serif; font-size: 10px; }
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 10px; }
+.logo-col { width: 12%; flex-shrink: 0; text-align: center; }
+.portraitLogo { width: 80%; max-width: 96px; height: auto; object-fit: contain; }
+.banner-text { width: 88%; text-align: left; }
+.suk-header { text-align: center; margin-bottom: 10px; }
+.suk-logo { max-width: 100%; height: auto; object-fit: contain; margin-bottom: 8px; }
+.collegeName { margin: 0 0 4px; font-size: 18px; font-weight: 550; }
+.title-2 { margin: 2px 0; font-size: 14px; font-weight: 550; }
+.title { margin: 2px 0 8px; font-size: 16px; font-weight: 550; }
+table { width: 100%; border-collapse: collapse; }
+.table-th { padding: 8px 5px; background: #c3d9ff; font-weight: 550; border: 1px solid #96aacb; text-align: left; }
+.table-td { padding: 6px 8px; border: 1px solid #96aacb; text-align: left; }
+.text-center { text-align: center; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+</style></head>
+<body>
+${headerHtml}
+<table>
+<thead><tr><th class="table-th">S.No</th>${head}</tr></thead>
+<tbody>${body}</tbody>
+</table>
+</body></html>`;
 }
 
 export type DynamicCollegeCourseFeeReportPageProps = {
@@ -111,14 +190,10 @@ export function DynamicCollegeCourseFeeReportPage({
   const [loadKey, setLoadKey] = useState<string | null>(null);
   const [dataDetails, setDataDetails] = useState("");
   const [collegeName, setCollegeName] = useState("");
-  const [search, setSearch] = useState("");
-  const excelRef = useRef<HTMLDivElement>(null);
-  const printRef = useRef<HTMLDivElement>(null);
 
   const collegeNum = Number(collegeId ?? 0);
   const courseNum = Number(courseId ?? 0);
   const ayNum = Number(academicYearId ?? 0);
-  const logoUrl = useCollegeLogo(collegeNum || null);
 
   const { data: filterBundle, isLoading: loadingFilters } = useQuery({
     queryKey: [filterQueryKey, "filters", orgId, employeeId],
@@ -355,25 +430,13 @@ export function DynamicCollegeCourseFeeReportPage({
     return Object.keys(rows[0]!).filter((k) => k !== "__rowKey");
   }, [rows]);
 
-  const filteredRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      Object.values(r).some((v) =>
-        String(v ?? "")
-          .toLowerCase()
-          .includes(q),
-      ),
-    );
-  }, [rows, search]);
-
   const tableRows = useMemo(
     () =>
-      filteredRows.map((row, i) => ({
+      rows.map((row, i) => ({
         ...row,
         __rowKey: `row-${i}`,
       })),
-    [filteredRows],
+    [rows],
   );
 
   const columnDefs = useMemo<ColDef<FeeCollectionReportRow>[]>(() => {
@@ -383,6 +446,7 @@ export function DynamicCollegeCourseFeeReportPage({
         headerName: "S.No",
         valueGetter: rowIndexGetter,
         width: 70,
+        minWidth: 70,
         flex: 0,
       },
     ];
@@ -390,8 +454,9 @@ export function DynamicCollegeCourseFeeReportPage({
       defs.push({
         field,
         headerName: humanizeField(field),
-        minWidth: 110,
-        flex: 1,
+        minWidth: 120,
+        width: 130,
+        flex: 0,
         valueGetter: (p) => {
           const v = p.data?.[field];
           return v == null ? "" : String(v);
@@ -404,7 +469,6 @@ export function DynamicCollegeCourseFeeReportPage({
   function clearResults() {
     setLoadKey(null);
     setDataDetails("");
-    setSearch("");
   }
 
   function handleGetList() {
@@ -435,7 +499,6 @@ export function DynamicCollegeCourseFeeReportPage({
       pickText(collegeRow, ["college_name", "collegeName"]) || parts[0] || "",
     );
     setDataDetails(parts.filter(Boolean).join(" / "));
-    setSearch("");
     resetApiToast();
     setLoadKey(
       JSON.stringify({
@@ -449,51 +512,63 @@ export function DynamicCollegeCourseFeeReportPage({
   }
 
   function handleExportExcel() {
-    if (!excelRef.current) return;
-    exportHtmlTableAsExcel(excelRef.current, title);
-  }
-
-  function handlePrint() {
-    if (!printRef.current) return;
-    printElementInIframe(printRef.current, title, {
-      extraCss: `
-        @page { margin: 0.8cm; size: landscape; }
-        html, body { background: #fff !important; }
-        .coll-print { width: 100%; color: #000; }
-        .coll-print .collegeName, .coll-print .title, .coll-print .title-2 {
-          text-align: left !important;
-          font-weight: 550 !important;
-          margin: 2px 0 !important;
-        }
-        .coll-print table { width: 100%; border-collapse: collapse; }
-        .coll-print th, .coll-print td {
-          border: 1px solid #96aacb; padding: 4px 6px; font-size: 10px;
-        }
-        .coll-print th {
-          background: #C3D9FF !important;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-        .coll-print img.portraitLogo {
-          height: 80px; width: auto; max-width: 120px; object-fit: contain;
-        }
-      `,
+    if (!rows.length) {
+      toastInfo("No data to export");
+      return;
+    }
+    const cols = [
+      { key: "si", header: "S.No" },
+      ...dataFields.map((f) => ({ key: f, header: humanizeField(f) })),
+    ];
+    const exportRows = rows.map((row, i) => {
+      const out: Record<string, unknown> = { si: i + 1 };
+      for (const f of dataFields) out[f] = row[f] ?? "";
+      return out;
     });
+    exportHtmlTableAsExcel(
+      title,
+      buildHtmlTable(cols, exportRows),
+      `<strong>${escapeHtml(title)} - ${escapeHtml(dataDetails)}</strong>`,
+    );
   }
 
-  const resultsVisible = loadKey != null && !isFetching && rows.length > 0;
+  const handlePrint = useCallback(async () => {
+    if (!rows.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    const logoSrc = await resolveCollegePrintLogo(collegeNum);
+    const fallbackLogo = await logoToDataUrl(
+      toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+    );
+    printHtmlInIframe(
+      buildPrintHtml({
+        title,
+        dataDetails,
+        collegeName,
+        logoSrc,
+        fallbackLogo,
+        orgCode,
+        dataFields,
+        rows,
+      }),
+    );
+  }, [rows, collegeNum, title, dataDetails, collegeName, orgCode, dataFields]);
+
+  const hasRows = rows.length > 0;
+  const displayTitle =
+    hasRows && dataDetails ? `${title} — ${dataDetails}` : title;
 
   return (
     <FilteredListPage<FeeCollectionReportRow>
-      title={title}
+      title={displayTitle}
+      filterTitle={title}
       className="relative"
       filters={
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[150px] flex-1">
+        <>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="College *">
               <Select
-                label="College"
-                required
                 value={collegeId}
                 onChange={(v) => {
                   setCollegeId(v);
@@ -507,10 +582,9 @@ export function DynamicCollegeCourseFeeReportPage({
                 placeholder="College"
                 isLoading={loadingFilters}
               />
-            </div>
-            <div className="min-w-[150px] flex-1">
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year">
               <Select
-                label="Academic Year"
                 value={academicYearId}
                 onChange={(v) => {
                   setAcademicYearId(v);
@@ -523,10 +597,9 @@ export function DynamicCollegeCourseFeeReportPage({
                 placeholder="Academic Year"
                 disabled={!collegeId}
               />
-            </div>
-            <div className="min-w-[150px] flex-1">
+            </GlobalFilterField>
+            <GlobalFilterField label="Course">
               <Select
-                label="Course"
                 value={courseId}
                 onChange={(v) => {
                   applyCourseCascade(v);
@@ -536,10 +609,9 @@ export function DynamicCollegeCourseFeeReportPage({
                 placeholder="Course"
                 disabled={!collegeId}
               />
-            </div>
-            <div className="min-w-[150px] flex-1">
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Group">
               <Select
-                label="Course Group"
                 value={courseGroupId}
                 onChange={(v) => {
                   applyGroupCascade(v ?? "0");
@@ -549,12 +621,11 @@ export function DynamicCollegeCourseFeeReportPage({
                 placeholder="Course Group"
                 disabled={!courseId}
               />
-            </div>
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[150px] flex-1">
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+          <GlobalFilterBarRow>
+            <GlobalFilterField label="Course Year">
               <Select
-                label="Course Year"
                 value={courseYearId}
                 onChange={(v) => {
                   setCourseYearId(v ?? "0");
@@ -564,144 +635,53 @@ export function DynamicCollegeCourseFeeReportPage({
                 placeholder="Course Year"
                 disabled={!courseId}
               />
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              disabled={isFetching || !collegeId}
-              onClick={handleGetList}
+            </GlobalFilterField>
+            <GlobalFilterField
+              label=""
+              className="global-filter-field--shrink global-filter-field--action"
             >
-              {isFetching ? "Loading…" : "Get List"}
-            </Button>
-          </div>
-        </div>
-      }
-      filtersFooter={
-        resultsVisible && dataDetails ? (
-          <p className="text-sm font-semibold text-blue-600">{dataDetails}</p>
-        ) : null
+              <Button
+                type="button"
+                size="sm"
+                disabled={isFetching || !collegeId}
+                onClick={handleGetList}
+              >
+                {isFetching ? "Loading…" : "Get List"}
+              </Button>
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+        </>
       }
       rowData={tableRows}
       columnDefs={columnDefs}
       loading={isFetching}
-      resultsVisible={resultsVisible}
-      height="auto"
+      showTable={hasRows}
+      resultsVisible={hasRows}
+      fitColumnsToWidth={false}
       pagination
       columnFilters={false}
       getRowId={(p) => String(p.data?.__rowKey ?? "")}
-      toolbar={{
-        search: false,
-        exportExcel: true,
-        exportPdf: false,
-        columnPicker: false,
-        excelDocumentTitle: title,
-        excelFileName: `${title}.xls`,
-      }}
-      toolbarLeading={
-        <div className="min-w-[200px] max-w-xs flex-1">
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search"
-          />
-        </div>
-      }
-      onExportExcel={handleExportExcel}
+      toolbar={TOOLBAR}
       toolbarTrailing={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-          onClick={handlePrint}
-          disabled={!resultsVisible}
-        >
-          <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
-          Print Report
-        </Button>
-      }
-    >
-      {resultsVisible ? (
-        <div ref={excelRef} className="hidden" aria-hidden>
-          <h3>
-            {title} - {dataDetails}
-          </h3>
-          <table>
-            <thead>
-              <tr>
-                <th style={TH}>S.No</th>
-                {dataFields.map((f) => (
-                  <th key={`h-${f}`} style={TH}>
-                    {humanizeField(f)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row, i) => (
-                <tr key={`excel-${i}`}>
-                  <td style={TD}>{i + 1}</td>
-                  {dataFields.map((f) => (
-                    <td key={`e-${i}-${f}`} style={TD}>
-                      {row[f] == null ? "" : String(row[f])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
-
-      {resultsVisible ? (
-        <div className="pointer-events-none absolute -left-[9999px] top-0 w-[1200px] bg-white text-black">
-          <div ref={printRef} className="coll-print bg-white p-4 text-black">
-            <div className="mb-2 flex items-start gap-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoUrl || DEFAULT_COLLEGE_LOGO}
-                alt=""
-                className="portraitLogo shrink-0"
-                onError={(e) => {
-                  const img = e.currentTarget;
-                  if (!img.src.endsWith("default_logo.png")) {
-                    img.src = DEFAULT_COLLEGE_LOGO;
-                  }
-                }}
-              />
-              <div>
-                {orgCode !== "SUK" ? (
-                  <p className="collegeName">{collegeName}</p>
-                ) : null}
-                <p className="title">{dataDetails}</p>
-                <p className="title-2">{title}</p>
-              </div>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>S.No</th>
-                  {dataFields.map((f) => (
-                    <th key={`ph-${f}`}>{humanizeField(f)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRows.map((row, i) => (
-                  <tr key={`print-${i}`}>
-                    <td>{i + 1}</td>
-                    {dataFields.map((f) => (
-                      <td key={`p-${i}-${f}`}>
-                        {row[f] == null ? "" : String(row[f])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        hasRows ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={handleExportExcel}
+            >
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => void handlePrint()}
+            >
+              Print Report
+            </Button>
           </div>
-        </div>
-      ) : null}
-    </FilteredListPage>
+        ) : null
+      }
+    />
   );
 }

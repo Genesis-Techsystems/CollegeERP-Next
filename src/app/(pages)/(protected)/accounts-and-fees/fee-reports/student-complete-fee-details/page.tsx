@@ -709,12 +709,7 @@ export default function StudentCompleteFeeDetailsPage() {
               <Button type="button" size="sm" onClick={handleExportExcel}>
                 Export Excel
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={handlePrint}
-              >
+              <Button type="button" size="sm" onClick={handlePrint}>
                 <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
                 Print Report
               </Button>

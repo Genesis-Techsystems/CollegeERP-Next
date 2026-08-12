@@ -230,7 +230,7 @@ export default function ExamcenterProfilesReportPage() {
     <GlobalFilterBarRow>
       <GlobalFilterField label="Exam Centers *">
         <Select
-          value={univExamCentersId || undefined}
+          value={univExamCentersId || null}
           onChange={(v) => {
             setUnivExamCentersId(v ?? "");
             setRows([]);
@@ -246,7 +246,7 @@ export default function ExamcenterProfilesReportPage() {
       </GlobalFilterField>
       <GlobalFilterField label="Select Role">
         <Select
-          value={profileRoleId || undefined}
+          value={profileRoleId || null}
           onChange={(v) => {
             setProfileRoleId(v ?? "");
             setRows([]);
@@ -286,6 +286,7 @@ export default function ExamcenterProfilesReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={

@@ -1,52 +1,54 @@
-'use client'
+"use client";
 
-import dynamic from 'next/dynamic'
-import { useMemo, type ComponentType } from 'react'
-import type { DataTableProps } from '@/common/components/table'
-import type { UnivPaymentWalletTransaction } from '@/types/univ-wallet'
-import { WalletPageLoading } from './WalletPageLoading'
-import { buildWalletTransactionColumnDefs } from '../_lib/wallet-transaction-columns'
+import dynamic from "next/dynamic";
+import { useMemo, type ComponentType } from "react";
+import type { DataTableProps } from "@/common/components/table";
+import type { UnivPaymentWalletTransaction } from "@/types/univ-wallet";
+import { WalletPageLoading } from "./WalletPageLoading";
+import { buildWalletTransactionColumnDefs } from "../_lib/wallet-transaction-columns";
 
 const DataTable = dynamic(
-  () => import('@/common/components/table').then((m) => ({ default: m.DataTable })),
+  () =>
+    import("@/common/components/table").then((m) => ({ default: m.DataTable })),
   { loading: () => <WalletPageLoading /> },
-) as ComponentType<DataTableProps<UnivPaymentWalletTransaction>>
+) as ComponentType<DataTableProps<UnivPaymentWalletTransaction>>;
 
 type WalletTransactionTableProps = {
-  rowData: UnivPaymentWalletTransaction[]
-  loading?: boolean
-  title: string
-  searchPlaceholder?: string
-  pdfDocumentTitle?: string
+  rowData: UnivPaymentWalletTransaction[];
+  loading?: boolean;
+  title: string;
+  searchPlaceholder?: string;
+  pdfDocumentTitle?: string;
   /** When true, omit outer app-card shell (for embedding inside a parent card). */
-  embedded?: boolean
+  embedded?: boolean;
   /** Hide the duplicate title inside the DataTable toolbar (Angular passbook uses card header only). */
-  hideToolbarTitle?: boolean
+  hideToolbarTitle?: boolean;
   /** Extra class on the table wrapper (e.g. wallet-passbook-table). */
-  tableClassName?: string
+  tableClassName?: string;
   /** Flat layout — no inner bordered card around the grid. */
-  flat?: boolean
-}
+  flat?: boolean;
+};
 
 export function WalletTransactionTable({
   rowData,
   loading = false,
   title,
-  searchPlaceholder = 'Search…',
+  searchPlaceholder = "Search…",
   pdfDocumentTitle,
   embedded = false,
   hideToolbarTitle = false,
   tableClassName,
   flat = false,
 }: WalletTransactionTableProps) {
-  const columnDefs = useMemo(() => buildWalletTransactionColumnDefs(), [])
+  const columnDefs = useMemo(() => buildWalletTransactionColumnDefs(), []);
 
-  const innerShellClass = flat || !embedded
-    ? 'overflow-hidden'
-    : 'rounded-lg border border-border bg-card overflow-hidden'
+  const innerShellClass =
+    flat || !embedded
+      ? "overflow-hidden"
+      : "rounded-lg border border-border bg-card overflow-hidden";
 
   const table = (
-    <div className={embedded ? 'px-0 pb-0' : 'px-0 pb-0'}>
+    <div className={embedded ? "px-0 pb-0" : "px-0 pb-0"}>
       <div className={innerShellClass}>
         <div className={tableClassName}>
           <DataTable
@@ -60,18 +62,18 @@ export function WalletTransactionTable({
               searchPlaceholder,
               pdfDocumentTitle: pdfDocumentTitle ?? title,
             }}
-            toolbarLeading={hideToolbarTitle ? undefined : <h2 className="app-card-title">{title}</h2>}
+            toolbarLeading={
+              hideToolbarTitle ? undefined : (
+                <h2 className="app-card-title">{title}</h2>
+              )
+            }
           />
         </div>
       </div>
     </div>
-  )
+  );
 
-  if (embedded) return table
+  if (embedded) return table;
 
-  return (
-    <div className="app-card overflow-hidden">
-      {table}
-    </div>
-  )
+  return <div className="app-card overflow-hidden">{table}</div>;
 }

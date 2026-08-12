@@ -780,6 +780,7 @@ export default function DailyEvaluatedReportPage() {
     <FilteredListPage
       title="Daily Evaluated Report"
       filters={filters}
+      showTable={rows.length > 0}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}

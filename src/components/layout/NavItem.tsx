@@ -3435,6 +3435,21 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return "/reports/admin-hr-reports/employee-detail-report";
       }
+      // Management Reports — Income & Expense Report
+      // Page exists at /reports/management-reports/income-expense-report.
+      // DB may still send finance-reports/income-expenses-summary-report → 404 without this pin.
+      if (
+        hrefLower.includes("income-expense-report") ||
+        hrefLower.includes("income-and-expense-report") ||
+        hrefLower.includes("income-expenses-summary-report") ||
+        (labelLower.includes("income") &&
+          labelLower.includes("expense") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("day-wise") &&
+          !(labelLower.includes("day") && labelLower.includes("wise")))
+      ) {
+        return "/reports/management-reports/income-expense-report";
+      }
       // Management Reports
       if (
         hrefLower.includes("inventory-stock-report") ||

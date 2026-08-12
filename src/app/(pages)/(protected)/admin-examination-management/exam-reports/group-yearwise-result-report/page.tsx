@@ -24,7 +24,7 @@ import {
   getGroupYearwiseBaseFilters,
   getGroupYearwiseRestFilters,
   getGroupYearwiseResultReport,
-  type AnyRow,
+  type GroupYearwiseResultRow,
 } from "@/services/group-yearwise-result-report";
 
 const toastInfo = (msg: string) => toast.info(msg);
@@ -38,7 +38,7 @@ const TOOLBAR = {
   columnFilters: false,
 } as const;
 
-function formatExamLabel(exam: AnyRow): string {
+function formatExamLabel(exam: GroupYearwiseResultRow): string {
   const name = txt(exam.exam_name);
   const from = txt(exam.from_date).slice(0, 10);
   const to = txt(exam.to_date).slice(0, 10);
@@ -60,7 +60,7 @@ function escapeHtml(value: string): string {
 }
 
 function printGroupYearwiseReport(
-  rows: AnyRow[],
+  rows: GroupYearwiseResultRow[],
   columnKeys: string[],
   subtitle: string,
 ) {
@@ -112,9 +112,9 @@ export default function GroupYearwiseResultReportPage() {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
 
-  const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
-  const [restRows, setRestRows] = useState<AnyRow[]>([]);
-  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [baseRows, setBaseRows] = useState<GroupYearwiseResultRow[]>([]);
+  const [restRows, setRestRows] = useState<GroupYearwiseResultRow[]>([]);
+  const [rows, setRows] = useState<GroupYearwiseResultRow[]>([]);
   const [columnKeys, setColumnKeys] = useState<string[]>([]);
 
   const [courseId, setCourseId] = useState("");
@@ -147,8 +147,7 @@ export default function GroupYearwiseResultReportPage() {
     const ay = Number(academicYearId);
     return dedupeBy(
       baseRows.filter(
-        (r) =>
-          num(r.fk_course_id) === cid && num(r.fk_academic_year_id) === ay,
+        (r) => num(r.fk_course_id) === cid && num(r.fk_academic_year_id) === ay,
       ),
       (r) => num(r.fk_exam_id),
     );
@@ -168,7 +167,9 @@ export default function GroupYearwiseResultReportPage() {
   }, [restRows, collegeId]);
 
   const collegeCode = useMemo(() => {
-    const row = colleges.find((c) => num(c.fk_college_id) === Number(collegeId));
+    const row = colleges.find(
+      (c) => num(c.fk_college_id) === Number(collegeId),
+    );
     return txt(row?.college_code);
   }, [colleges, collegeId]);
 
@@ -339,9 +340,9 @@ export default function GroupYearwiseResultReportPage() {
     );
   }
 
-  const columnDefs = useMemo((): ColDef<AnyRow>[] => {
+  const columnDefs = useMemo((): ColDef<GroupYearwiseResultRow>[] => {
     const dynamic = columnKeys.map(
-      (key): ColDef<AnyRow> => ({
+      (key): ColDef<GroupYearwiseResultRow> => ({
         headerName: key,
         field: key,
         minWidth: 110,
@@ -500,11 +501,10 @@ export default function GroupYearwiseResultReportPage() {
               </Button>
             </div>
           }
-          getRowId={(p) =>
-            String(
-              columnKeys.map((k) => txt(p.data?.[k])).join("|") || p.rowIndex,
-            )
-          }
+          getRowId={(p) => {
+            const key = columnKeys.map((k) => txt(p.data?.[k])).join("|");
+            return key || JSON.stringify(p.data ?? {});
+          }}
         />
       )}
     </FilteredPage>

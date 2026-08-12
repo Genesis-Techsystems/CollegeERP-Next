@@ -16,7 +16,11 @@ import {
   type DocRow,
   type MetricBlock,
 } from "../_data/ssr-extended-data";
-import { QIF_CRITERIA, type QifDocRow, type QifMetric } from "../_data/ssr-qif-data";
+import {
+  QIF_CRITERIA,
+  type QifDocRow,
+  type QifMetric,
+} from "../_data/ssr-qif-data";
 import { naacTabListClass } from "../_components/NaacSection";
 import { ExtendedProfileTab } from "./_components/ExtendedProfileTab";
 import { QifTab } from "./_components/QifTab";
@@ -34,7 +38,9 @@ const tabTriggerClass = cn(
  * `#dynamicQuestionnaire` (Extended Profile) + `#preparessr` (QIF).
  */
 export default function SsrExtendedProfilePage() {
-  const [yearValues, setYearValues] = useState<Record<string, Record<string, string>>>({});
+  const [yearValues, setYearValues] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [singleValues, setSingleValues] = useState<Record<string, string>>({});
   const [docs, setDocs] = useState<Record<string, string>>({});
   const [links, setLinks] = useState<Record<string, string>>({});

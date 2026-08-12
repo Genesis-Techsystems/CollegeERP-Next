@@ -94,11 +94,15 @@ export function FilteredPage({
           collapsible={filtersCollapsible}
           defaultOpen={filtersDefaultOpen}
           showFilterLabel={showFilterLabel}
+          pageFirstCard={notice == null}
         >
           {filters}
         </AngularFilterCard>
       ) : (
-        <div className="app-card angular-filter-card overflow-hidden p-4">
+        <div
+          className="app-card angular-filter-card overflow-hidden p-4"
+          {...(notice == null ? { "data-page-first-card": "" } : {})}
+        >
           {filters}
         </div>
       )}

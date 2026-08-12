@@ -71,9 +71,7 @@ function subjectLabel(row: AnyRow): string {
 function studentRenderer(p: ICellRendererParams<AnyRow>) {
   const name = txt(p.data?.firstName ?? p.data?.first_name);
   const ht = txt(
-    p.data?.hallticketNo ??
-      p.data?.hallticket_no ??
-      p.data?.hallticketNumber,
+    p.data?.hallticketNo ?? p.data?.hallticket_no ?? p.data?.hallticketNumber,
   );
   if (!name && !ht) return null;
   return (
@@ -241,7 +239,7 @@ export default function ExamcenterAnswerpaperBagsReportPage() {
     <GlobalFilterBarRow>
       <GlobalFilterField label="Exam Bags *">
         <Select
-          value={univExamBagId || undefined}
+          value={univExamBagId || null}
           onChange={(v) => {
             setUnivExamBagId(v ?? "");
             setRows([]);
@@ -282,6 +280,7 @@ export default function ExamcenterAnswerpaperBagsReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={

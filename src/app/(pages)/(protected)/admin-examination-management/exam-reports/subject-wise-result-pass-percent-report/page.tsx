@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
@@ -16,13 +16,23 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import { exportHtmlTableAsExcel } from "../../_lib/export-html-table";
 import {
   getSubjectWisePassPercentBaseFilters,
   getSubjectWisePassPercentReport,
   getSubjectWisePassPercentRestFilters,
-  type AnyRow,
+  listCollegesActive,
 } from "@/services";
+
+type AnyRow = Record<string, unknown>;
+
+const REPORT_TITLE = "Subject Wise Result Percentage Report";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -32,6 +42,7 @@ const TOOLBAR = {
   columnPicker: true,
   exportPdf: false,
   exportExcel: false,
+  columnFilters: false,
 } as const;
 
 const GROUP_HEADER = "app-table-header-group";
@@ -78,100 +89,187 @@ function rowMetrics(row: AnyRow) {
   };
 }
 
-function buildExportTable(rows: AnyRow[], subtitle: string): string {
+function buildDataDetails(parts: {
+  courseCode: string;
+  courseYearCode: string;
+  examName: string;
+}): string {
+  let details = "";
+  if (parts.courseCode) details = parts.courseCode;
+  if (parts.courseYearCode) details += ` / ${parts.courseYearCode}`;
+  if (parts.examName) details += ` / ${parts.examName}`;
+  return details;
+}
+
+/** Angular getColleges(): first college logo for selected course's university. */
+async function resolveUniversityPrintLogo(
+  universityId: number,
+): Promise<string> {
+  if (universityId > 0) {
+    try {
+      const colleges = await listCollegesActive();
+      const match = colleges.find(
+        (c) =>
+          num(c.universityId ?? c.university_id ?? c.fk_university_id) ===
+          universityId,
+      );
+      const logo = txt(match?.logo);
+      if (logo) return logoToDataUrl(toPrintLogoUrl(logo));
+    } catch {
+      /* fall through */
+    }
+  }
+  return logoToDataUrl(toPrintLogoUrl(DEFAULT_COLLEGE_LOGO));
+}
+
+function buildExportTable(rows: AnyRow[]): string {
   const body = rows
     .map((row, i) => {
       const m = rowMetrics(row);
       return `<tr>
-<td>${i + 1}</td>
-<td>${escapeHtml(txt(row.course_year_code))}</td>
-<td>${escapeHtml(txt(row.subject_name))}</td>
-<td>${escapeHtml(txt(row.registered))}</td>
-<td>${escapeHtml(txt(row.Appeared))}</td>
-<td>${escapeHtml(txt(row.passed))}</td>
-<td>${escapeHtml(txt(row.Passed_percent))}</td>
-<td>${escapeHtml(txt(row.Count_of_above_55_percent))}</td>
-<td>${escapeHtml(txt(row.Percent_of_above_55_percent))}</td>
-<td>${escapeHtml(txt(row.Passed_after_moderation))}</td>
-<td>${escapeHtml(txt(row.Passed_after_moderation_percent))}</td>
-<td>${escapeHtml(txt(row.Moderation_marks_awarded))}</td>
-<td>${m.modBenefit}</td>
-<td>${escapeHtml(txt(row.Passed_after_grace))}</td>
-<td>${escapeHtml(txt(row.Passed_after_grace_percent))}</td>
-<td>${m.graceBenefit}</td>
-<td>${m.combinedBenefit}</td>
-<td>${escapeHtml(txt(row.Passed_after_grace_percent))}</td>
+<td class="table-td" style="text-align:center">${i + 1}</td>
+<td class="table-td">${escapeHtml(txt(row.course_year_code))}</td>
+<td class="table-td">${escapeHtml(txt(row.subject_name))}</td>
+<td class="table-td">${escapeHtml(txt(row.registered))}</td>
+<td class="table-td">${escapeHtml(txt(row.Appeared))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.passed))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed_percent))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Count_of_above_55_percent))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Percent_of_above_55_percent))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed_after_moderation))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed_after_moderation_percent))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Moderation_marks_awarded))}</td>
+<td class="table-td" style="text-align:center">${m.modBenefit}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed_after_grace))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed_after_grace_percent))}</td>
+<td class="table-td" style="text-align:center">${m.graceBenefit}</td>
+<td class="table-td" style="text-align:center">${m.combinedBenefit}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed_after_grace_percent))}</td>
 </tr>`;
     })
     .join("");
 
-  return `<table border="1" cellspacing="0" cellpadding="4">
+  return `<table border="1" cellspacing="0" cellpadding="4" class="mar">
 <thead>
-<tr style="display:none"><th colspan="18">Subject Wise Pass Percentage Report (${escapeHtml(subtitle)})</th></tr>
 <tr>
-<th colspan="5"></th>
-<th colspan="4">Before Moderation</th>
-<th colspan="4">After Moderation</th>
-<th colspan="3">After Grace Marks</th>
-<th></th><th></th>
+<th class="table-th" colspan="5"></th>
+<th class="table-th" colspan="4" style="text-align:center">Before Moderation</th>
+<th class="table-th" colspan="4" style="text-align:center">After Moderation</th>
+<th class="table-th" colspan="3" style="text-align:center">After Grace Marks</th>
+<th class="table-th"></th><th class="table-th"></th>
 </tr>
 <tr>
-<th>S.No</th><th>Semester</th><th>Subject</th><th>Registered</th><th>Appeared</th>
-<th>Passed</th><th>Pass %</th><th>&gt;=55% Marks</th><th>&gt;=55 %Age</th>
-<th>Passed</th><th>Pass %</th><th>Moderation Marks Awarded</th><th>No.of Students Benefited</th>
-<th>Passed</th><th>Pass %</th><th>No.of Students Benefited</th>
-<th>No.of Students Benefited after Moderation and Grace</th><th>Final Pass %</th>
+<th class="table-th">S.No</th><th class="table-th">Semester</th><th class="table-th">Subject</th><th class="table-th">Registered</th><th class="table-th">Appeared</th>
+<th class="table-th">Passed</th><th class="table-th">Pass %</th><th class="table-th">&gt;=55% Marks</th><th class="table-th">&gt;=55 %Age</th>
+<th class="table-th">Passed</th><th class="table-th">Pass %</th><th class="table-th">Moderation Marks Awarded</th><th class="table-th">No.of Students Benefited</th>
+<th class="table-th">Passed</th><th class="table-th">Pass %</th><th class="table-th">No.of Students Benefited</th>
+<th class="table-th">No.of Students Benefited after Moderation and Grace</th><th class="table-th">Final Pass %</th>
 </tr>
 </thead>
 <tbody>${body}</tbody>
-</table>`;
+</table>
+<table class="instructtable"><tr><td colspan="100%">
+<p><strong>Moderation Marks :</strong></p>
+<ol>
+<li>If the pass in a subject is &lt; 30% then 4 is added.</li>
+<li>If the percentage of students getting 55% of marks in a subject is &lt; 70%, then 4 is added.</li>
+<li>If the both the above conditions are met then 2 moderations are added in a subject.</li>
+</ol>
+</td></tr></table>`;
 }
 
-function printReport(rows: AnyRow[], subtitle: string) {
-  if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Subject Wise Result Percentage Report</title>
+function buildPrintHtml(
+  rows: AnyRow[],
+  opts: {
+    logoSrc: string;
+    fallbackLogo: string;
+    universityName: string;
+    examName: string;
+    courseYearCode: string;
+    orgCode: string;
+  },
+): string {
+  const semesterLine =
+    opts.courseYearCode.trim() !== ""
+      ? `<p class="semester">Semester : ${escapeHtml(opts.courseYearCode)}</p>`
+      : "";
+
+  const headerHtml =
+    opts.orgCode === "SUK"
+      ? `<div class="suk-header">
+      <img src="${escapeHtml(opts.logoSrc)}" alt="" class="suk-logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(opts.fallbackLogo)}'" />
+      <p class="clgname">${escapeHtml(opts.universityName)}</p>
+      <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+      <p class="exam">${escapeHtml(opts.examName)}</p>
+    </div>`
+      : `<div class="banner-row">
+      <div class="logo-col">
+        <img src="${escapeHtml(opts.logoSrc)}" alt="" class="portraitLogo"
+          onerror="this.onerror=null;this.src='${escapeHtml(opts.fallbackLogo)}'" />
+      </div>
+      <div class="banner-text">
+        <p class="collegeName">${escapeHtml(opts.universityName)}</p>
+        <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+        <p class="details">${escapeHtml(opts.examName)}</p>
+      </div>
+    </div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
-@page { size: A4 landscape; margin: 8mm; }
-body { font: 10px/1.3 Arial, sans-serif; color: #000; margin: 0; }
-.title { text-align: center; font-size: 14px; font-weight: bold; margin: 4px 0; }
-.sub { text-align: center; margin: 2px 0 8px; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #000; padding: 3px 4px; text-align: left; }
-th { background: #f2f2f2; }
-.note { margin-top: 10px; font-size: 10px; }
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; color: #000; font-family: "Times New Roman", Times, serif; font-size: 12px; }
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 8px; }
+.logo-col { width: 12%; flex-shrink: 0; text-align: center; }
+.portraitLogo { width: 80%; height: auto; object-fit: contain; }
+.banner-text { width: 88%; text-align: center; }
+.suk-header { text-align: center; margin-bottom: 10px; }
+.suk-logo { max-width: 100%; height: auto; object-fit: contain; margin-bottom: 8px; }
+.collegeName { margin: 18px 0 -3px; font-size: 20px; font-weight: 550; text-align: center; font-family: Arial, sans-serif; }
+.title { margin: 4px 0; font-size: 18px; font-weight: 550; text-align: center; font-family: Arial, sans-serif; }
+.details, .exam { margin: 4px 0; font-size: 18px; text-align: center; font-family: Arial, sans-serif; }
+.clgname { margin: 0; font-size: 30px; font-weight: 550; text-transform: capitalize; font-family: Arial, sans-serif; }
+.semester { text-align: left; margin: 6px 0 8px; font-family: Arial, sans-serif; }
+.mar { width: 100%; border-collapse: collapse; margin: 0; }
+.table-th { padding: 8px 5px; background: #c3d9ff; font-weight: 550; border: 1px solid #000; }
+.table-td { padding: 8px; border: 1px solid #000; }
+.instructtable { width: 100%; margin-top: 10px; font-family: Arial, sans-serif; font-size: 11px; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 </style></head>
 <body>
-  <p class="title">Subject Wise Result Percentage Report</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildExportTable(rows, subtitle)}
-  <div class="note"><strong>Moderation Marks :</strong>
-    <ol>
-      <li>If the pass in a subject is &lt; 30% then 4 is added.</li>
-      <li>If the percentage of students getting 55% of marks in a subject is &lt; 70%, then 4 is added.</li>
-      <li>If the both the above conditions are met then 2 moderations are added in a subject.</li>
-    </ol>
-  </div>
+${headerHtml}
+${semesterLine}
+${buildExportTable(rows)}
 </body></html>`;
+}
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+async function printReport(
+  rows: AnyRow[],
+  printMeta: {
+    universityName: string;
+    examName: string;
+    courseYearCode: string;
+    universityId: number;
+  },
+  orgCode: string,
+) {
+  if (!rows.length) return;
+  const logoSrc = await resolveUniversityPrintLogo(printMeta.universityId);
+  const fallbackLogo = await logoToDataUrl(
+    toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+  );
+  printHtmlInIframe(
+    buildPrintHtml(rows, {
+      logoSrc,
+      fallbackLogo,
+      universityName: printMeta.universityName,
+      examName: printMeta.examName,
+      courseYearCode: printMeta.courseYearCode,
+      orgCode,
+    }),
+  );
 }
 
 /**
@@ -185,6 +283,13 @@ export default function SubjectWiseResultPassPercentReportPage() {
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
   const [restRows, setRestRows] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [dataDetails, setDataDetails] = useState("");
+  const [printMeta, setPrintMeta] = useState({
+    universityName: "",
+    examName: "",
+    courseYearCode: "",
+    universityId: 0,
+  });
 
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -195,6 +300,10 @@ export default function SubjectWiseResultPassPercentReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  const orgCode =
+    typeof globalThis.localStorage !== "undefined"
+      ? String(globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
 
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
@@ -231,26 +340,15 @@ export default function SubjectWiseResultPassPercentReportPage() {
     );
   }, [restRows]);
 
-  const reportSubtitle = useMemo(() => {
-    const parts = [
-      txt(
-        courses.find((c) => num(c.fk_course_id) === Number(courseId))
-          ?.course_code,
-      ),
-      Number(courseYearId)
-        ? txt(
-            courseYears.find(
-              (y) => num(y.fk_course_year_id) === Number(courseYearId),
-            )?.course_year_code,
-          )
-        : "",
-      txt(exams.find((e) => num(e.fk_exam_id) === Number(examId))?.exam_name),
-    ].filter(Boolean);
-    return parts.join(" / ");
-  }, [courses, courseYears, exams, courseId, courseYearId, examId]);
-
   function clearResults() {
     setRows([]);
+    setDataDetails("");
+    setPrintMeta({
+      universityName: "",
+      examName: "",
+      courseYearCode: "",
+      universityId: 0,
+    });
   }
 
   useEffect(() => {
@@ -353,6 +451,24 @@ export default function SubjectWiseResultPassPercentReportPage() {
     }
     setLoadingList(true);
     try {
+      const courseRow = courses.find(
+        (c) => num(c.fk_course_id) === Number(courseId),
+      );
+      const examRow = exams.find((e) => num(e.fk_exam_id) === Number(examId));
+      const yearRow = Number(courseYearId)
+        ? courseYears.find(
+            (y) => num(y.fk_course_year_id) === Number(courseYearId),
+          )
+        : undefined;
+      const courseCode = txt(courseRow?.course_code);
+      const courseYearCode = yearRow ? txt(yearRow.course_year_code) : "";
+      const examName = txt(examRow?.exam_name);
+      const details = buildDataDetails({
+        courseCode,
+        courseYearCode,
+        examName,
+      });
+
       const list = await getSubjectWisePassPercentReport({
         examId: Number(examId),
         courseId: Number(courseId),
@@ -360,10 +476,24 @@ export default function SubjectWiseResultPassPercentReportPage() {
         isReevaluation,
       });
       setRows(list.map((row, i) => ({ ...row, __rid: i })));
-      if (!list.length) toastSuccess("No Records Found.");
+      if (list.length) {
+        setDataDetails(details);
+        setPrintMeta({
+          universityName: txt(courseRow?.university_name),
+          examName,
+          courseYearCode,
+          universityId: num(
+            courseRow?.fk_university_id ?? courseRow?.university_id,
+          ),
+        });
+        toastSuccess("Data retrieved successfully!");
+      } else {
+        setDataDetails("");
+        toastSuccess("No Records Found.");
+      }
     } catch (e) {
       toastError(e, "Failed to load report");
-      setRows([]);
+      clearResults();
     } finally {
       setLoadingList(false);
     }
@@ -386,11 +516,17 @@ export default function SubjectWiseResultPassPercentReportPage() {
       toastInfo("No data to export");
       return;
     }
-    exportHtmlTableAsExcel(
-      "Subject Wise Result Percentage Report",
-      buildExportTable(rows, reportSubtitle),
-    );
+    const tableHtml = buildExportTable(rows);
+    exportHtmlTableAsExcel(REPORT_TITLE, tableHtml);
   }
+
+  const handlePrintReport = useCallback(async () => {
+    if (!rows.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    await printReport(rows, printMeta, orgCode);
+  }, [rows, printMeta, orgCode]);
 
   // Angular table: group row (Before Moderation / After Moderation / After Grace)
   // then leaf columns S.No … Final Pass %.
@@ -401,23 +537,24 @@ export default function SubjectWiseResultPassPercentReportPage() {
         colId: "sno",
         valueGetter: rowIndexGetter,
         width: 70,
+        minWidth: 70,
         flex: 0,
-        pinned: "left",
+        suppressMovable: true,
       },
       {
         headerName: "Semester",
         colId: "semester",
-        minWidth: 110,
-        width: 110,
-        pinned: "left",
+        minWidth: 100,
+        width: 100,
+        flex: 0,
         valueGetter: (p) => txt(p.data?.course_year_code),
       },
       {
         headerName: "Subject",
         colId: "subject",
-        minWidth: 180,
-        width: 180,
-        pinned: "left",
+        minWidth: 160,
+        width: 200,
+        flex: 0,
         valueGetter: (p) => txt(p.data?.subject_name),
       },
       {
@@ -425,6 +562,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
         colId: "registered",
         minWidth: 100,
         width: 100,
+        flex: 0,
         cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.registered),
       },
@@ -433,6 +571,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
         colId: "appeared",
         minWidth: 100,
         width: 100,
+        flex: 0,
         cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Appeared),
       },
@@ -446,6 +585,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "bm_passed",
             minWidth: 90,
             width: 90,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.passed),
           },
@@ -454,6 +594,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "bm_pass_pct",
             minWidth: 90,
             width: 90,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Passed_percent),
           },
@@ -462,6 +603,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "bm_55_marks",
             minWidth: 110,
             width: 110,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Count_of_above_55_percent),
           },
@@ -470,6 +612,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "bm_55_pct",
             minWidth: 100,
             width: 100,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Percent_of_above_55_percent),
           },
@@ -485,6 +628,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "am_passed",
             minWidth: 90,
             width: 90,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Passed_after_moderation),
           },
@@ -493,6 +637,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "am_pass_pct",
             minWidth: 90,
             width: 90,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Passed_after_moderation_percent),
           },
@@ -501,6 +646,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "am_mod_marks",
             minWidth: 150,
             width: 150,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Moderation_marks_awarded),
           },
@@ -509,6 +655,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "am_benefited",
             minWidth: 150,
             width: 150,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) =>
               p.data ? String(rowMetrics(p.data).modBenefit) : "",
@@ -525,6 +672,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "ag_passed",
             minWidth: 90,
             width: 90,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Passed_after_grace),
           },
@@ -533,6 +681,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "ag_pass_pct",
             minWidth: 90,
             width: 90,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) => txt(p.data?.Passed_after_grace_percent),
           },
@@ -541,6 +690,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             colId: "ag_benefited",
             minWidth: 150,
             width: 150,
+            flex: 0,
             cellClass: "text-center",
             valueGetter: (p) =>
               p.data ? String(rowMetrics(p.data).graceBenefit) : "",
@@ -550,8 +700,9 @@ export default function SubjectWiseResultPassPercentReportPage() {
       {
         headerName: "No.of Students Benefited after Moderation and Grace",
         colId: "combined_benefited",
-        minWidth: 200,
-        width: 200,
+        minWidth: 220,
+        width: 220,
+        flex: 0,
         cellClass: "text-center",
         valueGetter: (p) =>
           p.data ? String(rowMetrics(p.data).combinedBenefit) : "",
@@ -561,6 +712,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
         colId: "final_pass_pct",
         minWidth: 110,
         width: 110,
+        flex: 0,
         cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Passed_after_grace_percent),
       },
@@ -681,16 +833,17 @@ export default function SubjectWiseResultPassPercentReportPage() {
   return (
     <FilteredListPage
       title={
-        rows.length > 0
-          ? `Subject Wise Result Percentage Report — ${reportSubtitle}`
-          : "Subject Wise Result Percentage Report"
+        rows.length > 0 ? `${REPORT_TITLE} — ${dataDetails}` : REPORT_TITLE
       }
       filters={filters}
       rowData={rows}
-      columnDefs={columnDefs as ColDef<AnyRow>[]}
+      columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       fitColumnsToWidth={false}
+      autoHeight
+      columnFilters={false}
       toolbar={TOOLBAR}
       toolbarTrailing={
         rows.length > 0 ? (
@@ -705,7 +858,7 @@ export default function SubjectWiseResultPassPercentReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows, reportSubtitle)}
+              onClick={() => void handlePrintReport()}
             >
               Print Report
             </Button>

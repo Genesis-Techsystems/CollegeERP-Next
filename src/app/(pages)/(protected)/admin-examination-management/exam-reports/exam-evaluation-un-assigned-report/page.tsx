@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
@@ -15,6 +15,12 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
@@ -22,8 +28,12 @@ import {
 import {
   getEvalUnassignedBaseFilters,
   getExamEvalUnassignedList,
-  type AnyRow,
+  listCollegesActive,
 } from "@/services";
+
+type AnyRow = Record<string, unknown>;
+
+const REPORT_TITLE = "Exam Evaluation UnAssigned Report";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -37,7 +47,7 @@ const TOOLBAR = {
 } as const;
 
 const EXPORT_COLS = [
-  { key: "si", header: "Sl.No" },
+  { key: "si", header: "SI.No" },
   { key: "courseYear", header: "Course Year" },
   { key: "regulation", header: "Regulation" },
   { key: "subject", header: "Subject" },
@@ -82,41 +92,89 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   }));
 }
 
-function printReport(rows: AnyRow[]) {
-  if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Evaluation UnAssigned Report</title>
+/** Angular getCollegeLogo → collegesLogoList[0].logo after Get List. */
+async function resolveUnassignedPrintLogo(): Promise<string> {
+  try {
+    const colleges = await listCollegesActive();
+    const logo = txt(colleges[0]?.logo);
+    if (logo) return logoToDataUrl(toPrintLogoUrl(logo));
+  } catch {
+    /* fall through to default */
+  }
+  return logoToDataUrl(toPrintLogoUrl(DEFAULT_COLLEGE_LOGO));
+}
+
+function buildUnassignedPrintHtml(
+  rows: AnyRow[],
+  logoSrc: string,
+  fallbackLogo: string,
+  orgCode: string,
+): string {
+  const headerHtml =
+    orgCode === "SUK"
+      ? `<div class="suk-header">
+      <img src="${escapeHtml(logoSrc)}" alt="" class="suk-logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+      <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
+    </div>`
+      : `<div class="banner-row">
+      <div class="logo-col">
+        <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo"
+          onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+      </div>
+      <div class="banner-text">
+        <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
+      </div>
+    </div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.collegeName { text-align: center; font-size: 16px; font-weight: bold; margin: 8px 0 12px; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; font-weight: 600; }
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0;
+  color: #000;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 10px; }
+.logo-col { width: 15%; min-width: 80px; text-align: center; }
+.portraitLogo { width: 80%; max-width: 96px; height: auto; object-fit: contain; }
+.banner-text { width: 85%; text-align: center; }
+.suk-header { text-align: center; margin-bottom: 12px; }
+.suk-logo { max-width: 100%; height: auto; object-fit: contain; margin-bottom: 8px; }
+.collegeName {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 550;
+  color: #000;
+  text-align: center;
+}
+table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; word-break: break-word; }
+th { background: #f2f2f2; font-weight: 700; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 </style></head>
 <body>
-  <p class="collegeName">Exam Evaluation UnAssigned Report</p>
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
+${headerHtml}
+${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
 </body></html>`;
+}
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+async function printReport(rows: AnyRow[], orgCode: string) {
+  if (!rows.length) return;
+  const logoSrc = await resolveUnassignedPrintLogo();
+  const fallbackLogo = await logoToDataUrl(
+    toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+  );
+  printHtmlInIframe(
+    buildUnassignedPrintHtml(rows, logoSrc, fallbackLogo, orgCode),
+  );
 }
 
 /**
@@ -138,6 +196,10 @@ export default function ExamEvaluationUnAssignedReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  const orgCode =
+    typeof globalThis.localStorage !== "undefined"
+      ? String(globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
 
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
@@ -266,16 +328,24 @@ export default function ExamEvaluationUnAssignedReportPage() {
       return;
     }
     exportHtmlTableAsExcel(
-      "Exam Evaluation UnAssigned Report",
+      REPORT_TITLE,
       buildHtmlTable([...EXPORT_COLS], toExportRows(rows)),
-      `<strong>${escapeHtml("Exam Evaluation UnAssigned Report")}</strong>`,
+      `<strong>${escapeHtml(REPORT_TITLE)}</strong>`,
     );
   }
+
+  const handlePrintReport = useCallback(async () => {
+    if (!rows.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    await printReport(rows, orgCode);
+  }, [rows, orgCode]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
-        headerName: "Sl.No",
+        headerName: "SI.No",
         valueGetter: rowIndexGetter,
         width: 70,
         flex: 0,
@@ -385,11 +455,12 @@ export default function ExamEvaluationUnAssignedReportPage() {
 
   return (
     <FilteredListPage
-      title="Exam Evaluation UnAssigned Report"
+      title={REPORT_TITLE}
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
@@ -405,7 +476,7 @@ export default function ExamEvaluationUnAssignedReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows)}
+              onClick={() => void handlePrintReport()}
             >
               Print Report
             </Button>

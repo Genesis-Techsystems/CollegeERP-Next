@@ -12,6 +12,8 @@ export interface AngularFilterCardProps {
   /** Collapsible filter body (default true). */
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** Marks this as the page's first card (AppShell page-name CSS hook). */
+  pageFirstCard?: boolean;
   className?: string;
 }
 
@@ -25,6 +27,7 @@ export function AngularFilterCard({
   showFilterLabel = true,
   collapsible = true,
   defaultOpen = true,
+  pageFirstCard = false,
   className,
 }: AngularFilterCardProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -33,6 +36,7 @@ export function AngularFilterCard({
     <div
       className={cn("app-card angular-filter-card overflow-hidden", className)}
       data-filters-collapsed={open ? "false" : "true"}
+      {...(pageFirstCard ? { "data-page-first-card": "" } : {})}
     >
       <div className="angular-filter-card__header">
         {collapsible ? (

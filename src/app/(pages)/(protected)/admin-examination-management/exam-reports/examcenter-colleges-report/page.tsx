@@ -335,7 +335,7 @@ export default function ExamcenterCollegesReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Course *">
           <Select
-            value={courseId || undefined}
+            value={courseId || null}
             onChange={(v) => setCourseId(v ?? "")}
             isLoading={loadingFilters}
             options={courses.map((c) => ({
@@ -348,7 +348,7 @@ export default function ExamcenterCollegesReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Academic Year *">
           <Select
-            value={academicYearId || undefined}
+            value={academicYearId || null}
             onChange={(v) => setAcademicYearId(v ?? "")}
             isLoading={loadingFilters}
             options={academicYears.map((y) => ({
@@ -361,7 +361,7 @@ export default function ExamcenterCollegesReportPage() {
         </GlobalFilterField>
         <GlobalFilterField label="Exam" className="min-w-[280px] flex-[2]">
           <Select
-            value={examId || undefined}
+            value={examId || null}
             onChange={(v) => setExamId(v ?? "")}
             isLoading={loadingFilters}
             options={exams.map((e) => ({
@@ -376,7 +376,7 @@ export default function ExamcenterCollegesReportPage() {
       <GlobalFilterBarRow>
         <GlobalFilterField label="Exam Center *">
           <Select
-            value={univExamcenterId || undefined}
+            value={univExamcenterId || null}
             onChange={(v) => {
               setUnivExamcenterId(v ?? "");
               clearResults();
@@ -384,9 +384,7 @@ export default function ExamcenterCollegesReportPage() {
             isLoading={loadingFilters}
             options={centers.map((c) => ({
               value: String(centerId(c)),
-              label: txt(
-                c.examcenterCode ?? c.examcenter_code ?? c.ec_code,
-              ),
+              label: txt(c.examcenterCode ?? c.examcenter_code ?? c.ec_code),
             }))}
             placeholder="Exam Center"
             searchable
@@ -420,6 +418,7 @@ export default function ExamcenterCollegesReportPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={

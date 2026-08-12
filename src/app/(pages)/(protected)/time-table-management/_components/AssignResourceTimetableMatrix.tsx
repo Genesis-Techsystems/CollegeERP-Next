@@ -36,13 +36,6 @@ function headerTimeLabel(startTime: string, endTime: string): string {
   return start || end || "";
 }
 
-function cellTextColor(timing: TimetableDayTiming): string {
-  // Angular: color = colorCode != null ? '#fff' : '#000' (before/after subject paint)
-  if (timing.isBreak) return "#000";
-  if (timing.colorCode) return "#fff";
-  return "#000";
-}
-
 function cellBackground(timing: TimetableDayTiming): string | undefined {
   if (timing.isBreak) {
     return timetableBreakCellBg(timing.classTimingName, true) || "#efefef";
@@ -50,38 +43,23 @@ function cellBackground(timing: TimetableDayTiming): string | undefined {
   return timing.colorCode || undefined;
 }
 
-function SubBatchBlock({
-  batch,
-  color,
-}: {
-  batch: TimetableSubBatch;
-  color: string;
-}) {
+function SubBatchBlock({ batch }: { batch: TimetableSubBatch }) {
   const subjectLine = batch.shortName || batch.subjectCode;
   return (
     <div className="sub-jct mb-0.5 last:mb-0">
-      <p
-        className="m-0 text-center text-[15px] font-medium leading-tight"
-        style={{ color }}
-      >
+      <p className="m-0 text-center text-[15px] font-medium leading-tight text-black">
         {batch.studentBatchId != null && batch.studentBatchName ? (
           <span>[{batch.studentBatchName}] </span>
         ) : null}
         {subjectLine ? <span>{subjectLine}</span> : null}
       </p>
       {batch.staffName ? (
-        <p
-          className="stff m-0 text-center text-[10px] leading-tight"
-          style={{ color }}
-        >
+        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
           {batch.staffName}
         </p>
       ) : null}
       {batch.roomName ? (
-        <p
-          className="stff m-0 text-center text-[10px] leading-tight"
-          style={{ color }}
-        >
+        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
           {batch.roomName}
         </p>
       ) : null}
@@ -138,7 +116,6 @@ export function AssignResourceTimetableMatrix({
                 {weekdayLabel(weekday.weekdayName)}
               </th>
               {weekday.timings.map((timing, ti) => {
-                const fg = cellTextColor(timing);
                 const bg = cellBackground(timing);
                 const isBreak = Boolean(timing.isBreak);
                 const resources = timing.subjectResource ?? [];
@@ -147,9 +124,9 @@ export function AssignResourceTimetableMatrix({
                 return (
                   <td
                     key={`${weekday.weekdayId}-${timing.timetableScheduleId ?? ti}`}
-                    className={`table-td px-2 py-5 text-center align-middle${isBreak ? " break" : ""}${clickable ? " cursor-pointer hover:brightness-95" : ""}`}
+                    className={`table-td px-2 py-5 text-center align-middle text-black${isBreak ? " break" : ""}${clickable ? " cursor-pointer hover:brightness-95" : ""}`}
                     colSpan={Math.max(1, Number(timing.colspan ?? 1) || 1)}
-                    style={{ background: bg, color: fg }}
+                    style={{ background: bg }}
                     role={clickable ? "button" : undefined}
                     tabIndex={clickable ? 0 : undefined}
                     onClick={() => {
@@ -167,12 +144,11 @@ export function AssignResourceTimetableMatrix({
                           <SubBatchBlock
                             key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
                             batch={batch}
-                            color={fg}
                           />
                         ))
                       : null}
                     {resources.length === 0 ? (
-                      <p className="m-0 text-sm" style={{ color: fg }}>
+                      <p className="m-0 text-sm text-black">
                         {timing.classTimingName}
                       </p>
                     ) : null}

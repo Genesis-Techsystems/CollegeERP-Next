@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
@@ -13,6 +13,12 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
@@ -27,6 +33,8 @@ import {
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
+
+const REPORT_TITLE = "Exam Students Not Registered";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -102,43 +110,103 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   }));
 }
 
-function printReport(rows: AnyRow[], subtitle: string) {
-  if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Students Not Registered</title>
-<style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
-</style></head>
-<body>
-  <p class="title">Exam Students Not Registered</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
-</body></html>`;
+/** Angular `selectedData()` — leading ` / ` before each selected filter. */
+function buildDataDetails(parts: {
+  courseCode: string;
+  examYear: string;
+  examName: string;
+  regulationCode: string;
+  subjectCode: string;
+}): string {
+  let details = "";
+  if (parts.courseCode) details += ` / ${parts.courseCode}`;
+  if (parts.examYear) details += ` / ${parts.examYear}`;
+  if (parts.examName) details += ` / ${parts.examName}`;
+  if (parts.regulationCode) details += ` / ${parts.regulationCode}`;
+  if (parts.subjectCode) details += ` / ${parts.subjectCode}`;
+  return details;
+}
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+function buildNotRegisteredPrintHtml(
+  rows: AnyRow[],
+  dataDetails: string,
+  logoSrc: string,
+  fallbackLogo: string,
+  orgCode: string,
+): string {
+  const subtitle = dataDetails.trim()
+    ? `<p class="title">${escapeHtml(dataDetails)}</p>`
+    : "";
+
+  const headerHtml =
+    orgCode === "SUK"
+      ? `<div class="suk-header">
+      <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
+      ${subtitle}
+    </div>`
+      : `<div class="banner-row">
+      <div class="logo-col">
+        <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo"
+          onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+      </div>
+      <div class="banner-text">
+        <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
+        ${subtitle}
+      </div>
+    </div>`;
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
+<style>
+@page { size: A4 portrait; margin: 12mm; }
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 8px; }
+.logo-col { width: 15%; flex-shrink: 0; }
+.portraitLogo { height: 80%; width: 80%; object-fit: contain; }
+.banner-text { width: 85%; }
+.suk-header { text-align: center; margin-bottom: 12px; }
+.collegeName {
+  text-align: center;
+  font-size: 23px;
+  font-weight: 550;
+  color: #000;
+  margin: 20px 0 -10px;
+}
+.title {
+  text-align: center;
+  font-size: 19px;
+  font-weight: 550;
+  color: #000;
+  margin: 5px 0 8px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; border-spacing: 1px; }
+th, td { border: 1px solid #000; padding: 8px 5px; text-align: left; vertical-align: top; }
+th { background: #c3d9ff; font-weight: 550; }
+tr { break-inside: avoid; }
+</style></head><body>
+${headerHtml}
+${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
+</body></html>`;
+}
+
+/** Angular print: Logo is never set on this page → always default_logo.png (NO LOGO). */
+async function printReport(
+  rows: AnyRow[],
+  dataDetails: string,
+  orgCode: string,
+) {
+  if (!rows.length) return;
+  const fallbackLogo = await logoToDataUrl(
+    toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+  );
+  printHtmlInIframe(
+    buildNotRegisteredPrintHtml(
+      rows,
+      dataDetails,
+      fallbackLogo,
+      fallbackLogo,
+      orgCode,
+    ),
+  );
 }
 
 /**
@@ -156,6 +224,7 @@ export default function ExamStudentsNotRegisteredCountPage() {
   const [examTimetables, setExamTimetables] = useState<AnyRow[]>([]);
   const [subjects, setSubjects] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [dataDetails, setDataDetails] = useState("");
 
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -170,6 +239,10 @@ export default function ExamStudentsNotRegisteredCountPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  const orgCode =
+    typeof globalThis.localStorage !== "undefined"
+      ? String(globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
 
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
@@ -212,54 +285,18 @@ export default function ExamStudentsNotRegisteredCountPage() {
         ? restRows.filter((r) => num(r.fk_course_group_id) === groupNum)
         : restRows;
     const list = dedupeBy(filtered, (r) => num(r.fk_course_year_id));
-    return [...list].sort((a, b) => num(a.cy_sort_order) - num(b.cy_sort_order));
+    return [...list].sort(
+      (a, b) => num(a.cy_sort_order) - num(b.cy_sort_order),
+    );
   }, [restRows, courseGroupId]);
   const regulations = useMemo(
     () => dedupeBy(restRows, (r) => num(r.fk_regulation_id)),
     [restRows],
   );
 
-  const reportSubtitle = useMemo(() => {
-    const parts = [
-      txt(
-        courses.find((c) => num(c.fk_course_id) === Number(courseId))
-          ?.course_code,
-      ),
-      txt(
-        academicYears.find(
-          (y) => num(y.fk_academic_year_id) === Number(academicYearId),
-        )?.academic_year,
-      ),
-      txt(selectedExam?.exam_name),
-      Number(regulationId)
-        ? txt(
-            regulations.find(
-              (r) => num(r.fk_regulation_id) === Number(regulationId),
-            )?.regulation_code,
-          )
-        : "",
-      Number(subjectId)
-        ? txt(
-            subjects.find((s) => num(s.fk_subject_id) === Number(subjectId))
-              ?.subject_code,
-          )
-        : "",
-    ].filter(Boolean);
-    return parts.join(" / ");
-  }, [
-    courses,
-    academicYears,
-    selectedExam,
-    regulations,
-    subjects,
-    courseId,
-    academicYearId,
-    regulationId,
-    subjectId,
-  ]);
-
   function clearResults() {
     setRows([]);
+    setDataDetails("");
   }
 
   useEffect(() => {
@@ -460,6 +497,35 @@ export default function ExamStudentsNotRegisteredCountPage() {
     }
     setLoadingList(true);
     try {
+      const courseCode =
+        courses.find((c) => num(c.fk_course_id) === Number(courseId))
+          ?.course_code ?? "";
+      const examYear =
+        academicYears.find(
+          (y) => num(y.fk_academic_year_id) === Number(academicYearId),
+        )?.academic_year ?? "";
+      const examName =
+        exams.find((e) => num(e.fk_exam_id) === Number(examId))?.exam_name ??
+        "";
+      const regulationCode =
+        Number(regulationId) === 0
+          ? ""
+          : (regulations.find(
+              (r) => num(r.fk_regulation_id) === Number(regulationId),
+            )?.regulation_code ?? "");
+      const subjectCode =
+        Number(subjectId) === 0
+          ? ""
+          : (subjects.find((s) => num(s.fk_subject_id) === Number(subjectId))
+              ?.subject_code ?? "");
+      const details = buildDataDetails({
+        courseCode: txt(courseCode),
+        examYear: txt(examYear),
+        examName: txt(examName),
+        regulationCode: txt(regulationCode),
+        subjectCode: txt(subjectCode),
+      });
+
       const list = await getExamStudentsNotRegisteredCountList({
         examId: Number(examId),
         courseId: Number(courseId),
@@ -471,10 +537,12 @@ export default function ExamStudentsNotRegisteredCountPage() {
         examTimetableId: Number(examTimetableId) || 0,
       });
       setRows(list.map((row, i) => ({ ...row, __rid: i })));
+      setDataDetails(list.length > 0 ? details : "");
       if (!list.length) toastSuccess("No Records Found.");
     } catch (e) {
       toastError(e, "Failed to load report");
       setRows([]);
+      setDataDetails("");
     } finally {
       setLoadingList(false);
     }
@@ -486,11 +554,19 @@ export default function ExamStudentsNotRegisteredCountPage() {
       return;
     }
     exportHtmlTableAsExcel(
-      "Exam Students Not Registered",
+      REPORT_TITLE,
       buildHtmlTable([...EXPORT_COLS], toExportRows(rows)),
-      `<strong>Exam Students Not Registered - ${escapeHtml(reportSubtitle)}</strong>`,
+      `<strong>${escapeHtml(REPORT_TITLE)}${dataDetails ? ` - ${escapeHtml(dataDetails)}` : ""}</strong>`,
     );
   }
+
+  const handlePrintReport = useCallback(async () => {
+    if (!rows.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    await printReport(rows, dataDetails, orgCode);
+  }, [rows, dataDetails, orgCode]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -704,14 +780,13 @@ export default function ExamStudentsNotRegisteredCountPage() {
   return (
     <FilteredListPage
       title={
-        rows.length > 0
-          ? `Exam Students Not Registered - ${reportSubtitle}`
-          : "Exam Students Not Registered"
+        rows.length > 0 ? `${REPORT_TITLE} - ${dataDetails}` : REPORT_TITLE
       }
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
@@ -727,7 +802,7 @@ export default function ExamStudentsNotRegisteredCountPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows, reportSubtitle)}
+              onClick={() => void handlePrintReport()}
             >
               Print Report
             </Button>

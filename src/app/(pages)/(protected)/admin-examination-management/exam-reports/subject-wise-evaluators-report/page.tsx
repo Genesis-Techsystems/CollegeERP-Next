@@ -18,6 +18,9 @@ import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
 } from "../../_lib/export-html-table";
+import { printHtmlInIframe } from "@/lib/print";
+import { resolveAttendancePrintLogo } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   getSubjectWiseEvalBaseFilters,
   getSubjectWiseEvalRestFilters,
@@ -75,43 +78,132 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   }));
 }
 
-function printSubjectWiseReport(rows: AnyRow[], subtitle: string) {
-  if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Subject Wise Evaluators Report</title>
+/** Angular print block — logo left (15%), centered title + subtitle, portrait table. */
+function buildSubjectWisePrintHtml(
+  rows: AnyRow[],
+  subtitle: string,
+  logoSrc: string,
+  fallbackLogo: string,
+): string {
+  const exportRows = toExportRows(rows);
+  const head = EXPORT_COLS.map((c) => `<th>${escapeHtml(c.header)}</th>`).join(
+    "",
+  );
+  const body = exportRows
+    .map(
+      (row) =>
+        `<tr>${EXPORT_COLS.map(
+          (c) => `<td>${escapeHtml(String(row[c.key] ?? ""))}</td>`,
+        ).join("")}</tr>`,
+    )
+    .join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Subject Wise Evaluators Report</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  color: #000;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.logo-col {
+  width: 15%;
+  min-width: 80px;
+  text-align: center;
+}
+.portraitLogo {
+  width: 80%;
+  max-width: 96px;
+  height: auto;
+  object-fit: contain;
+}
+.title-col {
+  width: 85%;
+  text-align: center;
+}
+.collegeName {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 550;
+  color: #000;
+  text-align: center;
+}
+.title {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #000;
+  text-align: center;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th, td {
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+th {
+  background: #f2f2f2;
+  font-weight: 700;
+}
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 </style></head>
 <body>
-  <p class="title">Subject Wise Evaluators Report</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${logoSrc}" class="portraitLogo" alt="College Logo"
+        onerror="this.onerror=null;this.src='${fallbackLogo}'" />
+    </div>
+    <div class="title-col">
+      <p class="collegeName">Subject Wise Evaluators Report</p>
+      <p class="title">${escapeHtml(subtitle)}</p>
+    </div>
+  </div>
+  <table>
+    <thead><tr>${head}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
 </body></html>`;
+}
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+async function printSubjectWiseReport(
+  rows: AnyRow[],
+  subtitle: string,
+  collegeId: number,
+  liveLogoUrl: string,
+  collegeRow: AnyRow | undefined,
+): Promise<void> {
+  if (!rows.length) return;
+  const logoSrc = await resolveAttendancePrintLogo(
+    collegeRow ?? null,
+    collegeId,
+    liveLogoUrl,
+  );
+  const fallbackLogo = await resolveAttendancePrintLogo(
+    null,
+    0,
+    DEFAULT_COLLEGE_LOGO,
+  );
+  printHtmlInIframe(
+    buildSubjectWisePrintHtml(rows, subtitle, logoSrc, fallbackLogo),
+  );
 }
 
 export default function SubjectWiseEvaluatorsReportPage() {
@@ -228,17 +320,24 @@ export default function SubjectWiseEvaluatorsReportPage() {
     () => subjects.find((s) => num(s.fk_subject_id) === Number(subjectId)),
     [subjects, subjectId],
   );
+  const selectedCollege = useMemo(
+    () => colleges.find((c) => num(c.fk_college_id) === Number(collegeId)),
+    [colleges, collegeId],
+  );
 
   const reportSubtitle = useMemo(() => {
+    // Angular print title line: CourseCode / ExamMonthYear / CourseYear / (subjectCode)
     const parts = [
       txt(selectedCourse?.course_code),
       txt(selectedYear?.academic_year),
       txt(selectedCourseYear?.course_year_code),
     ].filter(Boolean);
-    const sub = txt(selectedSubject?.subject_code);
-    if (sub) parts.push(sub);
-    return parts.join(" / ");
+    const base = parts.join(" / ");
+    const subCode = txt(selectedSubject?.subject_code);
+    return subCode ? `${base} / (${subCode})` : base;
   }, [selectedCourse, selectedYear, selectedCourseYear, selectedSubject]);
+
+  const logoUrl = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   function clearResults() {
     setRows([]);
@@ -666,6 +765,7 @@ export default function SubjectWiseEvaluatorsReportPage() {
           : "Subject Wise Evaluators Report"
       }
       filters={filters}
+      showTable={rows.length > 0}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
@@ -684,7 +784,15 @@ export default function SubjectWiseEvaluatorsReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printSubjectWiseReport(rows, reportSubtitle)}
+              onClick={() =>
+                void printSubjectWiseReport(
+                  rows,
+                  reportSubtitle,
+                  Number(collegeId),
+                  logoUrl,
+                  selectedCollege,
+                )
+              }
             >
               Print Report
             </Button>

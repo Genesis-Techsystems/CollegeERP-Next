@@ -1,36 +1,53 @@
-'use client'
+"use client";
 
-import { useQuery } from '@tanstack/react-query'
-import { useSession } from '@/hooks/useSession'
-import { QK } from '@/lib/query-keys'
-import { getUnivPaymentWalletForStudent } from '@/services'
+import { useQuery } from "@tanstack/react-query";
+import { QK } from "@/lib/query-keys";
+import { listUnivPaymentWallets } from "@/services";
+import type { UnivPaymentWallet } from "@/types/univ-wallet";
 
+/** Angular: `listAllDetails(UnivPaymentWalletUrl)` → `paymentWalletDetails[0]`. */
 export function useUnivPaymentWallet() {
-  const { user, isLoading: sessionLoading } = useSession()
-  const studentId = user?.studentId ?? 0
-
   const walletQuery = useQuery({
-    queryKey: QK.univPaymentWallets.byStudent(studentId),
-    queryFn: () => getUnivPaymentWalletForStudent(studentId),
-    enabled: !sessionLoading && studentId > 0,
-  })
+    queryKey: QK.univPaymentWallets.list(),
+    queryFn: async () => {
+      const rows = await listUnivPaymentWallets();
+      return rows[0] ?? null;
+    },
+  });
 
   return {
-    user,
-    studentId,
     wallet: walletQuery.data ?? null,
-    isLoading: sessionLoading || walletQuery.isLoading,
+    isLoading: walletQuery.isLoading,
     refetchWallet: walletQuery.refetch,
-  }
+  };
 }
 
-export function walletNumberLabel(wallet: { walletNumber?: string | null; univPaymentWalletId?: number } | null) {
-  if (!wallet) return '—'
-  return wallet.walletNumber?.trim() || (wallet.univPaymentWalletId != null ? String(wallet.univPaymentWalletId) : '—')
+export function walletNumberLabel(
+  wallet: { walletNumber?: string | null; univPaymentWalletId?: number } | null,
+) {
+  if (!wallet) return "—";
+  return (
+    wallet.walletNumber?.trim() ||
+    (wallet.univPaymentWalletId != null
+      ? String(wallet.univPaymentWalletId)
+      : "—")
+  );
 }
 
-export function walletBalanceAmount(wallet: { walletBalance?: number | null; availableBalance?: number | null } | null) {
-  if (!wallet) return null
-  const balance = wallet.walletBalance ?? wallet.availableBalance
-  return balance != null && !Number.isNaN(Number(balance)) ? Number(balance) : null
+export function walletBalanceAmount(wallet: UnivPaymentWallet | null) {
+  if (!wallet) return null;
+  const balance =
+    wallet.walletAmount ?? wallet.walletBalance ?? wallet.availableBalance;
+  return balance != null && !Number.isNaN(Number(balance))
+    ? Number(balance)
+    : null;
+}
+
+export function formatWalletBalance(wallet: UnivPaymentWallet | null) {
+  const balance = walletBalanceAmount(wallet);
+  if (balance == null) return "—";
+  return balance.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }

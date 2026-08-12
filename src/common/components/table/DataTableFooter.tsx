@@ -1,23 +1,23 @@
-'use client'
+"use client";
 
 import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
-export type DataTablePageSize = (typeof PAGE_SIZE_OPTIONS)[number]
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
+export type DataTablePageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 export interface DataTableFooterProps {
-  totalRows: number
-  page: number
-  pageSize: DataTablePageSize
-  totalPages: number
-  onPageChange: (page: number) => void
-  onPageSizeChange: (size: DataTablePageSize) => void
+  totalRows: number;
+  page: number;
+  pageSize: DataTablePageSize;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: DataTablePageSize) => void;
 }
 
 export function DataTableFooter({
@@ -28,8 +28,8 @@ export function DataTableFooter({
   onPageChange,
   onPageSizeChange,
 }: DataTableFooterProps) {
-  const rangeStart = totalRows === 0 ? 0 : page * pageSize + 1
-  const rangeEnd = Math.min((page + 1) * pageSize, totalRows)
+  const rangeStart = totalRows === 0 ? 0 : page * pageSize + 1;
+  const rangeEnd = Math.min((page + 1) * pageSize, totalRows);
 
   return (
     <div className="app-data-table-footer flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-2.5 text-[12px] text-muted-foreground">
@@ -39,7 +39,9 @@ export function DataTableFooter({
           aria-label="Rows per page"
           className="app-data-table-page-size h-8 min-w-[4.5rem] rounded-md border border-input bg-background px-2 text-[12px] text-foreground"
           value={String(pageSize)}
-          onChange={(e) => onPageSizeChange(Number(e.target.value) as DataTablePageSize)}
+          onChange={(e) =>
+            onPageSizeChange(Number(e.target.value) as DataTablePageSize)
+          }
         >
           {PAGE_SIZE_OPTIONS.map((size) => (
             <option key={size} value={String(size)}>
@@ -51,7 +53,9 @@ export function DataTableFooter({
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="whitespace-nowrap tabular-nums">
-          {totalRows === 0 ? '0-0 of 0' : `${rangeStart}-${rangeEnd} of ${totalRows}`}
+          {totalRows === 0
+            ? "0-0 of 0"
+            : `${rangeStart}-${rangeEnd} of ${totalRows}`}
         </span>
 
         <div className="flex items-center gap-1">
@@ -105,5 +109,5 @@ export function DataTableFooter({
         </div>
       </div>
     </div>
-  )
+  );
 }

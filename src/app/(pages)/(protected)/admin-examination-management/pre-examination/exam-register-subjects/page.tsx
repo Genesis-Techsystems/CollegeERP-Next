@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { BookOpen, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,53 @@ function text(...values: unknown[]): string {
 }
 
 function subjectIdOf(row: AnyRow): number {
-  return num(row.subjectId ?? row.fk_subject_id ?? row.subject_id);
+  const nested = (row.Subject ?? row.subject) as AnyRow | undefined;
+  const candidates = [
+    row.subjectId,
+    row.fk_subject_id,
+    row.subject_id,
+    row.pk_subject_id,
+    nested?.subjectId,
+    nested?.fk_subject_id,
+    nested?.pk_subject_id,
+  ];
+  for (const v of candidates) {
+    const n = num(v);
+    if (n > 0) return n;
+  }
+  return 0;
+}
+
+function subjectCodeOf(row: AnyRow | null | undefined): string {
+  if (!row) return "";
+  const nested = (row.Subject ?? row.subject) as AnyRow | undefined;
+  return text(
+    row.subjectCode,
+    row.subject_code,
+    row.Subject_code,
+    nested?.subjectCode,
+    nested?.subject_code,
+  );
+}
+
+function courseYearIdOf(row: AnyRow | null | undefined): number {
+  if (!row) return 0;
+  const nested = (row.Subject ?? row.subject) as AnyRow | undefined;
+  return num(
+    row.courseYearId ??
+      row.fk_course_year_id ??
+      nested?.courseYearId ??
+      nested?.fk_course_year_id,
+  );
+}
+
+function normalizeRegisteredSubject(row: AnyRow): AnyRow {
+  return {
+    ...row,
+    subjectId: subjectIdOf(row),
+    subjectCode: subjectCodeOf(row),
+    courseYearId: courseYearIdOf(row),
+  };
 }
 
 function subjectLabel(row: AnyRow): string {
@@ -75,6 +121,19 @@ function subjectTypeCode(row: AnyRow): string {
     row.subjecttypeName,
     row.subject_type_name,
   );
+}
+
+function isAlreadyRegistered(subject: AnyRow, registered: AnyRow[]): boolean {
+  const sid = subjectIdOf(subject);
+  const code = subjectCodeOf(subject).toUpperCase();
+  const cy = courseYearIdOf(subject);
+  return registered.some((r) => {
+    const registeredId = subjectIdOf(r);
+    if (sid > 0 && registeredId > 0 && sid === registeredId) return true;
+    if (!code) return false;
+    const registeredCode = subjectCodeOf(r).toUpperCase();
+    return registeredCode === code && courseYearIdOf(r) === cy;
+  });
 }
 
 function registeredSubjectCell(row: AnyRow) {
@@ -96,16 +155,21 @@ function registeredSubjectRenderer(p: ICellRendererParams<AnyRow>) {
 function makeSubjectCheckRenderer(
   checkedSubjects: Set<number>,
   onToggle: (id: number, checked: boolean) => void,
+  isDisabled: (row: AnyRow) => boolean,
 ) {
   return (p: ICellRendererParams<AnyRow>) => {
     const row = p.data;
     if (!row) return null;
     const sid = subjectIdOf(row);
     if (!sid) return null;
+    const disabled = Boolean(row.__isRegistered) || isDisabled(row);
     return (
       <Checkbox
         checked={checkedSubjects.has(sid)}
-        onCheckedChange={(v) => onToggle(sid, !!v)}
+        disabled={disabled}
+        onCheckedChange={(v) => {
+          if (!disabled) onToggle(sid, !!v);
+        }}
         aria-label={`Select ${subjectLabel(row)}`}
       />
     );
@@ -223,6 +287,10 @@ export default function ExamRegisterSubjectsPage() {
   const [deleteReasonTouched, setDeleteReasonTouched] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  function applyRegisteredRows(rows: AnyRow[]): AnyRow[] {
+    return (Array.isArray(rows) ? rows : []).map(normalizeRegisteredSubject);
+  }
+
   const selectedStudent =
     selectedStudentRow ??
     students.find((s) => num(s.studentId ?? s.id) === num(studentId)) ??
@@ -234,18 +302,6 @@ export default function ExamRegisterSubjectsPage() {
       null,
     [examsList, examId],
   );
-
-  const selectedSubjectRows = useMemo(
-    () => subjects.filter((s) => checkedSubjects.has(subjectIdOf(s))),
-    [subjects, checkedSubjects],
-  );
-
-  const allSubjectsSelected =
-    subjects.length > 0 &&
-    subjects.every((s) => {
-      const sid = subjectIdOf(s);
-      return sid > 0 && checkedSubjects.has(sid);
-    });
 
   async function onSearchStudents(q: string) {
     const term = q.trim();
@@ -302,15 +358,18 @@ export default function ExamRegisterSubjectsPage() {
     }));
   }
 
-  /** Angular markAll() — select every loaded subject (including already registered). */
-  function markAll(list: AnyRow[]) {
+  /** Angular markAll() — select every loaded subject except already registered. */
+  function markAll(list: AnyRow[], registered: AnyRow[] = []) {
     const next = new Set<number>();
+    let selectableCount = 0;
     for (const s of list) {
       const sid = subjectIdOf(s);
-      if (sid > 0) next.add(sid);
+      if (!sid || isAlreadyRegistered(s, registered)) continue;
+      selectableCount += 1;
+      next.add(sid);
     }
     setCheckedSubjects(next);
-    setCheckAll(next.size > 0);
+    setCheckAll(selectableCount > 0);
   }
 
   /** Angular unMark() after successful Save. */
@@ -319,20 +378,68 @@ export default function ExamRegisterSubjectsPage() {
     setCheckAll(false);
   }
 
-  function isAlreadyRegistered(subject: AnyRow, registered: AnyRow[]): boolean {
-    const code = text(
-      subject.subjectCode,
-      subject.subject_code,
-      subject.Subject_code,
-    );
-    const cy = num(subject.courseYearId ?? subject.fk_course_year_id);
-    if (!code) return false;
-    return registered.some(
-      (r) =>
-        text(r.subjectCode, r.subject_code, r.Subject_code) === code &&
-        num(r.courseYearId ?? r.fk_course_year_id) === cy,
-    );
-  }
+  const selectSubjectRows = useMemo(
+    (): AnyRow[] =>
+      subjects.map((s) => ({
+        ...s,
+        __isRegistered: isAlreadyRegistered(s, registeredSubjects),
+      })),
+    [subjects, registeredSubjects],
+  );
+
+  const registeredSubjectsKey = useMemo(
+    () =>
+      registeredSubjects
+        .map(
+          (r) => `${subjectIdOf(r)}:${subjectCodeOf(r)}:${courseYearIdOf(r)}`,
+        )
+        .join("|"),
+    [registeredSubjects],
+  );
+
+  const isSubjectDisabled = useCallback(
+    (subject: AnyRow) =>
+      Boolean(subject.__isRegistered) ||
+      isAlreadyRegistered(subject, registeredSubjects),
+    [registeredSubjects],
+  );
+
+  const selectableSubjects = useMemo(
+    () => selectSubjectRows.filter((s) => !isSubjectDisabled(s)),
+    [selectSubjectRows, isSubjectDisabled],
+  );
+
+  const selectedSubjectRows = useMemo(
+    () =>
+      selectSubjectRows.filter(
+        (s) => checkedSubjects.has(subjectIdOf(s)) && !isSubjectDisabled(s),
+      ),
+    [selectSubjectRows, checkedSubjects, isSubjectDisabled],
+  );
+
+  const allSubjectsSelected =
+    selectableSubjects.length > 0 &&
+    selectableSubjects.every((s) => {
+      const sid = subjectIdOf(s);
+      return sid > 0 && checkedSubjects.has(sid);
+    });
+
+  // Uncheck subjects that became registered; re-enable is automatic via isSubjectDisabled.
+  useEffect(() => {
+    setCheckedSubjects((prev) => {
+      let changed = false;
+      const next = new Set<number>();
+      for (const sid of prev) {
+        const subject = selectSubjectRows.find((s) => subjectIdOf(s) === sid);
+        if (subject && isSubjectDisabled(subject)) {
+          changed = true;
+          continue;
+        }
+        next.add(sid);
+      }
+      return changed ? next : prev;
+    });
+  }, [registeredSubjects, selectSubjectRows, isSubjectDisabled]);
 
   /**
    * Angular getStudentSubjects(courseYearId):
@@ -408,8 +515,7 @@ export default function ExamRegisterSubjectsPage() {
       }
 
       setSubjects(rows);
-      // Angular markAll() — checksubject defaults true; keep already-registered selectable
-      markAll(rows);
+      markAll(rows, _registered);
     } finally {
       setLoading(false);
     }
@@ -495,7 +601,7 @@ export default function ExamRegisterSubjectsPage() {
         num(selectedStudent.studentId ?? selectedStudent.id),
         nextExamId,
       ).catch(() => []);
-      const registered = Array.isArray(reg) ? reg : [];
+      const registered = applyRegisteredRows(reg);
       setRegisteredSubjects(registered);
 
       const cy =
@@ -530,6 +636,8 @@ export default function ExamRegisterSubjectsPage() {
 
   function toggleSubject(sid: number, checked: boolean) {
     if (!sid) return;
+    const subject = selectSubjectRows.find((s) => subjectIdOf(s) === sid);
+    if (!subject || subject.__isRegistered) return;
     setCheckedSubjects((prev) => {
       const next = new Set(prev);
       if (checked) next.add(sid);
@@ -542,9 +650,9 @@ export default function ExamRegisterSubjectsPage() {
     setCheckAll(checked);
     setCheckedSubjects((prev) => {
       const next = new Set(prev);
-      for (const s of subjects) {
+      for (const s of selectSubjectRows) {
         const sid = subjectIdOf(s);
-        if (!sid) continue;
+        if (!sid || s.__isRegistered) continue;
         if (checked) next.add(sid);
         else next.delete(sid);
       }
@@ -556,7 +664,9 @@ export default function ExamRegisterSubjectsPage() {
   async function onSave() {
     if (!selectedStudent || !examId || !courseYearId || !selectedExam) return;
 
-    const checked = subjects.filter((s) => checkedSubjects.has(subjectIdOf(s)));
+    const checked = selectSubjectRows.filter(
+      (s) => checkedSubjects.has(subjectIdOf(s)) && !s.__isRegistered,
+    );
     // Skip subjects already registered for same subjectCode + courseYearId
     const toAdd: AnyRow[] = [];
     for (const s of checked) {
@@ -564,9 +674,8 @@ export default function ExamRegisterSubjectsPage() {
       if (
         toAdd.some(
           (x) =>
-            text(x.subjectCode, x.subject_code) ===
-              text(s.subjectCode, s.subject_code) &&
-            num(x.courseYearId) === num(s.courseYearId),
+            subjectCodeOf(x) === subjectCodeOf(s) &&
+            courseYearIdOf(x) === courseYearIdOf(s),
         )
       ) {
         continue;
@@ -652,7 +761,7 @@ export default function ExamRegisterSubjectsPage() {
         num(selectedStudent.studentId ?? selectedStudent.id),
         num(examId),
       ).catch(() => []);
-      setRegisteredSubjects(Array.isArray(reg) ? reg : []);
+      setRegisteredSubjects(applyRegisteredRows(reg));
     } catch (e: unknown) {
       toastError(e, "Failed to save subjects");
     } finally {
@@ -706,7 +815,7 @@ export default function ExamRegisterSubjectsPage() {
         num(selectedStudent.studentId ?? selectedStudent.id),
         num(examId),
       ).catch(() => []);
-      setRegisteredSubjects(Array.isArray(reg) ? reg : []);
+      setRegisteredSubjects(applyRegisteredRows(reg));
     } catch (e: unknown) {
       toastError(e, "Failed to delete subject");
     } finally {
@@ -721,16 +830,24 @@ export default function ExamRegisterSubjectsPage() {
         width: 90,
         flex: 0,
         sortable: false,
-        cellRenderer: makeSubjectCheckRenderer(checkedSubjects, toggleSubject),
+        cellRenderer: makeSubjectCheckRenderer(
+          checkedSubjects,
+          toggleSubject,
+          isSubjectDisabled,
+        ),
       },
       {
         headerName: "Subjects",
         flex: 1,
         minWidth: 200,
         valueGetter: (p) => subjectLabel(p.data ?? {}),
+        cellClassRules: {
+          "text-muted-foreground opacity-60": (p) =>
+            Boolean(p.data?.__isRegistered),
+        },
       },
     ],
-    [checkedSubjects],
+    [checkedSubjects, isSubjectDisabled],
   );
 
   const registeredColumnDefs = useMemo<ColDef<AnyRow>[]>(
@@ -970,8 +1087,9 @@ export default function ExamRegisterSubjectsPage() {
 
               <div className="md:col-span-6 min-w-0">
                 <DataTable
+                  key={registeredSubjectsKey}
                   bordered={false}
-                  rowData={subjects}
+                  rowData={selectSubjectRows}
                   columnDefs={selectSubjectColumnDefs}
                   loading={loading}
                   height="260px"
@@ -982,8 +1100,9 @@ export default function ExamRegisterSubjectsPage() {
                       <Checkbox
                         checked={
                           allSubjectsSelected ||
-                          (checkAll && subjects.length > 0)
+                          (checkAll && selectableSubjects.length > 0)
                         }
+                        disabled={selectableSubjects.length === 0}
                         onCheckedChange={(v) => toggleAllFiltered(!!v)}
                       />
                       All

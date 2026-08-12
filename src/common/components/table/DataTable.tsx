@@ -181,6 +181,10 @@ export interface DataTableProps<T> {
   pagination?: boolean;
   /** Default **25** */
   paginationPageSize?: number;
+  /** Angular mat-paginator style footer (Items per page, prev/next only). */
+  paginationVariant?: "default" | "material";
+  /** Override footer page-size choices (e.g. wallet `[10, 25, 100]`). */
+  pageSizeOptions?: readonly number[];
   serverSide?: boolean;
   totalCount?: number;
   currentPage?: number;
@@ -917,11 +921,11 @@ export function DataTable<T>({
                   <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
                 )
               ) : null}
-              {resolvedSubtitle ? (
+              {/* {resolvedSubtitle ? (
                 <p className="mt-1 text-[13px] text-muted-foreground">
                   {resolvedSubtitle}
                 </p>
-              ) : null}
+              ) : null} */}
             </div>
             {filters && filtersCollapsible && !resolvedTitle ? (
               <button

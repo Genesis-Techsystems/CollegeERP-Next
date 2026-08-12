@@ -121,11 +121,22 @@ export function AppShell({
       }
     };
 
-    tag();
+    // Run after hydration — imperative setAttribute during the first paint
+    // causes React hydration mismatches on Client Components (e.g. AngularFilterCard).
+    let timeoutId: number | undefined;
+    const scheduleTag = () => {
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(tag, 0);
+    };
+
+    scheduleTag();
     // Cards frequently mount after data fetches; keep the tag on the first one.
-    const observer = new MutationObserver(tag);
+    const observer = new MutationObserver(scheduleTag);
     observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
   }, [pathname, mounted]);
 
   // Accordion behavior for filters cards: clicking anywhere on a card header

@@ -15,6 +15,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
 import { exportHtmlTableAsExcel } from "../../_lib/export-html-table";
 import {
   getExamRegisteredStudentsCountList,
@@ -26,6 +27,8 @@ import {
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
+
+const REPORT_TITLE = "Exam Registered Students Count";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -134,41 +137,54 @@ function buildCountTableHtml(rows: AnyRow[]): string {
 </table>`;
 }
 
-function printReport(rows: AnyRow[]) {
+/** Angular `selectedData()` — leading ` / ` before each selected filter. */
+function buildDataDetails(parts: {
+  courseCode: string;
+  examYear: string;
+  examName: string;
+  regulationCode: string;
+  subjectCode: string;
+}): string {
+  let details = "";
+  if (parts.courseCode) details += ` / ${parts.courseCode}`;
+  if (parts.examYear) details += ` / ${parts.examYear}`;
+  if (parts.examName) details += ` / ${parts.examName}`;
+  if (parts.regulationCode) details += ` / ${parts.regulationCode}`;
+  if (parts.subjectCode) details += ` / ${parts.subjectCode}`;
+  return details;
+}
+
+function printReport(rows: AnyRow[], dataDetails: string) {
   if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exam Registered Students Count</title>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
-@page { size: A4 portrait; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.collegeName { text-align: center; font-size: 18px; font-weight: 600; margin: 8px 0 12px; }
-table.mar { width: 100%; border-collapse: collapse; margin-top: 8px; }
-th.table-th, td.table-td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
-th.table-th { background: #C3D9FF; font-weight: 550; }
+@page { size: A4 portrait; margin: 12mm; }
+body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
+.collegeName {
+  text-align: center;
+  font-size: 23px;
+  font-weight: 550;
+  color: #000;
+  margin: 20px 0 -10px;
+}
+.title {
+  text-align: center;
+  font-size: 19px;
+  font-weight: 550;
+  color: #000;
+  margin: 5px 0 8px;
+}
+table.mar { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
+th.table-th, td.table-td { border: 1px solid #000; padding: 8px 5px; text-align: left; vertical-align: top; }
+th.table-th { background: #c3d9ff; font-weight: 550; }
+tr { break-inside: avoid; }
 </style></head>
 <body>
-  <p class="collegeName">Exam Registered Students Count</p>
+  <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
+  ${dataDetails.trim() ? `<p class="title">${escapeHtml(dataDetails)}</p>` : ""}
   ${buildCountTableHtml(rows)}
 </body></html>`;
-
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+  printHtmlInIframe(html);
 }
 
 /**
@@ -186,6 +202,7 @@ export default function ExamRegisteredStudentsCountPage() {
   const [examTimetables, setExamTimetables] = useState<AnyRow[]>([]);
   const [subjects, setSubjects] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [dataDetails, setDataDetails] = useState("");
 
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -254,6 +271,7 @@ export default function ExamRegisteredStudentsCountPage() {
 
   function clearResults() {
     setRows([]);
+    setDataDetails("");
   }
 
   useEffect(() => {
@@ -454,7 +472,35 @@ export default function ExamRegisteredStudentsCountPage() {
     }
     setLoadingList(true);
     try {
-      // Angular exam-student-registration-tt-report → s_get_exam_std_reg_tt_details
+      const courseCode =
+        courses.find((c) => num(c.fk_course_id) === Number(courseId))
+          ?.course_code ?? "";
+      const examYear =
+        academicYears.find(
+          (y) => num(y.fk_academic_year_id) === Number(academicYearId),
+        )?.academic_year ?? "";
+      const examName =
+        exams.find((e) => num(e.fk_exam_id) === Number(examId))?.exam_name ??
+        "";
+      const regulationCode =
+        Number(regulationId) === 0
+          ? ""
+          : (regulations.find(
+              (r) => num(r.fk_regulation_id) === Number(regulationId),
+            )?.regulation_code ?? "");
+      const subjectCode =
+        Number(subjectId) === 0
+          ? ""
+          : (subjects.find((s) => num(s.fk_subject_id) === Number(subjectId))
+              ?.subject_code ?? "");
+      const details = buildDataDetails({
+        courseCode: txt(courseCode),
+        examYear: txt(examYear),
+        examName: txt(examName),
+        regulationCode: txt(regulationCode),
+        subjectCode: txt(subjectCode),
+      });
+
       const list = await getExamRegisteredStudentsCountList({
         examId: Number(examId),
         courseId: Number(courseId),
@@ -467,10 +513,12 @@ export default function ExamRegisteredStudentsCountPage() {
         isReevaluation,
       });
       setRows(list.map((row, i) => ({ ...row, __rid: i })));
+      setDataDetails(list.length > 0 ? details : "");
       if (!list.length) toastSuccess("No Records Found.");
     } catch (e) {
       toastError(e, "Failed to load report");
       setRows([]);
+      setDataDetails("");
     } finally {
       setLoadingList(false);
     }
@@ -482,9 +530,9 @@ export default function ExamRegisteredStudentsCountPage() {
       return;
     }
     exportHtmlTableAsExcel(
-      "Exam Registered Students Count",
+      REPORT_TITLE,
       buildCountTableHtml(rows),
-      `<strong>Exam Registered Students Count</strong>`,
+      `<strong>${escapeHtml(REPORT_TITLE)}${dataDetails ? ` - ${escapeHtml(dataDetails)}` : ""}</strong>`,
     );
   }
 
@@ -712,11 +760,14 @@ export default function ExamRegisteredStudentsCountPage() {
 
   return (
     <FilteredListPage
-      title="Exam Registered Students Count"
+      title={
+        rows.length > 0 ? `${REPORT_TITLE} - ${dataDetails}` : REPORT_TITLE
+      }
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
@@ -732,7 +783,7 @@ export default function ExamRegisteredStudentsCountPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows)}
+              onClick={() => printReport(rows, dataDetails)}
             >
               Print Report
             </Button>

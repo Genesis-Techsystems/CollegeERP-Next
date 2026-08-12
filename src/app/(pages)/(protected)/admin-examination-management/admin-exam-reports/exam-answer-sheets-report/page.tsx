@@ -171,7 +171,6 @@ const COL_DEFS: ColDef<Row>[] = [
 export default function ExamAnswerSheetsReportPage() {
   const [loading, setLoading] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
   const [employeeId, setEmployeeId] = useState(0);
   const [baseRows, setBaseRows] = useState<Row[]>([]);
   const [timetables, setTimetables] = useState<Row[]>([]);
@@ -259,7 +258,6 @@ export default function ExamAnswerSheetsReportPage() {
     async function loadTimetables() {
       setExamTimetableId("0");
       setRows([]);
-      setHasFetched(false);
       if (!examId) {
         setTimetables([]);
         return;
@@ -285,7 +283,6 @@ export default function ExamAnswerSheetsReportPage() {
       return;
     }
     setLoading(true);
-    setHasFetched(true);
     try {
       const ttId = Number(examTimetableId);
       // Angular: All → examDate '1991-01-01'; else selected timetable date
@@ -323,7 +320,7 @@ export default function ExamAnswerSheetsReportPage() {
   return (
     <FilteredListPage
       title="Exam Answer Sheets Report"
-      resultsVisible={hasFetched}
+      showTable={rows.length > 0}
       filters={
         <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
           <div className="space-y-1 md:col-span-2">
@@ -381,7 +378,6 @@ export default function ExamAnswerSheetsReportPage() {
               onChange={(v) => {
                 setExamTimetableId(v ?? "0");
                 setRows([]);
-                setHasFetched(false);
               }}
               options={[
                 { value: "0", label: "All" },
@@ -412,7 +408,6 @@ export default function ExamAnswerSheetsReportPage() {
               title="Reset"
               onClick={() => {
                 setRows([]);
-                setHasFetched(false);
                 setExamTimetableId("0");
                 const c = courses[0];
                 if (c) setCourseId(String(num(c.fk_course_id)));
@@ -423,7 +418,7 @@ export default function ExamAnswerSheetsReportPage() {
           </div>
         </div>
       }
-      rowData={hasFetched ? rows : []}
+      rowData={rows}
       columnDefs={COL_DEFS}
       loading={loading}
       pagination
@@ -431,7 +426,7 @@ export default function ExamAnswerSheetsReportPage() {
       getRowId={getRowId}
       toolbar={{ search: true, searchPlaceholder: "Search…", exportPdf: false }}
       toolbarTrailing={
-        hasFetched && rows.length > 0 ? (
+        rows.length > 0 ? (
           <Button
             type="button"
             size="sm"

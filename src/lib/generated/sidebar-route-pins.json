@@ -140,20 +140,12 @@
     "route": "/admin/bulk-uploads/employee-upload"
   },
   {
-    "label": "evaluation status tracking",
-    "route": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status"
-  },
-  {
     "label": "evaluation rejection",
     "route": "/admin-examination-management/evaluation-process/exam-omr-rejection"
   },
   {
-    "label": "send mails to evaluators",
-    "route": "/admin-examination-management/evaluation-process/send-email-to-evaluators"
-  },
-  {
-    "label": "send email to evaluators",
-    "route": "/admin-examination-management/evaluation-process/send-email-to-evaluators"
+    "label": "evaluation status tracking",
+    "route": "/admin-examination-management/evaluation-process/update-evaluator-answer-papers-status"
   },
   {
     "label": "evaluator",
@@ -282,6 +274,16 @@
     "route": "/admin-examination-management/exam-dashboard"
   },
   {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "staff-faculty-details"
+  },
+  {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "faculty-details"
+  },
+  {
     "label": "fee paid applications",
     "route": "/admission/counselling/fee-paid-applications-list"
   },
@@ -322,6 +324,10 @@
     "route": "/hostel/rooms-list"
   },
   {
+    "label": "income & expense report",
+    "route": "/reports/management-reports/income-expense-report"
+  },
+  {
     "label": "internal exam average",
     "route": "/admin-examination-management/post-examination/internal-exams-average"
   },
@@ -346,29 +352,19 @@
     "route": "/admin-examination-management/admin-exam-reports/invigilators-remuneration-report"
   },
   {
-    "label": "leave approval",
-    "route": "/principal-my-approvals/leave-applications"
-  },
-  {
-    "label": "faculty details",
-    "route": "/staff-faculty-details/faculty-details",
-    "hrefIncludes": "staff-faculty-details"
-  },
-  {
-    "label": "faculty details",
-    "route": "/staff-faculty-details/faculty-details",
-    "hrefIncludes": "faculty-details"
-  },
-  {
-    "label": "leave approvals",
-    "route": "/principal-my-approvals/leave-applications"
-  },
-  {
     "label": "leave application",
     "route": "/principal-my-approvals/leave-applications"
   },
   {
     "label": "leave applications",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "leave approval",
+    "route": "/principal-my-approvals/leave-applications"
+  },
+  {
+    "label": "leave approvals",
     "route": "/principal-my-approvals/leave-applications"
   },
   {
@@ -504,8 +500,16 @@
     "route": "/email-sms/principal-to-dept-email"
   },
   {
+    "label": "send email to evaluators",
+    "route": "/admin-examination-management/evaluation-process/send-email-to-evaluators"
+  },
+  {
     "label": "send email to students",
     "route": "/email-sms/staff-to-student-email"
+  },
+  {
+    "label": "send mails to evaluators",
+    "route": "/admin-examination-management/evaluation-process/send-email-to-evaluators"
   },
   {
     "label": "staff subject mapping",

@@ -748,6 +748,7 @@ export default function ExamEvaluationReportPage() {
     <FilteredListPage
       title="Exam Evaluation Report"
       filters={filters}
+      showTable={rows.length > 0}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}

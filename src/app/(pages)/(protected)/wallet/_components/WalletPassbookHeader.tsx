@@ -1,18 +1,28 @@
-import type { ReactNode } from 'react'
-import { LayoutGrid } from 'lucide-react'
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 type WalletPassbookHeaderProps = {
-  title: string
-  icon?: ReactNode
-}
+  title: string;
+  icon?: ReactNode;
+  className?: string;
+};
 
-export function WalletPassbookHeader({ title, icon }: WalletPassbookHeaderProps) {
+/** Angular wallet / passbook card title row — blue icon + title + gold underline. */
+export function WalletPassbookHeader({
+  title,
+  icon,
+  className,
+}: WalletPassbookHeaderProps) {
   return (
-    <div className="border-b border-border px-4 py-3">
-      <div className="flex items-center gap-2 text-[hsl(var(--card-title))]">
-        {icon ?? <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden />}
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <div className={cn("border-b-2 border-[#ffcf46] px-6 py-3.5", className)}>
+      <div className="flex items-center gap-2 text-[#0c51a4]">
+        {icon ?? (
+          <span className="material-icons text-[20px] leading-none" aria-hidden>
+            account_balance_wallet
+          </span>
+        )}
+        <h2 className="text-lg font-medium leading-tight">{title}</h2>
       </div>
     </div>
-  )
+  );
 }

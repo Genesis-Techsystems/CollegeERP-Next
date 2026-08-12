@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
@@ -13,17 +13,29 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  isDefaultLogoUrl,
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
 } from "../../_lib/export-html-table";
 import {
+  getCollegeById,
   getGenderWiseExamBaseFilters,
   getGenderWiseExamFeeTypes,
   getGenderWiseExamReport,
   getGenderWiseExamRestFilters,
-  type AnyRow,
 } from "@/services";
+
+type AnyRow = Record<string, unknown>;
+
+const REPORT_TITLE = "Gender Wise Result";
+const PAGE_TITLE = "Gender Wise Exam Result";
 
 const toastInfo = (msg: string) => toast.info(msg);
 
@@ -91,44 +103,178 @@ function toExportRows(rows: AnyRow[]): Record<string, unknown>[] {
   }));
 }
 
-function printReport(rows: AnyRow[], subtitle: string, examLabel: string) {
-  if (!rows.length) return;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Gender Wise Result</title>
+function buildDataDetails(parts: {
+  collegeCode: string;
+  courseCode: string;
+  courseGroup: string;
+  courseYear: string;
+  exam: string;
+}): string {
+  let details = "";
+  if (parts.collegeCode) details = parts.collegeCode;
+  if (parts.courseCode) details += ` / ${parts.courseCode}`;
+  if (parts.courseGroup) details += ` / ${parts.courseGroup}`;
+  if (parts.courseYear) details += ` / ${parts.courseYear}`;
+  if (parts.exam) details += ` / ${parts.exam}`;
+  return details;
+}
+
+/** Angular getColleges(): selected college logo + name only. */
+async function resolveCollegePrintLogo(collegeId: number): Promise<string> {
+  if (collegeId > 0) {
+    try {
+      const college = await getCollegeById(collegeId);
+      const raw = college?.logo ? String(college.logo).trim() : "";
+      if (raw) {
+        const url = toPrintLogoUrl(raw);
+        if (!isDefaultLogoUrl(url)) return logoToDataUrl(url);
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return logoToDataUrl(toPrintLogoUrl(DEFAULT_COLLEGE_LOGO));
+}
+
+function buildPrintTableHtml(rows: AnyRow[]): string {
+  const body = rows
+    .map((row, i) => {
+      return `<tr>
+<td class="table-td" style="text-align:center">${i + 1}</td>
+<td class="table-td">${escapeHtml(txt(row.SUBJECT))}</td>
+<td class="table-td">${escapeHtml(txt(row.subject_type))}</td>
+<td class="table-td">${escapeHtml(txt(row.credits))}</td>
+<td class="table-td">${escapeHtml(txt(row.Appeared))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Passed))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.Pass_percentage))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.boys_passed))}</td>
+<td class="table-td" style="text-align:center">${escapeHtml(txt(row.girls_passed))}</td>
+</tr>`;
+    })
+    .join("");
+
+  return `<table class="mar">
+<thead><tr>
+<th class="table-th">S.No</th>
+<th class="table-th">Subject</th>
+<th class="table-th">Subject Type</th>
+<th class="table-th">Credits</th>
+<th class="table-th">Appeared</th>
+<th class="table-th">Passed</th>
+<th class="table-th">Percentage</th>
+<th class="table-th">Boys</th>
+<th class="table-th">Girls</th>
+</tr></thead>
+<tbody>${body}</tbody>
+</table>`;
+}
+
+function buildPrintHtml(
+  rows: AnyRow[],
+  opts: {
+    logoSrc: string;
+    fallbackLogo: string;
+    collegeName: string;
+    examLabel: string;
+    courseGroup: string;
+    courseYear: string;
+    orgCode: string;
+  },
+): string {
+  const courseLine =
+    opts.courseGroup.trim() !== ""
+      ? `<p class="meta meta-left">Course : ${escapeHtml(opts.courseGroup)}</p>`
+      : `<p class="meta meta-left"></p>`;
+  const semesterLine =
+    opts.courseYear.trim() !== ""
+      ? `<p class="meta meta-right">Semester : ${escapeHtml(opts.courseYear)}</p>`
+      : `<p class="meta meta-right"></p>`;
+
+  const headerHtml =
+    opts.orgCode === "SUK"
+      ? `<div class="suk-header">
+      <img src="${escapeHtml(opts.logoSrc)}" alt="" class="suk-logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(opts.fallbackLogo)}'" />
+      <p class="collegeName">${escapeHtml(opts.collegeName)}</p>
+      <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+      <p class="details">${escapeHtml(opts.examLabel)}</p>
+    </div>`
+      : `<div class="banner-row">
+      <div class="logo-col">
+        <img src="${escapeHtml(opts.logoSrc)}" alt="" class="portraitLogo"
+          onerror="this.onerror=null;this.src='${escapeHtml(opts.fallbackLogo)}'" />
+      </div>
+      <div class="banner-text">
+        <p class="collegeName">${escapeHtml(opts.collegeName)}</p>
+        <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+        <p class="details">${escapeHtml(opts.examLabel)}</p>
+      </div>
+    </div>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.title, .sub, .exam { text-align: center; margin: 4px 0; }
-.title { font-size: 15px; font-weight: bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; color: #000; font-family: "Times New Roman", Times, serif; font-size: 12px; }
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 8px; }
+.logo-col { width: 15%; flex-shrink: 0; text-align: center; }
+.portraitLogo { width: 80%; height: auto; object-fit: contain; }
+.banner-text { width: 85%; text-align: center; }
+.suk-header { text-align: center; margin-bottom: 10px; }
+.suk-logo { max-width: 100%; height: auto; object-fit: contain; margin-bottom: 8px; }
+.collegeName { margin: 16px 0 -8px; font-size: 24px; font-weight: 550; text-align: center; font-family: Arial, sans-serif; }
+.title { margin: 4px 0; font-size: 21px; font-weight: 550; text-align: center; font-family: Arial, sans-serif; }
+.details { margin: 4px 0 8px; font-size: 19px; text-align: center; font-family: Arial, sans-serif; }
+.meta-row { display: flex; width: 100%; margin: 6px 0 10px; font-family: Arial, sans-serif; font-size: 12px; }
+.meta-left { width: 50%; text-align: left; margin: 0; }
+.meta-right { width: 50%; text-align: right; margin: 0; }
+.mar { width: 100%; border-collapse: collapse; }
+.table-th { padding: 8px 5px; background: #c3d9ff; font-weight: 550; border: 1px solid #000; }
+.table-td { padding: 8px; border: 1px solid #000; }
+.footer-row { display: flex; margin-top: 8%; width: 100%; font-family: Arial, sans-serif; font-size: 12px; font-weight: 550; }
+.footer { width: 48%; margin: 0; color: #000; }
+.footer-right { text-align: right; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 </style></head>
 <body>
-  <p class="title">Gender Wise Result</p>
-  <p class="exam">${escapeHtml(examLabel)}</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
+${headerHtml}
+<div class="meta-row">${courseLine}${semesterLine}</div>
+${buildPrintTableHtml(rows)}
+<div class="footer-row">
+  <p class="footer">Controller of Examinations</p>
+  <p class="footer footer-right">Principal</p>
+</div>
 </body></html>`;
+}
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+async function printReport(
+  rows: AnyRow[],
+  printMeta: {
+    collegeId: number;
+    collegeName: string;
+    examLabel: string;
+    courseGroup: string;
+    courseYear: string;
+  },
+  orgCode: string,
+) {
+  if (!rows.length) return;
+  const logoSrc = await resolveCollegePrintLogo(printMeta.collegeId);
+  const fallbackLogo = await logoToDataUrl(
+    toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+  );
+  printHtmlInIframe(
+    buildPrintHtml(rows, {
+      logoSrc,
+      fallbackLogo,
+      collegeName: printMeta.collegeName,
+      examLabel: printMeta.examLabel,
+      courseGroup: printMeta.courseGroup,
+      courseYear: printMeta.courseYear,
+      orgCode,
+    }),
+  );
 }
 
 /**
@@ -143,6 +289,14 @@ export default function GenderWiseExamReportPage() {
   const [allFeeTypes, setAllFeeTypes] = useState<AnyRow[]>([]);
   const [examFeeTypes, setExamFeeTypes] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
+  const [dataDetails, setDataDetails] = useState("");
+  const [printMeta, setPrintMeta] = useState({
+    collegeId: 0,
+    collegeName: "",
+    examLabel: "",
+    courseGroup: "",
+    courseYear: "",
+  });
 
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -155,6 +309,10 @@ export default function GenderWiseExamReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
+  const orgCode =
+    typeof globalThis.localStorage !== "undefined"
+      ? String(globalThis.localStorage.getItem("orgCode") ?? "")
+      : "";
 
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
@@ -214,51 +372,16 @@ export default function GenderWiseExamReportPage() {
     );
   }, [restRows, collegeId, courseGroupId]);
 
-  const reportSubtitle = useMemo(() => {
-    const parts = [
-      txt(
-        colleges.find((c) => num(c.fk_college_id) === Number(collegeId))
-          ?.college_code,
-      ),
-      txt(
-        courses.find((c) => num(c.fk_course_id) === Number(courseId))
-          ?.course_code,
-      ),
-      Number(courseGroupId)
-        ? txt(
-            courseGroups.find(
-              (g) => num(g.fk_course_group_id) === Number(courseGroupId),
-            )?.group_code,
-          )
-        : "",
-      Number(courseYearId)
-        ? txt(
-            courseYears.find(
-              (y) => num(y.fk_course_year_id) === Number(courseYearId),
-            )?.course_year_name ??
-              courseYears.find(
-                (y) => num(y.fk_course_year_id) === Number(courseYearId),
-              )?.course_year_code,
-          )
-        : "",
-      txt(rows[0]?.exam_label_name) || txt(selectedExam?.exam_name),
-    ].filter(Boolean);
-    return parts.join(" / ");
-  }, [
-    colleges,
-    courses,
-    courseGroups,
-    courseYears,
-    rows,
-    selectedExam,
-    collegeId,
-    courseId,
-    courseGroupId,
-    courseYearId,
-  ]);
-
   function clearResults() {
     setRows([]);
+    setDataDetails("");
+    setPrintMeta({
+      collegeId: 0,
+      collegeName: "",
+      examLabel: "",
+      courseGroup: "",
+      courseYear: "",
+    });
   }
 
   useEffect(() => {
@@ -427,6 +550,23 @@ export default function GenderWiseExamReportPage() {
     }
     setLoadingList(true);
     try {
+      const collegeRow = colleges.find(
+        (c) => num(c.fk_college_id) === Number(collegeId),
+      );
+      const courseRow = courses.find(
+        (c) => num(c.fk_course_id) === Number(courseId),
+      );
+      const groupRow = Number(courseGroupId)
+        ? courseGroups.find(
+            (g) => num(g.fk_course_group_id) === Number(courseGroupId),
+          )
+        : undefined;
+      const yearRow = Number(courseYearId)
+        ? courseYears.find(
+            (y) => num(y.fk_course_year_id) === Number(courseYearId),
+          )
+        : undefined;
+
       const list = await getGenderWiseExamReport({
         examId: Number(examId),
         collegeId: Number(collegeId),
@@ -436,10 +576,49 @@ export default function GenderWiseExamReportPage() {
         examTypeCatdetId: Number(examTypeCatdetId) || 0,
       });
       setRows(list.map((row, i) => ({ ...row, __rid: i })));
-      if (!list.length) toastSuccess("No Records Found.");
+
+      if (list.length) {
+        const examLabel = txt(list[0]?.exam_label_name);
+        const collegeCode = txt(collegeRow?.college_code);
+        const courseCode = txt(courseRow?.course_code);
+        const courseGroup = groupRow ? txt(groupRow.group_code) : "";
+        const courseYear = yearRow
+          ? txt(yearRow.course_year_name ?? yearRow.course_year_code)
+          : "";
+
+        setDataDetails(
+          buildDataDetails({
+            collegeCode,
+            courseCode,
+            courseGroup,
+            courseYear,
+            exam: examLabel,
+          }),
+        );
+
+        let collegeName = txt(collegeRow?.college_name);
+        try {
+          const college = await getCollegeById(Number(collegeId));
+          if (college?.collegeName) collegeName = String(college.collegeName);
+        } catch {
+          /* use filter row name */
+        }
+
+        setPrintMeta({
+          collegeId: Number(collegeId),
+          collegeName,
+          examLabel,
+          courseGroup,
+          courseYear,
+        });
+        toastSuccess("Data retrieved successfully!");
+      } else {
+        clearResults();
+        toastSuccess("No Records Found.");
+      }
     } catch (e) {
       toastError(e, "Failed to load report");
-      setRows([]);
+      clearResults();
     } finally {
       setLoadingList(false);
     }
@@ -451,11 +630,19 @@ export default function GenderWiseExamReportPage() {
       return;
     }
     exportHtmlTableAsExcel(
-      "Gender Wise Result",
+      REPORT_TITLE,
       buildHtmlTable([...EXPORT_COLS], toExportRows(rows)),
-      `<strong>Gender Wise Result &nbsp; (${escapeHtml(reportSubtitle)})</strong>`,
+      `<strong>${escapeHtml(REPORT_TITLE)} &nbsp; (${escapeHtml(dataDetails)})</strong>`,
     );
   }
+
+  const handlePrintReport = useCallback(async () => {
+    if (!rows.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    await printReport(rows, printMeta, orgCode);
+  }, [rows, printMeta, orgCode]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -463,46 +650,61 @@ export default function GenderWiseExamReportPage() {
         headerName: "S.No",
         valueGetter: rowIndexGetter,
         width: 70,
+        minWidth: 70,
         flex: 0,
       },
       {
         headerName: "Subject",
         minWidth: 200,
+        flex: 1,
         valueGetter: (p) => txt(p.data?.SUBJECT),
       },
       {
         headerName: "Subject Type",
         minWidth: 120,
+        flex: 0,
         valueGetter: (p) => txt(p.data?.subject_type),
       },
       {
         headerName: "Credits",
         minWidth: 90,
+        flex: 0,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.credits),
       },
       {
         headerName: "Appeared",
         minWidth: 100,
+        flex: 0,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Appeared),
       },
       {
         headerName: "Passed",
         minWidth: 90,
+        flex: 0,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Passed),
       },
       {
         headerName: "Percentage",
         minWidth: 110,
+        flex: 0,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.Pass_percentage),
       },
       {
         headerName: "Boys",
         minWidth: 90,
+        flex: 0,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.boys_passed),
       },
       {
         headerName: "Girls",
         minWidth: 90,
+        flex: 0,
+        cellClass: "text-center",
         valueGetter: (p) => txt(p.data?.girls_passed),
       },
     ],
@@ -642,15 +844,13 @@ export default function GenderWiseExamReportPage() {
 
   return (
     <FilteredListPage
-      title={
-        rows.length > 0
-          ? `Gender Wise Exam Result — ${reportSubtitle}`
-          : "Gender Wise Exam Result"
-      }
+      title={rows.length > 0 ? `${REPORT_TITLE} — ${dataDetails}` : PAGE_TITLE}
+      filterTitle={PAGE_TITLE}
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
+      showTable={rows.length > 0}
       pagination
       toolbar={TOOLBAR}
       toolbarTrailing={
@@ -666,14 +866,7 @@ export default function GenderWiseExamReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() =>
-                printReport(
-                  rows,
-                  reportSubtitle,
-                  txt(rows[0]?.exam_label_name) ||
-                    formatExamLabel(selectedExam ?? {}),
-                )
-              }
+              onClick={() => void handlePrintReport()}
             >
               Print Report
             </Button>

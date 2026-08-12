@@ -2353,15 +2353,16 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fee-reports/fee-due-list-report";
     }
     // Angular: /reports/management-reports/income-expense-report
+    // Also pin finance-reports/income-expenses-summary-report (no Next page there).
     if (
       hrefLower.includes("income-expense-report") ||
       hrefLower.includes("income-and-expense-report") ||
+      hrefLower.includes("income-expenses-summary-report") ||
       (labelLower.includes("income") &&
         labelLower.includes("expense") &&
         labelLower.includes("report") &&
-        (hrefLower.includes("management-reports") ||
-          hrefLower.includes("finance-reports") ||
-          hrefLower.includes("/reports/")))
+        !labelLower.includes("day-wise") &&
+        !(labelLower.includes("day") && labelLower.includes("wise")))
     ) {
       return "/reports/management-reports/income-expense-report";
     }

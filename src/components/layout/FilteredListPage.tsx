@@ -111,6 +111,7 @@ export function FilteredListPage<T>({
       title={filtersCardTitle}
       collapsible={filtersCollapsible}
       defaultOpen={filtersDefaultOpen}
+      pageFirstCard={notice == null}
     >
       {filters}
       {filtersFooter}
