@@ -194,14 +194,18 @@ export default function ExternalExamAttendanceMarkingPage() {
     () => dedupeBy(allFilters, "fk_course_id"),
     [allFilters],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        allFilters.filter((x) => Number(x.fk_course_id) === Number(courseId)),
-        "fk_academic_year_id",
-      ),
-    [allFilters, courseId],
-  );
+  const academicYears = useMemo(() => {
+    const list = dedupeBy(
+      allFilters.filter((x) => Number(x.fk_course_id) === Number(courseId)),
+      "fk_academic_year_id",
+    );
+    // Angular selectedCourse: sort academic years DESC
+    return [...list].sort(
+      (a, b) =>
+        parseInt(String(b.academic_year ?? 0), 10) -
+        parseInt(String(a.academic_year ?? 0), 10),
+    );
+  }, [allFilters, courseId]);
   const exams = useMemo(() => {
     let list = dedupeBy(
       allFilters.filter(
@@ -268,6 +272,97 @@ export default function ExternalExamAttendanceMarkingPage() {
     [roomRows],
   );
 
+  function clearResults() {
+    setRows([]);
+    setHasFetched(false);
+  }
+
+  /** Angular selectedCourse — clear everything below Course */
+  function onCourseChange(next: number | null) {
+    setCourseId(next);
+    setAcademicYearId(null);
+    setExamId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+    setRestRows([]);
+    setExamDate("");
+    setCourseGroupId(0);
+    setCourseYearId(0);
+    setRoomId(0);
+    clearResults();
+  }
+
+  /** Angular selectedAcademicYear — clear Exam and below */
+  function onAcademicYearChange(next: number | null) {
+    setAcademicYearId(next);
+    setExamId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+    setRestRows([]);
+    setExamDate("");
+    setCourseGroupId(0);
+    setCourseYearId(0);
+    setRoomId(0);
+    clearResults();
+  }
+
+  /** Angular selectedExam — clear Regulation and below; subjects reload via effect */
+  function onExamChange(next: number | null) {
+    setExamId(next);
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
+    setRestRows([]);
+    setExamDate("");
+    setCourseGroupId(0);
+    setCourseYearId(0);
+    setRoomId(0);
+    clearResults();
+  }
+
+  /** Angular selectedRegulation — clear Subject and below */
+  function onRegulationChange(next: number | null) {
+    setRegulationId(next);
+    setSubjectId(null);
+    setRestRows([]);
+    setExamDate("");
+    setCourseGroupId(0);
+    setCourseYearId(0);
+    setRoomId(0);
+    clearResults();
+  }
+
+  /** Angular selectedSubject — clear Group/Year/Room; rest filters reload via effect */
+  function onSubjectChange(next: number | null) {
+    setSubjectId(next);
+    setRestRows([]);
+    setCourseGroupId(0);
+    setCourseYearId(0);
+    setRoomId(0);
+    clearResults();
+  }
+
+  /** Angular selectedCourseGroup — reset Course Year to All */
+  function onCourseGroupChange(next: number) {
+    setCourseGroupId(next);
+    setCourseYearId(0);
+    clearResults();
+  }
+
+  /** Angular selectedYear */
+  function onCourseYearChange(next: number) {
+    setCourseYearId(next);
+    clearResults();
+  }
+
+  /** Angular selectedroom */
+  function onRoomChange(next: number) {
+    setRoomId(next);
+    clearResults();
+  }
+
   useEffect(() => {
     async function loadInitial() {
       setLoadingFilters(true);
@@ -287,6 +382,7 @@ export default function ExternalExamAttendanceMarkingPage() {
   }, [employeeId]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadSubjects() {
       setSubjectRows([]);
       setRestRows([]);
@@ -297,12 +393,17 @@ export default function ExternalExamAttendanceMarkingPage() {
         examId,
         employeeId,
       }).catch(() => []);
+      if (cancelled) return;
       setSubjectRows(Array.isArray(data) ? data : []);
     }
     void loadSubjects();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId, academicYearId, examId, employeeId]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadRest() {
       setRestRows([]);
       if (
@@ -321,54 +422,98 @@ export default function ExternalExamAttendanceMarkingPage() {
         subjectId,
         employeeId,
       }).catch(() => []);
+      if (cancelled) return;
       setRestRows(Array.isArray(data) ? data : []);
+      // Angular selectedSubject → courseGroupId=0 → selectedCourseGroup → courseYearId=0
+      setCourseGroupId(0);
+      setCourseYearId(0);
     }
     void loadRest();
+    return () => {
+      cancelled = true;
+    };
   }, [courseId, academicYearId, examId, regulationId, subjectId, employeeId]);
 
+  // Initial / invalid → first course (Angular getExamFiltersList)
   useEffect(() => {
-    if (courses[0]?.fk_course_id) setCourseId(Number(courses[0].fk_course_id));
+    if (courses.length === 0) return;
+    setCourseId((prev) =>
+      prev != null &&
+      courses.some((x) => Number(x.fk_course_id) === Number(prev))
+        ? Number(prev)
+        : Number(courses[0].fk_course_id),
+    );
   }, [courses]);
+
+  // Prefer current AY, else newest year (Angular selectedCourse)
   useEffect(() => {
-    if (academicYears[0]?.fk_academic_year_id)
-      setAcademicYearId(Number(academicYears[0].fk_academic_year_id));
-  }, [academicYears]);
-  // Angular: auto-select first exam only when list has rows; otherwise leave empty
-  // (non-ADMIN unpublished filter often leaves Exam blank — do not keep a stale id).
-  useEffect(() => {
-    const firstId = Number(exams[0]?.fk_exam_id ?? 0);
-    if (firstId > 0) {
-      setExamId((prev) => {
-        if (exams.some((x) => Number(x.fk_exam_id) === Number(prev))) {
-          return prev;
-        }
-        return firstId;
-      });
+    if (academicYears.length === 0) {
+      setAcademicYearId(null);
       return;
     }
-    setExamId(null);
-    setRegulationId(null);
-    setSubjectId(null);
-    setSubjectRows([]);
-    setRestRows([]);
-    setExamDate("");
-    setCourseGroupId(0);
-    setCourseYearId(0);
-    setHasFetched(false);
-    setRows([]);
+    const preferred =
+      academicYears.find((x) => Number(x.is_curr_ay) === 1) ?? academicYears[0];
+    const preferredId = Number(preferred?.fk_academic_year_id ?? 0);
+    if (!preferredId) {
+      setAcademicYearId(null);
+      return;
+    }
+    setAcademicYearId((prev) =>
+      prev != null &&
+      academicYears.some((x) => Number(x.fk_academic_year_id) === Number(prev))
+        ? Number(prev)
+        : preferredId,
+    );
+  }, [academicYears]);
+
+  // Auto-select first exam when cleared/invalid (Angular selectedAcademicYear)
+  useEffect(() => {
+    if (exams.length === 0) {
+      setExamId(null);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubjectRows([]);
+      setRestRows([]);
+      setExamDate("");
+      setCourseGroupId(0);
+      setCourseYearId(0);
+      setRoomId(0);
+      setRows([]);
+      setHasFetched(false);
+      return;
+    }
+    setExamId((prev) =>
+      prev != null && exams.some((x) => Number(x.fk_exam_id) === Number(prev))
+        ? Number(prev)
+        : Number(exams[0].fk_exam_id),
+    );
   }, [exams]);
+
   useEffect(() => {
-    if (regulations[0]?.fk_regulation_id)
-      setRegulationId(Number(regulations[0].fk_regulation_id));
-    else if (regulations.length === 0) setRegulationId(null);
+    if (regulations.length === 0) {
+      setRegulationId(null);
+      return;
+    }
+    setRegulationId((prev) =>
+      prev != null &&
+      regulations.some((x) => Number(x.fk_regulation_id) === Number(prev))
+        ? Number(prev)
+        : Number(regulations[0].fk_regulation_id),
+    );
   }, [regulations]);
+
   useEffect(() => {
-    if (subjects[0]?.fk_subject_id)
-      setSubjectId(Number(subjects[0].fk_subject_id));
-    else if (subjects.length === 0) {
+    if (subjects.length === 0) {
       setSubjectId(null);
       setExamDate("");
+      return;
     }
+    setSubjectId((prev) =>
+      prev != null &&
+      subjects.some((x) => Number(x.fk_subject_id) === Number(prev))
+        ? Number(prev)
+        : Number(subjects[0].fk_subject_id),
+    );
   }, [subjects]);
 
   const selectedSubject = useMemo(
@@ -685,7 +830,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Course"
               value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              onChange={(v) => onCourseChange(v ? Number(v) : null)}
               options={courseOptions}
               placeholder={loadingFilters ? "Loading…" : "Course"}
               disabled={loadingFilters}
@@ -696,7 +841,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Exam Year"
               value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              onChange={(v) => onAcademicYearChange(v ? Number(v) : null)}
               options={academicYearOptions}
               placeholder="Exam Year"
               searchable
@@ -706,7 +851,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Exam"
               value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : null)}
+              onChange={(v) => onExamChange(v ? Number(v) : null)}
               options={examOptions}
               placeholder="Exam"
               searchable
@@ -717,7 +862,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Regulation"
               value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : null)}
+              onChange={(v) => onRegulationChange(v ? Number(v) : null)}
               options={regulationOptions}
               placeholder="Regulation"
               searchable
@@ -727,7 +872,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Subject"
               value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(v ? Number(v) : null)}
+              onChange={(v) => onSubjectChange(v ? Number(v) : null)}
               options={subjectOptions}
               placeholder="Subject"
               searchable
@@ -738,7 +883,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Course Group"
               value={courseGroupId === null ? "0" : String(courseGroupId)}
-              onChange={(v) => setCourseGroupId(Number(v ?? 0))}
+              onChange={(v) => onCourseGroupChange(Number(v ?? 0))}
               options={courseGroupOptions}
               placeholder="Course Group"
               searchable
@@ -748,7 +893,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Course Year"
               value={courseYearId === null ? "0" : String(courseYearId)}
-              onChange={(v) => setCourseYearId(Number(v ?? 0))}
+              onChange={(v) => onCourseYearChange(Number(v ?? 0))}
               options={courseYearOptions}
               placeholder="Course Year"
               searchable
@@ -771,7 +916,7 @@ export default function ExternalExamAttendanceMarkingPage() {
             <CommonSelect
               label="Room"
               value={roomId === null ? "0" : String(roomId)}
-              onChange={(v) => setRoomId(Number(v ?? 0))}
+              onChange={(v) => onRoomChange(Number(v ?? 0))}
               options={roomOptions}
               placeholder="Room"
               searchable
@@ -786,7 +931,7 @@ export default function ExternalExamAttendanceMarkingPage() {
               {loadingList ? "Loading..." : "Get List"}
             </Button>
           </div>
-          {hasFetched ? (
+          {hasFetched && rows.length > 0 ? (
             <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2 md:col-span-12">
               <div className="flex items-start gap-4">
                 <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
@@ -820,6 +965,7 @@ export default function ExternalExamAttendanceMarkingPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
+      resultsVisible={hasFetched && rows.length > 0}
       hideEmptyGrid
       fitColumnsToWidth={false}
       pagination
@@ -849,7 +995,7 @@ export default function ExternalExamAttendanceMarkingPage() {
         ) : undefined
       }
       rightRail={
-        hasFetched ? (
+        hasFetched && rows.length > 0 ? (
           <div className="space-y-3">
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
               <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">

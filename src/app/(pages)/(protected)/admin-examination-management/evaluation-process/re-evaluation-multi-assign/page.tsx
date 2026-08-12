@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ColDef } from 'ag-grid-community'
-import type { LucideIcon } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { ColDef } from "ag-grid-community";
+import type { LucideIcon } from "lucide-react";
 import {
   CloudUpload,
   FileText,
@@ -11,38 +11,47 @@ import {
   User,
   UserMinus,
   Users,
-} from 'lucide-react'
-import { SearchInput } from '@/common/components/search'
-import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { Select, type SelectOption } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { toastError, toastSuccess } from '@/lib/toast'
+} from "lucide-react";
+import { SearchInput } from "@/common/components/search";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { Select, type SelectOption } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   assignMultipleUpdateEvaluationAssignmentRevision,
   getReevaluationMultiAssignBundle,
   getRegSupBaseFilters,
   getRegSupRestFilters,
   getRegSupSubjectFilters,
-} from '@/services/evaluation'
-import { FilteredPage } from '@/components/layout'
+} from "@/services/evaluation";
+import { FilteredPage } from "@/components/layout";
 import {
   subjectSelectLabel,
   withSubjectGroupNames,
-} from '@/common/utils/data-helpers'
-import { cn } from '@/lib/utils'
+} from "@/common/utils/data-helpers";
+import { cn } from "@/lib/utils";
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
 function ReevalStat({
   icon: Icon,
   label,
   value,
 }: {
-  icon: LucideIcon
-  label: string
-  value: number
+  icon: LucideIcon;
+  label: string;
+  value: number;
 }) {
   return (
     <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
@@ -50,11 +59,15 @@ function ReevalStat({
         <Icon className="h-4 w-4" aria-hidden />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-[12px] font-medium text-[#0c51a4]">{label}</p>
-        <p className="text-[18px] font-semibold leading-tight text-[#0c51a4]">{value}</p>
+        <p className="truncate text-[12px] font-medium text-[#0c51a4]">
+          {label}
+        </p>
+        <p className="text-[18px] font-semibold leading-tight text-[#0c51a4]">
+          {value}
+        </p>
       </div>
     </div>
-  )
+  );
 }
 
 function ReevalPanel({
@@ -63,15 +76,15 @@ function ReevalPanel({
   children,
   className,
 }: {
-  title: string
-  icon: LucideIcon
-  children: ReactNode
-  className?: string
+  title: string;
+  icon: LucideIcon;
+  children: ReactNode;
+  className?: string;
 }) {
   return (
     <div
       className={cn(
-        'flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card',
+        "flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border/80 bg-card",
         className,
       )}
     >
@@ -81,7 +94,7 @@ function ReevalPanel({
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </div>
-  )
+  );
 }
 
 function ReevalEmpty({
@@ -89,9 +102,9 @@ function ReevalEmpty({
   title,
   description,
 }: {
-  icon: LucideIcon
-  title: string
-  description: string
+  icon: LucideIcon;
+  title: string;
+  description: string;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
@@ -99,233 +112,278 @@ function ReevalEmpty({
         <Icon className="h-7 w-7" aria-hidden />
       </span>
       <p className="text-sm font-semibold text-[#0c51a4]">{title}</p>
-      <p className="max-w-[15rem] text-xs leading-relaxed text-muted-foreground">{description}</p>
+      <p className="max-w-[15rem] text-xs leading-relaxed text-muted-foreground">
+        {description}
+      </p>
     </div>
-  )
+  );
 }
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
+  if (!row) return 0;
   for (const k of keys) {
-    const n = Number(row[k])
-    if (n > 0) return n
+    const n = Number(row[k]);
+    if (n > 0) return n;
   }
-  return 0
-}
+  return 0;
+};
 const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
+  if (!row) return "";
   for (const k of keys) {
-    const v = row[k]
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = row[k];
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
-}
+  return "";
+};
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>()
+  const seen = new Set<string | number>();
   return rows.filter((r) => {
-    const key = keyFn(r)
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
+    const key = keyFn(r);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
-function makeAssignedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') => void) {
+function makeAssignedRenderer(
+  onOpen: (
+    row: AnyRow,
+    listType: "AssignedList" | "CompletedList" | "DueList",
+  ) => void,
+) {
   return (p: { data?: AnyRow }) => {
-    const row = p.data ?? {}
-    const count = Number(row?.no_of_students_assigned ?? 0)
+    const row = p.data ?? {};
+    const count = Number(row?.no_of_students_assigned ?? 0);
     return (
-      <button type="button" className="text-blue-700 hover:underline disabled:text-muted-foreground" disabled={count <= 0} onClick={() => onOpen(row, 'AssignedList')}>
+      <button
+        type="button"
+        className="text-blue-700 hover:underline disabled:text-muted-foreground"
+        disabled={count <= 0}
+        onClick={() => onOpen(row, "AssignedList")}
+      >
         {count}
       </button>
-    )
-  }
+    );
+  };
 }
 
-function makeEvaluatedRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') => void) {
+function makeEvaluatedRenderer(
+  onOpen: (
+    row: AnyRow,
+    listType: "AssignedList" | "CompletedList" | "DueList",
+  ) => void,
+) {
   return (p: { data?: AnyRow }) => {
-    const row = p.data ?? {}
-    const count = Number(row?.no_of_evaluations_completed ?? 0)
+    const row = p.data ?? {};
+    const count = Number(row?.no_of_evaluations_completed ?? 0);
     return (
-      <button type="button" className="text-blue-700 hover:underline disabled:text-muted-foreground" disabled={count <= 0} onClick={() => onOpen(row, 'CompletedList')}>
+      <button
+        type="button"
+        className="text-blue-700 hover:underline disabled:text-muted-foreground"
+        disabled={count <= 0}
+        onClick={() => onOpen(row, "CompletedList")}
+      >
         {count}
       </button>
-    )
-  }
+    );
+  };
 }
 
-function makeDueRenderer(onOpen: (row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') => void) {
+function makeDueRenderer(
+  onOpen: (
+    row: AnyRow,
+    listType: "AssignedList" | "CompletedList" | "DueList",
+  ) => void,
+) {
   return (p: { data?: AnyRow }) => {
-    const row = p.data ?? {}
-    const count = Number(row?.no_of_students_assigned ?? 0) - Number(row?.no_of_evaluations_completed ?? 0)
+    const row = p.data ?? {};
+    const count =
+      Number(row?.no_of_students_assigned ?? 0) -
+      Number(row?.no_of_evaluations_completed ?? 0);
     return (
-      <button type="button" className="text-blue-700 hover:underline disabled:text-muted-foreground" disabled={count <= 0} onClick={() => onOpen(row, 'DueList')}>
+      <button
+        type="button"
+        className="text-blue-700 hover:underline disabled:text-muted-foreground"
+        disabled={count <= 0}
+        onClick={() => onOpen(row, "DueList")}
+      >
         {count}
       </button>
-    )
-  }
+    );
+  };
 }
 
 export default function ReEvaluationMultiAssignPage() {
-  const [loading, setLoading] = useState(false)
-  const [assigning, setAssigning] = useState(false)
-  const [hasFetched, setHasFetched] = useState(false)
-  const [baseRows, setBaseRows] = useState<AnyRow[]>([])
-  const [restRows, setRestRows] = useState<AnyRow[]>([])
-  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
-  const [evaluatorRows, setEvaluatorRows] = useState<AnyRow[]>([])
-  const [totalsRows, setTotalsRows] = useState<AnyRow[]>([])
-  const [studentRows, setStudentRows] = useState<AnyRow[]>([])
-  const [omrRows, setOmrRows] = useState<AnyRow[]>([])
-  const omrRowsRef = useRef<AnyRow[]>([])
-  omrRowsRef.current = omrRows
+  const [loading, setLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
+  const [restRows, setRestRows] = useState<AnyRow[]>([]);
+  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
+  const [evaluatorRows, setEvaluatorRows] = useState<AnyRow[]>([]);
+  const [totalsRows, setTotalsRows] = useState<AnyRow[]>([]);
+  const [studentRows, setStudentRows] = useState<AnyRow[]>([]);
+  const [omrRows, setOmrRows] = useState<AnyRow[]>([]);
+  const omrRowsRef = useRef<AnyRow[]>([]);
+  omrRowsRef.current = omrRows;
 
-  const [selectedEvaluatorDetId, setSelectedEvaluatorDetId] = useState<number | null>(null)
-  const [selectedOmr, setSelectedOmr] = useState<string[]>([])
-  const [omrSearch, setOmrSearch] = useState('')
-  const [popupOpen, setPopupOpen] = useState(false)
-  const [popupTitle, setPopupTitle] = useState('Student Answer Sheets List')
-  const [popupSearch, setPopupSearch] = useState('')
-  const [popupRows, setPopupRows] = useState<AnyRow[]>([])
+  const [selectedEvaluatorDetId, setSelectedEvaluatorDetId] = useState<
+    number | null
+  >(null);
+  const [selectedOmr, setSelectedOmr] = useState<string[]>([]);
+  const [omrSearch, setOmrSearch] = useState("");
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [popupTitle, setPopupTitle] = useState("Student Answer Sheets List");
+  const [popupSearch, setPopupSearch] = useState("");
+  const [popupRows, setPopupRows] = useState<AnyRow[]>([]);
 
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [regulationId, setRegulationId] = useState<number | null>(null)
-  const [subjectId, setSubjectId] = useState<number | null>(null)
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [examId, setExamId] = useState<number | null>(null);
+  const [courseYearId, setCourseYearId] = useState<number | null>(null);
+  const [regulationId, setRegulationId] = useState<number | null>(null);
+  const [subjectId, setSubjectId] = useState<number | null>(null);
 
-  const employeeId = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-  const organizationId = Number(globalThis?.localStorage?.getItem('organizationId') ?? 0)
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
+  const organizationId = Number(
+    globalThis?.localStorage?.getItem("organizationId") ?? 0,
+  );
 
   function resetFetchedState() {
-    setHasFetched(false)
-    setSelectedEvaluatorDetId(null)
-    setSelectedOmr([])
-    setOmrSearch('')
+    setHasFetched(false);
+    setSelectedEvaluatorDetId(null);
+    setSelectedOmr([]);
+    setOmrSearch("");
   }
 
-  const restReqSeq = useRef(0)
-  const subjectReqSeq = useRef(0)
+  const restReqSeq = useRef(0);
+  const subjectReqSeq = useRef(0);
 
   const courses = useMemo(
-    () => dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId'])),
+    () => dedupeBy(baseRows, (r) => pickNum(r, ["fk_course_id", "courseId"])),
     [baseRows],
-  )
+  );
   const academicYears = useMemo(() => {
-    if (!courseId) return []
+    if (!courseId) return [];
     const rows = dedupeBy(
       baseRows.filter(
-        (r) => pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId),
+        (r) => pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId),
       ),
-      (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
-    )
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+    );
     return [...rows].sort(
       (a, b) =>
-        parseInt(pickText(b, ['academic_year', 'academicYear']) || '0', 10) -
-        parseInt(pickText(a, ['academic_year', 'academicYear']) || '0', 10),
-    )
-  }, [baseRows, courseId])
+        parseInt(pickText(b, ["academic_year", "academicYear"]) || "0", 10) -
+        parseInt(pickText(a, ["academic_year", "academicYear"]) || "0", 10),
+    );
+  }, [baseRows, courseId]);
   const exams = useMemo(() => {
-    if (!courseId || !academicYearId) return []
+    if (!courseId || !academicYearId) return [];
     return dedupeBy(
       baseRows.filter(
         (r) =>
-          pickNum(r, ['fk_course_id', 'courseId']) === Number(courseId) &&
-          pickNum(r, ['fk_academic_year_id', 'academicYearId']) ===
+          pickNum(r, ["fk_course_id", "courseId"]) === Number(courseId) &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
             Number(academicYearId),
       ),
-      (r) => pickNum(r, ['fk_exam_id', 'examId']),
-    )
-  }, [baseRows, courseId, academicYearId])
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+  }, [baseRows, courseId, academicYearId]);
   const courseYears = useMemo(
     () =>
-      dedupeBy(restRows, (r) => pickNum(r, ['fk_course_year_id', 'courseYearId'])),
+      dedupeBy(restRows, (r) =>
+        pickNum(r, ["fk_course_year_id", "courseYearId"]),
+      ),
     [restRows],
-  )
+  );
   // Angular selectedCourseYr: regulations only for the selected course year.
   const regulations = useMemo(() => {
-    if (!courseYearId) return []
+    if (!courseYearId) return [];
     return dedupeBy(
       restRows.filter(
         (r) =>
-          pickNum(r, ['fk_course_year_id', 'courseYearId']) ===
+          pickNum(r, ["fk_course_year_id", "courseYearId"]) ===
           Number(courseYearId),
       ),
-      (r) => pickNum(r, ['fk_regulation_id', 'regulationId']),
-    )
-  }, [restRows, courseYearId])
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+    );
+  }, [restRows, courseYearId]);
   const subjects = useMemo(
     () => withSubjectGroupNames(subjectRows as AnyRow[]),
     [subjectRows],
-  )
+  );
 
   function clearBelowCourse() {
-    setAcademicYearId(null)
-    setExamId(null)
-    setCourseYearId(null)
-    setRegulationId(null)
-    setSubjectId(null)
-    setRestRows([])
-    setSubjectRows([])
+    setAcademicYearId(null);
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
   }
 
   function clearBelowAcademicYear() {
-    setExamId(null)
-    setCourseYearId(null)
-    setRegulationId(null)
-    setSubjectId(null)
-    setRestRows([])
-    setSubjectRows([])
+    setExamId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
   }
 
   function clearBelowExam() {
-    setCourseYearId(null)
-    setRegulationId(null)
-    setSubjectId(null)
-    setRestRows([])
-    setSubjectRows([])
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSubjectId(null);
+    setRestRows([]);
+    setSubjectRows([]);
   }
 
   function clearBelowCourseYear() {
-    setRegulationId(null)
-    setSubjectId(null)
-    setSubjectRows([])
+    setRegulationId(null);
+    setSubjectId(null);
+    setSubjectRows([]);
   }
 
   function clearBelowRegulation() {
-    setSubjectId(null)
-    setSubjectRows([])
+    setSubjectId(null);
+    setSubjectRows([]);
   }
 
   type CascadeCtx = {
-    courseId: number
-    academicYearId: number
-    examId: number
-    courseYearId: number
-  }
+    courseId: number;
+    academicYearId: number;
+    examId: number;
+    courseYearId: number;
+  };
 
-  function applyCourse(nextCourseId: number | null, fromBase: AnyRow[] = baseRows) {
-    resetFetchedState()
-    restReqSeq.current += 1
-    subjectReqSeq.current += 1
-    setCourseId(nextCourseId)
-    clearBelowCourse()
-    if (!nextCourseId) return
+  function applyCourse(
+    nextCourseId: number | null,
+    fromBase: AnyRow[] = baseRows,
+  ) {
+    resetFetchedState();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setCourseId(nextCourseId);
+    clearBelowCourse();
+    if (!nextCourseId) return;
     const ayRows = dedupeBy(
       fromBase.filter(
-        (r) => pickNum(r, ['fk_course_id', 'courseId']) === nextCourseId,
+        (r) => pickNum(r, ["fk_course_id", "courseId"]) === nextCourseId,
       ),
-      (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId']),
-    )
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+    );
     const sorted = [...ayRows].sort(
       (a, b) =>
-        parseInt(pickText(b, ['academic_year', 'academicYear']) || '0', 10) -
-        parseInt(pickText(a, ['academic_year', 'academicYear']) || '0', 10),
-    )
+        parseInt(pickText(b, ["academic_year", "academicYear"]) || "0", 10) -
+        parseInt(pickText(a, ["academic_year", "academicYear"]) || "0", 10),
+    );
     const firstAy =
-      pickNum(sorted[0], ['fk_academic_year_id', 'academicYearId']) || null
-    if (firstAy) applyAcademicYear(firstAy, nextCourseId, fromBase)
+      pickNum(sorted[0], ["fk_academic_year_id", "academicYearId"]) || null;
+    if (firstAy) applyAcademicYear(firstAy, nextCourseId, fromBase);
   }
 
   function applyAcademicYear(
@@ -333,22 +391,22 @@ export default function ReEvaluationMultiAssignPage() {
     forCourseId = courseId,
     fromBase: AnyRow[] = baseRows,
   ) {
-    resetFetchedState()
-    restReqSeq.current += 1
-    subjectReqSeq.current += 1
-    setAcademicYearId(nextAyId)
-    clearBelowAcademicYear()
-    if (!nextAyId || !forCourseId) return
+    resetFetchedState();
+    restReqSeq.current += 1;
+    subjectReqSeq.current += 1;
+    setAcademicYearId(nextAyId);
+    clearBelowAcademicYear();
+    if (!nextAyId || !forCourseId) return;
     const examRows = dedupeBy(
       fromBase.filter(
         (r) =>
-          pickNum(r, ['fk_course_id', 'courseId']) === Number(forCourseId) &&
-          pickNum(r, ['fk_academic_year_id', 'academicYearId']) === nextAyId,
+          pickNum(r, ["fk_course_id", "courseId"]) === Number(forCourseId) &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) === nextAyId,
       ),
-      (r) => pickNum(r, ['fk_exam_id', 'examId']),
-    )
-    const firstExam = pickNum(examRows[0], ['fk_exam_id', 'examId']) || null
-    if (firstExam) applyExam(firstExam, forCourseId, nextAyId)
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+    const firstExam = pickNum(examRows[0], ["fk_exam_id", "examId"]) || null;
+    if (firstExam) applyExam(firstExam, forCourseId, nextAyId);
   }
 
   function applyExam(
@@ -356,36 +414,36 @@ export default function ReEvaluationMultiAssignPage() {
     forCourseId = courseId,
     forAyId = academicYearId,
   ) {
-    resetFetchedState()
-    subjectReqSeq.current += 1
-    setExamId(nextExamId)
-    clearBelowExam()
-    if (!nextExamId || !forCourseId || !forAyId) return
-    const seq = ++restReqSeq.current
+    resetFetchedState();
+    subjectReqSeq.current += 1;
+    setExamId(nextExamId);
+    clearBelowExam();
+    if (!nextExamId || !forCourseId || !forAyId) return;
+    const seq = ++restReqSeq.current;
     void (async () => {
       const list = await getRegSupRestFilters({
         courseId: forCourseId,
         academicYearId: forAyId,
         examId: nextExamId,
         employeeId,
-      }).catch(() => [] as AnyRow[])
-      if (seq !== restReqSeq.current) return
-      const rows = Array.isArray(list) ? list : []
-      setRestRows(rows)
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== restReqSeq.current) return;
+      const rows = Array.isArray(list) ? list : [];
+      setRestRows(rows);
       const years = dedupeBy(rows, (r) =>
-        pickNum(r, ['fk_course_year_id', 'courseYearId']),
-      )
+        pickNum(r, ["fk_course_year_id", "courseYearId"]),
+      );
       const firstYear =
-        pickNum(years[0], ['fk_course_year_id', 'courseYearId']) || null
+        pickNum(years[0], ["fk_course_year_id", "courseYearId"]) || null;
       if (firstYear) {
         applyCourseYear(firstYear, rows, {
           courseId: forCourseId,
           academicYearId: forAyId,
           examId: nextExamId,
           courseYearId: firstYear,
-        })
+        });
       }
-    })()
+    })();
   }
 
   function applyCourseYear(
@@ -393,39 +451,41 @@ export default function ReEvaluationMultiAssignPage() {
     fromRest: AnyRow[] = restRows,
     ctx?: Partial<CascadeCtx>,
   ) {
-    resetFetchedState()
-    subjectReqSeq.current += 1
-    setCourseYearId(nextYearId)
-    clearBelowCourseYear()
-    if (!nextYearId) return
+    resetFetchedState();
+    subjectReqSeq.current += 1;
+    setCourseYearId(nextYearId);
+    clearBelowCourseYear();
+    if (!nextYearId) return;
     const regs = dedupeBy(
       fromRest.filter(
-        (r) =>
-          pickNum(r, ['fk_course_year_id', 'courseYearId']) === nextYearId,
+        (r) => pickNum(r, ["fk_course_year_id", "courseYearId"]) === nextYearId,
       ),
-      (r) => pickNum(r, ['fk_regulation_id', 'regulationId']),
-    )
+      (r) => pickNum(r, ["fk_regulation_id", "regulationId"]),
+    );
     const firstReg =
-      pickNum(regs[0], ['fk_regulation_id', 'regulationId']) || null
-    if (!firstReg) return
+      pickNum(regs[0], ["fk_regulation_id", "regulationId"]) || null;
+    if (!firstReg) return;
     applyRegulation(firstReg, {
       courseId: Number(ctx?.courseId ?? courseId),
       academicYearId: Number(ctx?.academicYearId ?? academicYearId),
       examId: Number(ctx?.examId ?? examId),
       courseYearId: nextYearId,
-    })
+    });
   }
 
-  function applyRegulation(nextRegId: number | null, ctx?: Partial<CascadeCtx>) {
-    resetFetchedState()
-    setRegulationId(nextRegId)
-    clearBelowRegulation()
-    const cId = Number(ctx?.courseId ?? courseId)
-    const ayId = Number(ctx?.academicYearId ?? academicYearId)
-    const eId = Number(ctx?.examId ?? examId)
-    const yId = Number(ctx?.courseYearId ?? courseYearId)
-    if (!nextRegId || !cId || !ayId || !eId || !yId) return
-    const seq = ++subjectReqSeq.current
+  function applyRegulation(
+    nextRegId: number | null,
+    ctx?: Partial<CascadeCtx>,
+  ) {
+    resetFetchedState();
+    setRegulationId(nextRegId);
+    clearBelowRegulation();
+    const cId = Number(ctx?.courseId ?? courseId);
+    const ayId = Number(ctx?.academicYearId ?? academicYearId);
+    const eId = Number(ctx?.examId ?? examId);
+    const yId = Number(ctx?.courseYearId ?? courseYearId);
+    if (!nextRegId || !cId || !ayId || !eId || !yId) return;
+    const seq = ++subjectReqSeq.current;
     void (async () => {
       const list = await getRegSupSubjectFilters({
         courseId: cId,
@@ -434,38 +494,45 @@ export default function ReEvaluationMultiAssignPage() {
         courseYearId: yId,
         regulationId: nextRegId,
         employeeId,
-      }).catch(() => [] as AnyRow[])
-      if (seq !== subjectReqSeq.current) return
-      const rows = Array.isArray(list) ? list : []
-      setSubjectRows(rows)
-      setSubjectId(pickNum(rows[0], ['fk_subject_id', 'subjectId']) || null)
-    })()
+      }).catch(() => [] as AnyRow[]);
+      if (seq !== subjectReqSeq.current) return;
+      const rows = Array.isArray(list) ? list : [];
+      setSubjectRows(rows);
+      setSubjectId(pickNum(rows[0], ["fk_subject_id", "subjectId"]) || null);
+    })();
   }
 
   useEffect(() => {
     async function init() {
-      setLoading(true)
+      setLoading(true);
       try {
-        const list = await getRegSupBaseFilters(employeeId).catch(() => [])
-        const rows = Array.isArray(list) ? list : []
-        setBaseRows(rows)
+        const list = await getRegSupBaseFilters(employeeId).catch(() => []);
+        const rows = Array.isArray(list) ? list : [];
+        setBaseRows(rows);
         const firstCourse =
-          pickNum(rows[0], ['fk_course_id', 'courseId']) || null
-        if (firstCourse) applyCourse(firstCourse, rows)
+          pickNum(rows[0], ["fk_course_id", "courseId"]) || null;
+        if (firstCourse) applyCourse(firstCourse, rows);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
-    void init()
+    void init();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Angular getFiltersData() once on mount
-  }, [employeeId])
+  }, [employeeId]);
 
   async function onGetList() {
-    if (!courseId || !academicYearId || !examId || !courseYearId || !regulationId || !subjectId) {
-      toastError('Please select all filters.')
-      return
+    if (
+      !courseId ||
+      !academicYearId ||
+      !examId ||
+      !courseYearId ||
+      !regulationId ||
+      !subjectId
+    ) {
+      toastError("Please select all filters.");
+      return;
     }
-    setLoading(true)
+    setLoading(true);
     try {
       const data = await getReevaluationMultiAssignBundle({
         organizationId: organizationId || 1,
@@ -476,174 +543,278 @@ export default function ReEvaluationMultiAssignPage() {
         courseId,
         academicYearId,
         employeeId,
-      })
-      setEvaluatorRows(data.evaluators)
-      setTotalsRows(data.summary)
-      setOmrRows(data.evaluatorOmrRows)
-      setStudentRows(data.students)
-      setSelectedEvaluatorDetId(null)
-      setSelectedOmr([])
-      setHasFetched(true)
+      });
+      setEvaluatorRows(data.evaluators);
+      setTotalsRows(data.summary);
+      setOmrRows(data.evaluatorOmrRows);
+      setStudentRows(data.students);
+      setSelectedEvaluatorDetId(null);
+      setSelectedOmr([]);
+      setHasFetched(true);
     } catch (error: unknown) {
-      toastError(error instanceof Error ? error.message : 'Failed to load re-evaluation assignment data.')
+      toastError(
+        error instanceof Error
+          ? error.message
+          : "Failed to load re-evaluation assignment data.",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  const totals = totalsRows[0] ?? {}
-  const totalStudents = Number(totals.totalStudents ?? totals.TotalStudents ?? 0)
-  const uploaded = Number(totals.NoOfAnswerpapersUploaded ?? totals.noOfAnswerpapersUploaded ?? 0)
-  const unassigned = Number(totals.UnAssinged ?? totals.UnAssigned ?? totals.unAssigned ?? 0)
-  const assigned = Math.max(uploaded - unassigned, 0)
+  const totals = totalsRows[0] ?? {};
+  const totalStudents = Number(
+    totals.totalStudents ?? totals.TotalStudents ?? 0,
+  );
+  const uploaded = Number(
+    totals.NoOfAnswerpapersUploaded ?? totals.noOfAnswerpapersUploaded ?? 0,
+  );
+  const unassigned = Number(
+    totals.UnAssinged ?? totals.UnAssigned ?? totals.unAssigned ?? 0,
+  );
+  const assigned = Math.max(uploaded - unassigned, 0);
 
   const uploadedStudents = useMemo(
     () => studentRows.filter((s) => Number(s?.is_answerpaper_uploaded) === 1),
     [studentRows],
-  )
+  );
 
   function evaluatorProfileId(row: AnyRow): number {
-    return pickNum(row, ['pk_exam_evaluator_profile_id', 'fk_exam_evaluator_profile_id', 'exam_evaluator_profile_id'])
+    return pickNum(row, [
+      "pk_exam_evaluator_profile_id",
+      "fk_exam_evaluator_profile_id",
+      "exam_evaluator_profile_id",
+    ]);
   }
 
   function evaluatorProfileDetId(row: AnyRow): number {
-    return pickNum(row, ['pk_examevaluator_profiledet_id', 'pk_exam_evaluator_profiledet_id', 'examEvaluatorProfileDetId'])
+    return pickNum(row, [
+      "pk_examevaluator_profiledet_id",
+      "pk_exam_evaluator_profiledet_id",
+      "examEvaluatorProfileDetId",
+    ]);
   }
 
-  const selectedEvaluator = useMemo(
-    () => evaluatorRows.find((r) => evaluatorProfileDetId(r) === Number(selectedEvaluatorDetId)) ?? null,
-    [evaluatorRows, selectedEvaluatorDetId],
-  )
+  /** Prefer profiledet (unique); fall back to profile id. Never match on 0. */
+  function evaluatorAssignId(row: AnyRow): number {
+    return evaluatorProfileDetId(row) || evaluatorProfileId(row);
+  }
+
+  const selectedEvaluator = useMemo(() => {
+    if (selectedEvaluatorDetId == null || selectedEvaluatorDetId <= 0)
+      return null;
+    return (
+      evaluatorRows.find(
+        (r) => evaluatorAssignId(r) === selectedEvaluatorDetId,
+      ) ?? null
+    );
+  }, [evaluatorRows, selectedEvaluatorDetId]);
 
   const selectedEvaluatorProfileId = useMemo(
     () => (selectedEvaluator ? evaluatorProfileId(selectedEvaluator) : null),
     [selectedEvaluator],
-  )
+  );
+
+  const hasEvaluatorSelected =
+    selectedEvaluatorDetId != null &&
+    selectedEvaluatorDetId > 0 &&
+    selectedEvaluator != null;
 
   const isExcludedFor = (s: AnyRow, evaluatorId: number | null) => {
-    if (!evaluatorId) return false
-    const raw = String(s?.exclude_fk_exam_evaluator_profile_id ?? '')
-    if (!raw.trim()) return false
-    return raw.split(',').map((v) => v.trim()).filter(Boolean).includes(String(evaluatorId))
-  }
+    if (!evaluatorId) return false;
+    const raw = String(s?.exclude_fk_exam_evaluator_profile_id ?? "");
+    if (!raw.trim()) return false;
+    return raw
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .includes(String(evaluatorId));
+  };
 
   const isOmrDisabledFor = (s: AnyRow, evaluatorId: number | null) =>
-    isExcludedFor(s, evaluatorId) || Number(s?.disable_omr) === 1
+    isExcludedFor(s, evaluatorId) || Number(s?.disable_omr) === 1;
 
+  // Angular: maintDataList stays empty until radioChange(evaluator)
   const visibleStudents = useMemo(() => {
-    if (!selectedEvaluatorProfileId) return []
-    const q = omrSearch.trim().toLowerCase()
+    if (!hasEvaluatorSelected || !selectedEvaluatorProfileId) return [];
+    const q = omrSearch.trim().toLowerCase();
     const base = q
-      ? uploadedStudents.filter((s) => String(s?.omr_serial_no ?? '').toLowerCase().includes(q))
-      : uploadedStudents
+      ? uploadedStudents.filter((s) =>
+          String(s?.omr_serial_no ?? "")
+            .toLowerCase()
+            .includes(q),
+        )
+      : uploadedStudents;
     return [...base].sort((a, b) => {
-      const aDisabled = isOmrDisabledFor(a, selectedEvaluatorProfileId)
-      const bDisabled = isOmrDisabledFor(b, selectedEvaluatorProfileId)
-      if (aDisabled !== bDisabled) return aDisabled ? 1 : -1
-      return Number(a?.omr_mapped ?? 0) - Number(b?.omr_mapped ?? 0)
-    })
-  }, [uploadedStudents, omrSearch, selectedEvaluatorProfileId])
+      const aDisabled = isOmrDisabledFor(a, selectedEvaluatorProfileId);
+      const bDisabled = isOmrDisabledFor(b, selectedEvaluatorProfileId);
+      if (aDisabled !== bDisabled) return aDisabled ? 1 : -1;
+      return Number(a?.omr_mapped ?? 0) - Number(b?.omr_mapped ?? 0);
+    });
+  }, [
+    uploadedStudents,
+    omrSearch,
+    selectedEvaluatorProfileId,
+    hasEvaluatorSelected,
+  ]);
 
-  const assignableStudents = visibleStudents
+  const assignableStudents = visibleStudents;
   const alreadyAssignedStudents = useMemo(
-    () => visibleStudents.filter((s) => isExcludedFor(s, selectedEvaluatorProfileId)),
-    [visibleStudents, selectedEvaluatorProfileId],
-  )
+    () =>
+      hasEvaluatorSelected
+        ? visibleStudents.filter((s) =>
+            isExcludedFor(s, selectedEvaluatorProfileId),
+          )
+        : [],
+    [visibleStudents, selectedEvaluatorProfileId, hasEvaluatorSelected],
+  );
   const visibleAssignableOmrs = useMemo(
     () =>
       visibleStudents
         .filter((s) => !isOmrDisabledFor(s, selectedEvaluatorProfileId))
-        .map((s) => String(s?.omr_serial_no ?? ''))
+        .map((s) => String(s?.omr_serial_no ?? ""))
         .filter(Boolean),
     [visibleStudents, selectedEvaluatorProfileId],
-  )
+  );
   const areAllVisibleSelected = useMemo(
-    () => visibleAssignableOmrs.length > 0 && visibleAssignableOmrs.every((omr) => selectedOmr.includes(omr)),
+    () =>
+      visibleAssignableOmrs.length > 0 &&
+      visibleAssignableOmrs.every((omr) => selectedOmr.includes(omr)),
     [visibleAssignableOmrs, selectedOmr],
-  )
+  );
 
   async function onAssign() {
-    if (!selectedEvaluatorDetId || selectedOmr.length === 0 || !examId || !subjectId || !courseYearId) return
-    setAssigning(true)
+    if (
+      !selectedEvaluatorDetId ||
+      selectedOmr.length === 0 ||
+      !examId ||
+      !subjectId ||
+      !courseYearId
+    )
+      return;
+    setAssigning(true);
     try {
       await assignMultipleUpdateEvaluationAssignmentRevision({
         profileId: selectedEvaluatorDetId,
-        omrSerialNosCsv: selectedOmr.join(','),
+        omrSerialNosCsv: selectedOmr.join(","),
         examId,
         subjectId,
         courseYearId,
-      })
-      toastSuccess('Re-evaluation assignments saved successfully.')
-      setSelectedOmr([])
-      await onGetList()
+      });
+      toastSuccess("Re-evaluation assignments saved successfully.");
+      setSelectedOmr([]);
+      await onGetList();
     } catch (error: unknown) {
-      toastError(error instanceof Error ? error.message : 'Failed to assign re-evaluation answer papers.')
+      toastError(
+        error instanceof Error
+          ? error.message
+          : "Failed to assign re-evaluation answer papers.",
+      );
     } finally {
-      setAssigning(false)
+      setAssigning(false);
     }
   }
 
   function toggleSelectAllVisible() {
     if (areAllVisibleSelected) {
-      setSelectedOmr((prev) => prev.filter((omr) => !visibleAssignableOmrs.includes(omr)))
-      return
+      setSelectedOmr((prev) =>
+        prev.filter((omr) => !visibleAssignableOmrs.includes(omr)),
+      );
+      return;
     }
-    setSelectedOmr((prev) => [...new Set([...prev, ...visibleAssignableOmrs])])
+    setSelectedOmr((prev) => [...new Set([...prev, ...visibleAssignableOmrs])]);
   }
 
   function toggleOmrSelection(omr: string, checked: boolean) {
-    setSelectedOmr((prev) => (checked ? [...new Set([...prev, omr])] : prev.filter((v) => v !== omr)))
+    setSelectedOmr((prev) =>
+      checked ? [...new Set([...prev, omr])] : prev.filter((v) => v !== omr),
+    );
   }
 
-  function openStudentListPopup(row: AnyRow, listType: 'AssignedList' | 'CompletedList' | 'DueList') {
-    const id = evaluatorProfileId(row)
-    const base = omrRowsRef.current.filter((x) => evaluatorProfileId(x) === id)
+  function openStudentListPopup(
+    row: AnyRow,
+    listType: "AssignedList" | "CompletedList" | "DueList",
+  ) {
+    const id = evaluatorProfileId(row);
+    const base = omrRowsRef.current.filter((x) => evaluatorProfileId(x) === id);
     const filtered =
-      listType === 'CompletedList'
-        ? base.filter((x) => x?.evaluated_totalmarks != null && x?.omr_serial_no != null)
-        : listType === 'DueList'
-          ? base.filter((x) => x?.evaluated_totalmarks == null && x?.omr_serial_no != null)
-          : base.filter((x) => x?.omr_serial_no != null)
+      listType === "CompletedList"
+        ? base.filter(
+            (x) => x?.evaluated_totalmarks != null && x?.omr_serial_no != null,
+          )
+        : listType === "DueList"
+          ? base.filter(
+              (x) =>
+                x?.evaluated_totalmarks == null && x?.omr_serial_no != null,
+            )
+          : base.filter((x) => x?.omr_serial_no != null);
     setPopupTitle(
-      listType === 'CompletedList'
-        ? 'Evaluated Answer Sheets List'
-        : listType === 'DueList'
-          ? 'Due Answer Sheets List'
-          : 'Student Answer Sheets List',
-    )
-    setPopupRows(filtered)
-    setPopupSearch('')
-    setPopupOpen(true)
+      listType === "CompletedList"
+        ? "Evaluated Answer Sheets List"
+        : listType === "DueList"
+          ? "Due Answer Sheets List"
+          : "Student Answer Sheets List",
+    );
+    setPopupRows(filtered);
+    setPopupSearch("");
+    setPopupOpen(true);
   }
 
   const filteredPopupRows = useMemo(() => {
-    const q = popupSearch.trim().toLowerCase()
-    if (!q) return popupRows
+    const q = popupSearch.trim().toLowerCase();
+    if (!q) return popupRows;
     return popupRows.filter((r) => {
-      const serial = String(r?.omr_serial_no ?? '').toLowerCase()
-      const marks = String(r?.evaluated_totalmarks ?? '').toLowerCase()
-      return serial.includes(q) || marks.includes(q)
-    })
-  }, [popupRows, popupSearch])
+      const serial = String(r?.omr_serial_no ?? "").toLowerCase();
+      const marks = String(r?.evaluated_totalmarks ?? "").toLowerCase();
+      return serial.includes(q) || marks.includes(q);
+    });
+  }, [popupRows, popupSearch]);
 
   const cols = useMemo<ColDef[]>(
     () => [
-      { headerName: 'SI.No', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70 },
-      { field: 'evaluatorName', headerName: 'Evaluator Name', minWidth: 220, valueGetter: (p) => p.data?.evaluator_name ?? '-' },
-      { field: 'email', headerName: 'Evaluator Email', minWidth: 220, valueGetter: (p) => p.data?.email ?? '-' },
-      { field: 'assigned', headerName: 'Assigned Answer Sheets', minWidth: 170, valueGetter: (p) => p.data?.no_of_students_assigned ?? 0, cellRenderer: makeAssignedRenderer(openStudentListPopup) },
-      { field: 'completed', headerName: 'Evaluated Answer Sheets', minWidth: 170, valueGetter: (p) => p.data?.no_of_evaluations_completed ?? 0, cellRenderer: makeEvaluatedRenderer(openStudentListPopup) },
       {
-        field: 'due',
-        headerName: 'Due Answer Sheets',
+        headerName: "SI.No",
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 70,
+      },
+      {
+        field: "evaluatorName",
+        headerName: "Evaluator Name",
+        minWidth: 220,
+        valueGetter: (p) => p.data?.evaluator_name ?? "-",
+      },
+      {
+        field: "email",
+        headerName: "Evaluator Email",
+        minWidth: 220,
+        valueGetter: (p) => p.data?.email ?? "-",
+      },
+      {
+        field: "assigned",
+        headerName: "Assigned Answer Sheets",
+        minWidth: 170,
+        valueGetter: (p) => p.data?.no_of_students_assigned ?? 0,
+        cellRenderer: makeAssignedRenderer(openStudentListPopup),
+      },
+      {
+        field: "completed",
+        headerName: "Evaluated Answer Sheets",
+        minWidth: 170,
+        valueGetter: (p) => p.data?.no_of_evaluations_completed ?? 0,
+        cellRenderer: makeEvaluatedRenderer(openStudentListPopup),
+      },
+      {
+        field: "due",
+        headerName: "Due Answer Sheets",
         minWidth: 150,
         valueGetter: (p) =>
-          Number(p.data?.no_of_students_assigned ?? 0) - Number(p.data?.no_of_evaluations_completed ?? 0),
+          Number(p.data?.no_of_students_assigned ?? 0) -
+          Number(p.data?.no_of_evaluations_completed ?? 0),
         cellRenderer: makeDueRenderer(openStudentListPopup),
       },
     ],
     [],
-  )
+  );
 
   const filterFields = (
     <>
@@ -655,14 +826,17 @@ export default function ReEvaluationMultiAssignPage() {
             options={courses.map(
               (c) =>
                 ({
-                  value: String(pickNum(c, ['fk_course_id', 'courseId'])),
-                  label: pickText(c, ['course_code', 'courseCode']),
+                  value: String(pickNum(c, ["fk_course_id", "courseId"])),
+                  label: pickText(c, ["course_code", "courseCode"]),
                 }) as SelectOption,
             )}
             placeholder="Course"
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Exam Year" className="global-filter-field--fx15">
+        <GlobalFilterField
+          label="Exam Year"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={academicYearId ? String(academicYearId) : null}
             onChange={(v) => applyAcademicYear(v ? Number(v) : null)}
@@ -670,9 +844,9 @@ export default function ReEvaluationMultiAssignPage() {
               (a) =>
                 ({
                   value: String(
-                    pickNum(a, ['fk_academic_year_id', 'academicYearId']),
+                    pickNum(a, ["fk_academic_year_id", "academicYearId"]),
                   ),
-                  label: pickText(a, ['academic_year', 'academicYear']),
+                  label: pickText(a, ["academic_year", "academicYear"]),
                 }) as SelectOption,
             )}
             placeholder="Exam Year"
@@ -686,8 +860,8 @@ export default function ReEvaluationMultiAssignPage() {
             options={exams.map(
               (e) =>
                 ({
-                  value: String(pickNum(e, ['fk_exam_id', 'examId'])),
-                  label: pickText(e, ['exam_name', 'examName']),
+                  value: String(pickNum(e, ["fk_exam_id", "examId"])),
+                  label: pickText(e, ["exam_name", "examName"]),
                 }) as SelectOption,
             )}
             placeholder="Exam"
@@ -697,7 +871,10 @@ export default function ReEvaluationMultiAssignPage() {
         </GlobalFilterField>
       </GlobalFilterBarRow>
       <GlobalFilterBarRow className="global-filter-bar__row--eval-mod-r2">
-        <GlobalFilterField label="Course Year" className="global-filter-field--fx15">
+        <GlobalFilterField
+          label="Course Year"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={courseYearId ? String(courseYearId) : null}
             onChange={(v) =>
@@ -711,16 +888,19 @@ export default function ReEvaluationMultiAssignPage() {
               (y) =>
                 ({
                   value: String(
-                    pickNum(y, ['fk_course_year_id', 'courseYearId']),
+                    pickNum(y, ["fk_course_year_id", "courseYearId"]),
                   ),
-                  label: pickText(y, ['course_year_code', 'courseYearCode']),
+                  label: pickText(y, ["course_year_code", "courseYearCode"]),
                 }) as SelectOption,
             )}
             placeholder="Course Year"
             disabled={!examId}
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Regulation" className="global-filter-field--fx15">
+        <GlobalFilterField
+          label="Regulation"
+          className="global-filter-field--fx15"
+        >
           <Select
             value={regulationId ? String(regulationId) : null}
             onChange={(v) =>
@@ -735,31 +915,34 @@ export default function ReEvaluationMultiAssignPage() {
               (r) =>
                 ({
                   value: String(
-                    pickNum(r, ['fk_regulation_id', 'regulationId']),
+                    pickNum(r, ["fk_regulation_id", "regulationId"]),
                   ),
-                  label: pickText(r, ['regulation_code', 'regulationCode']),
+                  label: pickText(r, ["regulation_code", "regulationCode"]),
                 }) as SelectOption,
             )}
             placeholder="Regulation"
             disabled={!courseYearId}
           />
         </GlobalFilterField>
-        <GlobalFilterField label="Subject" className="global-filter-field--fx49">
+        <GlobalFilterField
+          label="Subject"
+          className="global-filter-field--fx49"
+        >
           <Select
             value={subjectId ? String(subjectId) : null}
             onChange={(v) => {
-              resetFetchedState()
-              setSubjectId(v ? Number(v) : null)
+              resetFetchedState();
+              setSubjectId(v ? Number(v) : null);
             }}
             options={subjects.map((s) => {
-              const label = subjectSelectLabel(s)
-              const groupNames = pickText(s, ['groupNames'])
+              const label = subjectSelectLabel(s);
+              const groupNames = pickText(s, ["groupNames"]);
               return {
-                value: String(pickNum(s, ['fk_subject_id', 'subjectId'])),
+                value: String(pickNum(s, ["fk_subject_id", "subjectId"])),
                 label,
                 title: label,
                 description: groupNames || undefined,
-              } as SelectOption
+              } as SelectOption;
             })}
             placeholder="Subject"
             searchable
@@ -781,7 +964,7 @@ export default function ReEvaluationMultiAssignPage() {
         </GlobalFilterField>
       </GlobalFilterBarRow>
     </>
-  )
+  );
 
   return (
     <FilteredPage
@@ -792,11 +975,27 @@ export default function ReEvaluationMultiAssignPage() {
         hasFetched ? (
           <div className="space-y-4">
             <div className="flex flex-wrap items-stretch overflow-hidden rounded-lg border border-border/70 bg-card divide-x divide-border/70">
-              <ReevalStat icon={GraduationCap} label="Total Students" value={totalStudents} />
-              <ReevalStat icon={CloudUpload} label="Uploaded" value={uploaded} />
-              <ReevalStat icon={UserMinus} label="UnAssigned" value={unassigned} />
+              <ReevalStat
+                icon={GraduationCap}
+                label="Total Students"
+                value={totalStudents}
+              />
+              <ReevalStat
+                icon={CloudUpload}
+                label="Uploaded"
+                value={uploaded}
+              />
+              <ReevalStat
+                icon={UserMinus}
+                label="UnAssigned"
+                value={unassigned}
+              />
               <ReevalStat icon={Users} label="Assigned" value={assigned} />
-              <ReevalStat icon={User} label="No of Evaluators" value={evaluatorRows.length} />
+              <ReevalStat
+                icon={User}
+                label="No of Evaluators"
+                value={evaluatorRows.length}
+              />
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -814,32 +1013,38 @@ export default function ReEvaluationMultiAssignPage() {
                 ) : (
                   <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {evaluatorRows.map((e, idx) => {
-                      const detId = evaluatorProfileDetId(e)
-                      const checked = selectedEvaluatorDetId === detId
+                      const assignId = evaluatorAssignId(e);
+                      const checked =
+                        hasEvaluatorSelected &&
+                        selectedEvaluatorDetId === assignId;
                       return (
                         <label
-                          key={`ev-${detId}-${idx}`}
+                          key={`ev-${assignId || "x"}-${idx}`}
                           className={cn(
-                            'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors',
+                            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors",
                             checked
-                              ? 'bg-[#0c51a4]/10 text-[#0c51a4]'
-                              : 'hover:bg-muted/50',
+                              ? "bg-[#0c51a4]/10 text-[#0c51a4]"
+                              : "hover:bg-muted/50",
                           )}
                         >
                           <input
                             type="radio"
+                            name="re-evaluation-multi-evaluator"
+                            value={assignId > 0 ? String(assignId) : ""}
                             checked={checked}
+                            disabled={assignId <= 0}
                             onChange={() => {
-                              setSelectedEvaluatorDetId(detId)
-                              setSelectedOmr([])
+                              if (assignId <= 0) return;
+                              setSelectedEvaluatorDetId(assignId);
+                              setSelectedOmr([]);
                             }}
                           />
                           <span>
-                            {pickText(e, ['evaluator_name', 'evaluatorName'])} / (
-                            {pickNum(e, ['no_of_students_assigned'])})
+                            {pickText(e, ["evaluator_name", "evaluatorName"])} /
+                            ({pickNum(e, ["no_of_students_assigned"])})
                           </span>
                         </label>
-                      )
+                      );
                     })}
                   </div>
                 )}
@@ -854,7 +1059,8 @@ export default function ReEvaluationMultiAssignPage() {
                     className="w-full max-w-sm"
                   />
                   <span className="shrink-0 text-[12px] font-semibold text-[#0c51a4]">
-                    Total : {selectedEvaluatorProfileId ? assignableStudents.length : 0}
+                    Total :{" "}
+                    {hasEvaluatorSelected ? assignableStudents.length : 0}
                   </span>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -868,7 +1074,7 @@ export default function ReEvaluationMultiAssignPage() {
                                 type="checkbox"
                                 checked={areAllVisibleSelected}
                                 disabled={
-                                  !selectedEvaluatorProfileId ||
+                                  !hasEvaluatorSelected ||
                                   visibleAssignableOmrs.length === 0
                                 }
                                 onChange={() => toggleSelectAllVisible()}
@@ -876,7 +1082,9 @@ export default function ReEvaluationMultiAssignPage() {
                               All
                             </label>
                           </th>
-                          <th className="px-2 py-2 text-left font-semibold">Serial No</th>
+                          <th className="px-2 py-2 text-left font-semibold">
+                            Serial No
+                          </th>
                           <th className="px-2 py-2 text-center font-semibold">
                             Answer Papers Assigned
                           </th>
@@ -886,35 +1094,40 @@ export default function ReEvaluationMultiAssignPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {assignableStudents.length === 0 ? (
+                        {!hasEvaluatorSelected ? (
                           <tr>
                             <td colSpan={4} className="p-0">
                               <ReevalEmpty
                                 icon={FileText}
-                                title={
-                                  selectedEvaluatorProfileId
-                                    ? 'No OMR sheets found'
-                                    : 'Select an evaluator'
-                                }
-                                description={
-                                  selectedEvaluatorProfileId
-                                    ? 'No assignable OMR sheets for this evaluator.'
-                                    : 'Select an evaluator to list OMR sheets.'
-                                }
+                                title="Select an evaluator"
+                                description="Select an evaluator to list OMR sheets."
+                              />
+                            </td>
+                          </tr>
+                        ) : assignableStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-0">
+                              <ReevalEmpty
+                                icon={FileText}
+                                title="No OMR sheets found"
+                                description="No assignable OMR sheets for this evaluator."
                               />
                             </td>
                           </tr>
                         ) : (
                           assignableStudents.map((s, idx) => {
-                            const omr = String(s?.omr_serial_no ?? '')
-                            const disabled = isOmrDisabledFor(s, selectedEvaluatorProfileId)
-                            const checked = selectedOmr.includes(omr)
+                            const omr = String(s?.omr_serial_no ?? "");
+                            const disabled = isOmrDisabledFor(
+                              s,
+                              selectedEvaluatorProfileId,
+                            );
+                            const checked = selectedOmr.includes(omr);
                             return (
                               <tr
                                 key={`omr-${omr}-${idx}`}
                                 className={cn(
-                                  'border-t border-border/60',
-                                  disabled && 'opacity-50',
+                                  "border-t border-border/60",
+                                  disabled && "opacity-50",
                                 )}
                               >
                                 <td className="px-2 py-1.5">
@@ -922,21 +1135,24 @@ export default function ReEvaluationMultiAssignPage() {
                                     type="checkbox"
                                     disabled={disabled}
                                     checked={checked}
-                                    onChange={(e) => toggleOmrSelection(omr, e.target.checked)}
+                                    onChange={(e) =>
+                                      toggleOmrSelection(omr, e.target.checked)
+                                    }
                                   />
                                 </td>
-                                <td className="px-2 py-1.5">{omr || '-'}</td>
+                                <td className="px-2 py-1.5">{omr || "-"}</td>
                                 <td className="px-2 py-1.5 text-center">
                                   {Number(s?.omr_mapped ?? 0)}
                                 </td>
                                 <td className="px-2 py-1.5">
                                   {s?.list_evaluated_totalmarks != null &&
-                                  String(s.list_evaluated_totalmarks).trim() !== ''
+                                  String(s.list_evaluated_totalmarks).trim() !==
+                                    ""
                                     ? String(s.list_evaluated_totalmarks)
-                                    : ''}
+                                    : ""}
                                 </td>
                               </tr>
-                            )
+                            );
                           })
                         )}
                       </tbody>
@@ -989,7 +1205,7 @@ export default function ReEvaluationMultiAssignPage() {
                 ) : (
                   <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {alreadyAssignedStudents.map((s) => {
-                      const omr = String(s?.omr_serial_no ?? '')
+                      const omr = String(s?.omr_serial_no ?? "");
                       return (
                         <div
                           key={`as-${omr}`}
@@ -997,7 +1213,7 @@ export default function ReEvaluationMultiAssignPage() {
                         >
                           {omr}
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
@@ -1007,11 +1223,14 @@ export default function ReEvaluationMultiAssignPage() {
             <div className="flex justify-end">
               <Button
                 disabled={
-                  assigning || loading || !selectedEvaluator || selectedOmr.length === 0
+                  assigning ||
+                  loading ||
+                  !selectedEvaluator ||
+                  selectedOmr.length === 0
                 }
                 onClick={() => void onAssign()}
               >
-                {assigning ? 'Assigning…' : 'Assign'}
+                {assigning ? "Assigning…" : "Assign"}
               </Button>
             </div>
           </div>
@@ -1028,8 +1247,8 @@ export default function ReEvaluationMultiAssignPage() {
           loading={loading}
           toolbar={{
             search: true,
-            searchPlaceholder: 'Search…',
-            pdfDocumentTitle: 'Re-Evaluation Multi Assign',
+            searchPlaceholder: "Search…",
+            pdfDocumentTitle: "Re-Evaluation Multi Assign",
           }}
         />
       ) : null}
@@ -1056,15 +1275,24 @@ export default function ReEvaluationMultiAssignPage() {
                   <tr className="bg-slate-100">
                     <th className="text-left px-3 py-2 w-20">S.No</th>
                     <th className="text-left px-3 py-2">Omr Serial No</th>
-                    <th className="text-left px-3 py-2">Evaluated Total Marks</th>
+                    <th className="text-left px-3 py-2">
+                      Evaluated Total Marks
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredPopupRows.map((r, idx) => (
-                    <tr key={`popup-${String(r?.omr_serial_no ?? '')}-${idx}`} className="border-t">
+                    <tr
+                      key={`popup-${String(r?.omr_serial_no ?? "")}-${idx}`}
+                      className="border-t"
+                    >
                       <td className="px-3 py-2">{idx + 1}</td>
-                      <td className="px-3 py-2">{String(r?.omr_serial_no ?? '-')}</td>
-                      <td className="px-3 py-2">{String(r?.evaluated_totalmarks ?? '-')}</td>
+                      <td className="px-3 py-2">
+                        {String(r?.omr_serial_no ?? "-")}
+                      </td>
+                      <td className="px-3 py-2">
+                        {String(r?.evaluated_totalmarks ?? "-")}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1079,5 +1307,5 @@ export default function ReEvaluationMultiAssignPage() {
         </DialogContent>
       </Dialog>
     </FilteredPage>
-  )
+  );
 }

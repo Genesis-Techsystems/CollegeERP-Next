@@ -212,14 +212,14 @@ export function MultiSelect({
     const allLabels = selectedOpts.map((o) => o.label).join(", ");
 
     return (
-      <OptionTooltip
-        content={allLabels || undefined}
-        className="min-w-0 flex-1"
+      <span
+        className="flex min-w-0 flex-1"
+        title={allLabels || undefined}
       >
         <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
           {visible.map((opt, i) => (
             <span
-              key={i}
+              key={`${opt.value}-${i}`}
               className="inline-flex max-w-full shrink items-center truncate rounded-md bg-primary/10 px-1.5 py-0 text-[length:var(--app-control-font-size)] font-medium text-primary"
             >
               {opt.label}
@@ -231,7 +231,7 @@ export function MultiSelect({
             </span>
           )}
         </span>
-      </OptionTooltip>
+      </span>
     );
   }
 

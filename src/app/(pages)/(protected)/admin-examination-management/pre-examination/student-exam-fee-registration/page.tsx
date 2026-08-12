@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   getExamMasterDetailsByGroup,
@@ -68,70 +69,6 @@ const SEARCH_ONLY_TOOLBAR = {
   exportPdf: false,
   columnFilters: false,
 } as const;
-
-const PAYMENT_COL_DEFS = {
-  siNo: {
-    headerName: "SI No",
-    valueGetter: (p: ValueGetterParams<AnyRow>) => (p.node?.rowIndex ?? 0) + 1,
-    width: 80,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  semester: {
-    field: "courseYearName",
-    headerName: "Semester",
-    minWidth: 140,
-    flex: 1.2,
-  } as ColDef<AnyRow>,
-  examType: {
-    field: "examType",
-    headerName: "Exam Type",
-    minWidth: 110,
-    flex: 0.8,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-  } as ColDef<AnyRow>,
-  subjectCount: {
-    headerName: "No of Subjects",
-    valueGetter: (p: ValueGetterParams<AnyRow>) =>
-      Array.isArray(p.data?.subjects) ? p.data.subjects.length : 0,
-    minWidth: 120,
-    flex: 0.8,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-  } as ColDef<AnyRow>,
-  lateFee: {
-    headerName: "LateFee",
-    field: "examFineAmount",
-    minWidth: 120,
-    flex: 0.9,
-    sortable: false,
-    filter: false,
-  } as ColDef<AnyRow>,
-  addFee: {
-    headerName: "Add. Fee Amt(₹)",
-    field: "examAddFee",
-    minWidth: 130,
-    flex: 0.9,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-  } as ColDef<AnyRow>,
-  feeAmt: {
-    headerName: "Fee Amt (₹)",
-    field: "examFeeAmount",
-    minWidth: 120,
-    flex: 0.9,
-    cellClass: "text-right",
-    headerClass: "ag-right-aligned-header",
-  } as ColDef<AnyRow>,
-  actions: {
-    headerName: "Action",
-    minWidth: 90,
-    width: 90,
-    flex: 0,
-    sortable: false,
-    filter: false,
-  } as ColDef<AnyRow>,
-};
 
 const VIEW_SUBJECT_COL_DEFS = {
   siNo: {
@@ -1363,56 +1300,6 @@ export default function StudentExamFeeRegistrationPage() {
     );
   }
 
-  const paymentColumnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      PAYMENT_COL_DEFS.siNo,
-      PAYMENT_COL_DEFS.semester,
-      PAYMENT_COL_DEFS.examType,
-      PAYMENT_COL_DEFS.subjectCount,
-      {
-        ...PAYMENT_COL_DEFS.lateFee,
-        cellRenderer: (p: ICellRendererParams<AnyRow>) => {
-          const row = p.data;
-          if (!row) return null;
-          return (
-            <Input
-              type="number"
-              className="ml-auto h-7 w-24 text-right text-[12px]"
-              value={String(row.examFineAmount ?? 0)}
-              onChange={(e) =>
-                updateLateFee(
-                  Number(row.courseYearId),
-                  Number(e.target.value || 0),
-                )
-              }
-            />
-          );
-        },
-      },
-      PAYMENT_COL_DEFS.addFee,
-      PAYMENT_COL_DEFS.feeAmt,
-      {
-        ...PAYMENT_COL_DEFS.actions,
-        cellRenderer: (p: ICellRendererParams<AnyRow>) => {
-          const row = p.data;
-          if (!row) return null;
-          return (
-            <button
-              type="button"
-              className="inline-flex items-center justify-center text-[#9E9E9E] hover:text-foreground"
-              title="View Courses"
-              onClick={() => viewCourseYearSubjects(row, "noReceipt")}
-            >
-              <Eye className="h-4 w-4" />
-            </button>
-          );
-        },
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- renderers close over stable helpers
-    [courseYearFee],
-  );
-
   const viewSubjectColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       VIEW_SUBJECT_COL_DEFS.siNo,
@@ -1457,6 +1344,7 @@ export default function StudentExamFeeRegistrationPage() {
   return (
     <FilteredListPage
       title="Student Exam Fee Collection"
+      bodyClassName="!overflow-x-auto"
       filters={
         <GlobalFilterBarRow className="!flex-nowrap !items-end w-full">
           <GlobalFilterField
@@ -1566,14 +1454,14 @@ export default function StudentExamFeeRegistrationPage() {
               </div>
             )}
 
-            {/* Select Exam Fee Courses */}
+            {/* Select Exam Fee Courses — match Angular / second-image layout */}
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
               <h2 className="m-0 bg-[#c3d9ff] px-4 py-2.5 text-[15px] font-semibold text-[#0c51a4]">
                 Select Exam Fee Courses
               </h2>
 
-              <div className="space-y-4 p-4">
-                <div className="flex items-center gap-8 text-[13px]">
+              <div className="space-y-3 p-4">
+                <div className="flex items-center gap-8 text-[13px] font-medium text-[#213045]">
                   <label className="inline-flex cursor-pointer items-center gap-2">
                     <input
                       type="radio"
@@ -1596,10 +1484,10 @@ export default function StudentExamFeeRegistrationPage() {
                   </label>
                 </div>
 
-                <div className="flex flex-wrap items-start gap-4 lg:flex-nowrap">
+                <div className="grid w-full grid-cols-1 items-start gap-3 lg:grid-cols-[12rem_minmax(0,1fr)_14rem]">
                   {/* Semester */}
-                  {courseYears.length > 0 && (
-                    <div className="w-full shrink-0 sm:w-[11.5rem]">
+                  {courseYears.length > 0 ? (
+                    <div className="w-full">
                       <Select
                         variant="outlined"
                         value={courseYearId ? String(courseYearId) : null}
@@ -1616,7 +1504,7 @@ export default function StudentExamFeeRegistrationPage() {
                         placeholder="Semester"
                         label="Semester"
                       />
-                      {courseYearId && checkExam === 2 && (
+                      {courseYearId && checkExam === 2 ? (
                         <div className="mt-2 flex gap-4">
                           <span
                             className="cursor-pointer text-[13px] font-medium text-blue-600 underline"
@@ -1639,21 +1527,23 @@ export default function StudentExamFeeRegistrationPage() {
                             Supple
                           </span>
                         </div>
-                      )}
+                      ) : null}
                     </div>
+                  ) : (
+                    <div />
                   )}
 
-                  {/* Subjects */}
-                  {studentSubjects.length > 0 && (
-                    <div className="flex min-h-[220px] w-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <div className="flex items-center gap-3 px-3 py-2">
+                  {/* Subjects list */}
+                  {studentSubjects.length > 0 ? (
+                    <div className="flex min-h-[220px] min-w-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white">
+                      <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-2">
                         <div className="relative min-w-0 flex-1">
                           <Search
-                            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"
                             aria-hidden
                           />
-                          <Input
-                            className="h-8 rounded-md border-slate-200 pl-8 text-[12px] font-medium"
+                          <input
+                            className="h-8 w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-[12px] outline-none"
                             placeholder="Search..."
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
@@ -1663,37 +1553,36 @@ export default function StudentExamFeeRegistrationPage() {
                           Courses: {selectedCount}
                         </span>
                       </div>
-                      <div className="border-t border-slate-100 bg-[#C3D9FF] px-3 py-1.5">
-                        <div className="flex items-center gap-6 text-[12px] font-semibold text-slate-800">
-                          <label className="inline-flex cursor-pointer items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={
-                                checksubject && selectableSubjectCount > 0
-                              }
-                              disabled={selectableSubjectCount === 0}
-                              onChange={(e) =>
-                                onToggleSelectAll(e.target.checked)
-                              }
-                            />
-                            <span>All</span>
-                          </label>
-                          <span>Subjects</span>
-                        </div>
+                      <div className="flex items-center gap-6 bg-[#c3d9ff] px-3 py-1.5 text-[12px] font-semibold text-[#0c51a4]">
+                        <label className="inline-flex cursor-pointer items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={
+                              checksubject && selectableSubjectCount > 0
+                            }
+                            disabled={selectableSubjectCount === 0}
+                            onChange={(e) =>
+                              onToggleSelectAll(e.target.checked)
+                            }
+                          />
+                          <span>All</span>
+                        </label>
+                        <span>Subjects</span>
                       </div>
-                      <div className="max-h-[170px] flex-1 overflow-y-auto">
+                      <div className="max-h-[180px] flex-1 overflow-y-auto bg-white">
                         {filteredSubjects.map((obj, i) => (
                           <label
                             key={`sub-${obj.subjectId}-${obj.courseYearId}-${obj.examType ?? ""}-${i}`}
-                            className={`flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-1.5 text-[12px] last:border-b-0 ${
+                            className={cn(
+                              "flex items-center gap-2 border-b border-slate-100 bg-white px-3 py-1.5 text-[12px] font-medium last:border-b-0",
                               obj.subjAlreadyRegistered
-                                ? "cursor-not-allowed bg-[#f2f0f0]"
-                                : "bg-white hover:bg-[#f7fbff]"
-                            }`}
+                                ? "cursor-default"
+                                : "cursor-pointer hover:bg-[#f7fbff]",
+                            )}
                           >
                             <input
                               type="checkbox"
-                              className="shrink-0"
+                              className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={obj.subjAlreadyRegistered}
                               checked={!!obj.checked}
                               onChange={() =>
@@ -1701,60 +1590,28 @@ export default function StudentExamFeeRegistrationPage() {
                                 checkedSubjects(!obj.checked, obj)
                               }
                             />
-                            <span className="min-w-0 font-medium text-slate-800">
+                            <span className="min-w-0 text-blue-600">
                               {obj.shortName}
-                              {obj.subjectCode != null && (
-                                <>
-                                  {" "}
-                                  -{" "}
-                                  <span className="text-blue-600">
-                                    {obj.subjectCode}
-                                  </span>
-                                </>
-                              )}
+                              {obj.subjectCode != null
+                                ? ` - ${obj.subjectCode}`
+                                : null}
                             </span>
                           </label>
                         ))}
                       </div>
                     </div>
+                  ) : (
+                    <div />
                   )}
 
-                  {/* Selected Courses */}
-                  {selectedSubjects.length > 0 && (
-                    <div className="flex min-h-[220px] w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white sm:w-[12.5rem] lg:w-[14rem]">
-                      <div className="bg-[#C3D9FF] px-3 py-1.5 text-[12px] font-semibold text-blue-700">
-                        Selected Courses : {selectedCount}
-                      </div>
-                      <div className="max-h-[190px] flex-1 overflow-y-auto">
-                        {selectedSubjects.map((sub, i) => (
-                          <div
-                            key={`sel-${i}`}
-                            className="border-b border-slate-100 px-3 py-1.5 text-[12px] font-medium last:border-b-0"
-                          >
-                            {sub.shortName}
-                            {sub.subjectCode != null && (
-                              <>
-                                {" "}
-                                -{" "}
-                                <span className="text-blue-600">
-                                  {sub.subjectCode}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Additional Fee + Add Fee (first-image column) */}
-                  {studentSubjects.length > 0 && (
-                    <div className="flex w-full flex-col gap-3 sm:w-[11.5rem] lg:w-[13rem]">
-                      <div className="flex min-h-[180px] flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-                        <div className="bg-[#C3D9FF] px-3 py-1.5 text-[12px] font-semibold text-slate-800">
+                  {/* Additional Fee + Add Fee (button sits under panel, right-aligned) */}
+                  {studentSubjects.length > 0 ? (
+                    <div className="flex w-full flex-col gap-2 self-stretch">
+                      <div className="flex min-h-[220px] flex-1 flex-col overflow-hidden rounded-md border border-slate-200 bg-white">
+                        <div className="bg-[#c3d9ff] px-3 py-1.5 text-[12px] font-semibold text-[#0c51a4]">
                           Additional Fee
                         </div>
-                        <div className="max-h-[160px] flex-1 overflow-y-auto">
+                        <div className="min-h-0 flex-1 overflow-y-auto bg-white p-1">
                           {examFeeStructure.length > 0 &&
                           additionalStructures.some(
                             (a) => a.applyToAll === true,
@@ -1765,12 +1622,12 @@ export default function StudentExamFeeRegistrationPage() {
                                     key={`addl-${i}`}
                                     className="flex items-center justify-between gap-2 border-b border-slate-100 px-2 py-1.5 last:border-b-0"
                                   >
-                                    <span className="min-w-0 flex-1 text-[12px] font-medium">
+                                    <span className="min-w-0 flex-1 text-[12px] font-medium text-[#213045]">
                                       {addFeeStr.adtExamfeetypeCatDisplayName}
                                     </span>
-                                    <Input
+                                    <input
                                       type="number"
-                                      className="h-7 w-[4.75rem] shrink-0 border-slate-300 text-right text-[12px] font-medium"
+                                      className="h-7 w-16 shrink-0 rounded border border-slate-300 text-right text-[12px] font-bold"
                                       value={String(addFeeStr.fee ?? 0)}
                                       onChange={(e) =>
                                         updateAdditionalFee(
@@ -1785,9 +1642,9 @@ export default function StudentExamFeeRegistrationPage() {
                             : null}
                         </div>
                       </div>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end pt-0.5">
                         <Button
-                          className="h-8 rounded-full px-5 text-[12px] font-medium"
+                          className="h-8 rounded-full bg-[#7a8ba4] px-5 text-[12px] font-medium text-white hover:bg-[#6a7a92]"
                           onClick={addExamSubjects}
                           disabled={!canAddFee}
                         >
@@ -1795,33 +1652,114 @@ export default function StudentExamFeeRegistrationPage() {
                         </Button>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
+
+                {/* Selected Courses strip */}
+                {selectedSubjects.length > 0 ? (
+                  <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
+                    <div className="bg-[#c3d9ff] px-3 py-1.5 text-[12px] font-semibold text-[#0c51a4]">
+                      Selected Courses : {selectedCount}
+                    </div>
+                    <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto p-2">
+                      {selectedSubjects.map((sub, i) => (
+                        <span
+                          key={`sel-${i}`}
+                          className="rounded border border-slate-200 bg-[#f7fbff] px-2 py-1 text-[12px] font-medium text-[#213045]"
+                        >
+                          {sub.shortName}
+                          {sub.subjectCode != null ? (
+                            <>
+                              {" - "}
+                              <span className="text-blue-600">
+                                {sub.subjectCode}
+                              </span>
+                            </>
+                          ) : null}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
-            {/* Exam Fee Payment summary */}
+            {/* Exam Fee Payment — Angular HTML table (not AG Grid) */}
             {studentId && courseYearFee.length > 0 && (
-              <div className="space-y-2">
-                <h2 className="rounded bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+              <div className="rounded-lg border border-slate-200 bg-white">
+                <h2 className="m-0 rounded-t-lg bg-[#c3d9ff] px-4 py-2.5 text-[15px] font-semibold text-[#0c51a4]">
                   Exam Fee Payment
                 </h2>
-                <DataTable
-                  title=""
-                  bordered={false}
-                  rowData={courseYearFee}
-                  columnDefs={paymentColumnDefs}
-                  getRowId={(p) =>
-                    String(
-                      (p.data as AnyRow)?.courseYearId ??
-                        `${(p.data as AnyRow)?.courseYearName}-${(p.data as AnyRow)?.examType}`,
-                    )
-                  }
-                  pagination={false}
-                  toolbar={COMPACT_TOOLBAR}
-                  height="auto"
-                />
-                <div className="flex items-center justify-between rounded border bg-white px-3 py-2 text-[13px]">
+                <div className="exam-fee-angular-table p-2">
+                  <table>
+                    <colgroup>
+                      <col style={{ width: 56 }} />
+                      <col style={{ minWidth: 140 }} />
+                      <col style={{ width: 100 }} />
+                      <col style={{ width: 110 }} />
+                      <col style={{ width: 120 }} />
+                      <col style={{ width: 120 }} />
+                      <col style={{ width: 110 }} />
+                      <col style={{ width: 80 }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th>SI No</th>
+                        <th>Semester</th>
+                        <th className="is-right">Exam Type</th>
+                        <th className="is-right">No of Subjects</th>
+                        <th className="is-right">LateFee</th>
+                        <th className="is-right">Add. Fee Amt(₹)</th>
+                        <th className="is-right">Fee Amt (₹)</th>
+                        <th className="is-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {courseYearFee.map((row, i) => (
+                        <tr key={`${row.courseYearId}-${row.examType}-${i}`}>
+                          <td>{i + 1}</td>
+                          <td>{row.courseYearName}</td>
+                          <td className="is-right">{row.examType}</td>
+                          <td className="is-right">
+                            {Array.isArray(row.subjects)
+                              ? row.subjects.length
+                              : (row.subjectCount ?? "-")}
+                          </td>
+                          <td className="is-right">
+                            <input
+                              type="number"
+                              className="ml-auto h-7 w-24 rounded border border-[#cecece] px-1 text-right text-[12px] font-medium"
+                              value={String(row.examFineAmount ?? 0)}
+                              onChange={(e) =>
+                                updateLateFee(
+                                  Number(row.courseYearId),
+                                  Number(e.target.value || 0),
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="is-right">{row.examAddFee ?? "-"}</td>
+                          <td className="is-right">
+                            {row.examFeeAmount ?? "-"}
+                          </td>
+                          <td className="is-center">
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center text-[#9E9E9E] hover:text-foreground"
+                              title="View Courses"
+                              onClick={() =>
+                                viewCourseYearSubjects(row, "noReceipt")
+                              }
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t border-[#c3d9ff] bg-white px-3 py-2 text-[13px]">
                   <span className="font-bold text-blue-700">Summary</span>
                   <span className="font-bold">
                     Total Fees{" "}
@@ -1955,9 +1893,9 @@ export default function StudentExamFeeRegistrationPage() {
               return (
                 <div
                   key={`cyl-${idx}`}
-                  className="overflow-hidden rounded-[3px] border border-[#e8e8e8] bg-white"
+                  className="rounded-lg border border-slate-200 bg-white"
                 >
-                  <h2 className="m-0 flex items-center justify-between rounded-[3px] bg-[#c3d9ff] px-3 py-1.5 text-[15px] font-medium">
+                  <h2 className="m-0 flex items-center justify-between rounded-t-lg bg-[#c3d9ff] px-4 py-2.5 text-[15px] font-semibold text-[#0c51a4]">
                     <span>Exam Fee Receipts</span>
                     <button
                       type="button"
@@ -1969,46 +1907,36 @@ export default function StudentExamFeeRegistrationPage() {
                       Exam Form
                     </button>
                   </h2>
-                  <div className="overflow-x-auto bg-[#eaf2ff] p-1">
-                    <table className="w-full min-w-[960px] border-separate border-spacing-0 text-[12px]">
+                  <div className="exam-fee-angular-table p-2">
+                    <table>
+                      <colgroup>
+                        <col style={{ width: 56 }} />
+                        <col style={{ minWidth: 90 }} />
+                        <col style={{ minWidth: 110 }} />
+                        <col style={{ minWidth: 110 }} />
+                        <col style={{ minWidth: 110 }} />
+                        <col style={{ minWidth: 100 }} />
+                        <col style={{ minWidth: 100 }} />
+                        <col style={{ minWidth: 100 }} />
+                        <col style={{ minWidth: 90 }} />
+                        <col style={{ minWidth: 100 }} />
+                        <col style={{ width: 100 }} />
+                        <col style={{ width: 72 }} />
+                      </colgroup>
                       <thead>
-                        <tr className="bg-[#C3D9FF]">
-                          <th className="w-[5%] px-2 py-2 text-left font-medium">
-                            SI No.
-                          </th>
-                          <th className="px-2 py-2 text-left font-medium">
-                            Semester
-                          </th>
-                          <th className="px-2 py-2 text-left font-medium">
-                            Receipt No.
-                          </th>
-                          <th className="px-2 py-2 text-left font-medium">
-                            Payment Date
-                          </th>
-                          <th className="px-2 py-2 text-left font-medium">
-                            Payment Mode
-                          </th>
-                          <th className="px-2 py-2 text-left font-medium">
-                            Exam Type
-                          </th>
-                          <th className="px-2 py-2 text-right font-medium">
-                            Exam Fee (₹)
-                          </th>
-                          <th className="px-2 py-2 text-right font-medium">
-                            Add. Fee (₹)
-                          </th>
-                          <th className="px-2 py-2 text-right font-medium">
-                            LateFee(₹)
-                          </th>
-                          <th className="px-2 py-2 text-right font-medium">
-                            Amount (₹)
-                          </th>
-                          <th className="px-2 py-2 text-left font-medium">
-                            Subjects
-                          </th>
-                          <th className="px-2 py-2 text-center font-medium">
-                            Actions
-                          </th>
+                        <tr>
+                          <th>SI No.</th>
+                          <th>Semester</th>
+                          <th>Receipt No.</th>
+                          <th>Payment Date</th>
+                          <th>Payment Mode</th>
+                          <th>Exam Type</th>
+                          <th className="is-right">Exam Fee (₹)</th>
+                          <th className="is-right">Add. Fee (₹)</th>
+                          <th className="is-right">LateFee(₹)</th>
+                          <th className="is-right">Amount (₹)</th>
+                          <th>Subjects</th>
+                          <th className="is-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2016,7 +1944,7 @@ export default function StudentExamFeeRegistrationPage() {
                           <tr>
                             <td
                               colSpan={12}
-                              className="bg-white px-3 py-6 text-center text-muted-foreground"
+                              className="!whitespace-normal bg-white px-3 py-6 text-center text-muted-foreground"
                             >
                               No receipts for this semester.
                             </td>
@@ -2028,45 +1956,32 @@ export default function StudentExamFeeRegistrationPage() {
                                 feeReceipt.examFeeReceiptId ??
                                 `${feeReceipt.feeReceiptNo}-${feeReceipt.courseYearId}-${i}`
                               }
-                              className={
-                                i % 2 === 0 ? "bg-white" : "bg-[#f1f6ff]"
-                              }
                             >
-                              <td className="px-2 py-2 font-medium">{i + 1}</td>
-                              <td className="px-2 py-2 font-medium">
-                                {feeReceipt.courseYearName}
-                              </td>
-                              <td className="px-2 py-2 font-medium">
-                                {feeReceipt.feeReceiptNo}
-                              </td>
-                              <td className="px-2 py-2 font-medium">
-                                {fmtDate(feeReceipt.receiptDate)}
-                              </td>
-                              <td className="px-2 py-2 font-medium">
-                                {feeReceipt.paymentModeCatDisplayName}
-                              </td>
-                              <td className="px-2 py-2 font-medium">
-                                {feeReceipt.examtypeCatDisplayName}
-                              </td>
-                              <td className="px-2 py-2 text-right font-medium">
+                              <td>{i + 1}</td>
+                              <td>{feeReceipt.courseYearName}</td>
+                              <td>{feeReceipt.feeReceiptNo}</td>
+                              <td>{fmtDate(feeReceipt.receiptDate)}</td>
+                              <td>{feeReceipt.paymentModeCatDisplayName}</td>
+                              <td>{feeReceipt.examtypeCatDisplayName}</td>
+                              <td className="is-right">
                                 {feeReceipt.examFeeAmount != null
                                   ? feeReceipt.examFeeAmount
                                   : "-"}
                               </td>
-                              <td className="px-2 py-2 text-right font-medium">
+                              <td className="is-right">
                                 {feeReceipt.examAddtFee != null
                                   ? feeReceipt.examAddtFee
                                   : "-"}
                               </td>
-                              <td className="px-2 py-2 text-right font-medium">
+                              <td className="is-right">
                                 {feeReceipt.examFineAmount != null
                                   ? feeReceipt.examFineAmount
                                   : "-"}
                               </td>
-                              <td className="px-2 py-2 text-right font-medium">
+                              <td className="is-right">
                                 {feeReceipt.examTotalAmount}
                               </td>
-                              <td className="px-2 py-2">
+                              <td>
                                 <button
                                   type="button"
                                   className="rounded bg-[#ffcf46] px-2.5 py-1 text-[12px] font-medium text-black hover:brightness-95"
@@ -2080,7 +1995,7 @@ export default function StudentExamFeeRegistrationPage() {
                                   Courses
                                 </button>
                               </td>
-                              <td className="px-2 py-2 text-center">
+                              <td className="is-center">
                                 <button
                                   type="button"
                                   className="inline-flex items-center justify-center text-[#0c51a4] hover:opacity-80"

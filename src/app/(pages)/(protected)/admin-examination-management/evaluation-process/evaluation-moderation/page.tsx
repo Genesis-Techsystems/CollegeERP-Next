@@ -686,18 +686,23 @@ export default function EvaluationModerationPage() {
   const isOmrDisabledFor = (s: AnyRow, profileId: number | null) =>
     isExcludedFor(s, profileId) || Number(s?.disable_omr) === 1;
 
-  const selectedEvaluator = useMemo(
-    () =>
+  const selectedEvaluator = useMemo(() => {
+    if (selectedEvaluatorId == null || selectedEvaluatorId <= 0) return null;
+    return (
       evaluatorRows.find(
-        (e) => evaluatorAssignProfileId(e) === Number(selectedEvaluatorId),
-      ) ?? null,
-    [evaluatorRows, selectedEvaluatorId],
-  );
+        (e) => evaluatorAssignProfileId(e) === selectedEvaluatorId,
+      ) ?? null
+    );
+  }, [evaluatorRows, selectedEvaluatorId]);
   const selectedProfileId = evaluatorProfileId(selectedEvaluator);
+  const hasEvaluatorSelected =
+    selectedEvaluatorId != null &&
+    selectedEvaluatorId > 0 &&
+    selectedEvaluator != null;
 
   // OMR list (maintDataList) is shown ONLY after an evaluator radio is selected.
   const visibleStudents = useMemo(() => {
-    if (!selectedEvaluatorId) return [];
+    if (!hasEvaluatorSelected || !selectedProfileId) return [];
     const q = omrSearch.trim().toLowerCase();
     const base = q
       ? uploadedStudents.filter((s) =>
@@ -712,13 +717,16 @@ export default function EvaluationModerationPage() {
       if (aDisabled !== bDisabled) return aDisabled ? 1 : -1;
       return Number(a?.omr_mapped ?? 0) - Number(b?.omr_mapped ?? 0);
     });
-  }, [uploadedStudents, omrSearch, selectedEvaluatorId, selectedProfileId]);
+  }, [uploadedStudents, omrSearch, selectedProfileId, hasEvaluatorSelected]);
 
   const assignableStudents = visibleStudents;
   // Already-assigned (excluded) OMRs for the selected evaluator (assignedOmrList).
   const alreadyAssignedStudents = useMemo(
-    () => visibleStudents.filter((s) => isExcludedFor(s, selectedProfileId)),
-    [visibleStudents, selectedProfileId],
+    () =>
+      hasEvaluatorSelected
+        ? visibleStudents.filter((s) => isExcludedFor(s, selectedProfileId))
+        : [],
+    [visibleStudents, selectedProfileId, hasEvaluatorSelected],
   );
   // Only NON-excluded rows can be selected/assigned.
   const visibleAssignableOmrs = useMemo(
@@ -1067,10 +1075,11 @@ export default function EvaluationModerationPage() {
                   <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {evaluatorRows.map((e, i) => {
                       const id = evaluatorAssignProfileId(e);
-                      const checked = selectedEvaluatorId === id;
+                      const checked =
+                        hasEvaluatorSelected && selectedEvaluatorId === id;
                       return (
                         <label
-                          key={`ev-${id}-${i}`}
+                          key={`ev-${id || "x"}-${i}`}
                           className={cn(
                             "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors",
                             checked
@@ -1080,8 +1089,12 @@ export default function EvaluationModerationPage() {
                         >
                           <input
                             type="radio"
+                            name="evaluation-moderation-evaluator"
+                            value={id > 0 ? String(id) : ""}
                             checked={checked}
+                            disabled={id <= 0}
                             onChange={() => {
+                              if (id <= 0) return;
                               setSelectedEvaluatorId(id);
                               setSelectedOmr([]);
                             }}
@@ -1107,7 +1120,7 @@ export default function EvaluationModerationPage() {
                   />
                   <span className="shrink-0 text-[12px] font-semibold text-[#0c51a4]">
                     Total :{" "}
-                    {selectedEvaluatorId ? assignableStudents.length : 0}
+                    {hasEvaluatorSelected ? assignableStudents.length : 0}
                   </span>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -1121,7 +1134,7 @@ export default function EvaluationModerationPage() {
                                 type="checkbox"
                                 checked={areAllVisibleSelected}
                                 disabled={
-                                  !selectedEvaluatorId ||
+                                  !hasEvaluatorSelected ||
                                   visibleAssignableOmrs.length === 0
                                 }
                                 onChange={() => toggleSelectAllVisible()}
@@ -1141,21 +1154,23 @@ export default function EvaluationModerationPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {assignableStudents.length === 0 ? (
+                        {!hasEvaluatorSelected ? (
                           <tr>
                             <td colSpan={4} className="p-0">
                               <ModerationEmpty
                                 icon={FileText}
-                                title={
-                                  selectedEvaluatorId
-                                    ? "No OMR sheets found"
-                                    : "Select an evaluator"
-                                }
-                                description={
-                                  selectedEvaluatorId
-                                    ? "No assignable OMR sheets for this evaluator."
-                                    : "Select an evaluator to list OMR sheets."
-                                }
+                                title="Select an evaluator"
+                                description="Select an evaluator to list OMR sheets."
+                              />
+                            </td>
+                          </tr>
+                        ) : assignableStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-0">
+                              <ModerationEmpty
+                                icon={FileText}
+                                title="No OMR sheets found"
+                                description="No assignable OMR sheets for this evaluator."
                               />
                             </td>
                           </tr>

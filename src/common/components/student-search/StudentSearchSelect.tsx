@@ -9,8 +9,9 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X } from "lucide-react";
+import { ChevronDown, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 type AnyRow = Record<string, any>;
 
@@ -32,6 +33,11 @@ export interface StudentSearchSelectProps {
   className?: string;
   /** When true, input stretches to parent width (no max-w-md cap). */
   fullWidth?: boolean;
+  /**
+   * `outlined` — bordered box.
+   * `standard` — Fuse / Angular Material underline-only field (app default).
+   */
+  variant?: "outlined" | "standard";
 }
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
@@ -204,7 +210,10 @@ export function StudentSearchSelect({
   onChange,
   className,
   fullWidth = false,
+  variant: variantProp,
 }: StudentSearchSelectProps) {
+  const variant = useFormFieldVariant(variantProp);
+  const isStandard = variant === "standard";
   const inputId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -212,6 +221,7 @@ export function StudentSearchSelect({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [open, setOpen] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [displayValue, setDisplayValue] = useState("");
   const [listPos, setListPos] = useState<{
@@ -219,6 +229,7 @@ export function StudentSearchSelect({
     left: number;
     width: number;
   } | null>(null);
+  const active = open || focused;
 
   const searchNotify = useCallback(
     (term: string) => {
@@ -303,12 +314,17 @@ export function StudentSearchSelect({
   }
 
   function handleFocus() {
+    setFocused(true);
     setOpen(true);
     queueMicrotask(() => updateListPosition());
     if (resolvedSelected && !searchTerm) {
       setDisplayValue("");
       setSearchTerm("");
     }
+  }
+
+  function handleBlur() {
+    setFocused(false);
   }
 
   function handleClear() {
@@ -381,10 +397,18 @@ export function StudentSearchSelect({
         )
       : null;
 
+  const showClear = Boolean(displayValue || value);
+
   return (
-    <div ref={rootRef} className={cn("flex flex-col gap-1", className)}>
+    <div ref={rootRef} className={cn("flex min-w-0 flex-col gap-1", className)}>
       {label ? (
-        <label htmlFor={inputId} className="text-xs font-medium text-black/54">
+        <label
+          htmlFor={inputId}
+          className={cn(
+            "text-[12px] font-medium transition-colors",
+            active ? "text-[#0c51a4]" : "text-black/54",
+          )}
+        >
           {label}
         </label>
       ) : null}
@@ -392,36 +416,60 @@ export function StudentSearchSelect({
       <div
         ref={anchorRef}
         className={cn(
-          "w-full rounded-md border border-slate-300 bg-white shadow-sm",
+          "app-control relative flex w-full min-w-0 items-center",
           !fullWidth && "max-w-md",
+          isStandard
+            ? cn(
+                "h-9 rounded-none border-0 border-b border-black/12 bg-transparent px-0 py-1.5 shadow-none",
+                active && "border-b-2 border-[#0c51a4]",
+              )
+            : "rounded-md border border-slate-300 bg-white shadow-sm",
         )}
       >
-        <div className="relative flex items-center">
-          <input
-            ref={inputRef}
-            id={inputId}
-            type="text"
-            role="combobox"
-            aria-expanded={open}
-            aria-autocomplete="list"
-            autoComplete="off"
-            value={displayValue}
-            placeholder={placeholder}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onFocus={handleFocus}
-            className="h-10 w-full bg-transparent px-3 pr-9 text-sm font-medium text-slate-900 placeholder:font-medium placeholder:text-[rgba(0,0,0,0.54)] focus:outline-none"
-          />
-          {displayValue || value ? (
+        <input
+          ref={inputRef}
+          id={inputId}
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          autoComplete="off"
+          value={displayValue}
+          placeholder={placeholder}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          className={cn(
+            "h-full w-full min-w-0 flex-1 bg-transparent text-[length:var(--app-control-font-size)] font-medium text-[rgba(0,0,0,0.87)] placeholder:font-medium placeholder:text-[rgba(0,0,0,0.54)] focus:outline-none focus:ring-0",
+            isStandard ? "px-0 pr-14" : "px-3 pr-9",
+          )}
+        />
+        <span
+          className={cn(
+            "absolute flex shrink-0 items-center gap-1",
+            isStandard ? "right-0" : "right-2",
+          )}
+        >
+          {showClear ? (
             <button
               type="button"
               aria-label="Clear student"
               onClick={handleClear}
-              className="absolute right-2 rounded p-0.5 text-slate-400 hover:text-slate-600"
+              className="rounded p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           ) : null}
-        </div>
+          {isStandard ? (
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform duration-200",
+                active ? "rotate-180 text-[#0c51a4]" : "text-slate-400",
+              )}
+              aria-hidden
+            />
+          ) : null}
+        </span>
       </div>
       {listbox}
     </div>

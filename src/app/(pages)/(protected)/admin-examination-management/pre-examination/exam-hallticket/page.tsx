@@ -912,18 +912,16 @@ export function ExamHallticketPage({
     // Single fixed-length dep — multi-value arrays change size under Fast Refresh.
   }, [studentPortalInitKey]);
 
-  const showTable =
-    hasFetched ||
-    (mode === "student"
-      ? studentDisplayRows.length > 0
-      : sectionTableRows.length > 0);
+  const tableRows =
+    mode === "student" ? studentDisplayRows : sectionTableRows;
+  const showTable = tableRows.length > 0;
 
   return (
     <FilteredListPage
       title="Exam Hallticket"
-      filters={
-        <div className="space-y-2">
-          {!isStudentPortal && (
+      notice={
+        !isStudentPortal ? (
+          <div className="px-1 py-1">
             <RadioGroup
               value={mode}
               onValueChange={(v) => {
@@ -933,19 +931,32 @@ export function ExamHallticketPage({
                 setHasFetched(false);
                 if (next === "section") initSectionFilters();
               }}
-              className="flex gap-6"
+              className="flex flex-wrap items-center gap-x-8 gap-y-2"
             >
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="student" id="by-student" />
-                <Label htmlFor="by-student">Hallticket By Student</Label>
+                <Label
+                  htmlFor="by-student"
+                  className="cursor-pointer text-[13px] font-medium"
+                >
+                  Hallticket By Student
+                </Label>
               </div>
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="section" id="by-section" />
-                <Label htmlFor="by-section">Hallticket By Section</Label>
+                <Label
+                  htmlFor="by-section"
+                  className="cursor-pointer text-[13px] font-medium"
+                >
+                  Hallticket By Section
+                </Label>
               </div>
             </RadioGroup>
-          )}
-
+          </div>
+        ) : null
+      }
+      filters={
+        <div className="space-y-2">
           {mode === "student" && (
             <div className="space-y-2">
               {!isStudentPortal ? (
@@ -1236,36 +1247,34 @@ export function ExamHallticketPage({
           )}
         </div>
       }
-      rowData={
-        showTable
-          ? mode === "student"
-            ? studentDisplayRows
-            : sectionTableRows
-          : []
-      }
+      rowData={showTable ? tableRows : []}
       columnDefs={
         mode === "student" ? STUDENT_HALLTICKET_COL_DEFS : sectionColumnDefs
       }
       loading={loading}
+      resultsVisible={showTable}
+      hideEmptyGrid
       pagination
-      toolbar={{
-        exportExcel: false,
-        exportPdf: false,
-        pdfDocumentTitle: "Exam hallticket list",
-      }}
+      toolbar={
+        showTable
+          ? {
+              exportExcel: false,
+              exportPdf: false,
+              pdfDocumentTitle: "Exam hallticket list",
+            }
+          : false
+      }
       toolbarTrailing={
-        isStudentPortal && mode === "student" ? (
-          studentDisplayRows.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              className="h-8 px-3 text-[12px]"
-              onClick={handleStudentPortalPrint}
-            >
-              <Printer className="mr-1 h-3.5 w-3.5" />
-              Print
-            </Button>
-          ) : null
+        !showTable ? undefined : isStudentPortal && mode === "student" ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 px-3 text-[12px]"
+            onClick={handleStudentPortalPrint}
+          >
+            <Printer className="mr-1 h-3.5 w-3.5" />
+            Print
+          </Button>
         ) : mode === "section" ? (
           <Button
             type="button"

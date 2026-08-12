@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { ColDef, ColGroupDef } from "ag-grid-community";
-import { FilteredListPage } from "@/components/layout";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ColDef, IHeaderParams } from "ag-grid-community";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -52,6 +52,42 @@ function dateShort(value: string): string {
   });
 }
 
+/** Angular: M-1 | T / M-1 | M-2 | T / … based on examNames.length */
+function markBannerForExamCount(count: number): string {
+  if (count <= 0) return "";
+  const parts: string[] = [];
+  for (let i = 0; i < count - 1; i += 1) parts.push(`M-${i + 1}`);
+  parts.push("T");
+  return parts.join(" | ");
+}
+
+/** Single-row header: subject + (code) + blue M-1 | T — no group row (avoids overlap) */
+function AvgSubjectHeader(
+  props: IHeaderParams & {
+    subjectName?: string;
+    subjectCode?: string;
+    markBanner?: string;
+  },
+) {
+  return (
+    <div className="box-border flex min-h-[58px] w-full flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-center leading-snug">
+      <span className="block text-[12px] font-semibold text-slate-900">
+        {props.subjectName ?? ""}
+      </span>
+      {props.subjectCode ? (
+        <span className="block text-[11px] text-slate-800">
+          ({props.subjectCode})
+        </span>
+      ) : null}
+      {props.markBanner ? (
+        <span className="block text-[11px] font-medium text-blue-600">
+          {props.markBanner}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function resolveRegulationMeta(first: AnyRow): {
   regulationId: number;
   regulationCode: string;
@@ -88,13 +124,22 @@ function buildAverageMatrix(rows: AnyRow[], selectedExams: AnyRow[]) {
   ];
   const subjectMap = new Map<
     string,
-    { subject_code: string; subject_name: string }
+    { subject_code: string; subject_name: string; subject_short?: string }
   >();
   for (const row of normalized) {
     const code = strFrom(row, ["subject_code", "subjectCode"]);
     const name = strFrom(row, ["subject_name", "subjectName"]);
+    const short = strFrom(row, [
+      "short_name",
+      "shortName",
+      "subject_short_name",
+    ]);
     if (code && !subjectMap.has(code))
-      subjectMap.set(code, { subject_code: code, subject_name: name });
+      subjectMap.set(code, {
+        subject_code: code,
+        subject_name: short || name,
+        subject_short: short || undefined,
+      });
   }
   const subjects = [...subjectMap.values()];
   const templateCells: AnyRow[] = subjects.flatMap((s) =>
@@ -180,6 +225,7 @@ export default function InternalExamsAveragePage() {
     Array<{ subject_code: string; subject_name: string }>
   >([]);
   const [examNames, setExamNames] = useState<string[]>([]);
+  const regulationReqRef = useRef(0);
 
   useEffect(() => {
     async function run() {
@@ -287,22 +333,33 @@ export default function InternalExamsAveragePage() {
   }
 
   async function onSelectExams(values: number[]) {
-    setSelectedExamIds(values);
+    const uniqueIds = [...new Set(values.filter((id) => Number.isFinite(id) && id > 0))];
+    setSelectedExamIds(uniqueIds);
     setSelectedExams(
       exams.filter((e) =>
-        values.includes(numFrom(e, ["examId", "fk_exam_id"])),
+        uniqueIds.includes(numFrom(e, ["examId", "fk_exam_id"])),
       ),
     );
     setFlag(true);
     setMidExamMarks([]);
-    if (values.length === 0) return;
+    setMarkCalTypeId(null);
+    setExamIntMarkTypeId(null);
+    setInternalType("");
+    setRegulationCode("");
+    if (uniqueIds.length === 0) return;
+
     const first = exams.find(
-      (e) => numFrom(e, ["examId", "fk_exam_id"]) === values[0],
+      (e) => numFrom(e, ["examId", "fk_exam_id"]) === uniqueIds[0],
     );
     const { regulationId, regulationCode } = resolveRegulationMeta(first ?? {});
     setRegulationCode(regulationCode);
     if (!regulationId) return;
+
+    const reqId = ++regulationReqRef.current;
     const regulation = await getRegulationById(regulationId).catch(() => null);
+    // Ignore stale responses when exams are re-selected quickly
+    if (reqId !== regulationReqRef.current) return;
+
     const typeId = resolveTypeId(regulation, first ?? {});
     setExamIntMarkTypeId(typeId || null);
     setMarkCalTypeId(typeId || null);
@@ -319,20 +376,22 @@ export default function InternalExamsAveragePage() {
       return [];
     return exams;
   }, [exams, academicYearId, courseId, courseGroupId, courseYearId]);
-  const examOptions = useMemo(
-    () =>
-      filteredExams
-        .map((x) => {
-          const id = numFrom(x, ["examId", "fk_exam_id"]);
-          if (!id) return null;
-          return {
-            value: String(id),
-            label: `${strFrom(x, ["examName", "exam_name"])} (${dateShort(strFrom(x, ["examFromDate", "from_date"]))} - ${dateShort(strFrom(x, ["examToDate", "to_date"]))})`,
-          };
-        })
-        .filter(Boolean) as Array<{ value: string; label: string }>,
-    [filteredExams],
-  );
+  const examOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: Array<{ value: string; label: string }> = [];
+    for (const x of filteredExams) {
+      const id = numFrom(x, ["examId", "fk_exam_id"]);
+      if (!id) continue;
+      const value = String(id);
+      if (seen.has(value)) continue;
+      seen.add(value);
+      opts.push({
+        value,
+        label: `${strFrom(x, ["examName", "exam_name"])} (${dateShort(strFrom(x, ["examFromDate", "from_date"]))} - ${dateShort(strFrom(x, ["examToDate", "to_date"]))})`,
+      });
+    }
+    return opts;
+  }, [filteredExams]);
   const collegeOptions = useMemo(
     () =>
       colleges
@@ -383,16 +442,20 @@ export default function InternalExamsAveragePage() {
         .filter((o) => o.value !== "0"),
     [courseYears],
   );
-  const markTypeOptions = useMemo(
-    () =>
-      examTypes
-        .map((x) => ({
-          value: String(numFrom(x, ["generalDetailId"])),
-          label: strFrom(x, ["generalDetailDisplayName", "generalDetailCode"]),
-        }))
-        .filter((o) => o.value !== "0"),
-    [examTypes],
-  );
+  const markTypeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: Array<{ value: string; label: string }> = [];
+    for (const x of examTypes) {
+      const value = String(numFrom(x, ["generalDetailId"]));
+      if (value === "0" || seen.has(value)) continue;
+      seen.add(value);
+      opts.push({
+        value,
+        label: strFrom(x, ["generalDetailDisplayName", "generalDetailCode"]),
+      });
+    }
+    return opts;
+  }, [examTypes]);
 
   async function getList() {
     if (
@@ -467,33 +530,90 @@ export default function InternalExamsAveragePage() {
     }
   }
 
-  const columnDefs = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(() => {
+  const selectedFilterInfo = useMemo(() => {
+    if (midExamMarks.length === 0) return "";
+    const college = collegeOptions.find((o) => o.value === String(collegeId))
+      ?.label;
+    const year = yearOptions.find((o) => o.value === String(academicYearId))
+      ?.label;
+    const course = courseOptions.find((o) => o.value === String(courseId))
+      ?.label;
+    const group = groupOptions.find((o) => o.value === String(courseGroupId))
+      ?.label;
+    const courseYear = courseYearOptions.find(
+      (o) => o.value === String(courseYearId),
+    )?.label;
+    return [college, year, course, group, courseYear]
+      .filter(Boolean)
+      .join(" / ");
+  }, [
+    midExamMarks.length,
+    collegeOptions,
+    yearOptions,
+    courseOptions,
+    groupOptions,
+    courseYearOptions,
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+  ]);
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     if (!keys.length || !examNames.length) return [];
+    const markBanner = markBannerForExamCount(examNames.length);
     const frozen: ColDef<AnyRow>[] = [
       {
         colId: "siNo",
         headerName: "S.No",
         width: 72,
         flex: 0,
+        pinned: "left",
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        cellStyle: { textAlign: "center" },
       },
       {
         colId: "student",
         headerName: "Student",
-        minWidth: 220,
+        minWidth: 200,
         flex: 1,
-        valueGetter: (p) =>
-          `${String(p.data?.firstName ?? "")} (${String(p.data?.rollNumber ?? "")})`,
+        pinned: "left",
+        cellRenderer: (p: { data?: AnyRow }) => {
+          const name = String(p.data?.firstName ?? "");
+          const roll = String(p.data?.rollNumber ?? "");
+          return (
+            <span>
+              {name}{" "}
+              {roll ? (
+                <span className="font-medium text-blue-600">({roll})</span>
+              ) : null}
+            </span>
+          );
+        },
       },
     ];
-    const groups: ColGroupDef<AnyRow>[] = keys.map((k, subjIdx) => ({
-      headerName: `${k.subject_name} (${k.subject_code})`,
-      children: examNames.map((exam, examIdx) => ({
+
+    // Single header row only (no ColGroupDef) so 3-line subject headers don't
+    // collide with a child header row.
+    const markCols: ColDef<AnyRow>[] = keys.flatMap((k, subjIdx) =>
+      examNames.map((exam, examIdx) => ({
         colId: `avg_${subjIdx}_${examIdx}`,
-        headerName: exam,
-        width: 88,
+        headerName: `${k.subject_name} (${k.subject_code})`,
+        width: 108,
+        minWidth: 96,
         flex: 0,
-        valueGetter: (p) => {
+        autoHeaderHeight: true,
+        wrapHeaderText: true,
+        suppressHeaderMenuButton: true,
+        headerComponent: AvgSubjectHeader,
+        headerComponentParams: {
+          subjectName: k.subject_name,
+          subjectCode: k.subject_code,
+          markBanner,
+        },
+        cellStyle: { textAlign: "center" as const },
+        valueGetter: (p: { data?: AnyRow }) => {
           const marks = p.data?.studentMarksCount as AnyRow[] | undefined;
           const cell = marks?.find(
             (c) => c.subject_code === k.subject_code && c.exam_name === exam,
@@ -501,8 +621,8 @@ export default function InternalExamsAveragePage() {
           return Number(cell?.marks ?? 0);
         },
       })),
-    }));
-    return [...frozen, ...groups];
+    );
+    return [...frozen, ...markCols];
   }, [keys, examNames]);
 
   return (
@@ -539,7 +659,41 @@ export default function InternalExamsAveragePage() {
             <Label>Exam Year</Label>
             <CommonSelect
               value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+              onChange={(v) => {
+                const id = v ? Number(v) : null;
+                setAcademicYearId(id);
+                setMarkCalTypeId(null);
+                setExamIntMarkTypeId(null);
+                setSelectedExamIds([]);
+                setSelectedExams([]);
+                setExams([]);
+                setMidExamMarks([]);
+                setFlag(false);
+                if (
+                  id &&
+                  collegeId &&
+                  courseId &&
+                  courseGroupId &&
+                  courseYearId
+                ) {
+                  void listInternalExamAverageExams({
+                    collegeId,
+                    courseId,
+                    academicYearId: id,
+                    courseGroupId,
+                    courseYearId,
+                  })
+                    .then((examRows) => {
+                      const map = new Map<number, AnyRow>();
+                      for (const row of examRows) {
+                        const eid = numFrom(row, ["examId", "fk_exam_id"]);
+                        if (eid > 0 && !map.has(eid)) map.set(eid, row);
+                      }
+                      setExams([...map.values()]);
+                    })
+                    .catch(() => setExams([]));
+                }
+              }}
               options={yearOptions}
               placeholder="Exam Year"
             />
@@ -588,9 +742,10 @@ export default function InternalExamsAveragePage() {
               <Label>Marks Calculation Type</Label>
               <CommonSelect
                 value={markCalTypeId ? String(markCalTypeId) : null}
-                onChange={(v) => setMarkCalTypeId(v ? Number(v) : null)}
+                onChange={() => undefined}
                 options={markTypeOptions}
                 placeholder="Marks Calculation Type"
+                disabled
               />
             </div>
           )}
@@ -610,10 +765,21 @@ export default function InternalExamsAveragePage() {
       rowData={midExamMarks.length > 0 ? midExamMarks : []}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={midExamMarks.length > 0}
       hideEmptyGrid
+      columnFilters={false}
+      fitColumnsToWidth={false}
       getRowId={(p) => String(p.data?.rollNumber ?? "")}
       pagination
       paginationPageSize={50}
+      tableHeader={
+        midExamMarks.length > 0 ? (
+          <TableContextHeader
+            title="Internal Exam Average"
+            info={selectedFilterInfo || undefined}
+          />
+        ) : null
+      }
       toolbar={
         midExamMarks.length > 0
           ? {
