@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { LeaveApprovalsPage } from "./_components/LeaveApprovalsPage";
 
-/** Angular `leave-approvals` → Leave Requests page (`leave-applications`). */
+/** Angular `principal-my-approvals/leave-approvals` (+ my-leaves / faculty-details mounts). */
 export default function Page() {
-  redirect("/principal-my-approvals/leave-applications");
+  return <LeaveApprovalsPage />;
 }

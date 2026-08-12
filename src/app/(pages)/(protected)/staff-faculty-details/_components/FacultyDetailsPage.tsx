@@ -5,7 +5,7 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadIcon, PencilIcon } from "lucide-react";
 import { StatusBadge } from "@/common/components/data-display";
-import { FilteredListPage } from "@/components/layout";
+import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useSessionContext } from "@/context/SessionContext";
 import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
@@ -400,38 +400,39 @@ export function FacultyDetailsPage() {
   );
 
   return (
-    <FilteredListPage
+    <ListPage
       title="Faculty List"
       notice={
-        listQuery.error ? (
-          <p className="px-1 text-sm text-destructive">
-            {getErrorMessage(listQuery.error)}
-          </p>
-        ) : null
+        <>
+          <div className="flex flex-wrap items-center gap-6 px-1">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="hod-faculty-mode"
+                checked={mode === "active"}
+                onChange={() => setMode("active")}
+                className="accent-primary"
+              />
+              Active Faculty
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="hod-faculty-mode"
+                checked={mode === "resigned"}
+                onChange={() => setMode("resigned")}
+                className="accent-primary"
+              />
+              Resigned Faculty
+            </label>
+          </div>
+          {listQuery.error ? (
+            <p className="px-1 text-sm text-destructive">
+              {getErrorMessage(listQuery.error)}
+            </p>
+          ) : null}
+        </>
       }
-      filters={
-        <div className="flex flex-wrap items-center gap-6">
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="hod-faculty-mode"
-              checked={mode === "active"}
-              onChange={() => setMode("active")}
-            />
-            Active Faculty
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="hod-faculty-mode"
-              checked={mode === "resigned"}
-              onChange={() => setMode("resigned")}
-            />
-            Resigned Faculty
-          </label>
-        </div>
-      }
-      filtersCollapsible={false}
       rowData={listQuery.data ?? []}
       columnDefs={columnDefs}
       loading={
@@ -442,10 +443,11 @@ export function FacultyDetailsPage() {
       toolbarTrailing={
         <Button
           type="button"
-          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 border-0 px-3 text-[12px] !bg-[#042956] !text-white hover:!bg-[#031f42]"
           onClick={() => void downloadExcel()}
         >
-          <DownloadIcon className="mr-1.5 h-4 w-4" />
+          <DownloadIcon className="h-3.5 w-3.5" />
           Download
         </Button>
       }
@@ -463,6 +465,6 @@ export function FacultyDetailsPage() {
           void handleSave(payload);
         }}
       />
-    </FilteredListPage>
+    </ListPage>
   );
 }

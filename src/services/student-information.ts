@@ -7,6 +7,7 @@ import {
   domainList,
   domainUpdate,
   fetchDetails,
+  fetchDetailsEnvelope,
   getAllRecords,
   postDetails,
   postDetailsEnvelope,
@@ -22,6 +23,41 @@ function asArray<T>(data: any): T[] {
   if (Array.isArray(data?.resultList)) return data.resultList as T[];
   if (Array.isArray(data?.result)) return data.result as T[];
   if (Array.isArray(data?.data)) return data.data as T[];
+  return [];
+}
+
+/** Unwrap `studentsList` payloads — array `data`, nested lists, or top-level `resultList`. */
+function asStudentsListRows(data: unknown): AnyRow[] {
+  if (Array.isArray(data)) return data as AnyRow[];
+  if (!data || typeof data !== "object") return [];
+  const obj = data as Record<string, unknown>;
+  if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
+  if (Array.isArray(obj.content)) return obj.content as AnyRow[];
+  if (Array.isArray(obj.result)) return obj.result as AnyRow[];
+  if (Array.isArray(obj.data)) return obj.data as AnyRow[];
+  if (obj.data && typeof obj.data === "object") {
+    return asStudentsListRows(obj.data);
+  }
+  return [];
+}
+
+/**
+ * Angular `listByThreeIds(studentsList, …)` — checks `statusCode === 200` and reads
+ * `data` (not `success`). Spring often sets `success: false` while still returning rows.
+ */
+function unwrapStudentsListEnvelope(body: ApiResponse<unknown>): AnyRow[] {
+  if (body.statusCode !== 200) return [];
+
+  const raw = body.data;
+  if (raw != null && raw !== "") {
+    const rows = asStudentsListRows(raw);
+    if (rows.length > 0) return rows;
+  }
+
+  if (Array.isArray(body.resultList) && body.resultList.length > 0) {
+    return body.resultList as AnyRow[];
+  }
+
   return [];
 }
 
@@ -2163,6 +2199,84 @@ export async function submitStudentDetain(
   payload: Record<string, unknown> | Record<string, unknown>[],
 ): Promise<AnyRow> {
   return postDetails<AnyRow>("detainrecommended", payload);
+}
+
+/**
+ * Angular principal `detain-request-approvals` →
+ * `listByThreeIds(studentsList, collegeId, courseGroupId, 'DETAINRECOMMENDED', …)`.
+ */
+export async function listDetainRecommendedStudentsForApproval(params: {
+  collegeId: number;
+  courseGroupId: number;
+}): Promise<{ rows: AnyRow[]; message?: string }> {
+  const { collegeId, courseGroupId } = params;
+  if (!collegeId || !courseGroupId) return { rows: [] };
+
+  // Angular exact query: collegeId, courseGroupId, statusCode=DETAINRECOMMENDED
+  const query = {
+    collegeId,
+    courseGroupId,
+    statusCode: "DETAINRECOMMENDED",
+  };
+
+  try {
+    const body = await fetchDetailsEnvelope<unknown>(
+      STUDENT_API.STUDENT,
+      query,
+    );
+    const rows = unwrapStudentsListEnvelope(body).map((row) => ({
+      ...normalizeStudentRow(row),
+      ...row,
+    }));
+    return { rows, message: body.message || undefined };
+  } catch {
+    return { rows: [] };
+  }
+}
+
+/**
+ * Numeric STUDENTSTATUS generalDetailId for a code (e.g. DTND / INCOLLEGE).
+ * Angular detain / in-college modals resolve this before POST.
+ */
+export async function resolveStudentStatusGeneralDetailId(
+  code: string,
+): Promise<number> {
+  const target = String(code ?? "")
+    .trim()
+    .toUpperCase();
+  if (!target) return 0;
+  const rows = await listGeneralDetailsByCode("STUDENTSTATUS");
+  const row = rows.find(
+    (r) =>
+      String(r.generalDetailCode ?? r.gd_code ?? "")
+        .trim()
+        .toUpperCase() === target,
+  );
+  return num(row ?? {}, [
+    "generalDetailId",
+    "pk_gd_id",
+    "gd_id",
+    "general_detail_id",
+  ]);
+}
+
+/**
+ * Angular principal Detain → `addMasterDetails(detainUrl, details)`.
+ * Uses envelope so soft-failure payloads (success:false + data) are preserved.
+ */
+export async function submitPrincipalDetainApproval(
+  payload: Record<string, unknown> | Record<string, unknown>[],
+): Promise<ApiResponse<AnyRow>> {
+  return postDetailsEnvelope<AnyRow>(STUDENT_API.DETAIN, payload);
+}
+
+/**
+ * Angular principal In College → `addMasterDetails(detainrecommendedUrl, details)`.
+ */
+export async function submitPrincipalInCollegeApproval(
+  payload: Record<string, unknown> | Record<string, unknown>[],
+): Promise<AnyRow> {
+  return postDetails<AnyRow>(STUDENT_API.DETAINRECOMMENDED, payload);
 }
 
 /**

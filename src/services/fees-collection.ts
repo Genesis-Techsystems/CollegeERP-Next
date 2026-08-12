@@ -10,6 +10,7 @@ import type {
   EmployeeProfileRow,
   EmployeeSearchRow,
   FeeDueNotificationRow,
+  FeeConcessionApprovalRow,
   FeeConcessionRow,
   FeeStudentWiseDiscountPayload,
   FeeReceiptPaymentPayload,
@@ -673,6 +674,71 @@ export async function saveFeeStudentWiseDiscount(
     throw new AppError("VALIDATION", "Discount details are required");
   }
   return postDetails(FEE_API.FEE_STUDENT_WISE_DISCOUNT, payload);
+}
+
+/**
+ * Angular fee-concession-approvals `getConcessions`:
+ * `listDetailsByTwoIds(FeeStudentwiseDiscount, collegeId, true, College.collegeId, isActive)`
+ */
+export async function listFeeConcessionApprovals(
+  collegeId: number,
+): Promise<FeeConcessionApprovalRow[]> {
+  if (!collegeId) return [];
+  return domainList<FeeConcessionApprovalRow>(
+    FEE_API.FEE_STUDENTWISE_DISCOUNT,
+    buildQuery({ "College.collegeId": collegeId, isActive: true }),
+  );
+}
+
+/**
+ * Angular concession-status `getData`:
+ * `listByThreeIds(feestudentdata, collegeId, studentId, feeStructureId, …)`
+ * (no academicYearId — differs from payment-screen `getFeeStudentData`).
+ */
+export async function getFeeStudentDataForConcessionApproval(params: {
+  collegeId: number;
+  studentId: number;
+  feeStructureId: number;
+}): Promise<FeeStudentData | null> {
+  const { collegeId, studentId, feeStructureId } = params;
+  if (!collegeId || !studentId || !feeStructureId) return null;
+  const data = await fetchDetails<FeeStudentData[] | FeeStudentData>(
+    FEE_API.FEE_STUDENT_DATA,
+    { collegeId, studentId, feeStructureId },
+  );
+  if (Array.isArray(data)) return data[0] ?? null;
+  return data ?? null;
+}
+
+/**
+ * Angular approve: POST `feestudentwisediscounts` with row `isAproved=true` + `feeStdDataId`.
+ */
+export async function approveFeeConcessionApproval(
+  row: FeeConcessionApprovalRow,
+): Promise<unknown> {
+  if (!row.feeStdDiscountId) {
+    throw new AppError("VALIDATION", "Discount record is required");
+  }
+  return postDetails(FEE_API.FEE_STUDENT_WISE_DISCOUNT, [row]);
+}
+
+/**
+ * Angular reject: PUT `domain/update/FeeStudentwiseDiscount?query=feeStdDiscountId==…`
+ * with row `isRejected=true`.
+ */
+export async function rejectFeeConcessionApproval(
+  row: FeeConcessionApprovalRow,
+): Promise<unknown> {
+  const id = Number(row.feeStdDiscountId ?? 0);
+  if (!id) {
+    throw new AppError("VALIDATION", "Discount record is required");
+  }
+  return domainUpdate(
+    FEE_API.FEE_STUDENTWISE_DISCOUNT,
+    "feeStdDiscountId",
+    id,
+    row,
+  );
 }
 
 export async function saveFeeStudentWiseParticulars(

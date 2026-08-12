@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Breadcrumb, useBreadcrumb } from "@/common/components/breadcrumb";
 import { PageContainer } from "@/components/layout";
@@ -221,17 +221,23 @@ export default function DashboardPage() {
   const { employeeId, isResolving } = useLoginEmployeeId(user, isLoading);
   const [tab, setTab] = useState("my");
 
+  // Tab visibility comes from localStorage (Angular parity), which the server
+  // cannot read — rendering it during SSR produces a different set of tabs than
+  // the client and breaks hydration. Show the skeleton until mounted.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const tabs = useMemo(
-    () => (user ? resolveDashboardTabs(user) : null),
-    [user],
+    () => (user && mounted ? resolveDashboardTabs(user) : null),
+    [user, mounted],
   );
 
-  const showReportLink =
-    readDashStorage("isHODDashboard") === "true" || Boolean(user?.isHod);
-  const deptName = readDashStorage("deptName");
-
-  if (isLoading || isResolving) return <DashboardSkeleton />;
+  if (isLoading || isResolving || !mounted) return <DashboardSkeleton />;
   if (!user || !tabs) return null;
+
+  const showReportLink =
+    readDashStorage("isHODDashboard") === "true" || Boolean(user.isHod);
+  const deptName = readDashStorage("deptName");
 
   const defaultTab = tabs.showMy
     ? "my"

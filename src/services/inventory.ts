@@ -29,6 +29,7 @@ import {
   domainCreate,
   domainUpdate,
   fetchDetails,
+  getAllRecords,
   postDetails,
   putDetails,
 } from "./crud";
@@ -459,6 +460,173 @@ export async function updateInvInternalIndent(
   payload: Record<string, unknown>,
 ): Promise<unknown> {
   return putDetails(E_OFFICE_API.UPDATE_INV_INTERNAL_INDENT, payload);
+}
+
+export type InvInternalIndentApprovalRow = Record<string, unknown> & {
+  flag?: string;
+  pk_internal_ind_id?: number;
+  internal_ind_no?: string;
+  indent_date?: string;
+  requested_for?: string;
+  raised_emp_name?: string;
+  purpose?: string;
+  current_wf_stage?: number;
+  current_wf_status_name?: string;
+  current_wf_status?: string;
+  store_name?: string;
+  indent_type_code?: string;
+  fk_internal_ind_wf_stage_id?: number;
+  status_comments?: string;
+  value?: string;
+};
+
+export type InvInternalIndentApprovalLists = {
+  indentList: InvInternalIndentApprovalRow[];
+  workflowStages: InvInternalIndentApprovalRow[];
+};
+
+/** Angular `result.data.result` — array of flag-grouped row sets from stored procs. */
+function extractInvProcGroups(
+  data: unknown,
+): Map<string, InvInternalIndentApprovalRow[]> {
+  const byFlag = new Map<string, InvInternalIndentApprovalRow[]>();
+  let groups: AnyRow[][] = [];
+
+  if (Array.isArray(data)) {
+    groups =
+      data.length > 0 && Array.isArray(data[0])
+        ? (data as AnyRow[][])
+        : data.length > 0 && typeof data[0] === "object"
+          ? [data as AnyRow[]]
+          : [];
+  } else if (data && typeof data === "object") {
+    const result = (data as { result?: unknown }).result;
+    if (Array.isArray(result)) {
+      groups =
+        result.length > 0 && Array.isArray(result[0])
+          ? (result as AnyRow[][])
+          : result.length > 0 && typeof result[0] === "object"
+            ? [result as AnyRow[]]
+            : [];
+    }
+  }
+
+  for (const group of groups) {
+    if (!Array.isArray(group) || group.length === 0) continue;
+    const flag = String((group[0] as AnyRow)?.flag ?? "").toLowerCase();
+    if (flag) byFlag.set(flag, group as InvInternalIndentApprovalRow[]);
+  }
+  return byFlag;
+}
+
+function procGroup(
+  byFlag: Map<string, InvInternalIndentApprovalRow[]>,
+  flag: string,
+): InvInternalIndentApprovalRow[] {
+  return byFlag.get(flag.toLowerCase()) ?? [];
+}
+
+/**
+ * Angular Item Request Approvals list:
+ * `getAllRecords/s_get_inv_internalindentdetails` with `in_flag=mgr_internalindent_list`.
+ */
+export async function getInvInternalIndentApprovalsList(params: {
+  isAdmin: number;
+  loginEmployeeId: number;
+}): Promise<InvInternalIndentApprovalLists> {
+  const data = await getAllRecords<{ result?: unknown[][] } | unknown[][]>(
+    E_OFFICE_API.GET_INV_INTERNALINDENT_DETAILS,
+    {
+      in_flag: "mgr_internalindent_list",
+      in_academic_year: "",
+      in_isadmin: params.isAdmin,
+      in_indent_raised_emp_id: 0,
+      in_from_date: "1990-01-01",
+      in_to_date: "1990-01-01",
+      in_loginuser_empid: params.loginEmployeeId,
+      in_loginuser_roleid: 0,
+      in_internal_ident_id: 0,
+    },
+  );
+
+  // Angular: result.data.result — array of flag-grouped row sets.
+  let filterDetailList: unknown[][] = [];
+  if (Array.isArray(data)) {
+    filterDetailList =
+      data.length > 0 && Array.isArray(data[0]) ? (data as unknown[][]) : [];
+  } else if (data && typeof data === "object" && Array.isArray(data.result)) {
+    filterDetailList = data.result;
+  }
+
+  let indentList: InvInternalIndentApprovalRow[] = [];
+  let workflowStages: InvInternalIndentApprovalRow[] = [];
+
+  for (const group of filterDetailList) {
+    if (!Array.isArray(group) || group.length === 0) continue;
+    const flag = String((group[0] as AnyRow)?.flag ?? "");
+    if (flag === "mgr_internalindent_list") {
+      indentList = group as InvInternalIndentApprovalRow[];
+    } else if (flag === "workflow_stages") {
+      workflowStages = group as InvInternalIndentApprovalRow[];
+    }
+  }
+
+  // Fallback for alternate proc envelope shapes.
+  if (indentList.length === 0) {
+    const byFlag = extractInvProcGroups(data);
+    indentList = procGroup(byFlag, "mgr_internalindent_list");
+    workflowStages = procGroup(byFlag, "workflow_stages");
+  }
+
+  return { indentList, workflowStages };
+}
+
+export type InvInternalIndentApprovalDetail = {
+  workflowList: InvInternalIndentApprovalRow[];
+  itemList: InvInternalIndentApprovalRow[];
+  workflowStageStatus: InvInternalIndentApprovalRow[];
+  workflowStages: InvInternalIndentApprovalRow[];
+};
+
+/**
+ * Angular Item Request Approval modal:
+ * `getAllRecords/s_get_inv_internalindentdetails` with
+ * `in_flag=internalindent_wf_list,internalindent_item_list`.
+ */
+export async function getInvInternalIndentApprovalDetail(params: {
+  loginEmployeeId: number;
+  internalIndentId: number;
+}): Promise<InvInternalIndentApprovalDetail> {
+  const data = await getAllRecords<unknown>(
+    E_OFFICE_API.GET_INV_INTERNALINDENT_DETAILS,
+    {
+      in_flag: "internalindent_wf_list,internalindent_item_list",
+      in_academic_year: "",
+      in_isadmin: "",
+      in_indent_raised_emp_id: params.loginEmployeeId,
+      in_from_date: "1990-01-01",
+      in_to_date: "1990-01-01",
+      in_loginuser_empid: params.loginEmployeeId,
+      in_loginuser_roleid: 0,
+      in_internal_ident_id: params.internalIndentId,
+    },
+  );
+  const byFlag = extractInvProcGroups(data);
+  return {
+    workflowList: procGroup(byFlag, "internalindent_wf_list"),
+    itemList: procGroup(byFlag, "internalindent_item_list"),
+    workflowStageStatus: procGroup(byFlag, "workflow_stages_status"),
+    workflowStages: procGroup(byFlag, "workflow_stages"),
+  };
+}
+
+/**
+ * Angular approval modal save: `PUT invInternalIndent` with workflow status body.
+ */
+export async function updateInvInternalIndentWorkflowApproval(
+  payload: Record<string, unknown>,
+): Promise<unknown> {
+  return putDetails(E_OFFICE_API.INV_INTERNAL_INDENT, payload);
 }
 
 /**

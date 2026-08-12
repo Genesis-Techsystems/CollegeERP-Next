@@ -75,6 +75,8 @@ export function useStaffLoginContext(
       isHod: false,
       uName: "",
       empNumber: "",
+      empStatusCode: "",
+      empCategoryName: "",
     };
     const isHod = base.isHod || Boolean(deptHeadMatch?.isHod);
     const empDeptId = positiveId(base.empDeptId, deptHeadMatch?.empDeptId);

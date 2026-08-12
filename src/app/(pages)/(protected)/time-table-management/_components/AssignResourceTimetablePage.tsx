@@ -13,6 +13,7 @@ import {
   fetchAssignResourceTimetableView,
   fetchTimetableFilterRows,
   listStaffProxiesForSection,
+  TIMETABLE_CELL_BORDER,
   type AngularStudentTimetable,
   type TimetableDayColumn,
   type TimetableDayTiming,
@@ -33,7 +34,7 @@ import {
   AddResourceDialog,
   type AssignResourceDialogContext,
 } from "./AddResourceDialog";
-import { AssignResourceTimetableMatrix } from "./AssignResourceTimetableMatrix";
+import { TimetableWeeklyGrid } from "./TimetableWeeklyGrid";
 
 type AnyRow = Record<string, unknown>;
 
@@ -438,6 +439,11 @@ export function AssignResourceTimetablePage() {
     return timetable?.dateRangeLabel ?? "";
   }, [selectedTimetableRow, timetable?.dateRangeLabel]);
 
+  const allocationTableTitle = useMemo(() => {
+    if (!allocationHeader) return "";
+    return `Timetable Allocations - ${allocationHeader}${allocationDateRange ? ` (${allocationDateRange})` : ""}`;
+  }, [allocationHeader, allocationDateRange]);
+
   const resourceDialogContext =
     useMemo<AssignResourceDialogContext | null>(() => {
       if (
@@ -536,6 +542,7 @@ export function AssignResourceTimetablePage() {
   return (
     <FilteredListPage
       title="Assign Resource To Timetable"
+      tableTitle={showGridCard ? allocationTableTitle : undefined}
       className="assign-resource-timetable [&_.global-filter-bar__inner]:gap-2 [&_.global-filter-bar__inner]:px-0 [&_.global-filter-bar__inner]:pb-2 [&_.global-filter-field]:min-w-0 [&_.global-filter-field]:max-w-none [&_.global-filter-field]:flex-none"
       filters={
         <div className="space-y-2">
@@ -656,27 +663,28 @@ export function AssignResourceTimetablePage() {
       }
       body={
         showGridCard ? (
-          <div className="space-y-3">
-            <h3 className="text-[13px] font-semibold text-[#002b5c]">
-              Timetable Allocations - {allocationHeader}
-              {allocationDateRange ? ` (${allocationDateRange})` : ""}
-            </h3>
-            {gridLoading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                Loading timetable…
-              </div>
-            ) : timetable && timetable.weekdays.length > 0 ? (
-              <AssignResourceTimetableMatrix
+          gridLoading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Loading timetable…
+            </div>
+          ) : timetable && timetable.weekdays.length > 0 ? (
+            <div
+              className="overflow-hidden rounded-sm border bg-white shadow-sm"
+              style={{ borderColor: TIMETABLE_CELL_BORDER }}
+            >
+              <TimetableWeeklyGrid
                 timetable={timetable}
+                variant="screen"
+                cellColorMode="assign-resource"
                 onTimingClick={handleTimingClick}
               />
-            ) : (
-              <p className="py-12 text-center text-sm text-muted-foreground">
-                No timetable slots found for this selection.
-              </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              No timetable slots found for this selection.
+            </p>
+          )
         ) : null
       }
     >

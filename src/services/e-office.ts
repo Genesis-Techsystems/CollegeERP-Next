@@ -10,6 +10,10 @@ import type {
   InvStoreRow,
   InvSupplierRow,
   OfficeLetterFormatRow,
+  PaymentNoteApprovalRow,
+  PaymentNotePoItemRow,
+  PaymentNotePoWfRow,
+  PaymentNoteWfStageOption,
 } from "@/types/e-office";
 import {
   buildQuery,
@@ -367,4 +371,279 @@ export function getEOfficeContextIds() {
     employeeId: readStorageId("employeeId"),
     empDeptId: readStorageId("empDeptId"),
   };
+}
+
+type ProcResultGroups = Record<string, unknown>[][];
+
+/** Same as inventory `pickProcGroups` — SP payload may be `result[][]` or a bare `[][]`. */
+function pickProcGroups(data: unknown): ProcResultGroups {
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    if (data.length > 0 && Array.isArray(data[0]))
+      return data as ProcResultGroups;
+    return [];
+  }
+  if (typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.result)) {
+      const result = obj.result;
+      if (result.length > 0 && Array.isArray(result[0])) {
+        return result as ProcResultGroups;
+      }
+    }
+  }
+  return [];
+}
+
+function groupsByFlag<T extends { flag?: string }>(
+  groups: ProcResultGroups,
+  flag: string,
+): T[] {
+  for (const group of groups) {
+    if (
+      Array.isArray(group) &&
+      group.length > 0 &&
+      String((group[0] as T)?.flag ?? "") === flag
+    ) {
+      return group as T[];
+    }
+  }
+  return [];
+}
+
+function readStorageRoleName(): string {
+  if (typeof globalThis === "undefined" || !("localStorage" in globalThis))
+    return "";
+  return globalThis.localStorage.getItem("roleName") ?? "";
+}
+
+/** Angular `PaymentNoteApprovalsComponent.getData` base request. */
+function buildPaymentNoteApprovalListParams(
+  employeeId: number,
+  isAdmin: boolean,
+): Record<string, string | number> {
+  return {
+    in_flag: "mgr_purchaseorder_list",
+    in_academic_year: "",
+    in_isadmin: isAdmin ? 1 : 0,
+    in_indent_raised_emp_id: 0,
+    in_from_date: "1990-01-01",
+    in_to_date: "1990-01-01",
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_po_id: 0,
+  };
+}
+
+export type PaymentNoteApprovalLists = {
+  requestList: PaymentNoteApprovalRow[];
+  approvedList: PaymentNoteApprovalRow[];
+  viewAllList: PaymentNoteApprovalRow[];
+};
+
+type RoleStageFilter = {
+  requestStages: number[];
+  approvedStages: number[];
+  viewAllStages: number[];
+};
+
+/** Mirrors Angular role loop — last matching role wins. */
+export function resolvePaymentNoteApprovalStageFilter(
+  userRoles: Array<{ roleName?: string }>,
+  options?: { isPrincipal?: boolean; activeRoleName?: string },
+): RoleStageFilter | null {
+  let filter: RoleStageFilter | null = null;
+  for (const role of userRoles) {
+    const name = String(role.roleName ?? "").toUpperCase();
+    if (name === "ACCOUNTANT") {
+      filter = {
+        requestStages: [1],
+        approvedStages: [2],
+        viewAllStages: [3, 4, 5, 6],
+      };
+    } else if (name === "MPRINCIPAL" || name === "PRINCIPAL") {
+      filter = {
+        requestStages: [2],
+        approvedStages: [3],
+        viewAllStages: [4, 5, 6],
+      };
+    } else if (name === "SECRETARY") {
+      filter = {
+        requestStages: [3],
+        approvedStages: [4],
+        viewAllStages: [5, 6],
+      };
+    } else if (name === "CHAIRMAN") {
+      filter = {
+        requestStages: [4],
+        approvedStages: [5],
+        viewAllStages: [6],
+      };
+    }
+  }
+
+  if (!filter) {
+    const active = String(options?.activeRoleName ?? "").toUpperCase();
+    if (active.includes("PRINCIPAL") || options?.isPrincipal) {
+      filter = {
+        requestStages: [2],
+        approvedStages: [3],
+        viewAllStages: [4, 5, 6],
+      };
+    } else if (active === "ACCOUNTANT") {
+      filter = {
+        requestStages: [1],
+        approvedStages: [2],
+        viewAllStages: [3, 4, 5, 6],
+      };
+    } else if (active === "SECRETARY") {
+      filter = {
+        requestStages: [3],
+        approvedStages: [4],
+        viewAllStages: [5, 6],
+      };
+    } else if (active === "CHAIRMAN") {
+      filter = {
+        requestStages: [4],
+        approvedStages: [5],
+        viewAllStages: [6],
+      };
+    }
+  }
+
+  return filter;
+}
+
+function filterPaymentNoteLists(
+  rows: PaymentNoteApprovalRow[],
+  filter: RoleStageFilter | null,
+): PaymentNoteApprovalLists {
+  if (!filter) {
+    return { requestList: [], approvedList: [], viewAllList: [] };
+  }
+  const stage = (row: PaymentNoteApprovalRow) =>
+    Number(row.current_wf_stage ?? 0);
+  return {
+    requestList: rows.filter((r) => filter.requestStages.includes(stage(r))),
+    approvedList: rows.filter((r) => filter.approvedStages.includes(stage(r))),
+    viewAllList: rows.filter((r) => filter.viewAllStages.includes(stage(r))),
+  };
+}
+
+/**
+ * Angular `PaymentNoteApprovalsComponent.getData`.
+ * GET getAllRecords/s_get_inv_purchaseorderdetails?in_flag=mgr_purchaseorder_list&…
+ */
+export async function getPaymentNoteApprovalsList(params: {
+  isAdmin: number;
+  loginEmployeeId: number;
+}): Promise<{
+  poList: PaymentNoteApprovalRow[];
+  workflowStages: PaymentNoteApprovalRow[];
+}> {
+  const data = await getAllRecords<unknown>(
+    E_OFFICE_API.INV_PO_DETAILS,
+    buildPaymentNoteApprovalListParams(
+      params.loginEmployeeId,
+      params.isAdmin === 1,
+    ),
+  );
+  const groups = pickProcGroups(data);
+  return {
+    poList: groupsByFlag<PaymentNoteApprovalRow>(
+      groups,
+      "mgr_purchaseorder_list",
+    ),
+    workflowStages: groupsByFlag<PaymentNoteApprovalRow>(
+      groups,
+      "workflow_stages",
+    ),
+  };
+}
+
+/**
+ * @deprecated Prefer `getPaymentNoteApprovalsList` + page-side role partition (item-request parity).
+ */
+export async function listPaymentNoteApprovals(params: {
+  employeeId: number;
+  userRoles: Array<{ roleName?: string }>;
+  isAdmin?: boolean;
+  isPrincipal?: boolean;
+  activeRoleName?: string;
+}): Promise<PaymentNoteApprovalLists> {
+  const roleName = readStorageRoleName();
+  const adminFlag = params.isAdmin ?? roleName.toUpperCase() === "ADMIN";
+
+  const { poList } = await getPaymentNoteApprovalsList({
+    isAdmin: adminFlag ? 1 : 0,
+    loginEmployeeId: params.employeeId,
+  });
+  const filter = resolvePaymentNoteApprovalStageFilter(params.userRoles, {
+    isPrincipal: params.isPrincipal,
+    activeRoleName: params.activeRoleName ?? roleName,
+  });
+  return filterPaymentNoteLists(poList, filter);
+}
+
+export type PaymentNoteApprovalDetail = {
+  poItems: PaymentNotePoItemRow[];
+  poWorkflow: PaymentNotePoWfRow[];
+  wfStageOptions: PaymentNoteWfStageOption[];
+  poWfId: number | null;
+};
+
+/**
+ * Angular `PaymentNoteApprovalsModalComponent.getData`.
+ */
+export async function getPaymentNoteApprovalDetail(params: {
+  poId: number;
+  employeeId: number;
+  currentWfStage?: number;
+}): Promise<PaymentNoteApprovalDetail> {
+  const { poId, employeeId, currentWfStage } = params;
+  const data = await getAllRecords<unknown>(E_OFFICE_API.INV_PO_DETAILS, {
+    in_flag: "purchaseorder_wf_list,purchaseorder_item_list",
+    in_academic_year: "",
+    in_isadmin: 0,
+    in_indent_raised_emp_id: employeeId || 0,
+    in_from_date: "1990-01-01",
+    in_to_date: "1990-01-01",
+    in_loginuser_empid: employeeId || 0,
+    in_loginuser_roleid: 0,
+    in_po_id: poId,
+  });
+  const groups = pickProcGroups(data);
+  const poWorkflow = groupsByFlag<PaymentNotePoWfRow>(
+    groups,
+    "purchaseorder_wf_list",
+  );
+  const poItems = groupsByFlag<PaymentNotePoItemRow>(
+    groups,
+    "purchaseorder_item_list",
+  );
+  const wfStageOptions = groupsByFlag<PaymentNoteWfStageOption>(
+    groups,
+    "workflow_stages_status",
+  );
+
+  const stage = Number(currentWfStage ?? 0);
+  const wfMatch = poWorkflow.find((x) => Number(x.stage) === stage);
+  const poWfId =
+    wfMatch?.pk_po_wf_id != null ? Number(wfMatch.pk_po_wf_id) : null;
+
+  return { poItems, poWorkflow, wfStageOptions, poWfId };
+}
+
+/** Angular `PaymentNoteApprovalsModalComponent.updateIndent` → PUT invPurchaseOrder */
+export async function updatePaymentNoteApprovalWorkflow(payload: {
+  poWorkFlowStageId: number;
+  poWfId: number;
+  poId: number;
+  fromStatusEmpId: number;
+  statusComments: string;
+  userLoggedInEmpId: number;
+  academicYearId: number;
+  collegeId: number;
+}): Promise<void> {
+  await putDetails(E_OFFICE_API.INV_PO_WORKFLOW, payload);
 }

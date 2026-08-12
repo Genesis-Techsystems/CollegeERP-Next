@@ -728,6 +728,30 @@ export const QK = {
         : (["HrPayroll", "performanceAssessment"] as const),
     selfAppraisalForms: (collegeId: number) =>
       ["HrPayroll", "selfAppraisalForms", collegeId] as const,
+    staffSelfAppraisals: (
+      isPrincipal: boolean,
+      collegeId: number,
+      employeeId: number,
+    ) =>
+      [
+        "HrPayroll",
+        "staffSelfAppraisals",
+        isPrincipal,
+        collegeId,
+        employeeId,
+      ] as const,
+    staffSelfAppraisalReview: (
+      employeeId: number,
+      collegeId: number,
+      empSelfappraisalId: number,
+    ) =>
+      [
+        "HrPayroll",
+        "staffSelfAppraisalReview",
+        employeeId,
+        collegeId,
+        empSelfappraisalId,
+      ] as const,
     biometricEmployees: (
       collegeId: number | null,
       page: number,

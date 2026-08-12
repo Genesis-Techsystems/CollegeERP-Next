@@ -11,10 +11,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { FileSpreadsheet, Printer } from "lucide-react";
+import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
@@ -91,7 +94,10 @@ export default function DepartmentWiseTimetableReportPage() {
 
   const [collegeId, setCollegeId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
-  const [departmentId, setDepartmentId] = useState("0");
+  const [departmentId, setDepartmentId] = useState("");
+  const [reportDate, setReportDate] = useState<Date | null>(() => new Date());
+  /** Angular `isDisable` — when true, the Date field is enabled. */
+  const [dateEnabled, setDateEnabled] = useState(true);
 
   const [weekdayKeys, setWeekdayKeys] = useState<WeekdayKey[]>([]);
   const [matrixRows, setMatrixRows] = useState<DeptMatrixDisplayRow[]>([]);
@@ -176,13 +182,11 @@ export default function DepartmentWiseTimetableReportPage() {
     [academicYears],
   );
   const departmentOptions = useMemo(
-    () => [
-      { value: "0", label: "All" },
-      ...departments.map((r) => ({
+    () =>
+      departments.map((r) => ({
         value: String(pickDeptId(r)),
         label: txt(r.dept_code ?? r.deptCode ?? r.department_code),
       })),
-    ],
     [departments],
   );
 
@@ -223,7 +227,7 @@ export default function DepartmentWiseTimetableReportPage() {
   }, [academicYears, academicYearId]);
 
   useEffect(() => {
-    setDepartmentId("0");
+    setDepartmentId("");
     clearResults();
   }, [collegeId, clearResults]);
 
@@ -239,8 +243,12 @@ export default function DepartmentWiseTimetableReportPage() {
     const cid = Number(collegeId || 0);
     const ay = Number(academicYearId || 0);
     const dept = Number(departmentId || 0);
-    if (!cid || !ay) {
-      toastInfo("College and Academic Year are required");
+    if (!cid || !ay || !dept) {
+      toastInfo("College, Academic Year and Department are required");
+      return;
+    }
+    if (!reportDate) {
+      toastInfo("Date is required");
       return;
     }
 
@@ -250,18 +258,17 @@ export default function DepartmentWiseTimetableReportPage() {
     const ayRow = academicYears.find(
       (r) => num(r.fk_academic_year_id ?? r.academicYearId) === ay,
     );
-    const deptRow =
-      dept > 0 ? departments.find((r) => pickDeptId(r) === dept) : null;
+    const deptRow = departments.find((r) => pickDeptId(r) === dept);
 
     const details = [
       txt(college?.college_code ?? college?.collegeCode),
       txt(ayRow?.academic_year ?? ayRow?.academicYear),
-      dept > 0 ? txt(deptRow?.dept_code ?? deptRow?.deptCode) : "",
+      txt(deptRow?.dept_code ?? deptRow?.deptCode),
     ]
       .filter(Boolean)
       .join(" / ");
 
-    const fromDate = format(new Date(), "yyyy-MM-dd");
+    const fromDate = format(reportDate, "yyyy-MM-dd");
 
     setLoadingList(true);
     clearResults();
@@ -386,9 +393,10 @@ export default function DepartmentWiseTimetableReportPage() {
           <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
             <Select
               label="Department"
+              required
               value={departmentId || null}
               onChange={(v) => {
-                setDepartmentId(v ?? "0");
+                setDepartmentId(v ?? "");
                 clearResults();
               }}
               options={departmentOptions}
@@ -396,6 +404,35 @@ export default function DepartmentWiseTimetableReportPage() {
               disabled={!collegeId || deptFiltersQuery.isLoading}
               isLoading={deptFiltersQuery.isLoading}
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 basis-[9rem] sm:min-w-[10rem]">
+            <DatePicker
+              label="Date"
+              value={reportDate}
+              onChange={(d) => {
+                setReportDate(d);
+                clearResults();
+              }}
+              displayFormat="dd/MM/yyyy"
+              clearable={false}
+              placeholder="Date"
+              disabled={!dateEnabled}
+            />
+          </div>
+          <div className="flex h-9 items-center gap-2 px-1">
+            <Checkbox
+              id="dept-wise-date-enabled"
+              checked={dateEnabled}
+              onCheckedChange={(checked) => {
+                const enabled = checked === true;
+                setDateEnabled(enabled);
+                if (enabled) setReportDate(new Date());
+                clearResults();
+              }}
+            />
+            <Label htmlFor="dept-wise-date-enabled" className="text-[12px]">
+              {dateEnabled ? "enable" : "Disable"}
+            </Label>
           </div>
           <Button
             type="button"

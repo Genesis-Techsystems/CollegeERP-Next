@@ -1274,6 +1274,19 @@
   text-overflow: unset;
 }
 
+/* Matrix reports: `\n` in headerName renders one line per segment. */
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-cell.app-header-lines
+  .ag-header-cell-text,
+.app-data-table
+  .ag-theme-quartz
+  .ag-header-group-cell.app-header-lines
+  .ag-header-group-text {
+  white-space: pre-line;
+  text-align: center;
+}
+
 /* Column-group headers — same mat-table header treatment */
 .app-data-table .ag-theme-quartz .ag-header-group-cell {
   background-color: var(--mat-table-header-bg) !important;
@@ -1611,6 +1624,28 @@ a.app-control[data-app-add]:hover {
 
 .app-data-table .app-table-action-delete:hover {
   background: rgba(229, 57, 53, 0.08) !important;
+}
+
+/* Angular mat-raised-button color="primary" — View Details in approval tables */
+.app-data-table .app-table-view-details-btn {
+  height: 30px !important;
+  min-width: 80px;
+  padding: 0 12px !important;
+  border: none !important;
+  border-radius: 5px !important;
+  background-color: #1e88e5 !important;
+  color: #fff !important;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12);
+}
+
+.app-data-table .app-table-view-details-btn:hover {
+  background-color: #1976d2 !important;
+  color: #fff !important;
 }
 
 .app-data-table
@@ -3775,4 +3810,118 @@ textarea:focus-visible,
     font-weight: 600 !important;
     font-size: 12px !important;
   }
+}
+
+/* Angular theme-lime mat-vertical-stepper — item-request-approval-modal parity */
+.item-request-approval-stepper {
+  padding: 16px 0;
+}
+
+.item-request-approval-stepper__step {
+  position: relative;
+}
+
+.item-request-approval-stepper__step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 36px;
+  bottom: 0;
+  width: 1px;
+  background-color: #5f95fb;
+  z-index: 0;
+}
+
+.item-request-approval-stepper__header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 24px 12px 0;
+}
+
+.item-request-approval-stepper__icon {
+  display: flex;
+  height: 24px;
+  width: 24px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background-color: #5f95fb;
+}
+
+.item-request-approval-stepper__label {
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.item-request-approval-stepper__content {
+  width: 70%;
+  min-width: 220px;
+  margin: 0 0 8px 26px;
+  border: solid 2px #e6e4df;
+  border-radius: 5px;
+  background: #faf9f4;
+  padding: 16px;
+  font-size: 14px;
+  box-shadow:
+    0 0 10px 0 #9b9b9b,
+    0 1px 1px 0 #9b9b9b,
+    0 1px 3px 0 #9b9b9b;
+}
+
+.item-request-approval-stepper__content .content-head {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+/* Angular item-request-approval-modal — page head + mat-expansion-panel cards */
+.item-request-approval-page-head {
+  background: #fff;
+  padding: 7px 10px;
+  border-bottom: 2px solid #ffcf46;
+}
+
+.item-request-approval-accordion {
+  margin: 20px;
+  overflow: hidden;
+  border-radius: 4px;
+  border: none;
+  background: #fbfbfb;
+  box-shadow:
+    0 3px 1px -2px rgba(0, 0, 0, 0.2),
+    0 2px 2px 0 rgba(0, 0, 0, 0.14),
+    0 1px 5px 0 rgba(0, 0, 0, 0.12);
+}
+
+.item-request-approval-accordion__header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  border: none;
+  background: #fff;
+  padding: 14px 24px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item-request-approval-accordion__header:hover {
+  background: #fafafa;
+}
+
+.item-request-approval-accordion__header--expanded {
+  border-bottom: 2px solid #ffcf46;
+}
+
+.item-request-approval-accordion__body {
+  background: #fff;
+  padding: 8px 24px 16px;
 }

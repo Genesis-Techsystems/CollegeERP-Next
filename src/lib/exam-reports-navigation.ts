@@ -270,6 +270,21 @@ export function resolveExaminationReportHref(
     return `${EXAM_REPORTS}/exam-verification`;
   }
 
+  if (
+    hrefLower.includes("exam-bundle-scanning-report") ||
+    labelLower.includes("exam bundle scanning report") ||
+    labelLower.includes("exam bundle scaning report") ||
+    (labelLower.includes("bundle") &&
+      (labelLower.includes("scanning") || labelLower.includes("scaning")) &&
+      labelLower.includes("report") &&
+      !labelLower.includes("operator") &&
+      !labelLower.includes("tracking") &&
+      !labelLower.includes("papers") &&
+      !labelLower.includes("subject"))
+  ) {
+    return `${ADMIN_EXAM_REPORTS}/exam-bundle-scanning-report`;
+  }
+
   // ── /admin-exam-reports/* ───────────────────────────────────────────────
   if (
     hrefLower.includes("moderation-benefited") ||

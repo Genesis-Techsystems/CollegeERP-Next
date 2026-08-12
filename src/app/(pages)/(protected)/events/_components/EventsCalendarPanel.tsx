@@ -88,6 +88,8 @@ type EventsCalendarPanelProps = {
   embedded?: boolean;
   /** Angular staff-events month calendar styling. */
   variant?: "default" | "staff";
+  /** Angular staff-events: month navigator and calendar sit in separate cards. */
+  splitCards?: boolean;
 };
 
 function EventListCard({
@@ -166,6 +168,7 @@ export function EventsCalendarPanel({
   sidebarEmptyMessage,
   embedded = false,
   variant = "default",
+  splitCards = false,
 }: Readonly<EventsCalendarPanelProps>) {
   const isStaffVariant = variant === "staff";
   const monthStart = startOfMonth(viewMonth);
@@ -191,16 +194,18 @@ export function EventsCalendarPanel({
   return (
     <div
       className={cn(
-        "overflow-hidden",
-        !embedded && "bg-card",
+        splitCards ? "space-y-3" : "overflow-hidden",
+        !embedded && !splitCards && "bg-card",
       )}
     >
       <div
         className={cn(
           "flex items-center justify-between gap-3 px-3 py-2",
-          isStaffVariant
-            ? "mx-4 mt-3 rounded-md border border-border/60 bg-background shadow-sm"
-            : "border-b border-border bg-background",
+          splitCards && "app-card",
+          !splitCards &&
+            (isStaffVariant
+              ? "mx-4 mt-3 rounded-md border border-border/60 bg-background shadow-sm"
+              : "border-b border-border bg-background"),
         )}
       >
         <div className="flex items-center gap-2">
@@ -210,7 +215,8 @@ export function EventsCalendarPanel({
             variant="outline"
             className={cn(
               "h-8 w-8 p-0",
-              isStaffVariant && "rounded-full border-0 bg-[#dedede] text-blue-600 shadow-sm hover:bg-[#d0d0d0]",
+              isStaffVariant &&
+                "rounded-full border-0 bg-[#dedede] text-blue-600 shadow-sm hover:bg-[#d0d0d0]",
             )}
             onClick={() => onViewMonthChange(addMonths(viewMonth, -1))}
             aria-label="Previous month"
@@ -233,7 +239,8 @@ export function EventsCalendarPanel({
             variant="outline"
             className={cn(
               "h-8 w-8 p-0",
-              isStaffVariant && "rounded-full border-0 bg-[#dedede] text-blue-600 shadow-sm hover:bg-[#d0d0d0]",
+              isStaffVariant &&
+                "rounded-full border-0 bg-[#dedede] text-blue-600 shadow-sm hover:bg-[#d0d0d0]",
             )}
             onClick={() => onViewMonthChange(addMonths(viewMonth, 1))}
             aria-label="Next month"
@@ -257,12 +264,20 @@ export function EventsCalendarPanel({
       <div
         className={cn(
           "grid grid-cols-1",
+          splitCards && "app-card gap-3 overflow-hidden p-3",
           isStaffVariant
             ? "lg:grid-cols-[minmax(0,1.85fr)_minmax(240px,1fr)]"
             : "lg:grid-cols-[minmax(0,1fr)_280px]",
         )}
       >
-        <div className="min-w-0 border-b border-border lg:border-b-0 lg:border-r">
+        <div
+          className={cn(
+            "min-w-0",
+            splitCards
+              ? "overflow-hidden rounded-md border border-[hsl(var(--primary))]/25"
+              : "border-b border-border lg:border-b-0 lg:border-r",
+          )}
+        >
           <div
             className={cn(
               "grid grid-cols-7 border-b text-center text-[11px] font-semibold",

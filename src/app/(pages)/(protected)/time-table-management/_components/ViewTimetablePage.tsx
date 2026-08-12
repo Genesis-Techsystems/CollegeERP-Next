@@ -8,9 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarRange, ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { Select, type SelectOption } from "@/common/components/select";
-import { PageContainer } from "@/components/layout";
+import { AngularFilterCard, PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toastInfo } from "@/lib/toast";
@@ -18,6 +17,7 @@ import { printClassTimetable } from "../_print/timetable-print";
 import {
   fetchTimetableFilterRows,
   fetchViewClassTimetable,
+  TIMETABLE_CELL_BORDER,
   type AngularStudentTimetable,
 } from "@/services";
 import {
@@ -41,7 +41,6 @@ export function ViewTimetablePage() {
 
   const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
   const [filtersLoading, setFiltersLoading] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
@@ -310,8 +309,8 @@ export function ViewTimetablePage() {
   // Angular selectedSection clears timetableId and does NOT auto-select a timetable.
   // URL ?timetableId= is applied during filter init only.
 
-  const collegeLabel = colleges.find((c) => num(c.fk_college_id) === collegeId);
   const courseCode = courses.find((c) => num(c.fk_course_id) === courseId);
+  const collegeLabel = colleges.find((c) => num(c.fk_college_id) === collegeId);
   const groupCode = courseGroups.find(
     (g) => num(g.fk_course_group_id) === courseGroupId,
   );
@@ -337,7 +336,6 @@ export function ViewTimetablePage() {
     ["academic_year", "academicYear"],
   );
 
-  /** Angular print header: collegeCode / academicYear / course / group / year / section - (dates) */
   const printHeaderLine = [
     text(collegeLabel ?? {}, ["college_code", "collegeCode"]),
     academicYearLabel,
@@ -355,6 +353,28 @@ export function ViewTimetablePage() {
       ? `${formatDateHeader(selectedTimetableRow.timetable_startdate ?? selectedTimetableRow.startDate)} - ${formatDateHeader(selectedTimetableRow.timetable_enddate ?? selectedTimetableRow.endDate)}`
       : (timetable?.dateRangeLabel ?? "");
 
+  const allocationTitle = headerLine
+    ? `Timetable allocations - ${headerLine}${dateRange ? ` - (${dateRange})` : ""}`
+    : "Timetable allocations";
+
+  const hasGrid = Boolean(timetable?.weekdays?.length);
+
+  const allFiltersSelected =
+    collegeId != null &&
+    collegeId > 0 &&
+    academicYearId != null &&
+    academicYearId > 0 &&
+    courseId != null &&
+    courseId > 0 &&
+    courseGroupId != null &&
+    courseGroupId > 0 &&
+    courseYearId != null &&
+    courseYearId > 0 &&
+    groupSectionId != null &&
+    groupSectionId > 0 &&
+    timetableId != null &&
+    timetableId > 0;
+
   function handlePrint() {
     if (!timetable) return;
     printClassTimetable(
@@ -365,229 +385,229 @@ export function ViewTimetablePage() {
 
   return (
     <PageContainer className="view-timetable-page space-y-4">
-      <div className="screen-only app-card overflow-hidden" data-no-page-name>
-        <button
-          type="button"
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
-          onClick={() => setFiltersOpen((o) => !o)}
-        >
-          <span className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#5da394]">
-            <CalendarRange className="h-4 w-4" aria-hidden />
-            View Class Timetable
-          </span>
-          <span className="inline-flex items-center gap-2 text-[12px] text-muted-foreground">
-            Filter
-            <Filter className="h-4 w-4" />
-            {filtersOpen ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </span>
-        </button>
-
-        {filtersOpen ? (
-          <div className="grid gap-3 border-t border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-4">
-            <FilterField label="College" required>
-              <Select
-                value={collegeId ? String(collegeId) : ""}
-                onChange={(v) => {
-                  const id = num(v);
-                  setCollegeId(id);
-                  setAcademicYearId(null);
-                  setCourseId(null);
-                  setCourseGroupId(null);
-                  setCourseYearId(null);
-                  setGroupSectionId(null);
-                  setTimetableId(null);
-                  setTimetable(null);
-                  const ays = academicYearsFromFilterRows(filterRows, id);
-                  if (ays[0])
-                    setAcademicYearId(num(ays[0].fk_academic_year_id));
-                }}
-                options={collegeOptions}
-                placeholder="College"
-                searchable
-                disabled={filtersLoading}
-              />
-            </FilterField>
-            <FilterField label="Academic Year" required>
-              <Select
-                value={academicYearId ? String(academicYearId) : ""}
-                onChange={(v) => {
-                  const id = num(v);
-                  setAcademicYearId(id);
-                  setCourseId(null);
-                  setCourseGroupId(null);
-                  setCourseYearId(null);
-                  setGroupSectionId(null);
-                  setTimetableId(null);
-                  setTimetable(null);
-                  if (collegeId && id) {
-                    const nextCourses = coursesFromFilterRows(
-                      filterRows,
-                      collegeId,
-                      id,
-                    );
-                    if (nextCourses[0])
-                      setCourseId(num(nextCourses[0].fk_course_id));
-                  }
-                }}
-                options={ayOptions}
-                placeholder="Academic Year"
-                searchable
-                disabled={!collegeId}
-              />
-            </FilterField>
-            <FilterField label="Course" required>
-              <Select
-                value={courseId ? String(courseId) : ""}
-                onChange={(v) => {
-                  const id = num(v);
-                  setCourseId(id);
-                  setCourseGroupId(null);
-                  setCourseYearId(null);
-                  setGroupSectionId(null);
-                  setTimetableId(null);
-                  setTimetable(null);
-                  if (collegeId && academicYearId && id) {
-                    const groups = courseGroupsFromFilterRows(
-                      filterRows,
-                      collegeId,
-                      academicYearId,
-                      id,
-                    );
-                    if (groups[0])
-                      setCourseGroupId(num(groups[0].fk_course_group_id));
-                  }
-                }}
-                options={courseOptions}
-                placeholder="Course"
-                searchable
-                disabled={!academicYearId}
-              />
-            </FilterField>
-            <FilterField label="Course Group" required>
-              <Select
-                value={courseGroupId ? String(courseGroupId) : ""}
-                onChange={(v) => {
-                  const id = num(v);
-                  setCourseGroupId(id);
-                  setCourseYearId(null);
-                  setGroupSectionId(null);
-                  setTimetableId(null);
-                  setTimetable(null);
-                  if (collegeId && academicYearId && courseId && id) {
-                    const years = courseYearsFromFilterRows(
-                      filterRows,
-                      collegeId,
-                      academicYearId,
-                      courseId,
-                      id,
-                    );
-                    if (years[0])
-                      setCourseYearId(num(years[0].fk_course_year_id));
-                  }
-                }}
-                options={groupOptions}
-                placeholder="Course Group"
-                searchable
-                disabled={!courseId}
-              />
-            </FilterField>
-            <FilterField label="Course Year" required>
-              <Select
-                value={courseYearId ? String(courseYearId) : ""}
-                onChange={(v) => {
-                  const id = num(v);
-                  setCourseYearId(id);
-                  setGroupSectionId(null);
-                  setTimetableId(null);
-                  setTimetable(null);
-                  if (
-                    collegeId &&
-                    academicYearId &&
-                    courseId &&
-                    courseGroupId &&
-                    id
-                  ) {
-                    const secs = sectionsFromFilterRows(
-                      filterRows,
-                      collegeId,
-                      academicYearId,
-                      courseId,
-                      courseGroupId,
-                      id,
-                    );
-                    if (secs[0])
-                      setGroupSectionId(num(secs[0].fk_group_section_id));
-                  }
-                }}
-                options={yearOptions}
-                placeholder="Course Year"
-                searchable
-                disabled={!courseGroupId}
-              />
-            </FilterField>
-            <FilterField label="Section" required>
-              <Select
-                value={groupSectionId ? String(groupSectionId) : ""}
-                onChange={(v) => {
-                  setGroupSectionId(num(v));
-                  setTimetableId(null);
-                  setTimetable(null);
-                }}
-                options={sectionOptions}
-                placeholder="Section"
-                searchable
-                disabled={!courseYearId}
-              />
-            </FilterField>
-            <FilterField label="Timetable" required className="sm:col-span-2">
-              <Select
-                value={timetableId ? String(timetableId) : ""}
-                onChange={(v) => setTimetableId(num(v))}
-                options={timetableOptions}
-                placeholder="Timetable"
-                searchable
-                disabled={!groupSectionId}
-              />
-            </FilterField>
-          </div>
-        ) : null}
-      </div>
-
-      {timetable && timetable.weekdays.length > 0 ? (
-        <div className="screen-only app-card space-y-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="inline-flex flex-wrap items-center gap-2 text-[13px] font-semibold text-[#002b5c]">
-              <CalendarRange className="h-4 w-4 shrink-0" aria-hidden />
-              <span>
-                Timetable allocations - {headerLine}
-                {dateRange ? ` - (${dateRange})` : ""}
-              </span>
-            </h2>
-            <Button type="button" size="sm" onClick={handlePrint}>
-              Print
-            </Button>
-          </div>
-
-          <TimetableWeeklyGrid timetable={timetable} variant="screen" />
+      <AngularFilterCard
+        title="View Timetable"
+        className="screen-only"
+        defaultOpen
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <FilterField label="College" required>
+            <Select
+              value={collegeId ? String(collegeId) : ""}
+              onChange={(v) => {
+                const id = num(v);
+                setCollegeId(id);
+                setAcademicYearId(null);
+                setCourseId(null);
+                setCourseGroupId(null);
+                setCourseYearId(null);
+                setGroupSectionId(null);
+                setTimetableId(null);
+                setTimetable(null);
+                const ays = academicYearsFromFilterRows(filterRows, id);
+                if (ays[0]) setAcademicYearId(num(ays[0].fk_academic_year_id));
+              }}
+              options={collegeOptions}
+              placeholder="College"
+              searchable
+              disabled={filtersLoading}
+            />
+          </FilterField>
+          <FilterField label="Academic Year" required>
+            <Select
+              value={academicYearId ? String(academicYearId) : ""}
+              onChange={(v) => {
+                const id = num(v);
+                setAcademicYearId(id);
+                setCourseId(null);
+                setCourseGroupId(null);
+                setCourseYearId(null);
+                setGroupSectionId(null);
+                setTimetableId(null);
+                setTimetable(null);
+                if (collegeId && id) {
+                  const nextCourses = coursesFromFilterRows(
+                    filterRows,
+                    collegeId,
+                    id,
+                  );
+                  if (nextCourses[0])
+                    setCourseId(num(nextCourses[0].fk_course_id));
+                }
+              }}
+              options={ayOptions}
+              placeholder="Academic Year"
+              searchable
+              disabled={!collegeId}
+            />
+          </FilterField>
+          <FilterField label="Course" required>
+            <Select
+              value={courseId ? String(courseId) : ""}
+              onChange={(v) => {
+                const id = num(v);
+                setCourseId(id);
+                setCourseGroupId(null);
+                setCourseYearId(null);
+                setGroupSectionId(null);
+                setTimetableId(null);
+                setTimetable(null);
+                if (collegeId && academicYearId && id) {
+                  const groups = courseGroupsFromFilterRows(
+                    filterRows,
+                    collegeId,
+                    academicYearId,
+                    id,
+                  );
+                  if (groups[0])
+                    setCourseGroupId(num(groups[0].fk_course_group_id));
+                }
+              }}
+              options={courseOptions}
+              placeholder="Course"
+              searchable
+              disabled={!academicYearId}
+            />
+          </FilterField>
+          <FilterField label="Course Group" required>
+            <Select
+              value={courseGroupId ? String(courseGroupId) : ""}
+              onChange={(v) => {
+                const id = num(v);
+                setCourseGroupId(id);
+                setCourseYearId(null);
+                setGroupSectionId(null);
+                setTimetableId(null);
+                setTimetable(null);
+                if (collegeId && academicYearId && courseId && id) {
+                  const years = courseYearsFromFilterRows(
+                    filterRows,
+                    collegeId,
+                    academicYearId,
+                    courseId,
+                    id,
+                  );
+                  if (years[0])
+                    setCourseYearId(num(years[0].fk_course_year_id));
+                }
+              }}
+              options={groupOptions}
+              placeholder="Course Group"
+              searchable
+              disabled={!courseId}
+            />
+          </FilterField>
+          <FilterField label="Course Year" required>
+            <Select
+              value={courseYearId ? String(courseYearId) : ""}
+              onChange={(v) => {
+                const id = num(v);
+                setCourseYearId(id);
+                setGroupSectionId(null);
+                setTimetableId(null);
+                setTimetable(null);
+                if (
+                  collegeId &&
+                  academicYearId &&
+                  courseId &&
+                  courseGroupId &&
+                  id
+                ) {
+                  const secs = sectionsFromFilterRows(
+                    filterRows,
+                    collegeId,
+                    academicYearId,
+                    courseId,
+                    courseGroupId,
+                    id,
+                  );
+                  if (secs[0])
+                    setGroupSectionId(num(secs[0].fk_group_section_id));
+                }
+              }}
+              options={yearOptions}
+              placeholder="Course Year"
+              searchable
+              disabled={!courseGroupId}
+            />
+          </FilterField>
+          <FilterField label="Section" required>
+            <Select
+              value={groupSectionId ? String(groupSectionId) : ""}
+              onChange={(v) => {
+                setGroupSectionId(num(v));
+                setTimetableId(null);
+                setTimetable(null);
+              }}
+              options={sectionOptions}
+              placeholder="Section"
+              searchable
+              disabled={!courseYearId}
+            />
+          </FilterField>
+          <FilterField label="Timetable" required className="sm:col-span-2">
+            <Select
+              value={timetableId ? String(timetableId) : ""}
+              onChange={(v) => setTimetableId(num(v))}
+              options={timetableOptions}
+              placeholder="Timetable"
+              searchable
+              disabled={!groupSectionId}
+            />
+          </FilterField>
         </div>
-      ) : gridLoading ? (
-        <p className="screen-only py-12 text-center text-sm text-muted-foreground">
-          Loading timetable…
-        </p>
-      ) : !timetableId ? (
-        <p className="screen-only py-12 text-center text-sm text-muted-foreground">
-          Select College through Section, then choose a Timetable to view
-          allocations.
-        </p>
-      ) : (
-        <p className="screen-only py-12 text-center text-sm text-muted-foreground">
-          No timetable entries found for the selected filters.
-        </p>
-      )}
+      </AngularFilterCard>
+
+      {allFiltersSelected ? (
+        <div className="screen-only app-card overflow-hidden">
+          <div className="table-context-header !justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                book
+              </span>
+              <strong className="table-context-header__title">
+                {allocationTitle}
+              </strong>
+            </div>
+            {hasGrid ? (
+              <Button
+                type="button"
+                size="sm"
+                className="app-data-table-toolbar-btn h-9 shrink-0 px-3 text-[12px]"
+                onClick={handlePrint}
+              >
+                Print
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="p-4">
+            {gridLoading ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Loading timetable…
+              </p>
+            ) : hasGrid ? (
+              <div
+                className="overflow-hidden rounded-sm border bg-white shadow-sm"
+                style={{ borderColor: TIMETABLE_CELL_BORDER }}
+              >
+                <TimetableWeeklyGrid
+                  timetable={timetable!}
+                  variant="screen"
+                  cellColorMode="view"
+                />
+              </div>
+            ) : (
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                No timetable entries found for the selected filters.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
     </PageContainer>
   );
 }

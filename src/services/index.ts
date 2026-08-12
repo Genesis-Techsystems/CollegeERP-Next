@@ -89,6 +89,7 @@ export * from "./subject-wise-result-pass-percent-report";
 export * from "./gender-wise-exam-report";
 export * from "./subject-wise-evaluators-report";
 export * from "./exam-answer-sheets-report";
+export * from "./exam-bundle-scanning-reports";
 export * from "./examcenter-colleges-report";
 export * from "./examcenter-rooms-report";
 export * from "./examcenter-students-report";
@@ -287,6 +288,7 @@ export {
   getDefaultWorkloadDayName,
   listSubjectResourceSchedulesForStaff,
   listStaffProxies,
+  listStaffProxiesByEmpDept,
   saveStaffProxiesList,
   createStaffProxy,
   updateStaffProxy,

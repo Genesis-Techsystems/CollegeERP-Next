@@ -90,6 +90,9 @@ export function AppShell({
     const root = pageContentRef.current;
     if (!root) return;
 
+    let cancelled = false;
+    let tagTimer: ReturnType<typeof setTimeout> | undefined;
+
     const isCardShell = (el: Element) => {
       const cls = typeof el.className === "string" ? el.className : "";
       if (el.classList.contains("app-card")) return true;
@@ -102,6 +105,7 @@ export function AppShell({
     };
 
     const tag = () => {
+      if (cancelled) return;
       const candidates = root.querySelectorAll(
         ":scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div",
       );
@@ -121,11 +125,23 @@ export function AppShell({
       }
     };
 
-    tag();
+    // Defer imperative attribute writes until after React hydration. The
+    // MutationObserver fires synchronously when Suspense/streamed children
+    // mount; setAttribute before hydrate causes mismatches on Client Components.
+    const scheduleTag = () => {
+      clearTimeout(tagTimer);
+      tagTimer = setTimeout(tag, 0);
+    };
+
+    scheduleTag();
     // Cards frequently mount after data fetches; keep the tag on the first one.
-    const observer = new MutationObserver(tag);
+    const observer = new MutationObserver(scheduleTag);
     observer.observe(root, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => {
+      cancelled = true;
+      clearTimeout(tagTimer);
+      observer.disconnect();
+    };
   }, [pathname, mounted]);
 
   // Accordion behavior for filters cards: clicking anywhere on a card header

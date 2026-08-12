@@ -11,7 +11,9 @@ import {
 import {
   springGetEmployeeByUserId,
   springGetStudentByUserId,
+  springGetUserDetails,
 } from "@/integrations/spring-api";
+import { ROLE_FLAGS_VERSION, deriveRoleFlagsFromDto } from "@/lib/user-context";
 
 export async function GET() {
   const session = await getIronSession<IronSessionData>(
@@ -85,6 +87,18 @@ export async function GET() {
   if (typeof session.user.isDeptAdmin !== "boolean") {
     session.user.isDeptAdmin = rn === "DEPTADMIN";
     await session.save();
+  }
+
+  // Sessions issued before the userRoles[]-based derivation carry stale
+  // isPrincipal/isHod/isManagement flags. Re-derive once from the authorization
+  // DTO so a principal whose active roleName is STAFF is not treated as staff.
+  if (session.roleFlagsVersion !== ROLE_FLAGS_VERSION) {
+    const dto = await springGetUserDetails(session.jwt).catch(() => null);
+    if (dto) {
+      Object.assign(session.user, deriveRoleFlagsFromDto(dto, session.user));
+      session.roleFlagsVersion = ROLE_FLAGS_VERSION;
+      await session.save();
+    }
   }
 
   // Return session user only — modules/pages are never included (nav tree built server-side)

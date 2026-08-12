@@ -20,9 +20,9 @@ import { listGeneralDetailsByCode } from "@/services";
 type AnyRow = Record<string, unknown>;
 
 const schema = z.object({
-  suggestionforCatId: z.coerce.number().min(1, "Suggestion For is required"),
+  suggestionforCatId: z.coerce.number().optional(),
   suggestionSubject: z.string().trim().min(1, "Suggestion Subject is required"),
-  suggestiontypeCatId: z.coerce.number().min(1, "Suggestion Type is required"),
+  suggestiontypeCatId: z.coerce.number().optional(),
   suggestionDescription: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
@@ -186,7 +186,6 @@ export function NewSuggestionModal({
             </RequiredLabel>
             <Input
               id="suggestionSubject"
-              placeholder="Suggestion Subject"
               aria-invalid={Boolean(errors.suggestionSubject)}
               {...register("suggestionSubject")}
             />
@@ -195,60 +194,50 @@ export function NewSuggestionModal({
         </div>
 
         <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Controller
-              name="suggestionforCatId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Suggestion For"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(Number(v ?? 0))}
-                  options={suggestionsFor.map((r) => ({
-                    value: String(pickId(r)),
-                    label: pickLabel(r),
-                  }))}
-                  placeholder="Select suggestion for"
-                  searchable={false}
-                />
-              )}
-            />
-            <StableFieldError message={errors.suggestionforCatId?.message} />
-          </div>
+          <Controller
+            name="suggestionforCatId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value ? String(field.value) : null}
+                onChange={(v) => field.onChange(Number(v ?? 0))}
+                options={suggestionsFor.map((r) => ({
+                  value: String(pickId(r)),
+                  label: pickLabel(r),
+                }))}
+                placeholder="Suggestion For"
+                searchable={false}
+              />
+            )}
+          />
 
-          <div className="space-y-1">
-            <Controller
-              name="suggestiontypeCatId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Suggestion Type"
-                  required
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(Number(v ?? 0))}
-                  options={suggestionsTypes.map((r) => ({
-                    value: String(pickId(r)),
-                    label: pickLabel(r, true),
-                  }))}
-                  placeholder="Select suggestion type"
-                  searchable={false}
-                />
-              )}
-            />
-            <StableFieldError message={errors.suggestiontypeCatId?.message} />
-          </div>
+          <Controller
+            name="suggestiontypeCatId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value ? String(field.value) : null}
+                onChange={(v) => field.onChange(Number(v ?? 0))}
+                options={suggestionsTypes.map((r) => ({
+                  value: String(pickId(r)),
+                  label: pickLabel(r, true),
+                }))}
+                placeholder="Suggestion Type"
+                searchable={false}
+              />
+            )}
+          />
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor="suggestionDescription">
+        <div className="space-y-1 pt-2">
+          <p className="text-sm font-semibold text-[#0c51a4]">
             Description of the Suggestion
-          </Label>
+          </p>
           <Textarea
             id="suggestionDescription"
             placeholder="Description of the Problem"
-            rows={3}
-            className="min-h-[4.5rem] resize-y"
+            rows={5}
+            className="min-h-[7.5rem] resize-y"
             {...register("suggestionDescription")}
           />
         </div>
