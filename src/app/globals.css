@@ -1,11 +1,11 @@
 @import "tailwindcss";
 /* Manrope (body) + Sora (headings) loaded via next/font in app/layout.tsx,
-   exposed as --font-body and --font-heading.
-   Design tokens mirror the EduPulse reference (academy-arc-vision.lovable.app). */
+  exposed as --font-body and --font-heading.
+  Design tokens mirror the EduPulse reference (academy-arc-vision.lovable.app). */
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   DESIGN TOKENS — Light Mode (EduPulse)
-   ───────────────────────────────────────────────────────────────────────── */
+  DESIGN TOKENS — Light Mode (EduPulse)
+  ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Semantic surface tokens */
   --background: 0 0% 100%; /* pure white canvas */
@@ -723,7 +723,7 @@
 }
 
 /* Exam Forms — Angular fxFlex.gt-xs (20/20/60, 20/20/20/20/30/10)
-   Use flex-grow ratios (not % widths) so row gap does not force wrap. */
+  Use flex-grow ratios (not % widths) so row gap does not force wrap. */
 .global-filter-bar__row--ef-r1,
 .global-filter-bar__row--ef-r2 {
   display: flex !important;
@@ -762,51 +762,8 @@
   min-width: 5.5rem !important;
 }
 
-/* Exam Absentees Report — Angular fxFlex.gt-xs (20/20/60, 20/20/20/15/30/8)
-   Keep exactly 2 rows (nowrap) like Angular. */
-.global-filter-bar__row--ear-r1,
-.global-filter-bar__row--ear-r2 {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  align-items: flex-end !important;
-  gap: 0.5rem !important;
-  width: 100%;
-}
-
-.global-filter-bar__row--ear-r1 > .global-filter-field,
-.global-filter-bar__row--ear-r2 > .global-filter-field {
-  flex: unset !important;
-  min-width: 0 !important;
-  max-width: none !important;
-  width: auto !important;
-}
-
-/* Row 1: 20 / 20 / 60 → 1 / 1 / 3 */
-.global-filter-bar__row--ear-r1 > .global-filter-field--fx20 {
-  flex: 1 1 0 !important;
-}
-.global-filter-bar__row--ear-r1 > .global-filter-field--fx60 {
-  flex: 3 1 0 !important;
-}
-
-/* Row 2: 20 / 20 / 20 / 15 / 30 / 8 → 4 / 4 / 4 / 3 / 6 / auto */
-.global-filter-bar__row--ear-r2 > .global-filter-field--fx20 {
-  flex: 4 1 0 !important;
-}
-.global-filter-bar__row--ear-r2 > .global-filter-field--fx15 {
-  flex: 3 1 0 !important;
-}
-.global-filter-bar__row--ear-r2 > .global-filter-field--fx30 {
-  flex: 6 1 0 !important;
-}
-.global-filter-bar__row--ear-r2 > .global-filter-field--fx10 {
-  flex: 0 0 auto !important;
-  max-width: none !important;
-  min-width: auto !important;
-}
-
 /* Evaluators Bank Copy Report — Angular fxFlex.gt-xs (20/20/60, 20/20/15/15/30, 40/15/10)
-   Use flex-grow ratios (not % widths) so row gap does not force wrap. */
+  Use flex-grow ratios (not % widths) so row gap does not force wrap. */
 .global-filter-bar__row--ebcr-r1,
 .global-filter-bar__row--ebcr-r2,
 .global-filter-bar__row--ebcr-r3 {
@@ -942,12 +899,6 @@
   .global-filter-bar__row--ef-r2 > .global-filter-field--fx20,
   .global-filter-bar__row--ef-r2 > .global-filter-field--fx30,
   .global-filter-bar__row--ef-r2 > .global-filter-field--fx10,
-  .global-filter-bar__row--ear-r1 > .global-filter-field--fx20,
-  .global-filter-bar__row--ear-r1 > .global-filter-field--fx60,
-  .global-filter-bar__row--ear-r2 > .global-filter-field--fx20,
-  .global-filter-bar__row--ear-r2 > .global-filter-field--fx15,
-  .global-filter-bar__row--ear-r2 > .global-filter-field--fx30,
-  .global-filter-bar__row--ear-r2 > .global-filter-field--fx10,
   .global-filter-bar__row--ebcr-r1 > .global-filter-field--fx20,
   .global-filter-bar__row--ebcr-r1 > .global-filter-field--fx60,
   .global-filter-bar__row--ebcr-r2 > .global-filter-field--fx20,
@@ -1023,7 +974,8 @@
 }
 
 .global-filter-field:has([aria-expanded="true"]) .global-filter-field__label,
-.global-filter-field:has([role="combobox"]:focus-visible) .global-filter-field__label,
+.global-filter-field:has([role="combobox"]:focus-visible)
+  .global-filter-field__label,
 .global-filter-field:has(input:focus) .global-filter-field__label,
 .global-filter-field:has(button:focus-visible) .global-filter-field__label {
   color: #0c51a4;
@@ -1035,11 +987,14 @@
   flex-shrink: 0;
   opacity: 0.7;
   color: inherit;
-  transition: color 150ms ease, opacity 150ms ease;
+  transition:
+    color 150ms ease,
+    opacity 150ms ease;
 }
 
 .global-filter-field:has([aria-expanded="true"]) .global-filter-field__icon,
-.global-filter-field:has([role="combobox"]:focus-visible) .global-filter-field__icon,
+.global-filter-field:has([role="combobox"]:focus-visible)
+  .global-filter-field__icon,
 .global-filter-field:has(button:focus-visible) .global-filter-field__icon {
   color: #0c51a4;
   opacity: 1;
@@ -1050,7 +1005,7 @@
 }
 
 /* Angular mat-form-field underline — Select/Input use variant=standard via context;
-   keep these as a safety net for any nested native controls */
+  keep these as a safety net for any nested native controls */
 .global-filter-field__control > button[role="combobox"],
 .global-filter-field__control .global-filter-trigger {
   width: 100%;
@@ -1058,7 +1013,7 @@
 }
 
 /* Legacy page filter cards — card shell + filter body restyle.
-   Scoped to cards with a collapse toggle — not plain content cards (e.g. Exam Marks Setup list). */
+  Scoped to cards with a collapse toggle — not plain content cards (e.g. Exam Marks Setup list). */
 .app-card:has(> button .app-card-title):not(:has(.app-data-table)),
 .app-card:has(> div:first-child .app-card-title):has(
     > div:first-child
@@ -1277,15 +1232,10 @@
         svg[class*="lucide-chevron"]
       )
   ):not(:has(.app-data-table)):not(:has(.app-data-table-card))
-  button[data-slot="popover-trigger"],
-.angular-filter-card [role="combobox"] {
+  button[data-slot="popover-trigger"] {
   min-height: 2.25rem;
-  width: 100%;
   border-radius: 0.5rem;
-  border-width: 1px;
-  border-style: solid;
   border-color: #e5e7eb;
-  background-color: #fff;
   font-size: 13px;
 }
 
@@ -1865,7 +1815,7 @@ a.app-control[data-app-add]:hover {
 }
 
 /* Hide horizontal-scroll track under pinned SI.No / Actions columns —
-   scrollbar only appears under the scrollable center viewport. */
+  scrollbar only appears under the scrollable center viewport. */
 .app-data-table .ag-theme-quartz .ag-horizontal-left-spacer,
 .app-data-table .ag-theme-quartz .ag-horizontal-right-spacer {
   display: none !important;
@@ -1969,17 +1919,17 @@ input[type="reset"]:disabled,
 }
 
 /* ── Page name inside the filters card (fallback) ───────────────────────────
-   AppShell sets `--page-title` (a quoted CSS string, derived from the
-   breadcrumb's last segment) on the page-content wrapper. The page's FIRST
-   .app-card renders it as a header row with an accent underline — page name,
-   then one color border line, then the filters. No per-page markup needed.
-   `:not(.app-card ~ .app-card)` = "first .app-card among its siblings".
-   Cards that already render their own title/header row (`.app-card-title` or
-   a heading in the first wrapper div) are excluded — their styled header
-   carries the page name instead. */
+  AppShell sets `--page-title` (a quoted CSS string, derived from the
+  breadcrumb's last segment) on the page-content wrapper. The page's FIRST
+  .app-card renders it as a header row with an accent underline — page name,
+  then one color border line, then the filters. No per-page markup needed.
+  `:not(.app-card ~ .app-card)` = "first .app-card among its siblings".
+  Cards that already render their own title/header row (`.app-card-title` or
+  a heading in the first wrapper div) are excluded — their styled header
+  carries the page name instead. */
 /* First card WITHOUT its own heading: inject the page name as a header row.
-   (AppShell tags the card; cards that render a title/heading are covered by
-   the .app-card-title override above instead.) */
+  (AppShell tags the card; cards that render a title/heading are covered by
+  the .app-card-title override above instead.) */
 [data-page-first-card]:not(:has(.app-card-title)):not(:has(h1, h2, h3)):not(
     [data-no-page-name]
   )::before {
@@ -2002,15 +1952,15 @@ input[type="reset"]:disabled,
   padding-left: 50px;
 }
 /* Hand-rolled shells are padded (p-3/p-4), so give their injected header
-   breathing room from the content below; .app-card headers don't need it. */
+  breathing room from the content below; .app-card headers don't need it. */
 [data-page-first-card]:not(.app-card)::before {
   margin-bottom: 0.5rem;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   EXAMINATION THEME (scoped) — match reference site 100% within wrapper
-   Apply by wrapping a route with <div class="theme-examination">...</div>
-   ───────────────────────────────────────────────────────────────────────── */
+  EXAMINATION THEME (scoped) — match reference site 100% within wrapper
+  Apply by wrapping a route with <div class="theme-examination">...</div>
+  ───────────────────────────────────────────────────────────────────────── */
 .theme-examination {
   /* Typography */
   font-family: "Inter", sans-serif;
@@ -2024,7 +1974,7 @@ input[type="reset"]:disabled,
   --popover-foreground: 222 47% 12%;
 
   /* Brand and accents — NOTE: --primary/--ring intentionally NOT set here so
-     the active [data-theme] brand color flows into exam pages too. */
+    the active [data-theme] brand color flows into exam pages too. */
   --primary-foreground: 0 0% 100%;
   --secondary: 39 84% 55%; /* amber-500 */
   --secondary-foreground: 0 0% 100%;
@@ -2080,8 +2030,8 @@ input[type="reset"]:disabled,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   DESIGN TOKENS — Dark Mode
-   ───────────────────────────────────────────────────────────────────────── */
+  DESIGN TOKENS — Dark Mode
+  ───────────────────────────────────────────────────────────────────────── */
 .dark {
   --background: 210 30% 8%;
   --foreground: 210 30% 96%;
@@ -2122,11 +2072,11 @@ input[type="reset"]:disabled,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   COLOR THEMES — switchable via [data-theme] on <html>
-   Each theme overrides only the brand/accent + sidebar-accent tokens; the
-   dark-navy sidebar, light canvas, and surfaces stay constant across themes.
-   Default (no attribute) = "indigo-teal" defined in :root above.
-   ───────────────────────────────────────────────────────────────────────── */
+  COLOR THEMES — switchable via [data-theme] on <html>
+  Each theme overrides only the brand/accent + sidebar-accent tokens; the
+  dark-navy sidebar, light canvas, and surfaces stay constant across themes.
+  Default (no attribute) = "indigo-teal" defined in :root above.
+  ───────────────────────────────────────────────────────────────────────── */
 
 /* Indigo + Teal (explicit; identical to :root default) */
 [data-theme="indigo-teal"] {
@@ -2251,7 +2201,7 @@ input[type="reset"]:disabled,
 }
 
 /* University Blue / Angular Campus (theme-lime) — gold toolbar + navy sidebar.
-   Mirrors goldcollegeerp Angular: #ffcf46 toolbar, #042956 sidenav, Inter 14–16px. */
+  Mirrors goldcollegeerp Angular: #ffcf46 toolbar, #042956 sidenav, Inter 14–16px. */
 [data-theme="university-blue"] {
   --background: 220 14% 95%; /* #F0F1F3 page canvas */
   --foreground: 214 91% 14%; /* near #042956 */
@@ -2299,12 +2249,12 @@ input[type="reset"]:disabled,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   EVALUATOR WORKBENCH — MARK PILL TOKENS
-   The ExamDigit evaluator vertical colours its mark pills / annotation badges
-   from --mark(+foreground/soft). Its green/blue toggle is scoped to
-   [data-eval-theme] on <html> — a private attribute, so it never collides with
-   the app-wide [data-theme] brand system. Default (no attribute) = blue.
-   ───────────────────────────────────────────────────────────────────────── */
+  EVALUATOR WORKBENCH — MARK PILL TOKENS
+  The ExamDigit evaluator vertical colours its mark pills / annotation badges
+  from --mark(+foreground/soft). Its green/blue toggle is scoped to
+  [data-eval-theme] on <html> — a private attribute, so it never collides with
+  the app-wide [data-theme] brand system. Default (no attribute) = blue.
+  ───────────────────────────────────────────────────────────────────────── */
 :root,
 [data-eval-theme="blue"] {
   --mark: oklch(0.42 0.14 255);
@@ -2317,15 +2267,15 @@ input[type="reset"]:disabled,
   --mark-soft: oklch(0.95 0.03 160);
 }
 /* ExamDigit deep-navy workbench chrome (top bar) — constant across green/blue,
-   independent of the host brand --primary. */
+  independent of the host brand --primary. */
 :root {
   --eval-header: oklch(0.29 0.05 255);
   --eval-header-foreground: oklch(1 0 0);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   TAILWIND V4 THEME MAPPING
-   ───────────────────────────────────────────────────────────────────────── */
+  TAILWIND V4 THEME MAPPING
+  ───────────────────────────────────────────────────────────────────────── */
 @theme inline {
   /* Map CSS vars → Tailwind color tokens */
   --color-mark: var(--mark);
@@ -2392,8 +2342,8 @@ input[type="reset"]:disabled,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   KEYFRAMES
-   ───────────────────────────────────────────────────────────────────────── */
+  KEYFRAMES
+  ───────────────────────────────────────────────────────────────────────── */
 
 /* Skeleton shimmer — sweeps right */
 @keyframes shimmer {
@@ -2554,8 +2504,8 @@ input[type="reset"]:disabled,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   BASE STYLES
-   ───────────────────────────────────────────────────────────────────────── */
+  BASE STYLES
+  ───────────────────────────────────────────────────────────────────────── */
 
 *,
 *::before,
@@ -2585,9 +2535,9 @@ body {
 }
 
 /* Heading rhythm — apply Sora for display headings but let pages keep their own
-   size via Tailwind utilities. Only utility classes .h1/.h2 carry the full
-   token-driven sizing; raw <h1>/<h2> get font-family + color only so existing
-   page-level `text-[Npx]` overrides are honored. */
+  size via Tailwind utilities. Only utility classes .h1/.h2 carry the full
+  token-driven sizing; raw <h1>/<h2> get font-family + color only so existing
+  page-level `text-[Npx]` overrides are honored. */
 h1,
 h2,
 h3,
@@ -2617,8 +2567,8 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   ANGULAR FILTER CARD — separate from table (Subject Master pattern)
-   ───────────────────────────────────────────────────────────────────────── */
+  ANGULAR FILTER CARD — separate from table (Subject Master pattern)
+  ───────────────────────────────────────────────────────────────────────── */
 .angular-filter-card {
   border-radius: 4px;
   background: #fff;
@@ -2665,7 +2615,7 @@ h4,
 }
 
 /* Above-table context: book icon + list title + selected filter summary.
-   Full-bleed gold underline across the table card (cancels filtersFooter px-5). */
+  Full-bleed gold underline across the table card (cancels filtersFooter px-5). */
 .table-context-header {
   display: flex;
   flex-wrap: wrap;
@@ -2712,8 +2662,8 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CARD TITLE — Angular filters card: Material `book` + #0c51a4 title + #ffcf46 underline
-   ───────────────────────────────────────────────────────────────────────── */
+  CARD TITLE — Angular filters card: Material `book` + #0c51a4 title + #ffcf46 underline
+  ───────────────────────────────────────────────────────────────────────── */
 .app-card-title {
   display: inline-flex;
   align-items: center;
@@ -2783,8 +2733,8 @@ h4,
 }
 
 /* Header rows hosting a card title: Angular expansion-panel header padding
-   (~14px / 24px) + gold underline under the full width.
-   Skip `.angular-filter-card` — it owns a single full-width rule on `__header`. */
+  (~14px / 24px) + gold underline under the full width.
+  Skip `.angular-filter-card` — it owns a single full-width rule on `__header`. */
 .app-card:not(.angular-filter-card) > div:has(> .app-card-title),
 .app-card:not(.angular-filter-card) > button:has(> .app-card-title),
 .app-card:not(.angular-filter-card) > div:has(> * > .app-card-title),
@@ -2801,7 +2751,7 @@ h4,
 }
 
 /* Legacy first-card title rewrite (no CardHeadingTitle markup): keep page-name
-   injection. New markup uses .app-card-title__text and is left alone. */
+  injection. New markup uses .app-card-title__text and is left alone. */
 [data-page-first-card] .app-card-title:not(:has(.app-card-title__text)) {
   font-size: 0;
 }
@@ -2831,16 +2781,16 @@ h4,
 }
 
 /* Accordion — the whole header row is the collapse trigger (AppShell forwards
-   header clicks to the page's filter button). NOTE: lucide-react aliases
-   Filter → Funnel, so the svg class is `lucide-funnel`; match all variants. */
+  header clicks to the page's filter button). NOTE: lucide-react aliases
+  Filter → Funnel, so the svg class is `lucide-funnel`; match all variants. */
 .app-card > div:has(> .app-card-title):has(button) {
   cursor: pointer;
   user-select: none;
 }
 /* Filter toggle: strip the button chrome down to a plain indicator icon.
-   `font-size: 0` hides the "Filter" text node; the svg keeps its own size.
-   `pointer-events: none` makes the header row the single accordion trigger —
-   clicks on the icon fall through to the header and are forwarded back. */
+  `font-size: 0` hides the "Filter" text node; the svg keeps its own size.
+  `pointer-events: none` makes the header row the single accordion trigger —
+  clicks on the icon fall through to the header and are forwarded back. */
 
 .app-card:not(.global-filter-bar)
   > div:has(> .app-card-title)
@@ -2863,13 +2813,13 @@ h4,
   /* .app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-funnel"]),
 .app-card > div:has(> .app-card-title) button:has(svg[class*="lucide-filter"]),
 .app-card
-  > div:has(> .app-card-title)
-  button:has(svg[class*="lucide-chevron-down"]),
+ > div:has(> .app-card-title)
+ button:has(svg[class*="lucide-chevron-down"]),
 .app-card > button:has(> .app-card-title) span:has(svg[class*="lucide-funnel"]),
 .app-card > button:has(> .app-card-title) span:has(svg[class*="lucide-filter"]),
 .app-card
-  > button:has(> .app-card-title)
-  span:has(svg[class*="lucide-chevron-down"]) { */
+ > button:has(> .app-card-title)
+ span:has(svg[class*="lucide-chevron-down"]) { */
 
   /* .app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-funnel']),
 .app-card > div:has(> .app-card-title) button:has(svg[class*='lucide-filter']),
@@ -2888,7 +2838,7 @@ h4,
   color: hsl(var(--primary));
   pointer-events: none;
   /* Sit right beside the heading: with the rows' `justify-between`, an auto
-     right margin pulls the icon next to the title instead of the far edge. */
+    right margin pulls the icon next to the title instead of the far edge. */
   margin-right: auto;
 }
 .app-card
@@ -2920,8 +2870,8 @@ h4,
   margin: 0;
 }
 /* Filters panel opens with a soft slide-down. Closing is animated by the
-   View Transition wrapper in AppShell — pages remove the panel conditionally,
-   so a CSS exit animation alone can't cover it. */
+  View Transition wrapper in AppShell — pages remove the panel conditionally,
+  so a CSS exit animation alone can't cover it. */
 .app-card > div:has(> .app-card-title) + div,
 .app-card > button:has(> .app-card-title) + div {
   animation: filters-panel-in 160ms ease-out;
@@ -2938,8 +2888,8 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   MAT-TABLE — Angular Material table (native HTML Table + shared tokens)
-   ───────────────────────────────────────────────────────────────────────── */
+  MAT-TABLE — Angular Material table (native HTML Table + shared tokens)
+  ───────────────────────────────────────────────────────────────────────── */
 .mat-table-shell {
   border: 1px solid var(--mat-table-border, #e3edf8);
   background: #fff;
@@ -2985,8 +2935,8 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   MAT-SELECT PANEL — Angular Fuse mat-select + ngx-mat-select-search
-   ───────────────────────────────────────────────────────────────────────── */
+  MAT-SELECT PANEL — Angular Fuse mat-select + ngx-mat-select-search
+  ───────────────────────────────────────────────────────────────────────── */
 .mat-select-panel {
   border: none !important;
   border-radius: 4px !important;
@@ -3091,8 +3041,8 @@ h4,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   SIDEBAR — section labels, nav item, active pill (Angular theme-lime parity)
-   ───────────────────────────────────────────────────────────────────────── */
+  SIDEBAR — section labels, nav item, active pill (Angular theme-lime parity)
+  ───────────────────────────────────────────────────────────────────────── */
 .sidebar-section-label {
   font-size: var(--font-size-nav-section);
   font-weight: 600;
@@ -3514,8 +3464,8 @@ div[role="dialog"] {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   FOCUS RINGS — accessible, on-brand
-   ───────────────────────────────────────────────────────────────────────── */
+  FOCUS RINGS — accessible, on-brand
+  ───────────────────────────────────────────────────────────────────────── */
 
 *:focus-visible {
   outline: none; /* remove double outline */
@@ -3535,8 +3485,8 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CUSTOM SCROLLBAR — sidebar & main content
-   ───────────────────────────────────────────────────────────────────────── */
+  CUSTOM SCROLLBAR — sidebar & main content
+  ───────────────────────────────────────────────────────────────────────── */
 
 /* Thin scrollbar for sidebar nav */
 .scrollbar-sidebar::-webkit-scrollbar {
@@ -3579,8 +3529,8 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   SKELETON — shimmer style
-   ───────────────────────────────────────────────────────────────────────── */
+  SKELETON — shimmer style
+  ───────────────────────────────────────────────────────────────────────── */
 
 .skeleton-shimmer {
   background: linear-gradient(
@@ -3594,8 +3544,8 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   STAGGER HELPERS — dashboard card entrance
-   ───────────────────────────────────────────────────────────────────────── */
+  STAGGER HELPERS — dashboard card entrance
+  ───────────────────────────────────────────────────────────────────────── */
 
 .stagger-children > *:nth-child(1) {
   animation-delay: 0ms;
@@ -3617,8 +3567,8 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Table toolbar standardization (search + buttons)
-   ───────────────────────────────────────────────────────────────────────── */
+  Table toolbar standardization (search + buttons)
+  ───────────────────────────────────────────────────────────────────────── */
 .table-toolbar input[type="text"],
 .table-toolbar input[type="search"],
 .table-toolbar .search-input {
@@ -3633,8 +3583,8 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   FLOATING LABEL — login form inputs
-   ───────────────────────────────────────────────────────────────────────── */
+  FLOATING LABEL — login form inputs
+  ───────────────────────────────────────────────────────────────────────── */
 
 /* Label rests centered inside the input when empty */
 .fl-label {
@@ -3669,8 +3619,8 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   REDUCED MOTION — respect user preference
-   ───────────────────────────────────────────────────────────────────────── */
+  REDUCED MOTION — respect user preference
+  ───────────────────────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   /* Suppress decorative animations but leave functional ones (spinners, loaders) alone */
@@ -3684,17 +3634,17 @@ textarea:focus-visible,
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   PRINT — minimal chrome-free print sheet
-   ─────────────────────────────────────────────────────────────────────────────
-   Per-button selective printing is done in the page (conditional-render: the
-   print mode unmounts the normal UI and renders just the chosen print layout
-   while window.print() runs, then resets on afterprint).
-   This block is the housekeeping CSS that applies to every print regardless:
-   - hide app chrome (aside / nav / header / .print-hide / [data-print-hide]);
-   - force white background and black text;
-   - 1cm page margin;
-   - keep rows together where possible;
-   - flip .print-only blocks on, .screen-only blocks off.
+  PRINT — minimal chrome-free print sheet
+  ─────────────────────────────────────────────────────────────────────────────
+  Per-button selective printing is done in the page (conditional-render: the
+  print mode unmounts the normal UI and renders just the chosen print layout
+  while window.print() runs, then resets on afterprint).
+  This block is the housekeeping CSS that applies to every print regardless:
+  - hide app chrome (aside / nav / header / .print-hide / [data-print-hide]);
+  - force white background and black text;
+  - 1cm page margin;
+  - keep rows together where possible;
+  - flip .print-only blocks on, .screen-only blocks off.
 */
 
 .print-only {
@@ -3711,10 +3661,10 @@ textarea:focus-visible,
   }
 
   /* AppShell uses flex containers that, with sidebar+topbar hidden, can
-     leave the content visually off-centre. Strip layout padding/margin on
-     html/body/main and reset Tailwind utility classes that trap print
-     content into a single screen-sized box (overflow-hidden, h-screen,
-     overflow-y-auto). */
+    leave the content visually off-centre. Strip layout padding/margin on
+    html/body/main and reset Tailwind utility classes that trap print
+    content into a single screen-sized box (overflow-hidden, h-screen,
+    overflow-y-auto). */
   html,
   body,
   main {
@@ -3736,8 +3686,8 @@ textarea:focus-visible,
   }
 
   /* Force white background everywhere — Tailwind bg-[hsl(var(--background))]
-     and friends were bleeding through and printing as a grey sheet when the
-     browser was set to use default margins. */
+    and friends were bleeding through and printing as a grey sheet when the
+    browser was set to use default margins. */
   html,
   body,
   body > div,
@@ -3790,7 +3740,7 @@ textarea:focus-visible,
   }
 
   /* AppShell main uses animate-fade-up (opacity:0 at start). If window.print()
-     fires before the animation finishes, the PDF is blank. Force visible. */
+    fires before the animation finishes, the PDF is blank. Force visible. */
   .animate-fade-up,
   .animate-fade-in,
   [class*="animate-fade"] {

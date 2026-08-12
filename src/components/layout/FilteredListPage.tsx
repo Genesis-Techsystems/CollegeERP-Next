@@ -186,19 +186,17 @@ export function FilteredListPage<T>({
   return (
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
-      {listVisible && hasTable ? (
-        <DataTable
-          title=""
-          subtitle=""
-          bordered
-          filters={undefined}
-          filtersFooter={resolvedTableHeader}
-          rowData={rowData ?? []}
-          columnDefs={columnDefs ?? []}
-          resultsVisible={resultsVisible}
-          {...tableProps}
-        />
-      ) : null}
+      <DataTable
+        title={listCardTitle}
+        subtitle=""
+        bordered
+        filters={undefined}
+        filtersFooter={resolvedTableHeader}
+        rowData={rowData ?? []}
+        columnDefs={columnDefs ?? []}
+        resultsVisible={resultsVisible}
+        {...tableProps}
+      />
       {body}
       {children}
     </PageContainer>
