@@ -8,6 +8,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { useRouter, useSearchParams } from "next/navigation";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import {
   Dialog,
   DialogContent,
@@ -30,8 +32,10 @@ import {
 import {
   getSchPreceedingById,
   getScholarshipCollegeFilters,
+  getSchProceedingDetails,
   listPreceedingsByAccountId,
   listSchAccountsPreceedings,
+  listSchPreceedingReports,
 } from "@/services";
 import type { SchAccountsPreceeding, SchPreceeding } from "@/types/scholarship";
 
@@ -112,6 +116,9 @@ function makeViewRenderer(onView: (row: ProceedingRow) => void) {
 }
 
 export default function ScholarshipPreceedingsReportPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
@@ -119,10 +126,20 @@ export default function ScholarshipPreceedingsReportPage() {
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
 
+  const goBack = useCallback(() => {
+    const catalog = searchParams.get("path");
+    if (catalog) {
+      router.push(resolveReportCatalogHref(catalog));
+      return;
+    }
+    router.back();
+  }, [router, searchParams]);
+
   const [collegeId, setCollegeId] = useState<string | null>(null);
   const [academicYearId, setAcademicYearId] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [rows, setRows] = useState<ProceedingRow[]>([]);
+  const [listLoaded, setListLoaded] = useState(false);
   const [chequeNo, setChequeNo] = useState("");
   const [reportAy, setReportAy] = useState("");
   const [loadingReport, setLoadingReport] = useState(false);
@@ -246,11 +263,13 @@ export default function ScholarshipPreceedingsReportPage() {
     try {
       const data = await listPreceedingsByAccountId(accId);
       setRows(Array.isArray(data) ? (data as ProceedingRow[]) : []);
+      setListLoaded(true);
       if (!data?.length)
         toastInfo("No proceedings found for the selected account.");
     } catch (e) {
       toastError(e, "Failed to load scholarship proceedings");
       setRows([]);
+      setListLoaded(true);
     } finally {
       setLoadingReport(false);
     }
@@ -367,9 +386,7 @@ export default function ScholarshipPreceedingsReportPage() {
                 type="button"
                 size="sm"
                 className="!h-8 w-auto shrink-0 !px-3 !text-[12px] bg-[#f0c040] font-medium text-slate-900 hover:bg-[#e5b535]"
-                disabled={
-                  loadingReport || !collegeId || !academicYearId || !accountId
-                }
+                disabled={loadingReport}
                 onClick={() => void getReport()}
               >
                 {loadingReport ? "Loading…" : "Get Report"}
@@ -377,26 +394,27 @@ export default function ScholarshipPreceedingsReportPage() {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                className="!h-8 w-auto shrink-0 gap-1.5 !px-3 !text-[12px]"
-                disabled={rows.length === 0}
-                onClick={() => window.print()}
+                variant="secondary"
+                className="!h-8 w-auto shrink-0 !px-3 !text-[12px]"
+                onClick={goBack}
               >
-                <Printer className="!h-3.5 !w-3.5" />
-                Print Report
+                Back
               </Button>
             </div>
           </div>
         }
-        rowData={rows}
-        columnDefs={columnDefs}
+        showTable={listLoaded && rows.length > 0}
+        rowData={listLoaded && rows.length > 0 ? rows : []}
+        columnDefs={listLoaded && rows.length > 0 ? columnDefs : undefined}
+        body={listLoaded && rows.length > 0 ? undefined : null}
         loading={loadingReport}
         height="auto"
         pagination
         toolbar={{
           search: true,
           searchPlaceholder: "Search",
-          exportExcel: rows.length > 0,
+          exportExcel: true,
+          exportPdf: true,
         }}
         getRowId={(p) =>
           String(

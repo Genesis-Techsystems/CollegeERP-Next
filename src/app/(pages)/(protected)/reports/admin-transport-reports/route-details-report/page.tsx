@@ -159,7 +159,8 @@ export default function RouteDetailsReportPage() {
         (r) => pickNum(r, ["fk_college_id", "collegeId"]) === cid,
       ) ?? null;
     const code = pickText(row, ["college_code", "collegeCode"]);
-    let name = pickText(row, ["college_name", "collegeName"]) || code || "College";
+    let name =
+      pickText(row, ["college_name", "collegeName"]) || code || "College";
     try {
       const full = await getCollegeById(cid);
       if (full?.collegeName) name = String(full.collegeName);
@@ -220,9 +221,7 @@ export default function RouteDetailsReportPage() {
         logoSrc: escapeHtml(logoSrc),
         fallbackLogo: escapeHtml(fallbackLogo),
         collegeName: escapeHtml(collegeName || "College"),
-        dataDetails: dataDetails
-          ? escapeHtml(`( ${dataDetails} )`)
-          : undefined,
+        dataDetails: dataDetails ? escapeHtml(`( ${dataDetails} )`) : undefined,
         tableHtml: buildHtmlTable(EXCEL_COLUMNS, exportRows),
       }),
     );
@@ -234,10 +233,10 @@ export default function RouteDetailsReportPage() {
 
   return (
     <FilteredListPage<RouteRow>
-      title={
+      tableTitle={
         showTable && dataDetails
-          ? `${PRINT_REPORT_TITLE} ( ${dataDetails} )`
-          : PRINT_REPORT_TITLE
+          ? `Route Details Report - ${dataDetails}`
+          : "Route Details Report"
       }
       filters={
         <div className="flex flex-wrap items-end gap-3">

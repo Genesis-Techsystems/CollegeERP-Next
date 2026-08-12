@@ -86,7 +86,9 @@ const EXCEL_COLUMNS = [
 function mapRow(row: AnyRow): VehicleRow {
   return {
     vehicleNumber: String(row.vehicle_number ?? row.vehicleNumber ?? ""),
-    vehicleType: String(row.Vehicle_type ?? row.vehicle_type ?? row.Vehicle ?? ""),
+    vehicleType: String(
+      row.Vehicle_type ?? row.vehicle_type ?? row.Vehicle ?? "",
+    ),
     rcNumber: String(row.rc_number ?? row.rcNumber ?? ""),
     noOfSeats: String(row.no_of_seats ?? row.noOfSeats ?? ""),
   };
@@ -219,9 +221,7 @@ export default function VehicleDetailsReportPage() {
         logoSrc: escapeHtml(logoSrc),
         fallbackLogo: escapeHtml(fallbackLogo),
         collegeName: escapeHtml(collegeName || "College"),
-        dataDetails: dataDetails
-          ? escapeHtml(`( ${dataDetails} )`)
-          : undefined,
+        dataDetails: dataDetails ? escapeHtml(`( ${dataDetails} )`) : undefined,
         tableHtml: buildHtmlTable(EXCEL_COLUMNS, exportRows),
       }),
     );
@@ -233,9 +233,10 @@ export default function VehicleDetailsReportPage() {
 
   return (
     <FilteredListPage<VehicleRow>
-      title={
+      title={PRINT_REPORT_TITLE}
+      tableTitle={
         showTable && dataDetails
-          ? `${PRINT_REPORT_TITLE} ( ${dataDetails} )`
+          ? `${PRINT_REPORT_TITLE} (${dataDetails})`
           : PRINT_REPORT_TITLE
       }
       filters={
@@ -254,6 +255,7 @@ export default function VehicleDetailsReportPage() {
               isLoading={collegesQuery.isLoading}
             />
           </div>
+
           <Button
             type="button"
             className="h-9 w-fit px-4"
@@ -262,6 +264,7 @@ export default function VehicleDetailsReportPage() {
           >
             {loadingList ? "Loading…" : "Get List"}
           </Button>
+
           <Button
             type="button"
             variant="secondary"

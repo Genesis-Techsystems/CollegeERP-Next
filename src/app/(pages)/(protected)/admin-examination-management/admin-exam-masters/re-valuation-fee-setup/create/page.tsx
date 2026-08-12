@@ -1154,7 +1154,7 @@ export default function CreateRevaluationFeeStructurePage() {
           type="button"
           className="h-8 text-[12px]"
           onClick={save}
-          disabled={!canSave}
+          // disabled={!canSave}
         >
           {editId ? "Update" : "Save"}
         </Button>

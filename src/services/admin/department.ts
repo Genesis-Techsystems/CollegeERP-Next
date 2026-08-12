@@ -30,38 +30,63 @@ export async function listDepartmentsByProcedure(
   collegeId?: number,
 ): Promise<Department[]> {
   const ogId =
-    organizationId ||
+    organizationId ??
     Number(globalThis?.localStorage?.getItem("organizationId") || 1);
+
   const clgId =
-    collegeId || Number(globalThis?.localStorage?.getItem("collegeId") || 16);
+    collegeId ?? Number(globalThis?.localStorage?.getItem("collegeId") || 16);
+
   try {
-    const list = await getAllRecords<Record<string, any>>(
-      "s_get_dept_details",
-      {
-        in_og_id: ogId,
-        in_clg_id: clgId,
-      },
-    );
-    if (Array.isArray(list) && list.length > 0) {
-      return list.map((d) => ({
-        departmentId: Number(
-          d.departmentId ??
-            d.department_id ??
-            d.pk_department_id ??
-            d.dept_id ??
-            0,
-        ),
-        deptName: String(
-          d.deptName ?? d.dept_name ?? d.department_name ?? d.name ?? "",
-        ),
-        collegeCode: d.collegeCode ?? d.college_code ?? undefined,
+    const response = await getAllRecords<any>("s_get_dept_details", {
+      in_og_id: ogId,
+      in_clg_id: clgId,
+    });
+
+    console.log("DEPARTMENT API getAllRecords RESPONSE:", response);
+
+    /*
+     * Handle all possible shapes:
+     *
+     * 1. [{...}, {...}]
+     * 2. [[{...}, {...}]]
+     * 3. { result: [{...}, {...}] }
+     * 4. { result: [[{...}, {...}]] }
+     * 5. { data: { result: [[{...}]] } }
+     */
+
+    let rows: any[] = [];
+
+    if (Array.isArray(response)) {
+      rows = response;
+    } else if (Array.isArray(response?.result)) {
+      rows = response.result;
+    } else if (Array.isArray(response?.data?.result)) {
+      rows = response.data.result;
+    }
+
+    // Flatten nested result arrays
+    while (rows.length > 0 && Array.isArray(rows[0])) {
+      rows = rows.flat();
+    }
+
+    console.log("DEPARTMENT NORMALIZED ROWS:", rows);
+
+    return rows
+      .filter((d) => d && typeof d === "object")
+      .map((d) => ({
+        departmentId: Number(d.fk_emp_dept_id ?? 0),
+
+        deptName: String(d.dept_name ?? ""),
+
+        // IMPORTANT
+        deptCode: String(d.dept_code ?? ""),
+
         ...d,
       })) as Department[];
-    }
-  } catch {
-    // Return empty list if procedure fails
+  } catch (error) {
+    console.error("DEPARTMENT API ERROR:", error);
+    return [];
   }
-  return [];
 }
 
 export async function createDepartment(

@@ -406,10 +406,14 @@ export function mapStudentAcademicsNavRoute(
 
   // Menu label "Staff Class Diary" keeps the existing student-class-dairy page.
   if (
-    (labelKey.includes("staff") &&
+    !labelKey.includes("report") &&
+    !labelKey.includes("consolidated") &&
+    !hrefLower.includes("report") &&
+    !hrefLower.includes("consolidated") &&
+    ((labelKey.includes("staff") &&
       (labelKey.includes("classdiary") || labelKey.includes("classdairy"))) ||
-    hrefLower.includes("staff-class-diary") ||
-    hrefLower.includes("staff-class-dairy")
+      hrefLower.includes("staff-class-diary") ||
+      hrefLower.includes("staff-class-dairy"))
   ) {
     return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
   }

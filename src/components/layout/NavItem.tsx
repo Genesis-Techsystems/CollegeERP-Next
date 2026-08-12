@@ -1248,8 +1248,11 @@ function navCollapsibleTriggerClasses(
   isChildActive: boolean,
   isSelfActive: boolean,
   isActive: boolean,
+  depth: number = 0,
 ): string {
-  if (isSelfActive || isChildActive || isActive) {
+  const isHighlight =
+    isSelfActive || (depth === 0 && (isChildActive || isActive));
+  if (isHighlight) {
     // Gold label only — no blue fill (Angular active = color, not pill)
     return cn(
       "text-[hsl(var(--sidebar-foreground-active))]",
@@ -2011,31 +2014,61 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/student-academics/student-timetable";
     }
 
+    // Timetable Reports — Staff Class Diary Report & Consolidated Staff Class Diary Report
+    const isStaffPortal = hrefLower.includes("staff-reports");
+    const ttBase = isStaffPortal
+      ? "/staff-reports/admin-timetable-reports"
+      : "/reports/admin-timetable-reports";
+
+    if (
+      hrefLower.includes("consolidated-staff-class-diary-report") ||
+      hrefLower.includes("consolidated-staff-diary") ||
+      (labelLower.includes("consolidated") &&
+        labelLower.includes("staff") &&
+        (labelLower.includes("diary") || labelLower.includes("dairy")))
+    ) {
+      return `${ttBase}/consolidated-staff-class-diary-report`;
+    }
+    if (
+      hrefLower.includes("staff-class-diary-report") ||
+      (labelLower.includes("staff") &&
+        (labelLower.includes("class diary") ||
+          labelLower.includes("class dairy")) &&
+        labelLower.includes("report") &&
+        !labelLower.includes("consolidated"))
+    ) {
+      return `${ttBase}/staff-class-diary-report`;
+    }
+
     // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
     // hrefs do not make both sidebar leaves active on the staff Class Diary page.
     // Student portal bare "Class Dairy" must not open the staff Class Diary UI.
     if (
-      labelKey === "staff class diary" ||
-      labelKey === "staff class dairy" ||
-      labelKey === "student class diary" ||
-      labelKey === "student class dairy" ||
-      (labelKey.includes("staff") &&
-        (labelKey.includes("class diary") ||
-          labelKey.includes("class dairy"))) ||
-      hrefLower.includes("student-class-diary") ||
-      hrefLower.includes("student-class-dairy") ||
-      hrefLower.includes("student-academics/student-class-diary") ||
-      hrefLower.includes("student-academics/student-class-dairy") ||
-      hrefLower.includes("staff-class-diary") ||
-      hrefLower.includes("staff-class-dairy") ||
-      (hrefLower.includes("student-academics") &&
-        (labelLower.includes("class diary") ||
-          labelLower.includes("class dairy"))) ||
-      ((labelKey === "class diary" || labelKey === "class dairy") &&
-        isStudentClassDiaryViewer()) ||
-      ((hrefLower.includes("staff-classes/class-diary") ||
-        hrefLower.includes("staff-classes/class-dairy")) &&
-        isStudentClassDiaryViewer())
+      !labelLower.includes("report") &&
+      !labelLower.includes("consolidated") &&
+      !hrefLower.includes("report") &&
+      !hrefLower.includes("consolidated") &&
+      (labelKey === "staff class diary" ||
+        labelKey === "staff class dairy" ||
+        labelKey === "student class diary" ||
+        labelKey === "student class dairy" ||
+        (labelKey.includes("staff") &&
+          (labelKey.includes("class diary") ||
+            labelKey.includes("class dairy"))) ||
+        hrefLower.includes("student-class-diary") ||
+        hrefLower.includes("student-class-dairy") ||
+        hrefLower.includes("student-academics/student-class-diary") ||
+        hrefLower.includes("student-academics/student-class-dairy") ||
+        hrefLower.includes("staff-class-diary") ||
+        hrefLower.includes("staff-class-dairy") ||
+        (hrefLower.includes("student-academics") &&
+          (labelLower.includes("class diary") ||
+            labelLower.includes("class dairy"))) ||
+        ((labelKey === "class diary" || labelKey === "class dairy") &&
+          isStudentClassDiaryViewer()) ||
+        ((hrefLower.includes("staff-classes/class-diary") ||
+          hrefLower.includes("staff-classes/class-dairy")) &&
+          isStudentClassDiaryViewer()))
     ) {
       return "/student-academics/student-class-dairy";
     }
@@ -2985,11 +3018,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/reports/student-attendance-reports/student-attendance-percentage-report";
       }
       if (
+        hrefLower.includes("subject-wise-attendance-report") &&
+        !hrefLower.includes("faculty") &&
+        labelLower.includes("college")
+      ) {
+        // "Subject Wise College Attendance Report" — goes to the faculty report
+        return "/reports/admin-attendance-reports/subject-wise-faculty-attendance-report";
+      }
+      if (
         hrefLower.includes("subject-wise-attendance-report") ||
         (labelLower.includes("subject") &&
           labelLower.includes("wise") &&
           labelLower.includes("attendance") &&
           !labelLower.includes("faculty") &&
+          !labelLower.includes("college") &&
           !labelLower.includes("evaluator") &&
           !labelLower.includes("result") &&
           !labelLower.includes("pass") &&
@@ -3285,10 +3327,30 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           return `${ttBase}/staff-proxy-report`;
         }
         if (
+          hrefLower.includes("consolidated-staff-class-diary-report") ||
+          hrefLower.includes("consolidated-staff-diary") ||
+          (labelLower.includes("consolidated") &&
+            labelLower.includes("staff") &&
+            labelLower.includes("diary"))
+        ) {
+          return `${ttBase}/consolidated-staff-class-diary-report`;
+        }
+        if (
+          hrefLower.includes("staff-class-diary-report") ||
+          (hrefLower.includes("staff-class-diary") &&
+            !hrefLower.includes("consolidated")) ||
+          (labelLower.includes("staff") &&
+            labelLower.includes("class") &&
+            labelLower.includes("diary") &&
+            !labelLower.includes("consolidated"))
+        ) {
+          return `${ttBase}/staff-class-diary-report`;
+        }
+        if (
           hrefLower.includes("cca-activity-report") ||
-          (labelLower.includes("cca") &&
-            labelLower.includes("activity") &&
-            labelLower.includes("report"))
+          hrefLower.includes("students-cca") ||
+          (labelLower.includes("cca") && labelLower.includes("activity")) ||
+          (labelLower.includes("students") && labelLower.includes("cca"))
         ) {
           return `${ttBase}/cca-activity-report`;
         }
@@ -3503,6 +3565,45 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           !labelLower.includes("application"))
       ) {
         return "/accounts-and-fees/fee-reports/daywise-fee-report";
+      }
+      if (
+        hrefLower.includes("scholarship-preceedings") ||
+        hrefLower.includes("scholarship-proceedings") ||
+        (labelLower.includes("scholarship") &&
+          (labelLower.includes("preceeding") ||
+            labelLower.includes("proceeding") ||
+            labelLower.includes("proceedings")) &&
+          (labelLower.includes("amount") ||
+            labelLower.includes("report") ||
+            labelLower.includes("list") ||
+            hrefLower.includes("fee-reports")))
+      ) {
+        return "/accounts-and-fees/fee-reports/scholarship-preceedings";
+      }
+      if (
+        hrefLower.includes("concession-list") ||
+        hrefLower.includes("concessions-list") ||
+        (labelLower.includes("concession") && labelLower.includes("list")) ||
+        (labelLower.includes("concessions") && labelLower.includes("list")) ||
+        labelLower === "concessions list" ||
+        labelLower === "concession list" ||
+        (labelLower.includes("institutional") &&
+          labelLower.includes("scholarship") &&
+          !labelLower.includes("preceeding") &&
+          !labelLower.includes("proceeding"))
+      ) {
+        return "/accounts-and-fees/fee-reports/concession-list";
+      }
+      if (
+        hrefLower.includes("finance-drilldown-report") ||
+        hrefLower.includes("finance-drilldown") ||
+        (labelLower.includes("finance") &&
+          (labelLower.includes("drilldown") ||
+            labelLower.includes("report"))) ||
+        labelLower === "finance drilldown report" ||
+        labelLower === "finance report"
+      ) {
+        return "/reports/management-reports/finance-drilldown-report";
       }
       if (
         hrefLower.includes("fee-masters/fee-categor") ||
@@ -5005,6 +5106,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           labelLower.includes("proceeding")) &&
         !labelLower.includes("report") &&
         !labelLower.includes("account") &&
+        !labelLower.includes("amount") &&
         !hrefLower.includes("fee-reports") &&
         !hrefLower.includes("accounts-preceeding") &&
         !hrefLower.includes("acounts-preceeding"))
@@ -5245,13 +5347,15 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ? onStudentClassDiary
       : onStaffClassDiary;
   } else if (
-    diaryLabelKey === "staff class diary" ||
-    diaryLabelKey === "staff class dairy" ||
-    diaryLabelKey === "student class diary" ||
-    diaryLabelKey === "student class dairy" ||
-    (diaryLabelKey.includes("staff") &&
-      (diaryLabelKey.includes("class diary") ||
-        diaryLabelKey.includes("class dairy")))
+    !diaryLabelKey.includes("report") &&
+    !diaryLabelKey.includes("consolidated") &&
+    (diaryLabelKey === "staff class diary" ||
+      diaryLabelKey === "staff class dairy" ||
+      diaryLabelKey === "student class diary" ||
+      diaryLabelKey === "student class dairy" ||
+      (diaryLabelKey.includes("staff") &&
+        (diaryLabelKey.includes("class diary") ||
+          diaryLabelKey.includes("class dairy"))))
   ) {
     isSelfActive = onStudentClassDiary;
   }
@@ -5332,6 +5436,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       isActive = false;
     } else if (labelForActive === "reports" || labelForActive === "report") {
       isActive = true;
+    }
+  }
+  if (normPathname.includes("staff-attendance-not-markedlist") && depth === 0) {
+    if (
+      labelForActive.includes("attendance") &&
+      labelForActive.includes("management")
+    ) {
+      isActive = false;
     }
   }
 
@@ -5442,6 +5554,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
               isChildActive,
               isSelfActive,
               isActive,
+              depth,
             ),
           )}
         >
@@ -5454,7 +5567,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           {showLeftIcon && (
             <NavIcon
               name={renderedIconName}
-              active={isSelfActive || isChildActive}
+              active={
+                depth === 0 ? isSelfActive || isChildActive : isSelfActive
+              }
               kind={depth === 0 ? "module" : "page"}
             />
           )}

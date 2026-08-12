@@ -16,6 +16,8 @@ import {
   pickText,
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
+import { useRouter, useSearchParams } from "next/navigation";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { getFeeMasterCollegeFilters, listFeeConcessions } from "@/services";
 import type { FeeConcessionRow } from "@/types/fees-collection";
 
@@ -89,12 +91,24 @@ function courseRenderer(p: ICellRendererParams<FeeConcessionRow>) {
 }
 
 export default function ConcessionListPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
   const orgId = Number(
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
+
+  const goBack = useCallback(() => {
+    const catalog = searchParams.get("path");
+    if (catalog) {
+      router.push(resolveReportCatalogHref(catalog));
+      return;
+    }
+    router.back();
+  }, [router, searchParams]);
 
   const [collegeId, setCollegeId] = useState<string | null>(null);
   const [academicYearId, setAcademicYearId] = useState<string | null>(null);
@@ -277,27 +291,27 @@ export default function ConcessionListPage() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="!h-8 w-auto shrink-0 gap-1.5 !px-3 !text-[12px]"
-              disabled={rows.length === 0}
-              onClick={() => window.print()}
+              variant="secondary"
+              className="!h-8 w-auto shrink-0 !px-3 !text-[12px]"
+              onClick={goBack}
             >
-              <Printer className="!h-3.5 !w-3.5" />
-              Print Report
+              Back
             </Button>
           </div>
         </div>
       }
-      rowData={listLoaded ? rows : []}
-      columnDefs={listLoaded ? columnDefs : undefined}
-      body={listLoaded ? undefined : null}
-      loading={listLoaded && loadingList}
+      showTable={listLoaded && rows.length > 0}
+      rowData={listLoaded && rows.length > 0 ? rows : []}
+      columnDefs={listLoaded && rows.length > 0 ? columnDefs : undefined}
+      body={listLoaded && rows.length > 0 ? undefined : null}
+      loading={loadingList}
       height="auto"
       pagination
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: rows.length > 0,
+        exportExcel: true,
+        exportPdf: true,
       }}
       getRowId={(p) =>
         String(

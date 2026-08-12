@@ -801,7 +801,7 @@ export default function ExamRegistrationManualFeelessPage() {
                         <tbody>
                           {filteredSubjects.map((obj, i) => (
                             <tr
-                              key={`sub-${subId(obj) || i}`}
+                              key={`sub-${subId(obj) ?? "x"}-${i}`}
                               className={`border-t ${obj.subjAlreadyRegistered ? "bg-[#f2f0f0]" : ""}`}
                             >
                               <td className="w-[44px] px-2 py-1 text-center align-middle">
