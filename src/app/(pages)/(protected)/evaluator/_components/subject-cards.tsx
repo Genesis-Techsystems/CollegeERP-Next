@@ -49,22 +49,6 @@ function daysLeftLabel(lastDate: string): string | null {
   return `(${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue)`;
 }
 
-function progressPercent(
-  assigned: number,
-  evaluated: number | null,
-  due: number | null,
-): number {
-  if (!assigned || assigned <= 0) return 0;
-  // Still work remaining — never show 100% (Math.round(459/460) was wrongly 100).
-  if (due != null && due > 0) {
-    const raw = Math.floor((Math.max(0, evaluated ?? 0) / assigned) * 100);
-    return Math.min(99, Math.max(0, raw));
-  }
-  const safeEvaluated = Math.max(0, evaluated ?? 0);
-  if (safeEvaluated >= assigned) return 100;
-  return Math.min(100, Math.floor((safeEvaluated / assigned) * 100));
-}
-
 function SubjectCard({
   s,
   onCheck,
@@ -75,7 +59,6 @@ function SubjectCard({
   const inProgress = s.due !== null && s.due > 0;
   const deadlineHint = daysLeftLabel(s.lastDate);
   const code = s.code.replace(/-\d+$/, "");
-  const progress = progressPercent(s.assigned, s.evaluated, s.due);
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-all hover:shadow-md">
@@ -173,39 +156,6 @@ function SubjectCard({
           Check Paper
           <ArrowRight className="h-4 w-4" />
         </Button>
-        <div className="mt-4 rounded-xl border border-border bg-muted/20 px-3.5 py-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-foreground">
-              Overall Progress
-            </p>
-            <p
-              className={cn(
-                "text-xl font-bold",
-                progress >= 100 ? "text-emerald-600" : "text-amber-600",
-              )}
-            >
-              {progress}%
-            </p>
-          </div>
-          <div
-            className={cn(
-              "h-2 overflow-hidden rounded-full",
-              progress >= 100 ? "bg-emerald-500/15" : "bg-amber-500/15",
-            )}
-          >
-            <div
-              className={cn(
-                "h-full rounded-full transition-all",
-                progress >= 100 ? "bg-emerald-500" : "bg-amber-400",
-              )}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {(s.evaluated ?? 0).toLocaleString()} of{" "}
-            {s.assigned.toLocaleString()} scripts evaluated
-          </p>
-        </div>
       </div>
     </div>
   );
@@ -231,14 +181,6 @@ function SubjectCardSkeleton() {
       </div>
       <div className="px-5 pb-5">
         <Skeleton className="h-10 w-full rounded-md" />
-        <div className="mt-4 rounded-xl border border-border bg-muted/20 px-3.5 py-3">
-          <div className="mb-2 flex items-center justify-between">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-6 w-12" />
-          </div>
-          <Skeleton className="h-2 w-full rounded-full" />
-          <Skeleton className="mt-2 h-3 w-40" />
-        </div>
       </div>
     </div>
   );

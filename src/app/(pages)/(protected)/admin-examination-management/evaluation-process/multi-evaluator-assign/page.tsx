@@ -605,18 +605,34 @@ export default function MultiEvaluatorAssignPage() {
     );
   }
 
-  const selectedEvaluator = useMemo(
-    () =>
+  /**
+   * Radio / Assign id — prefer profiledet (unique per row); fall back to profile id.
+   * Never treat missing ids as 0 for selection matching (that selects every row).
+   */
+  function evaluatorAssignId(row: AnyRow): number {
+    return evaluatorProfileDetId(row) || evaluatorProfileId(row);
+  }
+
+  const selectedEvaluator = useMemo(() => {
+    if (selectedEvaluatorDetId == null || selectedEvaluatorDetId <= 0) {
+      return null;
+    }
+    return (
       evaluatorRows.find(
-        (r) => evaluatorProfileDetId(r) === num(selectedEvaluatorDetId),
-      ) ?? null,
-    [evaluatorRows, selectedEvaluatorDetId],
-  );
+        (r) => evaluatorAssignId(r) === selectedEvaluatorDetId,
+      ) ?? null
+    );
+  }, [evaluatorRows, selectedEvaluatorDetId]);
 
   const selectedEvaluatorProfileId = useMemo(
     () => (selectedEvaluator ? evaluatorProfileId(selectedEvaluator) : null),
     [selectedEvaluator],
   );
+
+  const hasEvaluatorSelected =
+    selectedEvaluatorDetId != null &&
+    selectedEvaluatorDetId > 0 &&
+    selectedEvaluator != null;
 
   const isExcludedFor = (s: AnyRow, evaluatorId: number | null) => {
     if (!evaluatorId) return false;
@@ -633,7 +649,8 @@ export default function MultiEvaluatorAssignPage() {
     isExcludedFor(s, evaluatorId) || num(s.disable_omr) === 1;
 
   const alreadyAssignedStudents = useMemo(() => {
-    if (!selectedEvaluatorProfileId) return [];
+    // Angular assignedOmrList is built only inside radioChange
+    if (!hasEvaluatorSelected || !selectedEvaluatorProfileId) return [];
     const fromExclude = uploadedStudents.filter((s) =>
       isExcludedFor(s, selectedEvaluatorProfileId),
     );
@@ -651,10 +668,16 @@ export default function MultiEvaluatorAssignPage() {
       omrSet.has(txt(r.omr_serial_no)),
     );
     return matchedStudents.length > 0 ? matchedStudents : fromOmrBundle;
-  }, [uploadedStudents, omrRows, selectedEvaluatorProfileId]);
+  }, [
+    uploadedStudents,
+    omrRows,
+    selectedEvaluatorProfileId,
+    hasEvaluatorSelected,
+  ]);
 
+  // Angular: maintDataList stays empty until radioChange(evaluator)
   const visibleStudents = useMemo(() => {
-    if (!selectedEvaluatorProfileId) return [];
+    if (!hasEvaluatorSelected || !selectedEvaluatorProfileId) return [];
     const q = omrSearch.trim().toLowerCase();
     const base = q
       ? uploadedStudents.filter((s) =>
@@ -667,7 +690,12 @@ export default function MultiEvaluatorAssignPage() {
       if (aDisabled !== bDisabled) return aDisabled ? 1 : -1;
       return num(a.omr_mapped) - num(b.omr_mapped);
     });
-  }, [uploadedStudents, omrSearch, selectedEvaluatorProfileId]);
+  }, [
+    uploadedStudents,
+    omrSearch,
+    selectedEvaluatorProfileId,
+    hasEvaluatorSelected,
+  ]);
 
   const assignableStudents = visibleStudents;
   const visibleAssignableOmrs = useMemo(
@@ -1005,11 +1033,13 @@ export default function MultiEvaluatorAssignPage() {
                 ) : (
                   <div className="max-h-[280px] space-y-1 overflow-auto p-2">
                     {evaluatorRows.map((e, idx) => {
-                      const detId = evaluatorProfileDetId(e);
-                      const checked = selectedEvaluatorDetId === detId;
+                      const assignId = evaluatorAssignId(e);
+                      const checked =
+                        hasEvaluatorSelected &&
+                        selectedEvaluatorDetId === assignId;
                       return (
                         <label
-                          key={`ev-${detId}-${idx}`}
+                          key={`ev-${assignId || "x"}-${idx}`}
                           className={cn(
                             "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors",
                             checked
@@ -1019,9 +1049,13 @@ export default function MultiEvaluatorAssignPage() {
                         >
                           <input
                             type="radio"
+                            name="multi-evaluator"
+                            value={assignId > 0 ? String(assignId) : ""}
                             checked={checked}
+                            disabled={assignId <= 0}
                             onChange={() => {
-                              setSelectedEvaluatorDetId(detId);
+                              if (assignId <= 0) return;
+                              setSelectedEvaluatorDetId(assignId);
                               setSelectedOmr([]);
                             }}
                           />
@@ -1046,7 +1080,7 @@ export default function MultiEvaluatorAssignPage() {
                   />
                   <span className="shrink-0 text-[12px] font-semibold text-[#0c51a4]">
                     Total :{" "}
-                    {selectedEvaluatorProfileId ? assignableStudents.length : 0}
+                    {hasEvaluatorSelected ? assignableStudents.length : 0}
                   </span>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col">
@@ -1060,7 +1094,7 @@ export default function MultiEvaluatorAssignPage() {
                                 type="checkbox"
                                 checked={areAllVisibleSelected}
                                 disabled={
-                                  !selectedEvaluatorProfileId ||
+                                  !hasEvaluatorSelected ||
                                   visibleAssignableOmrs.length === 0
                                 }
                                 onChange={() => toggleSelectAllVisible()}
@@ -1080,21 +1114,23 @@ export default function MultiEvaluatorAssignPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {assignableStudents.length === 0 ? (
+                        {!hasEvaluatorSelected ? (
                           <tr>
                             <td colSpan={4} className="p-0">
                               <MultiEmpty
                                 icon={FileText}
-                                title={
-                                  selectedEvaluatorProfileId
-                                    ? "No OMR sheets found"
-                                    : "Select an evaluator"
-                                }
-                                description={
-                                  selectedEvaluatorProfileId
-                                    ? "No assignable OMR sheets for this evaluator."
-                                    : "Select an evaluator to list OMR sheets."
-                                }
+                                title="Select an evaluator"
+                                description="Select an evaluator to list OMR sheets."
+                              />
+                            </td>
+                          </tr>
+                        ) : assignableStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="p-0">
+                              <MultiEmpty
+                                icon={FileText}
+                                title="No OMR sheets found"
+                                description="No assignable OMR sheets for this evaluator."
                               />
                             </td>
                           </tr>

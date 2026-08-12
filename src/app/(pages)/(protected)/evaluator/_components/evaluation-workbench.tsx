@@ -21,7 +21,6 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Collapsible,
@@ -38,14 +37,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -2128,8 +2119,8 @@ export function EvaluationWorkbench({
         <aside className="flex w-[300px] shrink-0 flex-col border-r bg-[#f3f4f6]">
           <div className="grid min-h-0 flex-1 grid-cols-2 gap-2 overflow-hidden p-2">
             {/* Questions column */}
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-md bg-white shadow-sm">
-              <div className="shrink-0 bg-[#0d9488] px-2 py-2 text-center text-[13px] font-semibold text-white">
+            <div className="flex min-h-0 flex-col overflow-hidden bg-white shadow-sm">
+              <div className="shrink-0 bg-[#085c68] px-2 py-2 text-center text-[13px] font-semibold text-white">
                 Questions
               </div>
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
@@ -2174,8 +2165,8 @@ export function EvaluationWorkbench({
             </div>
 
             {/* Marks column */}
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-md bg-white shadow-sm">
-              <div className="shrink-0 bg-[#0d9488] px-2 py-2 text-center text-[13px] font-semibold text-white">
+            <div className="flex min-h-0 flex-col overflow-hidden bg-white shadow-sm">
+              <div className="shrink-0 bg-[#085c68] px-2 py-2 text-center text-[13px] font-semibold text-white">
                 Marks
               </div>
               <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-hidden p-2">
@@ -2183,7 +2174,7 @@ export function EvaluationWorkbench({
                   type="button"
                   onClick={() => setNaOpen(true)}
                   disabled={savingMark || isAssignmentLocked}
-                  className="w-full shrink-0 rounded-full bg-[#2a9d8f] py-1.5 text-center text-sm font-bold text-white shadow-sm hover:bg-[#21867a] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full shrink-0 rounded-full bg-[#6eb99a] py-1.5 text-center text-sm font-bold text-white shadow-sm hover:bg-[#5aa887] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   NA
                 </button>
@@ -2194,7 +2185,7 @@ export function EvaluationWorkbench({
                     </p>
                   ) : (
                     marksFor(active.max, marksIntervalValue).map((m, mi) => {
-                      // Orange only while picking; otherwise teal (second-image color).
+                      // Green (second-image); orange while picking; ring when saved.
                       const isPicking = pendingMark === m;
                       const isSaved =
                         pendingMark === null && active.marks === m;
@@ -2209,8 +2200,8 @@ export function EvaluationWorkbench({
                             isPicking
                               ? "border-2 border-[#2E7D32] bg-[#FFB74D]"
                               : isSaved
-                                ? "bg-[#2a9d8f] ring-2 ring-[#7bc4b8] ring-offset-1"
-                                : "bg-[#2a9d8f] hover:bg-[#21867a]",
+                                ? "bg-[#6eb99a] ring-2 ring-[#9dd4b8] ring-offset-1"
+                                : "bg-[#6eb99a] hover:bg-[#5aa887]",
                           )}
                         >
                           {m}
@@ -2501,87 +2492,125 @@ export function EvaluationWorkbench({
             </Button>
           </div>
 
-          <div className="mt-4 flex-1 overflow-auto px-2">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-primary/30 hover:bg-primary/30">
-                  <TableHead className="text-xs font-bold text-primary">
+          <div className="mt-4 min-h-0 flex-1 overflow-auto px-2">
+            <table className="w-full border-collapse text-xs">
+              <thead className="sticky top-0 z-10">
+                <tr>
+                  <th className="bg-[#e3eafd] px-2 py-2.5 text-left text-[11px] font-bold text-[#1e3a5f]">
                     Questions
-                  </TableHead>
-                  <TableHead className="text-right text-xs font-bold text-primary">
+                  </th>
+                  <th className="bg-[#e3eafd] px-2 py-2.5 text-center text-[11px] font-bold text-[#1e3a5f]">
                     Marks
-                  </TableHead>
-                  <TableHead className="text-right text-xs font-bold text-primary">
+                  </th>
+                  <th className="bg-[#e3eafd] px-2 py-2.5 text-center text-[11px] font-bold text-[#1e3a5f]">
                     Max
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {questions.map((q, i) => (
-                  <TableRow
-                    key={String(q.questionPaperMarksId ?? `${q.id}-${i}`)}
-                    className={cn(
-                      "cursor-pointer",
-                      q.notAnswered && "bg-rose-50",
-                      q.marks !== null &&
-                        !q.notAnswered &&
-                        (q.isConsider === false
-                          ? "bg-slate-200"
-                          : "bg-green-50"),
-                      i === activeIdx && "ring-1 ring-primary/30 ring-inset",
-                    )}
-                    onClick={() => {
-                      setActiveIdx(i);
-                      setPendingMark(null);
-                    }}
-                  >
-                    <TableCell className="font-medium">{q.id}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {q.notAnswered ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            clearNotAnswered(q);
-                          }}
-                          disabled={savingMark || isAssignmentLocked}
-                          className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-50"
-                          title="Click to change (reset not-answered)"
-                        >
-                          NA
-                          <X className="h-3 w-3" />
-                        </button>
-                      ) : (
-                        (q.marks ?? "—")
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {q.max}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {questions.map((q, i) => {
+                  const isActive = i === activeIdx;
+                  const notConsidering =
+                    q.marks != null &&
+                    !q.notAnswered &&
+                    !isMarkConsidering(q.isConsider);
+                  const rowBg = notConsidering
+                    ? isActive
+                      ? "#d1d5db"
+                      : "#e5e7eb"
+                    : isActive
+                      ? "#e8effc"
+                      : i % 2 === 1
+                        ? "#f5f8ff"
+                        : "#ffffff";
+                  return (
+                    <tr
+                      key={String(q.questionPaperMarksId ?? `${q.id}-${i}`)}
+                      onClick={() => {
+                        setActiveIdx(i);
+                        setPendingMark(null);
+                      }}
+                      className="cursor-pointer"
+                      style={{ backgroundColor: rowBg }}
+                    >
+                      <td
+                        className="border-b border-[#e8edf5] px-2 py-2 text-left text-[12px] font-bold text-[#1e3a5f]"
+                        style={{ backgroundColor: rowBg }}
+                      >
+                        {q.id}
+                      </td>
+                      <td
+                        className="border-b border-[#e8edf5] px-2 py-2 text-center text-[12px]"
+                        style={{ backgroundColor: rowBg }}
+                      >
+                        {q.notAnswered ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearNotAnswered(q);
+                            }}
+                            disabled={savingMark || isAssignmentLocked}
+                            className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-destructive hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Click to change (reset not-answered)"
+                          >
+                            NA
+                            <X className="h-3 w-3" />
+                          </button>
+                        ) : q.marks != null ? (
+                          <span
+                            className={cn(
+                              "font-bold",
+                              isMarkConsidering(q.isConsider)
+                                ? "text-[#5476e0]"
+                                : "text-[#9CA3AF]",
+                            )}
+                            title={
+                              isMarkConsidering(q.isConsider)
+                                ? undefined
+                                : "Not considering (excluded from total)"
+                            }
+                          >
+                            {q.marks}
+                          </span>
+                        ) : (
+                          <span className="font-medium text-[#b0b8c8]">-</span>
+                        )}
+                      </td>
+                      <td
+                        className="border-b border-[#e8edf5] px-2 py-2 text-center text-[12px] font-normal text-[#8e9aaf]"
+                        style={{ backgroundColor: rowBg }}
+                      >
+                        {q.max}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
           <Collapsible
             open={annotationsOpen}
             onOpenChange={setAnnotationsOpen}
-            className="border-t px-4 py-3"
+            className="border-t border-[#e8edf5] px-3 py-3"
           >
             <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-md bg-primary/30 px-3 py-2">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg bg-[#d6e4fb] px-3 py-2.5"
+              >
                 <div className="flex items-center gap-2">
-                  <div className="text-xs font-bold text-primary">
+                  <span className="text-xs font-bold text-[#1e3a5f]">
                     Annotated on script
-                  </div>
-                  <Badge variant="secondary" className="text-[10px]">
+                  </span>
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2b59c3] px-1.5 text-[10px] font-bold leading-none text-white">
                     {scriptAnnotations.length}
-                  </Badge>
+                  </span>
                 </div>
                 <ChevronDown
                   className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
+                    "h-4 w-4 shrink-0 text-[#1e3a5f] transition-transform",
                     annotationsOpen && "rotate-180",
                   )}
                 />
@@ -2621,7 +2650,7 @@ export function EvaluationWorkbench({
                         <span className="font-medium text-foreground">
                           {a.qid}
                         </span>
-                        <span className="rounded bg-primary/15 px-2 py-0.5 font-mono font-semibold text-primary">
+                        <span className="rounded bg-[#5476e0]/15 px-2 py-0.5 font-semibold text-[#5476e0]">
                           {a.mark}
                         </span>
                       </button>
@@ -2648,22 +2677,24 @@ export function EvaluationWorkbench({
             </CollapsibleContent>
           </Collapsible>
 
-          <div className="grid grid-cols-3 gap-2 border-t bg-muted/30 px-4 py-3 text-center text-xs">
+          <div className="grid grid-cols-3 gap-2 border-t border-[#e8edf5] bg-white px-3 py-3 text-center text-xs">
             <div>
-              <div className="text-muted-foreground">Total</div>
-              <Badge className="mt-1 bg-primary text-primary-foreground">
+              <div className="mb-1 text-[11px] text-[#8e9aaf]">Total</div>
+              <div className="rounded-md border border-[#9bb6e8] bg-white px-2 py-1.5 text-sm font-bold text-[#5476e0]">
                 {questions.length}
-              </Badge>
+              </div>
             </div>
             <div>
-              <div className="text-muted-foreground">Done</div>
-              <Badge className="mt-1 bg-primary/15 text-primary">{done}</Badge>
+              <div className="mb-1 text-[11px] text-[#8e9aaf]">Done</div>
+              <div className="rounded-md border border-[#d1d5db] bg-[#f5f8ff] px-2 py-1.5 text-sm font-bold text-[#1e3a5f]">
+                {done}
+              </div>
             </div>
             <div>
-              <div className="text-muted-foreground">Left</div>
-              <Badge className="mt-1 bg-[oklch(0.78_0.16_55)]/20 text-[oklch(0.5_0.16_55)]">
+              <div className="mb-1 text-[11px] text-[#8e9aaf]">Left</div>
+              <div className="rounded-md border border-[#f5c78a] bg-[#fff7ed] px-2 py-1.5 text-sm font-bold text-[#f59e0b]">
                 {left}
-              </Badge>
+              </div>
             </div>
           </div>
         </aside>
@@ -2738,8 +2769,9 @@ export function EvaluationWorkbench({
           overlayClassName={WORKBENCH_DIALOG_Z}
           closeOnOutsideClick
           closeOnEscape
+          hideClose
         >
-          <DialogHeader className="border-b px-6 py-4">
+          <DialogHeader className="flex-col items-stretch gap-1 border-b !px-6 !py-4">
             <div className="flex items-center justify-between gap-3">
               <DialogTitle className="text-base">
                 {paperModal === "ANS"
@@ -2774,6 +2806,15 @@ export function EvaluationWorkbench({
                   onClick={() => setPaperZoom(1)}
                 >
                   <Maximize className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="Close"
+                  onClick={() => setPaperModal(null)}
+                >
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             </div>

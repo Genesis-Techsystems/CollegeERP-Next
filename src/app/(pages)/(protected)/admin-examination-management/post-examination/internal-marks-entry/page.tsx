@@ -1781,6 +1781,7 @@ export default function InternalMarksEntryPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={hasFetched && rows.length > 0}
       hideEmptyGrid
       getRowId={(p) =>
         String(

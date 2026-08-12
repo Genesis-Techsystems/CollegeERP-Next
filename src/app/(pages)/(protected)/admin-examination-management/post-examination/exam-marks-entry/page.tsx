@@ -1850,11 +1850,10 @@ export default function ExamMarksEntryPage() {
           ) : null}
         </div>
       }
-      rowData={
-        hasFetched && marksView === "list" ? rows : hasFetched ? rows : []
-      }
+      rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={hasFetched && rows.length > 0}
       hideEmptyGrid
       getRowId={(p) =>
         String(
@@ -1884,7 +1883,7 @@ export default function ExamMarksEntryPage() {
         ) : undefined
       }
     >
-      {hasFetched && (
+      {hasFetched && rows.length > 0 ? (
         <div className="flex items-center justify-end gap-2">
           <Button
             className="h-8 text-[12px]"
@@ -1895,7 +1894,7 @@ export default function ExamMarksEntryPage() {
           </Button>
           {printButton}
         </div>
-      )}
+      ) : null}
     </FilteredListPage>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Barcode, Eye, FileText } from "lucide-react";
+import { Barcode, Eye, FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/common/components/select";
@@ -12,8 +12,9 @@ import {
   getUnivExamRestNoTtBundle,
   getUnivExamSubjectUc,
 } from "@/services/pre-examination";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { toastError } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import { useBarcodeStickerPrint } from "./_print/useBarcodeStickerPrint";
 import type { ColDef } from "ag-grid-community";
 
@@ -226,23 +227,28 @@ export default function ExamSubjectBarcodeGenerationPage() {
       ),
     [baseRows],
   );
-  const academicYears = useMemo(
-    () =>
-      dedupeBy(
-        baseRows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) ===
-            Number(courseId),
-        ),
+  const academicYears = useMemo(() => {
+    const list = dedupeBy(
+      baseRows.filter(
         (r) =>
-          pickNum(r, [
-            "fk_academic_year_id",
-            "academicYearId",
-            "fk_academicYearId",
-          ]),
+          pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) ===
+          Number(courseId),
       ),
-    [baseRows, courseId],
-  );
+      (r) =>
+        pickNum(r, [
+          "fk_academic_year_id",
+          "academicYearId",
+          "fk_academicYearId",
+        ]),
+    );
+    return [...list].sort(
+      (a, b) =>
+        Number(b.is_curr_ay ?? b.isCurrAy ?? 0) -
+          Number(a.is_curr_ay ?? a.isCurrAy ?? 0) ||
+        Number(pickText(b, ["academic_year", "academicYear"]) || 0) -
+          Number(pickText(a, ["academic_year", "academicYear"]) || 0),
+    );
+  }, [baseRows, courseId]);
   const exams = useMemo(
     () =>
       dedupeBy(
@@ -581,57 +587,166 @@ export default function ExamSubjectBarcodeGenerationPage() {
     return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? "")}`;
   }, []);
 
+  function clearResults() {
+    setRows([]);
+    setHasFetched(false);
+  }
+
+  function clearDownstreamFromExam() {
+    setCollegeId(null);
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setRestRows([]);
+    setRegulationRows([]);
+    setSubjectRows([]);
+    clearResults();
+  }
+
+  async function onExamChange(
+    cid: number,
+    ayid: number,
+    eid: number | null,
+    _sourceRows?: AnyRow[],
+  ) {
+    setExamId(eid);
+    clearDownstreamFromExam();
+    if (!cid || !ayid || !eid) return;
+    await onExamLoad(cid, ayid, eid);
+  }
+
+  async function onAcademicYearChange(
+    cid: number,
+    ayid: number | null,
+    sourceRows?: AnyRow[],
+  ) {
+    const data = sourceRows ?? baseRows;
+    setAcademicYearId(ayid);
+    setExamId(null);
+    clearDownstreamFromExam();
+    if (!cid || !ayid) return;
+    const examList = dedupeBy(
+      data.filter(
+        (r) =>
+          pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid &&
+          pickNum(r, [
+            "fk_academic_year_id",
+            "academicYearId",
+            "fk_academicYearId",
+          ]) === ayid,
+      ),
+      (r) => pickNum(r, ["fk_exam_id", "examId", "fk_examId"]),
+    );
+    const firstExam = examList[0];
+    if (!firstExam) return;
+    const eid = pickNum(firstExam, ["fk_exam_id", "examId", "fk_examId"]);
+    if (eid > 0) await onExamChange(cid, ayid, eid, data);
+  }
+
+  async function onCourseChange(cid: number | null, sourceRows?: AnyRow[]) {
+    const data = sourceRows ?? baseRows;
+    setCourseId(cid);
+    setAcademicYearId(null);
+    setExamId(null);
+    clearDownstreamFromExam();
+    if (!cid) return;
+    const yearsForCourse = dedupeBy(
+      data.filter(
+        (r) =>
+          pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid,
+      ),
+      (r) =>
+        pickNum(r, [
+          "fk_academic_year_id",
+          "academicYearId",
+          "fk_academicYearId",
+        ]),
+    ).sort(
+      (a, b) =>
+        Number(b.is_curr_ay ?? b.isCurrAy ?? 0) -
+          Number(a.is_curr_ay ?? a.isCurrAy ?? 0) ||
+        Number(pickText(b, ["academic_year", "academicYear"]) || 0) -
+          Number(pickText(a, ["academic_year", "academicYear"]) || 0),
+    );
+    const firstAy = yearsForCourse[0];
+    if (!firstAy) return;
+    const ayid = pickNum(firstAy, [
+      "fk_academic_year_id",
+      "academicYearId",
+      "fk_academicYearId",
+    ]);
+    if (ayid > 0) await onAcademicYearChange(cid, ayid, data);
+  }
+
+  async function onCollegeChange(clid: number | null) {
+    setCollegeId(clid);
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setSubjectRows([]);
+    clearResults();
+  }
+
+  async function onGroupChange(gid: number | null) {
+    setCourseGroupId(gid);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setSubjectRows([]);
+    clearResults();
+  }
+
+  async function onCourseYearChange(yid: number | null) {
+    setCourseYearId(yid);
+    setSubjectId(null);
+    setSubjectRows([]);
+    clearResults();
+  }
+
+  async function onRegulationChange(rid: number | null) {
+    setRegulationId(rid);
+    setSelectedBackendRegulationId(
+      rid ? (regulationBackendIdMap.get(rid) ?? 0) : 0,
+    );
+    setSubjectId(null);
+    clearResults();
+  }
+
+  function onSubjectChange(sid: number | null) {
+    setSubjectId(sid);
+    clearResults();
+  }
+
   async function init() {
     setLoading(true);
     try {
-      const rows = await getUnivExamFiltersRegSup(employeeId).catch(() => []);
-      setBaseRows(rows);
-      const c = dedupeBy(rows, (r) =>
+      const loaded = await getUnivExamFiltersRegSup(employeeId).catch(() => []);
+      setBaseRows(loaded);
+      const c = dedupeBy(loaded, (r) =>
         pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]),
       ).find(
         (r) => pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) > 0,
       );
       if (!c) return;
       const cid = pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]);
-      setCourseId(cid);
-      const ay = dedupeBy(
-        rows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid,
-        ),
-        (r) =>
-          pickNum(r, [
-            "fk_academic_year_id",
-            "academicYearId",
-            "fk_academicYearId",
-          ]),
-      )[0];
-      if (!ay) return;
-      const ayid = pickNum(ay, [
-        "fk_academic_year_id",
-        "academicYearId",
-        "fk_academicYearId",
-      ]);
-      setAcademicYearId(ayid);
-      const ex = dedupeBy(
-        rows.filter(
-          (r) =>
-            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid &&
-            pickNum(r, [
-              "fk_academic_year_id",
-              "academicYearId",
-              "fk_academicYearId",
-            ]) === ayid,
-        ),
-        (r) => pickNum(r, ["fk_exam_id", "examId", "fk_examId"]),
-      )[0];
-      if (!ex) return;
-      const eid = pickNum(ex, ["fk_exam_id", "examId", "fk_examId"]);
-      setExamId(eid);
-      await onExamLoad(cid, ayid, eid);
+      await onCourseChange(cid, loaded);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function refreshFilters() {
+    clearResults();
+    setCourseId(null);
+    setAcademicYearId(null);
+    setExamId(null);
+    clearDownstreamFromExam();
+    await init();
   }
 
   async function onExamLoad(cid: number, ayid: number, eid: number) {
@@ -652,16 +767,21 @@ export default function ExamSubjectBarcodeGenerationPage() {
     );
     setRegulationRows(regs);
     const firstReg = regs[0];
-    if (firstReg) setRegulationId(pickRegValue(firstReg));
+    if (firstReg) {
+      const rid = pickRegValue(firstReg);
+      setRegulationId(rid);
+      setSelectedBackendRegulationId(pickBackendRegId(firstReg));
+    }
     const clg = dedupeBy(rest, (r) =>
       pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]),
     ).find(
       (r) => pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) > 0,
     );
-    if (clg)
+    if (clg) {
       setCollegeId(
         pickNum(clg, ["fk_college_id", "collegeId", "fk_collegeId"]),
       );
+    }
   }
 
   async function loadSubjects(targetRegulationId?: number | null) {
@@ -874,7 +994,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
             <Label>Course</Label>
             <Select
               value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : 0)}
+              onChange={(v) => void onCourseChange(v ? Number(v) : null)}
               options={courses.map((c, i) => ({
                 value: String(
                   pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) || i,
@@ -888,13 +1008,19 @@ export default function ExamSubjectBarcodeGenerationPage() {
                   ]) || "-",
               }))}
               placeholder="Course"
+              disabled={loading}
             />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Exam Year</Label>
             <Select
               value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
+              onChange={(v) =>
+                void onAcademicYearChange(
+                  Number(courseId || 0),
+                  v ? Number(v) : null,
+                )
+              }
               options={academicYears.map((a, i) => ({
                 value: String(
                   pickNum(a, [
@@ -906,18 +1032,20 @@ export default function ExamSubjectBarcodeGenerationPage() {
                 label: pickText(a, ["academic_year", "academicYear"]) || "-",
               }))}
               placeholder="Exam Year"
+              disabled={loading || !courseId}
             />
           </div>
           <div className="md:col-span-4 space-y-1">
             <Label>Exam Master</Label>
             <Select
               value={examId ? String(examId) : null}
-              onChange={async (v) => {
-                const eid = v ? Number(v) : 0;
-                setExamId(eid);
-                if (courseId && academicYearId)
-                  await onExamLoad(courseId, academicYearId, eid);
-              }}
+              onChange={(v) =>
+                void onExamChange(
+                  Number(courseId || 0),
+                  Number(academicYearId || 0),
+                  v ? Number(v) : null,
+                )
+              }
               options={exams.map((e, i) => ({
                 value: String(
                   pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) || i,
@@ -925,6 +1053,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
                 label: pickText(e, ["exam_name", "examName"]) || "-",
               }))}
               placeholder="Exam Master"
+              disabled={loading || !courseId || !academicYearId}
             />
           </div>
 
@@ -932,7 +1061,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
             <Label>College</Label>
             <Select
               value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : 0)}
+              onChange={(v) => void onCollegeChange(v ? Number(v) : null)}
               options={colleges.map((c, i) => ({
                 value: String(
                   pickNum(c, ["fk_college_id", "collegeId", "fk_collegeId"]) ||
@@ -947,13 +1076,14 @@ export default function ExamSubjectBarcodeGenerationPage() {
                   ]) || "-",
               }))}
               placeholder="College"
+              disabled={loading || !examId}
             />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Course Group</Label>
             <Select
               value={courseGroupId ? String(courseGroupId) : null}
-              onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
+              onChange={(v) => void onGroupChange(v ? Number(v) : null)}
               options={groups.map((g, i) => ({
                 value: String(
                   pickNum(g, [
@@ -971,13 +1101,14 @@ export default function ExamSubjectBarcodeGenerationPage() {
                   ]) || "-",
               }))}
               placeholder="Group"
+              disabled={loading || !collegeId}
             />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Course Year</Label>
             <Select
               value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+              onChange={(v) => void onCourseYearChange(v ? Number(v) : null)}
               options={years.map((y, i) => ({
                 value: String(
                   pickNum(y, [
@@ -995,33 +1126,28 @@ export default function ExamSubjectBarcodeGenerationPage() {
                   ]) || "-",
               }))}
               placeholder="Course Year"
+              disabled={loading || !courseGroupId}
             />
           </div>
           <div className="md:col-span-2 space-y-1">
             <Label>Regulation</Label>
             <Select
               value={regulationId ? String(regulationId) : null}
-              onChange={(v) => {
-                const uiRegId = v ? Number(v) : 0;
-                setRegulationId(uiRegId);
-                setSelectedBackendRegulationId(
-                  regulationBackendIdMap.get(uiRegId) ?? 0,
-                );
-                setSubjectId(null);
-              }}
+              onChange={(v) => void onRegulationChange(v ? Number(v) : null)}
               options={regulations.map((r, i) => ({
                 value: String(pickRegValue(r) || i),
                 label:
                   pickText(r, REG_TEXT_KEYS) || `Regulation ${pickRegValue(r)}`,
               }))}
               placeholder="Regulation"
+              disabled={loading || !courseYearId}
             />
           </div>
           <div className="md:col-span-3 space-y-1">
             <Label>Subject</Label>
             <Select
               value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
+              onChange={(v) => onSubjectChange(v ? Number(v) : null)}
               options={subjects.map((s, i) => ({
                 value: String(pickNum(s, SUBJECT_ID_KEYS) || i),
                 label:
@@ -1031,16 +1157,30 @@ export default function ExamSubjectBarcodeGenerationPage() {
                   ")",
               }))}
               placeholder="Subject"
+              disabled={loading || !regulationId}
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 flex items-end gap-2">
             <Button
               type="button"
               onClick={getList}
-              disabled={loading || tableLoading}
-              className="h-8 px-3 text-[12px] w-full"
+              disabled={loading || tableLoading || !subjectId}
+              className="h-8 flex-1 px-3 text-[12px]"
             >
               Get List
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              title="Refresh filters"
+              onClick={() => void refreshFilters()}
+              disabled={loading || tableLoading}
+            >
+              <RefreshCw
+                className={cn("h-4 w-4", loading && "animate-spin")}
+              />
             </Button>
           </div>
         </div>
@@ -1048,36 +1188,44 @@ export default function ExamSubjectBarcodeGenerationPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={tableLoading}
+      resultsVisible={hasFetched && rows.length > 0}
+      hideEmptyGrid
       pagination
       paginationPageSize={10}
       getRowId={getRowId}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search students…",
-        pdfDocumentTitle: "Exam Subject Barcode",
-      }}
-      toolbarLeading={
-        <span
-          className="max-w-[min(100%,28rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]"
-          title={tableSummaryText}
-        >
-          {tableSummaryText}
-        </span>
+      tableHeader={
+        hasFetched && rows.length > 0 ? (
+          <TableContextHeader
+            title="Exam Subject Barcode"
+            info={tableSummaryText || undefined}
+          />
+        ) : null
+      }
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search students…",
+              pdfDocumentTitle: "Exam Subject Barcode",
+            }
+          : false
       }
       toolbarTrailing={
-        <div className="flex items-center gap-2">
-          {printButton}
-          <Button
-            type="button"
-            size="sm"
-            onClick={generateBarcode}
-            disabled={tableLoading || rows.length === 0}
-            className="h-[30px] px-3 text-[12px]"
-          >
-            <Barcode className="mr-1.5 h-3.5 w-3.5" />
-            Generate Barcode
-          </Button>
-        </div>
+        hasFetched && rows.length > 0 ? (
+          <div className="flex items-center gap-2">
+            {printButton}
+            <Button
+              type="button"
+              size="sm"
+              onClick={generateBarcode}
+              disabled={tableLoading || rows.length === 0}
+              className="h-[30px] px-3 text-[12px]"
+            >
+              <Barcode className="mr-1.5 h-3.5 w-3.5" />
+              Generate Barcode
+            </Button>
+          </div>
+        ) : undefined
       }
     />
   );
