@@ -7,11 +7,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { FileSpreadsheet, Printer } from "lucide-react";
-import { DatePicker } from "@/common/components/date-picker";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
@@ -71,7 +70,6 @@ function pickDeptId(row: Record<string, unknown>): number {
 
 export default function DepartmentWiseTimetableReportPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading: sessionLoading } = useSession();
   const { employeeId: loginEmployeeId } = useLoginEmployeeId(
@@ -100,57 +98,6 @@ export default function DepartmentWiseTimetableReportPage() {
   const [reportDate, setReportDate] = useState<Date | null>(() => new Date());
   /** Angular `isDisable` — when true, the Date field is enabled. */
   const [dateEnabled, setDateEnabled] = useState(true);
-  const [reportDate, setReportDate] = useState<Date | null>(() => new Date());
-  const [datesEnabled, setDatesEnabled] = useState(true);
-
-  const isPrincipal = useMemo(() => {
-    if (pathname.includes("staff-reports") || pathname.includes("principal")) {
-      return true;
-    }
-    if (user?.isPrincipal) return true;
-    if (
-      user?.userRole?.toUpperCase().includes("PRINCIPAL") ||
-      user?.roleName?.toUpperCase().includes("PRINCIPAL") ||
-      user?.userTypeCode?.toUpperCase().includes("PRINCIPAL")
-    ) {
-      return true;
-    }
-    if (typeof window === "undefined") return false;
-    const storage = globalThis.localStorage;
-    const isPStorage =
-      storage.getItem("isPRINCIPAL") === "true" ||
-      storage.getItem("isPrincipal") === "true";
-    const roleName = String(storage.getItem("roleName") ?? "").toUpperCase();
-    const userRole = String(storage.getItem("userRole") ?? "").toUpperCase();
-    const userTypeCode = String(
-      storage.getItem("userTypeCode") ?? "",
-    ).toUpperCase();
-    const isAdminStorage = storage.getItem("isAdmin") === "true";
-
-    if (
-      isPStorage ||
-      roleName.includes("PRINCIPAL") ||
-      userRole.includes("PRINCIPAL") ||
-      userTypeCode.includes("PRIN")
-    ) {
-      return true;
-    }
-    if (
-      !user?.isAdmin &&
-      !isAdminStorage &&
-      (userTypeCode === "STAFF" || userRole === "STAFF")
-    ) {
-      return true;
-    }
-    return false;
-  }, [
-    pathname,
-    user?.isPrincipal,
-    user?.userRole,
-    user?.roleName,
-    user?.userTypeCode,
-    user?.isAdmin,
-  ]);
 
   const [weekdayKeys, setWeekdayKeys] = useState<WeekdayKey[]>([]);
   const [matrixRows, setMatrixRows] = useState<DeptMatrixDisplayRow[]>([]);
@@ -321,10 +268,7 @@ export default function DepartmentWiseTimetableReportPage() {
       .filter(Boolean)
       .join(" / ");
 
-    const fromDate =
-      isPrincipal && datesEnabled && reportDate
-        ? format(reportDate, "yyyy-MM-dd")
-        : format(reportDate, "yyyy-MM-dd");
+    const fromDate = format(reportDate, "yyyy-MM-dd");
 
     setLoadingList(true);
     clearResults();
@@ -490,41 +434,6 @@ export default function DepartmentWiseTimetableReportPage() {
               {dateEnabled ? "enable" : "Disable"}
             </Label>
           </div>
-          {isPrincipal && (
-            <>
-              <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
-                <DatePicker
-                  label="Date"
-                  value={reportDate}
-                  onChange={(d) => {
-                    setReportDate(d);
-                    clearResults();
-                  }}
-                  displayFormat="dd/MM/yyyy"
-                  clearable={false}
-                  placeholder="Date"
-                  disabled={!datesEnabled}
-                />
-              </div>
-              <div className="flex h-9 items-center gap-2 px-1">
-                <Checkbox
-                  id="dept-tt-date-enabled"
-                  checked={datesEnabled}
-                  onCheckedChange={(checked) => {
-                    const enabled = checked === true;
-                    setDatesEnabled(enabled);
-                    if (enabled && !reportDate) {
-                      setReportDate(new Date());
-                    }
-                    clearResults();
-                  }}
-                />
-                <Label htmlFor="dept-tt-date-enabled" className="text-[12px]">
-                  enable
-                </Label>
-              </div>
-            </>
-          )}
           <Button
             type="button"
             className="h-9 w-fit px-4"
