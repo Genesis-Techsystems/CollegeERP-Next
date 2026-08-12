@@ -142,35 +142,16 @@ export function StaffAttendanceNotMarkedListPage() {
       .catch(() => setDepartments([]));
   }, [isHod, hodDeptId]);
 
-  const departmentOptions = useMemo(
-    () =>
-      departments
-        .map((d: any) => {
-          const id =
-            d.departmentId ??
-            d.department_id ??
-            d.pk_department_id ??
-            d.dept_id ??
-            d.id;
-          const name =
-            d.deptName ??
-            d.dept_name ??
-            d.department_name ??
-            d.dept_code ??
-            d.name ??
-            "";
-          const code =
-            d.collegeCode ?? d.college_code ?? d.college_short_name ?? "";
-          if (!id) return null;
-          const label = code ? `${code} - ${name}` : String(name);
-          return {
-            value: String(id),
-            label: label.replace(/^ - /, ""),
-          };
-        })
-        .filter((opt): opt is { value: string; label: string } => opt !== null),
-    [departments],
-  );
+  const departmentOptions = useMemo(() => {
+    console.log("DEPARTMENTS STATE:", departments);
+
+    return departments
+      .filter((d: any) => Number(d.departmentId) > 0)
+      .map((d: any) => ({
+        value: String(d.departmentId),
+        label: d.deptCode ? `${d.deptCode}` : d.deptName,
+      }));
+  }, [departments]);
 
   const loadDepartmentHeads = useCallback(async (deptId: number) => {
     // Angular selectedDepartment → clear staff, load EmpDeptHeads (for courseGroupId / label)

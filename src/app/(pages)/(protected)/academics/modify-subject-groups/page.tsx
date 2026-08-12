@@ -205,7 +205,7 @@ export default function ModifySubjectGroupsPage() {
 
   return (
     <FilteredListPage
-      title="Modify Subject Group"
+      title="Modify Course Group"
       filters={
         <StudentSearchSelect
           label="Student"

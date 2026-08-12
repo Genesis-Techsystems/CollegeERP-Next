@@ -483,6 +483,11 @@ export default function DayWiseAttendanceCountReportPage() {
   return (
     <FilteredListPage<DayWiseRow>
       title="Day-Wise Students Attendance Summary Report"
+      tableTitle={
+        showTable && dataDetails
+          ? `Day-Wise Students Attendance Summary Report - ${dataDetails}`
+          : "Day-Wise Students Attendance Summary Report"
+      }
       filters={
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">

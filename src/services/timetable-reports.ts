@@ -61,8 +61,7 @@ function allResultGroups(data: unknown): AnyRow[][] {
     if (data.length > 0 && Array.isArray(data[0])) {
       return (data as unknown[][]).map((group) =>
         group.filter(
-          (r): r is AnyRow =>
-            !!r && typeof r === "object" && !Array.isArray(r),
+          (r): r is AnyRow => !!r && typeof r === "object" && !Array.isArray(r),
         ),
       );
     }
@@ -111,6 +110,28 @@ export async function listEmployeesForStaffProxyReport(
   const data = await fetchDetails<unknown>("employeedetails", {
     collegeId,
     empDeptId: departmentId,
+    isActive: "true",
+  });
+  if (Array.isArray(data)) return data as AnyRow[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    const list = obj.resultList ?? obj.result ?? obj.data;
+    if (Array.isArray(list)) return list as AnyRow[];
+  }
+  return [];
+}
+
+/**
+ * Angular staff-class-diary employees:
+ * `employeedetails?collegeId=&empCategoryId=18&isActive=true`
+ */
+export async function listEmployeesForStaffClassDiaryReport(
+  collegeId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId) return [];
+  const data = await fetchDetails<unknown>("employeedetails", {
+    collegeId,
+    empCategoryId: 18,
     isActive: "true",
   });
   if (Array.isArray(data)) return data as AnyRow[];
@@ -327,14 +348,11 @@ export async function getStaffWorkloadReport(params: {
   fromDate: string;
   toDate: string;
 }): Promise<{ rows: AnyRow[]; holidays: AnyRow[] }> {
-  const data = await getAllRecords(
-    procName(MISC_REPORT_API.EMP_WORKLOAD),
-    {
-      in_deptid: params.departmentId,
-      in_fromDate: params.fromDate,
-      in_toDate: params.toDate,
-    },
-  );
+  const data = await getAllRecords(procName(MISC_REPORT_API.EMP_WORKLOAD), {
+    in_deptid: params.departmentId,
+    in_fromDate: params.fromDate,
+    in_toDate: params.toDate,
+  });
   const groups = allResultGroups(data);
   return {
     rows: groups[0] ?? [],
@@ -391,4 +409,35 @@ export async function getMasterTimetableReport(params: {
     },
   );
   return firstResultGroup(data);
+}
+
+/** Angular staff class diary → `get_emp_diary` with `in_flag=get_list_slot`. */
+export async function getStaffClassDiaryReport(params: {
+  employeeId: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<{ result: AnyRow[][] }> {
+  const data = await getAllRecords("get_emp_diary", {
+    in_flag: "get_list_slot",
+    in_emp_id: params.employeeId,
+    in_from_date: params.fromDate,
+    in_to_date: params.toDate,
+  });
+  const groups = allResultGroups(data);
+  return { result: groups };
+}
+
+/** Angular consolidated staff diary → `get_emp_diary` with `in_flag=get_all_list_slot`. */
+export async function getConsolidatedStaffDiaryReport(params: {
+  fromDate: string;
+  toDate: string;
+}): Promise<{ result: AnyRow[][] }> {
+  const data = await getAllRecords("get_emp_diary", {
+    in_flag: "get_all_list_slot",
+    in_emp_id: 0,
+    in_from_date: params.fromDate,
+    in_to_date: params.toDate,
+  });
+  const groups = allResultGroups(data);
+  return { result: groups };
 }

@@ -227,7 +227,7 @@ export default function FeeLedgerPage() {
   );
   const orgCode =
     typeof window !== "undefined"
-      ? window.localStorage.getItem("orgCode") ?? ""
+      ? (window.localStorage.getItem("orgCode") ?? "")
       : "";
 
   const [collegeId, setCollegeId] = useState<string | null>(null);
@@ -478,6 +478,11 @@ ${tableHtml}
   return (
     <FilteredListPage
       title="Fee Ledger"
+      tableTitle={
+        showTable && studentLabel.trim().length > 0
+          ? `Fee Ledger - ${studentLabel}`
+          : "Fee Ledger"
+      }
       filters={
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full min-w-[12rem] sm:w-[14rem]">
@@ -646,10 +651,7 @@ ${tableHtml}
                   ))}
                   {groups.length > 0 ? (
                     <tr className="font-semibold">
-                      <td
-                        colSpan={2}
-                        className="border px-2 py-1 text-center"
-                      >
+                      <td colSpan={2} className="border px-2 py-1 text-center">
                         Total
                       </td>
                       <td className="border px-2 py-1 text-right">

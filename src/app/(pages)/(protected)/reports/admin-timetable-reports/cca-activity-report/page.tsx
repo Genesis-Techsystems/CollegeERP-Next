@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -18,7 +17,6 @@ import {
 } from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
@@ -27,11 +25,6 @@ import { toastError, toastInfo } from "@/lib/toast";
 import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import { useSession } from "@/hooks/useSession";
-import {
-  attendancePrintShell as timetablePrintShell,
-  resolveAttendancePrintLogo as resolveTimetablePrintLogo,
-  toPrintLogoUrl,
-} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   distinctColleges,
   distinctCourseGroups,
@@ -356,30 +349,6 @@ export default function CcaActivityReportPage() {
     );
   };
 
-  const printReport = async () => {
-    if (rows.length === 0) {
-      toastInfo("No records to print.");
-      return;
-    }
-    const cid = Number(collegeId || 0);
-    const logoSrc = await resolveTimetablePrintLogo(
-      null,
-      cid,
-      collegeLogo || DEFAULT_COLLEGE_LOGO,
-    );
-    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
-    printHtmlInIframe(
-      timetablePrintShell({
-        title: escapeHtml(REPORT_TITLE),
-        logoSrc: escapeHtml(logoSrc),
-        fallbackLogo: escapeHtml(fallbackLogo),
-        collegeName: escapeHtml(collegeName || "College"),
-        dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
-        tableHtml: buildHtmlTable(EXCEL_COLUMNS, rows),
-      }),
-    );
-  };
-
   const goBack = () => {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
@@ -475,36 +444,13 @@ export default function CcaActivityReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: false,
-        exportPdf: false,
+        exportExcel: true,
+        exportPdf: true,
         columnPicker: true,
+        excelDocumentTitle: REPORT_TITLE,
+        excelFileName: `${REPORT_TITLE}.xls`,
+        pdfDocumentTitle: REPORT_TITLE,
       }}
-      toolbarTrailing={
-        showTable ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
-              onClick={handleExcelExport}
-            >
-              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Export Excel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
-              onClick={() => void printReport()}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
-            </Button>
-          </>
-        ) : null
-      }
     />
   );
 }

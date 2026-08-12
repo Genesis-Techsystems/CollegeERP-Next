@@ -431,7 +431,10 @@ export default function StudentCountDrilldownReportPage() {
           "fk_course_group_id",
           "courseGroupId",
         ]);
-        const courseYearId = pickNum(row, ["fk_course_year_id", "courseYearId"]);
+        const courseYearId = pickNum(row, [
+          "fk_course_year_id",
+          "courseYearId",
+        ]);
         setSteps((prev) => [
           ...prev,
           {
@@ -718,6 +721,11 @@ ${tableHtml}
   return (
     <FilteredListPage<DrillRow>
       title="Student Count Report"
+      subtitle={
+        !isStudentLeaf && rows.length > 0
+          ? `Grand Total: ${grandTotal}`
+          : undefined
+      }
       filters={
         <div className="w-full min-w-[12rem] sm:w-[16rem]">
           <Select
@@ -750,11 +758,6 @@ ${tableHtml}
                     </span>
                   ))}
                 </div>
-              ) : null}
-              {!isStudentLeaf && rows.length > 0 ? (
-                <p className="text-sm font-semibold">
-                  Grand Total: {grandTotal}
-                </p>
               ) : null}
             </div>
             {steps.length > 0 ? (

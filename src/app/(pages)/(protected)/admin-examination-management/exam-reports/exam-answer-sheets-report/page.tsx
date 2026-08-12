@@ -302,7 +302,9 @@ export default function ExamAnswerSheetsReportPage() {
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
   const collegeLogo = useCollegeLogo(user?.collegeId ?? null);
-  const collegeName = String(user?.collegeName ?? user?.collegeCode ?? "").trim();
+  const collegeName = String(
+    user?.collegeName ?? user?.collegeCode ?? "",
+  ).trim();
 
   useEffect(() => {
     try {
@@ -547,7 +549,7 @@ export default function ExamAnswerSheetsReportPage() {
     <GlobalFilterBarRow>
       <GlobalFilterField label="Course *">
         <Select
-          value={courseId || undefined}
+          value={courseId || null}
           onChange={(v) => setCourseId(v ?? "")}
           isLoading={loadingFilters}
           options={courses.map((c) => ({
@@ -560,7 +562,7 @@ export default function ExamAnswerSheetsReportPage() {
       </GlobalFilterField>
       <GlobalFilterField label="Exam Year *">
         <Select
-          value={academicYearId || undefined}
+          value={academicYearId || null}
           onChange={(v) => setAcademicYearId(v ?? "")}
           isLoading={loadingFilters}
           options={academicYears.map((y) => ({
@@ -571,9 +573,12 @@ export default function ExamAnswerSheetsReportPage() {
           searchable
         />
       </GlobalFilterField>
-      <GlobalFilterField label="Exam Master *" className="min-w-[280px] flex-[2]">
+      <GlobalFilterField
+        label="Exam Master *"
+        className="min-w-[280px] flex-[2]"
+      >
         <Select
-          value={examId || undefined}
+          value={examId || null}
           onChange={(v) => setExamId(v ?? "")}
           isLoading={loadingFilters}
           options={exams.map((e) => ({
@@ -586,7 +591,7 @@ export default function ExamAnswerSheetsReportPage() {
       </GlobalFilterField>
       <GlobalFilterField label="Exam Timetable *">
         <Select
-          value={examTimetableId || undefined}
+          value={examTimetableId || null}
           onChange={(v) => {
             setExamTimetableId(v ?? "");
             clearResults();
@@ -634,6 +639,11 @@ export default function ExamAnswerSheetsReportPage() {
   return (
     <FilteredListPage
       title="Exam Answer Sheets Report"
+      tableTitle={
+        rows.length > 0
+          ? `Exam Answer Sheets Report - ${txt(selectedExam?.exam_name)}`
+          : "Exam Answer Sheets Report"
+      }
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
