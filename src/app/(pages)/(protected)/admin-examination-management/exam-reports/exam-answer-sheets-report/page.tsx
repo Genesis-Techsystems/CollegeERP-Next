@@ -639,6 +639,11 @@ export default function ExamAnswerSheetsReportPage() {
   return (
     <FilteredListPage
       title="Exam Answer Sheets Report"
+      tableTitle={
+        rows.length > 0
+          ? `Exam Answer Sheets Report - ${txt(selectedExam?.exam_name)}`
+          : "Exam Answer Sheets Report"
+      }
       filters={filters}
       showTable={rows.length > 0}
       rowData={rows}

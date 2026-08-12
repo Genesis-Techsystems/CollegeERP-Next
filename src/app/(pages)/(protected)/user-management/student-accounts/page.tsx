@@ -190,6 +190,13 @@ function mobileFromMergedStudentRow(
   ]);
 }
 
+/** Keeps list-row values when the domain fetch returns the key as `undefined`. */
+function omitUndefined(row: StudentAccount): Partial<StudentAccount> {
+  return Object.fromEntries(
+    Object.entries(row).filter(([, v]) => v !== undefined),
+  ) as Partial<StudentAccount>;
+}
+
 function makeSiNoGetter() {
   return (p: ValueGetterParams<StudentAccount>) => {
     const ri = p.node?.rowIndex;
@@ -609,7 +616,9 @@ export default function StudentAccountsPage() {
     if (!row?.userId) return;
     const full = await getStudentAccountById(row.userId).catch(() => null);
     // Prefer list-row college/org/type ids when domain fetch omits nested fields.
-    const user: StudentAccount = full ? { ...row, ...full } : row;
+    const user: StudentAccount = full
+      ? { ...row, ...omitUndefined(full) }
+      : row;
     setActiveStudent(user);
     setForm({
       firstName: user.firstName ?? "",
@@ -617,9 +626,8 @@ export default function StudentAccountsPage() {
       userName: user.userName ?? "",
       email: user.email ?? "",
       mobileNumber: user.mobileNumber ?? "",
-      // Do not pre-fill hashed password — labels say "New Password"
-      password: "",
-      passwordConfirm: "",
+      password: user.password ?? "",
+      passwordConfirm: user.passwordConfirm ?? user.password ?? "",
       isActive: user.isActive !== false,
       isEditable: user.isEditable ?? false,
       isReset: user.isReset ?? false,
@@ -1429,61 +1437,53 @@ export default function StudentAccountsPage() {
             </Button>
           </div>
 
-          <div className="rounded border border-border overflow-hidden">
-            <table className="w-full text-[12px]">
-              <thead className="bg-slate-100 border-b border-border">
-                <tr>
-                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
-                    Role Name
-                  </th>
-                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
-                    Status
-                  </th>
-                  <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {roleRows.map((r) => (
-                  <tr
-                    key={`${r.roleId}-${r.userRoleId ?? "new"}`}
-                    className="border-b border-border last:border-b-0 hover:bg-muted/40"
-                  >
-                    <td className="px-3 py-0.5 text-[11px] text-slate-800">
-                      {r.roleName ?? `Role ${r.roleId}`}
-                    </td>
-                    <td className="px-3 py-0.5 text-[11px] text-slate-800">
-                      {r.isActive === false ? "InActive" : "Active"}
-                    </td>
-                    <td className="px-3 py-0.5">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 text-red-600 hover:text-red-700"
-                        onClick={() => deactivateRole(r.roleId)}
-                        disabled={r.isActive === false}
-                        aria-label="Remove role"
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {roleRows.length === 0 ? (
+          {roleRows.length > 0 ? (
+            <div className="rounded border border-border overflow-hidden">
+              <table className="w-full text-[12px]">
+                <thead className="bg-slate-100 border-b border-border">
                   <tr>
-                    <td
-                      className="px-3 py-2 text-[12px] text-muted-foreground"
-                      colSpan={3}
-                    >
-                      No roles added yet.
-                    </td>
+                    <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
+                      Role Name
+                    </th>
+                    <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
+                      Status
+                    </th>
+                    <th className="text-left px-3 py-1 text-[11px] font-semibold text-slate-700">
+                      Actions
+                    </th>
                   </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {roleRows.map((r) => (
+                    <tr
+                      key={`${r.roleId}-${r.userRoleId ?? "new"}`}
+                      className="border-b border-border last:border-b-0 hover:bg-muted/40"
+                    >
+                      <td className="px-3 py-0.5 text-[11px] text-slate-800">
+                        {r.roleName ?? `Role ${r.roleId}`}
+                      </td>
+                      <td className="px-3 py-0.5 text-[11px] text-slate-800">
+                        {r.isActive === false ? "InActive" : "Active"}
+                      </td>
+                      <td className="px-3 py-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-4 w-4 p-0 text-red-600 hover:text-red-700"
+                          onClick={() => deactivateRole(r.roleId)}
+                          disabled={r.isActive === false}
+                          aria-label="Remove role"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       </FormModal>
 

@@ -15,10 +15,12 @@ import {
   toNavSlug,
 } from "@/lib/navigation";
 import {
+  isStaffWorkloadAdjustmentNav,
   isStudentClassDiaryViewer,
   isStudentPortalViewer,
   mapErpModuleLabelToRoute,
   mapErpModuleNavRoute,
+  STAFF_WORKLOAD_ADJUSTMENT_ROUTE,
 } from "@/lib/erp-modules-navigation";
 import {
   isTimetableModuleLabel,
@@ -120,6 +122,13 @@ export function resolveForcedNavRoute(
 
   const sidebarPin = resolveSidebarLabelPin(href, label);
   if (sidebarPin) return sidebarPin;
+
+  // Faculty Details "Staff Workload Adjustment" (Angular StaffProxyList) — pin
+  // before the faculty-details / workload-adjustment remaps below, otherwise it
+  // opens the Faculty Leaves "Workload Adjustment" page.
+  if (isStaffWorkloadAdjustmentNav(href, label)) {
+    return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+  }
 
   // TODO / To-Do module — Angular `#/todo/todolist` + `#/todo/todolisttags`.
   // App Router pages live under `/to-do/...` (hyphen). Pin before generic passthrough.
@@ -827,30 +836,61 @@ export function resolveForcedNavRoute(
     return "/student-academics/student-timetable";
   }
 
+  // Timetable Reports — Staff Class Diary Report & Consolidated Staff Class Diary Report
+  const isStaffPortal = hrefLower.includes("staff-reports");
+  const ttBase = isStaffPortal
+    ? "/staff-reports/admin-timetable-reports"
+    : "/reports/admin-timetable-reports";
+
+  if (
+    hrefLower.includes("consolidated-staff-class-diary-report") ||
+    hrefLower.includes("consolidated-staff-diary") ||
+    (labelLower.includes("consolidated") &&
+      labelLower.includes("staff") &&
+      (labelLower.includes("diary") || labelLower.includes("dairy")))
+  ) {
+    return `${ttBase}/consolidated-staff-class-diary-report`;
+  }
+  if (
+    hrefLower.includes("staff-class-diary-report") ||
+    (labelLower.includes("staff") &&
+      (labelLower.includes("class diary") ||
+        labelLower.includes("class dairy")) &&
+      labelLower.includes("report") &&
+      !labelLower.includes("consolidated"))
+  ) {
+    return `${ttBase}/staff-class-diary-report`;
+  }
+
   // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
   // hrefs do not make both sidebar leaves active on the staff Class Diary page.
   // Student portal bare "Class Dairy" must not open the staff Class Diary UI.
   if (
-    labelKey === "staff class diary" ||
-    labelKey === "staff class dairy" ||
-    labelKey === "student class diary" ||
-    labelKey === "student class dairy" ||
-    (labelKey.includes("staff") &&
-      (labelKey.includes("class diary") || labelKey.includes("class dairy"))) ||
-    hrefLower.includes("student-class-diary") ||
-    hrefLower.includes("student-class-dairy") ||
-    hrefLower.includes("student-academics/student-class-diary") ||
-    hrefLower.includes("student-academics/student-class-dairy") ||
-    hrefLower.includes("staff-class-diary") ||
-    hrefLower.includes("staff-class-dairy") ||
-    (hrefLower.includes("student-academics") &&
-      (labelLower.includes("class diary") ||
-        labelLower.includes("class dairy"))) ||
-    ((labelKey === "class diary" || labelKey === "class dairy") &&
-      isStudentClassDiaryViewer()) ||
-    ((hrefLower.includes("staff-classes/class-diary") ||
-      hrefLower.includes("staff-classes/class-dairy")) &&
-      isStudentClassDiaryViewer())
+    !labelLower.includes("report") &&
+    !labelLower.includes("consolidated") &&
+    !hrefLower.includes("report") &&
+    !hrefLower.includes("consolidated") &&
+    (labelKey === "staff class diary" ||
+      labelKey === "staff class dairy" ||
+      labelKey === "student class diary" ||
+      labelKey === "student class dairy" ||
+      (labelKey.includes("staff") &&
+        (labelKey.includes("class diary") ||
+          labelKey.includes("class dairy"))) ||
+      hrefLower.includes("student-class-diary") ||
+      hrefLower.includes("student-class-dairy") ||
+      hrefLower.includes("student-academics/student-class-diary") ||
+      hrefLower.includes("student-academics/student-class-dairy") ||
+      hrefLower.includes("staff-class-diary") ||
+      hrefLower.includes("staff-class-dairy") ||
+      (hrefLower.includes("student-academics") &&
+        (labelLower.includes("class diary") ||
+          labelLower.includes("class dairy"))) ||
+      ((labelKey === "class diary" || labelKey === "class dairy") &&
+        isStudentClassDiaryViewer()) ||
+      ((hrefLower.includes("staff-classes/class-diary") ||
+        hrefLower.includes("staff-classes/class-dairy")) &&
+        isStudentClassDiaryViewer()))
   ) {
     return "/student-academics/student-class-dairy";
   }
@@ -1245,6 +1285,54 @@ export function resolveForcedNavRoute(
       return "/transport/distance-fee";
     }
 
+    // Principal My Approvals — Fee Concession Approvals (must beat fee-concession catch-all)
+    if (
+      hrefLower.includes("fee-concession-approvals") ||
+      hrefLower.includes("fee_concession_approvals") ||
+      hrefLower.includes("feeconcessionapprovals") ||
+      labelKey === "fee concession approvals" ||
+      labelKey === "fee concession approval" ||
+      (labelLower.includes("fee concession") && labelLower.includes("approv"))
+    ) {
+      return "/principal-my-approvals/fee-concession-approvals";
+    }
+
+    // Principal My Approvals — Payment Note Approvals (must beat e-office payment-note-request)
+    if (
+      hrefLower.includes("payment-note-approvals") ||
+      hrefLower.includes("payment_note_approvals") ||
+      hrefLower.includes("paymentnoteapprovals") ||
+      labelKey === "payment note approvals" ||
+      labelKey === "payment note approval" ||
+      (labelLower.includes("payment note") && labelLower.includes("approv"))
+    ) {
+      return "/principal-my-approvals/payment-note-approvals";
+    }
+
+    // Principal My Approvals — Detain Request Approvals (must beat detained-list / student-detain)
+    if (
+      hrefLower.includes("detain-request-approvals") ||
+      hrefLower.includes("detain_request_approvals") ||
+      hrefLower.includes("detainrequestapprovals") ||
+      labelKey === "detain request approvals" ||
+      labelKey === "detain request approval" ||
+      (labelLower.includes("detain request") && labelLower.includes("approv"))
+    ) {
+      return "/principal-my-approvals/detain-request-approvals";
+    }
+
+    // Principal My Approvals — Item Request Approvals (must beat e-office/item-request)
+    if (
+      hrefLower.includes("item-request-approvals") ||
+      hrefLower.includes("item_request_approvals") ||
+      hrefLower.includes("itemrequestapprovals") ||
+      labelKey === "item request approvals" ||
+      labelKey === "item request approval" ||
+      (labelLower.includes("item request") && labelLower.includes("approv"))
+    ) {
+      return "/principal-my-approvals/item-request-approvals";
+    }
+
     // Principal My Approvals — TC No Due Approvals (must beat staff "nodue" catch-all)
     if (
       hrefLower.includes("tc-no-due-approvals") ||
@@ -1257,6 +1345,37 @@ export function resolveForcedNavRoute(
         labelLower.includes("approv"))
     ) {
       return "/principal-my-approvals/tc-no-due-approvals";
+    }
+
+    // Staff Self Appraisal — Angular `staff-faculty-details/appraisal-report`.
+    // Pin before the generic faculty-details matcher so principal login reaches
+    // the implemented route instead of falling through to the dashboard.
+    if (
+      hrefLower.includes("staff-faculty-details/appraisal-report") ||
+      labelKey === "staff self appraisal forms" ||
+      labelKey === "staff self appraisal" ||
+      labelKey === "appraisal report"
+    ) {
+      if (hrefLower.includes("review-appraisal")) {
+        return "/staff-faculty-details/appraisal-report/review-appraisal";
+      }
+      return "/staff-faculty-details/appraisal-report";
+    }
+
+    // Faculty Performance Assessment — Angular `staff-faculty-details/performance-assessment`
+    // Missing route 404s to root not-found → dashboard; pin before faculty-details remap.
+    if (
+      hrefLower.includes("staff-faculty-details/performance-assessment") ||
+      hrefLower.includes("faculty-performance-assessment") ||
+      labelKey === "faculty performance assessment" ||
+      (labelLower.includes("faculty") &&
+        labelLower.includes("performance") &&
+        labelLower.includes("assessment"))
+    ) {
+      if (hrefLower.includes("add-performance")) {
+        return "/staff-faculty-details/performance-assessment/add-performance";
+      }
+      return "/staff-faculty-details/performance-assessment";
     }
 
     // HOD Faculty Details — Angular `staff-faculty-details/faculty-details`
@@ -1276,24 +1395,40 @@ export function resolveForcedNavRoute(
       return "/staff-faculty-details/faculty-details";
     }
 
-    // Principal Leave Requests (Angular `leave-applications`; also leave-approvals / faculty-details)
+    // Principal Leave Approvals (Angular `leave-approvals`) — before leave-applications.
     if (
-      hrefLower.includes("leave-applications") ||
-      hrefLower.includes("leave_applications") ||
-      hrefLower.includes("leaveapplications") ||
       hrefLower.includes("leave-approvals") ||
       hrefLower.includes("leave_approvals") ||
       hrefLower.includes("leaveapprovals") ||
       labelKey === "leave approvals" ||
       labelKey === "leave approval" ||
+      (labelLower.includes("leave") &&
+        labelLower.includes("approv") &&
+        !labelLower.includes("type") &&
+        !labelLower.includes("entitlement") &&
+        !labelLower.includes("allotment") &&
+        !labelLower.includes("apply") &&
+        !labelLower.includes("request") &&
+        !labelLower.includes("application"))
+    ) {
+      return "/principal-my-approvals/leave-approvals";
+    }
+
+    // Principal Leave Requests (Angular `leave-applications` / `leave-application`)
+    if (
+      hrefLower.includes("leave-applications") ||
+      hrefLower.includes("leave_applications") ||
+      hrefLower.includes("leaveapplications") ||
+      hrefLower.includes("leave-application") ||
+      hrefLower.includes("leave_application") ||
       labelKey === "leave requests" ||
       labelKey === "leave request" ||
       labelKey === "leave applications" ||
       labelKey === "leave application" ||
       (labelLower.includes("leave") &&
-        (labelLower.includes("approv") ||
-          labelLower.includes("request") ||
+        (labelLower.includes("request") ||
           labelLower.includes("application")) &&
+        !labelLower.includes("approv") &&
         !labelLower.includes("type") &&
         !labelLower.includes("entitlement") &&
         !labelLower.includes("allotment") &&
@@ -1434,8 +1569,11 @@ export function resolveForcedNavRoute(
       return "/accounts-and-fees/fees-collection/student-fee-management";
     }
     if (
-      hrefLower.includes("fee-concession") ||
-      (labelLower.includes("fee concession") && !labelLower.includes("report"))
+      (hrefLower.includes("fee-concession") ||
+        (labelLower.includes("fee concession") &&
+          !labelLower.includes("report"))) &&
+      !hrefLower.includes("fee-concession-approvals") &&
+      !labelLower.includes("approv")
     ) {
       return "/accounts-and-fees/fees-collection/fee-concession";
     }
@@ -1594,6 +1732,7 @@ export function resolveForcedNavRoute(
           labelLower.includes("proceeding")) &&
         !labelLower.includes("report") &&
         !labelLower.includes("account") &&
+        !labelLower.includes("amount") &&
         !hrefLower.includes("fee-reports") &&
         !hrefLower.includes("accounts-preceeding") &&
         !hrefLower.includes("acounts-preceeding"))
@@ -1969,11 +2108,14 @@ export function resolveForcedNavRoute(
       return "/reports/student-attendance-reports/student-attendance-report";
     }
     // Angular Students Detained List Report
+    // Skip principal "Detain Request Approvals" (handled above).
     if (
-      hrefLower.includes("student-detained-list") ||
-      hrefLower.includes("sem_std_detained_list") ||
-      labelLower.includes("detained list") ||
-      labelLower.includes("students detained")
+      (hrefLower.includes("student-detained-list") ||
+        hrefLower.includes("sem_std_detained_list") ||
+        labelLower.includes("detained list") ||
+        labelLower.includes("students detained")) &&
+      !hrefLower.includes("detain-request") &&
+      !labelLower.includes("detain request")
     ) {
       return "/reports/admin-student-reports/student-detained-list";
     }
@@ -2215,10 +2357,28 @@ export function resolveForcedNavRoute(
         return `${ttBase}/staff-proxy-report`;
       }
       if (
+        hrefLower.includes("consolidated-staff-class-diary-report") ||
+        hrefLower.includes("consolidated-staff-diary") ||
+        (labelLower.includes("consolidated") &&
+          labelLower.includes("staff") &&
+          labelLower.includes("diary"))
+      ) {
+        return `${ttBase}/consolidated-staff-class-diary-report`;
+      }
+      if (
+        hrefLower.includes("staff-class-diary-report") ||
+        hrefLower.includes("staff-class-diary") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("class") &&
+          labelLower.includes("diary"))
+      ) {
+        return `${ttBase}/staff-class-diary-report`;
+      }
+      if (
         hrefLower.includes("cca-activity-report") ||
-        (labelLower.includes("cca") &&
-          labelLower.includes("activity") &&
-          labelLower.includes("report"))
+        hrefLower.includes("students-cca") ||
+        (labelLower.includes("cca") && labelLower.includes("activity")) ||
+        (labelLower.includes("students") && labelLower.includes("cca"))
       ) {
         return `${ttBase}/cca-activity-report`;
       }
@@ -2272,25 +2432,31 @@ export function resolveForcedNavRoute(
     if (
       hrefLower.includes("fee-reports/scholarship-preceedings") ||
       hrefLower.includes("fee-reports/scholarship-proceedings") ||
-      (hrefLower.includes("/scholarship-preceedings") &&
-        hrefLower.includes("fee-reports")) ||
+      hrefLower.includes("scholarship-preceedings") ||
+      hrefLower.includes("scholarship-proceedings") ||
       (labelLower.includes("scholarship") &&
         (labelLower.includes("preceeding") ||
-          labelLower.includes("proceeding")) &&
-        (labelLower.includes("report") || hrefLower.includes("fee-reports")))
+          labelLower.includes("proceeding") ||
+          labelLower.includes("proceedings")) &&
+        (labelLower.includes("amount") ||
+          labelLower.includes("report") ||
+          labelLower.includes("list") ||
+          hrefLower.includes("fee-reports")))
     ) {
       return "/accounts-and-fees/fee-reports/scholarship-preceedings";
     }
     if (
       hrefLower.includes("fee-reports/concession-list") ||
-      hrefLower.includes("/concession-list") ||
+      hrefLower.includes("concession-list") ||
+      hrefLower.includes("concessions-list") ||
+      (labelLower.includes("concession") && labelLower.includes("list")) ||
+      (labelLower.includes("concessions") && labelLower.includes("list")) ||
+      labelLower === "concessions list" ||
+      labelLower === "concession list" ||
       (labelLower.includes("institutional") &&
         labelLower.includes("scholarship") &&
         !labelLower.includes("preceeding") &&
-        !labelLower.includes("proceeding")) ||
-      (labelLower.includes("concession") &&
-        labelLower.includes("list") &&
-        hrefLower.includes("fee-reports"))
+        !labelLower.includes("proceeding"))
     ) {
       return "/accounts-and-fees/fee-reports/concession-list";
     }
@@ -2351,6 +2517,17 @@ export function resolveForcedNavRoute(
         !labelLower.includes("scholarship"))
     ) {
       return "/accounts-and-fees/fee-reports/fee-due-list-report";
+    }
+    // Angular: /reports/management-reports/finance-drilldown-report
+    if (
+      hrefLower.includes("finance-drilldown-report") ||
+      hrefLower.includes("finance-drilldown") ||
+      (labelLower.includes("finance") &&
+        (labelLower.includes("drilldown") || labelLower.includes("report"))) ||
+      labelLower === "finance drilldown report" ||
+      labelLower === "finance report"
+    ) {
+      return "/reports/management-reports/finance-drilldown-report";
     }
     // Angular: /reports/management-reports/income-expense-report
     // Also pin finance-reports/income-expenses-summary-report (no Next page there).
@@ -3288,6 +3465,22 @@ export function resolveForcedNavRoute(
   ) {
     return "/admin-examination-management/exam-reports/exam-verification";
   }
+  // Exam Bundle Scanning Report hub (Angular admin-exam-reports/exam-bundle-scanning-report)
+  // Must run before scan-bundles rules so "Exam Bundle Scaning Report" is not misrouted.
+  if (
+    hrefLower.includes("exam-bundle-scanning-report") ||
+    labelLower.includes("exam bundle scanning report") ||
+    labelLower.includes("exam bundle scaning report") ||
+    (labelLower.includes("bundle") &&
+      (labelLower.includes("scanning") || labelLower.includes("scaning")) &&
+      labelLower.includes("report") &&
+      !labelLower.includes("operator") &&
+      !labelLower.includes("tracking") &&
+      !labelLower.includes("papers") &&
+      !labelLower.includes("subject"))
+  ) {
+    return "/admin-examination-management/admin-exam-reports/exam-bundle-scanning-report";
+  }
   // Exam Scan Bundle New / Print — must run before the generic scan-bundles rule
   // (otherwise "Exam Scan Bundle New" also matches `exam scan bundle`).
   if (
@@ -3305,7 +3498,10 @@ export function resolveForcedNavRoute(
       labelLower.includes("exam scan bundle")) &&
     !labelLower.includes("print") &&
     !labelLower.includes("new") &&
-    !labelLower.includes("detail")
+    !labelLower.includes("detail") &&
+    !labelLower.includes("scanning") &&
+    !labelLower.includes("scaning") &&
+    !labelLower.includes("report")
   ) {
     return "/admin-examination-management/exam-papers-delivery-process/scan-bundles";
   }

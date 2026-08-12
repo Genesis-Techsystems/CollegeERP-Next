@@ -91,9 +91,9 @@ export interface SessionUser {
   libraryId?: number;
   // Derived server-side — never trust client-provided values:
   isAdmin: boolean; // userRole === 'ADMIN' || userRole === 'SUPERADMIN'
-  isPrincipal: boolean; // roleName includes 'PRINCIPAL'
-  isHod: boolean; // roleName includes 'HOD' or 'HEAD OF'
-  isManagement: boolean; // userTypeCode includes 'MGNT' or roleName includes 'MANAGEMENT'
+  isPrincipal: boolean; // roleName includes 'PRINCIPAL', or userRoles has PRINCIPAL/DEAN
+  isHod: boolean; // roleName includes 'HOD'/'HEAD OF', or userRoles has HOD/CHAIRPERSON
+  isManagement: boolean; // userTypeCode 'MGNT', roleName 'MANAGEMENT', or userRoles has MANAGEMENT/MMANAGEMENT
   /** Angular `isDeprtAdmin` — any active userRoles entry with roleName DEPTADMIN */
   isDeptAdmin: boolean;
   defaultDashboardPath: string; // computed from userRole/userTypeCode on the server
@@ -114,4 +114,10 @@ export interface IronSessionData {
   jwt?: string; // NEVER sent to browser — used only for server→Spring Boot proxy calls
   user?: SessionUser;
   issuedAt?: number; // Unix timestamp (ms) of when the session was created
+  /**
+   * Bumped when the role-flag derivation changes, so /api/auth/me can refresh
+   * `isPrincipal` / `isHod` / `isManagement` on sessions issued by older logic
+   * without forcing every user to log out.
+   */
+  roleFlagsVersion?: number;
 }

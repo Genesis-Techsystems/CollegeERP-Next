@@ -31,6 +31,7 @@ import {
   resolveDefaultDashboardPath,
 } from "@/config/constants/app";
 import { setCachedNav } from "@/lib/nav-cache";
+import { ROLE_FLAGS_VERSION, deriveRoleFlagsFromDto } from "@/lib/user-context";
 
 // In-memory rate limiter: max 10 requests per minute per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -171,6 +172,11 @@ export async function POST(request: NextRequest) {
         String(r.roleName ?? "").toUpperCase() === "DEPTADMIN",
     );
 
+    const roleFlags = deriveRoleFlagsFromDto(
+      { ...userDto, roleName, userTypeCode },
+      { roleName, userTypeCode },
+    );
+
     const sessionUser: SessionUser = {
       userId: userDto.userId,
       userName: userDto.userName,
@@ -196,13 +202,9 @@ export async function POST(request: NextRequest) {
         roleUpper === "SUPERADMIN" ||
         roleNameUpper === "SKOLOADMIN" ||
         hasAdminRole,
-      isPrincipal: roleName.toUpperCase().includes("PRINCIPAL"),
-      isHod:
-        roleName.toUpperCase().includes("HOD") ||
-        roleName.toUpperCase().includes("HEAD OF"),
-      isManagement:
-        userTypeCode.toUpperCase().includes("MGNT") ||
-        roleName.toUpperCase().includes("MANAGEMENT"),
+      isPrincipal: roleFlags.isPrincipal,
+      isHod: roleFlags.isHod,
+      isManagement: roleFlags.isManagement,
       isDeptAdmin,
       // Angular parity: evaluators → /evaluator, students → /student-dashboard,
       // Admin/Staff/others → /dashboard.
@@ -243,10 +245,7 @@ export async function POST(request: NextRequest) {
     const issuedAt = Date.now();
     try {
       const { buildNavTree } = await import("@/lib/navigation");
-      const navItems = buildNavTree(
-        userDto.modules ?? [],
-        userDto.pages ?? [],
-      );
+      const navItems = buildNavTree(userDto.modules ?? [], userDto.pages ?? []);
       setCachedNav(sessionUser.userId, issuedAt, navItems);
     } catch {
       // Layout rebuilds nav on cache miss — login must still succeed.
@@ -259,10 +258,14 @@ export async function POST(request: NextRequest) {
     session.jwt = jwt;
     session.user = sessionUser;
     session.issuedAt = issuedAt;
+    session.roleFlagsVersion = ROLE_FLAGS_VERSION;
     await session.save();
 
     // 7. Return slim user to client — modules/pages excluded (nav from cache/layout)
-    return NextResponse.json({ user: sessionUser });
+    return NextResponse.json({
+      user: sessionUser,
+      userRoles: userDto.userRoles ?? [],
+    });
   } catch {
     // 8. Never expose backend error details. When an OTP was supplied the failure
     // is a bad/expired code — keep the client on the OTP step with a fitting message.

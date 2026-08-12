@@ -290,6 +290,30 @@ export type FeeConcessionRow = {
   [key: string]: unknown;
 };
 
+/** Domain row from Angular `FeeStudentwiseDiscount` (fee-concession-approvals). */
+export type FeeConcessionApprovalRow = {
+  feeStdDiscountId?: number;
+  collegeId?: number;
+  studentId?: number;
+  feeStructureId?: number;
+  feeStdDataId?: number;
+  studentFirstName?: string;
+  studentRollNo?: string;
+  collegeCode?: string;
+  studentCourseName?: string;
+  groupName?: string;
+  courseYearName?: string;
+  categoryName?: string;
+  particularsName?: string;
+  value?: number;
+  requestedEmployeeFirstName?: string;
+  /** Angular field spelling. */
+  isAproved?: boolean | null;
+  isRejected?: boolean | null;
+  isActive?: boolean;
+  [key: string]: unknown;
+};
+
 /** Row from `s_fee_discount_summary` (management Discount Report). */
 export type FeeDiscountSummaryRow = Record<string, unknown> & {
   college_name?: string;

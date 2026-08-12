@@ -9,7 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSessionContext } from "@/context/SessionContext";
 import { formatDate } from "@/common/generic-functions";
-import { listEmployeeRunningLeaves, type AnyRow } from "@/services";
+import {
+  getEmpLeaveCount,
+  listEmployeeRunningLeaves,
+  type AnyRow,
+} from "@/services";
 import { toastError } from "@/lib/toast";
 
 const schema = z.object({
@@ -23,19 +27,23 @@ interface ApproveLeaveModalProps {
   row: AnyRow | null;
   onClose: () => void;
   onSave: (payload: { reason: string; leaveCode?: string }) => void;
+  /** Angular leave-approvals `approve-leave` — show month leave count. */
+  includeMonthLeaves?: boolean;
 }
 
-/** Angular `change-status2` (principal leave-application). */
+/** Angular `change-status2` / `approve-leave` comments dialog. */
 export function ApproveLeaveModal({
   open,
   row,
   onClose,
   onSave,
+  includeMonthLeaves = false,
 }: ApproveLeaveModalProps) {
   const { user } = useSessionContext();
   const [leaveHistory, setLeaveHistory] = useState<AnyRow[]>([]);
   const [balanceLeaves, setBalanceLeaves] = useState<number | string>("--");
   const [consumedLeaves, setConsumedLeaves] = useState<number | string>("--");
+  const [leavesTaken, setLeavesTaken] = useState<number | string>("--");
   const [loading, setLoading] = useState(false);
 
   const {
@@ -53,20 +61,27 @@ export function ApproveLeaveModal({
     reset({ reason: "" });
     setBalanceLeaves("--");
     setConsumedLeaves("--");
+    setLeavesTaken("--");
     setLeaveHistory([]);
 
     const collegeId = Number(row.collegeId ?? 0);
     const employeeId = Number(row.employeeId ?? 0);
     const leaveYear = row.leaveYear;
     const leaveTypeId = Number(row.leavetypeId ?? 0);
+    const leaveFromDate = row.leaveFromDate;
 
     if (!collegeId || !employeeId || leaveYear == null) return;
 
     let cancelled = false;
     setLoading(true);
 
-    void listEmployeeRunningLeaves(collegeId, employeeId, String(leaveYear))
-      .then((history) => {
+    void (async () => {
+      try {
+        const history = await listEmployeeRunningLeaves(
+          collegeId,
+          employeeId,
+          String(leaveYear),
+        );
         if (cancelled) return;
         setLeaveHistory(history);
         const match = history.find(
@@ -76,18 +91,34 @@ export function ApproveLeaveModal({
           setBalanceLeaves(Number(match.balanceLeaves ?? 0));
           setConsumedLeaves(Number(match.consumedLeaves ?? 0));
         }
-      })
-      .catch((e) => {
+
+        if (
+          includeMonthLeaves &&
+          leaveFromDate != null &&
+          leaveFromDate !== ""
+        ) {
+          const monthRows = await getEmpLeaveCount(
+            String(leaveFromDate),
+            employeeId,
+          );
+          if (cancelled) return;
+          let total = 0;
+          for (const r of monthRows) {
+            total += Number(r.noOfLeaves ?? 0);
+          }
+          setLeavesTaken(total);
+        }
+      } catch (e) {
         if (!cancelled) toastError(e, "Failed to load leave balance");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [open, row, reset]);
+  }, [open, row, reset, includeMonthLeaves]);
 
   function onSubmit(values: FormValues) {
     let reason = values.reason;
@@ -158,6 +189,12 @@ export function ApproveLeaveModal({
         />
         <DetailRow label="Leaves Consumed" value={String(consumedLeaves)} />
         <DetailRow label="Leave Balance" value={String(balanceLeaves)} />
+        {includeMonthLeaves ? (
+          <DetailRow
+            label="Leaves taken in this month"
+            value={String(leavesTaken)}
+          />
+        ) : null}
       </div>
 
       {leaveHistory.length > 0 ? (

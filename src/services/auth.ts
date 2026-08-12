@@ -10,7 +10,7 @@
 
 import { EMPLOYEE_API, NEXT_API, AUTH_API } from "@/config/constants/api";
 import { clearStickyRoleFlagsFromLocalStorage } from "@/lib/employee-login-context";
-import type { SessionUser } from "@/types/user";
+import type { SessionUser, UserRoleEntry } from "@/types/user";
 import { fetchDetails } from "./crud";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -25,8 +25,22 @@ export interface LoginCredentials {
 export interface LoginResult {
   /** Present when authentication completed (non-evaluator, or verified evaluator). */
   user?: SessionUser;
+  /** Angular loginUser.userRoles — used for approval-page role filters. */
+  userRoles?: UserRoleEntry[];
   /** True when an evaluator account still needs its OTP verified. */
   otpRequired?: boolean;
+}
+
+function persistUserRolesForApprovalPages(userRoles?: UserRoleEntry[]): void {
+  if (typeof globalThis.window === "undefined" || !userRoles?.length) return;
+  try {
+    globalThis.localStorage.setItem(
+      "userDetails",
+      JSON.stringify({ userRoles }),
+    );
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 let preferredUserAccessPath: string = `api/${AUTH_API.USER_ACCESS}`;
@@ -58,7 +72,9 @@ export async function login(
     throw new Error(body.message ?? "Invalid username or password");
   }
 
-  return res.json();
+  const result = (await res.json()) as LoginResult;
+  persistUserRolesForApprovalPages(result.userRoles);
+  return result;
 }
 
 // ─── logout ───────────────────────────────────────────────────────────────────

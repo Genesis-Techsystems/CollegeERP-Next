@@ -2,15 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { PencilIcon, Trash2 } from "lucide-react";
+import { FileSpreadsheet, FileText, PencilIcon, Trash2 } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { ConfirmDialog, FilterCard } from "@/common/components/feedback";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { DataTable, TableCard } from "@/common/components/table";
-import { StatusBadge } from "@/common/components/data-display";
+import {
+  CardHeadingTitle,
+  StatusBadge,
+} from "@/common/components/data-display";
 import { FilteredListPage, PageContainer } from "@/components/layout";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
+import { useSessionContext } from "@/context/SessionContext";
+import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
+import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
+import { downloadTablePdf } from "@/lib/pdf-table";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -55,6 +67,14 @@ function readStorageNum(key: string): number {
 function readStorage(key: string): string {
   if (typeof globalThis.window === "undefined") return "";
   return globalThis.localStorage.getItem(key) ?? "";
+}
+
+function positiveId(...candidates: unknown[]): number {
+  for (const c of candidates) {
+    const n = Number(c);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
 }
 
 /** Angular `momentFormatYMDPrint` → moment `ll` (e.g. Jul 29, 2026). */
@@ -174,6 +194,14 @@ const COL_DEFS = {
   } as ColDef<CollegeEventRow>,
 };
 
+/** Angular staff-events Excel / PDF export columns. */
+const STAFF_EXPORT_COLUMNS = [
+  { key: "siNo", header: "S.No", width: 55 },
+  { key: "eventName", header: "Event Name", width: 220 },
+  { key: "eventDate", header: "Event Date", width: 120 },
+  { key: "weekDay", header: "Week Day", width: 120 },
+] as const;
+
 function holidayRenderer(p: ICellRendererParams<CollegeEventRow>) {
   return (
     <StatusBadge
@@ -196,6 +224,24 @@ export function CollegeEventsPage({
   const isCalendarView = variant === "calendar-view";
   const useMonthCalendar = isManage || isCalendarView || isStaff || isStudent;
   const useStorageFilters = isStaff || isStudent || variant === "school";
+
+  // Angular reads these from localStorage at login; here the session is the
+  // source of truth and localStorage is only the (already synced) fallback.
+  const { user, isLoading: sessionLoading } = useSessionContext();
+  const { deptId: staffDeptId, loginCtx } = useStaffLoginContext(
+    user,
+    sessionLoading,
+  );
+  const empStatusCode = (
+    loginCtx?.empStatusCode ||
+    readStorage("empStatusCode") ||
+    "ACTV"
+  ).toUpperCase();
+  const empCategoryName =
+    loginCtx?.empCategoryName || readStorage("empCategoryName");
+  const empDeptId = positiveId(staffDeptId, readStorageNum("empDeptId"));
+  const collegeName = String(user?.collegeName ?? readStorage("collegeName"));
+  const collegeLogo = useCollegeLogo(user?.collegeId ?? null);
 
   const [colleges, setColleges] = useState<College[]>([]);
   const [collegeId, setCollegeId] = useState<number | null>(
@@ -230,6 +276,19 @@ export function CollegeEventsPage({
     [colleges, collegeId],
   );
 
+  // The session resolves after the first render, so the storage-driven filters
+  // have to pick the ids up when they arrive (Angular has them at login time).
+  useEffect(() => {
+    if (!useStorageFilters) return;
+    const cid = positiveId(readStorageNum("collegeId"), user?.collegeId);
+    const ayId = positiveId(
+      readStorageNum("academicYearId"),
+      user?.academicYearId,
+    );
+    if (cid) setCollegeId((prev) => prev ?? cid);
+    if (ayId) setAcademicYearId((prev) => prev ?? ayId);
+  }, [useStorageFilters, user?.collegeId, user?.academicYearId]);
+
   useEffect(() => {
     if (!useStorageFilters) {
       void listActiveCollegesForDepartments()
@@ -258,9 +317,10 @@ export function CollegeEventsPage({
   useEffect(() => {
     if (isStaff) {
       // Angular: Teaching → TCHNGSTF, else → NTCHNGSTF
-      const empCategoryName = readStorage("empCategoryName");
-      const audienceCode =
-        empCategoryName === "Teaching" ? "TCHNGSTF" : "NTCHNGSTF";
+      const category = empCategoryName.trim().toLowerCase();
+      const isTeachingStaff =
+        category.includes("teaching") && !category.includes("non");
+      const audienceCode = isTeachingStaff ? "TCHNGSTF" : "NTCHNGSTF";
       void listGeneralDetailsByMaster(GM_CODES.AUDIENCE).then((list) => {
         const match = list.find(
           (a) =>
@@ -287,7 +347,7 @@ export function CollegeEventsPage({
           );
       });
     }
-  }, [isStaff, isStudent]);
+  }, [isStaff, isStudent, empCategoryName]);
 
   const collegeOptions = useMemo(
     () =>
@@ -333,7 +393,7 @@ export function CollegeEventsPage({
       if (!collegeId || !academicYearId) return;
 
       // Angular staff-events: inactive employees see UI shell only (flag = true).
-      if (isStaff && readStorage("empStatusCode") !== "ACTV") {
+      if (isStaff && empStatusCode !== "ACTV") {
         setCalendarLoaded(true);
         setRows([]);
         return;
@@ -363,7 +423,7 @@ export function CollegeEventsPage({
             data = await listStaffAudienceEvents({
               collegeId,
               academicYearId,
-              departmentId: readStorageNum("empDeptId"),
+              departmentId: empDeptId,
               audienceTypeId: staffAudienceId,
               date: apiDate,
             });
@@ -403,6 +463,8 @@ export function CollegeEventsPage({
       calendarViewMode,
       staffAudienceId,
       useMonthCalendar,
+      empStatusCode,
+      empDeptId,
     ],
   );
 
@@ -594,6 +656,62 @@ export function CollegeEventsPage({
     [],
   );
 
+  /** Angular staff-events export rows: S.No, Event Name, Event Date, Week Day. */
+  const staffExportRows = useMemo(
+    () =>
+      rows.map((row, index) => {
+        const raw = String(row.startDate ?? row.eventDate ?? "");
+        return {
+          siNo: String(index + 1),
+          eventName: String(row.eventName ?? ""),
+          eventDate: formatStaffListEventDate(raw),
+          weekDay: formatWeekday(raw),
+        };
+      }),
+    [rows],
+  );
+
+  const handleStaffExcelExport = useCallback(() => {
+    if (staffExportRows.length === 0) {
+      toastError("No records to export.");
+      return;
+    }
+    const headerHtml = `<div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:bold;">${escapeHtml(collegeName)}</div>
+      <div style="font-size:13px;font-weight:bold;">( All Events )</div>
+    </div>`;
+    const tableHtml = buildHtmlTable(
+      STAFF_EXPORT_COLUMNS.map((c) => ({ key: c.key, header: c.header })),
+      staffExportRows as unknown as Record<string, unknown>[],
+    );
+    exportHtmlTableAsExcel("All Events.xls", tableHtml, headerHtml);
+  }, [staffExportRows, collegeName]);
+
+  /** Angular downloads the PDF straight away — no print dialog. */
+  const handleStaffPdfExport = useCallback(async () => {
+    if (staffExportRows.length === 0) {
+      toastError("No records to export.");
+      return;
+    }
+    try {
+      await downloadTablePdf({
+        fileName: "All Events.pdf",
+        title: collegeName,
+        subtitle: "( All Events )",
+        logoSrc: collegeLogo || DEFAULT_COLLEGE_LOGO,
+        columns: STAFF_EXPORT_COLUMNS.map((c) => ({
+          header: c.header,
+          width: c.width,
+        })),
+        rows: staffExportRows.map((row) =>
+          STAFF_EXPORT_COLUMNS.map((c) => row[c.key]),
+        ),
+      });
+    } catch (e) {
+      toastError(getErrorMessage(e) || "Failed to export PDF");
+    }
+  }, [staffExportRows, collegeName, collegeLogo]);
+
   async function handleSaveEvent(payload: CollegeEventRow) {
     try {
       await saveCollegeEvents([payload]);
@@ -701,92 +819,125 @@ export function CollegeEventsPage({
   );
 
   if (isStaff) {
-    const empStatusCode = readStorage("empStatusCode") || "ACTV";
     const isActiveEmployee = empStatusCode === "ACTV";
 
     return (
-      <PageContainer>
-        <div className="app-data-table app-data-table-card flex flex-col">
-          <div className="app-data-table-heading px-5 pt-5 pb-3">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              {pageTitle}
-            </h2>
+      <PageContainer className="space-y-3">
+        <div className="app-card overflow-hidden">
+          <div className="app-data-table-heading">
+            <CardHeadingTitle>Staff Events</CardHeadingTitle>
           </div>
+        </div>
 
-          {calendarLoaded ? (
-            <div className="px-5 pb-3">
-              <RadioGroup
-                value={calendarViewMode}
-                onValueChange={(v) =>
-                  onCalendarViewModeChange(v as "month" | "list")
-                }
-                className="flex flex-wrap gap-4"
+        {calendarLoaded ? (
+          <RadioGroup
+            value={calendarViewMode}
+            onValueChange={(v) =>
+              onCalendarViewModeChange(v as "month" | "list")
+            }
+            className="flex flex-wrap items-center gap-6 px-1 py-1"
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem
+                value="month"
+                id="staff-events-month"
+                className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+              />
+              <Label
+                htmlFor="staff-events-month"
+                className="cursor-pointer text-[15px] font-normal text-foreground"
               >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="month" id="staff-events-month" />
-                  <Label htmlFor="staff-events-month">Month Wise View</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="list" id="staff-events-list" />
-                  <Label htmlFor="staff-events-list">All Events List</Label>
-                </div>
-              </RadioGroup>
+                Month Wise View
+              </Label>
             </div>
-          ) : null}
-
-          {!isActiveEmployee && calendarLoaded ? (
-            <div className="px-5 pb-3">
-              <StaffInactiveBanner />
+            <div className="flex items-center gap-2">
+              <RadioGroupItem
+                value="list"
+                id="staff-events-list"
+                className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+              />
+              <Label
+                htmlFor="staff-events-list"
+                className="cursor-pointer text-[15px] font-normal text-foreground"
+              >
+                All Events List
+              </Label>
             </div>
-          ) : null}
+          </RadioGroup>
+        ) : null}
 
-          {calendarLoaded && calendarViewMode === "month" ? (
-            <div className="pb-4">
-              <EventsCalendarPanel
-                variant="staff"
-                embedded
-                viewMonth={viewMonth}
-                onViewMonthChange={(month) => {
-                  setViewMonth(month);
-                  setSelectedDate(month);
+        {!isActiveEmployee && calendarLoaded ? <StaffInactiveBanner /> : null}
+
+        {calendarLoaded && calendarViewMode === "month" ? (
+          <div>
+            <EventsCalendarPanel
+              variant="staff"
+              embedded
+              splitCards
+              viewMonth={viewMonth}
+              onViewMonthChange={(month) => {
+                setViewMonth(month);
+                setSelectedDate(month);
+              }}
+              events={rows}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              readOnly
+              sidebarEmptyMessage={
+                isActiveEmployee && rows.length === 0
+                  ? "No Events in this month."
+                  : undefined
+              }
+            />
+          </div>
+        ) : null}
+
+        {calendarLoaded && calendarViewMode === "list" ? (
+          <>
+            {rows.length > 0 ? (
+              <DataTable
+                title="All Events List"
+                rowData={rows}
+                columnDefs={staffListColumnDefs}
+                loading={loading}
+                pagination
+                paginationPageSize={10}
+                toolbar={{
+                  search: true,
+                  searchPlaceholder: "Search",
+                  exportExcel: false,
+                  exportPdf: false,
                 }}
-                events={rows}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-                readOnly
-                sidebarEmptyMessage={
-                  isActiveEmployee && rows.length === 0
-                    ? "No Events in this month."
-                    : undefined
+                toolbarTrailing={
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 px-3 text-[12px]"
+                      onClick={handleStaffExcelExport}
+                    >
+                      <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                      Excel Export
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 px-3 text-[12px]"
+                      onClick={() => void handleStaffPdfExport()}
+                    >
+                      <FileText className="mr-1.5 h-3.5 w-3.5" />
+                      PDF Export
+                    </Button>
+                  </div>
                 }
               />
-            </div>
-          ) : null}
-
-          {calendarLoaded && calendarViewMode === "list" ? (
-            <>
-              {rows.length > 0 ? (
-                <DataTable
-                  rowData={rows}
-                  columnDefs={staffListColumnDefs}
-                  loading={loading}
-                  pagination
-                  paginationPageSize={10}
-                  bordered={false}
-                  toolbar={{
-                    search: true,
-                    searchPlaceholder: "Search",
-                    pdfDocumentTitle: "All Events",
-                  }}
-                />
-              ) : (
-                <div className="px-5 py-8 text-center text-sm text-muted-foreground">
-                  No events found.
-                </div>
-              )}
-            </>
-          ) : null}
-        </div>
+            ) : (
+              <div className="app-card px-5 py-8 text-center text-sm text-muted-foreground">
+                No events found.
+              </div>
+            )}
+          </>
+        ) : null}
 
         {eventModals}
       </PageContainer>

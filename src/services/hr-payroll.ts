@@ -1277,6 +1277,94 @@ export async function listSelfAppraisalFormsByCollege(
   );
 }
 
+/**
+ * Angular `staff-faculty-details/appraisal-report`:
+ * principal lists active appraisals for the college; staff lists their own.
+ */
+export async function listStaffSelfAppraisals(params: {
+  isPrincipal: boolean;
+  collegeId: number;
+  employeeId: number;
+}): Promise<AnyRow[]> {
+  const scope: Record<string, string | number | boolean> = params.isPrincipal
+    ? { "college.collegeId": params.collegeId }
+    : { "employeeDetail.employeeId": params.employeeId };
+  if (
+    (params.isPrincipal && !params.collegeId) ||
+    (!params.isPrincipal && !params.employeeId)
+  ) {
+    return [];
+  }
+  return domainList<AnyRow>(
+    APPRAISAL_API.SELF_APPRAISAL,
+    buildQuery({ isActive: true, ...scope }),
+  );
+}
+
+/** Angular `listDetailsById(EmpSelfappraisal, id, 'empSelfappraisalId')`. */
+export async function getStaffSelfAppraisal(
+  empSelfappraisalId: number,
+): Promise<AnyRow | null> {
+  if (!empSelfappraisalId) return null;
+  const rows = await domainList<AnyRow>(
+    APPRAISAL_API.SELF_APPRAISAL,
+    buildQuery({ empSelfappraisalId }),
+  );
+  return rows[0] ?? null;
+}
+
+/** Angular `listByIds(employeedetailsbyid, employeeId, 'employeeId')`. */
+export async function getSelfAppraisalEmployeeDetails(
+  employeeId: number,
+): Promise<AnyRow | null> {
+  if (!employeeId) return null;
+  const data = await fetchDetails<unknown>(EMPLOYEE_API.DETAILS_BY_USER_ID, {
+    employeeId,
+  });
+  if (!data || typeof data !== "object") return null;
+  const rows = normalizeListPayload(data);
+  return rows[0] ?? (data as AnyRow);
+}
+
+/** Angular active `EmpContribution` rows for an employee. */
+export async function listSelfAppraisalContributions(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  if (!employeeId) return [];
+  return domainList<AnyRow>(
+    APPRAISAL_API.CONTRIBUTION,
+    buildQuery({
+      "employeeDetail.employeeId": employeeId,
+      isActive: true,
+    }),
+  );
+}
+
+export async function createSelfAppraisalContribution(
+  payload: AnyRow,
+): Promise<unknown> {
+  return domainCreate(APPRAISAL_API.CONTRIBUTION, payload);
+}
+
+export async function updateSelfAppraisalContribution(
+  empContributionId: number,
+  payload: AnyRow,
+): Promise<unknown> {
+  return domainUpdate(
+    APPRAISAL_API.CONTRIBUTION,
+    "empContributionId",
+    empContributionId,
+    payload,
+  );
+}
+
+/** Angular POST `empSelfappraisalDetails` (create and principal review). */
+export async function saveStaffSelfAppraisal(
+  payload: AnyRow[],
+): Promise<unknown> {
+  return postDetails(APPRAISAL_API.DETAILS, payload);
+}
+
 export async function createSelfAppraisalForm(
   payload: AnyRow,
 ): Promise<unknown> {

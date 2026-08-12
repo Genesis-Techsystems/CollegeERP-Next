@@ -317,6 +317,54 @@ export default function EmployeeDrilldownReportPage() {
         { field: "category", headerName: "Category", minWidth: 120 },
       ];
     }
+
+    if (position === "college") {
+      const collegeCode = steps[0]?.name || "AMS-1058";
+      return [
+        {
+          headerName: "Expand",
+          width: 90,
+          flex: 0,
+          sortable: false,
+          filter: false,
+          cellRenderer: makeExpandRenderer(expandRow),
+        },
+        {
+          headerName: "College",
+          minWidth: 140,
+          valueGetter: () => "College",
+          onCellClicked: (e) => {
+            if (e.data) expandRow(e.data);
+          },
+        },
+        {
+          headerName: collegeCode,
+          minWidth: 160,
+          valueGetter: () => collegeCode,
+          onCellClicked: (e) => {
+            if (e.data) expandRow(e.data);
+          },
+        },
+        {
+          field: "varaiableValue",
+          headerName: "Department",
+          minWidth: 180,
+          onCellClicked: (e) => {
+            if (e.data) expandRow(e.data);
+          },
+        },
+        {
+          field: "count",
+          headerName: "Employees Count",
+          minWidth: 150,
+          valueFormatter: (p) => formatCount(p.value),
+          onCellClicked: (e) => {
+            if (e.data) expandRow(e.data);
+          },
+        },
+      ];
+    }
+
     return [
       {
         headerName: "Expand",
@@ -328,15 +376,15 @@ export default function EmployeeDrilldownReportPage() {
       },
       {
         field: "varaiableName",
-        headerName: "",
-        minWidth: 120,
+        headerName: "College",
+        minWidth: 140,
         onCellClicked: (e) => {
           if (e.data) expandRow(e.data);
         },
       },
       {
         field: "varaiableValue",
-        headerName: "",
+        headerName: "College Code",
         minWidth: 160,
         onCellClicked: (e) => {
           if (e.data) expandRow(e.data);
@@ -352,7 +400,7 @@ export default function EmployeeDrilldownReportPage() {
         },
       },
     ];
-  }, [expandRow, isLeaf]);
+  }, [expandRow, isLeaf, position, steps]);
 
   const buildExportRows = () => {
     if (isLeaf) {
@@ -430,6 +478,14 @@ ${tableHtml}
   return (
     <FilteredListPage<DrillRow>
       title={REPORT_TITLE}
+      tableTitle={
+        position === "college" && steps[0]?.name ? steps[0].name : REPORT_TITLE
+      }
+      subtitle={
+        !isLeaf && rows.length > 0
+          ? `Grand Total: ${formatCount(grandTotal)}`
+          : undefined
+      }
       filters={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-3">

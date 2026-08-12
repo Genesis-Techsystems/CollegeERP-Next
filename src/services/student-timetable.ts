@@ -238,8 +238,19 @@ function dayColorFromWeekdayName(weekdayName: string): string {
   return "";
 }
 
+/** Angular view-timetable weekday column pastel (Monday light blue, Tuesday green, …). */
+export function timetableDayColorFromWeekdayName(weekdayName: string): string {
+  return dayColorFromWeekdayName(weekdayName);
+}
+
 /** Angular view-timetable `.table-th` header background. */
 export const TIMETABLE_HEADER_ROW_BG = "#C3D9FF";
+
+/** Angular create-timetable default cell fill when subject has no custom color. */
+export const TIMETABLE_ASSIGN_DEFAULT_CELL_BG = "#dedede";
+
+/** Angular timetable grid line color. */
+export const TIMETABLE_CELL_BORDER = "#c3d9ff";
 
 function text(row: AnyRow, keys: string[]): string {
   for (const key of keys) {
@@ -1472,11 +1483,19 @@ export function buildAngularStudentTimetable(
     const weekdayId = num(timing, ["weekdayId", "fk_weekday_id"]);
     const weekdayName = text(timing, ["weekdayName", "weekday_name"]);
 
-    // Angular create-timetable: use first resource colorCode when assigned
-    if (resources.length > 0 && resources[0].colorCode != null) {
-      timing.colorCode = resources[0].colorCode;
-    } else if (paintEmptyWithWeekdayColor) {
+    // View-timetable: weekday pastel per column. Assign-resource: subject resource color.
+    if (paintEmptyWithWeekdayColor) {
       timing.colorCode = dayColorFromWeekdayName(weekdayName);
+    } else {
+      const resourceColor =
+        resources.length > 0
+          ? text(resources[0], ["colorCode", "color_code"])
+          : "";
+      if (resourceColor) {
+        timing.colorCode = resourceColor;
+      } else if (resources.length > 0) {
+        timing.colorCode = TIMETABLE_ASSIGN_DEFAULT_CELL_BG;
+      }
     }
 
     const existing = weekdayMap.get(weekdayId);

@@ -392,7 +392,14 @@ function timetableReportsMenuBreadcrumb(
     "staff-timetable-report": "Staff Timetable Report",
     "staff-workload-report": "Staff Workload Report",
     "staff-proxy-report": "Staff Proxy Report",
+    "staff-class-diary-report": "Staff Class Diary Report",
+    "consolidated-staff-class-diary-report":
+      "Consolidated Staff Class Diary Report",
     "cca-activity-report": "CCA Activity Report",
+    "students-cca-activities": "Students CCA Activities",
+    "concession-list": "Institutional Scholarship List",
+    "scholarship-preceedings": "Scholarship Preceeding Report",
+    "finance-drilldown-report": "Finance Report",
   };
   const slug = path.startsWith(`${reportsRoot}/`)
     ? path.slice(reportsRoot.length + 1)

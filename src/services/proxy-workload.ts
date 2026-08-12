@@ -136,6 +136,35 @@ export async function listStaffProxies(
   }
 }
 
+/**
+ * Angular StaffProxyList (`staff-faculty-details/staff-workload-adjustment`).
+ *
+ * HOD / staff:  `staffproxiesbyempdept?departmentId=&proxyDate=`
+ * Principal:    `staffproxiesbyempdept?collegeId=&proxyDate=`
+ */
+export async function listStaffProxiesByEmpDept(params: {
+  isPrincipal: boolean;
+  departmentId?: number;
+  collegeId?: number;
+  proxyDate: string;
+}): Promise<AnyRow[]> {
+  const { isPrincipal, departmentId = 0, collegeId = 0, proxyDate } = params;
+  if (!proxyDate) return [];
+  const query: Record<string, string | number> = isPrincipal
+    ? { collegeId, proxyDate }
+    : { departmentId, proxyDate };
+  if (isPrincipal ? collegeId <= 0 : departmentId <= 0) return [];
+  try {
+    const data = await fetchDetails<unknown>(
+      EMPLOYEE_API.STAFF_PROXIESBY_EMP_DEPT,
+      query,
+    );
+    return normalizeListPayload(data);
+  } catch {
+    return [];
+  }
+}
+
 /** Angular POST `staffproxieslist` (array payload). */
 export async function saveStaffProxiesList(
   rows: AnyRow[],

@@ -266,6 +266,14 @@
     "route": "/admin-examination-management/exam-reports/exam-verification"
   },
   {
+    "label": "exam bundle scanning report",
+    "route": "/admin-examination-management/admin-exam-reports/exam-bundle-scanning-report"
+  },
+  {
+    "label": "exam bundle scaning report",
+    "route": "/admin-examination-management/admin-exam-reports/exam-bundle-scanning-report"
+  },
+  {
     "label": "examcenter question paper config",
     "route": "/admin-examination-management/exam-papers-delivery-process/univ-examcenter-question-paper-config"
   },
@@ -340,6 +348,14 @@
     "route": "/e-office/item-request"
   },
   {
+    "label": "item request approvals",
+    "route": "/principal-my-approvals/item-request-approvals"
+  },
+  {
+    "label": "item request approval",
+    "route": "/principal-my-approvals/item-request-approvals"
+  },
+  {
     "label": "internal return",
     "route": "/inventory-management/internal-item-return"
   },
@@ -350,6 +366,39 @@
   {
     "label": "invigilator remuneration report",
     "route": "/admin-examination-management/admin-exam-reports/invigilators-remuneration-report"
+  },
+  {
+    "label": "leave approval",
+    "route": "/principal-my-approvals/leave-approvals"
+  },
+  {
+    "label": "faculty performance assessment",
+    "route": "/staff-faculty-details/performance-assessment",
+    "hrefIncludes": "performance-assessment"
+  },
+  {
+    "label": "performance assessment",
+    "route": "/staff-faculty-details/performance-assessment",
+    "hrefIncludes": "staff-faculty-details/performance"
+  },
+  {
+    "label": "performance assessment",
+    "route": "/hr-payroll/employee/performance-assessment",
+    "hrefIncludes": "hr-payroll"
+  },
+  {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "staff-faculty-details"
+  },
+  {
+    "label": "faculty details",
+    "route": "/staff-faculty-details/faculty-details",
+    "hrefIncludes": "faculty-details"
+  },
+  {
+    "label": "leave approvals",
+    "route": "/principal-my-approvals/leave-approvals"
   },
   {
     "label": "leave application",
@@ -454,6 +503,11 @@
   {
     "label": "purchase order",
     "route": "/e-office/payment-note-request"
+  },
+  {
+    "label": "payment note approvals",
+    "route": "/principal-my-approvals/payment-note-approvals",
+    "hrefIncludes": "principal-my-approvals/payment-note-approvals"
   },
   {
     "label": "re-assign evaluator",

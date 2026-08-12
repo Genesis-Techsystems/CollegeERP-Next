@@ -152,30 +152,56 @@ export function normalizeHref(path: string): string {
       /\/apps\/reports\/admin-exam-reports(?=\/|$)/gi,
       "/admin-examination-management/admin-exam-reports",
     )
-    // Angular Leave Requests — principal leave-applications (+ legacy leave-approvals mounts).
-    .replace(
-      /\/principal-my-approvals\/leave-approvals(?=\/|$)/gi,
-      "/principal-my-approvals/leave-applications",
-    )
+    // Angular Leave Approvals — keep path (do not remap to leave-applications).
+    // Alias mounts under my-leaves / faculty-details → principal leave-approvals.
     .replace(
       /\/faculty-details\/leave-approvals(?=\/|$)/gi,
-      "/principal-my-approvals/leave-applications",
+      "/principal-my-approvals/leave-approvals",
     )
     .replace(
       /\/my-leaves\/leave-approvals(?=\/|$)/gi,
-      "/principal-my-approvals/leave-applications",
+      "/principal-my-approvals/leave-approvals",
     )
     .replace(
       /\/apps\/principal-my-approvals\/leave-approvals(?=\/|$)/gi,
-      "/principal-my-approvals/leave-applications",
+      "/principal-my-approvals/leave-approvals",
     )
+    .replace(
+      /\/apps\/faculty-details\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-approvals",
+    )
+    .replace(
+      /\/apps\/my-leaves\/leave-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/leave-approvals",
+    )
+    // Angular Leave Requests (leave-application / leave-applications).
     .replace(
       /\/apps\/principal-my-approvals\/leave-applications(?=\/|$)/gi,
       "/principal-my-approvals/leave-applications",
     )
+    // Angular Fee Concession Approvals (principal-my-approvals).
     .replace(
-      /\/apps\/faculty-details\/leave-approvals(?=\/|$)/gi,
-      "/principal-my-approvals/leave-applications",
+      /\/apps\/principal-my-approvals\/fee-concession-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/fee-concession-approvals",
+    )
+    // Angular Payment Note Approvals (principal-my-approvals).
+    .replace(
+      /\/apps\/principal-my-approvals\/payment-note-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/payment-note-approvals",
+    )
+    // Angular Item Request Approvals (principal-my-approvals).
+    .replace(
+      /\/apps\/principal-my-approvals\/item-request-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/item-request-approvals",
+    )
+    // Angular Detain Request Approvals (principal-my-approvals).
+    .replace(
+      /\/apps\/principal-my-approvals\/detain-request-approvals(?=\/|$)/gi,
+      "/principal-my-approvals/detain-request-approvals",
+    )
+    .replace(
+      /\/principal-my-approvals\/detain-request-approval(?=\/|$)/gi,
+      "/principal-my-approvals/detain-request-approvals",
     )
     // Some exam-report pages live under `/exam-reports/` (not `/admin-exam-reports/`).
     // After the prefix rewrite above, remap those known slugs so Search + nav hrefs
@@ -367,6 +393,19 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/(?:apps\/)?examination\/admin-exam-reports\/exam-verification(?=\/|$)/gi,
       "/admin-examination-management/exam-reports/exam-verification",
+    )
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?(?:admin-)?exam-reports\/exam-bundle-scanning-report(?=\/|$)/gi,
+      "/admin-examination-management/admin-exam-reports/exam-bundle-scanning-report",
+    )
+    .replace(
+      /\/(?:apps\/)?examination\/admin-exam-reports\/exam-bundle-scanning-report(?=\/|$)/gi,
+      "/admin-examination-management/admin-exam-reports/exam-bundle-scanning-report",
+    )
+    // Scanning child reports (Angular admin-exam-reports/*) — keep under admin-exam-reports.
+    .replace(
+      /\/(?:apps\/)?(?:reports\/)?exam-reports\/(bundle-scanning-report|scaning-operator-performance-report|exam-wise-scaning-summary-report|scan-file-track-report|bundle-tracking-status-report|subject-wise-scaning-report|scan-logs-report|scan-bundle-papers-summary-report)(?=\/|$)/gi,
+      "/admin-examination-management/admin-exam-reports/$1",
     )
     // Angular Accounts & Fees module (`accounts-fees` in router) → App Router path.
     .replace(/\/accounts-fees\//gi, "/accounts-and-fees/")

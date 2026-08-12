@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
@@ -91,7 +91,10 @@ function buildMasterPrintHtml(
   const weekdayPanels = pivot.totalWeekdays
     .map((week) => {
       const headerCells = pivot.keys
-        .map((k) => `<th style="text-align:center;padding:4px;">${escapeHtml(k.time)}</th>`)
+        .map(
+          (k) =>
+            `<th style="text-align:center;padding:4px;">${escapeHtml(k.time)}</th>`,
+        )
         .join("");
       const bodyRows = week.list
         .map((row) => {
@@ -150,12 +153,62 @@ function buildMasterPrintHtml(
 
 export default function MasterTimetableReportPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading: sessionLoading } = useSession();
   const { employeeId: loginEmployeeId } = useLoginEmployeeId(
     user,
     sessionLoading,
   );
+
+  const isPrincipal = useMemo(() => {
+    if (pathname.includes("staff-reports") || pathname.includes("principal")) {
+      return true;
+    }
+    if (user?.isPrincipal) return true;
+    if (
+      user?.userRole?.toUpperCase().includes("PRINCIPAL") ||
+      user?.roleName?.toUpperCase().includes("PRINCIPAL") ||
+      user?.userTypeCode?.toUpperCase().includes("PRINCIPAL")
+    ) {
+      return true;
+    }
+    if (typeof window === "undefined") return false;
+    const storage = globalThis.localStorage;
+    const isPStorage =
+      storage.getItem("isPRINCIPAL") === "true" ||
+      storage.getItem("isPrincipal") === "true";
+    const roleName = String(storage.getItem("roleName") ?? "").toUpperCase();
+    const userRole = String(storage.getItem("userRole") ?? "").toUpperCase();
+    const userTypeCode = String(
+      storage.getItem("userTypeCode") ?? "",
+    ).toUpperCase();
+    const isAdminStorage = storage.getItem("isAdmin") === "true";
+
+    if (
+      isPStorage ||
+      roleName.includes("PRINCIPAL") ||
+      userRole.includes("PRINCIPAL") ||
+      userTypeCode.includes("PRIN")
+    ) {
+      return true;
+    }
+    if (
+      !user?.isAdmin &&
+      !isAdminStorage &&
+      (userTypeCode === "STAFF" || userRole === "STAFF")
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    pathname,
+    user?.isPrincipal,
+    user?.userRole,
+    user?.roleName,
+    user?.userTypeCode,
+    user?.isAdmin,
+  ]);
 
   const [collegeId, setCollegeId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -228,51 +281,62 @@ export default function MasterTimetableReportPage() {
 
   const collegeOptions = useMemo(
     () =>
-      toSelectOptions(colleges, ["fk_college_id", "collegeId"], [
-        "college_code",
-        "collegeCode",
-      ]),
+      toSelectOptions(
+        colleges,
+        ["fk_college_id", "collegeId"],
+        ["college_code", "collegeCode"],
+      ),
     [colleges],
   );
   const ayOptions = useMemo(
     () =>
-      toSelectOptions(academicYears, ["fk_academic_year_id", "academicYearId"], [
-        "academic_year",
-        "academicYear",
-      ]),
+      toSelectOptions(
+        academicYears,
+        ["fk_academic_year_id", "academicYearId"],
+        ["academic_year", "academicYear"],
+      ),
     [academicYears],
   );
   const courseOptions = useMemo(
     () =>
-      toSelectOptions(courses, ["fk_course_id", "courseId"], [
-        "course_code",
-        "courseCode",
-      ]),
+      toSelectOptions(
+        courses,
+        ["fk_course_id", "courseId"],
+        ["course_code", "courseCode"],
+      ),
     [courses],
   );
   const groupOptions = useMemo(
     () =>
-      toSelectOptions(courseGroups, ["fk_course_group_id", "courseGroupId"], [
-        "group_code",
-        "groupCode",
-      ]),
+      toSelectOptions(
+        courseGroups,
+        ["fk_course_group_id", "courseGroupId"],
+        ["group_code", "groupCode"],
+      ),
     [courseGroups],
   );
   const yearOptions = useMemo(
     () => [
       { value: "0", label: "Select" },
-      ...toSelectOptions(courseYears, ["fk_course_year_id", "courseYearId"], [
-        "course_year_name",
-        "courseYearName",
-      ]),
+      ...toSelectOptions(
+        courseYears,
+        ["fk_course_year_id", "courseYearId"],
+        ["course_year_name", "courseYearName"],
+      ),
     ],
     [courseYears],
   );
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -283,11 +347,18 @@ export default function MasterTimetableReportPage() {
     }
     if (
       !academicYears.some(
-        (r) => num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId),
+        (r) =>
+          num(r.fk_academic_year_id ?? r.academicYearId) ===
+          Number(academicYearId),
       )
     ) {
       setAcademicYearId(
-        String(num(academicYears[0].fk_academic_year_id ?? academicYears[0].academicYearId)),
+        String(
+          num(
+            academicYears[0].fk_academic_year_id ??
+              academicYears[0].academicYearId,
+          ),
+        ),
       );
     }
   }, [academicYears, academicYearId]);
@@ -297,7 +368,11 @@ export default function MasterTimetableReportPage() {
       setCourseId("");
       return;
     }
-    if (!courses.some((r) => num(r.fk_course_id ?? r.courseId) === Number(courseId))) {
+    if (
+      !courses.some(
+        (r) => num(r.fk_course_id ?? r.courseId) === Number(courseId),
+      )
+    ) {
       setCourseId(String(num(courses[0].fk_course_id ?? courses[0].courseId)));
     }
   }, [courses, courseId]);
@@ -309,11 +384,17 @@ export default function MasterTimetableReportPage() {
     }
     if (
       !courseGroups.some(
-        (r) => num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId),
+        (r) =>
+          num(r.fk_course_group_id ?? r.courseGroupId) ===
+          Number(courseGroupId),
       )
     ) {
       setCourseGroupId(
-        String(num(courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId)),
+        String(
+          num(
+            courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId,
+          ),
+        ),
       );
     }
   }, [courseGroups, courseGroupId]);
@@ -343,7 +424,9 @@ export default function MasterTimetableReportPage() {
     const ayRow = academicYears.find(
       (r) => num(r.fk_academic_year_id ?? r.academicYearId) === ay,
     );
-    const course = courses.find((r) => num(r.fk_course_id ?? r.courseId) === coid);
+    const course = courses.find(
+      (r) => num(r.fk_course_id ?? r.courseId) === coid,
+    );
     const group = courseGroups.find(
       (r) => num(r.fk_course_group_id ?? r.courseGroupId) === gid,
     );
@@ -501,17 +584,19 @@ export default function MasterTimetableReportPage() {
               placeholder="Course Year"
               disabled={!courseGroupId}
             />
-            <Select
-              label="Semester"
-              required
-              value={semester}
-              onChange={(v) => {
-                setSemester(v ?? "1");
-                clearResults();
-              }}
-              options={SEM_OPTIONS}
-              placeholder="Semester"
-            />
+            {!isPrincipal && (
+              <Select
+                label="Semester"
+                required
+                value={semester}
+                onChange={(v) => {
+                  setSemester(v ?? "1");
+                  clearResults();
+                }}
+                options={SEM_OPTIONS}
+                placeholder="Semester"
+              />
+            )}
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-full min-w-[10rem] sm:w-auto sm:min-w-[12rem]">

@@ -1629,6 +1629,8 @@ export const E_OFFICE_API = {
   INV_PURCHASE_RETURN: "purchasereturns",
   INV_INTERNAL_INDENT: "invInternalIndent",
   UPDATE_INV_INTERNAL_INDENT: "updateInvInternalIndent",
+  /** Angular `getInventoryApprovalsDetailsUrl` */
+  GET_INV_INTERNALINDENT_DETAILS: "s_get_inv_internalindentdetails",
   INV_INTERNAL_ISSUE: "invinternalissue",
   INV_INTERNAL_RETURN: "invinternalreturn",
   FIN_BUDGET_DETAILS: "s_get_fin_budgetdetails_bycode",
@@ -1661,6 +1663,10 @@ export const E_OFFICE_API = {
   SEARCH_TRAKABLE_ITEMS: "searchTrakableItems",
   /** Angular `OfficeLetterFormatsUrl` */
   OFFICE_LETTER_FORMATS: "OfficeLetterFormats",
+  /** Angular `invPruchaseOrderDetailsUrl` → getAllRecords/s_get_inv_purchaseorderdetails */
+  INV_PO_DETAILS: "s_get_inv_purchaseorderdetails",
+  /** Angular `invPurchaseOrderUrl` — PO workflow approval update */
+  INV_PO_WORKFLOW: "invPurchaseOrder",
 } as const;
 
 // ─── Subject / Regulation ────────────────────────────────────────────────────
@@ -2096,6 +2102,8 @@ export const UNIV_EXAM_CENTER_API = {
   EC_COLLEGE_DETAILS: "UnivEcCollegeDetails",
   /** GET: `getAllRecords/s_get_exam_center_bycode` — exam-center filters / group-year-subject mapping */
   GET_COLLEGE_EXAM_CENTERS: "s_get_exam_center_bycode",
+  /** GET: `getAllRecords/s_get_bundle_wise_scanning_report_summary` — Angular getBundleWiseScanning */
+  BUNDLE_WISE_SCANNING_REPORT: "s_get_bundle_wise_scanning_report_summary",
   /** GET: `getAllRecords/s_get_exam_center_details` — bundle/scan lists (Angular getCollegeExamCentersUrl) */
   GET_COLLEGE_EXAM_CENTER_DETAILS: "s_get_exam_center_details",
   /** POST: add univ EC college details */

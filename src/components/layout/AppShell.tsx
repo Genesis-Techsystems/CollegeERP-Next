@@ -90,6 +90,9 @@ export function AppShell({
     const root = pageContentRef.current;
     if (!root) return;
 
+    let cancelled = false;
+    let tagTimer: ReturnType<typeof setTimeout> | undefined;
+
     const isCardShell = (el: Element) => {
       const cls = typeof el.className === "string" ? el.className : "";
       if (el.classList.contains("app-card")) return true;
@@ -102,6 +105,7 @@ export function AppShell({
     };
 
     const tag = () => {
+      if (cancelled) return;
       const candidates = root.querySelectorAll(
         ":scope > *:not([data-breadcrumb-card]) > div, :scope > *:not([data-breadcrumb-card]) > * > div",
       );
@@ -121,12 +125,12 @@ export function AppShell({
       }
     };
 
-    // Run after hydration — imperative setAttribute during the first paint
-    // causes React hydration mismatches on Client Components (e.g. AngularFilterCard).
-    let timeoutId: number | undefined;
+    // Defer imperative attribute writes until after React hydration. The
+    // MutationObserver fires synchronously when Suspense/streamed children
+    // mount; setAttribute before hydrate causes mismatches on Client Components.
     const scheduleTag = () => {
-      if (timeoutId != null) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(tag, 0);
+      clearTimeout(tagTimer);
+      tagTimer = setTimeout(tag, 0);
     };
 
     scheduleTag();
@@ -134,8 +138,11 @@ export function AppShell({
     const observer = new MutationObserver(scheduleTag);
     observer.observe(root, { childList: true, subtree: true });
     return () => {
-      observer.disconnect();
-      if (timeoutId != null) window.clearTimeout(timeoutId);
+      {
+        cancelled = true;
+        clearTimeout(tagTimer);
+        observer.disconnect();
+      }
     };
   }, [pathname, mounted]);
 

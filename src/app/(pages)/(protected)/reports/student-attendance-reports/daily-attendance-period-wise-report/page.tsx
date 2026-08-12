@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Daily Attendance Period Wise Report —
+ * Student Daily Attendance Report —
  * Angular `daily-attendance-report` and `daily-period-attendance-report` parity
  * (College / AY / Course / Group / Year / Section / Date; table after Get).
  * On-screen grid uses FilteredListPage (same UI as Day-wise Attendance Summary).
@@ -86,10 +86,25 @@ type GridRow = {
   siNo: string | number;
   rollNumber: string;
   student: string;
+  studentName: string;
+  studentMobile: string;
   totalPeriods: string;
 } & Record<string, string | number | boolean | undefined>;
 
-const REPORT_TITLE = "Daily Attendance Period Wise Report";
+type PeriodTotals = { present: number; absent: number; strength: number };
+
+/** Angular footer rows under the period matrix. */
+const TOTAL_ROWS: {
+  id: string;
+  label: string;
+  pick: (t: PeriodTotals) => number;
+}[] = [
+  { id: "total-present", label: "Total Present", pick: (t) => t.present },
+  { id: "total-absent", label: "Total Absent", pick: (t) => t.absent },
+  { id: "total-strength", label: "Total Strength", pick: (t) => t.strength },
+];
+
+const REPORT_TITLE = "Student Daily Attendance Report";
 const PRINT_TITLE = "Day Wise Attendance Report";
 
 function str(v: unknown): string {
@@ -97,9 +112,31 @@ function str(v: unknown): string {
   return String(v);
 }
 
+function formatPrintedDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}-${month}-${d.getFullYear()}`;
+}
+
 function attField(periodNo: string, key: string | null): string {
   const safe = `${periodNo}_${key ?? "_"}`.replace(/[^a-zA-Z0-9_-]/g, "_");
   return `att_${safe}`;
+}
+
+function findAttendanceRecord(
+  resultList: AnyRow[],
+  student: StudentAtt,
+  periodNo: string,
+  key: string | null,
+): AnyRow | undefined {
+  return resultList.find((r) => {
+    if (str(r.RollNo) !== student.rollNumber) return false;
+    if (str(r.Period_no) !== periodNo) return false;
+    const type = str(r.subject_type);
+    if (type === "LAB") return str(r.batch_name) === (key ?? "");
+    if (type === "ELECTIVE") return str(r.subject_short_name) === (key ?? "");
+    return true;
+  });
 }
 
 function getAttendance(
@@ -108,15 +145,29 @@ function getAttendance(
   periodNo: string,
   key: string | null,
 ): string {
-  const record = resultList.find((r) => {
-    if (str(r.RollNo) !== student.rollNumber) return false;
-    if (str(r.Period_no) !== periodNo) return false;
-    const type = str(r.subject_type);
-    if (type === "LAB") return str(r.batch_name) === (key ?? "");
-    if (type === "ELECTIVE") return str(r.subject_short_name) === (key ?? "");
-    return true;
-  });
+  const record = findAttendanceRecord(resultList, student, periodNo, key);
   return record ? str(record.Present_Classes) || "-" : "-";
+}
+
+/** Strength counts students with a record for the period, marked or not. */
+function computeColumnTotals(
+  resultList: AnyRow[],
+  studentAttendance: StudentAtt[],
+  periodNo: string,
+  key: string | null,
+): PeriodTotals {
+  let present = 0;
+  let absent = 0;
+  let strength = 0;
+  for (const student of studentAttendance) {
+    const record = findAttendanceRecord(resultList, student, periodNo, key);
+    if (!record) continue;
+    strength += 1;
+    const val = str(record.Present_Classes);
+    if (val === "A") absent += 1;
+    else if (val !== "" && val !== "-") present += 1;
+  }
+  return { present, absent, strength };
 }
 
 function transformDailyRows(rows: AnyRow[]) {
@@ -249,35 +300,63 @@ function presentCellRenderer(p: ICellRendererParams<GridRow>) {
   return val || "-";
 }
 
+/** Angular renders the student name and father's mobile on separate lines. */
+function studentCellRenderer(p: ICellRendererParams<GridRow>) {
+  const row = p.data;
+  if (!row) return "";
+  // Total rows carry their label here so the column borders stay unbroken.
+  if (!row.studentName) return row.student || "";
+  return (
+    <div className="leading-tight">
+      <div>{row.studentName}</div>
+      {row.studentMobile ? <div>({row.studentMobile})</div> : null}
+    </div>
+  );
+}
+
+const LEADING_COLS: ColDef<GridRow>[] = [
+  {
+    colId: "siNo",
+    field: "siNo",
+    headerName: "S.No",
+    // Caps let the period matrix absorb the leftover width, not the ID columns.
+    width: 70,
+    minWidth: 60,
+    maxWidth: 90,
+    pinned: "left",
+    sortable: false,
+    filter: false,
+    // Total rows leave this blank; without this AG Grid infers a number column
+    // and renders their empty label as "Invalid Number".
+    cellDataType: false,
+  },
+  {
+    colId: "rollNumber",
+    field: "rollNumber",
+    headerName: "Roll No.",
+    minWidth: 110,
+    maxWidth: 150,
+    pinned: "left",
+  },
+  {
+    colId: "student",
+    field: "student",
+    headerName: "Student",
+    minWidth: 180,
+    maxWidth: 260,
+    pinned: "left",
+    cellRenderer: studentCellRenderer,
+    cellStyle: (p) =>
+      p.node?.rowPinned === "bottom"
+        ? { textAlign: "right", fontWeight: 600 }
+        : null,
+  },
+];
+
 function buildGridColumnDefs(
   attCols: AttCol[],
 ): (ColDef<GridRow> | ColGroupDef<GridRow>)[] {
-  const cols: (ColDef<GridRow> | ColGroupDef<GridRow>)[] = [
-    {
-      colId: "siNo",
-      field: "siNo",
-      headerName: "S.No",
-      width: 70,
-      flex: 0,
-      pinned: "left",
-      sortable: false,
-      filter: false,
-    },
-    {
-      colId: "rollNumber",
-      field: "rollNumber",
-      headerName: "Roll No.",
-      minWidth: 110,
-      pinned: "left",
-    },
-    {
-      colId: "student",
-      field: "student",
-      headerName: "Student",
-      minWidth: 200,
-      pinned: "left",
-    },
-  ];
+  const cols: (ColDef<GridRow> | ColGroupDef<GridRow>)[] = [...LEADING_COLS];
 
   const byPeriod = new Map<string, AttCol[]>();
   for (const col of attCols) {
@@ -300,9 +379,12 @@ function buildGridColumnDefs(
         field: only.field,
         headerName: `${groupHeader}\n${only.childHeader}`,
         headerTooltip: str(period.Subject_name),
+        headerClass: "app-header-lines",
         wrapHeaderText: true,
         autoHeaderHeight: true,
         minWidth: 110,
+        // Marks are text, totals rows are numbers — skip AG Grid type inference.
+        cellDataType: false,
         cellRenderer: presentCellRenderer,
         cellClass: "text-center",
       });
@@ -311,6 +393,7 @@ function buildGridColumnDefs(
 
     cols.push({
       headerName: groupHeader,
+      headerClass: "app-header-lines",
       marryChildren: true,
       children: periodCols.map(
         (c) =>
@@ -318,6 +401,7 @@ function buildGridColumnDefs(
             colId: c.field,
             field: c.field,
             headerName: c.childHeader,
+            headerClass: "app-header-lines",
             headerTooltip: str(
               c.period.batches.find((b) =>
                 c.period.subject_type === "LAB"
@@ -328,6 +412,7 @@ function buildGridColumnDefs(
             wrapHeaderText: true,
             autoHeaderHeight: true,
             minWidth: 120,
+            cellDataType: false,
             cellRenderer: presentCellRenderer,
             cellClass: "text-center",
           }) as ColDef<GridRow>,
@@ -339,7 +424,8 @@ function buildGridColumnDefs(
     colId: "totalPeriods",
     field: "totalPeriods",
     headerName: "Total Periods",
-    minWidth: 110,
+    minWidth: 100,
+    maxWidth: 140,
     cellClass: "text-center",
   });
 
@@ -353,17 +439,19 @@ function buildGridRows(opts: {
 }): GridRow[] {
   const { studentAttendance, resultList, attCols } = opts;
 
-  // Student rows only — Angular data table has no Total Present/Absent/Strength rows.
   return studentAttendance.map((student, i) => {
     const total =
       student.classes_attended != null || student.total_clasess != null
         ? `${str(student.classes_attended) || "0"}/${str(student.total_clasess) || "0"}`
         : "";
+    const mobile = str(student.Father_Mobile_No);
     const row: GridRow = {
       __rowId: `stu-${student.rollNumber}`,
       siNo: i + 1,
       rollNumber: student.rollNumber,
-      student: `${student.firstName} (${str(student.Father_Mobile_No)})`,
+      student: mobile ? `${student.firstName} (${mobile})` : student.firstName,
+      studentName: student.firstName,
+      studentMobile: mobile,
       totalPeriods: total,
     };
     for (const col of attCols) {
@@ -374,6 +462,42 @@ function buildGridRows(opts: {
         col.key,
       );
     }
+    return row;
+  });
+}
+
+/** Angular Total Present / Absent / Strength footer, pinned so paging keeps it. */
+function buildPinnedTotalRows(opts: {
+  studentAttendance: StudentAtt[];
+  resultList: AnyRow[];
+  attCols: AttCol[];
+}): GridRow[] {
+  const { studentAttendance, resultList, attCols } = opts;
+  if (studentAttendance.length === 0) return [];
+
+  const totals = attCols.map((col) =>
+    computeColumnTotals(
+      resultList,
+      studentAttendance,
+      col.period.Period_no,
+      col.key,
+    ),
+  );
+
+  return TOTAL_ROWS.map(({ id, label, pick }) => {
+    const row: GridRow = {
+      __rowId: id,
+      siNo: "",
+      rollNumber: "",
+      student: label,
+      studentName: "",
+      studentMobile: "",
+      totalPeriods: "",
+    };
+    attCols.forEach((col, i) => {
+      const t = totals[i];
+      if (t) row[col.field] = pick(t);
+    });
     return row;
   });
 }
@@ -441,6 +565,43 @@ function buildPeriodBodyCells(
   return cells;
 }
 
+function buildTotalsRowsHtml(opts: {
+  groupedPeriods: GroupedPeriod[];
+  studentAttendance: StudentAtt[];
+  resultList: AnyRow[];
+}): string {
+  const { groupedPeriods, studentAttendance, resultList } = opts;
+  if (studentAttendance.length === 0) return "";
+  const cell = "border:1px solid #333;padding:3px 5px;text-align:center;";
+
+  return TOTAL_ROWS.map(({ label, pick }) => {
+    let cells = "";
+    for (const period of groupedPeriods) {
+      const isSplit =
+        period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
+      const keys = isSplit
+        ? period.batches.map((b) =>
+            period.subject_type === "LAB" ? b.batch_name : b.subject,
+          )
+        : [null];
+      for (const key of keys) {
+        const totals = computeColumnTotals(
+          resultList,
+          studentAttendance,
+          period.Period_no,
+          key,
+        );
+        cells += `<td style="${cell}">${pick(totals)}</td>`;
+      }
+    }
+    return `<tr>
+      <td colspan="3" style="border:1px solid #333;padding:3px 5px;text-align:right;font-weight:600;">${escapeHtml(label)}</td>
+      ${cells}
+      <td style="${cell}"></td>
+    </tr>`;
+  }).join("");
+}
+
 function buildReportTableHtml(opts: {
   groupedPeriods: GroupedPeriod[];
   studentAttendance: StudentAtt[];
@@ -489,7 +650,7 @@ function buildReportTableHtml(opts: {
     </tr>
     <tr>${row2}</tr>
   </thead>
-  <tbody>${body}</tbody>
+  <tbody>${body}${buildTotalsRowsHtml({ groupedPeriods, studentAttendance, resultList })}</tbody>
 </table>
 <div style="padding:8px 0;margin-top:8px;">
   <p style="margin:7px 0;"><span style="font-weight:500;color:red;">Note :</span></p>
@@ -564,6 +725,14 @@ export default function DailyAttendancePeriodWiseReportPage() {
             resultList,
             attCols,
           })
+        : [],
+    [showTable, studentAttendance, resultList, attCols],
+  );
+
+  const pinnedTotalRows = useMemo(
+    () =>
+      showTable
+        ? buildPinnedTotalRows({ studentAttendance, resultList, attCols })
         : [],
     [showTable, studentAttendance, resultList, attCols],
   );
@@ -685,6 +854,7 @@ th,td{border:1px solid #333;padding:3px 5px}
 th{background:#e8f0fe;text-align:center}
 </style></head><body>
 ${headerHtml}
+<div style="font-size:11px;margin:0 0 6px;">Printed Date : ${formatPrintedDate(new Date())}</div>
 ${tableHtml}
 </body></html>`);
   }, [collegeLogo, collegeName, dataDetails, orgCode, tableHtml]);
@@ -803,12 +973,13 @@ ${tableHtml}
       showTable={showTable}
       rowData={gridRows}
       columnDefs={columnDefs}
+      pinnedBottomRowData={pinnedTotalRows}
+      rowHeight={48}
       loading={loadingList}
       resultsVisible={showTable}
       hideEmptyGrid
       pagination
       paginationPageSize={25}
-      fitColumnsToWidth={false}
       autoHeight
       getRowId={(p) => String(p.data?.__rowId ?? "")}
       toolbar={{

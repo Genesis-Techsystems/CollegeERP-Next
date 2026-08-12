@@ -34,6 +34,22 @@ export interface SelectOption {
   title?: string;
   /** Secondary line under the label (e.g. course-group names on subject options). */
   description?: string;
+  /**
+   * Rich rendering of the label inside the dropdown list. The trigger, tooltip
+   * and search filter keep using the plain `label`.
+   */
+  labelNode?: React.ReactNode;
+  /**
+   * Optional leading thumbnail — mirrors the Angular `search-img` option layout
+   * used by employee / student pickers.
+   */
+  image?: {
+    src: string;
+    /** Swapped in when `src` fails to load (Angular `onerror` default avatar). */
+    fallbackSrc?: string;
+    /** Extra classes, e.g. the active / inactive ring colour. */
+    className?: string;
+  };
 }
 
 export interface SelectProps {
@@ -405,9 +421,29 @@ export function Select({
                       wrapOptionLabels || opt.description
                         ? "items-start"
                         : "items-center",
+                      opt.image && "py-2",
                       isSelected && "mat-select-panel__option--active",
                     )}
                   >
+                    {opt.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={opt.image.src}
+                        alt=""
+                        aria-hidden="true"
+                        className={cn(
+                          "h-10 w-10 shrink-0 rounded-full object-cover",
+                          opt.image.className,
+                        )}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          const fallback = opt.image?.fallbackSrc;
+                          if (fallback && !img.src.endsWith(fallback)) {
+                            img.src = fallback;
+                          }
+                        }}
+                      />
+                    ) : null}
                     <span
                       className={cn(
                         "min-w-0 flex-1 text-left",
@@ -422,7 +458,7 @@ export function Select({
                           opt.description ? "truncate" : undefined,
                         )}
                       >
-                        {opt.label}
+                        {opt.labelNode ?? opt.label}
                       </span>
                       {opt.description ? (
                         <span className="mt-0.5 block text-[12px] font-normal text-black/54 leading-4 whitespace-normal break-words">

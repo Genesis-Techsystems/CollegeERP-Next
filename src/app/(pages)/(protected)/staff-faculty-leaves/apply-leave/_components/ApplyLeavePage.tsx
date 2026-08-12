@@ -115,7 +115,7 @@ function LeaveStatusCell({ row }: { row: AnyRow }) {
   } else if (code === "LPSREJECTED" || code === "LPSCANCEL") {
     className = "text-destructive font-medium";
   } else if (code === "LPSAPPLIED") {
-    className = "text-blue-600 font-medium";
+    className = "text-[#0c51a4] font-medium";
   }
   return <span className={className}>{label}</span>;
 }
@@ -443,7 +443,7 @@ export function ApplyLeavePage() {
             <span>
               {String(row.assignedEmployeeFirstName ?? "")}
               {row.assignedEmpNumber || row.employeeNumber ? (
-                <span className="text-blue-600">
+                <span className="text-[#0c51a4]">
                   {" "}
                   ({String(row.assignedEmpNumber ?? row.employeeNumber)})
                 </span>
@@ -542,78 +542,98 @@ export function ApplyLeavePage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
+      bodyClassName="px-5 pt-2 pb-4"
+      tableHeader={
+        <div className="table-context-header">
+          <span
+            className="material-icons table-context-header__icon"
+            aria-hidden
+          >
+            desktop_windows
+          </span>
+          <strong className="table-context-header__title">Leave Details</strong>
+        </div>
+      }
       body={
         leaveYear != null ? (
-          <div className="space-y-4">
-            <div className="flex gap-4 items-start border rounded-md p-3 bg-muted/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoSrc || DEFAULT_EMPLOYEE_PHOTO}
-                alt=""
-                className="h-20 w-20 object-cover rounded border bg-background"
-                onError={(e) => {
-                  const image = e.currentTarget;
-                  if (!image.src.endsWith("default_Student.png")) {
-                    image.src = DEFAULT_EMPLOYEE_PHOTO;
-                  }
-                }}
-              />
-              <div className="space-y-0.5 text-sm">
-                <p className="text-blue-600 font-medium">
+          <div className="space-y-3">
+            <div className="flex items-stretch overflow-hidden rounded-[3px] border border-[#c3d9ff] bg-white">
+              <div className="flex w-[120px] shrink-0 items-center justify-center bg-[#d9e7f8] p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoSrc || DEFAULT_EMPLOYEE_PHOTO}
+                  alt=""
+                  className="h-[86px] w-full object-contain"
+                  onError={(e) => {
+                    const image = e.currentTarget;
+                    if (!image.src.endsWith("default_Student.png")) {
+                      image.src = DEFAULT_EMPLOYEE_PHOTO;
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex flex-col justify-center gap-1.5 px-5 py-3 text-[13px]">
+                <p className="font-medium text-[#0c51a4]">
                   {String(employeeDetails.firstName ?? "")}
                 </p>
-                <p className="text-muted-foreground">
+                <p className="text-[#8c8c8c]">
                   {String(employeeDetails.empNumber ?? "")}
                 </p>
-                <p className="text-muted-foreground">
-                  {String(employeeDetails.empDeptName ?? "")}
-                </p>
-                <p className="text-muted-foreground">
+                {employeeDetails.empDeptName ? (
+                  <p className="text-[#8c8c8c]">
+                    {String(employeeDetails.empDeptName)}
+                  </p>
+                ) : null}
+                <p className="text-[#8c8c8c]">
                   {String(employeeDetails.mobile ?? "")}
                 </p>
               </div>
             </div>
 
             {leaveHistory.length === 0 && !loading ? (
-              <p className="text-destructive text-sm text-center py-2">
+              <p className="py-2 text-center text-sm text-destructive">
                 No enrolment is available for this employee.
               </p>
             ) : null}
 
             {leaveHistory.length > 0 ? (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              <div className="rounded-[3px] border border-[#c3d9ff] bg-white p-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
                   {leaveHistory.map((leave) => (
                     <div
                       key={String(leave.leavetypeId ?? leave.leaveCode)}
-                      className="text-sm"
+                      className="text-[13px]"
                     >
-                      <p>
+                      <p className="text-[#3c3c3c]">
                         {String(leave.leaveName ?? "")} (
-                        <span className="text-blue-600">
+                        <span className="font-medium text-[#0c51a4]">
                           {String(leave.leaveCode ?? "")}
                         </span>
                         )
                       </p>
-                      <p className="text-muted-foreground">
+                      <p className="mt-1 text-[#8c8c8c]">
                         {String(leave.balanceLeaves ?? 0)} /{" "}
                         {String(leave.consumedLeaves ?? 0)}
                       </p>
                     </div>
                   ))}
-                  <div className="text-sm">
-                    <p>Total Leaves</p>
-                    <p className="text-muted-foreground">
+                  <div className="text-[13px]">
+                    <p className="text-[#3c3c3c]">Total Leaves</p>
+                    <p className="mt-1 text-[#8c8c8c]">
                       {totalBalancedLeaves} / {totalConsumedLeaves}
                     </p>
                   </div>
                 </div>
-                <div className="flex justify-end">
-                  <Button onClick={openApplyLeave} disabled={loading || saving}>
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    onClick={openApplyLeave}
+                    disabled={loading || saving}
+                    className="h-[34px] rounded-[4px] bg-[#042956] px-4 text-[13px] font-medium text-white shadow-sm hover:bg-[#031f42]"
+                  >
                     Apply Leave
                   </Button>
                 </div>
-              </>
+              </div>
             ) : null}
           </div>
         ) : null

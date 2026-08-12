@@ -148,6 +148,59 @@ export type InvItemMasterRow = {
   itemName?: string;
 };
 
+/** Angular `payment-note-approvals` stored-proc row (`mgr_purchaseorder_list`). */
+export type PaymentNoteApprovalRow = {
+  flag?: string;
+  pk_po_id?: number;
+  pono?: string;
+  po_date?: string;
+  indent_requested_for?: string;
+  raised_emp_name?: string;
+  purpose?: string;
+  current_wf_status_name?: string;
+  current_wf_status?: string;
+  current_wf_stage?: number;
+  next_wf_stage?: number;
+  fk_po_wf_stage_id?: number;
+  status_comments?: string | null;
+  store_name?: string;
+  indent_type_code?: string;
+  compare_statement_path?: string | null;
+  po_ref_file_path2?: string | null;
+  indent_purpose?: string;
+  wf_stage?: number;
+  /** Set client-side when opening modal (`approvalDetails` | `viewDetails` | `updateDetails`). */
+  value?: string;
+};
+
+export type PaymentNotePoItemRow = {
+  flag?: string;
+  item_name?: string;
+  item_code?: string;
+  order_quantity?: number;
+  unit_price?: number;
+  item_discount_percentage?: number;
+  item_total_cost?: number;
+};
+
+export type PaymentNotePoWfRow = {
+  flag?: string;
+  pk_po_wf_id?: number;
+  stage?: number;
+  workflow?: string;
+  status_updated_employee?: string;
+  emp_number?: string;
+  wf_document_path?: string | null;
+  workflow_status?: string;
+  status_comments?: string;
+};
+
+export type PaymentNoteWfStageOption = {
+  flag?: string;
+  pk_wf_stage_id?: number;
+  wf_name?: string;
+};
+
 export type GeneralDetailOption = {
   generalDetailId: number;
   generalDetailCode?: string;

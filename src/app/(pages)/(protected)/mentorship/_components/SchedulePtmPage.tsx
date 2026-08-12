@@ -252,6 +252,7 @@ export function SchedulePtmPage() {
         const list = await listSchedulePtmStudents({
           fromDate: from,
           toDate: to,
+          collegeId: staffCollegeId,
           employeeId: staffEmployeeId,
           isAdmin,
         });
@@ -272,7 +273,7 @@ export function SchedulePtmPage() {
         setLoadingStudents(false);
       }
     },
-    [fromDate, toDate, isAdmin, staffEmployeeId, studentId],
+    [fromDate, toDate, isAdmin, staffCollegeId, staffEmployeeId, studentId],
   );
 
   const loadMeetings = useCallback(

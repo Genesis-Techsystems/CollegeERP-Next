@@ -1,9 +1,12 @@
 "use client";
 
 import {
+  TIMETABLE_ASSIGN_DEFAULT_CELL_BG,
+  TIMETABLE_CELL_BORDER,
   TIMETABLE_HEADER_ROW_BG,
   timetableBreakCellBg,
   timetableCellHeightPx,
+  timetableDayColorFromWeekdayName,
   type AngularStudentTimetable,
   type TimetableDayColumn,
   type TimetableDayTiming,
@@ -11,11 +14,19 @@ import {
 } from "@/services";
 import { formatClockAmPm } from "../_lib/timetable-filters";
 
+type CellColorMode = "view" | "assign-resource";
+
 type TimetableWeeklyGridProps = {
   timetable: AngularStudentTimetable;
   /** Screen uses 140px/hour; print layout uses 90px/hour (Angular parity). */
   variant?: "screen" | "print";
   className?: string;
+  /**
+   * `view` — weekday pastel fills, black text (view-timetable / student profile).
+   * `assign-resource` — assigned slots use subjectResource colorCode (or `#dedede`)
+   * with black text; empty slots stay white (Angular create-timetable).
+   */
+  cellColorMode?: CellColorMode;
   onTimingClick?: (
     timing: TimetableDayTiming,
     weekday: TimetableDayColumn,
@@ -31,6 +42,7 @@ export function TimetableWeeklyGrid({
   timetable,
   variant = "screen",
   className = "",
+  cellColorMode = "view",
   onTimingClick,
 }: TimetableWeeklyGridProps) {
   const weekdays = timetable.weekdays ?? [];
@@ -38,12 +50,13 @@ export function TimetableWeeklyGrid({
 
   return (
     <div className={`overflow-x-auto ${className}`}>
-      <div className="mar flex min-w-[920px] justify-center gap-0 print:min-w-0">
+      <div className="mar flex w-full min-w-0 justify-center gap-0 print:min-w-0">
         {weekdays.map((weekday) => (
           <DayColumn
             key={weekday.weekdayId || weekday.weekdayName}
             weekday={weekday}
             variant={variant}
+            cellColorMode={cellColorMode}
             onTimingClick={onTimingClick}
           />
         ))}
@@ -52,27 +65,74 @@ export function TimetableWeeklyGrid({
   );
 }
 
+function isAssignedSlot(timing: TimetableDayTiming): boolean {
+  return (
+    timing.subBatches.length > 0 ||
+    (Array.isArray(timing.subjectResource) && timing.subjectResource.length > 0)
+  );
+}
+
+function cellBackground(
+  timing: TimetableDayTiming,
+  isBreak: boolean,
+  mode: CellColorMode,
+  weekdayName: string,
+): string {
+  if (isBreak) {
+    return timetableBreakCellBg(timing.classTimingName, true) || "#efefef";
+  }
+  if (mode === "assign-resource") {
+    if (timing.colorCode) return timing.colorCode;
+    if (isAssignedSlot(timing)) return TIMETABLE_ASSIGN_DEFAULT_CELL_BG;
+    return "#ffffff";
+  }
+  return (
+    timing.colorCode ||
+    timetableDayColorFromWeekdayName(weekdayName) ||
+    "#ffffff"
+  );
+}
+
+function cellTextColor(mode: CellColorMode): string {
+  return "#000";
+}
+
+function cellBorderColor(): string {
+  return TIMETABLE_CELL_BORDER;
+}
+
 function DayColumn({
   weekday,
   variant,
+  cellColorMode,
   onTimingClick,
 }: {
   weekday: TimetableDayColumn;
   variant: "screen" | "print";
+  cellColorMode: CellColorMode;
   onTimingClick?: (
     timing: TimetableDayTiming,
     weekday: TimetableDayColumn,
   ) => void;
 }) {
   const headerName = weekday.timings[0]?.weekdayName || weekday.weekdayName;
+  const borderColor = cellBorderColor();
   return (
     <div
-      className="table-span flex flex-col border border-[#ddd]"
-      style={{ width: "16.6%", minWidth: 120, flex: "1 1 16.6%" }}
+      className="table-span flex flex-col border"
+      style={{
+        width: "16.6%",
+        minWidth: 120,
+        flex: "1 1 16.6%",
+        borderColor,
+      }}
     >
       <div
-        className="table-th border-b border-[#ddd] px-[5px] py-[15px] text-center text-[19px] font-medium uppercase leading-none text-black"
-        style={{ backgroundColor: TIMETABLE_HEADER_ROW_BG }}
+        className="table-th border-b px-[5px] py-[15px] text-center text-[19px] font-medium uppercase leading-none text-black"
+        style={{
+          backgroundColor: TIMETABLE_HEADER_ROW_BG,
+          borderColor,
+        }}
       >
         {headerName}
       </div>
@@ -82,6 +142,7 @@ function DayColumn({
           timing={timing}
           variant={variant}
           weekday={weekday}
+          cellColorMode={cellColorMode}
           onTimingClick={onTimingClick}
         />
       ))}
@@ -93,11 +154,13 @@ function TimingCell({
   timing,
   variant,
   weekday,
+  cellColorMode,
   onTimingClick,
 }: {
   timing: TimetableDayTiming;
   variant: "screen" | "print";
   weekday: TimetableDayColumn;
+  cellColorMode: CellColorMode;
   onTimingClick?: (
     timing: TimetableDayTiming,
     weekday: TimetableDayColumn,
@@ -116,19 +179,19 @@ function TimingCell({
   const timeLabel = formatTimeRange(timing.startTime, timing.endTime);
   const nameLooksLikeBreak = /break/i.test(timing.classTimingName ?? "");
   const isBreak = timing.isBreak || nameLooksLikeBreak;
-  // Angular: [ngStyle]="{'background': timing.color}" + .break → #efefef
-  // Unmatched weekday names (e.g. "Thrusday") leave color empty → white.
-  const cellBg = isBreak
-    ? timetableBreakCellBg(timing.classTimingName, true)
-    : timing.colorCode || "#ffffff";
+  const weekdayName = weekday.weekdayName || timing.weekdayName || "";
+  const cellBg = cellBackground(timing, isBreak, cellColorMode, weekdayName);
+  const textColor = cellTextColor(cellColorMode);
+  const borderColor = cellBorderColor();
 
   return (
     <div
       role={!isBreak && onTimingClick ? "button" : undefined}
       tabIndex={!isBreak && onTimingClick ? 0 : undefined}
-      className={`table-td flex border-b border-[#ddd] p-0 text-center ${!isBreak && onTimingClick ? "cursor-pointer hover:brightness-95" : ""}`}
+      className={`table-td flex border-b p-0 text-center ${!isBreak && onTimingClick ? "cursor-pointer hover:brightness-95" : ""}`}
       style={{
         backgroundColor: cellBg,
+        borderColor,
         minHeight: heightPx,
         height: heightPx,
         // Angular td: vertical-align middle — center the whole content block
@@ -152,13 +215,15 @@ function TimingCell({
               <SubBatchBlock
                 key={`${batch.subjectCode}-${batch.studentBatchId}-${i}`}
                 batch={batch}
+                color={textColor}
               />
             ))
           : null}
         {/* Angular .subject-timing { font-size: smaller; padding-top: 13px } */}
         <p
-          className="subject-timing m-0 text-center text-[smaller] leading-snug text-black"
+          className="subject-timing m-0 text-center text-[smaller] leading-snug"
           style={{
+            color: textColor,
             paddingTop: isBreak || timing.subBatches.length === 0 ? 0 : 13,
           }}
         >
@@ -175,7 +240,13 @@ function TimingCell({
   );
 }
 
-function SubBatchBlock({ batch }: { batch: TimetableSubBatch }) {
+function SubBatchBlock({
+  batch,
+  color,
+}: {
+  batch: TimetableSubBatch;
+  color: string;
+}) {
   // Angular active template uses subjectCode (shortName is commented out).
   const subjectLine = batch.subjectCode || batch.shortName;
   const batchPrefix =
@@ -187,19 +258,26 @@ function SubBatchBlock({ batch }: { batch: TimetableSubBatch }) {
   return (
     <div className="sub-jct w-full">
       <p
-        className="m-0 text-center text-[15px] font-medium leading-tight text-black"
+        className="m-0 text-center text-[15px] font-medium leading-tight"
+        style={{ color }}
         title={tooltip}
       >
         {batchPrefix ? <span>{batchPrefix} </span> : null}
         {subjectLine ? <span>{subjectLine}</span> : null}
       </p>
       {batch.staffName ? (
-        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
+        <p
+          className="stff m-0 text-center text-[10px] leading-tight"
+          style={{ color }}
+        >
           {batch.staffName}
         </p>
       ) : null}
       {batch.roomName ? (
-        <p className="stff m-0 text-center text-[10px] leading-tight text-black">
+        <p
+          className="stff m-0 text-center text-[10px] leading-tight"
+          style={{ color }}
+        >
           {batch.roomName}
         </p>
       ) : null}

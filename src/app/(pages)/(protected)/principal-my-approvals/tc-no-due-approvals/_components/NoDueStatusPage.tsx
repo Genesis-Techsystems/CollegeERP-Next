@@ -6,8 +6,7 @@ import { Eye, Pencil } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MINIO_URL } from "@/config/constants/api";
 import { useSessionContext } from "@/context/SessionContext";
 import { QK } from "@/lib/query-keys";
@@ -557,34 +556,8 @@ export function NoDueStatusPage() {
             onSubmit={(e) => e.preventDefault()}
             noValidate
           >
-            <RadioGroup
-              value={tabIndex === 0 ? "1" : "2"}
-              onValueChange={(v) =>
-                void onTabChange(v === "2" ? "approved" : "pending")
-              }
-              className="flex flex-wrap items-center gap-6 pb-1"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="1" id="nodue-pending" />
-                <Label
-                  htmlFor="nodue-pending"
-                  className="cursor-pointer font-normal"
-                >
-                  No Due List
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="2" id="nodue-approved" />
-                <Label
-                  htmlFor="nodue-approved"
-                  className="cursor-pointer font-normal"
-                >
-                  No Due Approved List
-                </Label>
-              </div>
-            </RadioGroup>
-
             <Select
+              label="Colleges *"
               value={collegeId != null ? String(collegeId) : ""}
               onChange={(v) => void onCollegeChange(v ?? "")}
               options={collegeOptions}
@@ -594,6 +567,25 @@ export function NoDueStatusPage() {
               className="max-w-xs sm:max-w-sm"
             />
           </form>
+        }
+        tableHeader={
+          // Angular mat-tab-group: yellow active fill + full-width yellow underline
+          <div className="-mx-5 -mt-2">
+            <Tabs
+              value={tabIndex === 0 ? "pending" : "approved"}
+              onValueChange={(v) => void onTabChange(v)}
+              className="w-full"
+            >
+              <TabsList className="app-dashboard-tabs h-9 w-full flex-wrap justify-start gap-0 rounded-none bg-white p-0">
+                <TabsTrigger value="pending" className="app-dashboard-tab">
+                  No Due List
+                </TabsTrigger>
+                <TabsTrigger value="approved" className="app-dashboard-tab">
+                  No Due Approved List
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         }
         rowData={collegeId != null ? tableRows : []}
         columnDefs={columnDefs}

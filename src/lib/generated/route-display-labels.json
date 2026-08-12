@@ -10,5 +10,12 @@
   "/admin-student-information-system/generate-student-rollno": "Generate Student Roll No.",
   "/admin-examination-section/student-exam-results": "Exam Results",
   "/principal-my-approvals/leave-applications": "Leave Requests",
-  "/staff-faculty-details/faculty-details": "Faculty Details"
+  "/principal-my-approvals/leave-approvals": "Leave Approvals",
+  "/principal-my-approvals/fee-concession-approvals": "Fee Concession Approvals",
+  "/principal-my-approvals/payment-note-approvals": "Payment Note Approvals",
+  "/principal-my-approvals/detain-request-approvals": "Detain Request Approvals",
+  "/principal-my-approvals/item-request-approvals": "Item Request Approvals",
+  "/staff-faculty-details/faculty-details": "Faculty Details",
+  "/staff-faculty-details/performance-assessment": "Faculty Performance Assessment",
+  "/staff-faculty-details/performance-assessment/add-performance": "Take Performance Assessment"
 }

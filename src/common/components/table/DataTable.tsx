@@ -221,6 +221,8 @@ export interface DataTableProps<T> {
   autoHeight?: boolean;
   /** Optional AG Grid pinned top rows (e.g. "No. of Classes" summary). */
   pinnedTopRowData?: T[];
+  /** Optional AG Grid pinned bottom rows (e.g. "Total Present/Absent" summary). */
+  pinnedBottomRowData?: T[];
   /** Optional AG Grid row style (e.g. highlight summary rows). */
   getRowStyle?: GetRowStyle<T>;
   /** Optional content rendered inside the table card below the grid/pagination. */
@@ -579,6 +581,7 @@ export function DataTable<T>({
   rowHeight,
   autoHeight = false,
   pinnedTopRowData,
+  pinnedBottomRowData,
   getRowStyle,
   afterGrid,
 }: DataTableProps<T>) {
@@ -1056,6 +1059,7 @@ export function DataTable<T>({
                     context={{ __rowNumberOffset: rowNumberOffset }}
                     rowData={pagedRowData}
                     pinnedTopRowData={pinnedTopRowData}
+                    pinnedBottomRowData={pinnedBottomRowData}
                     getRowStyle={getRowStyle}
                     columnDefs={resolvedColumnDefs}
                     defaultColDef={defaultColDef}

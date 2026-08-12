@@ -252,7 +252,8 @@ export function AssignCounselorPage({
     setLoading(false);
   }
 
-  function buildHeaderLine(): string {
+  /** `course / group / courseYear / Section - (collegeCode - academicYear)` */
+  function buildHeaderLine(yearId: number | null = courseYearId): string {
     const clg = colleges.find((c) => num(c.fk_college_id) === collegeId);
     const ay = academicYears.find(
       (a) => num(a.fk_academic_year_id) === academicYearId,
@@ -261,18 +262,19 @@ export function AssignCounselorPage({
     const group = courseGroups.find(
       (g) => num(g.fk_course_group_id) === courseGroupId,
     );
-    const year = courseYears.find(
-      (y) => num(y.fk_course_year_id) === courseYearId,
-    );
-    return [
-      text(clg?.college_code),
-      text(ay?.academic_year),
+    const year = courseYears.find((y) => num(y.fk_course_year_id) === yearId);
+    const path = [
       text(course?.course_code),
       text(group?.group_name) || text(group?.group_code),
       text(year?.course_year_name),
+      "Section -",
     ]
       .filter(Boolean)
       .join(" / ");
+    const context = [text(clg?.college_code), text(ay?.academic_year)]
+      .filter(Boolean)
+      .join(" - ");
+    return context ? `${path} (${context})` : path;
   }
 
   // Angular getFiltersList — auto-select first college.
@@ -431,25 +433,7 @@ export function AssignCounselorPage({
     if (from) setFromDate(from);
     if (to) setToDate(to);
 
-    const clg = colleges.find((c) => num(c.fk_college_id) === collegeId);
-    const ay = academicYears.find(
-      (a) => num(a.fk_academic_year_id) === academicYearId,
-    );
-    const course = courses.find((c) => num(c.fk_course_id) === courseId);
-    const group = courseGroups.find(
-      (g) => num(g.fk_course_group_id) === courseGroupId,
-    );
-    setHeaderLine(
-      [
-        text(clg?.college_code),
-        text(ay?.academic_year),
-        text(course?.course_code),
-        text(group?.group_name) || text(group?.group_code),
-        text(year?.course_year_name),
-      ]
-        .filter(Boolean)
-        .join(" / "),
-    );
+    setHeaderLine(buildHeaderLine(yid));
   }
 
   function onFromDateChange(d: Date | null) {
@@ -712,6 +696,7 @@ export function AssignCounselorPage({
   return (
     <FilteredListPage
       title={title}
+      tableTitle={headerLine ? `Students - ${headerLine}` : title}
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -801,15 +786,6 @@ export function AssignCounselorPage({
       body={
         showStudentsPanel ? (
           <div className="space-y-3">
-            {headerLine ? (
-              <p className="text-sm font-medium text-[hsl(var(--card-title))]">
-                Students —{" "}
-                <span className="text-muted-foreground font-normal">
-                  {headerLine}
-                </span>
-              </p>
-            ) : null}
-
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading students…</p>
             ) : null}

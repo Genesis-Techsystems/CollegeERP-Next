@@ -58,6 +58,31 @@ const ATTENDANCE_SLUGS: Record<string, string> = {
   "exam-attendance": "exam-attendance",
 };
 
+/** Angular `staff-faculty-details/staff-workload-adjustment` (StaffProxyList). */
+export const STAFF_WORKLOAD_ADJUSTMENT_ROUTE =
+  "/staff-faculty-details/staff-workload-adjustment";
+
+/**
+ * True for the Faculty Details "Staff Workload Adjustment" menu item — must not
+ * fall through to the Faculty Leaves "Workload Adjustment" page.
+ */
+export function isStaffWorkloadAdjustmentNav(
+  href?: string,
+  label?: string,
+): boolean {
+  const hrefLower = (href ?? "").toLowerCase();
+  const key = normalizeLabelKey(label ?? "");
+  if (
+    hrefLower.includes("staff-workload-adjustment") ||
+    hrefLower.includes("staff-proxy-list")
+  ) {
+    return true;
+  }
+  return (
+    key.includes("staff") && key.includes("workload") && key.includes("adjust")
+  );
+}
+
 export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (!label) return null;
   const key = normalizeLabelKey(label);
@@ -87,6 +112,10 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
     return `${ATTENDANCE_MGMT_BASE}/view-subject-attendance`;
   }
   if (key.includes("workload") && key.includes("adjust")) {
+    // Angular has two distinct pages:
+    // "Staff Workload Adjustment" → staff-faculty-details (StaffProxyList)
+    // "Workload Adjustment"       → staff-faculty-leaves (own proxy tabs)
+    if (key.includes("staff")) return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
     return `/staff-faculty-leaves/workload-adjustment`;
   }
   if (key.includes("staff") && key.includes("notmarked")) {
@@ -117,6 +146,12 @@ export function mapAttendanceNavRoute(
 ): string | null {
   const hrefRaw = (href ?? "").trim();
   const hrefLower = hrefRaw.toLowerCase();
+
+  // Faculty Details "Staff Workload Adjustment" — separate page from Faculty
+  // Leaves "Workload Adjustment".
+  if (isStaffWorkloadAdjustmentNav(hrefRaw, label)) {
+    return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+  }
 
   // Faculty Leaves / proxy-workload keep Angular paths (do not remap to attendance).
   if (
@@ -406,10 +441,14 @@ export function mapStudentAcademicsNavRoute(
 
   // Menu label "Staff Class Diary" keeps the existing student-class-dairy page.
   if (
-    (labelKey.includes("staff") &&
+    !labelKey.includes("report") &&
+    !labelKey.includes("consolidated") &&
+    !hrefLower.includes("report") &&
+    !hrefLower.includes("consolidated") &&
+    ((labelKey.includes("staff") &&
       (labelKey.includes("classdiary") || labelKey.includes("classdairy"))) ||
-    hrefLower.includes("staff-class-diary") ||
-    hrefLower.includes("staff-class-dairy")
+      hrefLower.includes("staff-class-diary") ||
+      hrefLower.includes("staff-class-dairy"))
   ) {
     return `${STUDENT_ACADEMICS_BASE}/student-class-dairy`;
   }
@@ -982,6 +1021,10 @@ export function mapErpModuleNavRoute(
   const institutional = mapAdminInstitutionalRoomRoute(href, label);
   if (institutional) return institutional;
 
+  if (isStaffWorkloadAdjustmentNav(href, label)) {
+    return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+  }
+
   // Staff/Student Class Diary labels (and student portal bare Class Diary /
   // Assignments) → student academics pages.
   const labelKey = normalizeLabelKey(label ?? "");
@@ -1029,6 +1072,9 @@ export function mapErpModuleNavRoute(
 }
 
 export function mapErpModuleLabelToRoute(label?: string): string | null {
+  if (isStaffWorkloadAdjustmentNav(undefined, label)) {
+    return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+  }
   return (
     mapStaffClassesLabelToRoute(label) ??
     mapAttendanceLabelToRoute(label) ??

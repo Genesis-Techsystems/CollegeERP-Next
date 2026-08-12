@@ -6,6 +6,10 @@ export type EmployeeLoginContext = {
   isHod: boolean;
   uName: string;
   empNumber: string;
+  /** Angular login: `localStorage.empStatusCode` — 'ACTV' gates staff pages. */
+  empStatusCode: string;
+  /** Angular login: `localStorage.empCategoryName` — 'Teaching' / 'Non Teaching'. */
+  empCategoryName: string;
 };
 
 function positiveId(...candidates: unknown[]): number {
@@ -114,8 +118,32 @@ export function parseEmployeeLoginContext(
   const uName = String(
     row.uName ?? row.userName ?? row.firstName ?? nestedEmp?.uName ?? empNumber,
   ).trim();
+  const empStatusCode = String(
+    row.empStatusCode ??
+      row.empstatusCatCode ??
+      row.employeeStatusCode ??
+      row.empStatus ??
+      nestedEmp?.empStatusCode ??
+      "",
+  ).trim();
+  const empCategoryName = String(
+    row.empCategoryName ??
+      row.empcategoryCatDisplayName ??
+      row.empCatName ??
+      row.employeeCategoryName ??
+      nestedEmp?.empCategoryName ??
+      "",
+  ).trim();
 
-  return { employeeId, empDeptId, isHod, uName, empNumber };
+  return {
+    employeeId,
+    empDeptId,
+    isHod,
+    uName,
+    empNumber,
+    empStatusCode,
+    empCategoryName,
+  };
 }
 
 export function readStorageFlag(key: string): boolean {
@@ -162,6 +190,9 @@ export function syncEmployeeLoginContextToStorage(
   storage.setItem("isHODDashboard", ctx.isHod ? "true" : "false");
   if (ctx.uName) storage.setItem("uName", ctx.uName);
   if (ctx.empNumber) storage.setItem("empNumber", ctx.empNumber);
+  if (ctx.empStatusCode) storage.setItem("empStatusCode", ctx.empStatusCode);
+  if (ctx.empCategoryName)
+    storage.setItem("empCategoryName", ctx.empCategoryName);
 }
 
 /** Angular assignments: `localStorage.isHOD === 'true'` (+ role / EmpDeptHeads). */

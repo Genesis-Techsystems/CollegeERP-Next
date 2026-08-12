@@ -238,39 +238,35 @@ export async function listCounselorActivitiesInDateRange(params: {
 }
 
 /**
- * Students for counselor in date range — used by Meeting History / Student Meetings.
- * Prefer Schedule PTM helpers (`listSchedulePtmStudents`) when matching staff-mentorship.
- */
-export async function listCounselorStudentsInDateRange(params: {
-  collegeId: number;
-  employeeId: number;
-  fromDate: string;
-  toDate: string;
-}): Promise<MentorshipRow[]> {
-  return asRows(
-    await fetchDetails(MENTORSHIP_API.COUNSELOR_DETAILS, {
-      collegeId: params.collegeId,
-      fromDate: params.fromDate,
-      toDate: params.toDate,
-      employeeId: params.employeeId,
-      status: "true",
-    }),
-  );
-}
-
-/**
- * Angular Schedule PTM `selectedEmployee`:
- * - ADMIN: `counselordetails?fromDate=&toDate=&status=true`
- * - STAFF: `counselordetails?employeeId=&fromDate=&toDate=&status=true`
- * Dates are Angular `momentFormatYMD` → `YYYY/MM/DD` (slashes). No collegeId.
+ * Angular `momentFormatYMD` — `counselordetails` only accepts `YYYY/MM/DD`.
+ * Hyphenated dates reach the query unparsed and Spring answers 500.
  */
 function toCounselorDetailsDate(value: string): string {
   const s = String(value ?? "").trim();
   if (!s) return "";
-  // Accept YYYY-MM-DD or YYYY/MM/DD → always slash form for Spring.
   const m = s.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
   if (m) return `${m[1]}/${m[2]}/${m[3]}`;
   return s;
+}
+
+/**
+ * Angular query shape:
+ * `counselordetails?collegeId=&fromDate=&toDate=&employeeId=&status=true`
+ * (ADMIN omits `employeeId` because no employee is selected yet.)
+ */
+function buildCounselorDetailsQuery(params: {
+  collegeId?: number | null;
+  employeeId?: number | null;
+  fromDate: string;
+  toDate: string;
+}): Record<string, string | number> {
+  const query: Record<string, string | number> = {};
+  if (params.collegeId) query.collegeId = params.collegeId;
+  query.fromDate = toCounselorDetailsDate(params.fromDate);
+  query.toDate = toCounselorDetailsDate(params.toDate);
+  if (params.employeeId) query.employeeId = params.employeeId;
+  query.status = "true";
+  return query;
 }
 
 function isNoRecordsMessage(message: unknown): boolean {
@@ -291,28 +287,48 @@ async function fetchCounselorDetailsStudents(
   throw new Error(envelope.message || "Failed to load counselor details");
 }
 
+/**
+ * Students for counselor in date range — used by Meeting History / Student Meetings.
+ * Prefer Schedule PTM helpers (`listSchedulePtmStudents`) when matching staff-mentorship.
+ */
+export async function listCounselorStudentsInDateRange(params: {
+  collegeId: number;
+  employeeId: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<MentorshipRow[]> {
+  return fetchCounselorDetailsStudents(buildCounselorDetailsQuery(params));
+}
+
+/**
+ * Angular Schedule PTM `selectedEmployee`:
+ * - ADMIN: `counselordetails?fromDate=&toDate=&status=true`
+ * - STAFF: `counselordetails?collegeId=&fromDate=&toDate=&employeeId=&status=true`
+ */
 export async function listSchedulePtmStudents(params: {
   fromDate: string;
   toDate: string;
+  collegeId?: number | null;
   employeeId?: number | null;
   isAdmin: boolean;
 }): Promise<MentorshipRow[]> {
-  const fromDate = toCounselorDetailsDate(params.fromDate);
-  const toDate = toCounselorDetailsDate(params.toDate);
   if (params.isAdmin) {
-    return fetchCounselorDetailsStudents({
-      fromDate,
-      toDate,
-      status: "true",
-    });
+    return fetchCounselorDetailsStudents(
+      buildCounselorDetailsQuery({
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+      }),
+    );
   }
   if (!params.employeeId) return [];
-  return fetchCounselorDetailsStudents({
-    employeeId: params.employeeId,
-    fromDate,
-    toDate,
-    status: "true",
-  });
+  return fetchCounselorDetailsStudents(
+    buildCounselorDetailsQuery({
+      collegeId: params.collegeId,
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      employeeId: params.employeeId,
+    }),
+  );
 }
 
 /**

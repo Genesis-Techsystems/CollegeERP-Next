@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
 import { FileSpreadsheet, Printer } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DatePicker } from "@/common/components/date-picker";
 import {
   GlobalFilterBarRow,
@@ -17,6 +18,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MINIO_URL } from "@/config/constants/api";
 import { getErrorMessage } from "@/lib/errors";
 import { printHtmlInIframe } from "@/lib/print";
+import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError } from "@/lib/toast";
 import { cn, rowIndexGetter } from "@/lib/utils";
 import {
@@ -269,6 +271,8 @@ function ExcelExportTable({
 }
 
 export default function MonthlyVisitorSummaryReportPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const tableRef = useRef<HTMLDivElement>(null);
   const [hostelId, setHostelId] = useState<string | null>(null);
   const [hostels, setHostels] = useState<SelectOption[]>([]);
@@ -280,6 +284,11 @@ export default function MonthlyVisitorSummaryReportPage() {
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<ReportMode>("summary");
   const today = useMemo(() => new Date(), []);
+
+  /** Angular report Back → Report Catalog (`/report-catalyst`). */
+  function goBack() {
+    router.push(resolveReportCatalogHref(searchParams.get("path")));
+  }
 
   useEffect(() => {
     const date = applicationDate();
@@ -472,6 +481,14 @@ export default function MonthlyVisitorSummaryReportPage() {
                 onClick={() => void getList()}
               >
                 {loading ? "Loading…" : "Get List"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 min-w-20 !border-0 !bg-[#ffcf46] !text-black shadow-sm hover:!bg-[#e5b535]"
+                onClick={goBack}
+              >
+                Back
               </Button>
             </div>
           </GlobalFilterField>

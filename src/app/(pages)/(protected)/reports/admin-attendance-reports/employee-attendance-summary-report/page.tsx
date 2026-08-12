@@ -26,10 +26,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   dedupeBy,
   filterColleges,
@@ -113,28 +110,42 @@ const COL_DEFS = {
 
 function mapEmpRow(row: AnyRow): EmpSummaryRow {
   return {
-    empNo: String(row.Emp_No ?? row.emp_no ?? row.empNo ?? row.EmpNo ?? ""),
+    empNo: String(
+      row.emp_number ??
+        row.Emp_No ??
+        row.emp_no ??
+        row.empNo ??
+        row.EmpNo ??
+        "",
+    ),
+
     employee: String(
-      row.Employee ??
+      row.first_name ??
+        row.Employee ??
         row.employee ??
         row.Employee_Name ??
         row.employee_name ??
         "",
     ),
+
     department: String(
       row.Department ??
         row.department ??
         row.Dept_Name ??
         row.dept_name ??
+        row.dept_name ??
         "",
     ),
+
     workingDays: String(
-      row.Working_Days ??
+      row.Working_days ??
+        row.Working_Days ??
         row.working_days ??
         row.WorkingDays ??
         "",
     ),
     present: String(row.Present ?? row.present ?? ""),
+
     absent: String(row.Absent ?? row.absent ?? ""),
   };
 }
@@ -377,6 +388,11 @@ export default function EmployeeAttendanceSummaryReportPage() {
   return (
     <FilteredListPage<EmpSummaryRow>
       title="Employee Attendance Summary Report"
+      tableTitle={
+        showTable && dataDetails
+          ? `Employee Attendance Summary Report - ${dataDetails}`
+          : "Employee Attendance Summary Report"
+      }
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

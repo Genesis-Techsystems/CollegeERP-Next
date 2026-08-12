@@ -41,6 +41,55 @@ export function resolveOrganizationId(user?: SessionUser | null): number {
   return readOrganizationIdFromStorage();
 }
 
+/**
+ * Bumped whenever `deriveRoleFlagsFromDto` changes so `/api/auth/me` can refresh
+ * sessions that were issued by the previous derivation.
+ */
+export const ROLE_FLAGS_VERSION = 2;
+
+/**
+ * Angular login.component.ts derives isPRINCIPAL / isHOD / isMgnt by looping the
+ * whole `userRoles[]` array (PRINCIPAL or DEAN → principal, HOD or CHAIRPERSON →
+ * HOD, MANAGEMENT or MMANAGEMENT → management). `roleName` only ever holds the
+ * last entry of that loop, so it cannot be the sole source: a user whose active
+ * role is STAFF but who also holds PRINCIPAL must still get the principal flag.
+ */
+export function deriveRoleFlagsFromDto(
+  dto: Pick<UserDTO, "userRoles"> & {
+    roleName?: string;
+    userTypeCode?: string;
+  },
+  current?: { roleName?: string; userTypeCode?: string },
+): Pick<SessionUser, "isPrincipal" | "isHod" | "isManagement"> {
+  const granted = new Set(
+    (dto.userRoles ?? []).map((r) =>
+      String(r.roleName ?? "")
+        .toUpperCase()
+        .trim(),
+    ),
+  );
+  const hasRole = (...names: string[]) => names.some((n) => granted.has(n));
+
+  const roleName = String(
+    dto.roleName ?? current?.roleName ?? "",
+  ).toUpperCase();
+  const userTypeCode = String(
+    dto.userTypeCode ?? current?.userTypeCode ?? "",
+  ).toUpperCase();
+
+  return {
+    isPrincipal: roleName.includes("PRINCIPAL") || hasRole("PRINCIPAL", "DEAN"),
+    isHod:
+      roleName.includes("HOD") ||
+      roleName.includes("HEAD OF") ||
+      hasRole("HOD", "CHAIRPERSON"),
+    isManagement:
+      userTypeCode.includes("MGNT") ||
+      roleName.includes("MANAGEMENT") ||
+      hasRole("MANAGEMENT", "MMANAGEMENT"),
+  };
+}
+
 /** Map employee id from authorization UserDTO (field names vary by environment). */
 export function pickEmployeeIdFromUserDto(dto: UserDTO): number | undefined {
   const row = dto as UserDTO & Record<string, unknown>;
