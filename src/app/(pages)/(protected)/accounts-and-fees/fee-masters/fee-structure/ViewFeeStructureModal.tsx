@@ -82,7 +82,7 @@ export function ViewFeeStructureModal({
           ) : null}
         </div>
 
-        <div className="mt-4 overflow-x-auto rounded-md border">
+        <div className="mt-4 max-h-[50vh] overflow-auto rounded-md border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>

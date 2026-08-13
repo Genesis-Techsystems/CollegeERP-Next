@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { SearchInput } from "@/common/components/search";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
@@ -140,27 +140,26 @@ export default function BudgetApprovalPage() {
   }
 
   return (
-    <PageContainer className="relative space-y-4">
-      {error && !/no\s+record(?:\(s\)|s)?/i.test(getErrorMessage(error)) ? (
-        <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
-      ) : null}
-
-      <div className="rounded-lg border bg-card p-4">
-        <h2 className="mb-3 text-base font-semibold">Budget Approval</h2>
-        <FinanceBudgetFilters
-          cascade={cascade}
-          loadLabel="Get List"
-          loading={isFetching}
-          bare
-          onLoad={handleGetList}
-        />
-      </div>
-
-      {loadKey ? (
-        <div className="space-y-3 rounded-lg border bg-card p-4">
-          <p className="text-sm font-semibold text-blue-600">
-            Budget Approval - {selectedData}
-          </p>
+    <FilteredListPage
+      title={`Budget Approval - ${selectedData}`}
+      filterTitle="Budget Approval"
+      filters={
+        <div className="space-y-4">
+          {error && !/no\s+record(?:\(s\)|s)?/i.test(getErrorMessage(error)) ? (
+            <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+          ) : null}
+          <FinanceBudgetFilters
+            cascade={cascade}
+            loadLabel="Get List"
+            loading={isFetching}
+            bare
+            onLoad={handleGetList}
+          />
+        </div>
+      }
+      resultsVisible={!!loadKey}
+      body={
+        <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-[200px] flex-1">
               <SearchInput
@@ -190,7 +189,7 @@ export default function BudgetApprovalPage() {
             </Button>
           </div>
         </div>
-      ) : null}
-    </PageContainer>
+      }
+    />
   );
 }

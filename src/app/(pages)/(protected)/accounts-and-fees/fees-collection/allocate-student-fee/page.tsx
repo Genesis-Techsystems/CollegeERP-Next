@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Select } from "@/common/components/select";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/services";
 import type { College } from "@/types/college";
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "@/hooks/useSession";
 
 type Mode = "batch" | "academic";
 
@@ -48,7 +49,10 @@ function toOptions(
 }
 
 export default function AllocateStudentFeePage() {
+  const { user } = useSession();
   const [mode, setMode] = useState<Mode>("batch");
+  const isAdmin = user?.isAdmin ?? false;
+  const effectiveMode = isAdmin ? mode : "academic";
   const [collegeId, setCollegeId] = useState<string | null>(null);
   const [academicYearId, setAcademicYearId] = useState<string | null>(null);
   const [courseId, setCourseId] = useState<string | null>(null);
@@ -77,7 +81,7 @@ export default function AllocateStudentFeePage() {
   const { data: academicYears = [], isLoading: loadingAy } = useQuery({
     queryKey: ["AllocateFee", "academicYears", universityId],
     queryFn: () => listAcademicYearsByUniversity(universityId),
-    enabled: mode === "academic" && universityId > 0,
+    enabled: effectiveMode === "academic" && universityId > 0,
   });
 
   const { data: courses = [], isLoading: loadingCourses } = useQuery({
@@ -90,7 +94,7 @@ export default function AllocateStudentFeePage() {
   const { data: batches = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["AllocateFee", "batches", courseNum],
     queryFn: () => listBatchesByCourse(courseNum),
-    enabled: mode === "batch" && courseNum > 0,
+    enabled: effectiveMode === "batch" && courseNum > 0,
   });
 
   const collegeOptions = useMemo(
@@ -150,71 +154,62 @@ export default function AllocateStudentFeePage() {
         setAcademicYearId(null);
         setCourseId(null);
         setBatchId(null);
-        setQuotaId(null);
       } else if (level === "ay") {
         setCourseId(null);
         setBatchId(null);
-        setQuotaId(null);
       } else if (level === "course") {
         setBatchId(null);
-        setQuotaId(null);
-      } else if (level === "batch") {
-        setQuotaId(null);
       }
       setStructures([]);
     },
     [],
   );
 
-  const loadStructures = useCallback(
-    async (nextQuotaId: string | null) => {
-      const cid = Number(collegeId ?? 0);
-      const crid = Number(courseId ?? 0);
-      const qid = Number(nextQuotaId ?? -1);
-      if (
-        !cid ||
-        !crid ||
-        nextQuotaId == null ||
-        Number.isNaN(qid) ||
-        qid < 0
-      ) {
-        setStructures([]);
-        return;
-      }
+  const loadStructures = useCallback(async () => {
+    const cid = Number(collegeId ?? 0);
+    const crid = Number(courseId ?? 0);
+    const qid = Number(quotaId ?? -1);
+    if (!cid || !crid || !quotaId || Number.isNaN(qid) || qid < 0) {
+      setStructures([]);
+      return;
+    }
 
-      setLoadingStructures(true);
-      try {
-        const rows = await listFeeStructuresForAllocation({
-          collegeId: cid,
-          courseId: crid,
-          quotaId: qid,
-          batchId: mode === "batch" && batchId ? Number(batchId) : undefined,
-          academicYearId:
-            mode === "academic" && academicYearId
-              ? Number(academicYearId)
-              : undefined,
-          isAcademicFee: mode === "academic",
-        });
-        setStructures(
-          rows
-            .map((r) => ({
-              feeStructureId: Number(r.feeStructureId ?? 0),
-              classGroupName: String(
-                r.classGroupName ?? r.structureName ?? r.feeStructureId ?? "",
-              ),
-              checked: false,
-            }))
-            .filter((r) => r.feeStructureId > 0),
-        );
-      } catch (e) {
-        toastError(e, "Failed to load fee structures");
-        setStructures([]);
-      } finally {
-        setLoadingStructures(false);
-      }
-    },
-    [collegeId, courseId, batchId, academicYearId, mode],
-  );
+    setLoadingStructures(true);
+    try {
+      const rows = await listFeeStructuresForAllocation({
+        collegeId: cid,
+        courseId: crid,
+        quotaId: qid,
+        batchId:
+          effectiveMode === "batch" && batchId ? Number(batchId) : undefined,
+        academicYearId:
+          effectiveMode === "academic" && academicYearId
+            ? Number(academicYearId)
+            : undefined,
+        isAcademicFee: effectiveMode === "academic",
+      });
+      setStructures(
+        rows
+          .map((r) => ({
+            feeStructureId: Number(r.feeStructureId ?? 0),
+            classGroupName: String(
+              r.classGroupName ?? r.structureName ?? r.feeStructureId ?? "",
+            ),
+            checked: false,
+          }))
+          .filter((r) => r.feeStructureId > 0),
+      );
+    } catch (e) {
+      toastError(e, "Failed to load fee structures");
+      setStructures([]);
+    } finally {
+      setLoadingStructures(false);
+    }
+  }, [collegeId, courseId, batchId, academicYearId, effectiveMode, quotaId]);
+
+  useEffect(() => {
+    void loadStructures();
+  }, [loadStructures]);
 
   async function onSave() {
     const ids = structures
@@ -226,7 +221,10 @@ export default function AllocateStudentFeePage() {
     }
     setSaving(true);
     try {
-      await loadStudentFeeStructureAllocation({ mode, feeStructureIds: ids });
+      await loadStudentFeeStructureAllocation({
+        mode: effectiveMode,
+        feeStructureIds: ids,
+      });
       toastSuccess("Fee structure allocated to students successfully.");
     } catch (e) {
       toastError(e, "Failed to allocate fee structure");
@@ -242,36 +240,50 @@ export default function AllocateStudentFeePage() {
       title="Allocate Student Fee Structure"
       filters={
         <div className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="allocate-mode"
-                checked={mode === "batch"}
-                onChange={() => {
-                  setMode("batch");
-                  setCollegeId(null);
-                  clearDownstream("mode");
-                }}
-              />
-              Batch-Wise Fee Structure
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="allocate-mode"
-                checked={mode === "academic"}
-                onChange={() => {
-                  setMode("academic");
-                  setCollegeId(null);
-                  clearDownstream("mode");
-                }}
-              />
-              Academic-Wise Fee Structure
-            </label>
-          </div>
+          {isAdmin ? (
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="allocate-mode"
+                  checked={mode === "batch"}
+                  onChange={() => {
+                    setMode("batch");
+                    setCollegeId(null);
+                    clearDownstream("mode");
+                  }}
+                />
+                Batch-Wise Fee Structure
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="allocate-mode"
+                  checked={mode === "academic"}
+                  onChange={() => {
+                    setMode("academic");
+                    setCollegeId(null);
+                    clearDownstream("mode");
+                  }}
+                />
+                Academic-Wise Fee Structure
+              </label>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {!isAdmin ? (
+              <Select
+                label="Quota"
+                required
+                value={quotaId}
+                onChange={setQuotaId}
+                options={quotaOptions}
+                placeholder="Select quota"
+                searchable
+                isLoading={loadingQuotas}
+              />
+            ) : null}
             <Select
               label="College"
               required
@@ -285,7 +297,7 @@ export default function AllocateStudentFeePage() {
               searchable
               isLoading={loadingColleges}
             />
-            {mode === "academic" ? (
+            {effectiveMode === "academic" ? (
               <Select
                 label="Academic Year"
                 value={academicYearId}
@@ -314,7 +326,7 @@ export default function AllocateStudentFeePage() {
               disabled={!collegeId}
               isLoading={loadingCourses}
             />
-            {mode === "batch" ? (
+            {effectiveMode === "batch" ? (
               <Select
                 label="Batch"
                 value={batchId}
@@ -329,20 +341,18 @@ export default function AllocateStudentFeePage() {
                 isLoading={loadingBatches}
               />
             ) : null}
-            <Select
-              label="Quota"
-              required
-              value={quotaId}
-              onChange={(v) => {
-                setQuotaId(v);
-                void loadStructures(v);
-              }}
-              options={quotaOptions}
-              placeholder="Select quota"
-              searchable
-              disabled={!collegeId || !courseId}
-              isLoading={loadingQuotas}
-            />
+            {isAdmin ? (
+              <Select
+                label="Quota"
+                required
+                value={quotaId}
+                onChange={setQuotaId}
+                options={quotaOptions}
+                placeholder="Select quota"
+                searchable
+                isLoading={loadingQuotas}
+              />
+            ) : null}
           </div>
         </div>
       }

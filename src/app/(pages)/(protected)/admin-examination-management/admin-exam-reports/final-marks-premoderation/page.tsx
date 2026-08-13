@@ -23,6 +23,8 @@ import {
   getUnivExamSubjectUc,
   type AnyRow,
 } from "@/services";
+import { printHtmlInIframe } from "@/lib/print";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 
 type Row = AnyRow;
 
@@ -40,6 +42,14 @@ function txt(v: unknown): string {
 function dash(v: unknown): string {
   const s = txt(v);
   return !s || s === "null" ? "—" : s;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function dedupeBy<T>(rows: T[], keyFn: (r: T) => number): T[] {
@@ -142,6 +152,8 @@ export default function FinalMarksPremoderationReportPage() {
   const [courseYearId, setCourseYearId] = useState("");
   const [regulationId, setRegulationId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+
+  const collegeLogo = useCollegeLogo(Number(collegeId) || null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -498,6 +510,101 @@ export default function FinalMarksPremoderationReportPage() {
     [],
   );
 
+  function handlePrint() {
+    if (!rows.length) {
+      toast.info("No Records Found.");
+      return;
+    }
+
+    const selectedCourse = courses.find(
+      (r) => num(r.fk_course_id) === Number(courseId),
+    );
+    const selectedExam = exams.find(
+      (r) => num(r.fk_exam_id) === Number(examId),
+    );
+    const selectedCollege = colleges.find(
+      (r) => num(r.fk_college_id) === Number(collegeId),
+    );
+    const selectedCourseGroup = courseGroups.find(
+      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+    );
+    const selectedCourseYear = courseYears.find(
+      (r) => num(r.fk_course_year_id) === Number(courseYearId),
+    );
+    const selectedRegulation = regulations.find(
+      (r) => num(r.fk_regulation_id) === Number(regulationId),
+    );
+    const selectedSubject = subjects.find(
+      (r) => num(r.fk_subject_id) === Number(subjectId),
+    );
+
+    const filterSummary = [
+      txt(selectedCollege?.college_code),
+      txt(selectedCourse?.course_code),
+      txt(selectedCourseGroup?.group_code),
+      txt(
+        selectedCourseYear?.course_year_name ||
+          selectedCourseYear?.course_year_code,
+      ),
+      txt(selectedExam?.exam_name),
+      txt(selectedRegulation?.regulation_code),
+      txt(selectedSubject?.subject_name),
+    ]
+      .filter(Boolean)
+      .join(" / ");
+
+    const thCols = columnDefs
+      .map((c) => `<th>${escapeHtml(c.headerName ?? "")}</th>`)
+      .join("");
+    const th = `<tr>${thCols}</tr>`;
+
+    const bodyRows = rows
+      .map((r, i) => {
+        const tds = columnDefs
+          .map((c) => {
+            // @ts-expect-error ignoring ag-grid specific type requirement
+            const val = c.valueGetter
+              ? c.valueGetter({ data: r, node: { rowIndex: i } })
+              : c.field
+                ? r[c.field]
+                : "";
+            return `<td>${escapeHtml(dash(val))}</td>`;
+          })
+          .join("");
+        return `<tr>${tds}</tr>`;
+      })
+      .join("");
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Final Marks Pre Moderation Report</title><style>
+@page { size: A4 landscape; margin: 10mm; }
+body { font: 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111; margin: 0; }
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 15px; }
+.logo-col { width: 80px; flex: 0 0 80px; }
+.logo-col img { max-width: 100%; height: auto; display: block; }
+.title-col { flex: 1 1 auto; text-align: center; padding-right: 80px; }
+.collegeName { font-size: 18px; font-weight: bold; margin: 0 0 4px; color: #000; }
+.reportTitle { font-size: 14px; font-weight: bold; margin: 0 0 6px; color: #000; }
+.reportDetails { font-size: 12px; font-weight: 500; margin: 0; color: #000; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+th, td { border: 1px solid #94a3b8; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+th { background: #c3d9ff; font-weight: 600; text-align: center; }
+tr { break-inside: avoid; }
+</style></head><body>
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${collegeLogo || "/assets/images/logo.jpg"}" alt="College ERP" />
+    </div>
+    <div class="title-col">
+      <div class="collegeName">Gondwana Institute of Technology</div>
+      <div class="reportTitle">Final Marks Pre Moderation Report</div>
+      <div class="reportDetails">${escapeHtml(filterSummary)}</div>
+    </div>
+  </div>
+  <table><thead>${th}</thead><tbody>${bodyRows}</tbody></table>
+</body></html>`;
+    printHtmlInIframe(html);
+  }
+
   return (
     <FilteredListPage
       title="Final Marks Pre Moderation Report"
@@ -680,7 +787,7 @@ export default function FinalMarksPremoderationReportPage() {
             type="button"
             size="sm"
             className="h-9 text-[12px]"
-            onClick={() => window.print()}
+            onClick={handlePrint}
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Print Report

@@ -117,6 +117,8 @@ export default function FeeStructurePage() {
   const { user } = useSession();
 
   const [mode, setMode] = useState<StructureMode>("batch");
+  const isAdmin = user?.isAdmin ?? false;
+  const effectiveMode = isAdmin ? mode : "academic";
   const [filtersData, setFiltersData] = useState<FilterRow[]>([]);
   const [academicData, setAcademicData] = useState<FilterRow[]>([]);
   const [batchesData, setBatchesData] = useState<FilterRow[]>([]);
@@ -132,7 +134,7 @@ export default function FeeStructurePage() {
   const [showList, setShowList] = useState(false);
   const [viewing, setViewing] = useState<CollegeFeeStructureRow | null>(null);
 
-  const isAcademicFee = mode === "academic";
+  const isAcademicFee = effectiveMode === "academic";
 
   const collegeOptions = useMemo(
     () => filterColleges(filtersData).map(collegeOption),
@@ -248,17 +250,19 @@ export default function FeeStructurePage() {
         setAcademicData(filters.academicData);
         setBatchesData(filters.batchesData);
         const colleges = filterColleges(filters.filtersData);
-        const firstCollege =
-          pickNum(colleges[0], ["fk_college_id", "collegeId"]) || null;
-        if (firstCollege) {
-          setCollegeId(firstCollege);
-          applyCollegeCascade(
-            firstCollege,
-            filters.filtersData,
-            filters.academicData,
-            filters.batchesData,
-            false,
-          );
+        if (colleges.length > 0) {
+          const firstCollege =
+            pickNum(colleges[0], ["fk_college_id", "collegeId"]) || null;
+          if (firstCollege) {
+            setCollegeId(firstCollege);
+            applyCollegeCascade(
+              firstCollege,
+              filters.filtersData,
+              filters.academicData,
+              filters.batchesData,
+              isAdmin ? mode === "academic" : true,
+            );
+          }
         }
       })
       .catch((err) => toastError(err, "Failed to load filters"))
@@ -364,6 +368,10 @@ export default function FeeStructurePage() {
   function openEdit(row: CollegeFeeStructureRow) {
     const id = Number(row.feeStructureId ?? 0);
     if (!id) return;
+    if (!isAdmin) {
+      setViewing(row);
+      return;
+    }
     router.push(`/accounts-and-fees/fee-masters/edit-fee-structure/${id}`);
   }
 
@@ -372,6 +380,38 @@ export default function FeeStructurePage() {
   }
 
   const columnDefs = useMemo<ColDef<CollegeFeeStructureRow>[]>(() => {
+    if (!isAdmin) {
+      return [
+        {
+          headerName: "SI.No",
+          valueGetter: rowIndexGetter,
+          width: 70,
+          flex: 0,
+        },
+        { field: "collegeCode", headerName: "College", minWidth: 110 },
+        { field: "academicYear", headerName: "Academic Year", minWidth: 130 },
+        {
+          headerName: "Fee Structure",
+          minWidth: 200,
+          flex: 1.2,
+          cellRenderer: feeStructureRenderer,
+        },
+        {
+          field: "isActive",
+          headerName: "Status",
+          minWidth: 100,
+          cellRenderer: statusRenderer,
+        },
+        {
+          headerName: "Actions",
+          minWidth: 90,
+          width: 90,
+          flex: 0,
+          cellRenderer: makeActionsRenderer(openEdit, openView),
+        },
+      ];
+    }
+
     const base: ColDef<CollegeFeeStructureRow>[] = [
       {
         headerName: "SI.No",
@@ -424,31 +464,33 @@ export default function FeeStructurePage() {
 
     return base;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- renderers close over handlers
-  }, [isAcademicFee]);
+  }, [isAcademicFee, isAdmin]);
 
   return (
     <FilteredListPage
       title="Fee Structure"
       filters={
         <div className="space-y-4">
-          <RadioGroup
-            value={mode}
-            onValueChange={(value) => onModeChange(value as StructureMode)}
-            className="flex flex-wrap gap-6"
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="batch" id="fee-structure-batch" />
-              <Label htmlFor="fee-structure-batch" className="font-normal">
-                Batch-Wise Fee Structure
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="academic" id="fee-structure-academic" />
-              <Label htmlFor="fee-structure-academic" className="font-normal">
-                Academic-Wise Fee Structure
-              </Label>
-            </div>
-          </RadioGroup>
+          {isAdmin ? (
+            <RadioGroup
+              value={mode}
+              onValueChange={(value) => onModeChange(value as StructureMode)}
+              className="flex flex-wrap gap-6"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="batch" id="fee-structure-batch" />
+                <Label htmlFor="fee-structure-batch" className="font-normal">
+                  Batch-Wise Fee Structure
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="academic" id="fee-structure-academic" />
+                <Label htmlFor="fee-structure-academic" className="font-normal">
+                  Academic-Wise Fee Structure
+                </Label>
+              </div>
+            </RadioGroup>
+          ) : null}
 
           <GlobalFilterBarRow>
             <GlobalFilterField label="College">

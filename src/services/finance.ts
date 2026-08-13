@@ -248,6 +248,40 @@ export async function updateFinChequeBook(
 
 // ─── Transactions (Income & Expenses) ─────────────────────────────────────────
 
+// ─── Check Issues ───────────────────────────────────────────────────────────────
+
+export async function listFinChequeIssuesByEntity(
+  accountEntityId: number,
+): Promise<FinChequeIssue[]> {
+  if (!accountEntityId) return [];
+  // Using standard domainList; adjust if backend requires a specific endpoint
+  return domainList<FinChequeIssue>(
+    "FinChequeIssue",
+    buildQuery(
+      { "AccountEntity.accountEntityId": accountEntityId },
+      { field: "chequeIssueId", direction: "DESC" },
+    ),
+  );
+}
+
+export async function createFinChequeIssue(
+  data: Partial<FinChequeIssue>,
+): Promise<FinChequeIssue> {
+  return domainCreate<FinChequeIssue>("FinChequeIssue", data);
+}
+
+export async function updateFinChequeIssue(
+  id: number,
+  data: Partial<FinChequeIssue>,
+): Promise<FinChequeIssue> {
+  return domainUpdate<FinChequeIssue>(
+    "FinChequeIssue",
+    "chequeIssueId",
+    id,
+    data,
+  );
+}
+
 export async function listFinTransactions(): Promise<FinTransaction[]> {
   return domainList<FinTransaction>(FT.name, buildQuery({}, sortDesc));
 }

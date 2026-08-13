@@ -19,6 +19,7 @@ import {
   listEmployeeDetails,
   searchEmployeesForManagerAssign,
   sendEmployeeMails,
+  getEmployeeByIdForHr,
 } from "@/services";
 import { rowIndexGetter } from "@/lib/utils";
 
@@ -203,9 +204,15 @@ export function EmployeeListPage() {
     enabled: mode === "all",
   });
 
+  const { data: searchedEmployee, isFetching: isFetchingSearch } = useQuery({
+    queryKey: ["employeeDetailsForHr", selectedEmployeeId],
+    queryFn: () => getEmployeeByIdForHr(selectedEmployeeId!),
+    enabled: !!selectedEmployeeId && mode === "search",
+  });
+
   const onEmployeeSearch = useCallback(async (term: string) => {
     const q = term.trim();
-    if (q.length < 4) {
+    if (q.length < 3) {
       setSearchOptions([]);
       return;
     }
@@ -280,10 +287,9 @@ export function EmployeeListPage() {
   const displayRows = useMemo(() => {
     if (mode === "all") return allRows;
     if (!selectedEmployeeId) return [];
-    return searchRows.filter(
-      (r) => Number(r.employeeId) === selectedEmployeeId,
-    );
-  }, [mode, allRows, selectedEmployeeId, searchRows]);
+    if (searchedEmployee) return [searchedEmployee];
+    return [];
+  }, [mode, allRows, selectedEmployeeId, searchedEmployee]);
 
   const columnDefs = useMemo<ColDef<EmpRow>[]>(
     () => [
@@ -332,7 +338,7 @@ export function EmployeeListPage() {
         </p>
       ) : null}
 
-      {mode === "search" ? (
+      {mode === "all" ? undefined : (
         <AngularFilterCard
           title="Employee Search"
           collapsible={false}
@@ -345,7 +351,7 @@ export function EmployeeListPage() {
                 value={selectedEmployeeId ? String(selectedEmployeeId) : null}
                 onChange={(v) => setSelectedEmployeeId(v ? Number(v) : null)}
                 options={searchOptions}
-                placeholder="Search by name or employee id (min 4 chars)"
+                placeholder="Search by name or employee id (min 3 chars)"
                 searchable
                 onSearch={onEmployeeSearch}
                 isLoading={searchLoading}

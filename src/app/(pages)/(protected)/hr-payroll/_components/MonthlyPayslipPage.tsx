@@ -373,6 +373,7 @@ export function MonthlyPayslipPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
+      showTable={rows.length > 0}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}

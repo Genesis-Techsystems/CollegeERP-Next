@@ -5,7 +5,7 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ChevronDownIcon, PencilIcon } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
 import { DataTable } from "@/common/components/table";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
@@ -33,6 +33,7 @@ import type { FinBudgetMidyearEstimation } from "@/types/finance";
 import { formatFinanceNumber } from "../_lib/finance-format";
 import { useFinanceCascade } from "../_lib/use-finance-cascade";
 import { useFinanceSessionIds } from "../_lib/use-finance-session-ids";
+import { FinanceBudgetFilters } from "../_components/FinanceBudgetFilters";
 
 /** Angular displayedColumns */
 const COL_DEFS = {
@@ -373,220 +374,174 @@ export default function BudgetMidYearPage() {
     [openEdit],
   );
 
-  const notice = (
-    <>
-      {cascade.isError ? (
-        <p className="text-sm text-destructive">
-          {getErrorMessage(cascade.error)}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
-      ) : null}
-    </>
-  );
-
   return (
-    <PageContainer className="space-y-5">
-      {notice}
-
-      {/* Card 1 — filters */}
-      <div className="app-card space-y-4 p-4">
-        <h2 className="text-lg font-semibold tracking-tight text-foreground">
-          {pageTitle}
-        </h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[180px] flex-1">
-            <Select
-              label="College"
-              required
-              value={cascade.collegeId ? String(cascade.collegeId) : null}
-              onChange={(v) => cascade.setCollegeId(v ? Number(v) : 0)}
-              options={toSelectOptions(cascade.colleges)}
-              placeholder="College"
-              isLoading={cascade.isLoading}
-            />
-          </div>
-          <div className="min-w-[180px] flex-1">
-            <Select
-              label="Entity"
-              required
-              value={
-                cascade.accountEntityId ? String(cascade.accountEntityId) : null
-              }
-              onChange={(v) => cascade.setAccountEntityId(v ? Number(v) : 0)}
-              options={toSelectOptions(cascade.entities)}
-              placeholder="Entity"
-              disabled={!cascade.collegeId}
-            />
-          </div>
-          <div className="min-w-[180px] flex-1">
-            <Select
-              label="Financial Year"
-              required
-              value={
-                cascade.financialYearId ? String(cascade.financialYearId) : null
-              }
-              onChange={(v) => cascade.setFinancialYearId(v ? Number(v) : 0)}
-              options={toSelectOptions(cascade.years)}
-              placeholder="Financial Year"
-              disabled={!cascade.accountEntityId}
-            />
-          </div>
-          <Button
-            type="button"
-            className="shrink-0 ml-auto"
-            onClick={getList}
-            disabled={!cascade.filtersValid || isFetching}
-          >
-            {isFetching ? "Loading…" : "Get List"}
-          </Button>
+    <FilteredListPage
+      title={pageTitle}
+      filters={
+        <div className="space-y-4">
+          {error && !/no\s+record(?:\(s\)|s)?/i.test(getErrorMessage(error)) ? (
+            <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+          ) : null}
+          <FinanceBudgetFilters
+            cascade={cascade}
+            loadLabel="Get List"
+            loading={isFetching}
+            bare
+            // onLoad={handleGetList}
+          />
         </div>
-      </div>
-
-      {/* Card 2 — add/edit form (same fields, separate card) */}
-      <div className="app-card p-4">
-        <Collapsible open={formOpen} onOpenChange={setFormOpen}>
-          <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left">
-            <span className="text-sm font-semibold text-foreground">
-              {formTitle}
-            </span>
-            <ChevronDownIcon
-              className={cn(
-                "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
-                formOpen && "rotate-180",
-              )}
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-4 pt-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <Select
-                  label="Account"
-                  required
-                  value={form.accountTypeId ? String(form.accountTypeId) : null}
-                  onChange={(v) =>
-                    setForm((f) => ({
-                      ...f,
-                      accountTypeId: v ? Number(v) : 0,
-                      finCategoryId: 0,
-                      finSubCategoryId: 0,
-                    }))
-                  }
-                  options={toSelectOptions(cascade.accountTypes)}
-                  placeholder="Account"
+      }
+      resultsVisible={!!loadedContext}
+      body={
+        <div className="space-y-4">
+          {/* Card 2 — collapsible form */}
+          <div className="rounded-lg border bg-card px-4 pb-4 pt-1">
+            <Collapsible open={formOpen} onOpenChange={setFormOpen}>
+              <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 py-4 text-left">
+                <span className="text-sm font-semibold text-foreground">
+                  {formTitle}
+                </span>
+                <ChevronDownIcon
+                  className={cn(
+                    "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
+                    formOpen && "rotate-180",
+                  )}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Estimated From Date</Label>
-                <DatePicker
-                  value={form.estimationFromDate}
-                  onChange={(d) =>
-                    d && setForm((f) => ({ ...f, estimationFromDate: d }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Estimated To Date</Label>
-                <DatePicker
-                  value={form.estimationToDate}
-                  onChange={(d) =>
-                    d && setForm((f) => ({ ...f, estimationToDate: d }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Estimated Amount</Label>
-                <Input
-                  type="text"
-                  placeholder="Estimated Amount"
-                  value={form.estimatedAmount}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, estimatedAmount: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Next Year Proposed Amount</Label>
-                <Input
-                  type="text"
-                  placeholder="Next Year Proposed Amount"
-                  value={form.nextyrProposedAmount}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      nextyrProposedAmount: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="midyear-active"
-                  checked={form.isActive}
-                  onCheckedChange={(v) =>
-                    setForm((f) => ({ ...f, isActive: v === true }))
-                  }
-                />
-                <Label
-                  htmlFor="midyear-active"
-                  className="cursor-pointer text-sm"
-                >
-                  Active
-                </Label>
-              </div>
-              {!form.isActive ? (
-                <div className="min-w-[220px] flex-1 space-y-1.5">
-                  <Label className="text-xs">Reason</Label>
-                  <Input
-                    value={form.reason}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, reason: e.target.value }))
-                    }
-                    placeholder="Reason"
-                  />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 pt-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Select
+                      label="Account"
+                      required
+                      value={
+                        form.accountTypeId ? String(form.accountTypeId) : null
+                      }
+                      onChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          accountTypeId: v ? Number(v) : 0,
+                          finCategoryId: 0,
+                          finSubCategoryId: 0,
+                        }))
+                      }
+                      options={toSelectOptions(cascade.accountTypes)}
+                      placeholder="Account"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Estimated From Date</Label>
+                    <DatePicker
+                      value={form.estimationFromDate}
+                      onChange={(d) =>
+                        d && setForm((f) => ({ ...f, estimationFromDate: d }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Estimated To Date</Label>
+                    <DatePicker
+                      value={form.estimationToDate}
+                      onChange={(d) =>
+                        d && setForm((f) => ({ ...f, estimationToDate: d }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Estimated Amount</Label>
+                    <Input
+                      type="text"
+                      placeholder="Estimated Amount"
+                      value={form.estimatedAmount}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          estimatedAmount: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Next Year Proposed Amount</Label>
+                    <Input
+                      type="text"
+                      placeholder="Next Year Proposed Amount"
+                      value={form.nextyrProposedAmount}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          nextyrProposedAmount: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
-              ) : null}
-              <div className="ml-auto flex gap-2">
-                <Button type="button" variant="outline" onClick={clearForm}>
-                  Clear
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => saveMutation.mutate()}
-                  disabled={
-                    saveMutation.isPending ||
-                    !form.accountTypeId ||
-                    !cascade.filtersValid
-                  }
-                >
-                  {saveMutation.isPending ? "Saving…" : "Save"}
-                </Button>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="midyear-active"
+                      checked={form.isActive}
+                      onCheckedChange={(v) =>
+                        setForm((f) => ({ ...f, isActive: v === true }))
+                      }
+                    />
+                    <Label
+                      htmlFor="midyear-active"
+                      className="cursor-pointer text-sm"
+                    >
+                      Active
+                    </Label>
+                  </div>
+                  {!form.isActive ? (
+                    <div className="min-w-[220px] flex-1 space-y-1.5">
+                      <Label className="text-xs">Reason</Label>
+                      <Input
+                        value={form.reason}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, reason: e.target.value }))
+                        }
+                        placeholder="Reason"
+                      />
+                    </div>
+                  ) : null}
+                  <div className="ml-auto flex gap-2">
+                    <Button type="button" variant="outline" onClick={clearForm}>
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => saveMutation.mutate()}
+                      disabled={
+                        saveMutation.isPending ||
+                        !form.accountTypeId ||
+                        !cascade.filtersValid
+                      }
+                    >
+                      {saveMutation.isPending ? "Saving…" : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
 
-      {/* Card 3 — results table */}
-      {loadedContext ? (
-        <DataTable
-          title={pageTitle}
-          subtitle=""
-          bordered
-          pagination
-          loading={isFetching}
-          rowData={rows}
-          columnDefs={columnDefs}
-          toolbar={{
-            search: true,
-            searchPlaceholder: "Search",
-            pdfDocumentTitle: `${pageTitle} - ${selectedData}`,
-          }}
-        />
-      ) : null}
-    </PageContainer>
+          <DataTable
+            title={pageTitle}
+            subtitle=""
+            bordered
+            pagination
+            loading={isFetching}
+            rowData={rows}
+            columnDefs={columnDefs}
+            toolbar={{
+              search: true,
+              searchPlaceholder: "Search",
+              pdfDocumentTitle: `${pageTitle} - ${selectedData}`,
+            }}
+            rowSelection="single"
+          />
+        </div>
+      }
+    />
   );
 }
