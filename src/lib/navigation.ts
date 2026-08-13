@@ -142,8 +142,14 @@ export function normalizeHref(path: string): string {
       /\/admin-examination-management\/post-examination\/internal-exams-avg(?=\/|$)/i,
       "/admin-examination-management/post-examination/internal-exams-average",
     )
-    // DB menu module URL is often `reports` (Angular Reports module), but App Router
-    // pages live under `admin-examination-management/admin-exam-reports`.
+    // DB menu module URL is often `reports` (Angular Reports module), but most
+    // App Router pages still live under `admin-examination-management/admin-exam-reports`.
+    // Keep group-wise passed/failed sheets and GraceMarks Benefited Students
+    // on the Angular Reports URL.
+    .replace(
+      /\/(?:apps\/)?reports\/admin-exam-reports\/(group-wise-(?:passed|failed)-result-sheets|grace-marks-benefited-students-report|grace-benefited-students-report)(?=\/|$)/gi,
+      "/reports/admin-exam-reports/$1",
+    )
     .replace(
       /\/reports\/admin-exam-reports(?=\/|$)/gi,
       "/admin-examination-management/admin-exam-reports",
@@ -151,6 +157,14 @@ export function normalizeHref(path: string): string {
     .replace(
       /\/apps\/reports\/admin-exam-reports(?=\/|$)/gi,
       "/admin-examination-management/admin-exam-reports",
+    )
+    .replace(
+      /\/admin-examination-management\/admin-exam-reports\/(group-wise-(?:passed|failed)-result-sheets|grace-marks-benefited-students-report|grace-benefited-students-report)(?=\/|$)/gi,
+      "/reports/admin-exam-reports/$1",
+    )
+    .replace(
+      /\/reports\/admin-exam-reports\/grace-benefited-students-report(?=\/|$)/gi,
+      "/reports/admin-exam-reports/grace-marks-benefited-students-report",
     )
     // Angular Leave Approvals — keep path (do not remap to leave-applications).
     // Alias mounts under my-leaves / faculty-details → principal leave-approvals.

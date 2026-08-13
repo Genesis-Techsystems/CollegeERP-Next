@@ -173,6 +173,93 @@
 
 /* ── Global filter bar — Review Queue reference layout ───────────────────── */
 
+/* Angular Student Details — radio strip above filter card */
+.search-mode-radio-strip {
+  width: calc(100% + 2 * var(--spacing-page-x));
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+}
+
+.search-mode-radio-strip__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+  margin-left: 25px;
+  padding: 8px 0;
+}
+
+.search-mode-radio-strip__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.87);
+  cursor: pointer;
+  user-select: none;
+}
+
+.search-mode-radio-strip__option input[type="radio"] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 2px solid rgba(0, 0, 0, 0.54);
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.search-mode-radio-strip__option input[type="radio"]:checked {
+  border-color: #0c51a4;
+}
+
+.search-mode-radio-strip__option input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: #0c51a4;
+}
+
+.search-mode-radio-strip__option input[type="radio"]:focus-visible {
+  outline: 2px solid #0c51a4;
+  outline-offset: 2px;
+}
+
+/* Student Details — compact second filter row + separate results card */
+.global-filter-bar__row--student-details-r2 {
+  justify-content: flex-start;
+}
+
+.student-details-table-card:empty {
+  display: none;
+}
+
+/* Student Details — table context bar (Angular pipe-separated summary) */
+.students-list-context-bar {
+  padding: 10px 24px;
+  background: #f5f5f5;
+  border-bottom: 2px solid #ffcf46;
+}
+
+.students-list-context-bar__text {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #1a5fb4;
+  font-family: var(--font-body), "Manrope", system-ui, sans-serif;
+}
+
 .global-filter-bar {
   /* Shell is rendered by the component using `.app-card` utilities. */
 }
@@ -523,6 +610,45 @@
   min-width: 5.5rem !important;
 }
 
+/* Verify Exam Marks — Angular fxFlex 12 / 35 / 12 / 25 / actions
+   Use flex-grow ratios (not % widths) so row gap does not force wrap. */
+.global-filter-bar__row--vem {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--vem > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--vem > .global-filter-field--fx12 {
+  flex: 12 1 0 !important;
+}
+
+.global-filter-bar__row--vem > .global-filter-field--fx35 {
+  flex: 35 1 0 !important;
+}
+
+.global-filter-bar__row--vem > .global-filter-field--fx25 {
+  flex: 25 1 0 !important;
+}
+
+.global-filter-bar__row--vem > .global-filter-field--action {
+  flex: 0 0 auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--vem > .global-filter-field--action .global-filter-field__label {
+  min-height: 1.25rem;
+}
+
 /* Assign Mails to Evaluators — Angular yar-bordr dual pick-list */
 .send-mail-eval-panel {
   border: 2px solid #89c5ff;
@@ -865,6 +991,47 @@
   max-width: 12% !important;
 }
 
+/* Academic Year Curriculum Report — Angular fxFlex (25/25/25/25, 20/25/15/5) */
+.global-filter-bar__row--aycr-r1,
+.global-filter-bar__row--aycr-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--aycr-r1 > .global-filter-field,
+.global-filter-bar__row--aycr-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--aycr-r1 > .global-filter-field--fx25 {
+  flex: 1 1 0 !important;
+}
+
+.global-filter-bar__row--aycr-r2 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+}
+
+.global-filter-bar__row--aycr-r2 > .global-filter-field--fx25 {
+  flex: 0 0 25% !important;
+  width: 25% !important;
+  max-width: 25% !important;
+}
+
+.global-filter-bar__row--aycr-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: 7.5rem !important;
+  min-width: 5.5rem !important;
+}
+
 @media (max-width: 768px) {
   .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx15,
   .global-filter-bar__row--eval-mod-r1 > .global-filter-field--fx69,
@@ -912,7 +1079,11 @@
   .global-filter-bar__row--aesr-r2 > .global-filter-field--fx18,
   .global-filter-bar__row--aesr-r2 > .global-filter-field--fx20,
   .global-filter-bar__row--aesr-r2 > .global-filter-field--fx50,
-  .global-filter-bar__row--aesr-r2 > .global-filter-field--fx12 {
+  .global-filter-bar__row--aesr-r2 > .global-filter-field--fx12,
+  .global-filter-bar__row--aycr-r1 > .global-filter-field--fx25,
+  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx20,
+  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx25,
+  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx10 {
     flex: 1 1 100% !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -924,7 +1095,9 @@
   .global-filter-bar__row--ebcr-r2,
   .global-filter-bar__row--ebcr-r3,
   .global-filter-bar__row--aesr-r1,
-  .global-filter-bar__row--aesr-r2 {
+  .global-filter-bar__row--aesr-r2,
+  .global-filter-bar__row--aycr-r1,
+  .global-filter-bar__row--aycr-r2 {
     flex-wrap: wrap !important;
   }
 }

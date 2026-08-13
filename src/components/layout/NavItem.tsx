@@ -193,6 +193,14 @@ import {
 import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
 import { scheduleNavigation } from "@/lib/schedule-navigation";
+import {
+  resolveFacultyDetailsNavRoute,
+  isSecretaryRole,
+  isHodFacultyDetailsHref,
+  isHrEmployeeListHref,
+  HR_EMPLOYEE_LIST_ROUTE,
+} from "@/lib/role-routing";
+import { useSessionContext } from "@/context/SessionContext";
 import type { NavItem as NavItemType } from "@/types/navigation";
 
 // ---------------------------------------------------------------------------
@@ -1291,6 +1299,7 @@ function navLeafClasses(_examMasters: boolean, isSelfActive: boolean): string {
 export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useSessionContext();
   // Boolean / primitive selectors so only items whose open/collapsed or
   // sidebar chrome state actually changed re-render (not the whole tree).
   const isItemCollapsed = useNavigationStore((s) =>
@@ -1331,10 +1340,22 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? "").toLowerCase();
 
+    const facultyDetailsRoute = resolveFacultyDetailsNavRoute(
+      item.href,
+      item.label,
+      user?.roleName,
+    );
+    if (facultyDetailsRoute) return facultyDetailsRoute;
+
     // Faculty Details "Staff Workload Adjustment" (Angular StaffProxyList) —
     // distinct from Faculty Leaves "Workload Adjustment"; pin before remaps.
     if (isStaffWorkloadAdjustmentNav(item.href, item.label)) {
       return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+    }
+
+    // Secretary / HR — Angular `#/hr-payroll/employee/employee-list`
+    if (isHrEmployeeListHref(hrefLower)) {
+      return HR_EMPLOYEE_LIST_ROUTE;
     }
 
     // Daily Attendance of Students ONLY (not "Daily Attendance Report").
@@ -1361,20 +1382,82 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/reports/student-attendance-reports/daily-attendance-report";
     }
 
+    // Subject Wise Faculty / College Attendance — must beat the student pin
+    // (DB label is often "Subject Wise College Attendance Report"; href may be
+    // subject-wise-attendance-report without "faculty" in the path).
+    if (
+      hrefLower.includes("subject-wise-faculty-attendance-report") ||
+      (labelLower.includes("subject") &&
+        labelLower.includes("wise") &&
+        labelLower.includes("attendance") &&
+        (labelLower.includes("faculty") || labelLower.includes("college")) &&
+        !hrefLower.includes("faculty-subjects") &&
+        !labelLower.includes("faculty subjects") &&
+        !labelLower.includes("evaluator") &&
+        !labelLower.includes("result") &&
+        !labelLower.includes("pass") &&
+        !labelLower.includes("percentage"))
+    ) {
+      return "/reports/admin-attendance-reports/subject-wise-faculty-attendance-report";
+    }
+
     // Subject Wise Student Attendance — beat Attendance Management remap
     if (
-      hrefLower.includes("subject-wise-attendance-report") ||
+      (hrefLower.includes("subject-wise-attendance-report") &&
+        !hrefLower.includes("faculty")) ||
       labelLower === "subject wise student attendance" ||
       (labelLower.includes("subject") &&
         labelLower.includes("wise") &&
         labelLower.includes("attendance") &&
         !labelLower.includes("faculty") &&
+        !labelLower.includes("college") &&
         !labelLower.includes("evaluator") &&
         !labelLower.includes("result") &&
         !labelLower.includes("pass") &&
         !labelLower.includes("percentage"))
     ) {
       return "/reports/student-attendance-reports/subject-wise-attendance-report";
+    }
+
+    // Program / Course wise Student Report (count) — beat Course-Wise Attendance
+    // when DB href reuses course-wise-students-attendance-report.
+    // Label wins over a colliding attendance href.
+    if (
+      !labelLower.includes("attendance") &&
+      !labelLower.includes("caste") &&
+      !labelLower.includes("gender") &&
+      !labelLower.includes("quota") &&
+      !labelLower.includes("detained") &&
+      !labelLower.includes("rejoin") &&
+      (labelLower.includes("program") || labelLower.includes("programme")) &&
+      labelLower.includes("wise") &&
+      labelLower.includes("student") &&
+      (labelLower.includes("report") || labelLower.includes("count"))
+    ) {
+      return "/reports/admin-student-reports/branch-academicyear-wise-student-count";
+    }
+
+    // Course Wise Student Attendance — beat Attendance Management remap
+    if (
+      hrefLower.includes("course-wise-students-attendance-report") ||
+      labelLower === "course wise student attendance" ||
+      labelLower === "course-wise students attendance report" ||
+      labelLower === "course wise students attendance report" ||
+      labelLower === "program wise student attendance" ||
+      labelLower === "program-wise students attendance report" ||
+      labelLower === "program wise students attendance report" ||
+      (labelLower.includes("attendance") &&
+        labelLower.includes("wise") &&
+        labelLower.includes("student") &&
+        (labelLower.includes("course") ||
+          labelLower.includes("program") ||
+          labelLower.includes("programme")) &&
+        !labelLower.includes("subject") &&
+        !labelLower.includes("faculty") &&
+        !labelLower.includes("percentage") &&
+        !labelLower.includes("delivery"))
+    ) {
+      return "/reports/admin-attendance-reports/course-wise-students-attendance-report";
     }
 
     // ── Student Examination Section (Angular examination-section module) ───────
@@ -1414,7 +1497,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       }
       // Angular folder aliases → App Router folder names (admin-exam-reports).
       if (slug === "grace-benefited-students-report") {
-        return `${examReportsBase}/grace-marks-benefited-students-report`;
+        return "/reports/admin-exam-reports/grace-marks-benefited-students-report";
       }
       if (
         slug === "exam-gracemarks-reports" ||
@@ -1423,7 +1506,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return `${examReportsBase}/exam-gracemarks-reports`;
       }
       if (slug === "re-evaluation-comparison-report") {
-        return `${examReportsBase}/re-evaluation-comparision-report`;
+        return "/reports/admin-exam-reports/re-evaluation-comparision-report";
       }
       if (slug === "internal-marks-entry-report") {
         return `${examReportsBase}/internal-marks-report`;
@@ -1445,6 +1528,25 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return `${examReportsBase}/ou-result-sheet`;
       }
       if (slug && hrefLower.includes("admin-exam-reports/")) {
+        if (
+          slug === "group-wise-passed-result-sheets" ||
+          slug === "group-wise-failed-result-sheets" ||
+          slug === "grace-marks-benefited-students-report" ||
+          slug === "grace-benefited-students-report" ||
+          slug === "academic-year-curriculum-report" ||
+          slug === "batchwise-sgpa-report" ||
+          slug === "re-evaluation-exam-report" ||
+          slug === "re-evaluation-comparision-report" ||
+          slug === "re-evaluation-comparison-report"
+        ) {
+          const reportsSlug =
+            slug === "grace-benefited-students-report"
+              ? "grace-marks-benefited-students-report"
+              : slug === "re-evaluation-comparison-report"
+                ? "re-evaluation-comparision-report"
+                : slug;
+          return `/reports/admin-exam-reports/${reportsSlug}`;
+        }
         return `${examReportsBase}/${slug}`;
       }
       if (slug && hrefLower.includes("/exam-reports/")) {
@@ -1469,7 +1571,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("benefited") &&
         (labelLower.includes("student") || labelLower.includes("report")))
     ) {
-      return `${examReportsBase}/grace-marks-benefited-students-report`;
+      return "/reports/admin-exam-reports/grace-marks-benefited-students-report";
     }
     if (
       hrefLower.includes("detention-report") ||
@@ -1538,7 +1640,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           labelLower.includes("comparison")) &&
         labelLower.includes("report"))
     ) {
-      return `${examReportsBase}/re-evaluation-comparision-report`;
+      return "/reports/admin-exam-reports/re-evaluation-comparision-report";
     }
     if (
       hrefLower.includes("re-evaluation-exam-report") ||
@@ -1558,7 +1660,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("analysis") &&
         !labelLower.includes("student"))
     ) {
-      return `${examReportsBase}/re-evaluation-exam-report`;
+      return "/reports/admin-exam-reports/re-evaluation-exam-report";
     }
     if (
       hrefLower.includes("consolidated-exam-report") ||
@@ -1592,7 +1694,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("curriculum") &&
         labelLower.includes("report"))
     ) {
-      return `${examReportsBase}/academic-year-curriculum-report`;
+      return "/reports/admin-exam-reports/academic-year-curriculum-report";
     }
     if (
       hrefLower.includes("batchwise-sgpa-report") ||
@@ -1604,7 +1706,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         labelLower.includes("batch") &&
         labelLower.includes("report"))
     ) {
-      return `${examReportsBase}/batchwise-sgpa-report`;
+      return "/reports/admin-exam-reports/batchwise-sgpa-report";
     }
     if (
       hrefLower.includes("lab-remuneration-report") ||
@@ -1645,7 +1747,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       (labelLower.includes("group-wise-passed") &&
         labelLower.includes("result"))
     ) {
-      return `${examReportsBase}/group-wise-passed-result-sheets`;
+      return "/reports/admin-exam-reports/group-wise-passed-result-sheets";
     }
     if (
       hrefLower.includes("group-wise-failed-result-sheets") ||
@@ -1655,7 +1757,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       (labelLower.includes("group-wise-failed") &&
         labelLower.includes("result"))
     ) {
-      return `${examReportsBase}/group-wise-failed-result-sheets`;
+      return "/reports/admin-exam-reports/group-wise-failed-result-sheets";
     }
     const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -2336,6 +2438,25 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         ?.replace(/\/+$/, "");
       if (seg) {
         if (
+          seg === "group-wise-passed-result-sheets" ||
+          seg === "group-wise-failed-result-sheets" ||
+          seg === "grace-marks-benefited-students-report" ||
+          seg === "grace-benefited-students-report" ||
+          seg === "academic-year-curriculum-report" ||
+          seg === "batchwise-sgpa-report" ||
+          seg === "re-evaluation-exam-report" ||
+          seg === "re-evaluation-comparision-report" ||
+          seg === "re-evaluation-comparison-report"
+        ) {
+          const reportsSeg =
+            seg === "grace-benefited-students-report"
+              ? "grace-marks-benefited-students-report"
+              : seg === "re-evaluation-comparison-report"
+                ? "re-evaluation-comparision-report"
+                : seg;
+          return `/reports/admin-exam-reports/${reportsSeg}`;
+        }
+        if (
           seg === "tabulation_register" ||
           seg === "tabulation-registration"
         ) {
@@ -2550,19 +2671,21 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/staff-faculty-details/performance-assessment";
       }
 
+      // Secretary / HR — Faculty Details label under hr-payroll (before HOD faculty-details remap)
+      if (
+        (labelKey === "faculty details" || labelKey === "faculty detail") &&
+        hrefLower.includes("hr-payroll") &&
+        hrefLower.includes("employee")
+      ) {
+        return "/hr-payroll/employee/employee-list";
+      }
+
       // HOD Faculty Details — Angular `staff-faculty-details/faculty-details`
       // (must pin before leave-approvals / faculty-details/leave-approvals remap)
       if (
-        labelKey === "faculty details" ||
-        labelKey === "faculty detail" ||
-        hrefLower.includes("staff-faculty-details/faculty-details") ||
-        (hrefLower.includes("faculty-details") &&
-          !hrefLower.includes("leave-approvals") &&
-          !hrefLower.includes("leave_approvals") &&
-          !hrefLower.includes("performance") &&
-          !hrefLower.includes("appraisal") &&
-          !hrefLower.includes("salary") &&
-          !hrefLower.includes("proxy"))
+        !isHrEmployeeListHref(hrefLower) &&
+        !isSecretaryRole(user?.roleName) &&
+        isHodFacultyDetailsHref(hrefLower)
       ) {
         return "/staff-faculty-details/faculty-details";
       }
@@ -3121,15 +3244,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/reports/student-attendance-reports/student-attendance-percentage-report";
       }
       if (
-        hrefLower.includes("subject-wise-attendance-report") &&
-        !hrefLower.includes("faculty") &&
-        labelLower.includes("college")
+        hrefLower.includes("subject-wise-faculty-attendance-report") ||
+        (labelLower.includes("subject") &&
+          labelLower.includes("wise") &&
+          labelLower.includes("attendance") &&
+          (labelLower.includes("faculty") || labelLower.includes("college")) &&
+          !hrefLower.includes("faculty-subjects") &&
+          !labelLower.includes("faculty subjects") &&
+          !labelLower.includes("evaluator") &&
+          !labelLower.includes("result") &&
+          !labelLower.includes("pass") &&
+          !labelLower.includes("percentage"))
       ) {
-        // "Subject Wise College Attendance Report" — goes to the faculty report
         return "/reports/admin-attendance-reports/subject-wise-faculty-attendance-report";
       }
       if (
-        hrefLower.includes("subject-wise-attendance-report") ||
+        (hrefLower.includes("subject-wise-attendance-report") &&
+          !hrefLower.includes("faculty")) ||
         (labelLower.includes("subject") &&
           labelLower.includes("wise") &&
           labelLower.includes("attendance") &&
@@ -3285,12 +3416,15 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       if (
         hrefLower.includes("subject-wise-faculty-attendance-report") ||
         (labelLower.includes("subject") &&
-          labelLower.includes("college") &&
+          labelLower.includes("wise") &&
           labelLower.includes("attendance") &&
-          labelLower.includes("report")) ||
-        (labelLower.includes("subject wise") &&
-          labelLower.includes("faculty") &&
-          labelLower.includes("attendance"))
+          (labelLower.includes("faculty") || labelLower.includes("college")) &&
+          !hrefLower.includes("faculty-subjects") &&
+          !labelLower.includes("faculty subjects") &&
+          !labelLower.includes("evaluator") &&
+          !labelLower.includes("result") &&
+          !labelLower.includes("pass") &&
+          !labelLower.includes("percentage"))
       ) {
         return "/reports/admin-attendance-reports/subject-wise-faculty-attendance-report";
       }
@@ -3299,7 +3433,8 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         (labelLower.includes("faculty") &&
           labelLower.includes("subject") &&
           labelLower.includes("attendance") &&
-          labelLower.includes("report"))
+          labelLower.includes("report") &&
+          !labelLower.includes("wise"))
       ) {
         return "/reports/admin-attendance-reports/faculty-subjects-attendance-report";
       }
@@ -3327,10 +3462,22 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       }
       if (
         hrefLower.includes("course-wise-students-attendance-report") ||
-        (labelLower.includes("course") &&
+        labelLower === "course wise student attendance" ||
+        labelLower === "course-wise students attendance report" ||
+        labelLower === "course wise students attendance report" ||
+        labelLower === "program wise student attendance" ||
+        labelLower === "program-wise students attendance report" ||
+        labelLower === "program wise students attendance report" ||
+        (labelLower.includes("attendance") &&
+          labelLower.includes("wise") &&
           labelLower.includes("student") &&
-          labelLower.includes("attendance") &&
-          labelLower.includes("report"))
+          (labelLower.includes("course") ||
+            labelLower.includes("program") ||
+            labelLower.includes("programme")) &&
+          !labelLower.includes("subject") &&
+          !labelLower.includes("faculty") &&
+          !labelLower.includes("percentage") &&
+          !labelLower.includes("delivery"))
       ) {
         return "/reports/admin-attendance-reports/course-wise-students-attendance-report";
       }
@@ -3699,7 +3846,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             labelLower.includes("list") ||
             hrefLower.includes("fee-reports")))
       ) {
-        return "/accounts-and-fees/fee-reports/scholarship-preceedings";
+        return "/reports/admin-fee-reports/scholarship-preceedings";
       }
       if (
         hrefLower.includes("concession-list") ||
@@ -3713,7 +3860,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
           !labelLower.includes("preceeding") &&
           !labelLower.includes("proceeding"))
       ) {
-        return "/accounts-and-fees/fee-reports/concession-list";
+        return "/reports/admin-fee-reports/concession-list";
       }
       if (
         hrefLower.includes("finance-drilldown-report") ||
@@ -4191,9 +4338,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     }
     if (
       labelLower.includes("verify exam marks") ||
-      labelLower.includes("verify exam status")
+      labelLower.includes("verify exam status") ||
+      hrefLower.includes("result-processing/verify-exam-marks") ||
+      hrefLower.includes("admin-result-processing/verify-exam-marks")
     ) {
-      return `${postExamBase}/verify-exam-marks`;
+      return "/admin-examination-management/result-processing/verify-exam-marks";
     }
     // Attendance marking — match the DB href first (Angular post-examination
     // routes: `exam-attendance-marking` for internal, `external-exam-…` for
@@ -5343,9 +5492,10 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith("/email-sms/");
     }
     const examBase = "/admin-examination-management";
-    const examReportsPath = normPathname.startsWith(
-      `${examBase}/exam-reports/`,
-    );
+    const examReportsPath =
+      normPathname.startsWith(`${examBase}/exam-reports/`) ||
+      normPathname.startsWith(`${examBase}/admin-exam-reports/`) ||
+      normPathname.startsWith("/reports/admin-exam-reports/");
     if (label.includes("examination management")) {
       // Exam report pages belong under Reports → Examination Reports
       if (examReportsPath) return false;
@@ -5355,7 +5505,18 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return (
         examReportsPath ||
         normPathname.startsWith("/reports/admin-fee-reports/") ||
-        normPathname.startsWith("/reports/admin-student-reports/")
+        normPathname.startsWith("/reports/admin-student-reports/") ||
+        // Fee report pages mounted under /accounts-and-fees/fee-reports but
+        // live in the sidebar under Reports → Fee Reports.
+        normPathname.startsWith(
+          "/accounts-and-fees/fee-reports/scholarship-preceedings",
+        ) ||
+        normPathname.startsWith(
+          "/accounts-and-fees/fee-reports/concession-list",
+        ) ||
+        normPathname.startsWith(
+          "/accounts-and-fees/fee-reports/daywise-online-fee-payments",
+        )
       );
     }
     if (label.includes("exam masters") || label === "exam master") {
@@ -5392,7 +5553,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       label.includes("exam reports") ||
       label.includes("evaluators bank copy")
     ) {
-      return normPathname.startsWith(`${examBase}/exam-reports/`);
+      return (
+        normPathname.startsWith(`${examBase}/exam-reports/`) ||
+        normPathname.startsWith(`${examBase}/admin-exam-reports/`) ||
+        normPathname.startsWith("/reports/admin-exam-reports/")
+      );
     }
     if (label.includes("result processing")) {
       return normPathname.startsWith(`${examBase}/result-processing/`);
@@ -5418,14 +5583,25 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith("/library/");
     }
     if (label.includes("accounts") && label.includes("fees")) {
-      // Day Wise Online Fee Payment Reports lives under Reports → Fee Reports.
+      // These fee-report pages live under Reports → Fee Reports in the sidebar,
+      // even though the route is mounted under /accounts-and-fees/fee-reports.
       if (
         normPathname.startsWith(
           "/reports/admin-fee-reports/daywise-online-fee-payments",
         ) ||
         normPathname.startsWith(
           "/accounts-and-fees/fee-reports/daywise-online-fee-payments",
-        )
+        ) ||
+        normPathname.startsWith(
+          "/accounts-and-fees/fee-reports/scholarship-preceedings",
+        ) ||
+        normPathname.startsWith(
+          "/reports/admin-fee-reports/scholarship-preceedings",
+        ) ||
+        normPathname.startsWith(
+          "/accounts-and-fees/fee-reports/concession-list",
+        ) ||
+        normPathname.startsWith("/reports/admin-fee-reports/concession-list")
       ) {
         return false;
       }
@@ -5475,6 +5651,30 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       normPathname === "/accounts-and-fees/fee-reports/due-list" ||
       normPathname.startsWith("/accounts-and-fees/fee-reports/due-list/");
     isSelfActive = diaryLabelKey === "due list" && onFeeReportsDueList;
+  }
+  // Course-Wise Students Attendance vs Program Wise Student Report — exact leaf
+  // highlight (shared/colliding DB hrefs must not gold both).
+  if (
+    !hasChildren &&
+    (canonicalHref ===
+      "/reports/admin-attendance-reports/course-wise-students-attendance-report" ||
+      canonicalHref.endsWith("/course-wise-students-attendance-report"))
+  ) {
+    const onCourseWiseAtt =
+      normPathname ===
+        "/reports/admin-attendance-reports/course-wise-students-attendance-report" ||
+      normPathname.endsWith("/course-wise-students-attendance-report") ||
+      normPathname.startsWith(
+        "/reports/admin-attendance-reports/course-wise-students-attendance-report/",
+      );
+    const isCourseWiseAttLabel =
+      diaryLabelKey.includes("attendance") &&
+      diaryLabelKey.includes("wise") &&
+      diaryLabelKey.includes("student") &&
+      (diaryLabelKey.includes("course") ||
+        diaryLabelKey.includes("program") ||
+        diaryLabelKey.includes("programme"));
+    isSelfActive = onCourseWiseAtt && isCourseWiseAttLabel;
   }
   const onStaffClassDiary =
     normPathname === "/staff-classes/class-dairy" ||
@@ -5559,19 +5759,42 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const isChildActive =
     (hasChildren ? hasActiveDescendant(item, pathname) : false) ||
     modulePathActive;
-  // Exam report URLs are mounted under /admin-examination-management/exam-reports
-  // but live in the sidebar under Reports → Examination Reports. Prefer that
-  // top-level module so Examination Management does not steal the active bar
-  // via matching descendant hrefs under Admin Exam → Exam Reports.
-  const examReportsPath = normPathname.startsWith(
-    "/admin-examination-management/exam-reports/",
-  );
+  // Exam report URLs may be under /admin-examination-management/(admin-)exam-reports
+  // or Angular `/reports/admin-exam-reports`, but live in the sidebar under
+  // Reports → Examination Reports. Prefer that top-level module so Examination
+  // Management does not steal the active bar via matching descendant hrefs.
+  const examReportsPath =
+    normPathname.startsWith("/admin-examination-management/exam-reports/") ||
+    normPathname.startsWith(
+      "/admin-examination-management/admin-exam-reports/",
+    ) ||
+    normPathname.startsWith("/reports/admin-exam-reports/");
   const labelForActive = (item.label ?? "").toLowerCase().trim();
   let isActive = isSelfActive || isChildActive || modulePathActive;
   if (examReportsPath && depth === 0) {
     if (
       labelForActive.includes("examination management") &&
       !labelForActive.includes("report")
+    ) {
+      isActive = false;
+    } else if (labelForActive === "reports" || labelForActive === "report") {
+      isActive = true;
+    }
+  }
+  // Scholarship Preceedings / Concession List (and sibling fee-report routes under
+  // /accounts-and-fees/fee-reports) belong to Reports, not Accounts and Fees.
+  const feeReportsUnderAccountsPath =
+    normPathname.startsWith(
+      "/accounts-and-fees/fee-reports/scholarship-preceedings",
+    ) ||
+    normPathname.startsWith("/accounts-and-fees/fee-reports/concession-list") ||
+    normPathname.startsWith(
+      "/accounts-and-fees/fee-reports/daywise-online-fee-payments",
+    );
+  if (feeReportsUnderAccountsPath && depth === 0) {
+    if (
+      labelForActive.includes("accounts") &&
+      labelForActive.includes("fees")
     ) {
       isActive = false;
     } else if (labelForActive === "reports" || labelForActive === "report") {

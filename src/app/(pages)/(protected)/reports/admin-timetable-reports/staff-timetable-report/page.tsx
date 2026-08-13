@@ -473,8 +473,7 @@ export default function StaffTimetableReportPage() {
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
               onClick={goBack}
             >
               Back

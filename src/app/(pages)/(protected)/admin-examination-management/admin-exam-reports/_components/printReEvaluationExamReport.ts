@@ -1,6 +1,7 @@
 /**
  * Re-Evaluation Exam Report — iframe print (avoids AppShell blank pages).
  * Header matches Angular: logo + college name + title (+ SUK banner variant).
+ * Footer matches Angular: resultStats summary table + signature row.
  */
 
 type AnyRow = Record<string, unknown>;
@@ -13,6 +14,7 @@ export type ReEvaluationPrintMeta = {
   orgCode?: string;
   courseCode?: string;
   courseYearCode?: string;
+  resultStats?: AnyRow[];
 };
 
 const DEFAULT_LOGO = "/assets/images/avatars/default_logo.png";
@@ -23,6 +25,14 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function toAbsoluteLogoUrl(url: string): string {
+  if (/^(https?:\/\/|data:|blob:)/i.test(url)) return url;
+  if (typeof globalThis.location?.origin === "string") {
+    return `${globalThis.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+  return url;
 }
 
 function cell(row: AnyRow, keys: string[]): string {
@@ -128,10 +138,49 @@ const PRINT_CSS = `
     background: #f2f2f2;
     font-weight: 600;
   }
+  table.stats {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 8px;
+    font-size: 12px;
+  }
+  table.stats th,
+  table.stats td {
+    border: 1px solid #333;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: middle;
+  }
+  table.stats th {
+    background: #f2f2f2;
+    font-weight: 600;
+  }
+  .signature-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 8%;
+    text-align: center;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .sig-box {
+    flex: 1;
+    text-align: center;
+  }
   @page { margin: 10mm; }
   @media print {
     html, body { background: #fff !important; }
     tr { page-break-inside: avoid; }
+    .signature-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 8% !important;
+      text-align: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
   }
 `;
 
@@ -142,7 +191,7 @@ function buildBannerHtml(meta: ReEvaluationPrintMeta, title: string): string {
   const exam = meta.examLabel
     ? `<p class="exam">${escapeHtml(meta.examLabel)}</p>`
     : "";
-  const logoSrc = escapeHtml(meta.logoUrl || DEFAULT_LOGO);
+  const logoSrc = escapeHtml(toAbsoluteLogoUrl(meta.logoUrl || DEFAULT_LOGO));
   const isSuk =
     String(meta.orgCode ?? "")
       .trim()
@@ -171,6 +220,28 @@ function buildBannerHtml(meta: ReEvaluationPrintMeta, title: string): string {
         ${exam}
       </div>
     </div>`;
+}
+
+function buildStatsHtml(resultStats: AnyRow[] | undefined): string {
+  const stats = resultStats?.[0];
+  if (!stats) return "";
+  return `
+    <table class="stats">
+      <thead>
+        <tr>
+          <th>Total No.of Scripts Registered</th>
+          <th>No.of Scripts Result Change</th>
+          <th>% of Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${escapeHtml(cell(stats, ["total_scripts_registered"]))}</td>
+          <td>${escapeHtml(cell(stats, ["no_of_scripts_result_change"]))}</td>
+          <td>${escapeHtml(cell(stats, ["percent_change"]))}</td>
+        </tr>
+      </tbody>
+    </table>`;
 }
 
 export function printReEvaluationExamReport(
@@ -249,6 +320,12 @@ export function printReEvaluationExamReport(
       </thead>
       <tbody>${body}</tbody>
     </table>
+    ${buildStatsHtml(meta.resultStats)}
+    <div class="signature-row">
+      <div class="sig-box">Controller of Examinations</div>
+      <div class="sig-box">Principal</div>
+      <div class="sig-box">ACoE-P1, OU</div>
+    </div>
   </div>
 </body>
 </html>`;
@@ -283,9 +360,41 @@ export function printReEvaluationExamReport(
     }
   };
 
+  // Wait for logo images so they appear in the print preview
+  const waitForImagesThenPrint = () => {
+    const imgs = Array.from(doc.images ?? []);
+    if (imgs.length === 0) {
+      setTimeout(printFrame, 250);
+      return;
+    }
+    let remaining = imgs.length;
+    let printed = false;
+    const finish = () => {
+      if (printed) return;
+      remaining -= 1;
+      if (remaining <= 0) {
+        printed = true;
+        setTimeout(printFrame, 100);
+      }
+    };
+    for (const img of imgs) {
+      if (img.complete) finish();
+      else {
+        img.addEventListener("load", finish, { once: true });
+        img.addEventListener("error", finish, { once: true });
+      }
+    }
+    setTimeout(() => {
+      if (!printed) {
+        printed = true;
+        printFrame();
+      }
+    }, 3000);
+  };
+
   if (iframe.contentWindow?.document.readyState === "complete") {
-    setTimeout(printFrame, 250);
+    waitForImagesThenPrint();
   } else {
-    iframe.onload = () => setTimeout(printFrame, 250);
+    iframe.onload = () => waitForImagesThenPrint();
   }
 }

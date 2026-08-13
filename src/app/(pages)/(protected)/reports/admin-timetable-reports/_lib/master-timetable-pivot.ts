@@ -18,6 +18,7 @@ export type MasterSemSubject = {
 export type MasterSemGroup = {
   year: string;
   sem: string;
+  label: string;
   subjects: MasterSemSubject[];
 };
 
@@ -34,7 +35,6 @@ export type MasterWeekdayRow = {
 
 export type MasterWeekdayGroup = {
   weekday_name: string;
-  sem: string;
   list: MasterWeekdayRow[];
 };
 
@@ -49,7 +49,11 @@ function txt(v: unknown): string {
   return String(v);
 }
 
-function splitAcademic(ad: string): { year: string; sem: string; section: string } {
+function splitAcademic(ad: string): {
+  year: string;
+  sem: string;
+  section: string;
+} {
   const parts = ad.split("-");
   return {
     year: parts[3] ?? "",
@@ -101,6 +105,10 @@ function periodTimeFromSubject(subject: string): string {
   return "";
 }
 
+function semGroupLabel(year: string, sem: string): string {
+  return sem ? `${year}-${sem}` : year;
+}
+
 function pushSemSubject(
   totalSems: MasterSemGroup[],
   year: string,
@@ -115,21 +123,17 @@ function pushSemSubject(
 
   let group = totalSems.find((g) => g.year === year && g.sem === sem);
   if (!group) {
-    group = { year, sem, subjects: [] };
+    group = { year, sem, label: semGroupLabel(year, sem), subjects: [] };
     totalSems.push(group);
   }
   if (group.subjects.some((s) => s.name === name)) return;
   group.subjects.push({ name, facultyList, section: sectionStr });
 }
 
-function addSemSubjects(
-  totalSems: MasterSemGroup[],
-  row: AnyRow,
-  sem: string,
-): void {
+function addSemSubjects(totalSems: MasterSemGroup[], row: AnyRow): void {
   const subject = txt(row.subject);
-  const { year, sem: rowSem, section } = splitAcademic(txt(row.Academic_Details));
-  if (rowSem !== sem || !subject.split("[")[0]) return;
+  const { year, sem, section } = splitAcademic(txt(row.Academic_Details));
+  if (!subject.split("[")[0]) return;
 
   const parts = subject.split(";");
   if (parts.length > 1) {
@@ -150,21 +154,17 @@ function asPeriodKey(v: unknown): string | number {
 function addWeekdayEntry(
   totalWeekdays: MasterWeekdayGroup[],
   row: AnyRow,
-  sem: string,
   sub: string,
 ): void {
   const weekday = txt(row.weekday_name);
-  const { year, sem: rowSem, section } = splitAcademic(txt(row.Academic_Details));
-  if (rowSem !== sem) return;
+  const { year, sem, section } = splitAcademic(txt(row.Academic_Details));
 
-  const yearSection = `${year}-${rowSem}`;
+  const yearSection = semGroupLabel(year, sem);
   const period = asPeriodKey(row.Period);
 
-  let week = totalWeekdays.find(
-    (w) => w.weekday_name === weekday && w.sem === sem,
-  );
+  let week = totalWeekdays.find((w) => w.weekday_name === weekday);
   if (!week) {
-    week = { weekday_name: weekday, sem, list: [] };
+    week = { weekday_name: weekday, list: [] };
     totalWeekdays.push(week);
   }
 
@@ -176,30 +176,73 @@ function addWeekdayEntry(
     week.list.push(listRow);
   }
 
+  if (listRow.periods.some((p) => String(p.period) === String(period))) return;
   listRow.periods.push({ period, subject: sub });
+}
+
+const WEEKDAY_ORDER = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+function weekdayRank(name: string): number {
+  const idx = WEEKDAY_ORDER.indexOf(name.trim().toLowerCase());
+  return idx < 0 ? WEEKDAY_ORDER.length : idx;
+}
+
+function compareText(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function comparePeriod(a: number | string, b: number | string): number {
+  const na = Number(a);
+  const nb = Number(b);
+  if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+  return compareText(String(a), String(b));
 }
 
 export function buildMasterTimetablePivot(
   rawRows: AnyRow[],
-  sem: string,
 ): MasterTimetablePivot {
   const totalSems: MasterSemGroup[] = [];
   const totalWeekdays: MasterWeekdayGroup[] = [];
   const keys: MasterPeriodKey[] = [];
 
   for (const row of rawRows) {
-    addSemSubjects(totalSems, row, sem);
+    addSemSubjects(totalSems, row);
 
     const subject = txt(row.subject);
-    const sub = parseSubjectCell(subject);
-    addWeekdayEntry(totalWeekdays, row, sem, sub);
+    addWeekdayEntry(totalWeekdays, row, parseSubjectCell(subject));
 
     const period = asPeriodKey(row.Period);
-    if (keys.some((k) => String(k.Period) === String(period))) continue;
-    keys.push({
-      Period: period,
-      time: subject ? periodTimeFromSubject(subject) : "",
-    });
+    const time = subject ? periodTimeFromSubject(subject) : "";
+    const existing = keys.find((k) => String(k.Period) === String(period));
+    if (existing) {
+      if (!existing.time && time) existing.time = time;
+      continue;
+    }
+    keys.push({ Period: period, time });
+  }
+
+  keys.sort((a, b) => comparePeriod(a.Period, b.Period));
+  totalSems.sort(
+    (a, b) => compareText(a.year, b.year) || compareText(a.sem, b.sem),
+  );
+  totalWeekdays.sort(
+    (a, b) =>
+      weekdayRank(a.weekday_name) - weekdayRank(b.weekday_name) ||
+      compareText(a.weekday_name, b.weekday_name),
+  );
+  for (const week of totalWeekdays) {
+    week.list.sort(
+      (a, b) =>
+        compareText(a.year, b.year) || compareText(a.section, b.section),
+    );
   }
 
   return { totalSems, totalWeekdays, keys };

@@ -24,9 +24,11 @@ import {
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
   listExamFeeTypes,
+  getGeneralDetails,
   listStudents,
   type AnyRow,
 } from "@/services";
+import { GM_CODES } from "@/config/constants/ui";
 
 type Row = AnyRow;
 
@@ -315,6 +317,7 @@ export default function TabulationRegisterPage() {
   const [hallticketNo, setHallticketNo] = useState("0");
   const [isReEvaluation, setIsReEvaluation] = useState(false);
   const [examFeeTypesList, setExamFeeTypesList] = useState<Row[]>([]);
+  const [examFeeTypes, setExamFeeTypes] = useState<Row[]>([]);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -386,41 +389,18 @@ export default function TabulationRegisterPage() {
     return dedupeBy(source, (r) => num(r.fk_course_year_id));
   }, [restRows, collegeId, courseGroupId]);
 
-  const examTypeOptions: SelectOption[] = useMemo(() => {
-    const exam =
-      exams.find((r) => num(r.fk_exam_id) === Number(examId)) ?? null;
-    const filtered: Row[] = [];
-    if (exam) {
-      for (const t of examFeeTypesList) {
-        const code = String(t.generalDetailCode ?? "");
-        if (
-          flagOn(exam.is_regular_exam ?? exam.isRegularExam) &&
-          code === "Regular"
-        ) {
-          filtered.push(t);
-        }
-        if (
-          flagOn(exam.is_supply_exam ?? exam.isSupplyExam) &&
-          code === "Supple"
-        ) {
-          filtered.push(t);
-        }
-        if (
-          flagOn(exam.is_internal_exam ?? exam.isInternalExam) &&
-          code === "Internal"
-        ) {
-          filtered.push(t);
-        }
-      }
-    }
-    return [
+  const examTypeOptions: SelectOption[] = useMemo(
+    () => [
       { value: "0", label: "All" },
-      ...filtered.map((t) => ({
-        value: String(num(t.generalDetailId)),
-        label: String(t.generalDetailCode ?? ""),
+      ...examFeeTypes.map((r) => ({
+        value: String(num(r.generalDetailId ?? r.general_detail_id)),
+        label:
+          txt(r.generalDetailCode ?? r.general_detail_code) ||
+          String(num(r.generalDetailId)),
       })),
-    ];
-  }, [examFeeTypesList, exams, examId]);
+    ],
+    [examFeeTypes],
+  );
 
   const selectedCourse = useMemo(
     () => courses.find((r) => num(r.fk_course_id) === Number(courseId)),
@@ -497,18 +477,41 @@ export default function TabulationRegisterPage() {
     async function loadRest() {
       if (!courseId || !academicYearId || !examId || !employeeId) {
         setRestRows([]);
+        setExamFeeTypes([]);
         return;
       }
       setLoadingFilters(true);
       try {
-        const bundle = await getUnivExamRestInRegExamStd({
-          courseId: Number(courseId),
-          examId: Number(examId),
-          academicYearId: Number(academicYearId),
-          employeeId,
-        });
+        const [bundle, feeTypes] = await Promise.all([
+          getUnivExamRestInRegExamStd({
+            courseId: Number(courseId),
+            examId: Number(examId),
+            academicYearId: Number(academicYearId),
+            employeeId,
+            flagType: "REGSUP",
+          }),
+          getGeneralDetails(GM_CODES.EXAM_FEE_TYPE).catch(() => []),
+        ]);
         setRestRows(
           Array.isArray(bundle.restFilters) ? bundle.restFilters : [],
+        );
+        const examRow =
+          baseRows.find(
+            (r) =>
+              num(r.fk_course_id) === Number(courseId) &&
+              num(r.fk_academic_year_id) === Number(academicYearId) &&
+              num(r.fk_exam_id) === Number(examId),
+          ) ?? null;
+
+        setExamFeeTypes(feeTypes);
+        setExamTypeId(
+          feeTypes[0]
+            ? String(
+                num(
+                  feeTypes[0].generalDetailId ?? feeTypes[0].general_detail_id,
+                ),
+              )
+            : "0",
         );
         setCollegeId("");
         setCourseGroupId("");
@@ -520,6 +523,7 @@ export default function TabulationRegisterPage() {
       } catch (e) {
         toastError(e, "Failed to load filters");
         setRestRows([]);
+        setExamFeeTypes([]);
       } finally {
         setLoadingFilters(false);
       }

@@ -12,7 +12,7 @@ import { Select } from "@/common/components/select";
 import { StudentSearchSelect } from "@/common/components/student-search";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastSuccess, toastInfo } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
 import {
   deleteFeeReceipt,
@@ -311,7 +311,15 @@ export default function FeeRefundsPage() {
     [],
   );
 
-  const showTable = Boolean(studentId && collegeId && academicYearId);
+  useEffect(() => {
+    if (!loadingReceipts && studentId && receipts.length === 0) {
+      toastInfo("No records found.");
+    }
+  }, [loadingReceipts, studentId, receipts.length]);
+
+  const showTable = Boolean(
+    studentId && collegeId && academicYearId && receipts.length > 0,
+  );
 
   return (
     <FilteredListPage

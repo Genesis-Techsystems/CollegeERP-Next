@@ -433,49 +433,52 @@ export default function NewComplaintModal({
         ) : isEditing && editData ? (
           /* Angular editOption: read-only details + Active checkbox + pictures */
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 py-1">
-            <div className="space-y-2.5">
-              <Row
-                label="Complaint From"
-                value={
-                  [
-                    editData.collegeCode,
-                    editData.deptCode,
-                    editData.issueInroomCode,
-                  ]
-                    .filter(Boolean)
-                    .join(" / ") || editData.collegeName
-                }
-              />
-              <Row
-                label="Complaint LogDate"
-                value={formatComplaintDate(editData.issueLogDate)}
-              />
-              <Row label="Issue Title" value={editData.issueTitle} />
-              {editData.issueCategoryDisplayName && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2.5">
+                <Row
+                  label="Complaint From"
+                  value={
+                    [
+                      editData.collegeCode,
+                      editData.deptCode,
+                      editData.issueInroomCode,
+                    ]
+                      .filter(Boolean)
+                      .join(" / ") || editData.collegeName
+                  }
+                />
+                <Row label="Issue Title" value={editData.issueTitle} />
                 <Row
                   label="Service Type"
-                  value={editData.issueCategoryDisplayName}
+                  value={editData.issueCategoryDisplayName || ""}
                 />
-              )}
-              <Row label="Description" value={editData.issueDescription} />
-              {editData.wfStatusComments && (
+                <Row
+                  label="Description"
+                  value={editData.issueDescription || ""}
+                />
                 <Row
                   label="Work Flow Status Comments"
-                  value={editData.wfStatusComments}
+                  value={editData.wfStatusComments || ""}
                 />
-              )}
-              {editData.isClosed && editData.closedEmpName && (
+              </div>
+              <div className="space-y-2.5">
                 <Row
-                  label="Issue Closed Employee"
-                  value={editData.closedEmpName}
+                  label="Complaint LogDate"
+                  value={formatComplaintDate(editData.issueLogDate)}
                 />
-              )}
-              {editData.isClosed && editData.closingComments && (
-                <Row
-                  label="Issue Close Comment"
-                  value={editData.closingComments}
-                />
-              )}
+                {editData.isClosed && editData.closedEmpName && (
+                  <Row
+                    label="Issue Closed Employee"
+                    value={editData.closedEmpName}
+                  />
+                )}
+                {editData.isClosed && editData.closingComments && (
+                  <Row
+                    label="Issue Close Comment"
+                    value={editData.closingComments}
+                  />
+                )}
+              </div>
             </div>
 
             <Controller

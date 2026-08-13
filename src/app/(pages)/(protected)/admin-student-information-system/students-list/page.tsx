@@ -12,9 +12,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LayoutList, Loader2 } from "lucide-react";
 import { FilteredPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+  SearchModeRadioStrip,
+} from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
@@ -112,6 +116,20 @@ function parseSectionSelect(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function compactFilterWidthRem(
+  options: Array<{ label: string }>,
+  placeholder: string,
+  min = 6,
+  max = 14,
+): number {
+  const longest = Math.max(
+    placeholder.length,
+    ...options.map((o) => o.label.length),
+    0,
+  );
+  return Math.min(max, Math.max(min, Math.ceil(longest * 0.55) + 2));
+}
+
 function onSectionCascadeSelect(
   v: string | null,
   autoFillRef: MutableRefObject<boolean>,
@@ -131,10 +149,6 @@ function dedupeColleges(rows: AnyRow[]): AnyRow[] {
   return out.sort(
     (a, b) => (Number(a.clg_sort_order) || 0) - (Number(b.clg_sort_order) || 0),
   );
-}
-
-function selectClass() {
-  return "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]";
 }
 
 const SEC = [
@@ -757,6 +771,16 @@ export default function StudentDetailsPage() {
       "Year",
   }));
 
+  const academicYearFieldWidth = useMemo(
+    () => `${compactFilterWidthRem(ayOpts, "Select Academic Year", 8, 12)}rem`,
+    [ayOpts],
+  );
+
+  const sectionFieldWidth = useMemo(
+    () => `${compactFilterWidthRem(sectionOpts, "Select Section", 5, 10)}rem`,
+    [sectionOpts],
+  );
+
   const tableHeaderParts = useMemo(() => {
     if (rows.length > 0) return headerPartsFromRow(rows[0]);
     if (mode !== "section") return [];
@@ -774,12 +798,15 @@ export default function StudentDetailsPage() {
       pickText(ay, ["academic_year", "academicYear"]),
       pickText(course, ["course_code", "courseCode"]),
       pickText(group, ["group_code", "groupCode"]),
-      pickText(year, ["course_year_name", "courseYearName"]),
-      groupSectionId === null
-        ? ""
-        : groupSectionId > 0
-          ? pickText(sec, ["section", "group_section_name"])
-          : "All",
+      pickText(year, [
+        "course_year_code",
+        "courseYearCode",
+        "course_year_name",
+        "courseYearName",
+      ]),
+      groupSectionId !== null && groupSectionId > 0
+        ? pickText(sec, ["section", "group_section_name"])
+        : "",
     ].filter((p) => p && p !== "-");
   }, [
     rows,
@@ -906,31 +933,8 @@ export default function StudentDetailsPage() {
   return (
     <FilteredPage
       title="Student Details"
-      notice={
-        <div className="px-1">
-          <Tabs
-            value={mode}
-            onValueChange={(v) =>
-              resetForMode(v === "section" ? "section" : "student")
-            }
-          >
-            <TabsList className="h-auto rounded-none border-b border-border bg-transparent p-0 text-muted-foreground">
-              <TabsTrigger
-                className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
-                value="student"
-              >
-                Search By Student
-              </TabsTrigger>
-              <TabsTrigger
-                className="rounded-none border-b-2 border-transparent px-3 py-1.5 text-xs data-[state=active]:border-[#2f8fd4] data-[state=active]:bg-[#eaf4ff] data-[state=active]:text-[#1f4f7a] data-[state=active]:shadow-none"
-                value="section"
-              >
-                Search By Section
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      }
+      className="space-y-0"
+      notice={<SearchModeRadioStrip value={mode} onChange={resetForMode} />}
       filters={
         mode === "student" ? (
           <StudentSearchSelect
@@ -942,11 +946,10 @@ export default function StudentDetailsPage() {
             onChange={onStudentSelect}
           />
         ) : (
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-              <div className={selectClass()}>
+          <div className="space-y-3">
+            <GlobalFilterBarRow>
+              <GlobalFilterField label="University">
                 <Select
-                  label="University"
                   value={universityId ? String(universityId) : null}
                   options={univOpts}
                   placeholder="Select University"
@@ -963,10 +966,10 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters}
                   searchable
                 />
-              </div>
-              <div className={selectClass()}>
+              </GlobalFilterField>
+              <GlobalFilterField label="College *">
                 <Select
-                  label="College"
+                  required
                   value={collegeId ? String(collegeId) : null}
                   options={collegeOpts}
                   placeholder="Select College"
@@ -982,10 +985,10 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters || !collegeOpts.length}
                   searchable
                 />
-              </div>
-              <div className={selectClass()}>
+              </GlobalFilterField>
+              <GlobalFilterField label="Course *">
                 <Select
-                  label="Course"
+                  required
                   value={courseId ? String(courseId) : null}
                   options={courseOpts}
                   placeholder="Select Course"
@@ -1000,10 +1003,10 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters || !courseOpts.length}
                   searchable
                 />
-              </div>
-              <div className={selectClass()}>
+              </GlobalFilterField>
+              <GlobalFilterField label="Course Group *">
                 <Select
-                  label="Course Group"
+                  required
                   value={courseGroupId ? String(courseGroupId) : null}
                   options={groupOpts}
                   placeholder="Select Course Group"
@@ -1017,10 +1020,10 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters || !groupOpts.length}
                   searchable
                 />
-              </div>
-              <div className={selectClass()}>
+              </GlobalFilterField>
+              <GlobalFilterField label="Course Year *">
                 <Select
-                  label="Course Year"
+                  required
                   value={courseYearId ? String(courseYearId) : null}
                   options={yearOpts}
                   placeholder="Select Course Year"
@@ -1033,12 +1036,16 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters || !yearOpts.length}
                   searchable
                 />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-              <div className={selectClass()}>
+              </GlobalFilterField>
+            </GlobalFilterBarRow>
+            <GlobalFilterBarRow className="global-filter-bar__row--student-details-r2">
+              <GlobalFilterField
+                label="Academic Year *"
+                className="global-filter-field--shrink"
+                style={{ width: academicYearFieldWidth }}
+              >
                 <Select
-                  label="Academic Year"
+                  required
                   value={academicYearId ? String(academicYearId) : null}
                   options={ayOpts}
                   placeholder="Select Academic Year"
@@ -1051,10 +1058,14 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters || !ayOpts.length}
                   searchable
                 />
-              </div>
-              <div className={selectClass()}>
+              </GlobalFilterField>
+              <GlobalFilterField
+                label="Section *"
+                className="global-filter-field--shrink"
+                style={{ width: sectionFieldWidth }}
+              >
                 <Select
-                  label="Section"
+                  required
                   value={
                     groupSectionId === null ? null : String(groupSectionId)
                   }
@@ -1069,36 +1080,38 @@ export default function StudentDetailsPage() {
                   disabled={loadingFilters || !courseYearId}
                   searchable
                 />
-              </div>
-            </div>
-            {loadingStudents && (
+              </GlobalFilterField>
+            </GlobalFilterBarRow>
+            {loadingStudents ? (
               <p className="text-xs text-muted-foreground">Loading students…</p>
-            )}
+            ) : null}
           </div>
         )
       }
     >
-      <StudentsListTable
-        mode={mode}
-        rows={rows}
-        headerParts={tableHeaderParts}
-        tableFilter={tableFilter}
-        onTableFilterChange={setTableFilter}
-        canSendCredentials={canSendCredentials}
-        showBulkSendCredentials
-        canNavigateEdit={canNavigateEdit}
-        canModalEdit={canModalEdit}
-        onViewProfile={navigateViewProfile}
-        onEditNavigate={(row) =>
-          navigateEdit(pickNum(row, ["studentId", "fk_student_id"]))
-        }
-        onEditModal={(row) => void openHodEdit(row)}
-        onViewDetails={(row) =>
-          navigateProfile(pickNum(row, ["studentId", "fk_student_id"]))
-        }
-        onSendCredentials={(row) => openSendCredentials(row)}
-        onSendBulkCredentials={() => openSendCredentials()}
-      />
+      <div className="student-details-table-card mt-4">
+        <StudentsListTable
+          mode={mode}
+          rows={rows}
+          headerParts={tableHeaderParts}
+          tableFilter={tableFilter}
+          onTableFilterChange={setTableFilter}
+          canSendCredentials={canSendCredentials}
+          showBulkSendCredentials
+          canNavigateEdit={canNavigateEdit}
+          canModalEdit={canModalEdit}
+          onViewProfile={navigateViewProfile}
+          onEditNavigate={(row) =>
+            navigateEdit(pickNum(row, ["studentId", "fk_student_id"]))
+          }
+          onEditModal={(row) => void openHodEdit(row)}
+          onViewDetails={(row) =>
+            navigateProfile(pickNum(row, ["studentId", "fk_student_id"]))
+          }
+          onSendCredentials={(row) => openSendCredentials(row)}
+          onSendBulkCredentials={() => openSendCredentials()}
+        />
+      </div>
 
       <EditStudentProfileModal
         open={editOpen}

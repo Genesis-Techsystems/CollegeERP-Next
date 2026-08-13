@@ -599,7 +599,11 @@ export default function ExamGraceMarksReportsPage() {
 
   return (
     <FilteredListPage
-      title="GraceMarks Reports"
+      title={
+        hasFetched && filterSummary
+          ? `GraceMarks Reports - ${filterSummary}`
+          : "GraceMarks Reports"
+      }
       resultsVisible={hasFetched}
       filters={
         <div className="space-y-2">
@@ -738,11 +742,6 @@ export default function ExamGraceMarksReportsPage() {
               </Button>
             </div>
           </div>
-          {hasFetched && filterSummary ? (
-            <p className="text-[12px] font-medium text-blue-700">
-              {filterSummary}
-            </p>
-          ) : null}
         </div>
       }
       rowData={hasFetched ? rows : []}

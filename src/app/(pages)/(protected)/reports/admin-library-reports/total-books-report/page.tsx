@@ -27,11 +27,10 @@ import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
-  getCollegeById,
   getTotalBooksReport,
+  listActiveCollegesForLibraryReports,
   listActiveLibraryDetails,
   listBookCategoriesByLibrary,
-  listLibrariesByCollege,
 } from "@/services";
 import {
   attendancePrintShell as libraryPrintShell,
@@ -93,7 +92,11 @@ const COL_DEFS = {
     headerName: "Edition",
     minWidth: 90,
   } as ColDef<TotalBookRow>,
-  year: { field: "year", headerName: "Year", minWidth: 80 } as ColDef<TotalBookRow>,
+  year: {
+    field: "year",
+    headerName: "Year",
+    minWidth: 80,
+  } as ColDef<TotalBookRow>,
   purchaseReceiptNo: {
     field: "purchaseReceiptNo",
     headerName: "Bill No",
@@ -162,15 +165,15 @@ export default function TotalBooksReportPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
 
+  // Angular lists every active library, not just the logged-in college's.
   const librariesQuery = useQuery({
-    queryKey: QK.libraryReports.libraries(collegeId),
-    queryFn: async () => {
-      if (collegeId > 0) {
-        const byCollege = await listLibrariesByCollege(collegeId);
-        if (byCollege.length > 0) return byCollege;
-      }
-      return listActiveLibraryDetails();
-    },
+    queryKey: QK.libraryReports.activeLibraries(),
+    queryFn: listActiveLibraryDetails,
+  });
+
+  const collegesQuery = useQuery({
+    queryKey: QK.libraryReports.colleges(),
+    queryFn: listActiveCollegesForLibraryReports,
   });
 
   const selectedLib = useMemo(
@@ -273,15 +276,12 @@ export default function TotalBooksReportPage() {
     const details = [libCode, catCode].filter(Boolean).join(" / ");
 
     const cid = Number(selectedLib?.collegeId ?? collegeId);
-    let name = String(selectedLib?.collegeCode ?? "College");
-    try {
-      if (cid > 0) {
-        const full = await getCollegeById(cid);
-        if (full?.collegeName) name = String(full.collegeName);
-      }
-    } catch {
-      /* keep fallback */
-    }
+    const college = (collegesQuery.data ?? []).find(
+      (c) => Number(c.collegeId ?? 0) === cid,
+    );
+    const name = String(
+      college?.collegeName ?? selectedLib?.collegeCode ?? "College",
+    );
 
     setLoadingList(true);
     clearResults();
@@ -421,7 +421,6 @@ export default function TotalBooksReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={handleExcelExport}
             >
@@ -431,7 +430,6 @@ export default function TotalBooksReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={() => void printReport()}
             >

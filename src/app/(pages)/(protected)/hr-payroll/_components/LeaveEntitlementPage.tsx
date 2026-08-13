@@ -152,6 +152,9 @@ export function LeaveEntitlementPage() {
       setEntitlements(entRows);
       const grid = buildLeaveEntitlementEmployeeRows(empRows, types, entRows);
       setEmployees(grid);
+      if (grid.length === 0) {
+        toast.info("No records found.");
+      }
       if (entRows.length > 0) {
         const from = entRows[0]?.validFrom;
         const to = entRows[0]?.validTo;
@@ -308,9 +311,6 @@ export function LeaveEntitlementPage() {
   }
 
   const showGrid = employees.length > 0 || gridLoading;
-  const showEmptyState = Boolean(
-    departmentId && !gridLoading && employees.length === 0,
-  );
 
   return (
     <FilteredListPage
@@ -474,10 +474,6 @@ export function LeaveEntitlementPage() {
               </Button>
             </div>
           </div>
-        ) : showEmptyState ? (
-          <p className="text-sm text-muted-foreground">
-            No employees found for the selected filters.
-          </p>
         ) : null
       }
     />

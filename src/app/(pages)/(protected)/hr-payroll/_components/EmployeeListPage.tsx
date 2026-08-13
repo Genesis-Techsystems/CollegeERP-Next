@@ -7,8 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { MailIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { StatusBadge } from "@/common/components/data-display";
 import { ConfirmDialog } from "@/common/components/feedback";
+import { SearchModeRadioStrip } from "@/common/components/forms";
 import { Select, type SelectOption } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { DataTable } from "@/common/components/table";
+import { AngularFilterCard, PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
@@ -17,11 +19,19 @@ import {
   listEmployeeDetails,
   searchEmployeesForManagerAssign,
   sendEmployeeMails,
+  getEmployeeByIdForHr,
 } from "@/services";
 import { rowIndexGetter } from "@/lib/utils";
 
 type EmpRow = Record<string, unknown>;
 type ListMode = "search" | "all";
+
+const EMPLOYEE_LIST_MODE_OPTIONS = [
+  { value: "search" as const, label: "Search By Employee" },
+  { value: "all" as const, label: "All Employees" },
+];
+const PRIMARY_ACTION_BTN =
+  "h-[30px] shrink-0 bg-[#0a2e67] px-3 text-[12px] text-white hover:bg-[#082653]";
 type MailTarget = { kind: "single"; row: EmpRow } | { kind: "bulk" } | null;
 
 const DEFAULT_EMPLOYEE_PHOTO = "/assets/images/avatars/default_Student.png";
@@ -174,7 +184,7 @@ function makeActionsRenderer(
 
 export function EmployeeListPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<ListMode>("all");
+  const [mode, setMode] = useState<ListMode>("search");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(
     null,
   );
@@ -194,9 +204,15 @@ export function EmployeeListPage() {
     enabled: mode === "all",
   });
 
+  const { data: searchedEmployee, isFetching: isFetchingSearch } = useQuery({
+    queryKey: ["employeeDetailsForHr", selectedEmployeeId],
+    queryFn: () => getEmployeeByIdForHr(selectedEmployeeId!),
+    enabled: !!selectedEmployeeId && mode === "search",
+  });
+
   const onEmployeeSearch = useCallback(async (term: string) => {
     const q = term.trim();
-    if (q.length < 4) {
+    if (q.length < 3) {
       setSearchOptions([]);
       return;
     }
@@ -271,10 +287,9 @@ export function EmployeeListPage() {
   const displayRows = useMemo(() => {
     if (mode === "all") return allRows;
     if (!selectedEmployeeId) return [];
-    return searchRows.filter(
-      (r) => Number(r.employeeId) === selectedEmployeeId,
-    );
-  }, [mode, allRows, selectedEmployeeId, searchRows]);
+    if (searchedEmployee) return [searchedEmployee];
+    return [];
+  }, [mode, allRows, selectedEmployeeId, searchedEmployee]);
 
   const columnDefs = useMemo<ColDef<EmpRow>[]>(
     () => [
@@ -309,39 +324,26 @@ export function EmployeeListPage() {
       : "Send Credentials To : All Employees";
 
   return (
-    <FilteredListPage
-      title="Employee Profile"
-      notice={
-        <>
-          <div className="flex flex-wrap items-center gap-6 px-1">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="employee-list-mode"
-                checked={mode === "search"}
-                onChange={() => handleModeChange("search")}
-              />
-              Search By Employee
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="employee-list-mode"
-                checked={mode === "all"}
-                onChange={() => handleModeChange("all")}
-              />
-              All Employees
-            </label>
-          </div>
-          {error && mode === "all" ? (
-            <p className="px-1 text-sm text-destructive">
-              {getErrorMessage(error)}
-            </p>
-          ) : null}
-        </>
-      }
-      filters={
-        mode === "search" ? (
+    <PageContainer className="space-y-4">
+      <SearchModeRadioStrip
+        value={mode}
+        onChange={handleModeChange}
+        options={EMPLOYEE_LIST_MODE_OPTIONS}
+        name="employee-list-mode"
+        ariaLabel="Employee list mode"
+      />
+      {error && mode === "all" ? (
+        <p className="px-1 text-sm text-destructive">
+          {getErrorMessage(error)}
+        </p>
+      ) : null}
+
+      {mode !== "all" ? (
+        <AngularFilterCard
+          title="Employee Search"
+          collapsible={false}
+          pageFirstCard
+        >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full max-w-md">
               <Select
@@ -349,7 +351,7 @@ export function EmployeeListPage() {
                 value={selectedEmployeeId ? String(selectedEmployeeId) : null}
                 onChange={(v) => setSelectedEmployeeId(v ? Number(v) : null)}
                 options={searchOptions}
-                placeholder="Search by name or employee id (min 4 chars)"
+                placeholder="Search by name or employee id (min 3 chars)"
                 searchable
                 onSearch={onEmployeeSearch}
                 isLoading={searchLoading}
@@ -359,7 +361,7 @@ export function EmployeeListPage() {
             <Button
               type="button"
               size="sm"
-              className="h-[30px] shrink-0 px-3 text-[12px]"
+              className={PRIMARY_ACTION_BTN}
               onClick={() =>
                 router.push("/hr-payroll/employee/employee-enrollement")
               }
@@ -368,53 +370,52 @@ export function EmployeeListPage() {
               New Employee Admission
             </Button>
           </div>
-        ) : null
-      }
-      filtersCollapsible={false}
-      rowData={showTable ? displayRows : []}
-      columnDefs={showTable ? columnDefs : undefined}
-      body={showTable ? undefined : null}
-      bodyClassName="border-t-0"
-      loading={mode === "all" ? isFetching : false}
-      pagination={showTable}
-      rowHeight={60}
-      toolbar={
-        showTable
-          ? {
-              search: true,
-              searchPlaceholder: "Employee Search",
-              pdfDocumentTitle: "Employee List",
-            }
-          : undefined
-      }
-      toolbarTrailing={
-        showTable && mode === "all" ? (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() => setMailTarget({ kind: "bulk" })}
-            >
-              <MailIcon className="mr-1.5 h-3.5 w-3.5" />
-              Send Employee Credentials
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-[30px] px-3 text-[12px]"
-              onClick={() =>
-                router.push("/hr-payroll/employee/employee-enrollement")
-              }
-            >
-              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-              New Employee Admission
-            </Button>
-          </div>
-        ) : undefined
-      }
-    >
+        </AngularFilterCard>
+      ) : null}
+
+      {showTable ? (
+        <DataTable
+          title="Employee"
+          bordered
+          rowData={displayRows}
+          columnDefs={columnDefs}
+          loading={mode === "all" ? isFetching : false}
+          pagination
+          rowHeight={60}
+          toolbar={{
+            search: true,
+            searchPlaceholder: "Employee Search",
+            pdfDocumentTitle: "Employee List",
+          }}
+          toolbarTrailing={
+            mode === "all" ? (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className={PRIMARY_ACTION_BTN}
+                  onClick={() => setMailTarget({ kind: "bulk" })}
+                >
+                  <MailIcon className="mr-1.5 h-3.5 w-3.5" />
+                  Send Employee Credentials
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className={PRIMARY_ACTION_BTN}
+                  onClick={() =>
+                    router.push("/hr-payroll/employee/employee-enrollement")
+                  }
+                >
+                  <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+                  New Employee Admission
+                </Button>
+              </div>
+            ) : undefined
+          }
+        />
+      ) : null}
+
       <ConfirmDialog
         open={mailTarget != null}
         title="Send Credentials"
@@ -428,6 +429,6 @@ export function EmployeeListPage() {
         }}
         isLoading={mailSending}
       />
-    </FilteredListPage>
+    </PageContainer>
   );
 }

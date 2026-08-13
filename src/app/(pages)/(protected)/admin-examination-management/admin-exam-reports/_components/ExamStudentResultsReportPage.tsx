@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { Printer, RefreshCw } from "lucide-react";
+import { printHtmlInIframe } from "@/lib/print";
 import { FilteredListPage } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   listStudents,
   type AnyRow,
 } from "@/services";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 
 export type StudentResultsReportKind =
   | "summary"
@@ -98,42 +100,39 @@ function printTable(
   headerHtml: string,
   columns: string[],
   bodyRows: string,
+  logoSrc: string,
 ): void {
   const th = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>
-@page { size: A4 landscape; margin: 10mm; }
+@page { size: A4 portrait; margin: 10mm; }
 body { font: 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111; margin: 0; }
-h1 { font-size: 15px; margin: 0 0 6px; }
-p { margin: 0 0 10px; }
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 15px; }
+.logo-col { width: 80px; flex: 0 0 80px; }
+.logo-col img { max-width: 100%; height: auto; display: block; }
+.title-col { flex: 1 1 auto; text-align: center; padding-right: 80px; /* offsets logo width for true center */ }
+.collegeName { font-size: 18px; font-weight: bold; margin: 0 0 4px; color: #000; }
+.reportTitle { font-size: 14px; font-weight: bold; margin: 0 0 6px; color: #000; }
+.reportDetails { font-size: 12px; font-weight: 500; margin: 0; color: #000; }
+.reportDetails p { margin: 0; }
 table { width: 100%; border-collapse: collapse; }
 th, td { border: 1px solid #94a3b8; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
 th { background: #c3d9ff; font-weight: 600; }
 tr { break-inside: avoid; }
 </style></head><body>
-  <h1>${escapeHtml(title)}</h1>
-  ${headerHtml}
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${logoSrc || "/assets/images/logo.jpg"}" alt="College ERP" />
+    </div>
+    <div class="title-col">
+      <div class="collegeName">Gondwana Institute of Technology</div>
+      <div class="reportTitle">${escapeHtml(title.split(" - ")[0])}</div>
+      <div class="reportDetails">${headerHtml}</div>
+    </div>
+  </div>
   <table><thead><tr>${th}</tr></thead><tbody>${bodyRows}</tbody></table>
 </body></html>`;
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+  printHtmlInIframe(html);
 }
 
 const TITLES: Record<StudentResultsReportKind, string> = {
@@ -370,6 +369,8 @@ export function ExamStudentResultsReportPage({
   const [backlogCount, setBacklogCount] = useState("0");
   const [belowCredits, setBelowCredits] = useState("0");
   const [filterSummary, setFilterSummary] = useState("");
+
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -843,6 +844,7 @@ export function ExamStudentResultsReportPage({
           "Credits",
         ],
         body,
+        collegeLogo,
       );
       return;
     }
@@ -880,12 +882,15 @@ export function ExamStudentResultsReportPage({
         "Total Credits",
       ],
       body,
+      collegeLogo,
     );
   }
 
   return (
     <FilteredListPage
-      title={title}
+      title={
+        hasFetched && filterSummary ? `${title} - ${filterSummary}` : title
+      }
       resultsVisible={hasFetched}
       filters={
         <>
@@ -1086,12 +1091,6 @@ export function ExamStudentResultsReportPage({
               </Button>
             </div>
           </div>
-
-          {hasFetched && filterSummary ? (
-            <p className="mt-2 text-[12px] font-medium text-blue-700">
-              {filterSummary}
-            </p>
-          ) : null}
         </>
       }
       rowData={hasFetched ? rows : []}

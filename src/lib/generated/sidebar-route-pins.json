@@ -283,13 +283,18 @@
   },
   {
     "label": "faculty details",
+    "route": "/hr-payroll/employee/employee-list",
+    "hrefIncludes": "hr-payroll/employee/employee-list"
+  },
+  {
+    "label": "faculty details",
     "route": "/staff-faculty-details/faculty-details",
     "hrefIncludes": "staff-faculty-details"
   },
   {
     "label": "faculty details",
     "route": "/staff-faculty-details/faculty-details",
-    "hrefIncludes": "faculty-details"
+    "hrefIncludes": "staff-faculty-details/faculty-details"
   },
   {
     "label": "fee paid applications",
@@ -388,13 +393,18 @@
   },
   {
     "label": "faculty details",
+    "route": "/hr-payroll/employee/employee-list",
+    "hrefIncludes": "hr-payroll/employee/employee-list"
+  },
+  {
+    "label": "faculty details",
     "route": "/staff-faculty-details/faculty-details",
     "hrefIncludes": "staff-faculty-details"
   },
   {
     "label": "faculty details",
     "route": "/staff-faculty-details/faculty-details",
-    "hrefIncludes": "faculty-details"
+    "hrefIncludes": "staff-faculty-details/faculty-details"
   },
   {
     "label": "leave approvals",

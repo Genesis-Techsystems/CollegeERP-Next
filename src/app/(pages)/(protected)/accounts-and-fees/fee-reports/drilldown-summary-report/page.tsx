@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { MINIO_URL } from "@/config/constants/api";
 import { useSessionContext } from "@/context/SessionContext";
@@ -549,14 +549,9 @@ ${excelTableRef.current.outerHTML}
   const amountColSpan = isParticular || isStudentName ? 5 : 4;
 
   return (
-    <FilteredListPage
-      title={
-        academicYear
-          ? `Student Fee Report - (${academicYear})`
-          : "Student Fee Report"
-      }
-      filters={
-        <div className="flex flex-wrap items-end gap-3">
+    <PageContainer className="space-y-4">
+      <div className="app-card app-card--mixed-content overflow-hidden p-4">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
             <Select
               label="Academic Year"
@@ -567,11 +562,10 @@ ${excelTableRef.current.outerHTML}
               isLoading={filtersQuery.isLoading}
             />
           </div>
-          <div className="flex gap-2 pb-0.5">
+          <div className="flex flex-wrap gap-2 pb-0.5">
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               disabled={summaryList.length === 0}
               onClick={exportAsExcel}
@@ -582,7 +576,6 @@ ${excelTableRef.current.outerHTML}
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               disabled={summaryList.length === 0}
               onClick={printReport}
@@ -592,8 +585,7 @@ ${excelTableRef.current.outerHTML}
             </Button>
           </div>
         </div>
-      }
-      body={
+
         <div className="space-y-3">
           {(steps.length > 0 || loading) && (
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
@@ -609,7 +601,7 @@ ${excelTableRef.current.outerHTML}
                 <Button
                   type="button"
                   size="sm"
-                  variant="secondary"
+                  className="h-9 px-3 text-[12px]"
                   onClick={() => void goBack()}
                   disabled={loading}
                 >
@@ -825,7 +817,7 @@ ${excelTableRef.current.outerHTML}
             </table>
           </div>
         </div>
-      }
-    />
+      </div>
+    </PageContainer>
   );
 }

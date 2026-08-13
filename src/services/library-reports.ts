@@ -4,10 +4,19 @@
  */
 
 import { CERTIFICATE_API, LIBRARY_API } from "@/config/constants/api";
+import { ENTITIES } from "@/config/constants/entities";
 import { getErrorMessage } from "@/lib/errors";
-import { fetchDetails, getAllRecords } from "./crud";
+import { buildQuery, domainList, fetchDetails, getAllRecords } from "./crud";
 
 type AnyRow = Record<string, unknown>;
+
+/** Angular library reports college lookup — `domain/list/College?query=isActive==true`. */
+export async function listActiveCollegesForLibraryReports(): Promise<AnyRow[]> {
+  return domainList<AnyRow>(
+    ENTITIES.COLLEGE.name,
+    buildQuery({ isActive: true }),
+  );
+}
 
 function procName(path: string): string {
   return path.startsWith("getAllRecords/")

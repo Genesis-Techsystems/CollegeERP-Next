@@ -411,33 +411,39 @@ export async function getMasterTimetableReport(params: {
   return firstResultGroup(data);
 }
 
-/** Angular staff class diary → `get_emp_diary` with `in_flag=get_list_slot`. */
+/** Angular staff class diary → `s_get_emp_diary` with `in_flag=get_list_slot`. */
 export async function getStaffClassDiaryReport(params: {
   employeeId: number;
   fromDate: string;
   toDate: string;
 }): Promise<{ result: AnyRow[][] }> {
-  const data = await getAllRecords("get_emp_diary", {
-    in_flag: "get_list_slot",
-    in_emp_id: params.employeeId,
-    in_from_date: params.fromDate,
-    in_to_date: params.toDate,
-  });
+  const data = await getAllRecords(
+    procName(TIMETABLE_REPORT_API.GET_EMP_DIARY),
+    {
+      in_flag: "get_list_slot",
+      in_emp_id: params.employeeId,
+      in_from_date: params.fromDate,
+      in_to_date: params.toDate,
+    },
+  );
   const groups = allResultGroups(data);
   return { result: groups };
 }
 
-/** Angular consolidated staff diary → `get_emp_diary` with `in_flag=get_all_list_slot`. */
+/** Angular consolidated staff diary → `s_get_emp_diary` with `in_flag=get_all_list_slot`. */
 export async function getConsolidatedStaffDiaryReport(params: {
   fromDate: string;
   toDate: string;
 }): Promise<{ result: AnyRow[][] }> {
-  const data = await getAllRecords("get_emp_diary", {
-    in_flag: "get_all_list_slot",
-    in_emp_id: 0,
-    in_from_date: params.fromDate,
-    in_to_date: params.toDate,
-  });
+  const data = await getAllRecords(
+    procName(TIMETABLE_REPORT_API.GET_EMP_DIARY),
+    {
+      in_flag: "get_all_list_slot",
+      in_emp_id: 0,
+      in_from_date: params.fromDate,
+      in_to_date: params.toDate,
+    },
+  );
   const groups = allResultGroups(data);
   return { result: groups };
 }

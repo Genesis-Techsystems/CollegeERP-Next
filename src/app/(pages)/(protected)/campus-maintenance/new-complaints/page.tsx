@@ -66,19 +66,6 @@ const COL_DEFS = {
     minWidth: 110,
     flex: 0.8,
   } as ColDef<CampusIssue>,
-  raisedBy: {
-    field: "raisedEmpName",
-    headerName: "Raised By",
-    minWidth: 140,
-    flex: 1,
-  } as ColDef<CampusIssue>,
-  // Angular Status column = isActive → Active / InActive
-  status: {
-    field: "isActive",
-    headerName: "Status",
-    minWidth: 110,
-    flex: 0.9,
-  } as ColDef<CampusIssue>,
   date: {
     field: "issueLogDate",
     headerName: "Complaint Date",
@@ -86,12 +73,31 @@ const COL_DEFS = {
     flex: 1,
     valueFormatter: dateFormatter,
   } as ColDef<CampusIssue>,
+  raisedBy: {
+    field: "raisedEmpName",
+    headerName: "Raised Employee",
+    minWidth: 140,
+    flex: 1,
+  } as ColDef<CampusIssue>,
+  workflowStatus: {
+    headerName: "WorkFlow Status",
+    minWidth: 150,
+    flex: 1,
+    valueGetter: (p) =>
+      p.data?.aprvrejstatusCatDisplayName || p.data?.wfName || "—",
+  } as ColDef<CampusIssue>,
   expectedOn: {
     field: "expectedResolvedOn",
-    headerName: "Expected Resolve",
+    headerName: "Expected Resolve Date",
     minWidth: 130,
     flex: 1,
     valueFormatter: dateFormatter,
+  } as ColDef<CampusIssue>,
+  status: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 110,
+    flex: 0.9,
   } as ColDef<CampusIssue>,
   actions: {
     headerName: "Actions",
@@ -108,14 +114,11 @@ function statusRenderer(p: ICellRendererParams<CampusIssue>) {
   return <StatusBadge status={active} label={active ? "Active" : "InActive"} />;
 }
 
-function makeActionsRenderer(
-  onEdit: (issue: CampusIssue) => void,
-  onView: (issue: CampusIssue) => void,
-) {
+function makeActionsRenderer(onView: (issue: CampusIssue) => void) {
   return (p: ICellRendererParams<CampusIssue>) => {
     const issue = p.data;
     if (!issue) return null;
-    return workflowCode(issue) === "CLOSED" ? (
+    return (
       <Button
         size="sm"
         variant="ghost"
@@ -123,15 +126,6 @@ function makeActionsRenderer(
         onClick={() => onView(issue)}
       >
         <Eye className="h-3.5 w-3.5" />
-      </Button>
-    ) : (
-      <Button
-        size="sm"
-        variant="ghost"
-        className="h-8 w-8 p-0"
-        onClick={() => onEdit(issue)}
-      >
-        <PencilIcon className="h-3.5 w-3.5" />
       </Button>
     );
   };
@@ -171,16 +165,17 @@ export default function NewComplaintsPage() {
       COL_DEFS.siNo,
       COL_DEFS.issueTitle,
       COL_DEFS.college,
-      COL_DEFS.raisedBy,
-      { ...COL_DEFS.status, cellRenderer: statusRenderer },
       COL_DEFS.date,
+      COL_DEFS.raisedBy,
+      COL_DEFS.workflowStatus,
       COL_DEFS.expectedOn,
+      { ...COL_DEFS.status, cellRenderer: statusRenderer },
       {
         ...COL_DEFS.actions,
         cellRenderer: makeActionsRenderer((issue) => {
           setEditData(issue);
           setModalOpen(true);
-        }, setOverviewIssue),
+        }),
       },
     ],
     [],

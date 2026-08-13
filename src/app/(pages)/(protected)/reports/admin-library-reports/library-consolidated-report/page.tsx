@@ -93,8 +93,10 @@ function amountRenderer(p: ICellRendererParams<ConsolRow>) {
 const COL_DEFS = {
   siNo: {
     headerName: "S.No",
-    valueGetter: (p: { data?: ConsolRow; node?: { rowIndex: number | null } }) =>
-      p.data?.__isTotal ? "" : (p.node?.rowIndex ?? 0) + 1,
+    valueGetter: (p: {
+      data?: ConsolRow;
+      node?: { rowIndex: number | null };
+    }) => (p.data?.__isTotal ? "" : (p.node?.rowIndex ?? 0) + 1),
     width: 70,
     flex: 0,
   } as ColDef<ConsolRow>,
@@ -221,9 +223,7 @@ export default function LibraryConsolidatedReportPage() {
       if (Number.isNaN(lid)) return;
 
       const libCode =
-        lid === 0
-          ? "All"
-          : String(selectedLib?.libraryCode ?? lidStr);
+        lid === 0 ? "All" : String(selectedLib?.libraryCode ?? lidStr);
       const details = libCode;
 
       let name = "College";
@@ -412,7 +412,6 @@ export default function LibraryConsolidatedReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={handleExcelExport}
             >
@@ -422,7 +421,6 @@ export default function LibraryConsolidatedReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={() => void printReport()}
             >

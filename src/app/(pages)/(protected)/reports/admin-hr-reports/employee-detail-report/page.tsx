@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -127,16 +127,10 @@ function mapRow(row: AnyRow): EmpDetailRow {
     firstName: String(row.firstName ?? row.Emp_Name ?? ""),
     empNumber: String(row.empNumber ?? row.emp_number ?? ""),
     deptName: String(row.deptName ?? row.Emp_Department ?? ""),
-    designationName: String(
-      row.designationName ?? row.Emp_Designation ?? "",
-    ),
-    empCategoryName: String(
-      row.empCategoryName ?? row.Emp_Category ?? "",
-    ),
+    designationName: String(row.designationName ?? row.Emp_Designation ?? ""),
+    empCategoryName: String(row.empCategoryName ?? row.Emp_Category ?? ""),
     mobile: String(row.mobile ?? ""),
-    officialMobile: String(
-      row.officialMobile ?? row.official_mobile ?? "",
-    ),
+    officialMobile: String(row.officialMobile ?? row.official_mobile ?? ""),
     email: String(row.email ?? ""),
   };
 }
@@ -347,6 +341,11 @@ export default function EmployeeDetailReportPage() {
           </Button> */}
         </div>
       }
+      tableTitle={
+        showTable && dataDetails
+          ? `${PRINT_REPORT_TITLE} - ${dataDetails}`
+          : PRINT_REPORT_TITLE
+      }
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList}
@@ -357,22 +356,32 @@ export default function EmployeeDetailReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
+        columnPicker: true,
       }}
-      onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel Export
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
         ) : null
       }
     />

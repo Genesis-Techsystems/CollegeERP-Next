@@ -263,15 +263,15 @@ const REPORT_SECTIONS: ReportSection[] = [
       },
       {
         label: "Scholarship Due List",
-        href: "/accounts-and-fees/fee-reports/scholarship-due-list?path=report-catalyst",
+        href: "/reports/admin-fee-reports/scholarship-due-list?path=report-catalyst",
       },
       {
         label: "Scholarship Proceedings Amount",
-        href: "/accounts-and-fees/fee-reports/scholarship-preceedings?path=report-catalyst",
+        href: "/reports/admin-fee-reports/scholarship-preceedings?path=report-catalyst",
       },
       {
         label: "Concessions List",
-        href: "/accounts-and-fees/fee-reports/concession-list?path=report-catalyst",
+        href: "/reports/admin-fee-reports/concession-list?path=report-catalyst",
       },
     ],
   },

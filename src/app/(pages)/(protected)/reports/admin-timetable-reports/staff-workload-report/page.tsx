@@ -58,6 +58,7 @@ function formatHolidayDate(value: string): string {
 }
 
 const REPORT_TITLE = "Staff Workload Report";
+const ALL0 = { value: "0", label: "All" };
 
 const DEPT_KEYS = ["fk_dept_id", "deptId", "departmentId", "emp_dept_id"];
 
@@ -139,7 +140,7 @@ export default function StaffWorkloadReportPage() {
   const empId = loginEmployeeId;
 
   const [collegeId, setCollegeId] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
+  const [departmentId, setDepartmentId] = useState("0");
   const [fromDate, setFromDate] = useState<Date | null>(() => new Date());
   const [toDate, setToDate] = useState<Date | null>(() => new Date());
 
@@ -201,7 +202,7 @@ export default function StaffWorkloadReportPage() {
 
   const departmentOptions = useMemo(() => {
     const cid = Number(collegeId || 0);
-    return dedupeBy(
+    const rows = dedupeBy(
       departmentData.filter((r) => {
         const rowClg = pickNum(r, ["fk_college_id", "collegeId"]);
         return !cid || rowClg === 0 || rowClg === cid;
@@ -212,6 +213,7 @@ export default function StaffWorkloadReportPage() {
       label:
         pickText(r, ["dept_code", "deptCode", "dept_name", "deptName"]) || "—",
     }));
+    return [ALL0, ...rows];
   }, [collegeId, departmentData]);
 
   useEffect(() => {
@@ -257,10 +259,6 @@ export default function StaffWorkloadReportPage() {
       toastInfo("College is required");
       return;
     }
-    if (!did) {
-      toastInfo("Department is required");
-      return;
-    }
     if (!fromDate || !toDate) {
       toastInfo("From Date and To Date are required");
       return;
@@ -272,9 +270,11 @@ export default function StaffWorkloadReportPage() {
     const dept = departmentData.find(
       (r) => String(pickNum(r, DEPT_KEYS)) === departmentId,
     );
+    const deptLabel =
+      did === 0 ? ALL0.label : pickText(dept, ["dept_code", "deptCode"]);
     const details = [
       pickText(college, ["college_code", "collegeCode"]),
-      pickText(dept, ["dept_code", "deptCode"]),
+      deptLabel,
     ]
       .filter(Boolean)
       .join(" / ");
@@ -395,7 +395,7 @@ export default function StaffWorkloadReportPage() {
               value={collegeId || null}
               onChange={(v) => {
                 setCollegeId(v ?? "");
-                setDepartmentId("");
+                setDepartmentId("0");
                 clearResults();
               }}
               options={collegeOptions}
@@ -406,10 +406,9 @@ export default function StaffWorkloadReportPage() {
           <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
             <Select
               label="Department"
-              required
               value={departmentId || null}
               onChange={(v) => {
-                setDepartmentId(v ?? "");
+                setDepartmentId(v ?? "0");
                 clearResults();
               }}
               options={departmentOptions}
@@ -449,7 +448,7 @@ export default function StaffWorkloadReportPage() {
           </div>
           <Button
             type="button"
-            className="h-9 w-fit px-4"
+            className="h-9 rounded-[5px] px-4"
             disabled={loadingList}
             onClick={() => void handleGetList()}
           >
@@ -457,8 +456,7 @@ export default function StaffWorkloadReportPage() {
           </Button>
           <Button
             type="button"
-            variant="secondary"
-            className="h-9 w-fit px-4"
+            className="h-9 min-w-20 !rounded-[5px] !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
             onClick={goBack}
           >
             Back
@@ -489,8 +487,7 @@ export default function StaffWorkloadReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={handleExcelExport}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -499,8 +496,7 @@ export default function StaffWorkloadReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={() => void printReport()}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />

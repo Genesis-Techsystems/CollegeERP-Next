@@ -9,10 +9,14 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { PrinterIcon } from "lucide-react";
+import { FileSpreadsheet, PrinterIcon } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { SearchInput } from "@/common/components/search";
 import { Select } from "@/common/components/select";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { printElementInIframe } from "@/lib/print";
@@ -399,10 +403,13 @@ export default function IncomeExpenseReportPage() {
       title="Income & Expense Report"
       className="relative"
       filters={
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[180px] flex-1">
+        <GlobalFilterBarRow className="!items-end">
+          <GlobalFilterField
+            label="College"
+            className="global-filter-field--shrink w-full max-w-[min(100%,12rem)] sm:w-[20%]"
+          >
             <Select
-              label="College"
+              label=""
               required
               value={collegeId}
               onChange={(v) => {
@@ -415,10 +422,13 @@ export default function IncomeExpenseReportPage() {
               placeholder="College"
               isLoading={loadingFilters}
             />
-          </div>
-          <div className="min-w-[180px] flex-1">
+          </GlobalFilterField>
+          <GlobalFilterField
+            label="Academic Year"
+            className="global-filter-field--shrink w-full max-w-[min(100%,11rem)] sm:w-[18%]"
+          >
             <Select
-              label="Academic Year"
+              label=""
               required
               value={academicYear}
               onChange={(v) => {
@@ -430,21 +440,26 @@ export default function IncomeExpenseReportPage() {
               placeholder="Academic Year"
               disabled={!collegeId}
             />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={isFetching || !collegeId || !academicYear}
-            onClick={handleGetReport}
+          </GlobalFilterField>
+          <GlobalFilterField
+            label=""
+            className="global-filter-field--shrink global-filter-field--action"
           >
-            {isFetching ? "Loading…" : "Get Report"}
-          </Button>
-        </div>
+            <Button
+              type="button"
+              className="h-9 w-fit px-4"
+              disabled={isFetching || !collegeId || !academicYear}
+              onClick={handleGetReport}
+            >
+              {isFetching ? "Loading…" : "Get Report"}
+            </Button>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
       }
-      filtersFooter={
-        resultsVisible && dataDetails ? (
-          <p className="text-sm font-semibold text-blue-600">{dataDetails}</p>
-        ) : null
+      tableTitle={
+        resultsVisible && dataDetails
+          ? `Income & Expense Report - ${dataDetails}`
+          : "Income & Expense Report"
       }
       rowData={tableRows}
       columnDefs={columnDefs}
@@ -457,11 +472,9 @@ export default function IncomeExpenseReportPage() {
       toolbar={{
         // Angular: shared searchText filters screen + Excel; print uses full reportData
         search: false,
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
-        columnPicker: false,
-        excelDocumentTitle: "Income & Expense Report",
-        excelFileName: "Income & Expense Report.xls",
+        columnPicker: true,
       }}
       toolbarLeading={
         <div className="min-w-[200px] max-w-xs flex-1">
@@ -472,19 +485,29 @@ export default function IncomeExpenseReportPage() {
           />
         </div>
       }
-      onExportExcel={handleExportExcel}
       toolbarTrailing={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-          onClick={handlePrint}
-          disabled={!resultsVisible}
-        >
-          <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
-          Print Report
-        </Button>
+        resultsVisible ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExportExcel}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel Export
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handlePrint}
+            >
+              <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
+        ) : null
       }
     >
       {/* Angular #excelTable — Export Excel workbook source */}

@@ -26,10 +26,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   dedupeBy,
   pickNum,
@@ -196,7 +193,8 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
       filterRows.filter(
         (r) =>
           (!cid || pickNum(r, ["fk_college_id", "collegeId"]) === cid) &&
-          (!ay || pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay) &&
+          (!ay ||
+            pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay) &&
           (!cr || pickNum(r, ["fk_course_id", "courseId"]) === cr),
       ),
       (r) => pickNum(r, ["fk_course_group_id", "courseGroupId"]),
@@ -219,7 +217,8 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
       filterRows.filter(
         (r) =>
           (!cid || pickNum(r, ["fk_college_id", "collegeId"]) === cid) &&
-          (!ay || pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay) &&
+          (!ay ||
+            pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay) &&
           (!cr || pickNum(r, ["fk_course_id", "courseId"]) === cr) &&
           (!g || pickNum(r, ["fk_course_group_id", "courseGroupId"]) === g),
       ),
@@ -248,7 +247,8 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
       filterRows.filter(
         (r) =>
           (!cid || pickNum(r, ["fk_college_id", "collegeId"]) === cid) &&
-          (!ay || pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay) &&
+          (!ay ||
+            pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay) &&
           (!cr || pickNum(r, ["fk_course_id", "courseId"]) === cr) &&
           (!g || pickNum(r, ["fk_course_group_id", "courseGroupId"]) === g) &&
           (!y || pickNum(r, ["fk_course_year_id", "courseYearId"]) === y),
@@ -534,7 +534,8 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
       title={pageTitle}
       filters={
         <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/* Row 1: College → Section (Angular fxFlex row of 6) */}
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Select
               label="College"
               required
@@ -560,6 +561,7 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
             />
             <Select
               label="Course"
+              required
               value={courseId}
               onChange={(v) => {
                 setCourseId(v ?? "0");
@@ -570,6 +572,7 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
             />
             <Select
               label="Course Group"
+              required
               value={courseGroupId}
               onChange={(v) => {
                 setCourseGroupId(v ?? "0");
@@ -580,6 +583,7 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
             />
             <Select
               label="Course Year"
+              required
               value={courseYearId}
               onChange={(v) => {
                 setCourseYearId(v ?? "0");
@@ -590,6 +594,7 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
             />
             <Select
               label="Section"
+              required
               value={sectionId}
               onChange={(v) => {
                 setSectionId(v ?? "0");
@@ -598,58 +603,69 @@ export default function SubjectWiseFacultyAttendanceReportPage() {
               options={sectionOptions}
               placeholder="Section"
             />
-            <Select
-              label="Subject"
-              value={subjectId}
-              onChange={(v) => {
-                setSubjectId(v ?? "0");
-                clearResults();
-              }}
-              options={subjectOptions}
-              placeholder="Subject"
-              searchable
-              isLoading={subjectsQuery.isFetching}
-            />
-            <DatePicker
-              label="From Date"
-              required
-              value={fromDate}
-              onChange={(d) => {
-                setFromDate(d);
-                clearResults();
-              }}
-              maxDate={toDate ?? undefined}
-              displayFormat="dd-MM-yyyy"
-            />
-            <DatePicker
-              label="To Date"
-              required
-              value={toDate}
-              onChange={(d) => {
-                setToDate(d);
-                clearResults();
-              }}
-              minDate={fromDate ?? undefined}
-              displayFormat="dd-MM-yyyy"
-            />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              className="h-9 w-fit px-4"
-              disabled={loadingList}
-              onClick={() => void handleGetList()}
-            >
-              {loadingList ? "Loading…" : "Get Attendance"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
-              onClick={goBack}
-            >
-              Back
-            </Button>
+
+          {/* Row 2: Subject (wide) + dates + actions — Angular 50 / 20 / 20 / buttons */}
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-12">
+            <div className="sm:col-span-5">
+              <Select
+                label="Subject"
+                required
+                value={subjectId}
+                onChange={(v) => {
+                  setSubjectId(v ?? "0");
+                  clearResults();
+                }}
+                options={subjectOptions}
+                placeholder="Subject"
+                searchable
+                isLoading={subjectsQuery.isFetching}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <DatePicker
+                label="From Date"
+                required
+                value={fromDate}
+                onChange={(d) => {
+                  setFromDate(d);
+                  clearResults();
+                }}
+                maxDate={toDate ?? undefined}
+                displayFormat="dd-MM-yyyy"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <DatePicker
+                label="To Date"
+                required
+                value={toDate}
+                onChange={(d) => {
+                  setToDate(d);
+                  clearResults();
+                }}
+                minDate={fromDate ?? undefined}
+                displayFormat="dd-MM-yyyy"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-3">
+              <Button
+                type="button"
+                className="h-9 w-fit px-4"
+                disabled={loadingList}
+                onClick={() => void handleGetList()}
+              >
+                {loadingList ? "Loading…" : "Get Attendance"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-9 w-fit px-4"
+                onClick={goBack}
+              >
+                Back
+              </Button>
+            </div>
           </div>
         </div>
       }

@@ -27,7 +27,8 @@ function isOverflowing(el: HTMLElement | null): boolean {
   if (el.scrollWidth > el.clientWidth + 1) return true;
   // Nested truncate target (e.g. label span inside wrapper)
   const truncated = el.querySelector<HTMLElement>(".truncate, [data-truncate]");
-  if (truncated && truncated.scrollWidth > truncated.clientWidth + 1) return true;
+  if (truncated && truncated.scrollWidth > truncated.clientWidth + 1)
+    return true;
   return false;
 }
 
@@ -72,7 +73,7 @@ export function OptionTooltip({
 
   const shouldShowTip = useCallback(() => {
     if (!enabled || !tipText) return false;
-    // Long labels always tip; shorter ones tip only when visually truncated.
+    // Explicit long tips always show; shorter ones only when visually truncated.
     if (tipText.length >= SELECT_TOOLTIP_MIN_LENGTH) return true;
     return isOverflowing(triggerRef.current);
   }, [enabled, tipText]);
@@ -104,9 +105,10 @@ export function OptionTooltip({
             role="tooltip"
             className={cn(
               // Above Dialog (1100) and Popover (1200)
+              // Angular Material mat-tooltip: dark panel under the hovered option
               "pointer-events-none fixed z-[1300] max-w-[min(22.5rem,calc(100vw-1rem))]",
-              "rounded-md border border-slate-200 bg-white px-3 py-1.5",
-              "text-[12px] font-medium leading-snug text-slate-900 shadow-md",
+              "rounded px-2.5 py-1.5 shadow-md",
+              "bg-[rgba(97,97,97,0.92)] text-[11px] font-normal leading-snug text-white",
               "whitespace-normal break-words",
             )}
             style={{ top: coords.top, left: coords.left }}

@@ -3,6 +3,7 @@
 /**
  * Periodical Reports —
  * Angular `reports/admin-library-reports/periodical-reports` parity.
+ * No filter card — data loads on mount.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +14,7 @@ import {
   escapeHtml,
   exportHtmlTableAsExcel,
 } from "@/common/export-html-table";
-import { FilteredListPage } from "@/components/layout";
+import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { printHtmlInIframe } from "@/lib/print";
 import { getErrorMessage } from "@/lib/errors";
@@ -125,7 +126,7 @@ export default function PeriodicalReportsPage() {
   };
 
   return (
-    <FilteredListPage<AnyRow>
+    <ListPage<AnyRow>
       title={REPORT_TITLE}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
@@ -147,7 +148,6 @@ export default function PeriodicalReportsPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={handleExcelExport}
             >
@@ -157,7 +157,6 @@ export default function PeriodicalReportsPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={() => void printReport()}
             >

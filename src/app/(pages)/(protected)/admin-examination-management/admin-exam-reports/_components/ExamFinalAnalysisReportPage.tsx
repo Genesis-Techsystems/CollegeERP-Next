@@ -22,9 +22,11 @@ import {
   getExamFinalAnalysisReport,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
+  getGeneralDetails,
   listExamFeeTypes,
   type AnyRow,
 } from "@/services";
+import { GM_CODES } from "@/config/constants/ui";
 
 type Row = AnyRow;
 export type ExamFinalAnalysisKind =
@@ -319,7 +321,7 @@ const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
 const groupSubjectwiseCols: ColDef<Row>[] = [
   {
     headerName: "S.No",
-    valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+    valueGetter: (p) => (p.node?.rowPinned ? "" : (p.node?.rowIndex ?? 0) + 1),
     width: 70,
     flex: 0,
   },
@@ -689,6 +691,7 @@ function printGroupSubjectwiseReport(args: {
   academicYear: string;
   courseGroup: string;
   examLabel: string;
+  logoUrl?: string | null;
   rows: Row[];
 }): void {
   if (!args.rows.length) return;
@@ -756,18 +759,26 @@ function printGroupSubjectwiseReport(args: {
 <style>
 @page { size: A4 portrait; margin: 12mm; }
 body { font: 12px/1.4 Arial, Helvetica, sans-serif; color: #000; margin: 0; }
-.collegeName { font-size: 16px; font-weight: 700; margin: 0 0 4px; text-align: center; }
-.title { font-size: 14px; font-weight: 700; margin: 0 0 4px; text-align: center; }
-.details { margin: 0 0 12px; text-align: center; color: #222; }
-.meta { margin: 0 0 4px; color: #000; }
-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-th, td { border: 1px solid #000; padding: 5px 6px; }
-th { background: #f2f2f2; font-weight: 700; text-align: center; }
+.meta { font-weight: 600; margin: 0 0 8px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+th, td { border: 1px solid #94a3b8; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+th { background: #c3d9ff; font-weight: 600; text-align: center; }
 tr { break-inside: avoid; }
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 20px; }
+.logo-col { width: 80px; flex: 0 0 80px; }
+.logo-col img { max-width: 100%; height: auto; display: block; }
+.title-col { flex: 1 1 auto; text-align: center; padding-right: 80px; }
 </style></head><body>
-  ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
-  <p class="title">Branch & Subject-Wise Result Analysis</p>
-  ${args.examLabel ? `<p class="details">${escapeHtml(args.examLabel)}</p>` : ""}
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${args.logoUrl || "/assets/images/logo.jpg"}" alt="College ERP" />
+    </div>
+    <div class="title-col">
+      <h2 style="margin:0 0 5px; font-size:16px;">${escapeHtml(args.collegeName)}</h2>
+      <h3 style="margin:0 0 5px; font-size:14px;">Branch & Subject-Wise Result Analysis</h3>
+      <p style="margin:0; font-size:12px;">${escapeHtml(args.examLabel)}</p>
+    </div>
+  </div>
   ${sections}
 </body></html>`;
 
@@ -814,6 +825,7 @@ export function ExamFinalAnalysisReportPage({
   const [courseGroupId, setCourseGroupId] = useState("");
   const [courseYearId, setCourseYearId] = useState("");
   const [isReevaluation, setIsReevaluation] = useState(false);
+  const [examFeeTypes, setExamFeeTypes] = useState<Row[]>([]);
   const collegeLogo = useCollegeLogo(Number(collegeId) || null);
 
   useEffect(() => {
@@ -886,42 +898,18 @@ export function ExamFinalAnalysisReportPage({
     return dedupeBy(source, (r) => num(r.fk_course_year_id));
   }, [restRows, collegeId, courseGroupId]);
 
-  /** Angular getExamTypes: GM EXMFEETYP + All, filtered by exam Regular/Supple/Internal flags. */
-  const examTypeOptions: SelectOption[] = useMemo(() => {
-    const exam =
-      exams.find((r) => num(r.fk_exam_id) === Number(examId)) ?? null;
-    const filtered: Row[] = [];
-    if (exam) {
-      for (const t of examFeeTypesList) {
-        const code = String(t.generalDetailCode ?? "");
-        if (
-          flagOn(exam.is_regular_exam ?? exam.isRegularExam) &&
-          code === "Regular"
-        ) {
-          filtered.push(t);
-        }
-        if (
-          flagOn(exam.is_supply_exam ?? exam.isSupplyExam) &&
-          code === "Supple"
-        ) {
-          filtered.push(t);
-        }
-        if (
-          flagOn(exam.is_internal_exam ?? exam.isInternalExam) &&
-          code === "Internal"
-        ) {
-          filtered.push(t);
-        }
-      }
-    }
-    return [
+  const examTypeOptions: SelectOption[] = useMemo(
+    () => [
       { value: "0", label: "All" },
-      ...filtered.map((t) => ({
-        value: String(num(t.generalDetailId)),
-        label: String(t.generalDetailCode ?? ""),
+      ...examFeeTypes.map((r) => ({
+        value: String(num(r.generalDetailId ?? r.general_detail_id)),
+        label:
+          txt(r.generalDetailCode ?? r.general_detail_code) ||
+          String(num(r.generalDetailId)),
       })),
-    ];
-  }, [examFeeTypesList, exams, examId]);
+    ],
+    [examFeeTypes],
+  );
 
   useEffect(() => {
     if (!courseId || !academicYears.length) return;
@@ -955,18 +943,41 @@ export function ExamFinalAnalysisReportPage({
     async function loadRest() {
       if (!courseId || !academicYearId || !examId || !employeeId) {
         setRestRows([]);
+        setExamFeeTypes([]);
         return;
       }
       setLoadingFilters(true);
       try {
-        const bundle = await getUnivExamRestInRegExamStd({
-          courseId: Number(courseId),
-          examId: Number(examId),
-          academicYearId: Number(academicYearId),
-          employeeId,
-        });
+        const [bundle, feeTypes] = await Promise.all([
+          getUnivExamRestInRegExamStd({
+            courseId: Number(courseId),
+            examId: Number(examId),
+            academicYearId: Number(academicYearId),
+            employeeId,
+            flagType: "REGSUP",
+          }),
+          getGeneralDetails(GM_CODES.EXAM_FEE_TYPE).catch(() => []),
+        ]);
         setRestRows(
           Array.isArray(bundle.restFilters) ? bundle.restFilters : [],
+        );
+        const examRow =
+          baseRows.find(
+            (r) =>
+              num(r.fk_course_id) === Number(courseId) &&
+              num(r.fk_academic_year_id) === Number(academicYearId) &&
+              num(r.fk_exam_id) === Number(examId),
+          ) ?? null;
+
+        setExamFeeTypes(feeTypes);
+        setExamTypeId(
+          feeTypes[0]
+            ? String(
+                num(
+                  feeTypes[0].generalDetailId ?? feeTypes[0].general_detail_id,
+                ),
+              )
+            : "0",
         );
         setCollegeId("");
         setCourseGroupId("");
@@ -976,6 +987,7 @@ export function ExamFinalAnalysisReportPage({
       } catch (e) {
         toastError(e, "Failed to load filters");
         setRestRows([]);
+        setExamFeeTypes([]);
       } finally {
         setLoadingFilters(false);
       }
@@ -1140,7 +1152,7 @@ export function ExamFinalAnalysisReportPage({
         />
       </div>
       <div className="space-y-1 md:col-span-2">
-        <Label>Exam Type</Label>
+        <Label>Exam Type *</Label>
         <Select
           value={examTypeId}
           onChange={(v) => setExamTypeId(v ?? "0")}
@@ -1248,6 +1260,37 @@ export function ExamFinalAnalysisReportPage({
       pagination
       paginationPageSize={kind === "final-analysis" ? 10 : 25}
       getRowId={getRowId}
+      pinnedBottomRowData={
+        kind === "group-subjectwise" &&
+        hasFetched &&
+        rows.length > 0 &&
+        (rows[0].total_registered != null || rows[0].total_appeared != null)
+          ? [
+              {
+                SUBJECT: "Branch Wise Result",
+                registered: rows[0].total_registered,
+                Appeared: rows[0].total_appeared,
+                Passed: rows[0].total_passed,
+                failed: rows[0].total_failed,
+                Pass_percentage: rows[0].total_pass_percentage,
+              },
+            ]
+          : undefined
+      }
+      toolbarFooter={
+        kind === "group-subjectwise" && hasFetched ? (
+          <div className="px-3 pb-3">
+            <p className="text-[13px] font-medium text-foreground">
+              Course Group :{" "}
+              {txt(
+                courseGroups.find(
+                  (c) => String(num(c.fk_course_group_id)) === courseGroupId,
+                )?.group_code,
+              )}
+            </p>
+          </div>
+        ) : undefined
+      }
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",
@@ -1350,6 +1393,7 @@ export function ExamFinalAnalysisReportPage({
                     txt(rows[0]?.exam_label_name) ||
                     (exam ? examMasterLabel(exam) : "") ||
                     "",
+                  logoUrl: collegeLogo,
                   rows,
                 });
                 return;

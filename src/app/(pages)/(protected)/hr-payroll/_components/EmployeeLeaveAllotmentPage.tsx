@@ -318,7 +318,7 @@ export function EmployeeLeaveAllotmentPage() {
         </GlobalFilterBarRow>
       }
       body={
-        selectedEmployee ? (
+        selectedEmployee && (allotmentLoading || allotmentRows.length > 0) ? (
           <div className="space-y-4">
             <p className="text-sm font-medium text-foreground">
               Leaves Entitled

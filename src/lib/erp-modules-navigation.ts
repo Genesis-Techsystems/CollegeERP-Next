@@ -90,9 +90,11 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
     return `${ATTENDANCE_MGMT_BASE}/attendance-dashboard`;
   }
   // Attendance Management entry only — not Student Attendance *Reports*.
+  // "Course Wise Student Attendance" contains "studentattendance" but is a report.
   const isAttendanceReportLabel =
     key.includes("report") ||
     key.includes("subjectwise") ||
+    key.includes("coursewise") ||
     key.includes("percentage") ||
     key.includes("register") ||
     key.includes("consolidated") ||

@@ -16,6 +16,7 @@
   "/principal-my-approvals/detain-request-approvals": "Detain Request Approvals",
   "/principal-my-approvals/item-request-approvals": "Item Request Approvals",
   "/staff-faculty-details/faculty-details": "Faculty Details",
+  "/hr-payroll/employee/employee-list": "Faculty Details",
   "/staff-faculty-details/performance-assessment": "Faculty Performance Assessment",
   "/staff-faculty-details/performance-assessment/add-performance": "Take Performance Assessment"
 }

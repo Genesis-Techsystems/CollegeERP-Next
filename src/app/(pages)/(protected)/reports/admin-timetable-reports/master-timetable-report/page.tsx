@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
@@ -50,11 +50,6 @@ import {
 
 const REPORT_TITLE = "Master Timetable Report";
 
-const SEM_OPTIONS = [
-  { value: "1", label: "Semester 1" },
-  { value: "2", label: "Semester 2" },
-];
-
 function readEmpDeptId(): number {
   if (typeof globalThis === "undefined" || !("localStorage" in globalThis)) {
     return 0;
@@ -70,7 +65,7 @@ function buildMasterPrintHtml(
     .map(
       (sem) => `
       <div style="margin-bottom:12px;">
-        <p style="background:#e6e6e6;margin:0;text-align:center;padding:7px;">${escapeHtml(sem.year)}</p>
+        <p style="background:#e6e6e6;margin:0;text-align:center;padding:7px;">${escapeHtml(sem.label)}</p>
         <table border="1" cellpadding="4" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12px;">
           <tbody>
             ${sem.subjects
@@ -153,7 +148,6 @@ function buildMasterPrintHtml(
 
 export default function MasterTimetableReportPage() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, isLoading: sessionLoading } = useSession();
   const { employeeId: loginEmployeeId } = useLoginEmployeeId(
@@ -161,61 +155,11 @@ export default function MasterTimetableReportPage() {
     sessionLoading,
   );
 
-  const isPrincipal = useMemo(() => {
-    if (pathname.includes("staff-reports") || pathname.includes("principal")) {
-      return true;
-    }
-    if (user?.isPrincipal) return true;
-    if (
-      user?.userRole?.toUpperCase().includes("PRINCIPAL") ||
-      user?.roleName?.toUpperCase().includes("PRINCIPAL") ||
-      user?.userTypeCode?.toUpperCase().includes("PRINCIPAL")
-    ) {
-      return true;
-    }
-    if (typeof window === "undefined") return false;
-    const storage = globalThis.localStorage;
-    const isPStorage =
-      storage.getItem("isPRINCIPAL") === "true" ||
-      storage.getItem("isPrincipal") === "true";
-    const roleName = String(storage.getItem("roleName") ?? "").toUpperCase();
-    const userRole = String(storage.getItem("userRole") ?? "").toUpperCase();
-    const userTypeCode = String(
-      storage.getItem("userTypeCode") ?? "",
-    ).toUpperCase();
-    const isAdminStorage = storage.getItem("isAdmin") === "true";
-
-    if (
-      isPStorage ||
-      roleName.includes("PRINCIPAL") ||
-      userRole.includes("PRINCIPAL") ||
-      userTypeCode.includes("PRIN")
-    ) {
-      return true;
-    }
-    if (
-      !user?.isAdmin &&
-      !isAdminStorage &&
-      (userTypeCode === "STAFF" || userRole === "STAFF")
-    ) {
-      return true;
-    }
-    return false;
-  }, [
-    pathname,
-    user?.isPrincipal,
-    user?.userRole,
-    user?.roleName,
-    user?.userTypeCode,
-    user?.isAdmin,
-  ]);
-
   const [collegeId, setCollegeId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [courseGroupId, setCourseGroupId] = useState("");
   const [courseYearId, setCourseYearId] = useState("0");
-  const [semester, setSemester] = useState("1");
   const [fromDate, setFromDate] = useState<Date | null>(() => new Date());
 
   const [pivot, setPivot] = useState<MasterTimetablePivot | null>(null);
@@ -409,10 +353,6 @@ export default function MasterTimetableReportPage() {
       toastInfo("College, Academic Year, Course and Course Group are required");
       return;
     }
-    if (!semester) {
-      toastInfo("Semester is required");
-      return;
-    }
     if (!fromDate) {
       toastInfo("From Date is required");
       return;
@@ -470,7 +410,7 @@ export default function MasterTimetableReportPage() {
         ),
       );
 
-      const built = buildMasterTimetablePivot(raw, semester);
+      const built = buildMasterTimetablePivot(raw);
       if (built.totalWeekdays.length === 0) {
         toastInfo("No records are found.");
         return;
@@ -524,7 +464,7 @@ export default function MasterTimetableReportPage() {
       filtersCollapsible={false}
       filters={
         <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Select
               label="College"
               required
@@ -584,19 +524,6 @@ export default function MasterTimetableReportPage() {
               placeholder="Course Year"
               disabled={!courseGroupId}
             />
-            {!isPrincipal && (
-              <Select
-                label="Semester"
-                required
-                value={semester}
-                onChange={(v) => {
-                  setSemester(v ?? "1");
-                  clearResults();
-                }}
-                options={SEM_OPTIONS}
-                placeholder="Semester"
-              />
-            )}
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-full min-w-[10rem] sm:w-auto sm:min-w-[12rem]">
@@ -662,7 +589,7 @@ export default function MasterTimetableReportPage() {
               {pivot.totalSems.map((sem) => (
                 <div key={`${sem.year}-${sem.sem}`} className="mt-2">
                   <p className="bg-muted py-1.5 text-center text-sm font-medium">
-                    {sem.year}
+                    {sem.label}
                   </p>
                   <table className="w-full border-collapse text-sm">
                     <tbody>

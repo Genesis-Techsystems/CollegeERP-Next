@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,6 +11,7 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
+
 import {
   getCollegeById,
   getGeneralDetails,
