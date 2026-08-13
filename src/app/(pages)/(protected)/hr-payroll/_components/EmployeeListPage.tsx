@@ -338,7 +338,7 @@ export function EmployeeListPage() {
         </p>
       ) : null}
 
-      {mode === "all" ? undefined : (
+      {mode !== "all" ? (
         <AngularFilterCard
           title="Employee Search"
           collapsible={false}
