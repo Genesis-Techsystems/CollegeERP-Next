@@ -3652,8 +3652,13 @@ textarea:focus-visible,
     color 0.2s ease;
 }
 
-/* Float up when field has content */
-.fl-input:not(:placeholder-shown) ~ .fl-label {
+/* Floated label (typed value, browser autofill, or detected autofill) */
+.fl-input:not(:placeholder-shown) ~ .fl-label,
+.fl-input:autofill ~ .fl-label,
+.fl-input:-webkit-autofill ~ .fl-label,
+.fl-input[data-autofilled="true"] ~ .fl-label,
+:has(> .fl-input:autofill) > .fl-label,
+:has(> .fl-input:-webkit-autofill) > .fl-label {
   top: 0.625rem;
   transform: translateY(0);
   font-size: 0.6875rem;
@@ -3666,6 +3671,33 @@ textarea:focus-visible,
   transform: translateY(0);
   font-size: 0.6875rem;
   color: #4f46e5;
+}
+
+/* Chrome paints saved credentials without updating :placeholder-shown.
+   This animation lets JS mark the field; inset shadow cancels the blue/yellow
+   autofill overlay that otherwise sits under the floating label. */
+@keyframes fl-on-autofill {
+  from {
+    -webkit-text-fill-color: inherit;
+  }
+  to {
+    -webkit-text-fill-color: inherit;
+  }
+}
+
+.fl-input:-webkit-autofill {
+  animation-name: fl-on-autofill;
+  animation-duration: 0.001s;
+}
+
+.fl-input:-webkit-autofill,
+.fl-input:-webkit-autofill:hover,
+.fl-input:-webkit-autofill:focus,
+.fl-input:autofill {
+  -webkit-text-fill-color: hsl(var(--foreground));
+  caret-color: hsl(var(--foreground));
+  box-shadow: 0 0 0 1000px hsl(var(--card)) inset;
+  transition: background-color 99999s ease-out;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

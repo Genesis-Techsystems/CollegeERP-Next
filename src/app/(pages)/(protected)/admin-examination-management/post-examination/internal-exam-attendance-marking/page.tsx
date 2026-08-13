@@ -91,7 +91,9 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
 }
 
 function regulationIdOf(row: AnyRow): number {
-  return Number(row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0);
+  return Number(
+    row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0,
+  );
 }
 
 /** Angular selectedCollege → selectedCourseGroup → selectedYear (client-side only). */
@@ -100,7 +102,11 @@ function cascadeFromRest(
   collegeId: number,
   preferredGroupId?: number | null,
   preferredYearId?: number | null,
-): { courseGroupId: number; courseYearId: number; regulationId: number | null } {
+): {
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number | null;
+} {
   const groupRows = dedupeBy(
     rows.filter((x) => Number(x.fk_college_id) === Number(collegeId)),
     "fk_course_group_id",
@@ -133,7 +139,9 @@ function cascadeFromRest(
     nextYearId = 0;
   } else if (
     preferredYearId != null &&
-    yearRows.some((x) => Number(x.fk_course_year_id) === Number(preferredYearId))
+    yearRows.some(
+      (x) => Number(x.fk_course_year_id) === Number(preferredYearId),
+    )
   ) {
     nextYearId = Number(preferredYearId);
   } else {
@@ -212,6 +220,7 @@ export default function InternalExamAttendanceMarkingPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAttendance, setUploadingAttendance] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [examListDetails, setExamListDetails] = useState<AnyRow[]>([]);
   const [collegesListDetails, setCollegesListDetails] = useState<AnyRow[]>([]);
@@ -505,9 +514,7 @@ export default function InternalExamAttendanceMarkingPage() {
   // Drop stale subject if list refreshes; do NOT auto-pick (Angular requires user select).
   useEffect(() => {
     if (subjectId == null) return;
-    if (
-      !subjects.some((s) => Number(s.fk_subject_id) === Number(subjectId))
-    ) {
+    if (!subjects.some((s) => Number(s.fk_subject_id) === Number(subjectId))) {
       setSubjectId(null);
     }
   }, [subjects, subjectId]);
@@ -538,7 +545,8 @@ export default function InternalExamAttendanceMarkingPage() {
   useEffect(() => {
     if (courses.length === 0) return;
     setCourseId((prev) =>
-      prev != null && courses.some((x) => Number(x.fk_course_id) === Number(prev))
+      prev != null &&
+      courses.some((x) => Number(x.fk_course_id) === Number(prev))
         ? Number(prev)
         : Number(courses[0].fk_course_id),
     );
@@ -576,7 +584,9 @@ export default function InternalExamAttendanceMarkingPage() {
       setExamDate("");
       return;
     }
-    const raw = String(selectedExam.from_date ?? selectedExam.fromDate ?? "").trim();
+    const raw = String(
+      selectedExam.from_date ?? selectedExam.fromDate ?? "",
+    ).trim();
     setExamDate(raw ? raw.slice(0, 10) : "");
   }, [selectedExam]);
 
@@ -736,6 +746,7 @@ export default function InternalExamAttendanceMarkingPage() {
     }
     setLoadingList(true);
     setHasFetched(true);
+    setFiltersOpen(false);
     try {
       const data = await getInternalAttendanceStudents({
         collegeId,
@@ -879,12 +890,8 @@ export default function InternalExamAttendanceMarkingPage() {
       { value: "0", label: "All" },
       ...courseGroupRows.map((row) => {
         const id = Number(row.fk_course_group_id);
-        const code = String(
-          row.group_code ?? row.groupCode ?? "",
-        ).trim();
-        const name = String(
-          row.group_name ?? row.groupName ?? "",
-        ).trim();
+        const code = String(row.group_code ?? row.groupCode ?? "").trim();
+        const name = String(row.group_name ?? row.groupName ?? "").trim();
         const label =
           name && code ? `${name}(${code})` : code || name || `Group ${id}`;
         return { value: String(id), label };
@@ -954,6 +961,18 @@ export default function InternalExamAttendanceMarkingPage() {
     ],
     [roomRows],
   );
+
+  const examTypeText = useMemo(() => {
+    if (!selectedExam) return "";
+    const isInternal = Boolean(selectedExam.is_internal_exam);
+    const isRegular = Boolean(selectedExam.is_regular_exam);
+    const isSupply = Boolean(selectedExam.is_supply_exam);
+    if (isInternal && !isRegular && !isSupply) return "Internal";
+    if (isRegular && !isInternal && !isSupply) return "Regular";
+    if (isSupply && !isInternal && !isRegular) return "Supple";
+    if (isRegular && isSupply && !isInternal) return "Regular / Supple";
+    return "";
+  }, [selectedExam]);
 
   const columnDefs = useMemo<ColDef<AttendanceRow>[]>(
     () => [
@@ -1144,14 +1163,37 @@ export default function InternalExamAttendanceMarkingPage() {
               {loadingList ? "Loading..." : "Get List"}
             </Button>
           </div>
-          {hasFetched ? (
-            <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2 md:col-span-12">
+        </div>
+      }
+      filtersOpen={filtersOpen}
+      onFiltersOpenChange={setFiltersOpen}
+      resultsVisible={hasFetched}
+      tableHeader={
+        hasFetched ? (
+          <div className="space-y-3">
+            <div className="table-context-header">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                book
+              </span>
+              <strong className="table-context-header__title">
+                Internal Exam Attendance Marking
+              </strong>
+            </div>
+            <div className="overflow-hidden rounded border-2 border-[#c3d9ff] bg-card p-2">
               <div className="flex items-start gap-4">
-                <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
                   <GraduationCap className="h-10 w-10" />
                 </div>
                 <div className="space-y-1 text-[13px] text-slate-600">
-                  <p>{selectedExam?.exam_name ?? "-"}</p>
+                  <p>
+                    {selectedExam?.exam_name ?? "-"}{" "}
+                    {examTypeText ? (
+                      <span className="text-blue-700">({examTypeText})</span>
+                    ) : null}
+                  </p>
                   <p>
                     {selectedCollege?.college_code ?? "-"} /{" "}
                     {selectedCourse?.course_code ?? "-"}{" "}
@@ -1160,9 +1202,19 @@ export default function InternalExamAttendanceMarkingPage() {
                     ) : null}
                   </p>
                   <p>
+                    Subject:{" "}
+                    <span className="text-slate-800">
+                      {selectedSubjectMeta
+                        ? `${selectedSubjectMeta.subject_name ?? "-"} (${selectedSubjectMeta.subject_code ?? "-"})`
+                        : "-"}
+                    </span>
+                  </p>
+                  <p>
                     Invigilator:{" "}
                     <span className="text-slate-800">
-                      {selectedInvigilator?.invigilatorEmpName ?? "All"}
+                      {selectedInvigilator?.invigilatorEmpName ??
+                        selectedInvigilator?.invigilatorEmpNumber ??
+                        "All"}
                     </span>
                   </p>
                   <p>
@@ -1174,8 +1226,8 @@ export default function InternalExamAttendanceMarkingPage() {
                 </div>
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null
       }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}

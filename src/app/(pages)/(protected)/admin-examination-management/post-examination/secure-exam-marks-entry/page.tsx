@@ -1327,6 +1327,7 @@ export default function SecureExamMarksEntryPage() {
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={hasFetched}
       hideEmptyGrid
       getRowId={(p) =>
         String(
