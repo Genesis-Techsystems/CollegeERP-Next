@@ -711,18 +711,16 @@ export default function FeedbackSummaryPage() {
           </Button>
         ) : null
       }
-      filtersFooter={
+      tableHeader={showTable ? <div className="">{tableTitle}</div> : undefined}
+      afterGrid={
         showTable ? (
-          <div className="space-y-1 px-1 pt-1">
-            <p className="text-sm font-semibold text-foreground">
-              {tableTitle}
-            </p>
-            <p className="text-sm font-medium text-destructive">
+          <div className="px-4 pb-3 pt-1">
+            <p className="text-[13px] font-semibold text-destructive">
               Note: Feedback Summary for attendance percentage of{" "}
               {percentageValue}%.
             </p>
           </div>
-        ) : null
+        ) : undefined
       }
     />
   );

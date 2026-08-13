@@ -222,6 +222,7 @@ export function PayslipForEmployeesPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
+      showTable={fetchEnabled && rows.length > 0}
       rowData={fetchEnabled ? rows : []}
       columnDefs={columnDefs}
       loading={loading}

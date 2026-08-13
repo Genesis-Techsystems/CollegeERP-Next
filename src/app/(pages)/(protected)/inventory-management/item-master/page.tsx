@@ -78,13 +78,13 @@ function statusRenderer(p: ICellRendererParams<InvItem>) {
 
 /** Angular: show subCategoryName or `--` when itemSubcategoryId is null */
 function subCategoryRenderer(p: ICellRendererParams<InvItem>) {
-  if (p.data?.itemSubcategoryId == null) return <span>--</span>;
+  if (p.data?.itemSubcategoryId == null) return <span>-</span>;
   return <span>{p.data.subCategoryName ?? "--"}</span>;
 }
 
 /** Angular: show brandName or `--` when brandmasterId is null */
 function brandRenderer(p: ICellRendererParams<InvItem>) {
-  if (p.data?.brandmasterId == null) return <span>--</span>;
+  if (p.data?.brandmasterId == null) return <span>-</span>;
   return <span>{p.data.brandName ?? "--"}</span>;
 }
 

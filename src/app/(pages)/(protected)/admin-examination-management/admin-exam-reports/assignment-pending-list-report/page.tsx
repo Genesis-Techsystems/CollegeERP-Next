@@ -60,7 +60,8 @@ const COLS: ColDef<Row>[] = [
     headerName: "Assignment",
     minWidth: 160,
     flex: 1,
-    valueGetter: (p) => dash(p.data?.assignment_name ?? p.data?.assignment),
+    valueGetter: (p) =>
+      dash(p.data?.Assignment ?? p.data?.assignment_name ?? p.data?.assignment),
   },
   {
     headerName: "Subject",
@@ -76,15 +77,16 @@ const COLS: ColDef<Row>[] = [
   },
   {
     headerName: "Employee",
-    minWidth: 140,
+    minWidth: 180,
     flex: 1,
-    valueGetter: (p) => dash(p.data?.employee_name ?? p.data?.emp_name),
+    valueGetter: (p) =>
+      dash(p.data?.Employee ?? p.data?.employee_name ?? p.data?.emp_name),
   },
   {
     headerName: "College",
     minWidth: 100,
     flex: 0,
-    valueGetter: (p) => dash(p.data?.college_code),
+    valueGetter: (p) => dash(p.data?.college_shortname ?? p.data?.college_code),
   },
   {
     headerName: "Course Year",
@@ -487,20 +489,25 @@ export default function AssignmentPendingListReportPage() {
       loading={loading}
       pagination
       getRowId={getRowId}
-      toolbar={{ search: true, searchPlaceholder: "Search…", exportPdf: false }}
-      toolbarTrailing={
-        hasFetched && rows.length > 0 ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 text-[12px]"
-            onClick={() => window.print()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
-        ) : undefined
-      }
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search…",
+        exportPdf: true,
+        pdfDocumentTitle: "Assignment Pending List",
+      }}
+      // toolbarTrailing={
+      //   hasFetched && rows.length > 0 ? (
+      //     <Button
+      //       type="button"
+      //       size="sm"
+      //       className="h-9 text-[12px]"
+      //       onClick={() => window.print()}
+      //     >
+      //       <Printer className="mr-1.5 h-3.5 w-3.5" />
+      //       Print Report
+      //     </Button>
+      //   ) : undefined
+      // }
     />
   );
 }

@@ -8,7 +8,7 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { DataTable, TableCard } from "@/common/components/table";
 import { StatusBadge } from "@/common/components/data-display";
-import { PageContainer } from "@/components/layout";
+import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
@@ -72,12 +72,17 @@ function makeGroupActionsRenderer() {
     });
     return (
       <div className="flex items-center gap-1">
-        <Button asChild size="sm" variant="ghost" className="h-7 px-2">
+        <Button
+          asChild
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0"
+          title="Edit"
+        >
           <Link
             href={`/hr-payroll/payroll/payroll-group/edit-payroll-group?payrollGroupId=${payrollGroupId}`}
           >
-            <PencilIcon className="h-3.5 w-3.5 mr-1" />
-            Edit
+            <PencilIcon className="h-4 w-4" />
           </Link>
         </Button>
         <span className="text-muted-foreground">|</span>
@@ -126,47 +131,28 @@ export function PayrollGroupPage() {
   );
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card border-b border-[#5b9bd5]/40 px-4 py-3">
-        <h1 className="inline-flex items-center gap-2 text-[15px] font-semibold text-[hsl(var(--card-title))]">
-          <ListChecks className="h-4 w-4 shrink-0" aria-hidden />
-          Payroll Groups
-        </h1>
-      </div>
-
-      <div className="app-card overflow-hidden">
-        <TableCard
-          withHeaderBorder={false}
-          className="border-0 shadow-none rounded-none"
-        >
-          <DataTable
-            subtitle=""
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={isFetching}
-            pagination
-            paginationPageSize={10}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search",
-              columnPicker: true,
-              exportPdf: true,
-              pdfDocumentTitle: "Payroll Groups",
-            }}
-            toolbarTrailing={
-              <Button
-                type="button"
-                size="sm"
-                className="h-[30px] gap-1 px-3 text-[12px]"
-                onClick={() => router.push(ADD_PAYROLL_GROUP_HREF)}
-              >
-                <PlusIcon className="h-3.5 w-3.5" />
-                Add Payroll Group
-              </Button>
-            }
-          />
-        </TableCard>
-      </div>
-    </PageContainer>
+    <ListPage
+      title="Payroll Groups"
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      pagination
+      paginationPageSize={10}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search payroll groups…",
+        columnPicker: true,
+        exportPdf: true,
+        pdfDocumentTitle: "Payroll Groups",
+      }}
+      toolbarTrailing={
+        <Button asChild size="sm" className="h-[30px] gap-1 px-3 text-[12px]">
+          <Link href={ADD_PAYROLL_GROUP_HREF}>
+            <PlusIcon className="h-3.5 w-3.5" />
+            Add Payroll Group
+          </Link>
+        </Button>
+      }
+    />
   );
 }

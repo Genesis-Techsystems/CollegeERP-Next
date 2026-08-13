@@ -151,6 +151,33 @@ export type FinBudgetReportRow = Record<string, unknown> & {
   nxt_yr?: string;
 };
 
+export interface FinChequeIssue {
+  chequeIssueId: number;
+  chequeBookId?: number;
+  issuedChequeNo?: string;
+  inFavourTowards?: string;
+  amount?: number;
+  particulars?: string;
+  paymentNoteNo?: string;
+  issuedToFinBankAccountId?: number;
+  isActive?: boolean;
+  reason?: string;
+  issuedByEmpId?: number;
+  chequeDate?: string | Date;
+  issuedDate?: string | Date;
+  status?: string;
+  receiptNo?: string;
+  payment?: number | string;
+  isSettled?: boolean;
+  isIntersection?: boolean;
+  // Readonly fields usually returned by list
+  bankCode?: string;
+  branchCode?: string;
+  chequebookSerialNo?: string;
+  finBankAccountNumber?: string;
+  entityCode?: string;
+}
+
 /** Row from `s_get_income_expense_summary` (management Income & Expense Report). */
 export type IncomeExpenseSummaryRow = Record<string, unknown> & {
   district_name?: string;

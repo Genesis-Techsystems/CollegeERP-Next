@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { PencilIcon } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { DataTable, TableCard } from "@/common/components/table";
@@ -115,8 +116,16 @@ export function AssignedEmployeesPage() {
           const editHref = `/hr-payroll/payroll/payroll-group/assigned-employees/edit-employee?payrollGroupId=${payrollGroupId}&collegeId=${collegeId}&empPayrollGroupId=${empPayrollGroupId}&empId=${employeeId}`;
           return (
             <div className="flex items-center gap-1">
-              <Button asChild size="sm" variant="ghost" className="h-7 px-2">
-                <Link href={editHref}>Edit</Link>
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                title="Edit"
+              >
+                <Link href={editHref}>
+                  <PencilIcon className="h-4 w-4" />
+                </Link>
               </Button>
               <span className="text-muted-foreground">|</span>
               <Button
@@ -158,38 +167,36 @@ export function AssignedEmployeesPage() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <TableCard
-          withHeaderBorder={false}
-          className="border-0 shadow-none rounded-none"
-        >
-          <DataTable
-            title="Payroll Group Employees"
-            subtitle=""
-            rowData={rows}
-            columnDefs={columnDefs}
-            loading={loading}
-            pagination
-            paginationPageSize={10}
-            toolbar={{
-              search: true,
-              searchPlaceholder: "Search",
-              columnPicker: true,
-              exportPdf: true,
-              pdfDocumentTitle: "Payroll Group Employees",
-            }}
-            toolbarTrailing={
-              <Button
-                asChild
-                size="sm"
-                className="h-[30px] gap-1 px-3 text-[12px]"
-              >
-                <Link href={addHref}>Assign Employee</Link>
-              </Button>
-            }
-          />
-        </TableCard>
-      </div>
+      <TableCard
+        title="Payroll Group Employees"
+        withHeaderBorder={false}
+        className="border-0 shadow-none rounded-none"
+      >
+        <DataTable
+          subtitle=""
+          rowData={rows}
+          columnDefs={columnDefs}
+          loading={loading}
+          pagination
+          paginationPageSize={10}
+          toolbar={{
+            search: true,
+            searchPlaceholder: "Search",
+            columnPicker: true,
+            exportPdf: true,
+            pdfDocumentTitle: "Payroll Group Employees",
+          }}
+          toolbarTrailing={
+            <Button
+              asChild
+              size="sm"
+              className="h-[30px] gap-1 px-3 text-[12px]"
+            >
+              <Link href={addHref}>Assign Employee</Link>
+            </Button>
+          }
+        />
+      </TableCard>
       <Button
         variant="outline"
         size="sm"

@@ -15,7 +15,7 @@ import { MINIO_URL } from "@/config/constants/api";
 import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { getErrorMessage } from "@/lib/errors";
 import { printHtmlInIframe } from "@/lib/print";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import {
   getStaffPayrollReportRows,
   listActiveCollegesForGeneralSettings,
@@ -448,8 +448,11 @@ export function PayrollStaffReportPage({
             String(k.payroll_category_code).toUpperCase() === "BASIC",
         ),
       );
-      setFlatRows(flattenPayrollPivotRows(pivoted));
-
+      const flat = flattenPayrollPivotRows(pivoted);
+      setFlatRows(flat);
+      if (flat.length === 0) {
+        toastInfo("No records found.");
+      }
       const collegeCode =
         collegeDetails.find((c) => c.id === collegeId)?.code ??
         colleges.find((c) => c.value === String(collegeId))?.label ??
@@ -647,6 +650,7 @@ export function PayrollStaffReportPage({
               clearable={false}
             />
           </GlobalFilterField>
+
           <GlobalFilterField label="Department">
             <Select
               value={String(departmentId)}
@@ -659,6 +663,7 @@ export function PayrollStaffReportPage({
               clearable={false}
             />
           </GlobalFilterField>
+
           <GlobalFilterField label="Employee Category *">
             <Select
               value={String(empCategoryId)}
@@ -671,6 +676,7 @@ export function PayrollStaffReportPage({
               clearable={false}
             />
           </GlobalFilterField>
+
           {usePeriod ? (
             <GlobalFilterField label="Month and Year">
               <MonthYearPicker
@@ -684,6 +690,7 @@ export function PayrollStaffReportPage({
               />
             </GlobalFilterField>
           ) : null}
+
           <GlobalFilterField label={"\u00a0"}>
             <Button
               type="button"
@@ -699,15 +706,14 @@ export function PayrollStaffReportPage({
       }
       bodyClassName="space-y-4 border-t border-border px-5 py-4"
       body={
-        !hasRun ? (
-          <p className="text-sm text-muted-foreground">
-            Select filters and click Get List to load the report.
-          </p>
-        ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : (
+        hasRun && !error && flatRows.length > 0 ? (
           <div className="payroll-staff-report-table space-y-4">
-            <style dangerouslySetInnerHTML={{ __html: REPORT_SCREEN_STYLES }} />
+            <style
+              dangerouslySetInnerHTML={{
+                __html: REPORT_SCREEN_STYLES,
+              }}
+            />
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="w-full max-w-xs min-w-[200px]">
                 <SearchInput
@@ -716,6 +722,7 @@ export function PayrollStaffReportPage({
                   placeholder="Search"
                 />
               </div>
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -726,6 +733,7 @@ export function PayrollStaffReportPage({
                   <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
                   Export Excel
                 </Button>
+
                 <Button
                   type="button"
                   size="sm"
@@ -738,19 +746,9 @@ export function PayrollStaffReportPage({
               </div>
             </div>
 
-            {loading ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                Loading…
-              </p>
-            ) : flatRows.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                No records found for the selected filters.
-              </p>
-            ) : (
-              <div dangerouslySetInnerHTML={{ __html: tablesHtml }} />
-            )}
+            <div dangerouslySetInnerHTML={{ __html: tablesHtml }} />
           </div>
-        )
+        ) : null
       }
     />
   );

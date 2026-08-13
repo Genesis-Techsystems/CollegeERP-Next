@@ -1223,19 +1223,21 @@ export async function searchEmployeesForManagerAssign(
   term: string,
 ): Promise<AnyRow[]> {
   const q = term.trim();
-  if (q.length < 4) return [];
+  if (q.length < 3) return [];
   const paths = [EMPLOYEE_API.EMPLOYEE_SEARCH, "employeesearch"] as const;
+  let lastError: any;
   for (const path of paths) {
     try {
       const data = await fetchDetails<unknown>(path, { q });
       const rows = normalizeListPayload(data);
       if (rows.length > 0) return rows;
       if (Array.isArray(data)) return data as AnyRow[];
-    } catch {
-      // try next path
+      return []; // Return empty array if request succeeded but has no data
+    } catch (err) {
+      lastError = err;
     }
   }
-  return [];
+  throw lastError || new Error("Failed to search employees");
 }
 
 export async function listActiveDesignationsForHr(): Promise<AnyRow[]> {

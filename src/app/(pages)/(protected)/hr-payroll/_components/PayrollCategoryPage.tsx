@@ -129,8 +129,17 @@ function CategorySection({
         withHeaderBorder={false}
         className="border-0 shadow-none rounded-none"
       >
+        {/* Angular-style section heading - Payroll Category page only */}
+        <div className="border-b border-[#5b9bd5]/40 px-4 py-2">
+          <h2 className="text-[15px] font-semibold text-[hsl(var(--card-title))]">
+            {title}
+          </h2>
+
+          <p className="mt-1 text-[13px] text-foreground">{description}</p>
+        </div>
+
         <DataTable
-          title={title}
+          title=""
           subtitle=""
           rowData={rows}
           columnDefs={columnDefs}

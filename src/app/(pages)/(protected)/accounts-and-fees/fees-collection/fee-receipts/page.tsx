@@ -9,7 +9,7 @@ import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import {
   listActiveCollegesForGeneralSettings,
   listAcademicYearsForCollege,
@@ -301,7 +301,19 @@ export default function FeeReceiptsPage() {
     [onPrint],
   );
 
-  const showTable = collegeNum > 0 && yearNum > 0 && studentNum > 0;
+  useEffect(() => {
+    if (
+      !loadingReceipts &&
+      !fetchingReceipts &&
+      studentNum > 0 &&
+      receipts.length === 0
+    ) {
+      toastInfo("No records found.");
+    }
+  }, [loadingReceipts, fetchingReceipts, studentNum, receipts.length]);
+
+  const showTable =
+    collegeNum > 0 && yearNum > 0 && studentNum > 0 && receipts.length > 0;
 
   return (
     <FilteredListPage

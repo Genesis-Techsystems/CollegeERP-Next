@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
@@ -24,6 +24,8 @@ import {
   getUnivExamRestInRegExamStd,
   type AnyRow,
 } from "@/services";
+import { printHtmlInIframe } from "@/lib/print";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 
 type Row = AnyRow;
 
@@ -41,6 +43,14 @@ function txt(v: unknown): string {
 function dash(v: unknown): string {
   const s = txt(v);
   return !s || s === "null" ? "—" : s;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function dedupeBy<T>(rows: T[], keyFn: (r: T) => number): T[] {
@@ -87,7 +97,7 @@ function exportHtmlTable(filename: string, bodyHtml: string) {
   link.click();
 }
 
-const moderationCols: ColDef<Row>[] = [
+const moderationCols: (ColDef<Row> | ColGroupDef<Row>)[] = [
   {
     headerName: "S.No",
     valueGetter: rowIndexGetter,
@@ -120,33 +130,74 @@ const moderationCols: ColDef<Row>[] = [
     valueGetter: (p) => dash(p.data?.Appeared ?? p.data?.appeared),
   },
   {
-    headerName: "Passed (Before)",
-    minWidth: 110,
-    flex: 0,
-    valueGetter: (p) => dash(p.data?.passed ?? p.data?.before_passed),
+    headerName: "Before Moderation",
+    children: [
+      {
+        headerName: "Passed",
+        minWidth: 90,
+        flex: 0,
+        valueGetter: (p) => dash(p.data?.passed ?? p.data?.before_passed),
+      },
+      {
+        headerName: "Pass %Age",
+        minWidth: 90,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(p.data?.Passed_percent ?? p.data?.before_pass_percent),
+      },
+      {
+        headerName: ">=55% Marks",
+        minWidth: 110,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(p.data?.Above_55_marks ?? p.data?.above_55_marks_before),
+      },
+      {
+        headerName: ">=55 %Age",
+        minWidth: 110,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(p.data?.Above_55_percent ?? p.data?.above_55_percent_before),
+      },
+    ],
   },
   {
-    headerName: "Pass % (Before)",
-    minWidth: 110,
-    flex: 0,
-    valueGetter: (p) =>
-      dash(p.data?.Passed_percent ?? p.data?.before_pass_percent),
-  },
-  {
-    headerName: "Passed (After)",
-    minWidth: 110,
-    flex: 0,
-    valueGetter: (p) =>
-      dash(p.data?.Passed_after_moderation ?? p.data?.after_passed),
-  },
-  {
-    headerName: "Pass % (After)",
-    minWidth: 110,
-    flex: 0,
-    valueGetter: (p) =>
-      dash(
-        p.data?.Passed_after_moderation_percent ?? p.data?.after_pass_percent,
-      ),
+    headerName: "After Moderation",
+    children: [
+      {
+        headerName: "Passed",
+        minWidth: 90,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(p.data?.Passed_after_moderation ?? p.data?.after_passed),
+      },
+      {
+        headerName: "Pass %Age",
+        minWidth: 90,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(
+            p.data?.Passed_after_moderation_percent ??
+              p.data?.after_pass_percent,
+          ),
+      },
+      {
+        headerName: ">=55% Marks",
+        minWidth: 110,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(p.data?.Above_55_marks_after ?? p.data?.above_55_marks_after),
+      },
+      {
+        headerName: ">=55 %Age",
+        minWidth: 110,
+        flex: 0,
+        valueGetter: (p) =>
+          dash(
+            p.data?.Above_55_percent_after ?? p.data?.above_55_percent_after,
+          ),
+      },
+    ],
   },
   {
     headerName: "Moderation Marks",
@@ -180,6 +231,8 @@ function ModerationReportsPage() {
   const [courseGroupId, setCourseGroupId] = useState("");
   const [courseYearId, setCourseYearId] = useState("");
   const [filterSummary, setFilterSummary] = useState("");
+
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -448,12 +501,14 @@ function ModerationReportsPage() {
       const year = courseYears.find(
         (r) => num(r.fk_course_year_id) === Number(courseYearId),
       );
+      const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
       setFilterSummary(
         [
           txt(college?.college_code),
           txt(course?.course_code),
           Number(courseGroupId) > 0 ? txt(group?.group_code) : "",
           Number(courseYearId) > 0 ? txt(year?.course_year_code) : "",
+          exam ? examMasterLabel(exam) : "",
         ]
           .filter(Boolean)
           .join(" / "),
@@ -495,6 +550,62 @@ function ModerationReportsPage() {
     exportHtmlTable("Moderation Report.xls", `${head}${body}`);
   }
 
+  function handlePrint() {
+    if (!rows.length) {
+      toast.info("No Records Found.");
+      return;
+    }
+
+    const th =
+      "<tr><th rowspan='2'>S.No</th><th rowspan='2'>Subject Name</th><th rowspan='2'>Scheme</th><th rowspan='2'>Subject Maximum</th><th rowspan='2'>Appeared</th><th colspan='4'>Before Moderation</th><th colspan='4'>After Moderation</th><th rowspan='2'>Moderation Marks</th></tr><tr><th>Passed</th><th>Pass %Age</th><th>&gt;=55% Marks</th><th>&gt;=55 %Age</th><th>Passed</th><th>Pass %Age</th><th>&gt;=55% Marks</th><th>&gt;=55 %Age</th></tr>";
+    const bodyRows = rows
+      .map(
+        (r, i) =>
+          `<tr><td style="text-align:center">${i + 1}</td><td>${escapeHtml(dash(r.subject_name ?? r.subject))}</td><td>${escapeHtml(dash(r.regulation_code ?? r.scheme))}</td><td style="text-align:center">${escapeHtml(dash(r.ext_maxmarks ?? r.subject_maximum))}</td><td style="text-align:center">${escapeHtml(dash(r.Appeared ?? r.appeared))}</td><td style="text-align:center">${escapeHtml(dash(r.passed ?? r.before_passed))}</td><td style="text-align:center">${escapeHtml(dash(r.Passed_percent ?? r.before_pass_percent))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_marks ?? r.above_55_marks_before))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_percent ?? r.above_55_percent_before))}</td><td style="text-align:center">${escapeHtml(dash(r.Passed_after_moderation ?? r.after_passed))}</td><td style="text-align:center">${escapeHtml(dash(r.Passed_after_moderation_percent ?? r.after_pass_percent))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_marks_after ?? r.above_55_marks_after))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_percent_after ?? r.above_55_percent_after))}</td><td style="text-align:center">${escapeHtml(dash(r.Moderation_marks_awarded ?? r.moderation_marks))}</td></tr>`,
+      )
+      .join("");
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Moderation Analysis</title><style>
+@page { size: A4 landscape; margin: 10mm; }
+body { font: 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111; margin: 0; }
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 15px; }
+.logo-col { width: 80px; flex: 0 0 80px; }
+.logo-col img { max-width: 100%; height: auto; display: block; }
+.title-col { flex: 1 1 auto; text-align: center; padding-right: 80px; }
+.collegeName { font-size: 18px; font-weight: bold; margin: 0 0 4px; color: #000; }
+.reportTitle { font-size: 14px; font-weight: bold; margin: 0 0 6px; color: #000; }
+.reportDetails { font-size: 12px; font-weight: 500; margin: 0; color: #000; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+th, td { border: 1px solid #94a3b8; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
+th { background: #c3d9ff; font-weight: 600; text-align: center; }
+tr { break-inside: avoid; }
+.footer { font-size: 12px; }
+.footer h4 { margin: 0 0 4px; font-size: 13px; color: #000; }
+.footer ol { margin: 0; padding-left: 20px; }
+</style></head><body>
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${collegeLogo || "/assets/images/logo.jpg"}" alt="College ERP" />
+    </div>
+    <div class="title-col">
+      <div class="collegeName">Gondwana Institute of Technology</div>
+      <div class="reportTitle">Moderation Analysis</div>
+      <div class="reportDetails">${escapeHtml(filterSummary)}</div>
+    </div>
+  </div>
+  <table><thead>${th}</thead><tbody>${bodyRows}</tbody></table>
+  <div class="footer">
+    <h4>Moderation Marks :</h4>
+    <ol>
+      <li>If the pass in a subject is &lt; 30% then 4 is added.</li>
+      <li>If the percentage of students getting 55% of marks in a subject is &lt; 70%, then 4 is added.</li>
+      <li>If the both the above conditions are met then 2 moderations are added in a subject.</li>
+    </ol>
+  </div>
+</body></html>`;
+    printHtmlInIframe(html);
+  }
+
   const getRowId = useCallback(
     (p: { data?: Row; node?: { rowIndex?: number | null } }) =>
       `row-${p.node?.rowIndex ?? 0}-${txt(p.data?.subject_name)}-${txt(p.data?.regulation_code)}`,
@@ -520,6 +631,11 @@ function ModerationReportsPage() {
   return (
     <FilteredListPage
       title="Moderation Reports"
+      tableTitle={
+        hasFetched && filterSummary
+          ? `Moderation Analysis - ${filterSummary}`
+          : "Moderation Analysis"
+      }
       resultsVisible={hasFetched}
       filters={
         <div className="space-y-2">
@@ -658,12 +774,27 @@ function ModerationReportsPage() {
               </Button>
             </div>
           </div>
-          {hasFetched && filterSummary ? (
-            <p className="text-[12px] font-medium text-blue-700">
-              {filterSummary}
-            </p>
-          ) : null}
         </div>
+      }
+      afterGrid={
+        hasFetched && rows.length > 0 ? (
+          <div className="px-4 pb-4 bg-white">
+            <h4 className="font-semibold text-[13px] text-blue-700 mb-2">
+              Moderation Marks :
+            </h4>
+            <ol className="list-decimal pl-5 text-[12px] text-gray-700 space-y-1">
+              <li>If the pass in a subject is &lt; 30% then 4 is added.</li>
+              <li>
+                If the percentage of students getting 55% of marks in a subject
+                is &lt; 70%, then 4 is added.
+              </li>
+              <li>
+                If the both the above conditions are met then 2 moderations are
+                added in a subject.
+              </li>
+            </ol>
+          </div>
+        ) : null
       }
       rowData={hasFetched ? rows : []}
       columnDefs={moderationCols}
@@ -694,7 +825,7 @@ function ModerationReportsPage() {
               type="button"
               size="sm"
               className="h-9 text-[12px]"
-              onClick={() => window.print()}
+              onClick={handlePrint}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report

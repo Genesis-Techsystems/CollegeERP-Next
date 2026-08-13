@@ -106,17 +106,18 @@ export function FilteredListPage<T>({
   // Hide get-list results card until Get List (showTable / resultsVisible).
   const listVisible = showTable && resultsVisible !== false;
 
-  const filterCard = (
-    <AngularFilterCard
-      title={filtersCardTitle}
-      collapsible={filtersCollapsible}
-      defaultOpen={filtersDefaultOpen}
-      pageFirstCard={notice == null}
-    >
-      {filters}
-      {filtersFooter}
-    </AngularFilterCard>
-  );
+  const filterCard =
+    filters != null || filtersFooter != null ? (
+      <AngularFilterCard
+        title={filtersCardTitle}
+        collapsible={filtersCollapsible}
+        defaultOpen={filtersDefaultOpen}
+        pageFirstCard={notice == null}
+      >
+        {filters}
+        {filtersFooter}
+      </AngularFilterCard>
+    ) : null;
 
   // Separated layout (default) — Angular Subject Master pattern
 

@@ -8,7 +8,7 @@ import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import {
   listActiveCollegesForGeneralSettings,
   listAcademicYearsForCollege,
@@ -159,6 +159,12 @@ function StudentFeeCollectionContent() {
     if (!searchParams.get("collegeId")) return;
     if (collegeNum > 0) setFetchEnabled(true);
   }, [searchParams, collegeNum]);
+
+  useEffect(() => {
+    if (fetchEnabled && !loadingDue && !fetchingDue && rows.length === 0) {
+      toastInfo("No records found.");
+    }
+  }, [fetchEnabled, loadingDue, fetchingDue, rows.length]);
 
   const collegeOptions = useMemo(
     () =>
@@ -522,8 +528,16 @@ function StudentFeeCollectionContent() {
       title="Student Fee Collection"
       filters={filters}
       // No columnDefs + body=null → filters-only card (FilteredPage path).
-      columnDefs={fetchEnabled ? columnDefs : undefined}
-      body={fetchEnabled ? undefined : null}
+      columnDefs={
+        fetchEnabled && (rows.length > 0 || loadingDue || fetchingDue)
+          ? columnDefs
+          : undefined
+      }
+      body={
+        fetchEnabled && (rows.length > 0 || loadingDue || fetchingDue)
+          ? undefined
+          : null
+      }
       rowData={fetchEnabled ? rows : []}
       loading={fetchEnabled && (loadingDue || fetchingDue)}
       height="auto"
