@@ -55,6 +55,11 @@ export interface FilteredListPageProps<T> extends Omit<
    * Report pages typically pass `resultsVisible={showTable}`.
    */
   resultsVisible?: boolean;
+  /**
+   * Hide the top filter card (e.g. after Get List, when selected filters
+   * are shown on the results card instead). Default true.
+   */
+  showFilters?: boolean;
   /** Optional content rendered below filters inside the filter card. */
   filtersFooter?: ReactNode;
   /** Optional notice / alert above the cards. */
@@ -85,6 +90,7 @@ export function FilteredListPage<T>({
   tableHeader,
   showTable = true,
   resultsVisible = true,
+  showFilters = true,
   filtersFooter,
   notice,
   body,
@@ -93,6 +99,8 @@ export function FilteredListPage<T>({
   className,
   filtersCollapsible = true,
   filtersDefaultOpen = true,
+  filtersOpen,
+  onFiltersOpenChange,
   rowData,
   columnDefs,
   ...tableProps
@@ -112,6 +120,8 @@ export function FilteredListPage<T>({
         title={filtersCardTitle}
         collapsible={filtersCollapsible}
         defaultOpen={filtersDefaultOpen}
+        open={filtersOpen}
+        onOpenChange={onFiltersOpenChange}
         pageFirstCard={notice == null}
       >
         {filters}
@@ -132,7 +142,7 @@ export function FilteredListPage<T>({
   return (
     <PageContainer className={cn("space-y-4", className)}>
       {notice}
-      {filterCard}
+      {showFilters ? filterCard : null}
 
       {listVisible && hasTable ? (
         <DataTable

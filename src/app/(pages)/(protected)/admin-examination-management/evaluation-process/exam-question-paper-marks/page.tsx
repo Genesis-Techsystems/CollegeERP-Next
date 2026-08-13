@@ -347,6 +347,13 @@ export default function ExamQuestionPaperMarksPage() {
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
+    // Angular addDialog afterClosed: if examQuestionPaperTemplateId is null,
+    // toast and do not persist (create only; edit still updates).
+    if (!editingRow && !templateId) {
+      toastError("Please assign the template for the selected subject");
+      return;
+    }
+
     if (!examId || !subjectId) {
       toastError("Please select Exam and Subject before saving.");
       return;

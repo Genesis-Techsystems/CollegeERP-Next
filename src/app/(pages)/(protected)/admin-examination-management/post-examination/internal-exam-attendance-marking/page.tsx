@@ -94,6 +94,9 @@ function regulationIdOf(row: AnyRow): number {
   return Number(
     row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0,
   );
+  return Number(
+    row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0,
+  );
 }
 
 /** Angular selectedCollege → selectedCourseGroup → selectedYear (client-side only). */
@@ -220,6 +223,7 @@ export default function InternalExamAttendanceMarkingPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAttendance, setUploadingAttendance] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [examListDetails, setExamListDetails] = useState<AnyRow[]>([]);
   const [collegesListDetails, setCollegesListDetails] = useState<AnyRow[]>([]);
@@ -745,6 +749,7 @@ export default function InternalExamAttendanceMarkingPage() {
     }
     setLoadingList(true);
     setHasFetched(true);
+    setFiltersOpen(false);
     try {
       const data = await getInternalAttendanceStudents({
         collegeId,
@@ -960,6 +965,18 @@ export default function InternalExamAttendanceMarkingPage() {
     [roomRows],
   );
 
+  const examTypeText = useMemo(() => {
+    if (!selectedExam) return "";
+    const isInternal = Boolean(selectedExam.is_internal_exam);
+    const isRegular = Boolean(selectedExam.is_regular_exam);
+    const isSupply = Boolean(selectedExam.is_supply_exam);
+    if (isInternal && !isRegular && !isSupply) return "Internal";
+    if (isRegular && !isInternal && !isSupply) return "Regular";
+    if (isSupply && !isInternal && !isRegular) return "Supple";
+    if (isRegular && isSupply && !isInternal) return "Regular / Supple";
+    return "";
+  }, [selectedExam]);
+
   const columnDefs = useMemo<ColDef<AttendanceRow>[]>(
     () => [
       {
@@ -1152,17 +1169,35 @@ export default function InternalExamAttendanceMarkingPage() {
           </div>
         </div>
       }
+      filtersOpen={filtersOpen}
+      onFiltersOpenChange={setFiltersOpen}
+      resultsVisible={hasFetched}
       tableHeader={
-        rows.length > 0 ? (
-          <div className="space-y-2">
-            <TableContextHeader title="Internal Exam Attendance Marking" />
+        hasFetched ? (
+          <div className="space-y-3">
+            <div className="table-context-header">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                book
+              </span>
+              <strong className="table-context-header__title">
+                Internal Exam Attendance Marking
+              </strong>
+            </div>
             <div className="overflow-hidden rounded border-2 border-[#c3d9ff] bg-card p-2">
               <div className="flex items-start gap-4">
-                <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
                   <GraduationCap className="h-10 w-10" />
                 </div>
                 <div className="space-y-1 text-[13px] text-slate-600">
-                  <p>{selectedExam?.exam_name ?? "-"}</p>
+                  <p>
+                    {selectedExam?.exam_name ?? "-"}{" "}
+                    {examTypeText ? (
+                      <span className="text-blue-700">({examTypeText})</span>
+                    ) : null}
+                  </p>
                   <p>
                     {selectedCollege?.college_code ?? "-"} /{" "}
                     {selectedCourse?.course_code ?? "-"}{" "}
@@ -1171,9 +1206,19 @@ export default function InternalExamAttendanceMarkingPage() {
                     ) : null}
                   </p>
                   <p>
+                    Subject:{" "}
+                    <span className="text-slate-800">
+                      {selectedSubjectMeta
+                        ? `${selectedSubjectMeta.subject_name ?? "-"} (${selectedSubjectMeta.subject_code ?? "-"})`
+                        : "-"}
+                    </span>
+                  </p>
+                  <p>
                     Invigilator:{" "}
                     <span className="text-slate-800">
-                      {selectedInvigilator?.invigilatorEmpName ?? "All"}
+                      {selectedInvigilator?.invigilatorEmpName ??
+                        selectedInvigilator?.invigilatorEmpNumber ??
+                        "All"}
                     </span>
                   </p>
                   <p>

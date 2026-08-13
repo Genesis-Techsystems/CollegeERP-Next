@@ -12,6 +12,9 @@ export interface AngularFilterCardProps {
   /** Collapsible filter body (default true). */
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** Controlled open state. When set, `onOpenChange` is called on toggle. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** Marks this as the page's first card (AppShell page-name CSS hook). */
   pageFirstCard?: boolean;
   className?: string;
@@ -27,10 +30,17 @@ export function AngularFilterCard({
   showFilterLabel = true,
   collapsible = true,
   defaultOpen = true,
+  open: openProp,
+  onOpenChange,
   pageFirstCard = false,
   className,
 }: AngularFilterCardProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const open = openProp ?? internalOpen;
+  function setOpen(next: boolean) {
+    onOpenChange?.(next);
+    if (openProp === undefined) setInternalOpen(next);
+  }
 
   return (
     <div
@@ -43,7 +53,7 @@ export function AngularFilterCard({
           <button
             type="button"
             className="angular-filter-card__title-btn"
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => setOpen(!open)}
             aria-expanded={open}
             aria-label={`Toggle ${title} filters`}
           >

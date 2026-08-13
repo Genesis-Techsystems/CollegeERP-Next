@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type AnimationEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +38,10 @@ export function LoginCard() {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
+
+  const usernameReg = register("usernameOrEmail");
+  const passwordReg = register("password");
+  const rememberReg = register("remember");
 
   const isLoading = isSubmitting || isPending;
 
@@ -103,6 +107,18 @@ export function LoginCard() {
   const inputError =
     "border-destructive/60 focus:border-destructive focus:ring-2 focus:ring-destructive/20";
 
+  // Chrome/Edge paint saved passwords without firing input events or
+  // :placeholder-shown. The fl-on-autofill animation marks the field so the
+  // floating label moves up instead of overlapping the filled value.
+  const onAutofillAnimation = (e: AnimationEvent<HTMLInputElement>) => {
+    if (e.animationName === "fl-on-autofill") {
+      e.currentTarget.dataset.autofilled = "true";
+    }
+  };
+  const clearAutofillIfEmpty = (el: HTMLInputElement) => {
+    if (!el.value) delete el.dataset.autofilled;
+  };
+
   return (
     <div className="rounded-xl bg-card border border-border shadow-md overflow-hidden">
       {/* Brand */}
@@ -160,7 +176,12 @@ export function LoginCard() {
                 disabled={isLoading}
                 suppressHydrationWarning
                 className={`${inputBase} pr-11 ${errors.usernameOrEmail ? inputError : inputNormal}`}
-                {...register("usernameOrEmail")}
+                {...usernameReg}
+                onAnimationStart={onAutofillAnimation}
+                onChange={(e) => {
+                  clearAutofillIfEmpty(e.currentTarget);
+                  void usernameReg.onChange(e);
+                }}
               />
               <label htmlFor="usernameOrEmail" className="fl-label">
                 Email Or Username*
@@ -190,7 +211,12 @@ export function LoginCard() {
                 disabled={isLoading}
                 suppressHydrationWarning
                 className={`${inputBase} pr-11 ${errors.password ? inputError : inputNormal}`}
-                {...register("password")}
+                {...passwordReg}
+                onAnimationStart={onAutofillAnimation}
+                onChange={(e) => {
+                  clearAutofillIfEmpty(e.currentTarget);
+                  void passwordReg.onChange(e);
+                }}
               />
               <label htmlFor="password" className="fl-label">
                 Password
@@ -226,7 +252,7 @@ export function LoginCard() {
                   type="checkbox"
                   disabled={isLoading}
                   className="h-4 w-4 rounded border-border accent-primary"
-                  {...register("remember")}
+                  {...rememberReg}
                 />
                 Remember Me
               </label>
