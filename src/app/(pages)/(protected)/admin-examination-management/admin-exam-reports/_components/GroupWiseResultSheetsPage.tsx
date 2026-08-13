@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +9,6 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import { rowIndexGetter } from "@/lib/utils";
 import {
   getGeneralDetails,
   getGroupWiseFinalResults,
@@ -20,6 +18,7 @@ import {
 import { GM_CODES } from "@/config/constants/ui";
 import { toastError, toastInfo } from "@/lib/toast";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { SearchInput } from "@/common/components/search";
 import {
   BookOpen,
   Building2,
@@ -40,38 +39,6 @@ type GroupBucket = {
   students: AnyRow[];
 };
 
-const TABLE_TOOLBAR = {
-  search: true,
-  searchPlaceholder: "Search roll no",
-  columnPicker: false,
-  exportPdf: false,
-  exportExcel: true,
-} as const;
-
-const COL_DEFS = {
-  sno: {
-    headerName: "S.No",
-    valueGetter: rowIndexGetter,
-    width: 80,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  group: {
-    headerName: "Group",
-    minWidth: 120,
-    flex: 0,
-    width: 140,
-    valueGetter: (p) =>
-      strFrom(p.data ?? {}, ["_groupCode", "group_code", "groupCode"]),
-  } as ColDef<AnyRow>,
-  hallticket: {
-    headerName: "Roll No",
-    minWidth: 180,
-    flex: 1,
-    valueGetter: (p) =>
-      strFrom(p.data ?? {}, ["hallticket_number", "hall_ticketno"]),
-  } as ColDef<AnyRow>,
-};
-
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
     const n = Number(row?.[key]);
@@ -88,6 +55,14 @@ function strFrom(row: AnyRow, keys: string[]): string {
   return "";
 }
 
+function hallTicketOf(row: AnyRow): string {
+  return strFrom(row, [
+    "hallticket_number",
+    "hall_ticketno",
+    "hallTicketNumber",
+  ]);
+}
+
 function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
   const seen = new Set<number>();
   const out: AnyRow[] = [];
@@ -98,6 +73,103 @@ function dedupeBy(rows: AnyRow[], keys: string[]): AnyRow[] {
     out.push(row);
   }
   return out;
+}
+
+/** Angular on-screen layout: status banner + hall tickets in a multi-column grid. */
+function GroupWiseResultsPanel({
+  groups,
+  resultStatus,
+  search,
+  onSearchChange,
+  onPrint,
+}: {
+  groups: GroupBucket[];
+  resultStatus: string;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onPrint: () => void;
+}) {
+  const q = search.trim().toLowerCase();
+  const filteredGroups = useMemo(
+    () =>
+      groups
+        .map((g) => ({
+          ...g,
+          students: q
+            ? g.students.filter((s) =>
+                hallTicketOf(s).toLowerCase().includes(q),
+              )
+            : g.students,
+        }))
+        .filter((g) => g.students.length > 0),
+    [groups, q],
+  );
+
+  const totalCount = filteredGroups.reduce(
+    (sum, g) => sum + g.students.length,
+    0,
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* App toolbar order: Search (left) · actions (right) */}
+      <div className="app-data-table-toolbar flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-3">
+          <SearchInput
+            placeholder="Search"
+            value={search}
+            onChange={onSearchChange}
+          />
+        </div>
+        <div className="flex shrink-0 flex-nowrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={onPrint}
+            disabled={totalCount === 0}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        </div>
+      </div>
+
+      {filteredGroups.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No records found.
+        </p>
+      ) : (
+        filteredGroups.map((group) => {
+          const tickets = group.students.map(hallTicketOf).filter(Boolean);
+          const bannerLabel =
+            groups.length > 1
+              ? `${group.groupCode} - ${resultStatus} (${tickets.length})`
+              : `${resultStatus} (${tickets.length})`;
+          return (
+            <div key={group.groupCode} className="space-y-0 overflow-hidden">
+              {/* Angular: light-blue status strip, then hall tickets in columns */}
+              <div className="bg-[#cfe2f3] px-3 py-2 text-center text-[14px] font-semibold text-[#0c51a4]">
+                {bannerLabel}
+              </div>
+              <div className="border border-t-0 border-border px-3 py-3">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 md:grid-cols-4">
+                  {tickets.map((ticket) => (
+                    <div
+                      key={ticket}
+                      className="truncate text-[13px] text-foreground"
+                    >
+                      {ticket}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
 }
 
 export function GroupWiseResultSheetsPage({
@@ -130,6 +202,7 @@ export function GroupWiseResultSheetsPage({
 
   const [groupResults, setGroupResults] = useState<GroupBucket[]>([]);
   const [examLabel, setExamLabel] = useState("");
+  const [resultsSearch, setResultsSearch] = useState("");
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -199,41 +272,10 @@ export function GroupWiseResultSheetsPage({
     [restRows, collegeId, courseGroupId],
   );
 
-  const flatRows = useMemo(
-    () =>
-      groupResults.flatMap((group) =>
-        group.students.map((student) => ({
-          ...student,
-          _groupCode: group.groupCode,
-        })),
-      ),
-    [groupResults],
-  );
-
-  const showGroupColumn = groupResults.length > 1;
-
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      COL_DEFS.sno,
-      ...(showGroupColumn ? [COL_DEFS.group] : []),
-      COL_DEFS.hallticket,
-    ],
-    [showGroupColumn],
-  );
-
-  const getRowId = useCallback((p: { data?: AnyRow }) => {
-    const ht = strFrom(p.data ?? {}, ["hallticket_number", "hall_ticketno"]);
-    const group = strFrom(p.data ?? {}, [
-      "_groupCode",
-      "group_code",
-      "groupCode",
-    ]);
-    return ht ? `${group}-${ht}` : `row-${Math.random()}`;
-  }, []);
-
   function clearResults() {
     setGroupResults([]);
     setExamLabel("");
+    setResultsSearch("");
   }
 
   useEffect(() => {
@@ -571,6 +613,16 @@ export function GroupWiseResultSheetsPage({
     "college_code",
     "collegeCode",
   ]);
+  const collegeCode = strFrom(selectedCollege ?? {}, [
+    "college_code",
+    "collegeCode",
+  ]);
+  const courseCode = strFrom(
+    courses.find(
+      (r) => numFrom(r, ["fk_course_id", "courseId"]) === Number(courseId),
+    ) ?? {},
+    ["course_code", "courseCode", "course_name"],
+  );
   const printGroupCode =
     courseGroupId > 0
       ? strFrom(
@@ -582,6 +634,27 @@ export function GroupWiseResultSheetsPage({
           ["group_code", "groupCode", "course_group_code"],
         )
       : "";
+  const courseYearCode =
+    courseYearId > 0
+      ? strFrom(
+          courseYears.find(
+            (r) =>
+              numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
+              Number(courseYearId),
+          ) ?? {},
+          ["course_year_code", "courseYearCode"],
+        )
+      : "";
+
+  // Angular results header: College / Course / Course Group / Course Year
+  const dataDetails = [
+    collegeCode,
+    courseCode,
+    printGroupCode || (courseGroupId === 0 ? "All" : ""),
+    courseYearCode || (courseYearId === 0 ? "All" : ""),
+  ]
+    .filter(Boolean)
+    .join(" / ");
 
   const handlePrint = useCallback(() => {
     if (groupResults.length === 0) return;
@@ -603,39 +676,35 @@ export function GroupWiseResultSheetsPage({
     collegeLogo,
   ]);
 
-  const groupSummary =
-    groupResults.length === 1
-      ? `${groupResults[0].groupCode} / ${resultStatus} (${groupResults[0].students.length})`
-      : groupResults.length > 1
-        ? `${groupResults.length} groups / ${resultStatus} (${flatRows.length})`
-        : "";
+  const showResults = groupResults.length > 0;
+  // Angular failed sheets banner still shows "Failed" even though filter status is Promoted
+  const displayStatus = resultStatus === "Promoted" ? "Failed" : resultStatus;
 
   return (
     <FilteredListPage
       title={pageTitle}
-      showTable={flatRows.length > 0}
+      showTable={showResults}
       tableHeader={
-        <div className="table-context-header flex flex-wrap items-center gap-x-4 gap-y-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="material-icons table-context-header__icon"
-              aria-hidden
-            >
-              book
-            </span>
-            <strong className="table-context-header__title">{pageTitle}</strong>
+        showResults ? (
+          <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <div className="flex items-center gap-2">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                book
+              </span>
+              <strong className="table-context-header__title">
+                {pageTitle}
+              </strong>
+            </div>
+            {dataDetails ? (
+              <span className="text-[13px] font-medium text-blue-700">
+                {dataDetails}
+              </span>
+            ) : null}
           </div>
-          {examLabel ? (
-            <span className="text-[12px] text-muted-foreground">
-              {examLabel}
-            </span>
-          ) : null}
-          {groupSummary ? (
-            <span className="text-[12px] font-medium text-blue-700">
-              {groupSummary}
-            </span>
-          ) : null}
-        </div>
+        ) : null
       }
       filters={
         <div className="space-y-3">
@@ -820,40 +889,27 @@ export function GroupWiseResultSheetsPage({
               <Button
                 type="button"
                 variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
+                size="icon"
+                className="h-8 w-8"
                 onClick={handleReset}
                 title="Reset"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Reset
               </Button>
             </div>
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={flatRows}
-      columnDefs={columnDefs}
-      loading={loading}
-      pagination
-      paginationPageSize={25}
-      getRowId={getRowId}
-      toolbar={{
-        ...TABLE_TOOLBAR,
-        excelDocumentTitle: pageTitle,
-        excelFileName: `${pageTitle}.xls`,
-      }}
-      toolbarTrailing={
-        flatRows.length > 0 ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 text-[12px]"
-            onClick={handlePrint}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
-        ) : undefined
+      body={
+        showResults ? (
+          <GroupWiseResultsPanel
+            groups={groupResults}
+            resultStatus={displayStatus}
+            search={resultsSearch}
+            onSearchChange={setResultsSearch}
+            onPrint={handlePrint}
+          />
+        ) : null
       }
     />
   );

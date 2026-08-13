@@ -13,7 +13,7 @@ import type {
   ICellRendererParams,
   ValueFormatterParams,
 } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,11 @@ import { toastError, toastInfo } from "@/lib/toast";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { printHtmlInIframe } from "@/lib/print";
-import { escapeHtml, buildHtmlTable } from "@/common/export-html-table";
+import {
+  escapeHtml,
+  buildHtmlTable,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
 import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import {
   filterColleges,
@@ -692,6 +696,90 @@ export default function FeeDueListPage() {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
 
+  const handleExcelExport = () => {
+    const sourceRows = pivot ? pivotRows : flatRows;
+    if (sourceRows.length === 0) {
+      toastInfo("No records to export.");
+      return;
+    }
+    const collegeLabel =
+      collegeOptions.find((o) => o.value === collegeId)?.label || "";
+    const headerHtml = `<div style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:600;">${escapeHtml(collegeLabel)}</div>
+      ${dataDetails ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(dataDetails)}</div>` : ""}
+      <div style="font-size:16px;font-weight:550;margin-top:4px;">Fee Due List Report</div>
+    </div>`;
+
+    if (pivot) {
+      const amtCount = PIVOT_YEAR_HEADERS.length * PIVOT_AMT_HEADERS.length;
+      const headers = [
+        "SI.No",
+        "Student",
+        "Mobile No",
+        ...PIVOT_YEAR_HEADERS.flatMap((year) =>
+          PIVOT_AMT_HEADERS.map((h) => `${year} - ${h}`),
+        ),
+      ];
+      const keys = [
+        "siNo",
+        "student",
+        "mobile",
+        ...Array.from({ length: amtCount }, (_, i) => `a${i}`),
+      ];
+      const cols = keys.map((key, i) => ({ key, header: headers[i] ?? key }));
+      const exportRows = pivotRows.map((row, i) => {
+        const rec: Record<string, unknown> = {
+          siNo: i + 1,
+          student: row.firstName,
+          mobile: row.Student_Mobile,
+        };
+        for (let idx = 0; idx < amtCount; idx++) {
+          const amt = row.amounts[idx] ?? 0;
+          rec[`a${idx}`] = amt ? amt.toFixed(2) : "-";
+        }
+        return rec;
+      });
+      exportHtmlTableAsExcel(
+        "Fee Due Report.xls",
+        buildHtmlTable(cols, exportRows),
+        headerHtml,
+      );
+      return;
+    }
+
+    const cols = [
+      { key: "siNo", header: "SI.No" },
+      { key: "firstName", header: "Student" },
+      { key: "Student_Mobile", header: "Student Mobile No" },
+      { key: "gross_amount", header: "Gross Amt" },
+      { key: "discount_amount", header: "Discount Amt" },
+      { key: "college_fee", header: "College Fee" },
+      { key: "Scholarship_Hold_Amount", header: "Scholarship Hold Amt" },
+      { key: "scholarship_amount", header: "Scholarship Amt" },
+      { key: "paid_amount", header: "Paid Amt" },
+      { key: "total_due_college_amounts", header: "College Due Amt" },
+      { key: "balance_amount", header: "Balance Due" },
+    ];
+    const exportRows = flatRows.map((row, i) => ({
+      siNo: i + 1,
+      firstName: `${row.firstName ?? ""} (${row.hallticket_number ?? ""})`,
+      Student_Mobile: row.Student_Mobile ?? "",
+      gross_amount: fmt(row.gross_amount),
+      discount_amount: fmt(row.discount_amount),
+      college_fee: fmt(row.college_fee),
+      Scholarship_Hold_Amount: fmt(row.Scholarship_Hold_Amount),
+      scholarship_amount: fmt(row.scholarship_amount),
+      paid_amount: fmt(row.paid_amount),
+      total_due_college_amounts: fmt(row.total_due_college_amounts),
+      balance_amount: fmt(row.balance_amount),
+    }));
+    exportHtmlTableAsExcel(
+      "Fee Due Report.xls",
+      buildHtmlTable(cols, exportRows),
+      headerHtml,
+    );
+  };
+
   const handlePrintReport = () => {
     const collegeLabel =
       collegeOptions.find((o) => o.value === collegeId)?.label || "";
@@ -926,8 +1014,7 @@ ${tableHtml}
               </Button>
               <Button
                 type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
+                className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
                 onClick={goBack}
               >
                 Back
@@ -951,23 +1038,31 @@ ${tableHtml}
           "Student_Mobile",
           "Student_Name",
         ],
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
-        excelDocumentTitle: pageTitle,
-        excelFileName: "Fee Due Report.xls",
       }}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => handlePrintReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel Export
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => handlePrintReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
         ) : null
       }
       getRowId={(p) =>

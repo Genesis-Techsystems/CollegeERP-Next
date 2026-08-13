@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ThemeInit } from "./theme-init";
 import "./globals.css";
 import "katex/dist/katex.min.css";
@@ -54,7 +55,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Theme bootstrap via useServerInsertedHTML — avoids React 19 script-in-component warning */}
         <ThemeInit />
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );

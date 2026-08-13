@@ -197,7 +197,7 @@ export function Sidebar() {
 
   async function handleLogout() {
     await logout();
-    // Full page reload clears the React Query cache (module-level QueryClient singleton),
+    // Full page reload clears the React Query cache,
     // all Zustand in-memory state, and all React component state — prevents previous
     // user's data from leaking into the next session.
     window.location.href = "/login";

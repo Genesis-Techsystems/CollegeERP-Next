@@ -185,7 +185,11 @@ export default function BudgetEstimationReportPage() {
 
   return (
     <FilteredPage
-      title="Budget Estimations"
+      title={
+        resultsVisible && selectedData
+          ? `Budget Estimations - ${selectedData}`
+          : "Budget Estimations"
+      }
       className="relative"
       filtersCollapsible={false}
       notice={
@@ -206,10 +210,6 @@ export default function BudgetEstimationReportPage() {
       body={
         resultsVisible ? (
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-blue-600">
-              Budget Estimations - {selectedData}
-            </p>
-
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-[200px] max-w-sm flex-1">
                 <SearchInput

@@ -296,11 +296,9 @@ export default function BookSearchReportPage() {
 
   return (
     <FilteredListPage<SearchRow>
-      title={
-        showTable && dataDetails
-          ? `${REPORT_TITLE} - ( ${dataDetails} )`
-          : REPORT_TITLE
-      }
+      title={REPORT_TITLE}
+      // Angular results card has Export/Print + search + grid only — no book/title bar.
+      tableHeader={null}
       filters={
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[12rem] flex-1 basis-[12rem] sm:max-w-[20rem]">
@@ -372,7 +370,6 @@ export default function BookSearchReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={handleExcelExport}
             >
@@ -382,7 +379,6 @@ export default function BookSearchReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
               className="h-9 px-3 text-[12px]"
               onClick={() => void printReport()}
             >

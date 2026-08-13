@@ -1,13 +1,6 @@
-'use client'
+import { redirect } from "next/navigation";
 
-import { GroupWiseResultSheetsPage } from '../_components/GroupWiseResultSheetsPage'
-
-export default function GroupWiseFailedResultSheetsPage() {
-  return (
-    <GroupWiseResultSheetsPage
-      // Angular branch-wise-failed-result-sheets filters ResultStatus == 'Promoted'
-      resultStatus="Promoted"
-      title="Group Wise Failed Result Sheets"
-    />
-  )
+/** Alias → Angular Reports URL. */
+export default function GroupWiseFailedResultSheetsAliasPage() {
+  redirect("/reports/admin-exam-reports/group-wise-failed-result-sheets");
 }

@@ -1,12 +1,6 @@
-'use client'
+import { redirect } from "next/navigation";
 
-import { GroupWiseResultSheetsPage } from '../_components/GroupWiseResultSheetsPage'
-
-export default function GroupWisePassedResultSheetsPage() {
-  return (
-    <GroupWiseResultSheetsPage
-      resultStatus="Passed"
-      title="Group Wise Passed Result Sheets"
-    />
-  )
+/** Alias → Angular Reports URL. */
+export default function GroupWisePassedResultSheetsAliasPage() {
+  redirect("/reports/admin-exam-reports/group-wise-passed-result-sheets");
 }

@@ -545,13 +545,14 @@ export async function getExamAbsenteesReport(params: {
 /**
  * Angular re-evaluation-result-report (route: re-evaluation-exam-report) getDetails():
  * `s_get_exam_reevaluation_marks_report`, flag `reevaluation_marks_report`.
+ * result[0] = student marks rows, result[1] = resultStats (scripts registered / change %).
  */
 export async function getReEvaluationExamReport(params: {
   examId: number;
   examTypeCatdetId: number;
   courseId: number;
   courseYearId: number;
-}): Promise<AnyRow[]> {
+}): Promise<{ rows: AnyRow[]; resultStats: AnyRow[] }> {
   const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>(
     "s_get_exam_reevaluation_marks_report",
     {
@@ -564,17 +565,28 @@ export async function getReEvaluationExamReport(params: {
       in_course_year_id: params.courseYearId || 0,
     },
   );
-  return unwrapProcResultRows(data);
+  const result = data?.result;
+  if (!Array.isArray(result) || result.length === 0) {
+    return { rows: [], resultStats: [] };
+  }
+  if (Array.isArray(result[0])) {
+    return {
+      rows: (result[0] as AnyRow[]) ?? [],
+      resultStats: Array.isArray(result[1]) ? (result[1] as AnyRow[]) : [],
+    };
+  }
+  return { rows: result as AnyRow[], resultStats: [] };
 }
 
 /**
  * Angular re-evaluation-result-comparision-report getDetails():
  * `s_get_revaluation_analysis_report`.
+ * result[0] = subject rows, result[1] = reportSummary.
  */
 export async function getReEvaluationComparisionReport(params: {
   examId: number;
   courseYearId: number;
-}): Promise<AnyRow[]> {
+}): Promise<{ rows: AnyRow[]; reportSummary: AnyRow[] }> {
   const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>(
     "s_get_revaluation_analysis_report",
     {
@@ -584,7 +596,17 @@ export async function getReEvaluationComparisionReport(params: {
       in_course_year_id: params.courseYearId || 0,
     },
   );
-  return unwrapProcResultRows(data);
+  const result = data?.result;
+  if (!Array.isArray(result) || result.length === 0) {
+    return { rows: [], reportSummary: [] };
+  }
+  if (Array.isArray(result[0])) {
+    return {
+      rows: (result[0] as AnyRow[]) ?? [],
+      reportSummary: Array.isArray(result[1]) ? (result[1] as AnyRow[]) : [],
+    };
+  }
+  return { rows: result as AnyRow[], reportSummary: [] };
 }
 
 /**

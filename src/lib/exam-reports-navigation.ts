@@ -6,6 +6,8 @@
 
 const EXAM_REPORTS = "/admin-examination-management/exam-reports";
 const ADMIN_EXAM_REPORTS = "/admin-examination-management/admin-exam-reports";
+/** Angular Reports-module URL for pages that live under `/reports/admin-exam-reports`. */
+const REPORTS_ADMIN_EXAM_REPORTS = "/reports/admin-exam-reports";
 
 /**
  * DB / Angular menu slugs that differ from the real App Router folder name.
@@ -304,7 +306,7 @@ export function resolveExaminationReportHref(
       labelLower.includes("benefited") &&
       (labelLower.includes("student") || labelLower.includes("report")))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/grace-marks-benefited-students-report`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/grace-marks-benefited-students-report`;
   }
 
   // GraceMarks Reports (Angular exam-gracemarks-reports) — not Benefited Students
@@ -382,7 +384,7 @@ export function resolveExaminationReportHref(
         labelLower.includes("comparison")) &&
       labelLower.includes("report"))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/re-evaluation-comparision-report`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/re-evaluation-comparision-report`;
   }
 
   if (
@@ -399,7 +401,7 @@ export function resolveExaminationReportHref(
       !labelLower.includes("analysis") &&
       !labelLower.includes("student"))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/re-evaluation-exam-report`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/re-evaluation-exam-report`;
   }
 
   if (
@@ -433,7 +435,7 @@ export function resolveExaminationReportHref(
       labelLower.includes("curriculum") &&
       labelLower.includes("report"))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/academic-year-curriculum-report`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/academic-year-curriculum-report`;
   }
 
   if (
@@ -444,7 +446,7 @@ export function resolveExaminationReportHref(
       labelLower.includes("batch") &&
       labelLower.includes("report"))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/batchwise-sgpa-report`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/batchwise-sgpa-report`;
   }
 
   if (
@@ -486,7 +488,7 @@ export function resolveExaminationReportHref(
       labelLower.includes("result sheet") &&
       !labelLower.includes("failed"))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/group-wise-passed-result-sheets`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/group-wise-passed-result-sheets`;
   }
 
   if (
@@ -494,7 +496,7 @@ export function resolveExaminationReportHref(
     labelLower.includes("group wise failed result") ||
     (labelLower.includes("failed") && labelLower.includes("result sheet"))
   ) {
-    return `${ADMIN_EXAM_REPORTS}/group-wise-failed-result-sheets`;
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/group-wise-failed-result-sheets`;
   }
 
   if (

@@ -1909,6 +1909,8 @@ export const TIMETABLE_MGMT_API = {
 
 export const TIMETABLE_REPORT_API = {
   REP_TT_GET_TIMETABLE_DETAILS: "getAllRecords/s_rep_tt_get_timetable_details",
+  /** Angular staff class diary → `getAllRecords/s_get_emp_diary` */
+  GET_EMP_DIARY: "s_get_emp_diary",
 } as const;
 
 // ─── Grievance ───────────────────────────────────────────────────────────────

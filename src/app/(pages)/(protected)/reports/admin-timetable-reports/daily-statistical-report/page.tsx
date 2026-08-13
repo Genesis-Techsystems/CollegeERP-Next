@@ -587,7 +587,7 @@ export default function DailyStatisticalReportPage() {
             </div>
             <Button
               type="button"
-              className="h-9 w-fit px-4"
+              className="h-9 rounded-[5px] px-4"
               disabled={loadingList}
               onClick={() => void handleGetList()}
             >
@@ -595,8 +595,7 @@ export default function DailyStatisticalReportPage() {
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="h-9 min-w-20 !rounded-[5px] !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
               onClick={goBack}
             >
               Back
@@ -627,8 +626,7 @@ export default function DailyStatisticalReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={handleExcelExport}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -637,8 +635,7 @@ export default function DailyStatisticalReportPage() {
             <Button
               type="button"
               size="sm"
-              data-table-primary-action
-              className="h-9 px-3 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={() => void printReport()}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />

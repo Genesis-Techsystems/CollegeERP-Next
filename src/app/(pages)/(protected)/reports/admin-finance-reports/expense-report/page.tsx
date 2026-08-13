@@ -9,10 +9,14 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { PrinterIcon, RefreshCw } from "lucide-react";
+import { FileSpreadsheet, PrinterIcon, RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { SearchInput } from "@/common/components/search";
 import { Select } from "@/common/components/select";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { printElementInIframe } from "@/lib/print";
@@ -373,20 +377,19 @@ export default function ExpenseReportPage() {
   );
 
   const resultsVisible = loadKey != null && !isFetching && rows.length > 0;
-  const pageTitle =
-    resultsVisible && dataDetails
-      ? `Expense Report - (${dataDetails})`
-      : "Expense Report";
 
   return (
     <FilteredListPage<ExpenseSummaryRow>
-      title={pageTitle}
+      title="Expense Report"
       className="relative"
       filters={
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[180px] flex-1">
+        <GlobalFilterBarRow className="!items-end">
+          <GlobalFilterField
+            label="College"
+            className="global-filter-field--shrink w-full max-w-[min(100%,12rem)] sm:w-[20%]"
+          >
             <Select
-              label="College"
+              label=""
               required
               value={collegeId}
               onChange={(v) => {
@@ -399,10 +402,13 @@ export default function ExpenseReportPage() {
               placeholder="College"
               isLoading={loadingFilters}
             />
-          </div>
-          <div className="min-w-[180px] flex-1">
+          </GlobalFilterField>
+          <GlobalFilterField
+            label="Academic Year"
+            className="global-filter-field--shrink w-full max-w-[min(100%,11rem)] sm:w-[18%]"
+          >
             <Select
-              label="Academic Year"
+              label=""
               required
               value={academicYear}
               onChange={(v) => {
@@ -414,26 +420,37 @@ export default function ExpenseReportPage() {
               placeholder="Academic Year"
               disabled={!collegeId}
             />
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={isFetching || !collegeId || !academicYear}
-            onClick={handleGetReport}
+          </GlobalFilterField>
+          <GlobalFilterField
+            label=""
+            className="global-filter-field--shrink global-filter-field--action"
           >
-            {isFetching ? "Loading…" : "Get Report"}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-9 w-9 shrink-0 px-0"
-            title="Reset"
-            onClick={handleReset}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                className="h-9 w-fit px-4"
+                disabled={isFetching || !collegeId || !academicYear}
+                onClick={handleGetReport}
+              >
+                {isFetching ? "Loading…" : "Get Report"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 w-9 shrink-0 px-0"
+                title="Reset"
+                onClick={handleReset}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
+      }
+      tableTitle={
+        resultsVisible && dataDetails
+          ? `Expense Report - ${dataDetails}`
+          : "Expense Report"
       }
       rowData={tableRows}
       columnDefs={columnDefs}
@@ -445,11 +462,9 @@ export default function ExpenseReportPage() {
       getRowId={(p) => String(p.data?.__rowKey ?? "")}
       toolbar={{
         search: false,
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
-        columnPicker: false,
-        excelDocumentTitle: "Expense Report",
-        excelFileName: "Expense Report.xls",
+        columnPicker: true,
       }}
       toolbarLeading={
         <div className="min-w-[200px] max-w-xs flex-1">
@@ -460,19 +475,29 @@ export default function ExpenseReportPage() {
           />
         </div>
       }
-      onExportExcel={handleExportExcel}
       toolbarTrailing={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-          onClick={handlePrint}
-          disabled={!resultsVisible}
-        >
-          <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
-          Print Report
-        </Button>
+        resultsVisible ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExportExcel}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel Export
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handlePrint}
+            >
+              <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
+        ) : null
       }
     >
       {resultsVisible ? (

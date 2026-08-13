@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -25,10 +25,7 @@ import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import { MINIO_URL } from "@/config/constants/api";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   filterAcademicYears,
   filterColleges,
@@ -45,6 +42,7 @@ import {
   getStdLabBatchesReport,
 } from "@/services";
 
+const ALL0 = { value: "0", label: "All" };
 const PRINT_REPORT_TITLE = "Students Lab Batches Report By Course/Class";
 
 const LOGO_FILTER_KEYS = [
@@ -101,8 +99,7 @@ async function resolveLabBatchesPrintLogo(
   liveLogo: string,
 ): Promise<string> {
   const fromFilter = pickText(filterRow, LOGO_FILTER_KEYS);
-  const fromHook =
-    liveLogo && !isDefaultLogoUrl(liveLogo) ? liveLogo : "";
+  const fromHook = liveLogo && !isDefaultLogoUrl(liveLogo) ? liveLogo : "";
   let fromCollege = "";
   if (collegeId > 0) {
     try {
@@ -249,37 +246,44 @@ export default function StudentsLabBatchesReportPage() {
 
   const courseOptions = useMemo(() => {
     const cid = Number(collegeId ?? 0);
-    return filterCourses(filtersData, cid || null).map((r) => ({
-      value: String(pickNum(r, ["fk_course_id", "courseId"])),
-      label: pickText(r, ["course_code", "courseCode", "course_name"]),
-    }));
+    return [
+      ALL0,
+      ...filterCourses(filtersData, cid || null).map((r) => ({
+        value: String(pickNum(r, ["fk_course_id", "courseId"])),
+        label: pickText(r, ["course_code", "courseCode", "course_name"]),
+      })),
+    ];
   }, [filtersData, collegeId]);
 
   const groupOptions = useMemo(() => {
     const cid = Number(collegeId ?? 0);
     const cr = Number(courseId || 0);
-    return filterCourseGroups(filtersData, cid || null, cr || null).map(
-      (r) => ({
+    return [
+      ALL0,
+      ...filterCourseGroups(filtersData, cid || null, cr || null).map((r) => ({
         value: String(pickNum(r, ["fk_course_group_id", "courseGroupId"])),
         label: pickText(r, ["group_code", "groupCode", "courseGroupCode"]),
-      }),
-    );
+      })),
+    ];
   }, [filtersData, collegeId, courseId]);
 
   const yearOptions = useMemo(() => {
     const cid = Number(collegeId ?? 0);
     const cr = Number(courseId || 0);
     const g = Number(courseGroupId || 0);
-    return filterCourseYears(filtersData, cid || null, cr || null, g || null)
-      .sort(
-        (a, b) =>
-          pickNum(a, ["year_order", "sortOrder"]) -
-          pickNum(b, ["year_order", "sortOrder"]),
-      )
-      .map((r) => ({
-        value: String(pickNum(r, ["fk_course_year_id", "courseYearId"])),
-        label: pickText(r, ["course_year_name", "courseYearName"]),
-      }));
+    return [
+      ALL0,
+      ...filterCourseYears(filtersData, cid || null, cr || null, g || null)
+        .sort(
+          (a, b) =>
+            pickNum(a, ["year_order", "sortOrder"]) -
+            pickNum(b, ["year_order", "sortOrder"]),
+        )
+        .map((r) => ({
+          value: String(pickNum(r, ["fk_course_year_id", "courseYearId"])),
+          label: pickText(r, ["course_year_name", "courseYearName"]),
+        })),
+    ];
   }, [filtersData, collegeId, courseId, courseGroupId]);
 
   useEffect(() => {
@@ -310,13 +314,14 @@ export default function StudentsLabBatchesReportPage() {
 
   useEffect(() => {
     if (!collegeId || !academicYearId) return;
-    if (courseOptions.length === 0) {
+    const courses = courseOptions.filter((o) => o.value !== "0");
+    if (courses.length === 0) {
       setCourseId("0");
       setCourseGroupId("0");
       setCourseYearId("0");
       return;
     }
-    setCourseId(courseOptions[0].value);
+    setCourseId(courses[0].value);
   }, [collegeId, academicYearId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -325,7 +330,8 @@ export default function StudentsLabBatchesReportPage() {
       setCourseYearId("0");
       return;
     }
-    setCourseGroupId(groupOptions[0]?.value ?? "0");
+    const groups = groupOptions.filter((o) => o.value !== "0");
+    setCourseGroupId(groups[0]?.value ?? "0");
   }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -333,7 +339,8 @@ export default function StudentsLabBatchesReportPage() {
       setCourseYearId("0");
       return;
     }
-    setCourseYearId(yearOptions[0]?.value ?? "0");
+    const years = yearOptions.filter((o) => o.value !== "0");
+    setCourseYearId(years[0]?.value ?? "0");
   }, [courseGroupId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onCollegeChange = (v: string | null) => {
@@ -353,11 +360,17 @@ export default function StudentsLabBatchesReportPage() {
       "";
     const ay = ayOptions.find((o) => o.value === academicYearId)?.label || "";
     let details = clg && ay ? `${clg}/${ay}` : clg || ay;
-    const cr = courseOptions.find((o) => o.value === courseId)?.label;
+    const cr = courseOptions.find(
+      (o) => o.value === courseId && o.value !== "0",
+    )?.label;
     if (cr) details = details ? `${details} / ${cr}` : cr;
-    const g = groupOptions.find((o) => o.value === courseGroupId)?.label;
+    const g = groupOptions.find(
+      (o) => o.value === courseGroupId && o.value !== "0",
+    )?.label;
     if (g) details = details ? `${details} / ${g}` : g;
-    const y = yearOptions.find((o) => o.value === courseYearId)?.label;
+    const y = yearOptions.find(
+      (o) => o.value === courseYearId && o.value !== "0",
+    )?.label;
     if (y) details = details ? `${details} / ${y}` : y;
     return details;
   };
@@ -405,15 +418,15 @@ export default function StudentsLabBatchesReportPage() {
       toastInfo("Academic Year is required");
       return;
     }
-    if (!Number(courseId || 0)) {
+    if (!courseId) {
       toastInfo("Course is required");
       return;
     }
-    if (!Number(courseGroupId || 0)) {
+    if (!courseGroupId) {
       toastInfo("Course Group is required");
       return;
     }
-    if (!Number(courseYearId || 0)) {
+    if (!courseYearId) {
       toastInfo("Course Year is required");
       return;
     }
@@ -520,8 +533,8 @@ ${tableHtml}
     <FilteredListPage<LabBatchRow>
       title={pageTitle}
       filters={
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
             <Select
               label="College"
               required
@@ -531,10 +544,12 @@ ${tableHtml}
               placeholder="College"
               isLoading={filtersQuery.isLoading}
             />
+          </div>
+          <div className="min-w-[8.5rem] flex-1 basis-[8.5rem] sm:min-w-[9.5rem]">
             <Select
               label="Academic Year"
               required
-              value={academicYearId}
+              value={academicYearId === "0" ? null : academicYearId}
               onChange={(v) => {
                 setAcademicYearId(v ?? "0");
                 clearResults();
@@ -542,6 +557,8 @@ ${tableHtml}
               options={ayOptions}
               placeholder="Academic Year"
             />
+          </div>
+          <div className="min-w-[7rem] flex-1 basis-[7rem] sm:min-w-[8rem]">
             <Select
               label="Course"
               required
@@ -554,6 +571,8 @@ ${tableHtml}
               placeholder="Course"
               disabled={!collegeId}
             />
+          </div>
+          <div className="min-w-[8rem] flex-1 basis-[8rem] sm:min-w-[9rem]">
             <Select
               label="Course Group"
               required
@@ -564,8 +583,10 @@ ${tableHtml}
               }}
               options={groupOptions}
               placeholder="Course Group"
-              disabled={!courseId || courseId === "0"}
+              disabled={!collegeId}
             />
+          </div>
+          <div className="min-w-[7.5rem] flex-1 basis-[7.5rem] sm:min-w-[8.5rem]">
             <Select
               label="Course Year"
               required
@@ -578,7 +599,7 @@ ${tableHtml}
               placeholder="Course Year"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 pb-0.5">
             <Button
               type="button"
               className="h-9 w-fit px-4"
@@ -589,8 +610,7 @@ ${tableHtml}
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
               onClick={goBack}
             >
               Back
@@ -608,22 +628,31 @@ ${tableHtml}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
-      onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

@@ -41,8 +41,7 @@ const REPORTS = [
     title: "5. Marks Entered Status",
     description: "This report  will give list of evaluator marks status.",
     button: "Verify Exam Marks",
-    // Angular VerifyExamMarks → admin-post-examination/verify-exam-marks
-    href: "/admin-examination-management/post-examination/verify-exam-marks",
+    href: "/admin-examination-management/result-processing/verify-exam-marks",
   },
 ] as const;
 
@@ -60,7 +59,9 @@ function ReportCard({
   return (
     <div className="flex flex-col rounded-sm border-2 border-[#89c5ff] p-3 mx-1 mb-4 min-h-[140px]">
       <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
-      <p className="mt-1 text-[13px] text-muted-foreground flex-1">{description}</p>
+      <p className="mt-1 text-[13px] text-muted-foreground flex-1">
+        {description}
+      </p>
       <div className="mt-3 flex justify-end">
         <Button
           type="button"

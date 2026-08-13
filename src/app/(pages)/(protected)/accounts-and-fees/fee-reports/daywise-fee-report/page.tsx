@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker, MonthYearPicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import {
@@ -44,10 +44,11 @@ import {
   type DayWiseFeeCollectionRow,
 } from "@/services";
 
-const PAYMENT_STATUS_OPTIONS = [
-  { value: "online", label: "Online" },
-  { value: "offline", label: "Offline" },
-];
+/**
+ * Day Wise Receipts is counter/offline collections (Cash, Cheque, etc.).
+ * Online payments use Day Wise Online Fee Payment Reports.
+ */
+const DEFAULT_PAYMENT_STATUS = "offline";
 
 const EXCEL_COLUMNS = [
   { key: "siNo", header: "S.No" },
@@ -168,7 +169,6 @@ export default function DayWiseFeeReportPage() {
   const [courseGroupId, setCourseGroupId] = useState<string | null>(null);
   const [courseYearId, setCourseYearId] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState<string>("0");
-  const [paymentStatus, setPaymentStatus] = useState<string | null>("online");
   const [reportDate, setReportDate] = useState<Date | null>(new Date());
   const [fromMonth, setFromMonth] = useState<Date | null>(new Date());
   const [toMonth, setToMonth] = useState<Date | null>(new Date());
@@ -467,7 +467,7 @@ export default function DayWiseFeeReportPage() {
         courseYearId: Number(courseYearId) || 0,
         fromDate,
         toDate,
-        paymentStatus: paymentStatus || "online",
+        paymentStatus: DEFAULT_PAYMENT_STATUS,
       });
       setRows(list);
       setDataDetails(buildDataDetails(dateLabel));
@@ -533,218 +533,6 @@ export default function DayWiseFeeReportPage() {
     );
     exportHtmlTableAsExcel(`${title}.xls`, tableHtml, headerHtml);
   }, [dataDetails, exportFlatRows, mode, selectedCollegeName, totalAmount]);
-
-  const handlePdfExport = useCallback(async () => {
-    if (exportFlatRows.length === 0) {
-      toastError("No records to export.");
-      return;
-    }
-    try {
-      const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
-      const pdfDoc = await PDFDocument.create();
-      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-      let logoImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | null = null;
-      try {
-        const res = await fetch(collegeLogo);
-        if (res.ok) {
-          const bytes = new Uint8Array(await res.arrayBuffer());
-          const isPng =
-            bytes[0] === 0x89 &&
-            bytes[1] === 0x50 &&
-            bytes[2] === 0x4e &&
-            bytes[3] === 0x47;
-          logoImage = isPng
-            ? await pdfDoc.embedPng(bytes)
-            : await pdfDoc.embedJpg(bytes);
-        }
-      } catch {
-        logoImage = null;
-      }
-
-      const pageWidth = 842;
-      const pageHeight = 595;
-      const marginX = 28;
-      const marginTop = 22;
-      const marginBottom = 24;
-      const cellSize = 8;
-      const rowH = 16;
-      const title =
-        mode === "month" ? "Monthly Fee Report" : "Day Wise Fee Report";
-      const colWidths = [36, 70, 120, 90, 100, 100, 90, 100, 70];
-      const cols = EXCEL_COLUMNS;
-
-      const truncate = (text: string, maxWidth: number, bold = false) => {
-        const f = bold ? fontBold : font;
-        let t = text;
-        if (f.widthOfTextAtSize(t, cellSize) <= maxWidth) return t;
-        while (
-          t.length > 0 &&
-          f.widthOfTextAtSize(`${t}…`, cellSize) > maxWidth
-        ) {
-          t = t.slice(0, -1);
-        }
-        return t ? `${t}…` : "";
-      };
-
-      let page = pdfDoc.addPage([pageWidth, pageHeight]);
-      let y = pageHeight - marginTop;
-
-      const drawHeader = () => {
-        const logoSize = 48;
-        const textX = marginX + (logoImage ? logoSize + 12 : 0);
-        if (logoImage) {
-          page.drawImage(logoImage, {
-            x: marginX,
-            y: y - logoSize,
-            width: logoSize,
-            height: logoSize,
-          });
-        }
-        page.drawText(selectedCollegeName, {
-          x: textX,
-          y: y - 16,
-          size: 14,
-          font: fontBold,
-          color: rgb(0.275, 0.408, 0.518),
-        });
-        page.drawText(`( ${title} )`, {
-          x: textX,
-          y: y - 34,
-          size: 11,
-          font,
-        });
-        if (dataDetails) {
-          page.drawText(truncate(dataDetails, pageWidth - textX - marginX), {
-            x: textX,
-            y: y - 50,
-            size: 9,
-            font,
-          });
-        }
-        y -= logoImage ? logoSize + 12 : 58;
-        page.drawLine({
-          start: { x: marginX, y },
-          end: { x: pageWidth - marginX, y },
-          thickness: 1,
-        });
-        y -= 12;
-      };
-
-      const drawTableHeader = () => {
-        let x = marginX;
-        for (let i = 0; i < cols.length; i++) {
-          const w = colWidths[i];
-          page.drawRectangle({
-            x,
-            y: y - rowH,
-            width: w,
-            height: rowH,
-            borderWidth: 0.5,
-            borderColor: rgb(0.6, 0.6, 0.6),
-          });
-          page.drawText(truncate(cols[i].header, w - 4, true), {
-            x: x + 2,
-            y: y - rowH + 4,
-            size: cellSize,
-            font: fontBold,
-          });
-          x += w;
-        }
-        y -= rowH;
-      };
-
-      const ensureSpace = () => {
-        if (y - rowH < marginBottom) {
-          page = pdfDoc.addPage([pageWidth, pageHeight]);
-          y = pageHeight - marginTop;
-          drawHeader();
-          drawTableHeader();
-        }
-      };
-
-      drawHeader();
-      drawTableHeader();
-
-      for (const row of exportFlatRows) {
-        ensureSpace();
-        let x = marginX;
-        for (let i = 0; i < cols.length; i++) {
-          const w = colWidths[i];
-          const raw = String(
-            (row as Record<string, unknown>)[cols[i].key] ?? "",
-          );
-          page.drawRectangle({
-            x,
-            y: y - rowH,
-            width: w,
-            height: rowH,
-            borderWidth: 0.5,
-            borderColor: rgb(0.6, 0.6, 0.6),
-          });
-          page.drawText(truncate(raw, w - 4), {
-            x: x + 2,
-            y: y - rowH + 4,
-            size: cellSize,
-            font,
-          });
-          x += w;
-        }
-        y -= rowH;
-      }
-
-      ensureSpace();
-      {
-        let x = marginX;
-        for (let i = 0; i < cols.length; i++) {
-          const w = colWidths[i];
-          const label =
-            i === cols.length - 2
-              ? "Total"
-              : i === cols.length - 1
-                ? String(totalAmount)
-                : "";
-          page.drawRectangle({
-            x,
-            y: y - rowH,
-            width: w,
-            height: rowH,
-            borderWidth: 0.5,
-            borderColor: rgb(0.6, 0.6, 0.6),
-            color: rgb(0.95, 0.95, 0.95),
-          });
-          if (label) {
-            page.drawText(truncate(label, w - 4, true), {
-              x: x + 2,
-              y: y - rowH + 4,
-              size: cellSize,
-              font: fontBold,
-            });
-          }
-          x += w;
-        }
-      }
-
-      const bytes = await pdfDoc.save();
-      const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${title}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      toastError(getErrorMessage(e) || "Failed to export PDF");
-    }
-  }, [
-    collegeLogo,
-    dataDetails,
-    exportFlatRows,
-    mode,
-    selectedCollegeName,
-    totalAmount,
-  ]);
 
   const handlePrintReport = () => {
     const columns = [
@@ -822,33 +610,34 @@ ${tableHtml}
   return (
     <FilteredListPage
       title={pageTitle}
+      filterTitle={
+        mode === "month" ? "Monthly Fee Report" : "Day Wise Fee Report"
+      }
+      notice={
+        <RadioGroup
+          value={mode}
+          onValueChange={(v) => {
+            setMode(v === "month" ? "month" : "day");
+            clearResults();
+          }}
+          className="flex flex-wrap gap-8 px-1"
+        >
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="day" id="dwfr-day" />
+            <Label htmlFor="dwfr-day" className="cursor-pointer font-normal">
+              Day Wise Fee Receipts
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="month" id="dwfr-month" />
+            <Label htmlFor="dwfr-month" className="cursor-pointer font-normal">
+              Monthly Fee Receipts
+            </Label>
+          </div>
+        </RadioGroup>
+      }
       filters={
         <div className="space-y-3">
-          <RadioGroup
-            value={mode}
-            onValueChange={(v) => {
-              setMode(v === "month" ? "month" : "day");
-              clearResults();
-            }}
-            className="flex flex-wrap gap-4"
-          >
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="day" id="dwfr-day" />
-              <Label htmlFor="dwfr-day" className="cursor-pointer font-normal">
-                Day Wise Fee Receipts
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="month" id="dwfr-month" />
-              <Label
-                htmlFor="dwfr-month"
-                className="cursor-pointer font-normal"
-              >
-                Monthly Fee Receipts
-              </Label>
-            </div>
-          </RadioGroup>
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Select
               label="College"
@@ -893,7 +682,7 @@ ${tableHtml}
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {mode === "day" && !isFinanceOfficer ? (
               <Select
                 label="Employee"
@@ -939,14 +728,6 @@ ${tableHtml}
               </>
             )}
 
-            <Select
-              label="Payment Status"
-              value={paymentStatus}
-              onChange={setPaymentStatus}
-              options={PAYMENT_STATUS_OPTIONS}
-              placeholder="Payment Status"
-            />
-
             <Button
               type="button"
               className="h-9 w-fit self-end px-4"
@@ -975,29 +756,31 @@ ${tableHtml}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
-        exportPdf: true,
-        excelDocumentTitle: pageTitle,
-        excelFileName:
-          mode === "month"
-            ? "Monthly Fee Report.xls"
-            : "Day Wise Fee Report.xls",
-        pdfDocumentTitle: pageTitle,
+        exportExcel: false,
+        exportPdf: false,
       }}
-      onExportExcel={handleExcelExport}
-      onExportPdf={() => void handlePdfExport()}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => handlePrintReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Excel Export
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => handlePrintReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
         ) : null
       }
     />

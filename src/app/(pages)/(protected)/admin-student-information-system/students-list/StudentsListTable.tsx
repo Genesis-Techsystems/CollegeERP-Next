@@ -232,24 +232,22 @@ export function StudentsListTable({
   const rangeStart = total === 0 ? 0 : safePage * size + 1;
   const rangeEnd = Math.min(total, (safePage + 1) * size);
 
-  const headerLabel = headerParts.filter(Boolean).join(" | ");
+  const headerLabel = useMemo(() => {
+    const parts = headerParts.filter((p) => p && p !== "-");
+    if (!parts.length) return "";
+    return `${parts.join(" | ")} |`;
+  }, [headerParts]);
 
   if (rows.length === 0) return null;
 
   return (
     <div
-      className="overflow-hidden rounded border bg-white shadow-sm"
+      className="app-card angular-filter-card overflow-hidden"
       data-no-page-name
-      style={{ borderColor: COLORS.border }}
     >
       {headerLabel ? (
-        <div className="border-b-2 px-4 py-2">
-          <p
-            className="text-[12px] font-semibold leading-snug"
-            style={{ color: COLORS.contextBlue }}
-          >
-            {headerLabel}
-          </p>
+        <div className="students-list-context-bar">
+          <p className="students-list-context-bar__text">{headerLabel}</p>
         </div>
       ) : null}
 
@@ -446,12 +444,22 @@ export function StudentsListTable({
 
 export function headerPartsFromRow(row: AnyRow | null | undefined): string[] {
   if (!row) return [];
+  const section = pickText(row, [
+    "section",
+    "group_section_name",
+    "sectionName",
+  ]);
   return [
     pickText(row, ["collegeCode", "college_code"]),
     pickText(row, ["academicYear", "academic_year"]),
     pickText(row, ["courseCode", "course_code"]),
     pickText(row, ["groupCode", "group_code"]),
-    pickText(row, ["courseYearName", "course_year_name"]),
-    pickText(row, ["section", "group_section_name", "sectionName"]),
+    pickText(row, [
+      "course_year_code",
+      "courseYearCode",
+      "course_year_name",
+      "courseYearName",
+    ]),
+    section && section.toLowerCase() !== "all" ? section : "",
   ].filter((p) => p && p !== "-");
 }

@@ -594,8 +594,7 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit shrink-0 px-4"
+              className="h-9 min-w-20 shrink-0 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
               onClick={goBack}
             >
               Back

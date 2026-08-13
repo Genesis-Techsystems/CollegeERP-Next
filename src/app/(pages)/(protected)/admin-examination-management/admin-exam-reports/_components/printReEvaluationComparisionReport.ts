@@ -1,6 +1,7 @@
 /**
  * Re-Evaluation Comparision Report — iframe print (avoids AppShell blank pages).
  * Header matches Angular: logo + college name + title (+ SUK banner variant).
+ * Footer matches Angular: Course/Semester meta + reportSummary table.
  */
 
 type AnyRow = Record<string, unknown>;
@@ -13,6 +14,7 @@ export type ComparisionPrintMeta = {
   orgCode?: string;
   courseCode?: string;
   courseYearCode?: string;
+  reportSummary?: AnyRow[];
 };
 
 const DEFAULT_LOGO = "/assets/images/avatars/default_logo.png";
@@ -23,6 +25,14 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function toAbsoluteLogoUrl(url: string): string {
+  if (/^(https?:\/\/|data:|blob:)/i.test(url)) return url;
+  if (typeof globalThis.location?.origin === "string") {
+    return `${globalThis.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+  return url;
 }
 
 function cell(row: AnyRow, keys: string[]): string {
@@ -128,6 +138,18 @@ const PRINT_CSS = `
     background: #f2f2f2;
     font-weight: 600;
   }
+  table.summary {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 3% 0 8px;
+    font-size: 12px;
+  }
+  table.summary td {
+    border: 1px solid #333;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: middle;
+  }
   @page { margin: 10mm; }
   @media print {
     html, body { background: #fff !important; }
@@ -142,7 +164,7 @@ function buildBannerHtml(meta: ComparisionPrintMeta, title: string): string {
   const exam = meta.examLabel
     ? `<p class="exam">${escapeHtml(meta.examLabel)}</p>`
     : "";
-  const logoSrc = escapeHtml(meta.logoUrl || DEFAULT_LOGO);
+  const logoSrc = escapeHtml(toAbsoluteLogoUrl(meta.logoUrl || DEFAULT_LOGO));
   const isSuk =
     String(meta.orgCode ?? "")
       .trim()
@@ -171,6 +193,41 @@ function buildBannerHtml(meta: ComparisionPrintMeta, title: string): string {
         ${exam}
       </div>
     </div>`;
+}
+
+function buildSummaryHtml(reportSummary: AnyRow[] | undefined): string {
+  const summary = reportSummary?.[0];
+  if (!summary) return "";
+  const applied = escapeHtml(
+    cell(summary, [
+      "No_of_students_applied_for_revaluation",
+      "no_of_students_applied_for_revaluation",
+    ]),
+  );
+  const benefited = escapeHtml(
+    cell(summary, [
+      "No_of_students_benefited_for_revaluation",
+      "no_of_students_benefited_for_revaluation",
+    ]),
+  );
+  const pct = escapeHtml(
+    cell(summary, ["Percentage_of_change", "percentage_of_change"]),
+  );
+  return `
+    <table class="summary">
+      <tr>
+        <td>No. of Students Applied for Revaluation</td>
+        <td>${applied}</td>
+      </tr>
+      <tr>
+        <td>No. of Students Benefitted in Revaluation</td>
+        <td>${benefited}</td>
+      </tr>
+      <tr>
+        <td>Percentage Change</td>
+        <td>${pct}%</td>
+      </tr>
+    </table>`;
 }
 
 export function printReEvaluationComparisionReport(
@@ -241,6 +298,7 @@ export function printReEvaluationComparisionReport(
       </thead>
       <tbody>${body}</tbody>
     </table>
+    ${buildSummaryHtml(meta.reportSummary)}
   </div>
 </body>
 </html>`;
@@ -275,9 +333,40 @@ export function printReEvaluationComparisionReport(
     }
   };
 
+  const waitForImagesThenPrint = () => {
+    const imgs = Array.from(doc.images ?? []);
+    if (imgs.length === 0) {
+      setTimeout(printFrame, 250);
+      return;
+    }
+    let remaining = imgs.length;
+    let printed = false;
+    const finish = () => {
+      if (printed) return;
+      remaining -= 1;
+      if (remaining <= 0) {
+        printed = true;
+        setTimeout(printFrame, 100);
+      }
+    };
+    for (const img of imgs) {
+      if (img.complete) finish();
+      else {
+        img.addEventListener("load", finish, { once: true });
+        img.addEventListener("error", finish, { once: true });
+      }
+    }
+    setTimeout(() => {
+      if (!printed) {
+        printed = true;
+        printFrame();
+      }
+    }, 3000);
+  };
+
   if (iframe.contentWindow?.document.readyState === "complete") {
-    setTimeout(printFrame, 250);
+    waitForImagesThenPrint();
   } else {
-    iframe.onload = () => setTimeout(printFrame, 250);
+    iframe.onload = () => waitForImagesThenPrint();
   }
 }

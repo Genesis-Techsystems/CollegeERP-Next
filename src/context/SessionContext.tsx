@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SessionUser } from "@/types/user";
 import { useSession } from "@/hooks/useSession";
 
@@ -89,7 +88,6 @@ function syncSessionRoleFlags(user: SessionUser): void {
   }
 }
 
-// Inner component that uses useSession (must be inside QueryClientProvider)
 function SessionProviderInner({
   children,
   initialUser,
@@ -119,15 +117,6 @@ function SessionProviderInner({
   );
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      throwOnError: false,
-      retry: false,
-    },
-  },
-});
-
 export function SessionProvider({
   children,
   initialUser,
@@ -136,11 +125,9 @@ export function SessionProvider({
   initialUser?: SessionUser | null;
 }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <SessionProviderInner initialUser={initialUser}>
-        {children}
-      </SessionProviderInner>
-    </QueryClientProvider>
+    <SessionProviderInner initialUser={initialUser}>
+      {children}
+    </SessionProviderInner>
   );
 }
 

@@ -65,6 +65,15 @@ type Options = {
   onClearResults?: () => void;
 };
 
+/** Angular parity: latest academic year first (parseInt on "2026-2027" → 2026). */
+function sortAcademicYearsDesc(rows: AnyRow[]): AnyRow[] {
+  return [...rows].sort(
+    (a, b) =>
+      parseInt(text(b, ["academic_year", "academicYear"]), 10) -
+      parseInt(text(a, ["academic_year", "academicYear"]), 10),
+  );
+}
+
 export function useAttendanceReportFilters(
   options: Options = {},
 ): AttendanceCascadeState {
@@ -157,9 +166,7 @@ export function useAttendanceReportFilters(
         Number(courseId || 0),
         Number(courseGroupId || 0),
         Number(courseYearId || 0),
-      ).sort(
-        (a, b) => num(a.fk_group_section_id) - num(b.fk_group_section_id),
-      ),
+      ).sort((a, b) => num(a.fk_group_section_id) - num(b.fk_group_section_id)),
     [
       filterRows,
       collegeId,
@@ -176,11 +183,7 @@ export function useAttendanceReportFilters(
       setAcademicYearId("");
       return;
     }
-    const sorted = [...academicYears].sort(
-      (a, b) =>
-        Number(String(text(b, ["academic_year"])) || 0) -
-        Number(String(text(a, ["academic_year"])) || 0),
-    );
+    const sorted = sortAcademicYearsDesc(academicYears);
     const ids = sorted.map((r) => String(num(r.fk_academic_year_id)));
     if (!ids.includes(academicYearId)) setAcademicYearId(ids[0] ?? "");
   }, [academicYears, academicYearId]);
@@ -242,13 +245,15 @@ export function useAttendanceReportFilters(
     () =>
       colleges.map((r) => ({
         value: String(num(r.fk_college_id)),
-        label: text(r, ["college_code", "collegeCode"]) || String(num(r.fk_college_id)),
+        label:
+          text(r, ["college_code", "collegeCode"]) ||
+          String(num(r.fk_college_id)),
       })),
     [colleges],
   );
   const ayOptions: SelectOption[] = useMemo(
     () =>
-      academicYears.map((r) => ({
+      sortAcademicYearsDesc(academicYears).map((r) => ({
         value: String(num(r.fk_academic_year_id)),
         label: text(r, ["academic_year", "academicYear"]) || "—",
       })),

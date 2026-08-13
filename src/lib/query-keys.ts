@@ -1543,6 +1543,8 @@ export const QK = {
   libraryReports: {
     libraries: (collegeId: number) =>
       ["LibraryReports", "libraries", collegeId] as const,
+    activeLibraries: () => ["LibraryReports", "activeLibraries"] as const,
+    colleges: () => ["LibraryReports", "colleges"] as const,
     bookCategories: (libraryId: number) =>
       ["LibraryReports", "bookCategories", libraryId] as const,
   },

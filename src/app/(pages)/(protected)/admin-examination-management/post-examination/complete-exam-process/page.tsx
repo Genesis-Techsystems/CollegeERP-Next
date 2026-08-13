@@ -487,7 +487,7 @@ export default function CompleteExamProcessPage() {
               disabled={loading}
               onClick={() =>
                 router.push(
-                  "/admin-examination-management/post-examination/verify-exam-marks",
+                  "/admin-examination-management/result-processing/verify-exam-marks",
                 )
               }
             />

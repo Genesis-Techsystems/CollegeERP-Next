@@ -389,7 +389,10 @@ export default function PrincipalStudentDetailsPage() {
           </div>
 
           <div className="rounded space-y-4 p-4">
-            <PrincipalStudentHeader student={data.student} feeLedger={data.feeLedger} />
+            <PrincipalStudentHeader
+              student={data.student}
+              feeLedger={data.feeLedger}
+            />
 
             <ProfileSection title="Academic Details">
               <ProfileAngularTable
@@ -507,10 +510,9 @@ export default function PrincipalStudentDetailsPage() {
       <div className="flex justify-end">
         <Button
           type="button"
-          variant="outline"
           size="sm"
           onClick={goBack}
-          className="gap-1.5"
+          className="h-9 min-w-20 gap-1.5 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
         >
           <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           Back

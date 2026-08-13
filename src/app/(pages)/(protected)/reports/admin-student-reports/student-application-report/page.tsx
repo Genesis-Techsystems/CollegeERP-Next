@@ -30,10 +30,7 @@ import {
   pickText,
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
-import {
-  fetchStudentReports,
-  getFeePaylinkCollegeFilters,
-} from "@/services";
+import { fetchStudentReports, getFeePaylinkCollegeFilters } from "@/services";
 
 type AnyRow = Record<string, unknown>;
 
@@ -326,7 +323,11 @@ export default function StudentApplicationReportPage() {
     const q = searchText.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((r) =>
-      COLUMNS.some((c) => String(r[c.key] ?? "").toLowerCase().includes(q)),
+      COLUMNS.some((c) =>
+        String(r[c.key] ?? "")
+          .toLowerCase()
+          .includes(q),
+      ),
     );
   }, [rows, searchText]);
 
@@ -467,8 +468,7 @@ ${excelTableRef.current.innerHTML}
               </Button>
               <Button
                 type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
+                className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
                 onClick={goBack}
               >
                 Back

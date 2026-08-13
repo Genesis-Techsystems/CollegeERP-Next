@@ -10,14 +10,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format } from "date-fns";
-import { ChevronRight, Printer } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
   escapeHtml,
   exportHtmlTableAsExcel,
 } from "@/common/export-html-table";
-import { FilteredListPage } from "@/components/layout";
+import { DataTable } from "@/common/components/table";
+import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
@@ -180,6 +181,9 @@ function makeExpandRenderer(
   clickable: boolean,
 ) {
   return (p: ICellRendererParams<DrillRow>) => {
+    if (p.data?.__rowKey === "grand-total") {
+      return null;
+    }
     if (!clickable || !p.data) {
       return <span className="text-muted-foreground">&gt;</span>;
     }
@@ -249,17 +253,11 @@ export default function StudentCountDrilldownReportPage() {
   }, [academicData]);
 
   useEffect(() => {
-    if (ayReady || filtersQuery.isLoading || ayOptions.length <= 1) return;
-    const current =
-      uniqueAcademicYears(academicData).find(
-        (r) => Number(r.is_curr_ay ?? r.isCurrAy ?? 0) === 1,
-      ) ?? uniqueAcademicYears(academicData)[0];
-    const ay = current
-      ? pickText(current, ["academic_year", "academicYear"])
-      : "";
-    setAcademicYear(ay);
+    if (ayReady || filtersQuery.isLoading) return;
+    // Angular default: Academic Year = All
+    setAcademicYear("");
     setAyReady(true);
-  }, [academicData, ayOptions.length, ayReady, filtersQuery.isLoading]);
+  }, [ayReady, filtersQuery.isLoading]);
 
   const loadLevel = useCallback(
     async (params: {
@@ -525,9 +523,14 @@ export default function StudentCountDrilldownReportPage() {
       field: "varaiableName",
       headerName: "",
       minWidth: 120,
+      cellStyle: (p) =>
+        p.data?.__rowKey === "grand-total"
+          ? { fontWeight: 600, textAlign: "center" }
+          : undefined,
+      colSpan: (p) => (p.data?.__rowKey === "grand-total" ? 2 : 1),
       onCellClicked: !isStudentLeaf
         ? (e) => {
-            if (e.data) expandRow(e.data);
+            if (e.data && e.data.__rowKey !== "grand-total") expandRow(e.data);
           }
         : undefined,
     };
@@ -537,7 +540,7 @@ export default function StudentCountDrilldownReportPage() {
       minWidth: 160,
       onCellClicked: !isStudentLeaf
         ? (e) => {
-            if (e.data) expandRow(e.data);
+            if (e.data && e.data.__rowKey !== "grand-total") expandRow(e.data);
           }
         : undefined,
     };
@@ -583,12 +586,26 @@ export default function StudentCountDrilldownReportPage() {
         field: "Total_Students",
         headerName: "Total Students",
         minWidth: 130,
+        cellStyle: { textAlign: "right" },
+        headerClass: "ag-right-aligned-header",
         onCellClicked: (e) => {
-          if (e.data) expandRow(e.data);
+          if (e.data && e.data.__rowKey !== "grand-total") expandRow(e.data);
         },
       },
     ];
   }, [expandRow, isStudentLeaf]);
+
+  const pinnedBottomRowData = useMemo<DrillRow[]>(() => {
+    if (isStudentLeaf || displayRows.length === 0) return [];
+    return [
+      {
+        __rowKey: "grand-total",
+        varaiableName: "Grand Total",
+        varaiableValue: "",
+        Total_Students: grandTotal,
+      },
+    ];
+  }, [displayRows.length, grandTotal, isStudentLeaf]);
 
   const buildExportTableHtml = () => {
     if (isStudentLeaf) {
@@ -719,90 +736,101 @@ ${tableHtml}
   };
 
   return (
-    <FilteredListPage<DrillRow>
-      title="Student Count Report"
-      subtitle={
-        !isStudentLeaf && rows.length > 0
-          ? `Grand Total: ${grandTotal}`
-          : undefined
-      }
-      filters={
-        <div className="w-full min-w-[12rem] sm:w-[16rem]">
-          <Select
-            label="Academic Year"
-            value={academicYear}
-            onChange={(v) => setAcademicYear(v ?? "")}
-            options={ayOptions}
-            placeholder="Academic Year"
-            isLoading={filtersQuery.isLoading}
-          />
-        </div>
-      }
-      filtersFooter={
-        showResults ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              {steps.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1 text-sm">
-                  {steps.map((step, i) => (
-                    <span
-                      key={step.id}
-                      className="inline-flex items-center gap-1"
+    <PageContainer>
+      <DataTable<DrillRow>
+        title="Student Count Report"
+        bordered
+        filtersCollapsible={false}
+        filters={
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="w-full min-w-[12rem] sm:w-[16rem]">
+                <Select
+                  label="Academic Year"
+                  value={academicYear}
+                  onChange={(v) => setAcademicYear(v ?? "")}
+                  options={ayOptions}
+                  placeholder="Academic Year"
+                  isLoading={filtersQuery.isLoading}
+                />
+              </div>
+              {showResults ? (
+                <div className="flex shrink-0 flex-wrap items-center gap-2 pb-0.5">
+                  <Button
+                    type="button"
+                    className="h-9 w-fit px-4"
+                    disabled={loading || displayRows.length === 0}
+                    onClick={handleExcelExport}
+                  >
+                    <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                    Export Excel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="h-9 w-fit px-4"
+                    disabled={loading || displayRows.length === 0}
+                    onClick={() => void printReport()}
+                  >
+                    <Printer className="mr-1.5 h-3.5 w-3.5" />
+                    Print Report
+                  </Button>
+                  {steps.length > 0 ? (
+                    <Button
+                      type="button"
+                      className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
+                      onClick={handleBack}
+                      disabled={loading}
                     >
-                      <span className="font-medium text-blue-700">
-                        {step.name}
-                      </span>
-                      {i < steps.length - 1 ? (
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                      ) : null}
-                    </span>
-                  ))}
+                      Back
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
-            {steps.length > 0 ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-8 px-3"
-                onClick={handleBack}
-                disabled={loading}
-              >
-                Back
-              </Button>
+            {showResults && steps.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1 text-sm">
+                {steps.map((step, i) => (
+                  <span
+                    key={step.id}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <span className="font-medium text-blue-700">
+                      {step.name}
+                    </span>
+                    {i < steps.length - 1 ? (
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    ) : null}
+                  </span>
+                ))}
+              </div>
             ) : null}
           </div>
-        ) : null
-      }
-      rowData={showResults ? displayRows : []}
-      columnDefs={columnDefs}
-      loading={loading}
-      resultsVisible={showResults}
-      pagination
-      paginationPageSize={25}
-      getRowId={(p) => String(p.data?.__rowKey ?? "")}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        exportExcel: true,
-        exportPdf: false,
-      }}
-      onExportExcel={handleExcelExport}
-      toolbarTrailing={
-        showResults ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
-        ) : null
-      }
-    />
+        }
+        rowData={showResults ? displayRows : []}
+        columnDefs={columnDefs}
+        pinnedBottomRowData={
+          showResults && pinnedBottomRowData.length > 0
+            ? pinnedBottomRowData
+            : undefined
+        }
+        loading={loading}
+        resultsVisible={showResults}
+        pagination
+        paginationPageSize={25}
+        getRowId={(p) => String(p.data?.__rowKey ?? "")}
+        getRowStyle={(p) =>
+          p.data?.__rowKey === "grand-total"
+            ? { fontWeight: 600, background: "#f8fafc" }
+            : undefined
+        }
+        toolbar={{
+          search: false,
+          exportExcel: false,
+          exportPdf: false,
+          columnPicker: false,
+          columnFilters: false,
+        }}
+      />
+    </PageContainer>
   );
 }

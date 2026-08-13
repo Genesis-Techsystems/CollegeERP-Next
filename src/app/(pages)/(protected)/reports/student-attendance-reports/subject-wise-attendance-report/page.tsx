@@ -422,8 +422,8 @@ export default function SubjectWiseAttendanceReportPage() {
       setCollegeName(
         String(
           college?.collegeName ??
-          f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
-          "",
+            f.collegeOptions.find((o) => o.value === f.collegeId)?.label ??
+            "",
         ),
       );
       if (raw.length === 0) {
@@ -653,8 +653,7 @@ ${buildHtmlTable(excelColumns, exportFlatRows)}
               </Button>
               <Button
                 type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
+                className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
                 onClick={goBack}
               >
                 Back

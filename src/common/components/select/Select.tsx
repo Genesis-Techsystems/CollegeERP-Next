@@ -16,7 +16,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { SELECT_TOOLTIP_MIN_LENGTH } from "./OptionTooltip";
+import { OptionTooltip, SELECT_TOOLTIP_MIN_LENGTH } from "./OptionTooltip";
 import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 // ---------------------------------------------------------------------------
@@ -107,12 +107,16 @@ export function dedupeSelectOptions(options: SelectOption[]): SelectOption[] {
   return out;
 }
 
-/** Tooltip text for long/truncated select options; short labels return undefined. */
+/** Tooltip text for select options. Explicit `title` always wins (Angular matTooltip). */
 export function selectOptionTooltip(
   opt: Pick<SelectOption, "label" | "title"> | null | undefined,
 ): string | undefined {
   if (!opt) return undefined;
-  const text = String(opt.title ?? opt.label ?? "").trim();
+  if (opt.title != null) {
+    const titled = String(opt.title).trim();
+    return titled || undefined;
+  }
+  const text = String(opt.label ?? "").trim();
   if (!text || text.length <= SELECT_TOOLTIP_MIN_LENGTH) return undefined;
   return text;
 }
@@ -407,6 +411,7 @@ export function Select({
             ) : (
               filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value;
+                const tip = selectOptionTooltip(opt);
                 return (
                   <button
                     key={`${String(opt.value)}::${idx}`}
@@ -414,7 +419,6 @@ export function Select({
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
-                    title={opt.title || undefined}
                     onClick={() => !opt.disabled && handleSelect(opt.value)}
                     className={cn(
                       "mat-select-panel__option",
@@ -444,28 +448,33 @@ export function Select({
                         }}
                       />
                     ) : null}
-                    <span
-                      className={cn(
-                        "min-w-0 flex-1 text-left",
-                        wrapOptionLabels || opt.description
-                          ? "whitespace-normal leading-snug"
-                          : "truncate",
-                      )}
+                    <OptionTooltip
+                      content={tip}
+                      className="min-w-0 flex-1 text-left"
                     >
                       <span
                         className={cn(
-                          "block",
-                          opt.description ? "truncate" : undefined,
+                          "block min-w-0",
+                          wrapOptionLabels || opt.description
+                            ? "whitespace-normal leading-snug"
+                            : "truncate",
                         )}
                       >
-                        {opt.labelNode ?? opt.label}
-                      </span>
-                      {opt.description ? (
-                        <span className="mt-0.5 block text-[12px] font-normal text-black/54 leading-4 whitespace-normal break-words">
-                          {opt.description}
+                        <span
+                          className={cn(
+                            "block",
+                            opt.description ? "truncate" : undefined,
+                          )}
+                        >
+                          {opt.labelNode ?? opt.label}
                         </span>
-                      ) : null}
-                    </span>
+                        {opt.description ? (
+                          <span className="mt-0.5 block text-[12px] font-normal text-black/54 leading-4 whitespace-normal break-words">
+                            {opt.description}
+                          </span>
+                        ) : null}
+                      </span>
+                    </OptionTooltip>
                   </button>
                 );
               })

@@ -1,6 +1,6 @@
 /**
  * Grace Marks Benefited Students — iframe print (avoids AppShell blank pages).
- * Mirrors Angular grace-benefited-students-report print layout.
+ * Mirrors Angular grace-benefited-students-report print layout (logo + college + title).
  */
 
 type AnyRow = Record<string, unknown>;
@@ -14,7 +14,10 @@ export type GraceMarksPrintMeta = {
   title?: string;
   examLabel?: string;
   collegeName?: string;
+  logoUrl?: string;
 };
+
+const DEFAULT_LOGO = "/assets/images/avatars/default_logo.png";
 
 function escapeHtml(value: string): string {
   return value
@@ -32,6 +35,14 @@ function cell(row: AnyRow, keys: string[]): string {
   return "";
 }
 
+function toAbsoluteLogoUrl(url: string): string {
+  if (/^(https?:\/\/|data:|blob:)/i.test(url)) return url;
+  if (typeof globalThis.location?.origin === "string") {
+    return `${globalThis.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
+  }
+  return url;
+}
+
 const PRINT_CSS = `
   * { box-sizing: border-box; }
   html, body {
@@ -44,6 +55,31 @@ const PRINT_CSS = `
     print-color-adjust: exact;
   }
   .wrap { padding: 12px 16px; width: 98%; }
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0 0 8px;
+  }
+  .logo-col {
+    flex: 0 0 15%;
+    width: 15%;
+    padding-right: 8px;
+  }
+  .logo-col img {
+    max-width: 100%;
+    max-height: 90px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+  .title-col {
+    flex: 1 1 85%;
+    width: 85%;
+    text-align: center;
+    padding-top: 4px;
+  }
   .college-name {
     text-align: center;
     font-size: 26px;
@@ -95,11 +131,10 @@ function buildDocument(
   groups: GraceMarksPrintGroup[],
   meta: GraceMarksPrintMeta,
 ): string {
-  const title = escapeHtml(
-    meta.title ?? "Grace Marks Benefited Students Data",
-  );
+  const title = escapeHtml(meta.title ?? "Grace Marks Benefited Students Data");
   const exam = escapeHtml(meta.examLabel ?? "");
   const college = escapeHtml(meta.collegeName ?? "");
+  const logoSrc = escapeHtml(toAbsoluteLogoUrl(meta.logoUrl || DEFAULT_LOGO));
 
   const body = groups
     .map((group) => {
@@ -149,9 +184,16 @@ function buildDocument(
 </head>
 <body>
   <div class="wrap">
-    ${college ? `<p class="college-name">${college}</p>` : ""}
-    <p class="title">${title}</p>
-    ${exam ? `<p class="details">${exam}</p>` : ""}
+    <div class="header-row">
+      <div class="logo-col">
+        <img src="${logoSrc}" alt="" />
+      </div>
+      <div class="title-col">
+        ${college ? `<p class="college-name">${college}</p>` : ""}
+        <p class="title">${title}</p>
+        ${exam ? `<p class="details">${exam}</p>` : ""}
+      </div>
+    </div>
     ${body}
   </div>
 </body>
