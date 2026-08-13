@@ -1,62 +1,72 @@
 "use client";
 
 /**
- * Employee Count Drilldown Report —
- * Angular `reports/hr-reports/employee-count-drilldown-report` parity.
- * `getAllRecords/s_rep_emp_details` via `in_flag` drill levels:
- *   Total_Count_of_employees -> Total_Count_of_employees_by_college -> Emp_details_of_deptid
+ * Employee Count Report —
+ * Angular `reports/hr-reports/employee-count-drilldown-report` (route: employee-drilldown-report).
+ *
+ * Flags on `getAllRecords/s_rep_emp_details`:
+ *   Total_Count_of_employees → Total_Count_of_employees_by_college → Emp_details_of_deptid
+ * Params: in_flag, in_college_id, in_dept
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { ChevronRight, Printer } from "lucide-react";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { printHtmlInIframe } from "@/lib/print";
+import { QK } from "@/lib/query-keys";
+import { getErrorMessage } from "@/lib/errors";
+import { toastError, toastInfo } from "@/lib/toast";
 import {
   buildHtmlTable,
   escapeHtml,
   exportHtmlTableAsExcel,
 } from "@/common/export-html-table";
-import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
-import { printHtmlInIframe } from "@/lib/print";
-import { QK } from "@/lib/query-keys";
-import { getErrorMessage } from "@/lib/errors";
-import { toastError, toastSuccess, toastInfo } from "@/lib/toast";
+import { MINIO_URL } from "@/config/constants/api";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import {
   getEmployeeCountDrilldown,
-  listOrganizations,
+  listActiveOrganizations,
   type EmployeeDrilldownFlag,
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
 
-const REPORT_TITLE = "Employee Count Drilldown Report";
+/** Angular `trafoItem` / page heading */
+const REPORT_TITLE = "Employee Drilldown Report";
+
+/** Angular `currentPosition` values (= last `detailValue` passed to task). */
+type CurrentPosition = "" | "college_code" | "Emp_Department";
 
 type DrillStep = {
   id: number;
   name: string;
-  flag: EmployeeDrilldownFlag;
-  collegeId: number;
-  deptId: number;
+  in_flag: EmployeeDrilldownFlag;
+  in_college_id: number;
+  in_dept: number;
   detailName: string;
+  detailValue: string;
 };
-
-type Position = "" | "college" | "department";
 
 type DrillRow = AnyRow & {
   __rowKey: string;
   varaiableName: string;
   varaiableValue: string;
-  count?: string | number;
+  count?: number | null;
+  Emp_Department?: string;
   Emp_Name?: string;
   emp_number?: string;
-  designation?: string;
-  email?: string;
-  mobile?: string;
-  category?: string;
+  Emp_Designation?: string | null;
+  email?: string | null;
+  mobile?: string | null;
+  Emp_Category?: string | null;
+  fk_college_id?: number;
+  fk_emp_dept_id?: number;
 };
 
 function txt(v: unknown): string {
+  if (v == null) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";
@@ -67,40 +77,81 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function formatCount(v: unknown): string {
-  const n = num(v);
-  return n.toLocaleString("en-IN");
+/** Angular `function(input)` — Indian grouping for row counts. */
+function formatCount(input: unknown): string {
+  if (input == null || input === "") return "";
+  const n = Number(input);
+  if (Number.isNaN(n)) return "";
+  const isNegative = n < 0;
+  const abs = Math.abs(n).toString();
+  const result = abs.split(".");
+  let lastThree = result[0].substring(result[0].length - 3);
+  const otherNumbers = result[0].substring(0, result[0].length - 3);
+  if (otherNumbers !== "") lastThree = "," + lastThree;
+  let output = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+  if (result.length > 1) output += "." + result[1];
+  if (isNegative) output = "-" + output;
+  return output;
 }
 
-const AGG_COLUMNS = [
-  { key: "expand", header: "Expand" },
-  { key: "varaiableName", header: "" },
-  { key: "varaiableValue", header: "" },
-  { key: "count", header: "Employees Count" },
-];
+/** Angular: show `-` only when value is strictly `null`. */
+function nullDash(v: unknown): string {
+  return v === null ? "-" : txt(v);
+}
 
-const LEAF_COLUMNS = [
-  { key: "Emp_Name", header: "Employee" },
-  { key: "emp_number", header: "Employee Number" },
-  { key: "designation", header: "Designation" },
-  { key: "email", header: "Email" },
-  { key: "mobile", header: "Mobile" },
-  { key: "category", header: "Category" },
-];
+function isDefaultLogoUrl(url: string): boolean {
+  return /default_logo\.png/i.test(url);
+}
+
+/** Angular binds `logoPath` as img src; null → `assets/images/avatars/default_logo.png`. */
+function toPrintLogoUrl(path: string | null | undefined): string {
+  const raw = String(path ?? "").trim();
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const fallback = origin
+    ? `${origin}${DEFAULT_COLLEGE_LOGO}`
+    : DEFAULT_COLLEGE_LOGO;
+  if (!raw) return fallback;
+  if (/^(https?:\/\/|data:)/i.test(raw)) return raw;
+  if (raw.startsWith("/")) return origin ? `${origin}${raw}` : raw;
+  const base = String(MINIO_URL ?? "").replace(/\/$/, "");
+  if (base) return `${base}/${raw.replace(/^\/+/, "")}`;
+  return fallback;
+}
+
+async function logoToDataUrl(src: string): Promise<string> {
+  const abs = toPrintLogoUrl(src);
+  if (abs.startsWith("data:")) return abs;
+  try {
+    const res = await fetch(abs, { mode: "cors", credentials: "omit" });
+    if (!res.ok) return abs;
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/")) return abs;
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? abs));
+      reader.onerror = () => resolve(abs);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return abs;
+  }
+}
 
 function makeExpandRenderer(onExpand: (row: DrillRow) => void) {
   return (p: ICellRendererParams<DrillRow>) => {
     if (!p.data) return null;
+    // Angular grand-total row: colspan covers Expand + blank cols (no `>`).
+    if (p.data.__rowKey === "grand-total") {
+      return <span>Grand Total</span>;
+    }
     return (
-      <Button
+      <button
         type="button"
-        size="sm"
-        variant="ghost"
-        className="h-7 px-2 font-semibold"
+        className="cursor-pointer px-2 font-medium hover:underline"
         onClick={() => onExpand(p.data!)}
       >
         &gt;
-      </Button>
+      </button>
     );
   };
 }
@@ -111,61 +162,56 @@ export default function EmployeeDrilldownReportPage() {
   );
 
   const [steps, setSteps] = useState<DrillStep[]>([]);
-  const [position, setPosition] = useState<Position>("");
+  const [currentPosition, setCurrentPosition] = useState<CurrentPosition>("");
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // Angular: listDetailsById(organizations, 'true', isActive)
   const orgsQuery = useQuery({
     queryKey: QK.employeeDrilldownReport.orgs(),
-    queryFn: listOrganizations,
-    enabled: orgId > 0,
+    queryFn: listActiveOrganizations,
     staleTime: 5 * 60_000,
   });
 
   const orgMeta = useMemo(() => {
-    const org =
-      (orgsQuery.data ?? []).find((o) => Number(o.organizationId) === orgId) ??
-      null;
+    const list = orgsQuery.data ?? [];
+    const org = list.find((o) => Number(o.organizationId) === orgId) ?? null;
+    const logoPath = org?.logoPath?.trim() || "";
     return {
-      orgName: org?.orgName?.trim() || "Organization",
-      logoPath: org?.logoPath?.trim() || "",
+      orgName: org?.orgName?.trim() || "",
+      logoPath,
     };
   }, [orgsQuery.data, orgId]);
 
-  const loadLevel = useCallback(
-    async (params: {
-      flag: EmployeeDrilldownFlag;
-      collegeId?: number;
-      deptId?: number;
-      detailName: string;
-      detailValue: string;
-    }) => {
+  /** Angular getSummary(in_flag, in_college_id, in_dept, detailName, detailValue) */
+  const getSummary = useCallback(
+    async (
+      in_flag: EmployeeDrilldownFlag,
+      in_college_id: number,
+      in_dept: number,
+      detailName: string,
+      detailValue: string,
+    ) => {
       setLoading(true);
       setRows([]);
       setGrandTotal(0);
       try {
         const raw = await getEmployeeCountDrilldown({
-          flag: params.flag,
-          collegeId: params.collegeId ?? 0,
-          deptId: params.deptId ?? 0,
+          flag: in_flag,
+          collegeId: in_college_id,
+          deptId: in_dept,
         });
-        if (raw.length === 0) {
-          toastSuccess("No Records(s) found.");
-          return;
-        }
-        if (params.flag === "Emp_details_of_deptid") {
-          setRows(raw);
-          return;
-        }
+        // Angular: empty success → empty table (no toast)
+        if (!raw.length) return;
         let total = 0;
-        const shaped = raw.map((row) => {
-          const count = num(row.count);
-          total += count;
+        const shaped = raw.map((x) => {
+          const count = x.count == null || x.count === "" ? null : num(x.count);
+          if (count != null) total += count;
           return {
-            ...row,
-            varaiableName: params.detailName,
-            varaiableValue: txt(row[params.detailValue]),
+            ...x,
+            varaiableName: detailName,
+            varaiableValue: txt(x[detailValue]),
             count,
           };
         });
@@ -181,145 +227,202 @@ export default function EmployeeDrilldownReportPage() {
   );
 
   useEffect(() => {
-    void loadLevel({
-      flag: "Total_Count_of_employees",
-      detailName: "College",
-      detailValue: "college_code",
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void getSummary(
+      "Total_Count_of_employees",
+      0,
+      0,
+      "College",
+      "college_code",
+    );
+  }, [getSummary]);
 
-  const expandRow = useCallback(
-    (row: AnyRow) => {
-      if (position === "department") return;
-
-      if (position === "") {
-        const name = txt(row.varaiableValue);
-        const collegeId = num(row.fk_college_id ?? row.collegeId);
+  const task = useCallback(
+    (
+      e: string,
+      in_flag: EmployeeDrilldownFlag,
+      in_college_id: number,
+      in_dept: number,
+      detailName: string,
+      detailValue: string,
+      back: "add" | "back",
+    ) => {
+      void getSummary(in_flag, in_college_id, in_dept, detailName, detailValue);
+      if (back === "add") {
         setSteps((prev) => [
           ...prev,
           {
             id: prev.length + 1,
-            name,
-            flag: "Total_Count_of_employees_by_college",
-            collegeId,
-            deptId: 0,
-            detailName: "Department",
+            name: e,
+            in_flag,
+            in_college_id,
+            in_dept,
+            detailName,
+            detailValue,
           },
         ]);
-        setPosition("college");
-        void loadLevel({
-          flag: "Total_Count_of_employees_by_college",
-          collegeId,
-          detailName: "Department",
-          detailValue: "Emp_Department",
-        });
-        return;
       }
-
-      if (position === "college") {
-        const name = txt(row.varaiableValue);
-        const last = steps[steps.length - 1];
-        const collegeId = last?.collegeId ?? 0;
-        const deptId = num(row.fk_emp_dept_id ?? row.deptId);
-        setSteps((prev) => [
-          ...prev,
-          {
-            id: prev.length + 1,
-            name,
-            flag: "Emp_details_of_deptid",
-            collegeId,
-            deptId,
-            detailName: "Employee",
-          },
-        ]);
-        setPosition("department");
-        void loadLevel({
-          flag: "Emp_details_of_deptid",
-          collegeId,
-          deptId,
-          detailName: "Employee",
-          detailValue: "Emp_Name",
-        });
-      }
+      setCurrentPosition(detailValue as CurrentPosition);
     },
-    [loadLevel, position, steps],
+    [getSummary],
+  );
+
+  const expandRoot = useCallback(
+    (datum: DrillRow) => {
+      task(
+        datum.varaiableValue,
+        "Total_Count_of_employees_by_college",
+        num(datum.fk_college_id),
+        0,
+        "College",
+        "college_code",
+        "add",
+      );
+    },
+    [task],
+  );
+
+  const expandCollege = useCallback(
+    (datum: DrillRow) => {
+      task(
+        txt(datum.Emp_Department),
+        "Emp_details_of_deptid",
+        num(datum.fk_college_id),
+        num(datum.fk_emp_dept_id),
+        "Department",
+        "Emp_Department",
+        "add",
+      );
+    },
+    [task],
   );
 
   const handleBack = () => {
-    if (steps.length === 0) return;
-    const next = steps.slice(0, -1);
-    setSteps(next);
-    if (next.length === 0) {
-      setPosition("");
-      void loadLevel({
-        flag: "Total_Count_of_employees",
-        detailName: "College",
-        detailValue: "college_code",
-      });
-      return;
-    }
-    const last = next[next.length - 1]!;
-    setPosition(next.length === 1 ? "college" : "department");
-    void loadLevel({
-      flag: last.flag,
-      collegeId: last.collegeId,
-      deptId: last.deptId,
-      detailName: last.detailName,
-      detailValue:
-        last.flag === "Emp_details_of_deptid" ? "Emp_Name" : "Emp_Department",
+    setSteps((prev) => {
+      const next = prev.slice(0, -1);
+      if (next.length > 0) {
+        const last = next[next.length - 1]!;
+        // Angular back() → task(..., 'back') which refreshes + sets currentPosition
+        void getSummary(
+          last.in_flag,
+          last.in_college_id,
+          last.in_dept,
+          last.detailName,
+          last.detailValue,
+        );
+        setCurrentPosition(last.detailValue as CurrentPosition);
+      } else {
+        void getSummary(
+          "Total_Count_of_employees",
+          0,
+          0,
+          "College",
+          "college_code",
+        );
+        setCurrentPosition("");
+      }
+      return next;
     });
   };
 
-  const isLeaf = position === "department";
+  const isLeaf = currentPosition === "Emp_Department";
 
   const displayRows = useMemo<DrillRow[]>(
     () =>
       rows.map((row, i) => ({
         ...row,
-        __rowKey: `${position}-${i}`,
+        __rowKey: `${currentPosition}-${i}`,
         varaiableName: txt(row.varaiableName),
         varaiableValue: txt(row.varaiableValue),
-        count: row.count as string | number | undefined,
+        count: row.count == null ? null : num(row.count),
+        Emp_Department: txt(row.Emp_Department),
         Emp_Name: txt(row.Emp_Name),
         emp_number: txt(row.emp_number),
-        designation: txt(row.designation),
-        email: txt(row.email),
-        mobile: txt(row.mobile),
-        category: txt(row.category),
+        Emp_Designation:
+          row.Emp_Designation === null || row.Emp_Designation === undefined
+            ? null
+            : txt(row.Emp_Designation),
+        email:
+          row.email === null || row.email === undefined ? null : txt(row.email),
+        mobile:
+          row.mobile === null || row.mobile === undefined
+            ? null
+            : txt(row.mobile),
+        Emp_Category:
+          row.Emp_Category === null || row.Emp_Category === undefined
+            ? null
+            : txt(row.Emp_Category),
+        fk_college_id: num(row.fk_college_id),
+        fk_emp_dept_id: num(row.fk_emp_dept_id),
       })),
-    [position, rows],
+    [currentPosition, rows],
   );
+
+  // Angular: Grand Total row only when currentPosition != Emp_Department and list length > 0
+  const pinnedBottom = useMemo<DrillRow[] | undefined>(() => {
+    if (isLeaf || displayRows.length === 0) return undefined;
+    return [
+      {
+        __rowKey: "grand-total",
+        varaiableName: "Grand Total",
+        varaiableValue: "",
+        Emp_Department: "",
+        count: grandTotal,
+      },
+    ];
+  }, [displayRows.length, grandTotal, isLeaf]);
 
   const columnDefs = useMemo<ColDef<DrillRow>[]>(() => {
     if (isLeaf) {
       return [
         {
-          field: "Emp_Name",
+          headerName: " ",
+          minWidth: 120,
+          valueGetter: (p) => p.data?.varaiableName ?? "",
+          cellStyle: { textAlign: "center" },
+        },
+        {
+          headerName: " ",
+          minWidth: 140,
+          valueGetter: (p) => p.data?.varaiableValue ?? "",
+          cellStyle: { textAlign: "center" },
+        },
+        {
           headerName: "Employee",
           minWidth: 200,
-          cellRenderer: (p: ICellRendererParams<DrillRow>) => {
-            const name = p.data?.Emp_Name ?? "";
-            const number = p.data?.emp_number?.trim();
-            return number ? (
-              <span>
-                {name}{" "}
-                <span className="text-muted-foreground">( {number} )</span>
-              </span>
-            ) : (
-              name
-            );
-          },
+          // Angular always: Emp_Name (emp_number)
+          valueGetter: (p) =>
+            `${p.data?.Emp_Name ?? ""} (${p.data?.emp_number ?? ""})`,
+          cellStyle: { textAlign: "center" },
         },
-        { field: "designation", headerName: "Designation", minWidth: 150 },
-        { field: "email", headerName: "Email", minWidth: 180 },
-        { field: "mobile", headerName: "Mobile", minWidth: 120 },
-        { field: "category", headerName: "Category", minWidth: 120 },
+        {
+          headerName: "Employee Designation",
+          minWidth: 160,
+          valueGetter: (p) => nullDash(p.data?.Emp_Designation),
+          cellStyle: { textAlign: "center" },
+        },
+        {
+          headerName: "Email",
+          minWidth: 160,
+          valueGetter: (p) => nullDash(p.data?.email),
+          cellStyle: { textAlign: "center" },
+        },
+        {
+          headerName: "Mobile",
+          minWidth: 120,
+          valueGetter: (p) => nullDash(p.data?.mobile),
+          cellStyle: { textAlign: "center" },
+        },
+        {
+          headerName: "Employee Category",
+          minWidth: 140,
+          valueGetter: (p) => nullDash(p.data?.Emp_Category),
+          cellStyle: { textAlign: "center" },
+        },
       ];
     }
 
-    if (position === "college") {
-      const collegeCode = steps[0]?.name || "AMS-1058";
+    if (currentPosition === "college_code") {
+      // Screen: Expand + 2 blanks + Department + Count (=5). Grand Total colspan=4 + count.
       return [
         {
           headerName: "Expand",
@@ -327,44 +430,57 @@ export default function EmployeeDrilldownReportPage() {
           flex: 0,
           sortable: false,
           filter: false,
-          cellRenderer: makeExpandRenderer(expandRow),
+          colSpan: (p) => (p.data?.__rowKey === "grand-total" ? 4 : 1),
+          cellRenderer: makeExpandRenderer(expandCollege),
+          cellStyle: { textAlign: "center", cursor: "pointer" },
         },
         {
-          headerName: "College",
-          minWidth: 140,
-          valueGetter: () => "College",
+          headerName: " ",
+          minWidth: 120,
+          valueGetter: (p) => p.data?.varaiableName ?? "",
           onCellClicked: (e) => {
-            if (e.data) expandRow(e.data);
+            if (e.data && e.data.__rowKey !== "grand-total")
+              expandCollege(e.data);
           },
+          cellStyle: { textAlign: "center", cursor: "pointer" },
         },
         {
-          headerName: collegeCode,
-          minWidth: 160,
-          valueGetter: () => collegeCode,
-          onCellClicked: (e) => {
-            if (e.data) expandRow(e.data);
-          },
-        },
-        {
+          headerName: " ",
+          minWidth: 120,
           field: "varaiableValue",
+          onCellClicked: (e) => {
+            if (e.data && e.data.__rowKey !== "grand-total")
+              expandCollege(e.data);
+          },
+          cellStyle: { textAlign: "center", cursor: "pointer" },
+        },
+        {
           headerName: "Department",
           minWidth: 180,
+          field: "Emp_Department",
           onCellClicked: (e) => {
-            if (e.data) expandRow(e.data);
+            if (e.data && e.data.__rowKey !== "grand-total")
+              expandCollege(e.data);
           },
+          cellStyle: { textAlign: "center", cursor: "pointer" },
         },
         {
-          field: "count",
           headerName: "Employees Count",
-          minWidth: 150,
-          valueFormatter: (p) => formatCount(p.value),
-          onCellClicked: (e) => {
-            if (e.data) expandRow(e.data);
+          minWidth: 140,
+          valueGetter: (p) => {
+            if (p.data?.__rowKey === "grand-total") return String(grandTotal);
+            return p.data?.count == null ? "" : formatCount(p.data.count);
           },
+          onCellClicked: (e) => {
+            if (e.data && e.data.__rowKey !== "grand-total")
+              expandCollege(e.data);
+          },
+          cellStyle: { textAlign: "center", cursor: "pointer" },
         },
       ];
     }
 
+    // Root: Expand + 2 blanks + Count (=4). Grand Total colspan=3 + count.
     return [
       {
         headerName: "Expand",
@@ -372,188 +488,237 @@ export default function EmployeeDrilldownReportPage() {
         flex: 0,
         sortable: false,
         filter: false,
-        cellRenderer: makeExpandRenderer(expandRow),
+        colSpan: (p) => (p.data?.__rowKey === "grand-total" ? 3 : 1),
+        cellRenderer: makeExpandRenderer(expandRoot),
+        cellStyle: { textAlign: "center", cursor: "pointer" },
       },
       {
-        field: "varaiableName",
-        headerName: "College",
-        minWidth: 140,
+        headerName: " ",
+        minWidth: 120,
+        valueGetter: (p) => p.data?.varaiableName ?? "",
         onCellClicked: (e) => {
-          if (e.data) expandRow(e.data);
+          if (e.data && e.data.__rowKey !== "grand-total") expandRoot(e.data);
         },
+        cellStyle: { textAlign: "center", cursor: "pointer" },
       },
       {
+        headerName: " ",
+        minWidth: 120,
         field: "varaiableValue",
-        headerName: "College Code",
-        minWidth: 160,
         onCellClicked: (e) => {
-          if (e.data) expandRow(e.data);
+          if (e.data && e.data.__rowKey !== "grand-total") expandRoot(e.data);
         },
+        cellStyle: { textAlign: "center", cursor: "pointer" },
       },
       {
-        field: "count",
         headerName: "Employees Count",
-        minWidth: 150,
-        valueFormatter: (p) => formatCount(p.value),
-        onCellClicked: (e) => {
-          if (e.data) expandRow(e.data);
+        minWidth: 140,
+        valueGetter: (p) => {
+          if (p.data?.__rowKey === "grand-total") return String(grandTotal);
+          return p.data?.count == null ? "" : formatCount(p.data.count);
         },
+        onCellClicked: (e) => {
+          if (e.data && e.data.__rowKey !== "grand-total") expandRoot(e.data);
+        },
+        cellStyle: { textAlign: "center", cursor: "pointer" },
       },
     ];
-  }, [expandRow, isLeaf, position, steps]);
+  }, [currentPosition, expandCollege, expandRoot, grandTotal, isLeaf]);
 
-  const buildExportRows = () => {
+  const drillPathHtml =
+    steps.length > 0
+      ? `<span style="padding:5px 10px;color:#0c51a4;font-size:16px;font-weight:500">${steps
+          .map(
+            (s, i) => escapeHtml(s.name) + (i < steps.length - 1 ? " > " : ""),
+          )
+          .join("")}</span>`
+      : "";
+
+  const buildPrintExportHtml = () => {
+    if (!displayRows.length) return "";
+
     if (isLeaf) {
-      return displayRows.map((row) => ({
-        Emp_Name: row.Emp_Name ?? "",
-        emp_number: row.emp_number ?? "",
-        designation: row.designation ?? "",
-        email: row.email ?? "",
-        mobile: row.mobile ?? "",
-        category: row.category ?? "",
+      const cols = [
+        { key: "n", header: " " },
+        { key: "v", header: " " },
+        { key: "emp", header: "Employee" },
+        { key: "des", header: "Employee Designation" },
+        { key: "email", header: "Email" },
+        { key: "mobile", header: "Mobile" },
+        { key: "cat", header: "Employee Category" },
+      ];
+      const data = displayRows.map((d) => ({
+        n: d.varaiableName,
+        v: d.varaiableValue,
+        emp: `${d.Emp_Name ?? ""} (${d.emp_number ?? ""})`,
+        des: nullDash(d.Emp_Designation),
+        email: nullDash(d.email),
+        mobile: nullDash(d.mobile),
+        cat: nullDash(d.Emp_Category),
       }));
+      return buildHtmlTable(cols, data);
     }
-    return [
-      ...displayRows.map((row) => ({
-        expand: ">",
-        varaiableName: row.varaiableName,
-        varaiableValue: row.varaiableValue,
-        count: formatCount(row.count),
-      })),
-      ...(displayRows.length > 0
-        ? [
-            {
-              expand: "",
-              varaiableName: "Grand Total",
-              varaiableValue: "",
-              count: formatCount(grandTotal),
-            },
-          ]
-        : []),
-    ];
+
+    if (currentPosition === "college_code") {
+      // Excel/print (no Expand col): Grand Total colspan=3 + count
+      return `<table class="mar" border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse">
+<thead><tr>
+<th style="background:#C3D9FF;padding:5px"> </th>
+<th style="background:#C3D9FF;padding:5px"> </th>
+<th style="background:#C3D9FF;padding:5px">Department</th>
+<th style="background:#C3D9FF;padding:5px">Employees Count</th>
+</tr></thead>
+<tbody>
+${displayRows
+  .map(
+    (d) => `<tr>
+<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableName)}</td>
+<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableValue)}</td>
+<td style="text-align:center;padding:8px">${escapeHtml(d.Emp_Department ?? "")}</td>
+<td style="text-align:center;padding:8px">${d.count == null ? "" : escapeHtml(formatCount(d.count))}</td>
+</tr>`,
+  )
+  .join("")}
+<tr>
+<td colspan="3" style="text-align:center;padding:8px">Grand Total</td>
+<td style="text-align:center;padding:8px">${grandTotal}</td>
+</tr>
+</tbody></table>`;
+    }
+
+    // Excel/print root: Grand Total colspan=2 + count
+    return `<table class="mar" border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse">
+<thead><tr>
+<th style="background:#C3D9FF;padding:5px"> </th>
+<th style="background:#C3D9FF;padding:5px"> </th>
+<th style="background:#C3D9FF;padding:5px">Employees Count</th>
+</tr></thead>
+<tbody>
+${displayRows
+  .map(
+    (d) => `<tr>
+<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableName)}</td>
+<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableValue)}</td>
+<td style="text-align:center;padding:8px">${d.count == null ? "" : escapeHtml(formatCount(d.count))}</td>
+</tr>`,
+  )
+  .join("")}
+<tr>
+<td colspan="2" style="text-align:center;padding:8px">Grand Total</td>
+<td style="text-align:center;padding:8px">${grandTotal}</td>
+</tr>
+</tbody></table>`;
   };
 
   const handleExcelExport = () => {
-    const exportRows = buildExportRows();
-    if (exportRows.length === 0) {
+    if (!displayRows.length) {
       toastInfo("No records to export.");
       return;
     }
-    const headerHtml = `<div style="margin-bottom:12px;"><div style="font-size:18px;font-weight:600;">${escapeHtml(orgMeta.orgName)}</div><div style="font-size:16px;font-weight:550;margin-top:4px;">${escapeHtml(REPORT_TITLE)}</div></div>`;
-    const columns = isLeaf ? LEAF_COLUMNS : AGG_COLUMNS;
+    // Angular #excelTable: hidden org/title + drill path + table
+    const headerHtml = `<p style="display:none">${escapeHtml(orgMeta.orgName)}</p><p style="display:none">${escapeHtml(REPORT_TITLE)}</p>${drillPathHtml}`;
     exportHtmlTableAsExcel(
       `${REPORT_TITLE}.xls`,
-      buildHtmlTable(columns, exportRows),
+      buildPrintExportHtml(),
       headerHtml,
     );
   };
 
-  const printReport = () => {
-    const exportRows = buildExportRows();
-    if (exportRows.length === 0) {
+  const printReport = async () => {
+    if (!displayRows.length) {
       toastInfo("No records to print.");
       return;
     }
-    const columns = isLeaf
-      ? LEAF_COLUMNS
-      : AGG_COLUMNS.filter((c) => c.key !== "expand");
-    const tableHtml = buildHtmlTable(columns, exportRows);
+    // Angular: Logo = logoPath; Logo == null → default_logo.png
+    const logoUrl = toPrintLogoUrl(orgMeta.logoPath || DEFAULT_COLLEGE_LOGO);
+    const logoSrc = isDefaultLogoUrl(logoUrl)
+      ? await logoToDataUrl(DEFAULT_COLLEGE_LOGO)
+      : await logoToDataUrl(logoUrl);
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+
     printHtmlInIframe(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
 @page{margin:12mm}
 body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
-.collegeName{font-size:24px;font-weight:550;margin:0 0 6px}
-.title{font-size:20px;font-weight:550;margin:0 0 12px}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:6px 5px;text-align:center}
-th{background:#f2f2f2}
+.banner{display:flex;align-items:flex-start;width:100%;margin-bottom:8px}
+.banner img{height:96px;width:100px;object-fit:contain}
+.collegeName{text-align:left;font-size:20px;font-weight:550;margin:20px 0 -5px 0.4%}
+.title{text-align:left;font-size:19px;font-weight:550;margin:0}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid #333;padding:8px;text-align:center}
+th{background:#C3D9FF;font-weight:500}
 </style></head><body>
-<p class="collegeName">${escapeHtml(orgMeta.orgName)}</p>
-<p class="title">${escapeHtml(REPORT_TITLE)}</p>
-${tableHtml}
+<div class="banner">
+  <img src="${escapeHtml(logoSrc)}" alt="" onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'"/>
+  <div style="flex:1">
+    <p class="collegeName">${escapeHtml(orgMeta.orgName)}</p>
+    <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+  </div>
+</div>
+${drillPathHtml}
+${buildPrintExportHtml()}
 </body></html>`);
   };
 
   return (
-    <FilteredListPage<DrillRow>
+    <ListPage<DrillRow>
       title={REPORT_TITLE}
-      tableTitle={
-        position === "college" && steps[0]?.name ? steps[0].name : REPORT_TITLE
+      rowData={displayRows}
+      columnDefs={columnDefs}
+      pinnedBottomRowData={pinnedBottom}
+      loading={loading}
+      pagination={true}
+      getRowId={(p) => String(p.data?.__rowKey ?? "")}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+        columnPicker: false,
+        columnFilters: false,
+      }}
+      toolbarLeading={
+        steps.length > 0 ? (
+          <p className="text-[16px] font-medium text-[#0c51a4]">
+            {steps.map((s, i) => (
+              <span key={s.id}>
+                {s.name}
+                {i < steps.length - 1 ? " > " : ""}
+              </span>
+            ))}
+          </p>
+        ) : null
       }
-      subtitle={
-        !isLeaf && rows.length > 0
-          ? `Grand Total: ${formatCount(grandTotal)}`
-          : undefined
-      }
-      filters={
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            {steps.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1 text-sm">
-                <span className="font-medium text-blue-700">
-                  {orgMeta.orgName}
-                </span>
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                {steps.map((step, i) => (
-                  <span
-                    key={step.id}
-                    className="inline-flex items-center gap-1"
-                  >
-                    <span className="font-medium text-blue-700">
-                      {step.name}
-                    </span>
-                    {i < steps.length - 1 ? (
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                    ) : null}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {!isLeaf && rows.length > 0 ? (
-              <p className="text-sm font-semibold">
-                Grand Total: {formatCount(grandTotal)}
-              </p>
-            ) : null}
-          </div>
+      toolbarTrailing={
+        <div className="flex flex-wrap items-center gap-2">
           {steps.length > 0 ? (
             <Button
               type="button"
-              size="sm"
-              variant="secondary"
-              className="h-8 px-3"
+              className="h-[30px] px-3 text-[12px]"
               onClick={handleBack}
               disabled={loading}
             >
               Back
             </Button>
           ) : null}
+          <Button
+            type="button"
+            className="h-[30px] px-3 text-[12px]"
+            onClick={handleExcelExport}
+            disabled={loading || !displayRows.length}
+          >
+            Export Excel
+          </Button>
+          <Button
+            type="button"
+            className="h-[30px] px-3 text-[12px]"
+            onClick={() => void printReport()}
+            disabled={loading || !displayRows.length}
+          >
+            Print Report
+          </Button>
         </div>
-      }
-      rowData={displayRows}
-      columnDefs={columnDefs}
-      loading={loading}
-      pagination
-      paginationPageSize={25}
-      getRowId={(p) => String(p.data?.__rowKey ?? "")}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        exportExcel: true,
-        exportPdf: false,
-      }}
-      onExportExcel={handleExcelExport}
-      toolbarTrailing={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-9 px-3 text-[12px]"
-          onClick={printReport}
-        >
-          <Printer className="mr-1.5 h-3.5 w-3.5" />
-          Print Report
-        </Button>
       }
     />
   );

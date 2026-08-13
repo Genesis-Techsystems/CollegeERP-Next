@@ -652,6 +652,28 @@ export default function OuResultSheetPage() {
       }
       rowData={rows}
       columnDefs={columnDefs}
+      showTable={rows.length > 0}
+      resultsVisible={rows.length > 0}
+      tableHeader={
+        <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              book
+            </span>
+            <strong className="table-context-header__title">
+              OU Result Report
+            </strong>
+          </div>
+          {filterSummary ? (
+            <span className="text-[12px] font-medium text-blue-700">
+              {filterSummary}
+            </span>
+          ) : null}
+        </div>
+      }
       loading={loading}
       pagination
       paginationPageSize={25}
@@ -660,15 +682,11 @@ export default function OuResultSheetPage() {
       onExportPdf={handlePrint}
       toolbar={{
         ...TOOLBAR,
+        exportPdf: false,
         excelDocumentTitle: "OU Result Report",
         excelFileName: "Ou Result sheet.xls",
         pdfDocumentTitle: "OU Result Report",
       }}
-      filtersFooter={
-        filterSummary ? (
-          <p className="text-sm font-medium text-primary">{filterSummary}</p>
-        ) : null
-      }
     />
   );
 }

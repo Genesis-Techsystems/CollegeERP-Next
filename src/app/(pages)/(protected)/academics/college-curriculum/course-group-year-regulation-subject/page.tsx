@@ -381,8 +381,9 @@ export default function CourseGroupYearRegulationSubjectPage() {
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       BASE_COLS.siNo,
-      BASE_COLS.subjectCode,
+      // Angular displayedColumns: subjectName then subjectCode
       BASE_COLS.subjectName,
+      BASE_COLS.subjectCode,
       BASE_COLS.subjectType,
       BASE_COLS.category,
       BASE_COLS.lectures,
@@ -549,7 +550,24 @@ export default function CourseGroupYearRegulationSubjectPage() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/academics/university-curriculum")}
+          onClick={() => {
+            // Angular goBack — restore University Curriculum filters via queryParams
+            const params = new URLSearchParams();
+            if (context.universityId)
+              params.set("universityId", String(context.universityId));
+            if (context.courseId)
+              params.set("courseId", String(context.courseId));
+            if (context.courseGroupId)
+              params.set("courseGroupId", String(context.courseGroupId));
+            if (context.regulationId)
+              params.set("regulationId", String(context.regulationId));
+            const qs = params.toString();
+            router.push(
+              qs
+                ? `/academics/university-curriculum?${qs}`
+                : "/academics/university-curriculum",
+            );
+          }}
         >
           Back
         </Button>

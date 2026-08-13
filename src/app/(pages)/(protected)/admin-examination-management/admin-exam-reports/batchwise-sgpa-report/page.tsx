@@ -499,16 +499,6 @@ export default function BatchWiseSgpaReportPage() {
           >
             {loading ? "Loading..." : "Get Report"}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-8 gap-1.5 text-[12px]"
-            onClick={handleReset}
-            title="Reset"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </Button>
         </div>
       </GlobalFilterBarRow>
     </div>

@@ -229,6 +229,8 @@ export {
   listExamStudentsForSeatAllotment,
   listBulkAllotmentStudents,
   getExamRoomAllotmentById,
+  getSeatingPlanExamFilters,
+  getSeatingPlanCollegesRestInTt,
 } from "./seating-plan";
 export type {
   ListRoomsParams,

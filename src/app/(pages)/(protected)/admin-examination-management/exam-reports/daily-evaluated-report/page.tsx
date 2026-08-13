@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format } from "date-fns";
 import { FilteredListPage } from "@/components/layout";
@@ -30,8 +30,11 @@ import {
   getDailyEvalSubjectRows,
   getDailyEvaluatedReport,
   getDailyEvaluatedStudentList,
+  listCollegesActive,
 } from "@/services";
 import { useRouter } from "next/navigation";
+import { printHtmlInIframe } from "@/lib/print";
+import { logoToDataUrl } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
 type AnyRow = Record<string, unknown>;
 
@@ -71,54 +74,151 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function printDailyReport(rows: AnyRow[], title = "Daily Evaluated Report") {
-  if (!rows.length) return;
-  const columns = [
-    { key: "si", header: "SI.No" },
-    { key: "name", header: "Evaluator Name" },
-    { key: "code", header: "Course Code" },
-    { key: "email", header: "Evaluator Email" },
-    { key: "assigned", header: "Assigned Answer Sheets" },
-    { key: "evaluated", header: "Evaluated Answer Sheets" },
-  ];
-  const data = rows.map((row, i) => ({
-    si: i + 1,
-    name: txt(row.evaluator_name),
-    code: txt(row.subject_code),
-    email: txt(row.email),
-    assigned: num(row.no_of_students_assigned),
-    evaluated: num(row.no_of_evaluations_completed),
-  }));
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 Arial, sans-serif; color: #000; margin: 0; }
-.collegeName { text-align: center; font-size: 16px; font-weight: bold; margin: 8px 0 12px; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #000; padding: 4px 6px; text-align: left; }
-th { background: #f2f2f2; }
-</style></head>
-<body><p class="collegeName">${escapeHtml(title)}</p>${buildHtmlTable(columns, data)}</body></html>`;
+/** Angular default_logo.png when Logo == null. */
+const NO_LOGO_PLACEHOLDER =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="58" fill="#e8e8e8" stroke="#bdbdbd" stroke-width="2"/><text x="60" y="66" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#757575">NO LOGO</text></svg>`,
+  );
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
+/**
+ * Angular getCollegeLogo + template:
+ *   this.Logo = collegesLogoList[0].logo
+ *   *ngIf="Logo != null" → <img [src]="Logo">
+ *   *ngIf="Logo == null" → default_logo.png (NO LOGO)
+ *
+ * Important: Angular uses Logo as img src **as-is** (no MinIO prefix in this
+ * component). On your Angular env Logo is null → NO LOGO. React must not
+ * invent/force another college logo via MinIO.
+ */
+async function resolveAngularPrintLogo(): Promise<string | null> {
+  try {
+    const colleges = await listCollegesActive();
+    // Angular only reads `.logo` (not `.Logo`)
+    const raw = (colleges[0] as AnyRow | undefined)?.logo;
+    // Angular *ngIf="Logo == null" — null / undefined only (empty string is
+    // still truthy for != null in JS, but treat blank as no logo for print).
+    if (raw == null) return null;
+    const src = String(raw).trim();
+    if (!src) return null;
+
+    // Angular: [src]="Logo" with no MinIO rewrite. Only use if already absolute
+    // (http/https/data). Relative paths are what Angular would put in src; in a
+    // print iframe they won't load — fall back to NO LOGO (same visible result
+    // as your Angular print when Logo is null / not usable).
+    if (!/^(https?:\/\/|data:)/i.test(src)) return null;
+
+    return await logoToDataUrl(src);
+  } catch {
+    return null;
   }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+}
+
+/**
+ * Angular printPage() — !bulk print block:
+ * - orgCode != 'SUK': small left logo + title
+ * - orgCode == 'SUK': wide logo + title (+ subject code)
+ * - Logo != null → college logo; Logo == null → default_logo.png (NO LOGO)
+ */
+async function printDailyReport(rows: AnyRow[], subjectCode = "") {
+  if (!rows.length) return;
+
+  const collegeLogo = await resolveAngularPrintLogo();
+  // Angular: Logo == null → default_logo.png
+  const logoSrc = collegeLogo ?? NO_LOGO_PLACEHOLDER;
+
+  const orgCode = (
+    globalThis?.localStorage?.getItem("orgCode") ?? ""
+  ).toUpperCase();
+
+  const bodyRows = rows
+    .map(
+      (row, i) => `<tr>
+<td>${i + 1}</td>
+<td>${escapeHtml(txt(row.evaluator_name))}</td>
+<td>${escapeHtml(txt(row.subject_code))}</td>
+<td>${escapeHtml(txt(row.email))}</td>
+<td style="text-align:center;color:blue">${num(row.no_of_students_assigned)}</td>
+<td style="text-align:center;color:blue">${num(row.no_of_evaluations_completed)}</td>
+</tr>`,
+    )
+    .join("");
+
+  const header =
+    orgCode === "SUK"
+      ? `<div class="suk-header">
+  <img src="${escapeHtml(logoSrc)}" alt="" class="suk-logo"
+    onerror="this.onerror=null;this.src='${NO_LOGO_PLACEHOLDER}'" />
+  <p class="collegeName">Daily Evaluated Report</p>
+  ${subjectCode ? `<p class="title">${escapeHtml(subjectCode)}</p>` : ""}
+</div>`
+      : `<div class="banner-row">
+  <div class="logo-col">
+    <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo"
+      onerror="this.onerror=null;this.src='${NO_LOGO_PLACEHOLDER}'" />
+  </div>
+  <div class="banner-text">
+    <p class="collegeName">Daily Evaluated Report</p>
+  </div>
+</div>`;
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Daily Evaluated Report</title>
+<style>
+@page { size: A4 portrait; margin: 12mm; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0; color: #000; font: 12px/1.4 Arial, Helvetica, sans-serif; }
+.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 12px; }
+.logo-col { width: 15%; flex-shrink: 0; }
+.portraitLogo { width: 80%; height: auto; object-fit: contain; }
+.banner-text { width: 85%; }
+.suk-header { text-align: center; margin-bottom: 12px; }
+.suk-logo { max-width: 100%; height: auto; width: 100%; object-fit: contain; margin-bottom: 8px; }
+.collegeName {
+  text-align: center !important;
+  font-size: 20px !important;
+  margin-top: 1% !important;
+  margin-bottom: 10px !important;
+  color: #000 !important;
+  font-weight: 550 !important;
+}
+.title {
+  text-align: center !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  color: #000 !important;
+}
+table {
+  width: 100%;
+  border-collapse: collapse !important;
+  page-break-inside: auto;
+}
+th, td {
+  border: 1px solid #000 !important;
+  padding: 8px;
+  text-align: left;
+}
+th { background-color: #f2f2f2; font-weight: 600; }
+tr { page-break-inside: avoid; page-break-after: auto; }
+thead { display: table-header-group; }
+</style></head>
+<body>
+${header}
+<table>
+  <thead>
+    <tr>
+      <th>SI.No</th>
+      <th>Evaluator Name</th>
+      <th>Course Code</th>
+      <th>Evaluator Email</th>
+      <th>Assigned Answer Sheets</th>
+      <th>Evaluated Answer Sheets</th>
+    </tr>
+  </thead>
+  <tbody>${bodyRows}</tbody>
+</table>
+</body></html>`;
+
+  printHtmlInIframe(html);
 }
 
 /** Angular printBulk — valuator sheets from evaluatedDuplicateReport + studentsList. */
@@ -206,8 +306,14 @@ export default function DailyEvaluatedReportPage() {
   const router = useRouter();
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
-  const [subjectFilterRows, setSubjectFilterRows] = useState<AnyRow[]>([]);
-  const [evaluatorRows, setEvaluatorRows] = useState<AnyRow[]>([]);
+  const [academicYears, setAcademicYears] = useState<AnyRow[]>([]);
+  const [exams, setExams] = useState<AnyRow[]>([]);
+  const [regulations, setRegulations] = useState<AnyRow[]>([]);
+  const [subjects, setSubjects] = useState<AnyRow[]>([]);
+  const [evaluators, setEvaluators] = useState<AnyRow[]>([]);
+  /** Angular `regulationFilterList` — subject/regulation source after exam select. */
+  const regulationFilterListRef = useRef<AnyRow[]>([]);
+
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [studentsList, setStudentsList] = useState<AnyRow[]>([]);
 
@@ -238,199 +344,277 @@ export default function DailyEvaluatedReportPage() {
     [baseRows],
   );
 
-  const academicYears = useMemo(() => {
-    const cid = Number(courseId);
-    const list = baseRows.filter((r) => num(r.fk_course_id) === cid);
-    const unique = dedupeBy(list, (r) => num(r.fk_academic_year_id));
-    return [...unique].sort(
-      (a, b) =>
-        parseInt(txt(b.academic_year), 10) - parseInt(txt(a.academic_year), 10),
-    );
-  }, [baseRows, courseId]);
-
-  const exams = useMemo(() => {
-    const cid = Number(courseId);
-    const ay = Number(academicYearId);
-    return dedupeBy(
-      baseRows.filter(
-        (r) => num(r.fk_course_id) === cid && num(r.fk_academic_year_id) === ay,
-      ),
-      (r) => num(r.fk_exam_id),
-    );
-  }, [baseRows, courseId, academicYearId]);
-
-  const regulations = useMemo(
-    () => dedupeBy(subjectFilterRows, (r) => num(r.fk_regulation_id)),
-    [subjectFilterRows],
-  );
-
-  const subjects = useMemo(() => {
-    const reg = Number(regulationId);
-    const list =
-      reg === 0
-        ? subjectFilterRows
-        : subjectFilterRows.filter((r) => num(r.fk_regulation_id) === reg);
-    return dedupeBy(list, (r) => num(r.fk_subject_id));
-  }, [subjectFilterRows, regulationId]);
-
-  const evaluators = useMemo(
-    () => dedupeBy(evaluatorRows, (r) => num(r.pk_exam_evaluator_profile_id)),
-    [evaluatorRows],
-  );
-
-  useEffect(() => {
-    async function init() {
-      setLoadingFilters(true);
-      try {
-        const list = await getDailyEvalBaseFilters(employeeId);
-        setBaseRows(list);
-        const first = dedupeBy(list, (r) => num(r.fk_course_id))[0];
-        if (first) setCourseId(String(num(first.fk_course_id)));
-      } catch (e) {
-        toastError(e, "Failed to load filters");
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void init();
-  }, [employeeId]);
-
-  useEffect(() => {
-    setAcademicYearId("");
-    setExamId("");
-    setRegulationId("");
-    setSubjectId("");
-    setEvaluatorProfileId("");
-    setSubjectFilterRows([]);
-    setEvaluatorRows([]);
-    setRows([]);
-    setStudentsList([]);
-    if (!courseId || !academicYears.length) return;
-    setAcademicYearId(String(num(academicYears[0].fk_academic_year_id)));
-  }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setExamId("");
-    setRegulationId("");
-    setSubjectId("");
-    setEvaluatorProfileId("");
-    setSubjectFilterRows([]);
-    setEvaluatorRows([]);
-    setRows([]);
-    setStudentsList([]);
-    if (!academicYearId || !exams.length) return;
-    setExamId(String(num(exams[0].fk_exam_id)));
-  }, [academicYearId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    async function loadSubjects() {
-      setRegulationId("");
-      setSubjectId("");
-      setEvaluatorProfileId("");
-      setEvaluatorRows([]);
-      setRows([]);
-      setStudentsList([]);
-      if (!courseId || !academicYearId || !examId) {
-        setSubjectFilterRows([]);
-        return;
-      }
-      setLoadingFilters(true);
-      try {
-        const list = await getDailyEvalSubjectRows({
-          courseId: Number(courseId),
-          academicYearId: Number(academicYearId),
-          examId: Number(examId),
-          employeeId,
-        });
-        setSubjectFilterRows(list);
-        const regs = dedupeBy(list, (r) => num(r.fk_regulation_id));
-        if (regs.length) setRegulationId(String(num(regs[0].fk_regulation_id)));
-        else setRegulationId("0");
-      } catch (e) {
-        toastError(e, "Failed to load subjects");
-        setSubjectFilterRows([]);
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void loadSubjects();
-  }, [courseId, academicYearId, examId, employeeId]);
-
-  useEffect(() => {
-    setSubjectId("");
-    setEvaluatorProfileId("");
-    setEvaluatorRows([]);
-    setRows([]);
-    setStudentsList([]);
-    if (regulationId === "" || !subjects.length) {
-      if (regulationId !== "" && !subjects.length) setSubjectId("0");
-      return;
-    }
-    setSubjectId(String(num(subjects[0].fk_subject_id)));
-  }, [regulationId, subjectFilterRows]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    async function loadEvals() {
-      setEvaluatorProfileId("");
-      setRows([]);
-      setStudentsList([]);
-      if (
-        !courseId ||
-        !academicYearId ||
-        !examId ||
-        regulationId === "" ||
-        subjectId === ""
-      ) {
-        setEvaluatorRows([]);
-        return;
-      }
-      setLoadingFilters(true);
-      try {
-        // Angular selectedsubject: courseYearId from form (often empty → 0)
-        const list = await getDailyEvalEvaluators({
-          organizationId: organizationId || 1,
-          examId: Number(examId),
-          courseYearId: 0,
-          subjectId: Number(subjectId),
-          regulationId: Number(regulationId),
-          courseId: Number(courseId),
-          academicYearId: Number(academicYearId),
-          employeeId,
-        });
-        setEvaluatorRows(list);
-        const first = dedupeBy(list, (r) =>
-          num(r.pk_exam_evaluator_profile_id),
-        )[0];
-        if (first) {
-          setEvaluatorProfileId(
-            String(num(first.pk_exam_evaluator_profile_id)),
-          );
-        } else {
-          setEvaluatorProfileId("0");
-        }
-      } catch (e) {
-        toastError(e, "Failed to load evaluators");
-        setEvaluatorRows([]);
-        setEvaluatorProfileId("0");
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void loadEvals();
-  }, [
-    courseId,
-    academicYearId,
-    examId,
-    regulationId,
-    subjectId,
-    organizationId,
-    employeeId,
-  ]);
-
+  /** Angular dateChange / selectedEvaluator — clear report grid only. */
   function clearResults() {
     setRows([]);
     setStudentsList([]);
   }
+
+  /**
+   * Angular selectedsubject → s_get_examevaluation_bycodes
+   * (filter_univexam_evaluator_moderator → evaluator_list)
+   * then auto-select first evaluator.
+   */
+  const selectedSubject = useCallback(
+    async (
+      nextSubjectId: string,
+      ctx: {
+        courseId: string;
+        academicYearId: string;
+        examId: string;
+        regulationId: string;
+      },
+    ) => {
+      setSubjectId(nextSubjectId);
+      setEvaluatorProfileId("");
+      setEvaluators([]);
+      clearResults();
+
+      if (
+        !ctx.courseId ||
+        !ctx.academicYearId ||
+        !ctx.examId ||
+        ctx.regulationId === "" ||
+        nextSubjectId === ""
+      ) {
+        return;
+      }
+
+      setLoadingFilters(true);
+      try {
+        const list = await getDailyEvalEvaluators({
+          organizationId: organizationId || 1,
+          examId: Number(ctx.examId),
+          courseYearId: 0,
+          subjectId: Number(nextSubjectId),
+          regulationId: Number(ctx.regulationId),
+          courseId: Number(ctx.courseId),
+          academicYearId: Number(ctx.academicYearId),
+          employeeId,
+        });
+        const unique = dedupeBy(list, (r) =>
+          num(r.pk_exam_evaluator_profile_id),
+        );
+        setEvaluators(unique);
+        // Angular: auto-select first evaluator when list has rows
+        setEvaluatorProfileId(
+          unique.length
+            ? String(num(unique[0].pk_exam_evaluator_profile_id))
+            : "0",
+        );
+      } catch (e) {
+        toastError(e, "Failed to load evaluators");
+        setEvaluators([]);
+        setEvaluatorProfileId("0");
+      } finally {
+        setLoadingFilters(false);
+      }
+    },
+    [employeeId, organizationId],
+  );
+
+  /**
+   * Angular selectedRegulation — local filter of regulationFilterList → subjects,
+   * then auto first subject → selectedsubject.
+   */
+  const selectedRegulation = useCallback(
+    async (
+      nextRegulationId: string,
+      ctx: { courseId: string; academicYearId: string; examId: string },
+    ) => {
+      setRegulationId(nextRegulationId);
+      setSubjectId("");
+      setEvaluatorProfileId("");
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      const filterList = regulationFilterListRef.current;
+      const detailList =
+        Number(nextRegulationId) === 0
+          ? filterList
+          : filterList.filter(
+              (x) => num(x.fk_regulation_id) === Number(nextRegulationId),
+            );
+      const subjectList = dedupeBy(detailList, (r) => num(r.fk_subject_id));
+      setSubjects(subjectList);
+
+      if (subjectList.length > 0) {
+        const firstSubjectId = String(num(subjectList[0].fk_subject_id));
+        await selectedSubject(firstSubjectId, {
+          ...ctx,
+          regulationId: nextRegulationId,
+        });
+      } else {
+        setSubjectId("0");
+        setEvaluatorProfileId("0");
+      }
+    },
+    [selectedSubject],
+  );
+
+  /**
+   * Angular selectedExam → API univ_exam_subject_regexamstd / NoLAB,
+   * distinct regulations → auto first → selectedRegulation.
+   */
+  const selectedExam = useCallback(
+    async (
+      nextExamId: string,
+      ctx: { courseId: string; academicYearId: string },
+    ) => {
+      setExamId(nextExamId);
+      setRegulationId("");
+      setSubjectId("");
+      setEvaluatorProfileId("");
+      regulationFilterListRef.current = [];
+      setRegulations([]);
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      if (!nextExamId || !ctx.courseId || !ctx.academicYearId) return;
+
+      setLoadingFilters(true);
+      try {
+        const list = await getDailyEvalSubjectRows({
+          courseId: Number(ctx.courseId),
+          academicYearId: Number(ctx.academicYearId),
+          examId: Number(nextExamId),
+          employeeId,
+        });
+        regulationFilterListRef.current = list;
+        const regs = dedupeBy(list, (r) => num(r.fk_regulation_id));
+        setRegulations(regs);
+
+        if (regs.length > 0) {
+          const firstRegId = String(num(regs[0].fk_regulation_id));
+          await selectedRegulation(firstRegId, {
+            ...ctx,
+            examId: nextExamId,
+          });
+        } else {
+          setRegulationId("0");
+          await selectedRegulation("0", { ...ctx, examId: nextExamId });
+        }
+      } catch (e) {
+        toastError(e, "Failed to load subjects");
+        regulationFilterListRef.current = [];
+        setRegulations([]);
+        setSubjects([]);
+      } finally {
+        setLoadingFilters(false);
+      }
+    },
+    [employeeId, selectedRegulation],
+  );
+
+  /**
+   * Angular selectedAcademicYear — local filter exams by course + year,
+   * auto first exam → selectedExam.
+   */
+  const selectedAcademicYear = useCallback(
+    async (nextYearId: string, ctx: { courseId: string; base: AnyRow[] }) => {
+      setAcademicYearId(nextYearId);
+      setExamId("");
+      setRegulationId("");
+      setSubjectId("");
+      setEvaluatorProfileId("");
+      setExams([]);
+      regulationFilterListRef.current = [];
+      setRegulations([]);
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      if (!nextYearId || !ctx.courseId) return;
+
+      const examList = dedupeBy(
+        ctx.base.filter(
+          (x) =>
+            num(x.fk_course_id) === Number(ctx.courseId) &&
+            num(x.fk_academic_year_id) === Number(nextYearId),
+        ),
+        (r) => num(r.fk_exam_id),
+      );
+      setExams(examList);
+
+      if (examList.length > 0) {
+        const firstExamId = String(num(examList[0].fk_exam_id));
+        await selectedExam(firstExamId, {
+          courseId: ctx.courseId,
+          academicYearId: nextYearId,
+        });
+      }
+    },
+    [selectedExam],
+  );
+
+  /**
+   * Angular selectedCourse — local filter academic years by course,
+   * auto first year → selectedAcademicYear.
+   */
+  const selectedCourse = useCallback(
+    async (nextCourseId: string, base: AnyRow[]) => {
+      setCourseId(nextCourseId);
+      setAcademicYearId("");
+      setExamId("");
+      setRegulationId("");
+      setSubjectId("");
+      setEvaluatorProfileId("");
+      setAcademicYears([]);
+      setExams([]);
+      regulationFilterListRef.current = [];
+      setRegulations([]);
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      if (!nextCourseId) return;
+
+      // Angular: distinct academic years in API order (no sort)
+      const years = dedupeBy(
+        base.filter((x) => num(x.fk_course_id) === Number(nextCourseId)),
+        (r) => num(r.fk_academic_year_id),
+      );
+      setAcademicYears(years);
+
+      if (years.length > 0) {
+        const firstYearId = String(num(years[0].fk_academic_year_id));
+        await selectedAcademicYear(firstYearId, {
+          courseId: nextCourseId,
+          base,
+        });
+      }
+    },
+    [selectedAcademicYear],
+  );
+
+  // Angular ngOnInit → getFiltersList → auto first course → selectedCourse
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      setLoadingFilters(true);
+      try {
+        const list = await getDailyEvalBaseFilters(employeeId);
+        if (cancelled) return;
+        setBaseRows(list);
+        const courseList = dedupeBy(list, (r) => num(r.fk_course_id));
+        if (courseList.length > 0) {
+          await selectedCourse(String(num(courseList[0].fk_course_id)), list);
+        }
+      } catch (e) {
+        if (!cancelled) toastError(e, "Failed to load filters");
+      } finally {
+        if (!cancelled) setLoadingFilters(false);
+      }
+    }
+    void init();
+    return () => {
+      cancelled = true;
+    };
+    // Run once on mount (employeeId from session)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId]);
 
   async function onGetList() {
     if (
@@ -622,7 +806,9 @@ export default function DailyEvaluatedReportPage() {
               label: txt(c.course_code),
             }))}
             value={courseId || null}
-            onChange={(v) => setCourseId(v ?? "")}
+            onChange={(v) => {
+              void selectedCourse(v ?? "", baseRows);
+            }}
             disabled={loadingFilters}
             placeholder="Course"
           />
@@ -634,7 +820,12 @@ export default function DailyEvaluatedReportPage() {
               label: txt(y.academic_year),
             }))}
             value={academicYearId || null}
-            onChange={(v) => setAcademicYearId(v ?? "")}
+            onChange={(v) => {
+              void selectedAcademicYear(v ?? "", {
+                courseId,
+                base: baseRows,
+              });
+            }}
             disabled={loadingFilters || !courseId}
             placeholder="Exam Year"
           />
@@ -649,7 +840,12 @@ export default function DailyEvaluatedReportPage() {
               label: formatExamLabel(e),
             }))}
             value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
+            onChange={(v) => {
+              void selectedExam(v ?? "", {
+                courseId,
+                academicYearId,
+              });
+            }}
             disabled={loadingFilters || !academicYearId}
             placeholder="Exam Master"
             searchable
@@ -668,7 +864,13 @@ export default function DailyEvaluatedReportPage() {
               })),
             ]}
             value={regulationId || null}
-            onChange={(v) => setRegulationId(v ?? "")}
+            onChange={(v) => {
+              void selectedRegulation(v ?? "", {
+                courseId,
+                academicYearId,
+                examId,
+              });
+            }}
             disabled={loadingFilters || !examId}
             placeholder="Regulation"
           />
@@ -683,7 +885,14 @@ export default function DailyEvaluatedReportPage() {
               })),
             ]}
             value={subjectId || null}
-            onChange={(v) => setSubjectId(v ?? "")}
+            onChange={(v) => {
+              void selectedSubject(v ?? "", {
+                courseId,
+                academicYearId,
+                examId,
+                regulationId,
+              });
+            }}
             disabled={loadingFilters || regulationId === ""}
             placeholder="Subject"
             searchable
@@ -799,7 +1008,12 @@ export default function DailyEvaluatedReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printDailyReport(rows)}
+              onClick={() => {
+                const sub = subjects.find(
+                  (s) => String(num(s.fk_subject_id)) === subjectId,
+                );
+                void printDailyReport(rows, txt(sub?.subject_code));
+              }}
             >
               Print Report
             </Button>

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2, GraduationCap, ScrollText } from "lucide-react";
 import { useSessionContext } from "@/context/SessionContext";
-import { NoticeAlert } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
 import {
   GlobalFilterBarRow,
@@ -21,6 +20,7 @@ import {
   getMarksSetupFilters,
 } from "@/services";
 import { FilteredPage } from "@/components/layout";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 /** Common control border used across this page (matches reference light outline). */
@@ -30,7 +30,6 @@ const CHECKBOX_STYLE =
   "border-[#cfd6e2] data-[state=checked]:bg-[#17a689] data-[state=checked]:border-[#17a689]";
 
 type AnyRow = Record<string, any>;
-type Notice = { type: "success" | "error"; message: string } | null;
 
 function categoryChipClass(label: string): string {
   const value = label.toLowerCase();
@@ -70,7 +69,6 @@ export default function ExamMaxMarksSetupPage() {
   const [hasFetched, setHasFetched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
-  const [notice, setNotice] = useState<Notice>(null);
 
   useEffect(() => {
     async function loadBase() {
@@ -266,7 +264,6 @@ export default function ExamMaxMarksSetupPage() {
   async function save() {
     if (!universityId || !courseId || !regulationId || rows.length === 0)
       return;
-    setNotice(null);
     // Angular submit: keep full list rows, stamp course/regulation/university/isForDisabled
     const payload = rows.map((r) => {
       const markssetupId =
@@ -301,44 +298,22 @@ export default function ExamMaxMarksSetupPage() {
       }
       return out;
     });
-    const res = await saveExamMarksSetup(cleaned).catch(() => ({
-      success: false,
-      message: "Save failed",
-    }));
-    if ((res as any)?.success === false) {
-      setNotice({
-        type: "error",
-        message: (res as any)?.message ?? "Save failed",
-      });
-      return;
+    try {
+      const res = await saveExamMarksSetup(cleaned);
+      if ((res as any)?.success === false) {
+        toastError((res as any)?.message ?? "Save failed");
+        return;
+      }
+      toastSuccess((res as any)?.message ?? "Saved");
+      await getDetails();
+    } catch (error) {
+      toastError(error, "Save failed");
     }
-    setNotice({ type: "success", message: (res as any)?.message ?? "Saved" });
-    await getDetails();
   }
 
   return (
     <FilteredPage
       title="Exam Max Marks Setup"
-      notice={
-        notice ? (
-          <NoticeAlert
-            type={notice.type}
-            title={notice.message}
-            showIcon
-            action={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-[12px]"
-                onClick={() => setNotice(null)}
-              >
-                Close
-              </Button>
-            }
-          />
-        ) : null
-      }
       filters={
         <GlobalFilterBarRow>
           <GlobalFilterField

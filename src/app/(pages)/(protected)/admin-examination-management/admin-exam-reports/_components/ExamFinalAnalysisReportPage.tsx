@@ -22,6 +22,7 @@ import {
   getExamFinalAnalysisReport,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
+  listExamFeeTypes,
   type AnyRow,
 } from "@/services";
 
@@ -72,6 +73,15 @@ function parseMaybeDate(v: unknown): string {
   } catch {
     return s;
   }
+}
+
+/** Angular exam flag (`is_regular_exam` / `is_supply_exam` / `is_internal_exam`). */
+function flagOn(v: unknown): boolean {
+  if (v === true || v === 1) return true;
+  const s = String(v ?? "")
+    .trim()
+    .toLowerCase();
+  return s === "1" || s === "true" || s === "t" || s === "y" || s === "yes";
 }
 
 function examMasterLabel(r: Row): string {
@@ -794,6 +804,7 @@ export function ExamFinalAnalysisReportPage({
   const [employeeId, setEmployeeId] = useState(0);
   const [baseRows, setBaseRows] = useState<Row[]>([]);
   const [restRows, setRestRows] = useState<Row[]>([]);
+  const [examFeeTypesList, setExamFeeTypesList] = useState<Row[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [courseId, setCourseId] = useState("");
   const [academicYearId, setAcademicYearId] = useState("");
@@ -814,9 +825,13 @@ export function ExamFinalAnalysisReportPage({
       if (!employeeId) return;
       setLoadingFilters(true);
       try {
-        const filters = await getUnivExamFiltersRegSup(employeeId);
+        const [filters, feeTypes] = await Promise.all([
+          getUnivExamFiltersRegSup(employeeId),
+          listExamFeeTypes().catch(() => []),
+        ]);
         const list = Array.isArray(filters) ? filters : [];
         setBaseRows(list);
+        setExamFeeTypesList(Array.isArray(feeTypes) ? feeTypes : []);
         const courses = dedupeBy(list, (r) => num(r.fk_course_id));
         if (courses[0]) setCourseId(String(num(courses[0].fk_course_id)));
       } catch (e) {
@@ -871,22 +886,42 @@ export function ExamFinalAnalysisReportPage({
     return dedupeBy(source, (r) => num(r.fk_course_year_id));
   }, [restRows, collegeId, courseGroupId]);
 
+  /** Angular getExamTypes: GM EXMFEETYP + All, filtered by exam Regular/Supple/Internal flags. */
   const examTypeOptions: SelectOption[] = useMemo(() => {
-    const types = dedupeBy(exams, (r) =>
-      num(r.fk_exam_type_id ?? r.exam_type_id ?? r.examTypeCatdetId),
-    );
-    const opts = types
-      .map((r) => ({
-        value: String(
-          num(r.fk_exam_type_id ?? r.exam_type_id ?? r.examTypeCatdetId),
-        ),
-        label:
-          txt(r.exam_type ?? r.examType ?? r.gd_display_name) ||
-          String(num(r.fk_exam_type_id)),
-      }))
-      .filter((o) => o.value !== "0");
-    return [{ value: "0", label: "All" }, ...opts];
-  }, [exams]);
+    const exam =
+      exams.find((r) => num(r.fk_exam_id) === Number(examId)) ?? null;
+    const filtered: Row[] = [];
+    if (exam) {
+      for (const t of examFeeTypesList) {
+        const code = String(t.generalDetailCode ?? "");
+        if (
+          flagOn(exam.is_regular_exam ?? exam.isRegularExam) &&
+          code === "Regular"
+        ) {
+          filtered.push(t);
+        }
+        if (
+          flagOn(exam.is_supply_exam ?? exam.isSupplyExam) &&
+          code === "Supple"
+        ) {
+          filtered.push(t);
+        }
+        if (
+          flagOn(exam.is_internal_exam ?? exam.isInternalExam) &&
+          code === "Internal"
+        ) {
+          filtered.push(t);
+        }
+      }
+    }
+    return [
+      { value: "0", label: "All" },
+      ...filtered.map((t) => ({
+        value: String(num(t.generalDetailId)),
+        label: String(t.generalDetailCode ?? ""),
+      })),
+    ];
+  }, [examFeeTypesList, exams, examId]);
 
   useEffect(() => {
     if (!courseId || !academicYears.length) return;
@@ -905,6 +940,16 @@ export function ExamFinalAnalysisReportPage({
       setExamId(String(num(exams[0].fk_exam_id)));
     }
   }, [academicYearId, exams, examId]);
+
+  // Angular getExamTypes: default to first Regular/Supple/Internal id (user can still pick All).
+  useEffect(() => {
+    const typed = examTypeOptions.filter((o) => o.value !== "0");
+    if (typed.length === 0) {
+      setExamTypeId("0");
+      return;
+    }
+    setExamTypeId(typed[0].value);
+  }, [examId, examTypeOptions]);
 
   useEffect(() => {
     async function loadRest() {
@@ -1195,8 +1240,9 @@ export function ExamFinalAnalysisReportPage({
     <FilteredListPage
       title={title}
       filters={filterFields}
-      resultsVisible={hasFetched}
-      rowData={hasFetched ? rows : []}
+      showTable={rows.length > 0}
+      resultsVisible={rows.length > 0}
+      rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
       pagination

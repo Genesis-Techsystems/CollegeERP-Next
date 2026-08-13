@@ -508,6 +508,27 @@ export default function StudentSubjectsReportPage() {
       title="Student Subjects Report"
       className="relative"
       resultsVisible={resultsVisible}
+      showTable={resultsVisible}
+      tableHeader={
+        <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              book
+            </span>
+            <strong className="table-context-header__title">
+              Student Subjects Report
+            </strong>
+          </div>
+          {dataDetails ? (
+            <span className="text-[12px] font-medium text-blue-700">
+              {dataDetails}
+            </span>
+          ) : null}
+        </div>
+      }
       notice={
         <RadioGroup
           value={mode}
@@ -648,11 +669,6 @@ export default function StudentSubjectsReportPage() {
       body={
         resultsVisible ? (
           <div className="space-y-6">
-            {dataDetails ? (
-              <p className="text-sm font-semibold text-blue-600">
-                {dataDetails}
-              </p>
-            ) : null}
             <DataTable<PivotRow>
               title=""
               subtitle=""
@@ -680,13 +696,7 @@ export default function StudentSubjectsReportPage() {
               }}
               onExportExcel={handleExportExcel}
               toolbarTrailing={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-                  onClick={handlePrint}
-                >
+                <Button type="button" size="sm" onClick={handlePrint}>
                   <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
                   Print Report
                 </Button>
@@ -694,24 +704,44 @@ export default function StudentSubjectsReportPage() {
             />
 
             {detailRows.length > 0 ? (
-              <DataTable<SubjectDetailRow>
-                title=""
-                subtitle=""
-                bordered={false}
-                rowData={detailRows}
-                columnDefs={detailColumnDefs}
-                height="auto"
-                pagination
-                columnFilters={false}
-                getRowId={(p) => String(p.data?.__rowKey ?? "")}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: "Search",
-                  exportExcel: false,
-                  exportPdf: false,
-                  columnPicker: false,
-                }}
-              />
+              <div className="space-y-3">
+                <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="material-icons table-context-header__icon"
+                      aria-hidden
+                    >
+                      book
+                    </span>
+                    <strong className="table-context-header__title">
+                      Student Subject Details
+                    </strong>
+                  </div>
+                  {dataDetails ? (
+                    <span className="text-[12px] font-medium text-blue-700">
+                      {dataDetails}
+                    </span>
+                  ) : null}
+                </div>
+                <DataTable<SubjectDetailRow>
+                  title=""
+                  subtitle=""
+                  bordered={false}
+                  rowData={detailRows}
+                  columnDefs={detailColumnDefs}
+                  height="auto"
+                  pagination
+                  columnFilters={false}
+                  getRowId={(p) => String(p.data?.__rowKey ?? "")}
+                  toolbar={{
+                    search: true,
+                    searchPlaceholder: "Search",
+                    exportExcel: false,
+                    exportPdf: false,
+                    columnPicker: false,
+                  }}
+                />
+              </div>
             ) : null}
           </div>
         ) : null

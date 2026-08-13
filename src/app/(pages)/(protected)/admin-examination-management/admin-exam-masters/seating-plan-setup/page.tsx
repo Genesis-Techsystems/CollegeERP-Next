@@ -27,12 +27,12 @@ import {
   listRoomwiseOmrStudents,
   listUnivExamFiltersByCode,
   popExamInvigilator,
+  getSeatingPlanExamFilters,
+  getSeatingPlanCollegesRestInTt,
 } from "@/services/seating-plan";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { toast } from "sonner";
 import {
-  getUnivExamFiltersRegSup,
-  getUnivExamRestNoTt,
   listExamTimetablesByExam,
   listExamRoomAllotments as listExamRoomAllotmentsPre,
 } from "@/services/pre-examination";
@@ -412,6 +412,7 @@ export default function SeatingPlanSetupPage() {
   const [studentAllotmentDetails, setStudentAllotmentDetails] = useState<any[]>(
     [],
   );
+  const [coverSlipData, setCoverSlipData] = useState<any[]>([]);
   const [loadingPrintData, setLoadingPrintData] = useState(false);
   const [autoAssignBusy, setAutoAssignBusy] = useState(false);
 
@@ -437,6 +438,7 @@ export default function SeatingPlanSetupPage() {
     groupwiseAllocations,
     invigilatorRows,
     studentAllotmentDetails,
+    coverSlipData,
     setPrintMode,
   ]);
   const [assignSeatingOpen, setAssignSeatingOpen] = useState(false);
@@ -479,7 +481,7 @@ export default function SeatingPlanSetupPage() {
   const fetchFilters = useCallback(async () => {
     setLoadingFilters(true);
     try {
-      const univRows = await getUnivExamFiltersRegSup(employeeId || 0).catch(
+      const univRows = await getSeatingPlanExamFilters(employeeId || 0).catch(
         () => [],
       );
       setUnivExamFilterRows(Array.isArray(univRows) ? univRows : []);
@@ -725,7 +727,7 @@ export default function SeatingPlanSetupPage() {
         setSelectedExamTimetableId(null);
         return;
       }
-      const rest = await getUnivExamRestNoTt({
+      const rest = await getSeatingPlanCollegesRestInTt({
         courseId: selectedCourseId,
         examId: selectedExamId,
         academicYearId: selectedAcademicYearId ?? 0,
@@ -923,8 +925,10 @@ export default function SeatingPlanSetupPage() {
       if (!selectedExamId || !selectedExamTimetableId || !selectedCourseId) {
         setPreviewRows([]);
         setShowResults(false);
+        setCoverSlipData([]);
         return;
       }
+      setCoverSlipData([]);
       const sessionRow = sessionOptions.find(
         (s) => Number(s.id) === Number(selectedExamTimetableId),
       );
@@ -978,7 +982,14 @@ export default function SeatingPlanSetupPage() {
           examId: selectedExamId,
           courseId: selectedCourseId,
           examTimetableId: selectedExamTimetableId,
-        }).catch(() => []),
+        })
+          .then((rows) => {
+            if (!signal.aborted)
+              setCoverSlipData(Array.isArray(rows) ? rows : []);
+          })
+          .catch(() => {
+            if (!signal.aborted) setCoverSlipData([]);
+          }),
         listExamInvigilationAllotmentsByTimetable(selectedExamTimetableId)
           .then((rows) => {
             if (!signal.aborted) setInvigilatorRows(rows);
@@ -988,7 +999,8 @@ export default function SeatingPlanSetupPage() {
           }),
       ]);
 
-      // Angular ExamRoomAllotment: examMaster.examId + ExamTimetable.examTimetableId
+      // Angular selectedCollege(): ExamRoomAllotment domain list only
+      // (examMaster.examId + ExamTimetable.examTimetableId). No OMR fallback.
       let rows: any[] = [];
       if (selectedCollegeId) {
         rows = await listExamRoomAllotmentsPre(
@@ -1003,10 +1015,6 @@ export default function SeatingPlanSetupPage() {
           selectedExamId,
           selectedExamTimetableId,
         ).catch(() => []);
-      }
-      if (signal.aborted) return;
-      if (!Array.isArray(rows) || rows.length === 0) {
-        rows = await fetchRoomwiseOmrStudents(procParams).catch(() => []);
       }
       if (signal.aborted) return;
       // Angular sets flag=true after the list API returns (even when empty).
@@ -1334,7 +1342,7 @@ export default function SeatingPlanSetupPage() {
         minWidth: 120,
         valueFormatter: (p: any) => formatTableDate(p.value),
       },
-      { field: "session", headerName: "Session", minWidth: 110 },
+      { field: "session", headerName: "Exam Session", minWidth: 110 },
       {
         field: "roomCode",
         headerName: "Room Code",
@@ -2394,50 +2402,206 @@ export default function SeatingPlanSetupPage() {
       );
     }
 
-    if (printMode === "cover-slip" || printMode === "packing-slip") {
-      const title = printMode === "cover-slip" ? "Cover Slip" : "Packing Slip";
+    if (printMode === "cover-slip") {
+      const groupedMap = new Map<string, any>();
+      for (const item of coverSlipData) {
+        const key = `${item.fk_subject_id}|${item.course_year}|${item.exam_type}`;
+        if (!groupedMap.has(key)) {
+          groupedMap.set(key, {
+            course_name: item.course_name,
+            exam_type: item.exam_type,
+            course_year: item.course_year,
+            subject_code: item.subject_code,
+            subject_name: item.subject_name,
+            exam_label_name: item.exam_label_name,
+            exam_date: item.exam_date,
+            session_start_time: item.session_start_time,
+            session_end_time: item.session_end_time,
+            groups: [] as any[],
+            total_present: 0,
+            total_absent: 0,
+            total_malpractice: 0,
+          });
+        }
+        const g = groupedMap.get(key)!;
+        const present = Number(item?.Present) || 0;
+        const absent =
+          Number(item?.Absent) ||
+          (Number(item?.registered_for_exam) || 0) - present;
+        const mal = Number.isNaN(Number(item?.mal_practice))
+          ? 0
+          : Number(item?.mal_practice);
+        if (item.course_group && (present > 0 || absent > 0 || mal > 0)) {
+          g.groups.push({
+            course_group: item.course_group,
+            present,
+            absent,
+            mal_practice: mal,
+          });
+          g.total_present += present;
+          g.total_absent += absent;
+          g.total_malpractice += mal;
+        }
+      }
+      const groups = Array.from(groupedMap.values());
+      const head = groups[0] ?? {};
+      const cellStyle = {
+        border: "1px solid #000",
+        padding: "4px 6px",
+      } as const;
       return (
-        <PrintShell title={title}>
-          {filteredRows.map((r, ri) => (
-            <div
-              key={`cs-${ri}`}
-              className={ri > 0 ? "page-break pt-3" : "pt-1"}
+        <div
+          data-print-root
+          className="text-black"
+          style={{
+            fontFamily: "Times New Roman, Times, serif",
+            padding: "20px",
+          }}
+        >
+          <h4 style={{ textAlign: "center", fontWeight: "bold" }}>CoverSlip</h4>
+          <h4 style={{ textAlign: "center" }}>{head.exam_label_name}</h4>
+          <div className="flex justify-between text-[12px] my-2">
+            <span>
+              <b>Exam Date :</b> {formatTableDate(head.exam_date)}
+            </span>
+            <span>
+              <b>Session :</b> ({tConvert(head.session_start_time)}-
+              {tConvert(head.session_end_time)})
+            </span>
+          </div>
+          {groups.map((group, i) => (
+            <table
+              key={i}
+              className="w-full border-collapse text-[11px] mb-4"
+              style={{ border: "1px solid #000" }}
             >
-              <div className="border-2 border-slate-700 p-4">
-                <div className="text-center text-[14px] font-bold mb-1">
-                  {title}
-                </div>
-                <div className="text-center text-[11px] mb-3">
-                  {headerSubtitle || examName}
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div>
-                    <b>Room:</b> {r.roomCode}
-                  </div>
-                  <div>
-                    <b>Exam Date:</b> {r.examDate}
-                  </div>
-                  <div>
-                    <b>Session:</b> {r.session}
-                  </div>
-                  <div>
-                    <b>Total Students:</b> {r.bookedSeats}
-                  </div>
-                  <div>
-                    <b>Blocked Seats:</b> {r.blockedSeats}
-                  </div>
-                  <div>
-                    <b>Available:</b> {r.availableSeats}
-                  </div>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-4 text-[10px]">
-                  <div>Invigilator Signature: ____________________</div>
-                  <div>Chief Superintendent: ____________________</div>
-                </div>
+              <thead>
+                <tr>
+                  <th style={cellStyle}>S.NO</th>
+                  <th style={cellStyle}>Subject Details</th>
+                  <th style={cellStyle}>Packing Slip</th>
+                  <th style={cellStyle}>Present</th>
+                  <th style={cellStyle}>Absent</th>
+                  <th style={cellStyle}>MalPractice</th>
+                  <th style={cellStyle}>Other</th>
+                  <th style={cellStyle}>Buffer</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={cellStyle}>{i + 1}</td>
+                  <td style={cellStyle}>
+                    {group.course_name}/{group.exam_type}/{group.course_year}
+                    <br />
+                    {group.subject_code} - {group.subject_name}
+                  </td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}></td>
+                </tr>
+                {group.groups.map((d: any, di: number) => (
+                  <tr key={di}>
+                    <td style={cellStyle}></td>
+                    <td style={cellStyle}>{d.course_group || "--"}</td>
+                    <td style={cellStyle}></td>
+                    <td style={cellStyle}>{d.present || 0}</td>
+                    <td style={cellStyle}>{d.absent || 0}</td>
+                    <td style={cellStyle}>{d.mal_practice || 0}</td>
+                    <td style={cellStyle}></td>
+                    <td style={cellStyle}></td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}>
+                    <b>TOTALS</b>
+                  </td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}>
+                    <b>{group.total_present}</b>
+                  </td>
+                  <td style={cellStyle}>
+                    <b>{group.total_absent}</b>
+                  </td>
+                  <td style={cellStyle}>
+                    <b>{group.total_malpractice}</b>
+                  </td>
+                  <td style={cellStyle}></td>
+                  <td style={cellStyle}></td>
+                </tr>
+              </tbody>
+            </table>
+          ))}
+        </div>
+      );
+    }
+
+    if (printMode === "packing-slip") {
+      const cellStyle = {
+        border: "1px solid #000",
+        padding: "4px 6px",
+      } as const;
+      return (
+        <div
+          data-print-root
+          className="text-black"
+          style={{ fontFamily: "Times New Roman, Times, serif" }}
+        >
+          {coverSlipData.map((data, i) => (
+            <div key={i} style={{ padding: "20px", pageBreakAfter: "always" }}>
+              <h4 style={{ textAlign: "center", fontWeight: "bold" }}>
+                Packing Slip
+              </h4>
+              <h4 style={{ textAlign: "center" }}>{data?.exam_label_name}</h4>
+              <div className="flex justify-between text-[12px] my-2">
+                <span>
+                  <b>Exam Date :</b> {formatTableDate(data?.exam_date)}
+                </span>
+                <span>
+                  <b>Session :</b> ({tConvert(data?.session_start_time)}-
+                  {tConvert(data?.session_end_time)})
+                </span>
               </div>
+              <table
+                className="w-full border-collapse text-[11px]"
+                style={{ border: "1px solid #000" }}
+              >
+                <thead>
+                  <tr>
+                    <th style={cellStyle}>S.NO</th>
+                    <th style={cellStyle}>Subject Details</th>
+                    <th style={cellStyle}>Packing Slip</th>
+                    <th style={cellStyle}>Present</th>
+                    <th style={cellStyle}>Absent</th>
+                    <th style={cellStyle}>MalPractise</th>
+                    <th style={cellStyle}>Other</th>
+                    <th style={cellStyle}>Buffer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={cellStyle}>1</td>
+                    <td style={cellStyle}>
+                      {data?.course_name}/{data?.course_group}/{data?.exam_type}
+                      /{data?.course_year}
+                      <br />
+                      {data?.subject_code} - {data?.subject_name}
+                    </td>
+                    <td style={cellStyle}></td>
+                    <td style={cellStyle}>{data?.Present}</td>
+                    <td style={cellStyle}>{data?.Absent}</td>
+                    <td style={cellStyle}>{data?.mal_practice}</td>
+                    <td style={cellStyle}></td>
+                    <td style={cellStyle}></td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           ))}
-        </PrintShell>
+        </div>
       );
     }
   }
@@ -2770,6 +2934,10 @@ export default function SeatingPlanSetupPage() {
               setAutoAssignBusy(true);
               try {
                 await popExamInvigilator(selectedExamTimetableId);
+                const rows = await listExamInvigilationAllotmentsByTimetable(
+                  selectedExamTimetableId,
+                ).catch(() => []);
+                setInvigilatorRows(Array.isArray(rows) ? rows : []);
                 toast.success("Invigilators auto-assigned");
               } catch {
                 toast.error("Auto-assign invigilators failed");

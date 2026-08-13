@@ -22,19 +22,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MINIO_URL } from "@/config/constants/api";
+import { useSessionContext } from "@/context/SessionContext";
 import {
-  listStudents,
-  listPaymentModes,
   addExamAdditionalFeeReceipt,
-} from "@/services/pre-examination";
-import {
   dedupeRevisionHistoryRows,
   getExamRevisionStdDetailsBundle,
   getStudentRevisionPaymentDetails,
   listExamRevisionTypes,
+  listPaymentModes,
   listStudentExamsForRevaluationFee,
   listStudentPhotocopyEvaluationDetails,
-} from "@/services/re-evaluation";
+  listStudents,
+  syncPresentDateFromDashboard,
+} from "@/services";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
 
@@ -142,7 +142,7 @@ function todayYmd(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Angular `genericFunctions.momentYMD()` — uses `presentDate` (DD-MM-YYYY) when set. */
+/** Angular `genericFunctions.momentYMD()` — `presentDate` is DD-MM-YYYY from dashboard. */
 function presentDateYmd(): string {
   const raw = String(
     globalThis?.localStorage?.getItem("presentDate") ?? "",
@@ -153,28 +153,88 @@ function presentDateYmd(): string {
       const [d, m, y] = parts;
       return `${y}-${m}-${d}`;
     }
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
   }
   return todayYmd();
 }
 
-function parseUserRoleNames(): string[] {
+/**
+ * Angular login: ADMIN | EXAMADMIN → isAdmin; re-val page: ADMIN | ExamController
+ * → isAllowPayment (skip expiry). College exam users are EXAMADMIN.
+ */
+function isAllowPaymentRoleName(raw: unknown): boolean {
+  const n = String(raw ?? "")
+    .toUpperCase()
+    .replace(/[\s_-]+/g, "");
+  return (
+    n === "ADMIN" ||
+    n === "SUPERADMIN" ||
+    n === "SKOLOADMIN" ||
+    n === "EXAMADMIN" ||
+    n === "EXAMCONTROLLER"
+  );
+}
+
+/**
+ * Angular `genericFunctions.moment()` — ISO UTC midnight from presentDate / YMD.
+ * Used for receiptDate on POST addExamAdditionalFeeReceipt.
+ */
+function toPresentDateIso(ymd: string): string {
+  const s = String(ymd ?? "")
+    .trim()
+    .slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return new Date().toISOString();
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  return new Date(Date.UTC(y, mo - 1, d, 0, 0, 0, 0))
+    .toISOString()
+    .replace(".000Z", "Z");
+}
+
+function readStoredUserRoleNames(): string[] {
+  if (typeof globalThis.window === "undefined") return [];
+  const names: string[] = [];
   try {
     const raw =
-      globalThis?.localStorage?.getItem("userDetails") ??
-      globalThis?.localStorage?.getItem("userdetails");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as {
-      userRoles?: Array<{ roleName?: string } | string>;
-    };
-    const roles = parsed?.userRoles ?? [];
-    if (!Array.isArray(roles)) return [];
-    return roles
-      .map((r) => (typeof r === "string" ? r : String(r?.roleName ?? "")))
-      .filter(Boolean);
+      globalThis.localStorage.getItem("userDetails") ??
+      globalThis.localStorage.getItem("userdetails");
+    if (raw) {
+      const parsed = JSON.parse(raw) as {
+        userRoles?: Array<{ roleName?: string } | string>;
+      };
+      for (const r of parsed?.userRoles ?? []) {
+        names.push(typeof r === "string" ? r : String(r?.roleName ?? ""));
+      }
+    }
   } catch {
-    return [];
+    // ignore
   }
+  names.push(
+    globalThis.localStorage.getItem("roleName") ?? "",
+    globalThis.localStorage.getItem("userRole") ?? "",
+  );
+  return names.filter(Boolean);
 }
+
+/**
+ * Angular ngOnInit: loop `loginUser.userRoles` — ADMIN / ExamController
+ * skip fee expiry (`isAllowPayment`).
+ */
+function canBypassExamFeeExpiry(
+  user: {
+    isAdmin?: boolean;
+    userRole?: string;
+    roleName?: string;
+  } | null,
+): boolean {
+  if (user?.isAdmin) return true;
+  if (globalThis?.localStorage?.getItem("isAdmin") === "true") return true;
+  const names = [user?.userRole, user?.roleName, ...readStoredUserRoleNames()];
+  return names.some(isAllowPaymentRoleName);
+}
+
 function resolvePhotoUrl(row: AnyRow | null): string | null {
   if (!row) return null;
   const path = strFrom(row, [
@@ -306,8 +366,9 @@ async function hydrateRevaluationFeeFromSearchParams(args: {
 
 export default function ReEvaluationFeeCollectionPage() {
   const searchParams = useSearchParams();
+  const { user } = useSessionContext();
   const employeeId = Number(
-    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+    globalThis?.localStorage?.getItem("employeeId") ?? user?.employeeId ?? 0,
   );
   const appliedQueryKey = useRef<string | null>(null);
 
@@ -328,10 +389,15 @@ export default function ReEvaluationFeeCollectionPage() {
   const [examRevisionStdDetails, setExamRevisionStdDetails] = useState<
     AnyRow[]
   >([]);
-  const [checksubject, setChecksubject] = useState(true);
+  // Angular checksubject = false — subjects start unchecked until user ticks them
+  const [checksubject, setChecksubject] = useState(false);
   const [duplicateSelectedList, setDuplicateSelectedList] = useState<AnyRow[]>(
     [],
   );
+  const examRevisionStdDetailsRef = useRef<AnyRow[]>([]);
+  examRevisionStdDetailsRef.current = examRevisionStdDetails;
+  const duplicateSelectedListRef = useRef<AnyRow[]>([]);
+  duplicateSelectedListRef.current = duplicateSelectedList;
 
   // payment form
   const [paymentModes, setPaymentModes] = useState<AnyRow[]>([]);
@@ -341,7 +407,8 @@ export default function ReEvaluationFeeCollectionPage() {
   const [referenceNumber, setReferenceNumber] = useState("");
   const [otherPaymentNumber, setOtherPaymentNumber] = useState("");
   const [transactionNo, setTransactionNo] = useState("");
-  const [receiptDate, setReceiptDate] = useState(todayYmd());
+  // Angular receiptDate = genericFunctions.moment() → presentDate
+  const [receiptDate, setReceiptDate] = useState(presentDateYmd());
   const [feeComments, setFeeComments] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -362,10 +429,8 @@ export default function ReEvaluationFeeCollectionPage() {
   const eachCourseFee = Number(coursesYearList[0]?.fee ?? 0);
   const examFeeAmount = duplicateSelectedList.length * eachCourseFee;
 
-  const isAllowPayment = useMemo(() => {
-    const roles = parseUserRoleNames();
-    return roles.some((r) => r === "ADMIN" || r === "ExamController");
-  }, []);
+  // Angular: ADMIN / ExamController → isAllowPayment (skip expiry)
+  const isAllowPayment = useMemo(() => canBypassExamFeeExpiry(user), [user]);
 
   useEffect(() => {
     void (async () => {
@@ -375,6 +440,9 @@ export default function ReEvaluationFeeCollectionPage() {
       ]);
       setRevisionTypes(Array.isArray(types) ? types : []);
       setPaymentModes(Array.isArray(modes) ? modes : []);
+      // Angular dashboard sets presentDate before this page's momentYMD() expiry check
+      const date = await syncPresentDateFromDashboard();
+      if (date) setReceiptDate(presentDateYmd());
     })();
   }, []);
 
@@ -501,7 +569,8 @@ export default function ReEvaluationFeeCollectionPage() {
     return rows.map((it) => ({
       ...it,
       disabled: Number(it.already_reg) === 1,
-      checked: Number(it.already_reg) !== 1,
+      // Angular CoursemarkItems / markItems: unchecked until user selects
+      checked: false,
     }));
   }
 
@@ -561,7 +630,7 @@ export default function ReEvaluationFeeCollectionPage() {
         })
         .map((c) => ({ ...c, check: true }));
       setCoursesYearList(cyList);
-      setChecksubject(true);
+      setChecksubject(false);
       setExamRevisionStdDetails(
         cyList.length > 0
           ? buildSubjectsForCourseYears(details, cyList, rid)
@@ -585,12 +654,13 @@ export default function ReEvaluationFeeCollectionPage() {
     setExamRevisionStdDetails(
       buildSubjectsForCourseYears(detailsList, next, Number(revisionTypeId)),
     );
-    setChecksubject(true);
+    setChecksubject(false);
   }
 
-  // markItems master
+  // Angular markItems() — clears cart; applies master All to rows
   function toggleAllSubjects(all: boolean) {
     setChecksubject(all);
+    setDuplicateSelectedList([]);
     setExamRevisionStdDetails((prev) =>
       prev.map((it) =>
         Number(it.already_reg) === 1
@@ -600,21 +670,22 @@ export default function ReEvaluationFeeCollectionPage() {
     );
   }
 
+  // Angular checkedItems() — clears cart on any checkbox change; fee only after Add
   function toggleSubject(check: boolean, row: AnyRow) {
     if (Number(row.already_reg) === 1) return;
-    setExamRevisionStdDetails((prev) =>
-      prev.map((it) =>
+    setDuplicateSelectedList([]);
+    setExamRevisionStdDetails((prev) => {
+      const next = prev.map((it) =>
         Number(it.fk_subject_id) === Number(row.fk_subject_id)
           ? { ...it, checked: check }
           : it,
-      ),
-    );
-    if (!check)
-      setDuplicateSelectedList((prev) =>
-        prev.filter(
-          (x) => Number(x.fk_subject_id) !== Number(row.fk_subject_id),
-        ),
       );
+      const eligible = next.filter((it) => Number(it.already_reg) !== 1);
+      setChecksubject(
+        eligible.length > 0 && eligible.every((it) => it.checked),
+      );
+      return next;
+    });
   }
 
   // Angular validExamDate() → AddData()
@@ -625,21 +696,24 @@ export default function ReEvaluationFeeCollectionPage() {
     setOtherPaymentNumber("");
     setTransactionNo("");
 
-    const newlyChecked = examRevisionStdDetails.filter(
+    const topList = examRevisionStdDetailsRef.current || [];
+    const cart = duplicateSelectedListRef.current || [];
+    const newlyChecked = topList.filter(
       (row) =>
         row.checked === true &&
-        !duplicateSelectedList.some(
+        !cart.some(
           (d) => Number(d.fk_subject_id) === Number(row.fk_subject_id),
         ),
     );
     if (newlyChecked.length === 0) {
-      toast.info("Select subject(s) to add.");
+      toast.info("Please Selcet Any Course");
       return;
     }
-    setDuplicateSelectedList((prev) => [...prev, ...newlyChecked]);
+    setDuplicateSelectedList([...cart, ...newlyChecked]);
   }
 
   function validExamDate() {
+    // Angular: ADMIN / ExamController skip expiry. Login also flags EXAMADMIN as isAdmin.
     if (isAllowPayment) {
       addData();
       return;
@@ -667,7 +741,7 @@ export default function ReEvaluationFeeCollectionPage() {
 
   async function payFee() {
     if (duplicateSelectedList.length === 0) {
-      toastError("Add at least one subject before paying.");
+      toast.info("Please Selcet Any Course");
       return;
     }
     if (!paymentModeCatId) {
@@ -684,11 +758,15 @@ export default function ReEvaluationFeeCollectionPage() {
       "college_id",
       "fk_college_id",
     ]);
+    // Angular payFee uses examRevisionStdDetails[0] for fee header fields
     const head = examRevisionStdDetails[0] ?? duplicateSelectedList[0] ?? {};
     const sel0 = duplicateSelectedList[0] ?? {};
     const subjectIds = duplicateSelectedList
       .map((r) => numFrom(r, ["fk_subject_id"]))
+      .filter((id) => id > 0)
       .join(",");
+    // Angular receiptDate = moment() ISO
+    const receiptDateIso = toPresentDateIso(receiptDate);
 
     const examRevisionSubjectDTOs = duplicateSelectedList.map((row) => ({
       collegeId,
@@ -729,7 +807,7 @@ export default function ReEvaluationFeeCollectionPage() {
       refundDate: head.refund_date,
       refundReason: head.refund_Reason,
       examFeeAmount,
-      receiptDate,
+      receiptDate: receiptDateIso,
       studentId,
       paymentModeCatId,
       referenceNumber,
@@ -759,13 +837,13 @@ export default function ReEvaluationFeeCollectionPage() {
           revisedByEmpId: null,
           studentId,
           subjectId: null,
-          addtReceiptDate: receiptDate,
+          addtReceiptDate: receiptDateIso,
           subjectTypeId: null,
           regulationId: null,
           updatedUser: null,
           createdUser: null,
           reevaluationEnteredEmpId: null,
-          receiptDate,
+          receiptDate: receiptDateIso,
           paymentModeCatId,
           referenceNumber,
           chequeNo,
@@ -865,7 +943,11 @@ export default function ReEvaluationFeeCollectionPage() {
               type="checkbox"
               disabled={!!row.disabled}
               checked={!!row.checked}
-              onChange={(e) => toggleSubject(e.target.checked, row)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                row.checked = checked;
+                toggleSubject(checked, row);
+              }}
             />
           );
         },
@@ -921,7 +1003,7 @@ export default function ReEvaluationFeeCollectionPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [checksubject, examRevisionStdDetails],
+    [checksubject],
   );
 
   const photoSrc = resolvePhotoUrl(studentRow);
@@ -1119,14 +1201,7 @@ export default function ReEvaluationFeeCollectionPage() {
                     <span className="text-[13px] text-blue-700 whitespace-nowrap">
                       Each Course Fee — {eachCourseFee} /-
                     </span>
-                    <Button
-                      className="h-8 text-[12px]"
-                      onClick={validExamDate}
-                      disabled={
-                        examRevisionStdDetails.filter((r) => r.checked)
-                          .length === 0
-                      }
-                    >
+                    <Button className="h-8 text-[12px]" onClick={validExamDate}>
                       Add
                     </Button>
                   </div>

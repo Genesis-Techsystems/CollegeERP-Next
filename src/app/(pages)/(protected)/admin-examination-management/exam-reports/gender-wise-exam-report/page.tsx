@@ -73,12 +73,22 @@ function formatExamLabel(exam: AnyRow): string {
   const from = txt(exam.from_date).slice(0, 10);
   const to = txt(exam.to_date).slice(0, 10);
   const bits: string[] = [];
-  if (exam.is_internal_exam) bits.push("Internal");
-  if (exam.is_regular_exam) bits.push("Regular");
-  if (exam.is_supply_exam) bits.push("Supple");
+  if (flagOn(exam.is_internal_exam ?? exam.isInternalExam))
+    bits.push("Internal");
+  if (flagOn(exam.is_regular_exam ?? exam.isRegularExam)) bits.push("Regular");
+  if (flagOn(exam.is_supply_exam ?? exam.isSupplyExam)) bits.push("Supple");
   const range = from && to ? ` (${from} - ${to})` : "";
   const tags = bits.length ? bits.map((b) => `(${b})`).join("") : "";
   return `${name}${range}${tags}`;
+}
+
+/** Angular exam flag (`is_regular_exam` / `is_supply_exam` / `is_internal_exam`). */
+function flagOn(v: unknown): boolean {
+  if (v === true || v === 1) return true;
+  const s = String(v ?? "")
+    .trim()
+    .toLowerCase();
+  return s === "1" || s === "true" || s === "t" || s === "y" || s === "yes";
 }
 
 function feeTypeId(row: AnyRow): number {
@@ -465,10 +475,17 @@ export default function GenderWiseExamReportPage() {
       return;
     }
     const types = allFeeTypes.filter((t) => {
-      const code = feeTypeCode(t);
-      if (code === "Regular") return Boolean(selectedExam.is_regular_exam);
-      if (code === "Supple") return Boolean(selectedExam.is_supply_exam);
-      if (code === "Internal") return Boolean(selectedExam.is_internal_exam);
+      const code = String(t.generalDetailCode ?? t.general_detail_code ?? "");
+      if (code === "Regular")
+        return flagOn(
+          selectedExam.is_regular_exam ?? selectedExam.isRegularExam,
+        );
+      if (code === "Supple")
+        return flagOn(selectedExam.is_supply_exam ?? selectedExam.isSupplyExam);
+      if (code === "Internal")
+        return flagOn(
+          selectedExam.is_internal_exam ?? selectedExam.isInternalExam,
+        );
       return false;
     });
     setExamFeeTypes(types);

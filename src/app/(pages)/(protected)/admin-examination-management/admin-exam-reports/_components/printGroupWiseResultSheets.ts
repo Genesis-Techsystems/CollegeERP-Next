@@ -22,6 +22,8 @@ export type GroupWisePrintMeta = {
   resultStatus: string;
   collegeName?: string;
   collegeLogo?: string;
+  /** When true (Course Group = All), banner is `GROUP - Promoted (n)`. */
+  includeGroupCode?: boolean;
 };
 
 function escapeHtml(value: string): string {
@@ -167,8 +169,12 @@ function buildDocument(
               .join("")}</tr>`,
         )
         .join("");
+      const banner =
+        meta.includeGroupCode && group.groupCode
+          ? `${escapeHtml(group.groupCode)} - ${status} (${tickets.length})`
+          : `${status} (${tickets.length})`;
       return `
-        <p class="group-head">${escapeHtml(group.groupCode)} - ${status} (${tickets.length})</p>
+        <p class="group-head">${banner}</p>
         <hr />
         <table class="tickets" cellspacing="0" cellpadding="0">${rows}</table>
         <hr />

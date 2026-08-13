@@ -1,17 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/common/components/select";
+import { SearchInput } from "@/common/components/search";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import { rowIndexGetter } from "@/lib/utils";
 import {
+  getCollegeById,
   getGeneralDetails,
   getGroupWiseFinalResults,
   getRegSupBaseFilters,
@@ -40,37 +40,13 @@ type GroupBucket = {
   students: AnyRow[];
 };
 
-const TABLE_TOOLBAR = {
-  search: true,
-  searchPlaceholder: "Search roll no",
-  columnPicker: false,
-  exportPdf: false,
-  exportExcel: true,
-} as const;
-
-const COL_DEFS = {
-  sno: {
-    headerName: "S.No",
-    valueGetter: rowIndexGetter,
-    width: 80,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  group: {
-    headerName: "Group",
-    minWidth: 120,
-    flex: 0,
-    width: 140,
-    valueGetter: (p) =>
-      strFrom(p.data ?? {}, ["_groupCode", "group_code", "groupCode"]),
-  } as ColDef<AnyRow>,
-  hallticket: {
-    headerName: "Roll No",
-    minWidth: 180,
-    flex: 1,
-    valueGetter: (p) =>
-      strFrom(p.data ?? {}, ["hallticket_number", "hall_ticketno"]),
-  } as ColDef<AnyRow>,
-};
+function hallTicket(row: AnyRow): string {
+  return strFrom(row, [
+    "hallticket_number",
+    "hall_ticketno",
+    "hallTicketNumber",
+  ]);
+}
 
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
@@ -130,6 +106,8 @@ export function GroupWiseResultSheetsPage({
 
   const [groupResults, setGroupResults] = useState<GroupBucket[]>([]);
   const [examLabel, setExamLabel] = useState("");
+  const [printCollegeName, setPrintCollegeName] = useState("");
+  const [searchText, setSearchText] = useState("");
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -210,30 +188,12 @@ export function GroupWiseResultSheetsPage({
     [groupResults],
   );
 
-  const showGroupColumn = groupResults.length > 1;
-
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      COL_DEFS.sno,
-      ...(showGroupColumn ? [COL_DEFS.group] : []),
-      COL_DEFS.hallticket,
-    ],
-    [showGroupColumn],
-  );
-
-  const getRowId = useCallback((p: { data?: AnyRow }) => {
-    const ht = strFrom(p.data ?? {}, ["hallticket_number", "hall_ticketno"]);
-    const group = strFrom(p.data ?? {}, [
-      "_groupCode",
-      "group_code",
-      "groupCode",
-    ]);
-    return ht ? `${group}-${ht}` : `row-${Math.random()}`;
-  }, []);
+  const showGroupBanner = courseGroupId === 0 && groupResults.length > 1;
 
   function clearResults() {
     setGroupResults([]);
     setExamLabel("");
+    setSearchText("");
   }
 
   useEffect(() => {
@@ -565,12 +525,34 @@ export function GroupWiseResultSheetsPage({
       ) ?? null,
     [colleges, collegeId],
   );
-  const collegeName = strFrom(selectedCollege ?? {}, [
-    "college_name",
-    "collegeName",
-    "college_code",
-    "collegeCode",
-  ]);
+
+  // Angular getColleges(): print header uses College.collegeName, not college_code.
+  useEffect(() => {
+    let cancelled = false;
+    const fallback = strFrom(selectedCollege ?? {}, [
+      "college_name",
+      "collegeName",
+    ]);
+    if (!collegeId) {
+      setPrintCollegeName(fallback);
+      return;
+    }
+    getCollegeById(collegeId)
+      .then((college) => {
+        if (cancelled) return;
+        setPrintCollegeName(
+          strFrom(college ?? {}, ["collegeName", "college_name"]) || fallback,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setPrintCollegeName(fallback);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collegeId, selectedCollege]);
+
+  const collegeName = printCollegeName;
   const printGroupCode =
     courseGroupId > 0
       ? strFrom(
@@ -592,6 +574,7 @@ export function GroupWiseResultSheetsPage({
       resultStatus,
       collegeName,
       collegeLogo,
+      includeGroupCode: showGroupBanner,
     });
   }, [
     groupResults,
@@ -601,21 +584,53 @@ export function GroupWiseResultSheetsPage({
     resultStatus,
     collegeName,
     collegeLogo,
+    showGroupBanner,
   ]);
 
-  const groupSummary =
-    groupResults.length === 1
-      ? `${groupResults[0].groupCode} / ${resultStatus} (${groupResults[0].students.length})`
-      : groupResults.length > 1
-        ? `${groupResults.length} groups / ${resultStatus} (${flatRows.length})`
-        : "";
+  const dataDetails = useMemo(() => {
+    const collegeCode = strFrom(selectedCollege ?? {}, [
+      "college_code",
+      "collegeCode",
+    ]);
+    const courseCode = strFrom(
+      courses.find(
+        (r) => numFrom(r, ["fk_course_id", "courseId"]) === Number(courseId),
+      ) ?? {},
+      ["course_code", "courseCode"],
+    );
+    const yearCode = strFrom(
+      courseYears.find(
+        (r) =>
+          numFrom(r, ["fk_course_year_id", "courseYearId"]) ===
+          Number(courseYearId),
+      ) ?? {},
+      ["course_year_code", "courseYearCode"],
+    );
+    let details = "";
+    if (collegeCode) details = collegeCode;
+    if (courseCode) details += ` / ${courseCode}`;
+    if (printGroupCode) details += ` / ${printGroupCode}`;
+    if (yearCode) details += ` / ${yearCode}`;
+    if (examLabel) details += ` / ${examLabel}`;
+    return details;
+  }, [
+    selectedCollege,
+    courses,
+    courseId,
+    courseYears,
+    courseYearId,
+    printGroupCode,
+    examLabel,
+  ]);
+
+  const searchQ = searchText.trim().toLowerCase();
 
   return (
     <FilteredListPage
       title={pageTitle}
       showTable={flatRows.length > 0}
       tableHeader={
-        <div className="table-context-header flex flex-wrap items-center gap-x-4 gap-y-1">
+        <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <div className="flex items-center gap-2">
             <span
               className="material-icons table-context-header__icon"
@@ -625,14 +640,9 @@ export function GroupWiseResultSheetsPage({
             </span>
             <strong className="table-context-header__title">{pageTitle}</strong>
           </div>
-          {examLabel ? (
-            <span className="text-[12px] text-muted-foreground">
-              {examLabel}
-            </span>
-          ) : null}
-          {groupSummary ? (
+          {dataDetails ? (
             <span className="text-[12px] font-medium text-blue-700">
-              {groupSummary}
+              {dataDetails}
             </span>
           ) : null}
         </div>
@@ -831,29 +841,64 @@ export function GroupWiseResultSheetsPage({
           </GlobalFilterBarRow>
         </div>
       }
-      rowData={flatRows}
-      columnDefs={columnDefs}
-      loading={loading}
-      pagination
-      paginationPageSize={25}
-      getRowId={getRowId}
-      toolbar={{
-        ...TABLE_TOOLBAR,
-        excelDocumentTitle: pageTitle,
-        excelFileName: `${pageTitle}.xls`,
-      }}
-      toolbarTrailing={
-        flatRows.length > 0 ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-9 text-[12px]"
-            onClick={handlePrint}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
-        ) : undefined
+      body={
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 text-[12px]"
+              onClick={handlePrint}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+            <SearchInput
+              className="w-full max-w-xs"
+              placeholder="Search"
+              value={searchText}
+              onChange={setSearchText}
+            />
+          </div>
+          {groupResults.map((group) => {
+            const tickets = group.students
+              .map(hallTicket)
+              .filter((t) => (searchQ ? t.toLowerCase().includes(searchQ) : t));
+            const banner = showGroupBanner
+              ? `${group.groupCode} /${resultStatus}(${group.students.length})`
+              : `${resultStatus} (${group.students.length})`;
+            return (
+              <table
+                key={group.groupCode || resultStatus}
+                className="w-full border-collapse"
+              >
+                <thead>
+                  <tr>
+                    <th className="bg-[#C3D9FF] px-[5px] py-2 text-center text-[16px] font-medium">
+                      {banner}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="p-0">
+                      <div className="grid grid-cols-2 gap-y-1 px-2 py-2 sm:grid-cols-4">
+                        {tickets.map((t) => (
+                          <div
+                            key={t}
+                            className="px-2 py-1 text-left text-[13px]"
+                          >
+                            {t}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            );
+          })}
+        </div>
       }
     />
   );

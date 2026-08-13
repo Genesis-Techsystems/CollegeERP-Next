@@ -1,12 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+/**
+ * University Curriculum — Angular
+ * `academics/master/university-curriculum` parity.
+ *
+ * Back from Subjects restores filters via query params:
+ *   universityId, courseId, courseGroupId, regulationId
+ * (Angular `goBack` / `pageParams` + cascade in selectedUniversity/Course/Group/Regulation).
+ *
+ * Table card: `*ngIf="courseYears.length > 0"`.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Eye } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 import {
   listActiveCourseGroupsByCourse,
   listActiveCourseYearsByCourse,
@@ -17,6 +27,13 @@ import {
 import ViewSubjectsModal from "./ViewSubjectsModal";
 
 type AnyRow = Record<string, any>;
+
+type PageParams = {
+  universityId: number | null;
+  courseId: number | null;
+  courseGroupId: number | null;
+  regulationId: number | null;
+};
 
 function pickNum(row: AnyRow | null | undefined, keys: string[]): number {
   if (!row) return 0;
@@ -31,6 +48,32 @@ function safeString(v: unknown): string {
   if (typeof v === "string") return v.trim();
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";
+}
+
+function parsePageParams(sp: URLSearchParams): PageParams {
+  const n = (key: string) => {
+    const v = Number(sp.get(key) ?? 0);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
+  return {
+    universityId: n("universityId"),
+    courseId: n("courseId"),
+    courseGroupId: n("courseGroupId"),
+    regulationId: n("regulationId"),
+  };
+}
+
+function isEmptyPageParams(p: PageParams): boolean {
+  return !(p.universityId || p.courseId || p.courseGroupId || p.regulationId);
+}
+
+function idInList(
+  list: AnyRow[],
+  id: number | null | undefined,
+  keys: string[],
+): number | null {
+  if (!id) return null;
+  return list.some((x) => pickNum(x, keys) === id) ? id : null;
 }
 
 const BASE_COLS = {
@@ -87,6 +130,18 @@ function makeActionsRenderer(
 
 export default function UniversityCurriculumPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Angular `pageParams` from `route.queryParams`
+  const pageParams = useMemo(
+    () => parsePageParams(searchParams),
+    [searchParams],
+  );
+  const pageParamsRef = useRef(pageParams);
+  pageParamsRef.current = pageParams;
+  /** Angular: only apply query restore while pageParams is non-empty. */
+  const restoreRef = useRef(!isEmptyPageParams(pageParams));
+
   const [universities, setUniversities] = useState<AnyRow[]>([]);
   const [courses, setCourses] = useState<AnyRow[]>([]);
   const [courseGroups, setCourseGroups] = useState<AnyRow[]>([]);
@@ -101,6 +156,42 @@ export default function UniversityCurriculumPage() {
 
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewContext, setViewContext] = useState<AnyRow | null>(null);
+
+  // Angular getUniversity — no auto-select first; restore only from pageParams (Back).
+  useEffect(() => {
+    const pp = pageParams;
+    const restoring = !isEmptyPageParams(pp);
+    restoreRef.current = restoring;
+
+    if (restoring) {
+      // Force cascade to re-run even if soft-nav left the same universityId.
+      setCourseYears([]);
+      setRegulations([]);
+      setCourseGroups([]);
+      setCourses([]);
+      setRegulationId(null);
+      setCourseGroupId(null);
+      setCourseId(null);
+      setUniversityId(null);
+    }
+
+    listActiveUniversities()
+      .then((list) => {
+        setUniversities(list);
+        if (!restoring) return;
+        const id = idInList(list, pp.universityId, [
+          "universityId",
+          "pk_university_id",
+        ]);
+        setUniversityId(id);
+      })
+      .catch(() => setUniversities([]));
+  }, [
+    pageParams.universityId,
+    pageParams.courseId,
+    pageParams.courseGroupId,
+    pageParams.regulationId,
+  ]);
 
   const uniOptions = useMemo(
     () =>
@@ -135,16 +226,7 @@ export default function UniversityCurriculumPage() {
     [regulations],
   );
 
-  useEffect(() => {
-    listActiveUniversities()
-      .then((list) => {
-        setUniversities(list);
-        const firstId = pickNum(list[0], ["universityId", "pk_university_id"]);
-        setUniversityId(firstId || null);
-      })
-      .catch(() => setUniversities([]));
-  }, []);
-
+  // Angular selectedUniversity
   useEffect(() => {
     setCourses([]);
     setCourseGroups([]);
@@ -154,14 +236,20 @@ export default function UniversityCurriculumPage() {
     setCourseGroupId(null);
     setRegulationId(null);
     if (!universityId) return;
+
     listActiveCoursesByUniversity(universityId)
       .then((list) => {
         setCourses(list);
-        setCourseId(pickNum(list[0], ["courseId", "pk_course_id"]) || null);
+        const pp = pageParamsRef.current;
+        if (restoreRef.current && !isEmptyPageParams(pp)) {
+          const id = idInList(list, pp.courseId, ["courseId", "pk_course_id"]);
+          setCourseId(id);
+        }
       })
       .catch(() => setCourses([]));
   }, [universityId]);
 
+  // Angular selectedCourse
   useEffect(() => {
     setCourseGroups([]);
     setRegulations([]);
@@ -173,27 +261,43 @@ export default function UniversityCurriculumPage() {
     listActiveCourseGroupsByCourse(courseId)
       .then((list) => {
         setCourseGroups(list);
-        setCourseGroupId(
-          pickNum(list[0], ["courseGroupId", "pk_course_group_id"]) || null,
-        );
+        const pp = pageParamsRef.current;
+        if (restoreRef.current && !isEmptyPageParams(pp)) {
+          const id = idInList(list, pp.courseGroupId, [
+            "courseGroupId",
+            "pk_course_group_id",
+          ]);
+          setCourseGroupId(id);
+        }
       })
       .catch(() => setCourseGroups([]));
   }, [courseId]);
 
+  // Angular selectedGroup
   useEffect(() => {
     setRegulations([]);
     setCourseYears([]);
     setRegulationId(null);
     if (!courseId || !courseGroupId) return;
+
     listActiveRegulationsByCourse(courseId)
       .then((list) => {
         setRegulations(list);
-        // Intentionally do NOT auto-select a regulation.
-        // The table below should remain disabled/empty until user selection.
+        const pp = pageParamsRef.current;
+        if (restoreRef.current && !isEmptyPageParams(pp)) {
+          const id = idInList(list, pp.regulationId, [
+            "regulationId",
+            "pk_regulation_id",
+          ]);
+          setRegulationId(id);
+          // Finished Angular restore chain
+          restoreRef.current = false;
+        }
       })
       .catch(() => setRegulations([]));
   }, [courseId, courseGroupId]);
 
+  // Angular selectedRegulation → course years (sortOrder ASC)
   useEffect(() => {
     setCourseYears([]);
     if (!courseId || !courseGroupId || !regulationId) return;
@@ -204,9 +308,26 @@ export default function UniversityCurriculumPage() {
       .finally(() => setLoading(false));
   }, [courseId, courseGroupId, regulationId]);
 
+  const onUniversityChange = (v: string | null) => {
+    restoreRef.current = false;
+    setUniversityId(v ? Number(v) : null);
+  };
+  const onCourseChange = (v: string | null) => {
+    restoreRef.current = false;
+    setCourseId(v ? Number(v) : null);
+  };
+  const onGroupChange = (v: string | null) => {
+    restoreRef.current = false;
+    setCourseGroupId(v ? Number(v) : null);
+  };
+  const onRegulationChange = (v: string | null) => {
+    restoreRef.current = false;
+    setRegulationId(v ? Number(v) : null);
+  };
+
   const handleAssignSubjects = useCallback(
     (row: AnyRow) => {
-      if (!universityId || !courseId || !courseGroupId || !regulationId) return;
+      if (!universityId || !courseGroupId || !regulationId) return;
       const uni = universities.find(
         (x) =>
           pickNum(x, ["universityId", "pk_university_id"]) === universityId,
@@ -219,9 +340,19 @@ export default function UniversityCurriculumPage() {
         (x) =>
           pickNum(x, ["regulationId", "pk_regulation_id"]) === regulationId,
       );
-      const course = courses.find(
-        (x) => pickNum(x, ["courseId", "pk_course_id"]) === courseId,
-      );
+      // Angular assignSubjects: courseId/courseName from courseYear row
+      const rowCourseId =
+        pickNum(row, ["courseId", "pk_course_id"]) || courseId || 0;
+      const rowCourseName =
+        safeString(row.courseName || row.courseCode) ||
+        safeString(
+          courses.find(
+            (x) => pickNum(x, ["courseId", "pk_course_id"]) === rowCourseId,
+          )?.courseName ||
+            courses.find(
+              (x) => pickNum(x, ["courseId", "pk_course_id"]) === rowCourseId,
+            )?.courseCode,
+        );
 
       const params = new URLSearchParams({
         universityId: String(universityId),
@@ -229,11 +360,17 @@ export default function UniversityCurriculumPage() {
         courseGroupId: String(courseGroupId),
         groupName: safeString(group?.groupCode || group?.groupName),
         courseYearId: String(
-          pickNum(row, ["courseYearId", "pk_course_year_id"]),
+          pickNum(row, [
+            "courseYearId",
+            "courseyearId",
+            "pk_course_year_id",
+            "fk_course_year_id",
+            "course_year_id",
+          ]),
         ),
         courseYearName: safeString(row.courseYearName),
-        courseId: String(courseId),
-        courseName: safeString(course?.courseName || course?.courseCode),
+        courseId: String(rowCourseId),
+        courseName: rowCourseName,
         regulationId: String(regulationId),
         regulationName: safeString(
           regulation?.regulationName || regulation?.regulationCode,
@@ -277,17 +414,27 @@ export default function UniversityCurriculumPage() {
         (x) => pickNum(x, ["courseId", "pk_course_id"]) === (courseId ?? 0),
       );
 
+      // Angular openDialog: mutate course-year row with form ids, then load subjects.
+      const yearId = pickNum(row, [
+        "courseYearId",
+        "courseyearId",
+        "pk_course_year_id",
+        "fk_course_year_id",
+        "course_year_id",
+      ]);
       setViewContext({
         ...row,
-        courseGroupId,
-        courseYearId: pickNum(row, ['courseYearId', 'pk_course_year_id']),
-        regulationId,
+        courseGroupId: courseGroupId ?? 0,
+        courseYearId: yearId,
+        regulationId: regulationId ?? 0,
+        universityName: safeString(uni?.universityCode || uni?.universityName),
         universityCode: safeString(uni?.universityCode || uni?.universityName),
         courseCode: safeString(course?.courseCode || course?.courseName),
         groupCode: safeString(group?.groupCode || group?.groupName),
         regulationName: safeString(
           regulation?.regulationName || regulation?.regulationCode,
         ),
+        courseYearName: safeString(row.courseYearName),
       });
       setViewModalOpen(true);
     },
@@ -322,12 +469,12 @@ export default function UniversityCurriculumPage() {
     <>
       <FilteredListPage
         title="University Curriculum"
-        filters={(
+        filters={
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             <Select
               label="University"
               value={universityId ? String(universityId) : null}
-              onChange={(v) => setUniversityId(v ? Number(v) : null)}
+              onChange={onUniversityChange}
               options={uniOptions}
               placeholder="Select university"
               searchable
@@ -335,7 +482,7 @@ export default function UniversityCurriculumPage() {
             <Select
               label="Course"
               value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : null)}
+              onChange={onCourseChange}
               options={courseOptions}
               placeholder="Select course"
               searchable
@@ -344,7 +491,7 @@ export default function UniversityCurriculumPage() {
             <Select
               label="Course Group"
               value={courseGroupId ? String(courseGroupId) : null}
-              onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+              onChange={onGroupChange}
               options={groupOptions}
               placeholder="Select course group"
               searchable
@@ -353,20 +500,24 @@ export default function UniversityCurriculumPage() {
             <Select
               label="Regulation"
               value={regulationId ? String(regulationId) : null}
-              onChange={(v) => setRegulationId(v ? Number(v) : null)}
+              onChange={onRegulationChange}
               options={regulationOptions}
               placeholder="Select regulation"
               searchable
               disabled={!courseGroupId}
             />
           </div>
-        )}
+        }
+        showTable={courseYears.length > 0}
+        resultsVisible={courseYears.length > 0}
         rowData={courseYears}
         columnDefs={columnDefs}
         loading={loading}
         toolbar={{
           search: true,
-          searchPlaceholder: "Search course years...",
+          searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
         }}
         pagination
         paginationPageSize={10}

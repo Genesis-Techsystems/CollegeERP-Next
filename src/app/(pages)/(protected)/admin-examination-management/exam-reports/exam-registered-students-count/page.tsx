@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { CellStyle, ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
@@ -107,6 +107,10 @@ function getGrandTotal(rows: AnyRow[]): number {
     (sum, row) => sum + Number(row.students_registered_for_exam || 0),
     0,
   );
+}
+
+function isGrandTotalRow(row: AnyRow | undefined): boolean {
+  return row?.__rid === "grand-total";
 }
 
 /** Angular `exam-student-registration-tt-report` table + Grand Total footer. */
@@ -536,43 +540,69 @@ export default function ExamRegisteredStudentsCountPage() {
     );
   }
 
+  const pinnedBottomRowData = useMemo<AnyRow[]>(() => {
+    if (!rows.length) return [];
+    return [
+      {
+        __rid: "grand-total",
+        students_registered_for_exam: getGrandTotal(rows),
+      },
+    ];
+  }, [rows]);
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
         headerName: "S.No",
-        valueGetter: rowIndexGetter,
+        colSpan: (p) => (isGrandTotalRow(p.data) ? 6 : 1),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data) ? "Grand Total" : rowIndexGetter(p),
         width: 70,
         flex: 0,
+        cellStyle: (p): CellStyle | undefined =>
+          isGrandTotalRow(p.data)
+            ? { textAlign: "right", fontWeight: "bold" }
+            : undefined,
       },
       {
         headerName: "Subject",
         minWidth: 160,
-        valueGetter: (p) => txt(p.data?.subject),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data) ? "" : txt(p.data?.subject),
       },
       {
         headerName: "College",
         minWidth: 120,
-        valueGetter: (p) => txt(p.data?.college_code),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data) ? "" : txt(p.data?.college_code),
       },
       {
         headerName: "Course",
         minWidth: 140,
-        valueGetter: (p) => txt(p.data?.course_name),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data) ? "" : txt(p.data?.course_name),
       },
       {
         headerName: "Course Group",
         minWidth: 130,
-        valueGetter: (p) => txt(p.data?.course_group),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data) ? "" : txt(p.data?.course_group),
       },
       {
         headerName: "Exam Type",
         minWidth: 110,
-        valueGetter: (p) => txt(p.data?.exam_type),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data) ? "" : txt(p.data?.exam_type),
       },
       {
         headerName: "No Registered Students",
         minWidth: 160,
-        valueGetter: (p) => txt(p.data?.students_registered_for_exam),
+        valueGetter: (p) =>
+          isGrandTotalRow(p.data)
+            ? String(p.data?.students_registered_for_exam ?? 0)
+            : txt(p.data?.students_registered_for_exam),
+        cellStyle: (p): CellStyle | undefined =>
+          isGrandTotalRow(p.data) ? { fontWeight: "bold" } : undefined,
       },
     ],
     [],
@@ -766,6 +796,7 @@ export default function ExamRegisteredStudentsCountPage() {
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
+      pinnedBottomRowData={pinnedBottomRowData}
       loading={loadingList}
       showTable={rows.length > 0}
       pagination

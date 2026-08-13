@@ -2,6 +2,7 @@ import {
   buildQuery,
   domainCreate,
   domainList,
+  domainListRawQuery,
   domainUpdate,
   fetchDetails,
   getAllRecords,
@@ -13,6 +14,7 @@ import {
 } from "@/services/crud";
 import {
   EXAM_API,
+  EXAM_REVAL_API,
   FEE_API,
   NEXT_API,
   PAYMENT_GATEWAY_API,
@@ -223,6 +225,50 @@ export async function listExamTimetablesByExam(
     // ignore fallback failure
   }
   return [];
+}
+
+/**
+ * Angular `listDetailsByThreeIds(ExamTimetable, examId, 'true', examDate,
+ * 'ExamMaster.examId', isActive, 'examDate')` — date must be `YYYY/MM/DD`
+ * with unescaped slashes (domainListRawQuery).
+ */
+export async function listExamTimetablesByExamAndDate(
+  examId: number,
+  examDate: string,
+): Promise<AnyRow[]> {
+  if (!examId || !examDate) return [];
+  const apiDate = toExamApiDate(examDate);
+  if (!apiDate) return [];
+  const query = `ExamMaster.examId==${examId}.and.isActive==true.and.examDate==${apiDate}`;
+  try {
+    const rows = await domainListRawQuery<AnyRow>("ExamTimetable", query);
+    if (!Array.isArray(rows) || rows.length === 0) return [];
+    return rows.map((row) => {
+      const id = Number(
+        row?.examTimetableId ??
+          row?.exam_timetable_id ??
+          row?.fk_exam_timetable_id ??
+          0,
+      );
+      return {
+        ...row,
+        examTimetableId: id,
+        examDate: toDateStr(
+          row?.examDate ?? row?.exam_date ?? row?.examdate ?? "",
+        ),
+        examSessionName: String(
+          row?.examSessionName ??
+            row?.exam_session_name ??
+            row?.sessionName ??
+            row?.session_name ??
+            row?.session ??
+            "",
+        ),
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -1934,7 +1980,8 @@ export async function listAdditionalExamFeeTypes(): Promise<AnyRow[]> {
 export async function addExamAdditionalFeeReceipt(
   payload: AnyRow,
 ): Promise<any> {
-  return postDetails<any>("addExamAdditionalFeeReceipt", payload);
+  // Angular CONSTANTS.addExamAdditionalFeeReceiptUrl → POST addExamAdditionalFeeReceipt
+  return postDetails<any>(EXAM_REVAL_API.ADD_ADDITIONAL_FEE_RECEIPT, payload);
 }
 
 /**

@@ -180,6 +180,133 @@ const PAY_CONFIRM_COL_DEFS = {
   } as ColDef<AnyRow>,
 };
 
+/** Angular Exam Fee Receipts table columns */
+const RECEIPT_COL_DEFS = {
+  siNo: {
+    headerName: "SI No.",
+    valueGetter: (p: ValueGetterParams<AnyRow>) => (p.node?.rowIndex ?? 0) + 1,
+    width: 70,
+    flex: 0,
+  } as ColDef<AnyRow>,
+  semester: {
+    field: "courseYearName",
+    headerName: "Semester",
+    minWidth: 100,
+    flex: 0.8,
+  } as ColDef<AnyRow>,
+  receiptNo: {
+    field: "feeReceiptNo",
+    headerName: "Receipt No.",
+    minWidth: 140,
+    flex: 1.1,
+  } as ColDef<AnyRow>,
+  paymentDate: {
+    headerName: "Payment Date",
+    minWidth: 120,
+    flex: 1,
+    valueGetter: (p: ValueGetterParams<AnyRow>) => fmtDate(p.data?.receiptDate),
+  } as ColDef<AnyRow>,
+  paymentMode: {
+    field: "paymentModeCatDisplayName",
+    headerName: "Payment Mode",
+    minWidth: 120,
+    flex: 0.9,
+  } as ColDef<AnyRow>,
+  examType: {
+    field: "examtypeCatDisplayName",
+    headerName: "Exam Type",
+    minWidth: 110,
+    flex: 0.8,
+  } as ColDef<AnyRow>,
+  examFee: {
+    headerName: "Exam Fee (₹)",
+    minWidth: 110,
+    flex: 0.8,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueGetter: (p: ValueGetterParams<AnyRow>) =>
+      p.data?.examFeeAmount != null ? p.data.examFeeAmount : "-",
+  } as ColDef<AnyRow>,
+  addFee: {
+    headerName: "Add. Fee (₹)",
+    minWidth: 110,
+    flex: 0.8,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueGetter: (p: ValueGetterParams<AnyRow>) =>
+      p.data?.examAddtFee != null ? p.data.examAddtFee : "-",
+  } as ColDef<AnyRow>,
+  lateFee: {
+    headerName: "LateFee(₹)",
+    minWidth: 100,
+    flex: 0.7,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueGetter: (p: ValueGetterParams<AnyRow>) =>
+      p.data?.examFineAmount != null ? p.data.examFineAmount : "-",
+  } as ColDef<AnyRow>,
+  amount: {
+    headerName: "Amount (₹)",
+    minWidth: 110,
+    flex: 0.8,
+    type: "rightAligned",
+    cellClass: "ag-right-aligned-cell",
+    headerClass: "ag-right-aligned-header",
+    valueGetter: (p: ValueGetterParams<AnyRow>) =>
+      p.data?.examTotalAmount != null ? p.data.examTotalAmount : "-",
+  } as ColDef<AnyRow>,
+  subjects: {
+    headerName: "Subjects",
+    minWidth: 110,
+    width: 110,
+    flex: 0,
+    sortable: false,
+    filter: false,
+  } as ColDef<AnyRow>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 80,
+    width: 80,
+    flex: 0,
+    sortable: false,
+    filter: false,
+  } as ColDef<AnyRow>,
+};
+
+function makeReceiptCoursesRenderer(onView: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    if (!p.data) return null;
+    return (
+      <button
+        type="button"
+        className="rounded bg-[#ffcf46] px-2.5 py-1 text-[12px] font-medium text-black hover:brightness-95"
+        onClick={() => onView(p.data as AnyRow)}
+      >
+        Courses
+      </button>
+    );
+  };
+}
+
+function makePrintReceiptRenderer(onPrint: (row: AnyRow) => void) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    if (!p.data) return null;
+    return (
+      <button
+        type="button"
+        title="Print Receipt"
+        onClick={() => onPrint(p.data as AnyRow)}
+        className="inline-flex items-center justify-center text-[#0c51a4] hover:opacity-80"
+      >
+        <Printer className="h-5 w-5" />
+      </button>
+    );
+  };
+}
+
 /** State + always-current ref (Angular `this.x` parity for async chains). */
 function useStateRef<T>(initial: T) {
   const [state, setState] = useState<T>(initial);
@@ -953,10 +1080,21 @@ export default function StudentExamFeeRegistrationPage() {
       return r;
     });
     setFeeReceipts(receipts);
-    // Angular CoursesYearList: unique by courseYearId, keeping the *last* receipt
-    // (filter where courseYearId is not found again later in the list).
+    // Angular getExamFeeReceipts → CoursesYearDublicateList: push receipt once per
+    // subject row, then unique by courseYearId keeping the *last* occurrence.
+    const dups: AnyRow[] = [];
+    for (const r of receipts) {
+      const details = r?.examStudentDTOs?.[0]?.examStudentDetailDTOs;
+      const n = Array.isArray(details) ? details.length : 0;
+      for (let j = 0; j < n; j++) dups.push(r);
+    }
     const byCY = new Map<number, AnyRow>();
-    for (const r of receipts) byCY.set(Number(r.courseYearId), r);
+    for (const r of dups) byCY.set(Number(r.courseYearId), r);
+    // If a course year only has receipts with empty subject DTOs, still list it
+    // (Angular would omit it; keep as fallback so the header block remains).
+    if (byCY.size === 0) {
+      for (const r of receipts) byCY.set(Number(r.courseYearId), r);
+    }
     setCoursesYearList([...byCY.values()]);
   }
 
@@ -969,50 +1107,61 @@ export default function StudentExamFeeRegistrationPage() {
     const examRow = examsList.find(
       (e) => Number(e.examId) === Number(receipt.examId ?? examIdRef.current),
     );
-    const dto = receipt?.examStudentDTOs?.[0];
+    const cyId = Number(receipt.courseYearId) || 0;
+    // Prefer a same-course-year receipt that still has examStudentDetailDTOs
+    // (Angular CoursesYearList is built only from receipts that had subjects).
+    const withSubjects =
+      cyId > 0
+        ? feeReceipts.find((r) => {
+            if (Number(r.courseYearId) !== cyId) return false;
+            const d = r?.examStudentDTOs?.[0]?.examStudentDetailDTOs;
+            return Array.isArray(d) && d.length > 0;
+          })
+        : null;
+    const source = withSubjects ?? receipt;
+    const dto = source?.examStudentDTOs?.[0];
     return {
-      ...receipt,
-      studentId: Number(receipt.studentId ?? stu.studentId) || null,
-      examId: Number(receipt.examId ?? examIdRef.current) || null,
-      courseYearId: Number(receipt.courseYearId) || null,
-      // Angular Application Id on exam form
-      otherPaymentNumber:
-        receipt.otherPaymentNumber ?? receipt.feeReceiptNo ?? "",
+      ...source,
+      studentId: Number(source.studentId ?? stu.studentId) || null,
+      examId: Number(source.examId ?? examIdRef.current) || null,
+      courseYearId: Number(source.courseYearId) || null,
+      // Angular exam form Application Id: otherPaymentNumber only (never feeReceiptNo)
+      otherPaymentNumber: source.otherPaymentNumber ?? "",
       stdName:
-        receipt.stdName ??
-        receipt.studentName ??
+        source.stdName ??
+        source.studentName ??
         stu.firstName ??
         stu.studentName ??
         "",
       stdRollNumber:
-        receipt.stdRollNumber ??
-        receipt.hallticketNumber ??
+        source.stdRollNumber ??
+        source.hallticketNumber ??
         stu.hallticketNumber ??
         stu.rollNumber ??
         "",
       stdFatherName:
-        receipt.stdFatherName ??
+        source.stdFatherName ??
         stu.fatherName ??
         stu.father_name ??
         stu.parentName ??
         "",
       // Angular shows receipt.studentType (often "EXAM"); do not invent REGULAR
       studentType:
-        receipt.studentType ??
-        receipt.student_type ??
+        source.studentType ??
+        source.student_type ??
         stu.studentType ??
         stu.student_type ??
         "",
       collegeName:
-        receipt.collegeName ?? stu.collegeName ?? stu.college_name ?? "",
-      address: receipt.address ?? stu.collegeAddress ?? stu.address ?? "",
+        source.collegeName ?? stu.collegeName ?? stu.college_name ?? "",
+      address: source.address ?? stu.collegeAddress ?? stu.address ?? "",
       orgLogo:
-        receipt.orgLogo ??
-        receipt.org_logo ??
-        receipt.collegeLogo ??
-        receipt.college_logo ??
-        receipt.logoPath ??
-        receipt.logo ??
+        source.orgLogo ??
+        source.org_logo ??
+        source.collegeLogo ??
+        source.college_logo ??
+        source.logoPath ??
+        source.logo ??
         stu.orgLogo ??
         stu.org_logo ??
         stu.collegeLogo ??
@@ -1020,30 +1169,31 @@ export default function StudentExamFeeRegistrationPage() {
         stu.logoPath ??
         stu.logo ??
         user?.collegeLogo ??
-        // useCollegeLogo may already be an absolute /assets or MINIO URL
         (collegeLogoUrl && !collegeLogoUrl.includes("default_logo")
           ? collegeLogoUrl
           : "") ??
         "",
-      courseCode: receipt.courseCode ?? stu.courseCode ?? "",
-      groupCode: receipt.groupCode ?? stu.groupCode ?? "",
-      section: receipt.section ?? stu.section ?? "",
+      courseCode: source.courseCode ?? stu.courseCode ?? "",
+      groupCode: source.groupCode ?? stu.groupCode ?? "",
+      section: source.section ?? stu.section ?? "",
       courseYearCode:
-        receipt.courseYearCode ??
-        receipt.course_year_code ??
+        source.courseYearCode ??
+        source.course_year_code ??
         stu.courseYearCode ??
         "",
-      courseYearName: receipt.courseYearName ?? stu.courseYearName ?? "",
-      examName: receipt.examName ?? examRow?.examName ?? "",
+      courseYearName: source.courseYearName ?? stu.courseYearName ?? "",
+      examName: source.examName ?? examRow?.examName ?? "",
       examTotalAmount:
-        receipt.examTotalAmount ??
-        Number(receipt.examFeeAmount ?? 0) +
-          Number(receipt.examFineAmount ?? 0) +
-          Number(receipt.examAddtFee ?? 0),
-      hallticketNumber: receipt.hallticketNumber ?? stu.hallticketNumber ?? "",
-      // Ensure nested subjects survive sessionStorage round-trip
-      examStudentDTOs: Array.isArray(receipt.examStudentDTOs)
-        ? receipt.examStudentDTOs
+        source.examTotalAmount ??
+        Number(source.examFeeAmount ?? 0) +
+          Number(source.examFineAmount ?? 0) +
+          Number(source.examAddtFee ?? 0),
+      hallticketNumber: source.hallticketNumber ?? stu.hallticketNumber ?? "",
+      receiptDate: source.receiptDate ?? receipt.receiptDate ?? null,
+      transactionNo: source.transactionNo ?? "",
+      // Angular: studentSubjects = examStudentDTOs[0] → examStudentDetailDTOs
+      examStudentDTOs: Array.isArray(source.examStudentDTOs)
+        ? source.examStudentDTOs
         : dto
           ? [dto]
           : [],
@@ -1314,6 +1464,29 @@ export default function StudentExamFeeRegistrationPage() {
     [],
   );
 
+  const receiptColumnDefs: ColDef<AnyRow>[] = [
+    RECEIPT_COL_DEFS.siNo,
+    RECEIPT_COL_DEFS.semester,
+    RECEIPT_COL_DEFS.receiptNo,
+    RECEIPT_COL_DEFS.paymentDate,
+    RECEIPT_COL_DEFS.paymentMode,
+    RECEIPT_COL_DEFS.examType,
+    RECEIPT_COL_DEFS.examFee,
+    RECEIPT_COL_DEFS.addFee,
+    RECEIPT_COL_DEFS.lateFee,
+    RECEIPT_COL_DEFS.amount,
+    {
+      ...RECEIPT_COL_DEFS.subjects,
+      cellRenderer: makeReceiptCoursesRenderer((row) =>
+        viewCourseYearSubjects(row, "receipt"),
+      ),
+    },
+    {
+      ...RECEIPT_COL_DEFS.actions,
+      cellRenderer: makePrintReceiptRenderer(printFeeReceipt),
+    },
+  ];
+
   const payConfirmColumnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       PAY_CONFIRM_COL_DEFS.siNo,
@@ -1557,9 +1730,7 @@ export default function StudentExamFeeRegistrationPage() {
                         <label className="inline-flex cursor-pointer items-center gap-1.5">
                           <input
                             type="checkbox"
-                            checked={
-                              checksubject && selectableSubjectCount > 0
-                            }
+                            checked={checksubject && selectableSubjectCount > 0}
                             disabled={selectableSubjectCount === 0}
                             onChange={(e) =>
                               onToggleSelectAll(e.target.checked)
@@ -1885,7 +2056,7 @@ export default function StudentExamFeeRegistrationPage() {
               </div>
             )}
 
-            {/* Exam Fee Receipts (one block per course-year) — Angular HTML table */}
+            {/* Exam Fee Receipts (one block per course-year) — Angular DataTable parity */}
             {coursesYearList.map((cyl, idx) => {
               const rows = feeReceipts.filter(
                 (r) => Number(r.courseYearId) === Number(cyl.courseYearId),
@@ -1907,109 +2078,29 @@ export default function StudentExamFeeRegistrationPage() {
                       Exam Form
                     </button>
                   </h2>
-                  <div className="exam-fee-angular-table p-2">
-                    <table>
-                      <colgroup>
-                        <col style={{ width: 56 }} />
-                        <col style={{ minWidth: 90 }} />
-                        <col style={{ minWidth: 110 }} />
-                        <col style={{ minWidth: 110 }} />
-                        <col style={{ minWidth: 110 }} />
-                        <col style={{ minWidth: 100 }} />
-                        <col style={{ minWidth: 100 }} />
-                        <col style={{ minWidth: 100 }} />
-                        <col style={{ minWidth: 90 }} />
-                        <col style={{ minWidth: 100 }} />
-                        <col style={{ width: 100 }} />
-                        <col style={{ width: 72 }} />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th>SI No.</th>
-                          <th>Semester</th>
-                          <th>Receipt No.</th>
-                          <th>Payment Date</th>
-                          <th>Payment Mode</th>
-                          <th>Exam Type</th>
-                          <th className="is-right">Exam Fee (₹)</th>
-                          <th className="is-right">Add. Fee (₹)</th>
-                          <th className="is-right">LateFee(₹)</th>
-                          <th className="is-right">Amount (₹)</th>
-                          <th>Subjects</th>
-                          <th className="is-center">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={12}
-                              className="!whitespace-normal bg-white px-3 py-6 text-center text-muted-foreground"
-                            >
-                              No receipts for this semester.
-                            </td>
-                          </tr>
-                        ) : (
-                          rows.map((feeReceipt, i) => (
-                            <tr
-                              key={
-                                feeReceipt.examFeeReceiptId ??
-                                `${feeReceipt.feeReceiptNo}-${feeReceipt.courseYearId}-${i}`
-                              }
-                            >
-                              <td>{i + 1}</td>
-                              <td>{feeReceipt.courseYearName}</td>
-                              <td>{feeReceipt.feeReceiptNo}</td>
-                              <td>{fmtDate(feeReceipt.receiptDate)}</td>
-                              <td>{feeReceipt.paymentModeCatDisplayName}</td>
-                              <td>{feeReceipt.examtypeCatDisplayName}</td>
-                              <td className="is-right">
-                                {feeReceipt.examFeeAmount != null
-                                  ? feeReceipt.examFeeAmount
-                                  : "-"}
-                              </td>
-                              <td className="is-right">
-                                {feeReceipt.examAddtFee != null
-                                  ? feeReceipt.examAddtFee
-                                  : "-"}
-                              </td>
-                              <td className="is-right">
-                                {feeReceipt.examFineAmount != null
-                                  ? feeReceipt.examFineAmount
-                                  : "-"}
-                              </td>
-                              <td className="is-right">
-                                {feeReceipt.examTotalAmount}
-                              </td>
-                              <td>
-                                <button
-                                  type="button"
-                                  className="rounded bg-[#ffcf46] px-2.5 py-1 text-[12px] font-medium text-black hover:brightness-95"
-                                  onClick={() =>
-                                    viewCourseYearSubjects(
-                                      feeReceipt,
-                                      "receipt",
-                                    )
-                                  }
-                                >
-                                  Courses
-                                </button>
-                              </td>
-                              <td className="is-center">
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center justify-center text-[#0c51a4] hover:opacity-80"
-                                  title="Print Receipt"
-                                  onClick={() => printFeeReceipt(feeReceipt)}
-                                >
-                                  <Printer className="h-5 w-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                  <div className="p-2">
+                    {rows.length > 0 ? (
+                      <DataTable
+                        title=""
+                        bordered={false}
+                        rowData={rows}
+                        columnDefs={receiptColumnDefs}
+                        getRowId={(p) =>
+                          String(
+                            (p.data as AnyRow)?.examFeeReceiptId ??
+                              `${(p.data as AnyRow)?.feeReceiptNo}-${(p.data as AnyRow)?.courseYearId}-${(p.data as AnyRow)?.receiptDate}`,
+                          )
+                        }
+                        pagination={false}
+                        toolbar={COMPACT_TOOLBAR}
+                        height="auto"
+                        columnFilters={false}
+                      />
+                    ) : (
+                      <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        No receipts for this semester.
+                      </p>
+                    )}
                   </div>
                 </div>
               );

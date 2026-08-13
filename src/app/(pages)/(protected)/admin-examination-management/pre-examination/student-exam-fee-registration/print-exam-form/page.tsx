@@ -14,7 +14,7 @@ import {
   loadExamFeePrintPayload,
   type ExamFeePrintPayload,
 } from "../_print/store";
-import { fmtDate, semesterLabel } from "../_print/money";
+import { examFormSemesterLabel, fmtDate } from "../_print/money";
 import { printExamFeeExamForm } from "../_print/exam-form-print";
 
 type AnyRow = Record<string, any>;
@@ -39,11 +39,9 @@ export default function PrintExamFormPage() {
 
   const subjects: AnyRow[] = useMemo(() => {
     if (!data) return [];
+    // Angular: studentSubjects = examStudentDTOs[0] → examStudentDetailDTOs
     const fromDto = data.examStudentDTOs?.[0]?.examStudentDetailDTOs;
-    if (Array.isArray(fromDto) && fromDto.length > 0) return fromDto;
-    const fromReg = data.examStdRegSubDTOs;
-    if (Array.isArray(fromReg) && fromReg.length > 0) return fromReg;
-    return [];
+    return Array.isArray(fromDto) ? fromDto : [];
   }, [data]);
 
   function goBack() {
@@ -64,10 +62,9 @@ export default function PrintExamFormPage() {
     );
   }
 
-  const semester =
-    semesterLabel(data.courseYearCode ?? data.course_year_code) ||
-    data.courseYearName ||
-    "";
+  const semester = examFormSemesterLabel(
+    data.courseYearCode ?? data.course_year_code,
+  );
 
   return (
     <div className="mx-auto max-w-4xl p-4" data-print-root>
@@ -189,27 +186,16 @@ export default function PrintExamFormPage() {
             </tr>
           </thead>
           <tbody>
-            {subjects.length === 0 ? (
-              <tr>
-                <td
-                  className="border border-black px-2 py-2 text-center text-muted-foreground"
-                  colSpan={2}
-                >
-                  No subjects
+            {subjects.map((s, i) => (
+              <tr key={`sub-${i}`}>
+                <td className="border border-black px-2 py-1 text-left text-[12px]">
+                  {s.subjectCode ?? s.Subject_code ?? ""}
+                </td>
+                <td className="border border-black px-2 py-1 text-left text-[12px]">
+                  {s.subjectName ?? s.Subject_name ?? s.shortName ?? ""}
                 </td>
               </tr>
-            ) : (
-              subjects.map((s, i) => (
-                <tr key={`sub-${i}`}>
-                  <td className="border border-black px-2 py-1 text-left">
-                    {s.subjectCode ?? s.Subject_code ?? ""}
-                  </td>
-                  <td className="border border-black px-2 py-1 text-left">
-                    {s.subjectName ?? s.Subject_name ?? s.shortName ?? ""}
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
 

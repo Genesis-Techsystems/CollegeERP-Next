@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Eye, GraduationCap } from "lucide-react";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +91,9 @@ function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
 }
 
 function regulationIdOf(row: AnyRow): number {
-  return Number(row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0);
+  return Number(
+    row?.fk_regulation_id ?? row?.regulation_id ?? row?.regulationId ?? 0,
+  );
 }
 
 /** Angular selectedCollege → selectedCourseGroup → selectedYear (client-side only). */
@@ -100,7 +102,11 @@ function cascadeFromRest(
   collegeId: number,
   preferredGroupId?: number | null,
   preferredYearId?: number | null,
-): { courseGroupId: number; courseYearId: number; regulationId: number | null } {
+): {
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number | null;
+} {
   const groupRows = dedupeBy(
     rows.filter((x) => Number(x.fk_college_id) === Number(collegeId)),
     "fk_course_group_id",
@@ -133,7 +139,9 @@ function cascadeFromRest(
     nextYearId = 0;
   } else if (
     preferredYearId != null &&
-    yearRows.some((x) => Number(x.fk_course_year_id) === Number(preferredYearId))
+    yearRows.some(
+      (x) => Number(x.fk_course_year_id) === Number(preferredYearId),
+    )
   ) {
     nextYearId = Number(preferredYearId);
   } else {
@@ -505,9 +513,7 @@ export default function InternalExamAttendanceMarkingPage() {
   // Drop stale subject if list refreshes; do NOT auto-pick (Angular requires user select).
   useEffect(() => {
     if (subjectId == null) return;
-    if (
-      !subjects.some((s) => Number(s.fk_subject_id) === Number(subjectId))
-    ) {
+    if (!subjects.some((s) => Number(s.fk_subject_id) === Number(subjectId))) {
       setSubjectId(null);
     }
   }, [subjects, subjectId]);
@@ -538,7 +544,8 @@ export default function InternalExamAttendanceMarkingPage() {
   useEffect(() => {
     if (courses.length === 0) return;
     setCourseId((prev) =>
-      prev != null && courses.some((x) => Number(x.fk_course_id) === Number(prev))
+      prev != null &&
+      courses.some((x) => Number(x.fk_course_id) === Number(prev))
         ? Number(prev)
         : Number(courses[0].fk_course_id),
     );
@@ -576,7 +583,9 @@ export default function InternalExamAttendanceMarkingPage() {
       setExamDate("");
       return;
     }
-    const raw = String(selectedExam.from_date ?? selectedExam.fromDate ?? "").trim();
+    const raw = String(
+      selectedExam.from_date ?? selectedExam.fromDate ?? "",
+    ).trim();
     setExamDate(raw ? raw.slice(0, 10) : "");
   }, [selectedExam]);
 
@@ -879,12 +888,8 @@ export default function InternalExamAttendanceMarkingPage() {
       { value: "0", label: "All" },
       ...courseGroupRows.map((row) => {
         const id = Number(row.fk_course_group_id);
-        const code = String(
-          row.group_code ?? row.groupCode ?? "",
-        ).trim();
-        const name = String(
-          row.group_name ?? row.groupName ?? "",
-        ).trim();
+        const code = String(row.group_code ?? row.groupCode ?? "").trim();
+        const name = String(row.group_name ?? row.groupName ?? "").trim();
         const label =
           name && code ? `${name}(${code})` : code || name || `Group ${id}`;
         return { value: String(id), label };
@@ -1018,6 +1023,7 @@ export default function InternalExamAttendanceMarkingPage() {
   return (
     <FilteredListPage
       title="Internal Exam Attendance Marking"
+      showTable={rows.length > 0}
       filters={
         <div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
           <div className="space-y-1 md:col-span-2">
@@ -1144,8 +1150,13 @@ export default function InternalExamAttendanceMarkingPage() {
               {loadingList ? "Loading..." : "Get List"}
             </Button>
           </div>
-          {hasFetched ? (
-            <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2 md:col-span-12">
+        </div>
+      }
+      tableHeader={
+        rows.length > 0 ? (
+          <div className="space-y-2">
+            <TableContextHeader title="Internal Exam Attendance Marking" />
+            <div className="overflow-hidden rounded border-2 border-[#c3d9ff] bg-card p-2">
               <div className="flex items-start gap-4">
                 <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
                   <GraduationCap className="h-10 w-10" />
@@ -1174,8 +1185,8 @@ export default function InternalExamAttendanceMarkingPage() {
                 </div>
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null
       }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
@@ -1189,6 +1200,8 @@ export default function InternalExamAttendanceMarkingPage() {
               search: true,
               searchPlaceholder: "Search…",
               pdfDocumentTitle: "Internal Exam Attendance",
+              exportExcel: false,
+              exportPdf: false,
             }
           : false
       }

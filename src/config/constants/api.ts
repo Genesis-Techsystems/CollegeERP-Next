@@ -157,6 +157,8 @@ export const EXAM_API = {
   GET_EXAM_DETAIL_STATUS: "getAllRecords/s_get_examdetail_status_bycodes",
   /** GET: room vacancy for exam room allotment (Angular `getExamRoomDetailsUrl`) */
   GET_EXAM_MASTER_DETAILS: "s_get_exam_masterdetails",
+  /** GET: copy existing seating / pop room plan (Angular `popExamRoomPlanUrl`) */
+  POP_EXAM_MASTER_DETAILS: "s_pop_exam_masterdetails",
   /** POST: exam room allotment */
   EXAM_ROOM_ALLOTMENT: "examroomallotment",
   /** GET: exam student results */

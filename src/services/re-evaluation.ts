@@ -1,10 +1,11 @@
 import {
   buildQuery,
   domainList,
+  fetchDetails,
   getAllRecords,
   putDetails,
 } from "@/services/crud";
-import { EXAM_REVAL_API } from "@/config/constants/api";
+import { DASHBOARD_API, EXAM_REVAL_API } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 
 type AnyRow = Record<string, any>;
@@ -27,6 +28,25 @@ function strFrom(row: AnyRow | null | undefined, keys: string[]): string {
     if (val) return val;
   }
   return "";
+}
+
+/**
+ * Angular main-dashboard `getDashboardCounts()` → `localStorage.presentDate = counts.date`.
+ * Re-valuation fee `momentYMD()` reads that value for the Add expiry check.
+ */
+export async function syncPresentDateFromDashboard(): Promise<string> {
+  try {
+    const data = await fetchDetails<AnyRow>(DASHBOARD_API.DASHBOARD_REPORT);
+    const date = String(
+      (data as AnyRow)?.date ?? (data as AnyRow)?.presentDate ?? "",
+    ).trim();
+    if (date && typeof globalThis.window !== "undefined") {
+      globalThis.localStorage.setItem("presentDate", date);
+    }
+    return date;
+  } catch {
+    return String(globalThis.localStorage?.getItem("presentDate") ?? "").trim();
+  }
 }
 
 /** Angular: `s_get_exam_filters_bycode` + `in_flag=std_exam_filters`, `in_param1=studentId`. */

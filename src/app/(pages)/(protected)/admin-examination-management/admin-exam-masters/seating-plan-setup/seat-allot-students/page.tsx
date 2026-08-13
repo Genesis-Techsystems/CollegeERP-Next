@@ -19,6 +19,8 @@ import {
   listCourseYears,
   listGeneralDetailsByMaster,
 } from "@/services/examination";
+import { searchBuildingDetailsRooms } from "@/services";
+import { Select } from "@/common/components/select";
 import { GM_CODES } from "@/config/constants/ui";
 import { FilteredPage } from "@/components/layout";
 import {
@@ -40,7 +42,6 @@ import {
   ExamSeatPersonIcon,
 } from "@/app/(pages)/(protected)/admin-examination-management/_components/ExamSeatIcons";
 import { toast } from "sonner";
-import { Select } from "@/common/components/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toDateStr, toExamApiDate } from "@/common/generic-functions";
 
@@ -202,6 +203,76 @@ function availableStatusId(statuses: any[]): number {
       (s) => String(s.generalDetailCode ?? "").toLowerCase() === "available",
     ) ?? statuses[0];
   return Number(row?.generalDetailId ?? 0);
+}
+
+/** Angular `counter(rows, cols)` — keep seats that still fit; fill new cells as Available. */
+function resizeSeatCells(
+  prev: SeatCell[],
+  rows: number,
+  cols: number,
+  examSeatStatuses: any[],
+  ids: {
+    collegeId: number;
+    examId: number;
+    examTimetableId: number;
+    roomId: number;
+  },
+): SeatCell[] {
+  if (!rows || !cols) return [];
+  const byKey = new Map(prev.map((c) => [c.key, c]));
+  const defaultStatusId = availableStatusId(examSeatStatuses);
+  const defaultCode =
+    String(
+      examSeatStatuses.find(
+        (s) => Number(s.generalDetailId) === defaultStatusId,
+      )?.generalDetailCode ?? "Available",
+    ) || "Available";
+  let serial = 1;
+  const serialMap = new Map<string, string>();
+  for (let col = 1; col <= cols; col++) {
+    const rowOrder = Array.from({ length: rows }, (_, i) => i + 1);
+    if (col % 2 === 0) rowOrder.reverse();
+    for (const row of rowOrder) {
+      serialMap.set(`${row}-${col}`, `S${serial++}`);
+    }
+  }
+  const cells: SeatCell[] = [];
+  for (let rowNo = 1; rowNo <= rows; rowNo++) {
+    for (let columnNo = 1; columnNo <= cols; columnNo++) {
+      const key = `${rowNo}-${columnNo}`;
+      const existing = byKey.get(key);
+      if (existing) {
+        cells.push({
+          ...existing,
+          serial: serialMap.get(key) ?? existing.serial,
+          roomId: ids.roomId || existing.roomId,
+        });
+        continue;
+      }
+      cells.push({
+        key,
+        rowNo,
+        columnNo,
+        serial: serialMap.get(key) ?? "",
+        examRoomStdAllotId: null,
+        collegeId: ids.collegeId,
+        examId: ids.examId,
+        examTimetableId: ids.examTimetableId,
+        roomId: ids.roomId,
+        examseatstatusCatId: defaultStatusId,
+        studentId: null,
+        subjectId: null,
+        stdName: "",
+        hallticketNumber: "",
+        subjectCode: "",
+        examSeatStatusCode: defaultCode,
+        examDisplaySeatStatusCode: defaultCode,
+        createdDt: null,
+        isActive: true,
+      });
+    }
+  }
+  return cells;
 }
 
 function buildSeatCells(
@@ -408,6 +479,17 @@ export default function SeatAllotStudentsPage() {
   const [savingBulk, setSavingBulk] = useState(false);
   const [examSeatStatuses, setExamSeatStatuses] = useState<any[]>([]);
   const [seatCells, setSeatCells] = useState<SeatCell[]>([]);
+  const [layoutOverride, setLayoutOverride] = useState<{
+    totalRows?: number;
+    totalCols?: number;
+    priority?: number;
+    roomId?: number;
+    roomLabel?: string;
+  } | null>(null);
+  const [roomOptions, setRoomOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [roomSearchBusy, setRoomSearchBusy] = useState(false);
   const [selectedSeat, setSelectedSeat] = useState<SeatCell | null>(null);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
   const [modalStudents, setModalStudents] = useState<any[]>([]);
@@ -1079,10 +1161,16 @@ export default function SeatAllotStudentsPage() {
     const metaSource = roomAllotment ?? allotSeats[0] ?? seatRows[0] ?? {};
     const totalRowsRaw = num(pick(metaSource, ROW_DIM_KEYS, 0));
     const totalColsRaw = num(pick(metaSource, COL_DIM_KEYS, 0));
-    const totalRows =
+    let totalRows =
       totalRowsRaw > 0 ? totalRowsRaw : inferRow > 0 ? inferRow : 0;
-    const totalCols =
+    let totalCols =
       totalColsRaw > 0 ? totalColsRaw : inferCol > 0 ? inferCol : 0;
+    if (layoutOverride?.totalRows != null && layoutOverride.totalRows > 0) {
+      totalRows = layoutOverride.totalRows;
+    }
+    if (layoutOverride?.totalCols != null && layoutOverride.totalCols > 0) {
+      totalCols = layoutOverride.totalCols;
+    }
     const totalSeats =
       totalRows > 0 && totalCols > 0 ? totalRows * totalCols : 0;
     const roomStrength = num(
@@ -1154,13 +1242,26 @@ export default function SeatAllotStudentsPage() {
     return {
       totalRows,
       totalCols,
-      roomStrength: roomStrength || totalSeats || seatRows.length,
-      priority: num(pick(metaSource, ["priority"], 0)),
+      roomStrength: totalSeats || roomStrength || seatRows.length,
+      priority:
+        layoutOverride?.priority != null
+          ? layoutOverride.priority
+          : num(pick(metaSource, ["priority"], 0)),
       bookedSeats,
       blockedSeats,
       availableSeats,
       capacity: totalSeats || seatsSource.length,
+      roomId:
+        layoutOverride?.roomId ??
+        num(
+          pick(
+            metaSource,
+            ["roomId", "room_id", "pk_room_id", "fk_room_id"],
+            0,
+          ),
+        ),
       roomLabel:
+        layoutOverride?.roomLabel ||
         details.roomCode ||
         String(
           pick(
@@ -1170,7 +1271,64 @@ export default function SeatAllotStudentsPage() {
           ),
         ),
     };
-  }, [seatRows, roomAllotment, details.roomCode, seatCells]);
+  }, [seatRows, roomAllotment, details.roomCode, seatCells, layoutOverride]);
+
+  function applyLayoutSize(nextRows: number, nextCols: number) {
+    const rows = Math.max(0, Math.floor(nextRows) || 0);
+    const cols = Math.max(0, Math.floor(nextCols) || 0);
+    setLayoutOverride((prev) => ({
+      ...(prev ?? {}),
+      totalRows: rows,
+      totalCols: cols,
+    }));
+    const ids = {
+      collegeId:
+        Number(details.collegeId || 0) ||
+        resolvedAllotmentIds.collegeId ||
+        examFilterIds.collegeId,
+      examId:
+        Number(details.examId || 0) ||
+        resolvedAllotmentIds.examId ||
+        examFilterIds.examId,
+      examTimetableId: Number(details.examTimetableId || 0),
+      roomId:
+        layoutOverride?.roomId ??
+        num(
+          pick(roomAllotment ?? {}, ["roomId", "room_id", "pk_room_id"], 0),
+        ) ??
+        0,
+    };
+    setSeatCells((prev) =>
+      resizeSeatCells(prev, rows, cols, examSeatStatuses, ids),
+    );
+  }
+
+  async function searchRooms(term: string) {
+    const q = term.trim();
+    if (q.length < 2) return;
+    setRoomSearchBusy(true);
+    const rows = await searchBuildingDetailsRooms(q).catch(() => []);
+    setRoomSearchBusy(false);
+    setRoomOptions(
+      (Array.isArray(rows) ? rows : []).map((r: any) => {
+        const id = Number(r.roomId ?? r.pk_room_id ?? r.room_id ?? 0);
+        const name = String(r.roomName ?? r.room_name ?? r.room ?? "");
+        const type = String(r.roomType ?? r.room_type ?? "");
+        return {
+          value: String(id),
+          label: type ? `${name}(${type})` : name || String(id),
+        };
+      }),
+    );
+  }
+
+  useEffect(() => {
+    const label = details.roomCode || roomMeta.roomLabel;
+    if (!label || roomOptions.length > 0) return;
+    void searchRooms(String(label).slice(0, 32));
+    // seed once when page has a room label
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [details.roomCode, roomMeta.roomLabel]);
 
   const seatingGrid = useMemo(() => {
     const totalRows = roomMeta.totalRows;
@@ -1594,7 +1752,7 @@ export default function SeatAllotStudentsPage() {
         examRoomAllotmentId: examRoomAllotmentId || null,
         examTimetableId:
           nextCells[0]?.examTimetableId ?? Number(details.examTimetableId || 0),
-        roomId: nextCells[0]?.roomId ?? 0,
+        roomId: roomMeta.roomId || nextCells[0]?.roomId || 0,
         examDate,
         totalRows: roomMeta.totalRows,
         totalColumns: roomMeta.totalCols,
@@ -1686,7 +1844,7 @@ export default function SeatAllotStudentsPage() {
         examRoomAllotmentId: examRoomAllotmentId || null,
         examTimetableId:
           nextCells[0]?.examTimetableId ?? Number(details.examTimetableId || 0),
-        roomId: nextCells[0]?.roomId ?? 0,
+        roomId: roomMeta.roomId || nextCells[0]?.roomId || 0,
         examDate,
         totalRows: roomMeta.totalRows,
         totalColumns: roomMeta.totalCols,
@@ -1807,23 +1965,71 @@ export default function SeatAllotStudentsPage() {
                 />
               </GlobalFilterField>
               <GlobalFilterField label="Room">
-                <Input
-                  value={roomMeta.roomLabel || ""}
-                  readOnly
-                  className="h-9 text-[13px]"
+                <Select
+                  value={
+                    roomMeta.roomId > 0
+                      ? String(roomMeta.roomId)
+                      : roomMeta.roomLabel || null
+                  }
+                  onChange={(v) => {
+                    const id = Number(v) || 0;
+                    const opt = roomOptions.find((o) => o.value === String(id));
+                    setLayoutOverride((prev) => ({
+                      ...(prev ?? {}),
+                      roomId: id,
+                      roomLabel: opt?.label ?? prev?.roomLabel,
+                    }));
+                    if (id > 0) {
+                      setSeatCells((prev) =>
+                        prev.map((c) => ({ ...c, roomId: id })),
+                      );
+                    }
+                  }}
+                  onSearch={(q) => void searchRooms(q)}
+                  options={
+                    roomOptions.length > 0
+                      ? roomOptions
+                      : roomMeta.roomLabel
+                        ? [
+                            {
+                              value: String(
+                                roomMeta.roomId || roomMeta.roomLabel,
+                              ),
+                              label: roomMeta.roomLabel,
+                            },
+                          ]
+                        : []
+                  }
+                  placeholder={roomSearchBusy ? "Searching…" : "Search room…"}
+                  searchable
+                  isLoading={roomSearchBusy}
                 />
               </GlobalFilterField>
               <GlobalFilterField label="Total Rows">
                 <Input
+                  type="number"
+                  min={0}
                   value={String(roomMeta.totalRows || 0)}
-                  readOnly
+                  onChange={(e) =>
+                    applyLayoutSize(
+                      Number(e.target.value) || 0,
+                      roomMeta.totalCols || 0,
+                    )
+                  }
                   className="h-9 text-[13px]"
                 />
               </GlobalFilterField>
               <GlobalFilterField label="Total Columns">
                 <Input
+                  type="number"
+                  min={0}
                   value={String(roomMeta.totalCols || 0)}
-                  readOnly
+                  onChange={(e) =>
+                    applyLayoutSize(
+                      roomMeta.totalRows || 0,
+                      Number(e.target.value) || 0,
+                    )
+                  }
                   className="h-9 text-[13px]"
                 />
               </GlobalFilterField>
@@ -1836,8 +2042,15 @@ export default function SeatAllotStudentsPage() {
               </GlobalFilterField>
               <GlobalFilterField label="Priority">
                 <Input
+                  type="number"
+                  min={0}
                   value={String(roomMeta.priority || 0)}
-                  readOnly
+                  onChange={(e) =>
+                    setLayoutOverride((prev) => ({
+                      ...(prev ?? {}),
+                      priority: Number(e.target.value) || 0,
+                    }))
+                  }
                   className="h-9 text-[13px]"
                 />
               </GlobalFilterField>

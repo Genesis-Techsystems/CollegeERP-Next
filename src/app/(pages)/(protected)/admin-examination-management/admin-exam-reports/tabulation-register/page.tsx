@@ -23,6 +23,7 @@ import {
   getTabulationRegisterRows,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
+  listExamFeeTypes,
   listStudents,
   type AnyRow,
 } from "@/services";
@@ -98,7 +99,23 @@ function examMasterLabel(r: Row): string {
   const from = parseMaybeDate(r.from_date ?? r.fromDate);
   const to = parseMaybeDate(r.to_date ?? r.toDate);
   const range = from && to ? ` (${from} - ${to})` : "";
-  return `${name}${range}`;
+  const tags = [
+    flagOn(r.is_internal_exam ?? r.isInternalExam) ? "(Internal)" : "",
+    flagOn(r.is_regular_exam ?? r.isRegularExam) ? "(Regular)" : "",
+    flagOn(r.is_supply_exam ?? r.isSupplyExam) ? "(Supple)" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return `${name}${range}${tags ? ` ${tags}` : ""}`;
+}
+
+/** Angular exam flag (`is_regular_exam` / `is_supply_exam` / `is_internal_exam`). */
+function flagOn(v: unknown): boolean {
+  if (v === true || v === 1) return true;
+  const s = String(v ?? "")
+    .trim()
+    .toLowerCase();
+  return s === "1" || s === "true" || s === "t" || s === "y" || s === "yes";
 }
 
 function findMarks(
@@ -297,6 +314,7 @@ export default function TabulationRegisterPage() {
   const [courseYearId, setCourseYearId] = useState("");
   const [hallticketNo, setHallticketNo] = useState("0");
   const [isReEvaluation, setIsReEvaluation] = useState(false);
+  const [examFeeTypesList, setExamFeeTypesList] = useState<Row[]>([]);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -307,9 +325,13 @@ export default function TabulationRegisterPage() {
       if (!employeeId) return;
       setLoadingFilters(true);
       try {
-        const filters = await getUnivExamFiltersRegSup(employeeId);
+        const [filters, feeTypes] = await Promise.all([
+          getUnivExamFiltersRegSup(employeeId),
+          listExamFeeTypes().catch(() => []),
+        ]);
         const list = Array.isArray(filters) ? filters : [];
         setBaseRows(list);
+        setExamFeeTypesList(Array.isArray(feeTypes) ? feeTypes : []);
         const courses = dedupeBy(list, (r) => num(r.fk_course_id));
         if (courses[0]) setCourseId(String(num(courses[0].fk_course_id)));
       } catch (e) {
@@ -365,21 +387,40 @@ export default function TabulationRegisterPage() {
   }, [restRows, collegeId, courseGroupId]);
 
   const examTypeOptions: SelectOption[] = useMemo(() => {
-    const types = dedupeBy(exams, (r) =>
-      num(r.fk_exam_type_id ?? r.exam_type_id ?? r.examTypeCatdetId),
-    );
-    const opts = types
-      .map((r) => ({
-        value: String(
-          num(r.fk_exam_type_id ?? r.exam_type_id ?? r.examTypeCatdetId),
-        ),
-        label:
-          txt(r.exam_type ?? r.examType ?? r.gd_display_name) ||
-          String(num(r.fk_exam_type_id)),
-      }))
-      .filter((o) => o.value !== "0");
-    return [{ value: "0", label: "All" }, ...opts];
-  }, [exams]);
+    const exam =
+      exams.find((r) => num(r.fk_exam_id) === Number(examId)) ?? null;
+    const filtered: Row[] = [];
+    if (exam) {
+      for (const t of examFeeTypesList) {
+        const code = String(t.generalDetailCode ?? "");
+        if (
+          flagOn(exam.is_regular_exam ?? exam.isRegularExam) &&
+          code === "Regular"
+        ) {
+          filtered.push(t);
+        }
+        if (
+          flagOn(exam.is_supply_exam ?? exam.isSupplyExam) &&
+          code === "Supple"
+        ) {
+          filtered.push(t);
+        }
+        if (
+          flagOn(exam.is_internal_exam ?? exam.isInternalExam) &&
+          code === "Internal"
+        ) {
+          filtered.push(t);
+        }
+      }
+    }
+    return [
+      { value: "0", label: "All" },
+      ...filtered.map((t) => ({
+        value: String(num(t.generalDetailId)),
+        label: String(t.generalDetailCode ?? ""),
+      })),
+    ];
+  }, [examFeeTypesList, exams, examId]);
 
   const selectedCourse = useMemo(
     () => courses.find((r) => num(r.fk_course_id) === Number(courseId)),
@@ -439,6 +480,18 @@ export default function TabulationRegisterPage() {
       setExamId(String(num(exams[0].fk_exam_id)));
     }
   }, [academicYearId, exams, examId]);
+
+  // Angular getExamTypes: default to first Regular/Supple/Internal id
+  useEffect(() => {
+    const typed = examTypeOptions.filter((o) => o.value !== "0");
+    if (typed.length === 0) {
+      setExamTypeId("0");
+      return;
+    }
+    if (!typed.some((o) => o.value === examTypeId)) {
+      setExamTypeId(typed[0].value);
+    }
+  }, [examId, examTypeOptions, examTypeId]);
 
   useEffect(() => {
     async function loadRest() {

@@ -123,8 +123,7 @@ class CrudService {
     );
     // Angular `HttpUrlEncodingCodec` leaves `/` literal, so `YYYY/MM/DD` date params
     // reach Spring unescaped. Keep the same wire format instead of sending `%2F`.
-    retur
-     `?${String(searchParams).replaceAll("%2F", "/")}`;
+    return `?${String(searchParams).replaceAll("%2F", "/")}`;
   }
 
   // ── List ──────────────────────────────────────────────────────────────────
