@@ -2,6 +2,7 @@
 import type { UserDTO } from '@/types/user'
 import type { ApiResponse } from '@/types/api'
 import { AUTH_API } from '@/config/constants/api'
+import { getEncryptedValue } from '@/common/generic-functions'
 
 /**
  * Result of the Spring `/api/auth/login` call. The backend's login is two-phase
@@ -9,10 +10,14 @@ import { AUTH_API } from '@/config/constants/api'
  * `data: { twoFactorRequired: true }` (no token); a password + `otp` call
  * validates the code and returns the JWT string in `data`. Non-2FA accounts get
  * a JWT straight from the password call.
+ *
+ * Student first-login (`resetPwd: true`) returns no JWT — Angular opens
+ * Change Password instead of completing the session.
  */
 export type SpringLoginResult =
   | { status: 'authenticated'; jwt: string }
   | { status: 'otp_required' }
+  | { status: 'reset_pwd_required'; message?: string }
 
 /**
  * Calls the Spring Boot login endpoint. Pass `otp` to complete the second
@@ -56,13 +61,18 @@ export async function springLogin(
     throw new Error('Authentication failed')
   }
 
-  // 2FA challenge: password accepted, backend sent an OTP (no token yet).
-  if (
-    body.data &&
-    typeof body.data === 'object' &&
-    (body.data as { twoFactorRequired?: boolean }).twoFactorRequired === true
-  ) {
-    return { status: 'otp_required' }
+  // 2FA challenge / student first-login password reset (no token yet).
+  if (body.data && typeof body.data === 'object') {
+    const data = body.data as { twoFactorRequired?: boolean; resetPwd?: boolean }
+    if (data.twoFactorRequired === true) {
+      return { status: 'otp_required' }
+    }
+    if (data.resetPwd === true) {
+      return {
+        status: 'reset_pwd_required',
+        message: typeof body.message === 'string' ? body.message : undefined,
+      }
+    }
   }
 
   // A JWT comes back as a non-empty string in `data`.
@@ -169,4 +179,53 @@ export async function springGetStudentByUserId(
     return (body.data[0] as Record<string, unknown> | undefined) ?? null
   }
   return body.data as Record<string, unknown>
+}
+
+/**
+ * Angular ChangePasswordModal → PUT `{MAINAPI}api/auth/updatePassword`
+ * with FormData `data` = double-AES ciphertext of
+ * `{ userName, newPassword, confirmPassword }`.
+ *
+ * Called before a session exists (student first-login), so no JWT is sent —
+ * Angular also has no token stored yet (`Bearer null`).
+ */
+export async function springUpdateStudentPassword(payload: {
+  userName: string
+  newPassword: string
+  confirmPassword: string
+}): Promise<{ success: boolean; message: string }> {
+  const url = `${process.env.SPRING_API_URL}/${AUTH_API.RESET_STD_PASSWORD}`
+  const formData = new FormData()
+  formData.append('data', getEncryptedValue(payload))
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'PUT',
+      body: formData,
+      signal: AbortSignal.timeout(30_000),
+    })
+  } catch {
+    throw new Error('Password update service unavailable')
+  }
+
+  let body: ApiResponse<unknown> | null = null
+  try {
+    body = (await res.json()) as ApiResponse<unknown>
+  } catch {
+    throw new Error('Password update failed')
+  }
+
+  const message =
+    typeof body?.message === 'string' && body.message.trim()
+      ? body.message
+      : res.ok
+        ? 'Password updated successfully'
+        : 'Password update failed'
+
+  if (!res.ok || !body?.success) {
+    throw new Error(message)
+  }
+
+  return { success: true, message }
 }

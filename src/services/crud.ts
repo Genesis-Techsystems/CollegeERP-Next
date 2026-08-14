@@ -647,10 +647,16 @@ class CrudService {
   ): Promise<ApiResponse<T>> {
     const query = this.toQueryString(params);
     let attemptedPath = path;
-    let res = await fetch(`${this.base}/${attemptedPath}${query}`);
+    let res = await fetch(`${this.base}/${attemptedPath}${query}`, {
+      cache: "no-store",
+      credentials: "include",
+    });
     if (res.status === 404 && /[A-Z]/.test(path)) {
       attemptedPath = path.toLowerCase();
-      res = await fetch(`${this.base}/${attemptedPath}${query}`);
+      res = await fetch(`${this.base}/${attemptedPath}${query}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
     }
     if (!res.ok) {
       const body = await res.json().catch(() => null);

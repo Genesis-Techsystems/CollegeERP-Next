@@ -1,19 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, ClipboardList } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Banknote, ClipboardList, Eye, Printer, Trash2 } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { DataTable } from "@/common/components/table";
 import { rowIndexGetter } from "@/lib/utils";
-import { FilteredPage } from "@/components/layout";
-import {
-  GlobalFilterBarRow,
-  GlobalFilterField,
-} from "@/common/components/forms";
+import { PageContainer } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -25,11 +20,20 @@ import {
 import { useSessionContext } from "@/context/SessionContext";
 import {
   setSecuredValue,
+  toDateStr,
   utcMidnightIso,
 } from "@/common/generic-functions";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
+  saveExamFeePrintPayload,
+  setExamFeePrintReturnHref,
+} from "@/app/(pages)/(protected)/admin-examination-management/pre-examination/student-exam-fee-registration/_print/store";
+import {
   buildStudentExamFeeStagingPayload,
+  chargeRazorpayPayment,
+  createRazorpayOrder,
+  deleteExamFeeReceipt,
+  downloadStudentExamFeeReceiptPdf,
   fetchStudentDetail,
   getExamCourseYearSubjects,
   getExamMasterDetailsByGroup,
@@ -40,14 +44,21 @@ import {
   initiatePayment,
   listExamFeeReceipts,
   listExamFeeTypes,
+  listExamStdCourseYearSubjects,
   listPaymentModes,
   listStudentPortalExams,
+  listStudentPortalRevaluationExams,
+  loadRazorpayCheckoutScript,
+  payExamFeeReceipts,
+  printPdfBlob,
   resolveExamTypeCategoryId,
   resolveOnlinePaymentModeId,
   saveStgOnlineExamFeeReceipt,
   searchStudentsByKeyword,
 } from "@/services";
 import type { StudentFeeSearchRow } from "@/types/fees-collection";
+
+export type StudentExamFeeVariant = "exam-fee" | "revaluation";
 
 const DEFAULT_STUDENT_PHOTO = "/assets/images/avatars/default_Student.png";
 
@@ -78,121 +89,6 @@ type CourseYearFeeRow = {
   academicYear?: string;
   examtypeCatId?: number | null;
   examFeeFineId?: number | null;
-};
-
-const FEE_PAYMENT_COL_DEFS = {
-  siNo: {
-    headerName: "SI No",
-    valueGetter: rowIndexGetter,
-    width: 72,
-    flex: 0,
-    filter: false,
-    sortable: false,
-  } as ColDef<CourseYearFeeRow>,
-  courseYearName: {
-    field: "courseYearName",
-    headerName: "Course Year",
-    minWidth: 160,
-    flex: 1.2,
-  } as ColDef<CourseYearFeeRow>,
-  examType: {
-    field: "examType",
-    headerName: "Exam Type",
-    minWidth: 100,
-    flex: 0.8,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-  subjectCount: {
-    headerName: "No of Subjects",
-    valueGetter: (p) => p.data?.subjects?.length ?? 0,
-    minWidth: 120,
-    flex: 0.8,
-    cellClass: "ag-right-aligned-cell",
-    filter: false,
-  } as ColDef<CourseYearFeeRow>,
-  examFineAmount: {
-    field: "examFineAmount",
-    headerName: "Late Fee",
-    minWidth: 90,
-    flex: 0.7,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-  examAddFee: {
-    field: "examAddFee",
-    headerName: "Add. Fee Amt(₹)",
-    minWidth: 120,
-    flex: 0.9,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-  examFeeAmount: {
-    field: "examFeeAmount",
-    headerName: "Fee Amt (₹)",
-    minWidth: 110,
-    flex: 0.9,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-  actions: {
-    headerName: "Action",
-    colId: "actions",
-    minWidth: 90,
-    flex: 0,
-    width: 90,
-    filter: false,
-    sortable: false,
-    cellClass: "ag-center-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-};
-
-const PAY_DIALOG_COL_DEFS = {
-  siNo: {
-    headerName: "Sl.No",
-    valueGetter: rowIndexGetter,
-    width: 72,
-    flex: 0,
-    filter: false,
-    sortable: false,
-  } as ColDef<CourseYearFeeRow>,
-  courseYearName: {
-    field: "courseYearName",
-    headerName: "Course Year",
-    minWidth: 140,
-    flex: 1.2,
-  } as ColDef<CourseYearFeeRow>,
-  subjectCount: {
-    headerName: "Subjects",
-    valueGetter: (p) => p.data?.subjects?.length ?? 0,
-    minWidth: 90,
-    flex: 0.7,
-    cellClass: "ag-right-aligned-cell",
-    filter: false,
-  } as ColDef<CourseYearFeeRow>,
-  examType: {
-    field: "examType",
-    headerName: "Exam Type",
-    minWidth: 100,
-    flex: 0.8,
-  } as ColDef<CourseYearFeeRow>,
-  examFeeAmount: {
-    field: "examFeeAmount",
-    headerName: "Fee Amount",
-    minWidth: 100,
-    flex: 0.8,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-  examFineAmount: {
-    field: "examFineAmount",
-    headerName: "Fine Amount",
-    minWidth: 100,
-    flex: 0.8,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
-  examAddFee: {
-    field: "examAddFee",
-    headerName: "Additional Amount",
-    minWidth: 120,
-    flex: 0.9,
-    cellClass: "ag-right-aligned-cell",
-  } as ColDef<CourseYearFeeRow>,
 };
 
 type SubjectListRow = {
@@ -257,20 +153,6 @@ function subjectNameRenderer(p: ICellRendererParams<SubjectListRow>) {
   );
 }
 
-function makeViewSubjectsRenderer(onView: (row: CourseYearFeeRow) => void) {
-  return (p: ICellRendererParams<CourseYearFeeRow>) => (
-    <button
-      type="button"
-      className="inline-flex items-center justify-center p-1 text-muted-foreground hover:text-foreground"
-      title="View Subjects"
-      onClick={() => p.data && onView(p.data)}
-    >
-      <Eye className="h-4 w-4" aria-hidden />
-      <span className="sr-only">View subjects</span>
-    </button>
-  );
-}
-
 const num = (row: AnyRow | null | undefined, keys: string[]) => {
   if (!row) return 0;
   for (const key of keys) {
@@ -305,12 +187,42 @@ function studentStatusClass(code?: string): string {
   const c = String(code ?? "")
     .toUpperCase()
     .replace(/\s+/g, "");
-  if (c.includes("INCOLLEGE")) return "text-emerald-700 font-semibold";
-  if (c.includes("PASSEDOUT")) return "text-[#461eb6] font-semibold";
-  if (c.includes("DETAIN")) return "text-orange-600 font-semibold";
-  if (c.includes("DISCONTINUED") || c.includes("DTND"))
-    return "text-red-600 font-semibold";
-  return "text-slate-700 font-medium";
+  if (c.includes("INCOLLEGE")) return "status-incollege";
+  if (c.includes("PASSEDOUT")) return "status-passedout";
+  if (c.includes("DETAIN")) return "status-detain";
+  if (c.includes("DISCONTINUED") || c.includes("DTND")) return "status-dtnd";
+  return "font-medium";
+}
+
+function examFromDate(exam: AnyRow | null | undefined): string {
+  return txt(exam, ["examFromDate", "fromDate"]);
+}
+
+function examToDate(exam: AnyRow | null | undefined): string {
+  return txt(exam, ["examToDate", "toDate"]);
+}
+
+function decodeRazorValue(value: unknown): string {
+  const raw = String(value ?? "");
+  if (!raw) return "";
+  try {
+    return atob(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function fineCheck(fineList: AnyRow[] | null | undefined): AnyRow | null {
+  if (!Array.isArray(fineList) || fineList.length === 0) return null;
+  const currentDate = toDateStr(new Date());
+  for (const fine of fineList) {
+    const from = String(fine.fineFromDate ?? "").slice(0, 10);
+    const to = String(fine.fineToDate ?? "").slice(0, 10);
+    if (currentDate && from && to && currentDate >= from && currentDate <= to) {
+      return fine;
+    }
+  }
+  return null;
 }
 
 /** Angular student-exam-fee-collection `.pic` profile banner. */
@@ -337,14 +249,14 @@ function StudentExamFeeProfileBanner({
     .join(" / ");
 
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
+    <div className="std-his">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="shrink-0">
+        <div className="w-full shrink-0 sm:w-[15%]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={photoSrc}
             alt=""
-            className="h-[110px] w-[88px] rounded border border-border object-cover object-top"
+            className="pic"
             onError={() => setPhotoError(true)}
           />
         </div>
@@ -422,9 +334,9 @@ function normalizeStudentProfile(row: AnyRow): StudentExamProfile {
 
 function examOptionLabel(exam: AnyRow): string {
   const name = txt(exam, ["examName", "name"]);
-  const from = txt(exam, ["fromDate"]);
-  const to = txt(exam, ["toDate"]);
-  const range = from && to ? ` (${from} - ${to})` : "";
+  const from = fmtDate(examFromDate(exam));
+  const to = fmtDate(examToDate(exam));
+  const range = from !== "-" && to !== "-" ? ` (${from} - ${to})` : "";
   const tags = [
     exam.isInternalExam ? "(Internal)" : "",
     exam.isRegularExam ? "(Regular)" : "",
@@ -444,8 +356,27 @@ function dedupeCourseYears(rows: AnyRow[]): AnyRow[] {
   return [...map.values()];
 }
 
-function StudentExamFeeCollectionContent() {
+function StudentExamFeeCollectionContent({
+  variant,
+}: {
+  variant: StudentExamFeeVariant;
+}) {
+  const isRevaluation = variant === "revaluation";
+  const pageTitle = isRevaluation
+    ? "Re-Valuation Fee Registration"
+    : "Exam Fee Collection";
+  const subjectsHeading = isRevaluation
+    ? "Select Re-Valuation Fee Subjects"
+    : "Select Exam Fee Subjects";
+  const receiptsHeading = isRevaluation
+    ? "Re-Valuation Fee Receipts"
+    : "Exam Fee Receipts";
+  const redirectPath = isRevaluation
+    ? "/examination-section/revaluation-fee-registration"
+    : "/examination-section/exam-fee-registration";
+
   const { user, isLoading: sessionLoading } = useSessionContext();
+  const router = useRouter();
   const mountedRef = useRef(false);
 
   const [loading, setLoading] = useState(false);
@@ -469,6 +400,10 @@ function StudentExamFeeCollectionContent() {
   const [paying, setPaying] = useState(false);
   const [viewSubjOpen, setViewSubjOpen] = useState(false);
   const [viewSubjRows, setViewSubjRows] = useState<SubjectListRow[]>([]);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AnyRow | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const selectedSubjects = useMemo(
     () => subjects.filter((s) => s.checked),
@@ -545,8 +480,11 @@ function StudentExamFeeCollectionContent() {
       const profile = normalizeStudentProfile(row);
       setStudent(profile);
       const courseId = profile.courseId ?? 0;
+      const collegeId = profile.collegeId ?? 0;
       if (courseId > 0) {
-        const examRows = await listStudentPortalExams(courseId);
+        const examRows = isRevaluation
+          ? await listStudentPortalRevaluationExams(collegeId, courseId)
+          : await listStudentPortalExams(courseId);
         if (!mountedRef.current) return;
         setExams(examRows);
       }
@@ -562,7 +500,7 @@ function StudentExamFeeCollectionContent() {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, [user]);
+  }, [user, isRevaluation]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -581,6 +519,7 @@ function StudentExamFeeCollectionContent() {
       type: 1 | 2,
       batches: AnyRow[],
       currentStudent: StudentExamProfile,
+      matchExamDetails: boolean,
     ) => {
       const code = type === 1 ? "Regular" : "Supple";
       const filteredDetails = details.filter(
@@ -603,14 +542,16 @@ function StudentExamFeeCollectionContent() {
             (currentStudent.courseYearId ?? 0),
         );
       }
-      years = years.filter((cy) =>
-        filteredDetails.some(
-          (ed) =>
-            num(ed, ["courseYearId"]) ===
-            num(cy, ["fromCourseYearId", "courseYearId"]),
-        ),
-      );
-      setCourseYears(years);
+      if (matchExamDetails) {
+        years = years.filter((cy) =>
+          filteredDetails.some(
+            (ed) =>
+              num(ed, ["courseYearId"]) ===
+              num(cy, ["fromCourseYearId", "courseYearId"]),
+          ),
+        );
+      }
+      setCourseYears(years.filter(Boolean));
       if (years.length > 0) {
         const firstId = String(
           num(years[0], ["fromCourseYearId", "courseYearId"]),
@@ -618,11 +559,13 @@ function StudentExamFeeCollectionContent() {
         setCourseYearId(firstId);
       } else {
         setCourseYearId("");
-        toastInfo(
-          type === 1
-            ? "No regular course years in exam details."
-            : "No supplementary course years found.",
-        );
+        if (matchExamDetails) {
+          toastInfo(
+            type === 1
+              ? "No regular course years in exam details."
+              : "No supplementary course years found.",
+          );
+        }
       }
     },
     [],
@@ -634,11 +577,13 @@ function StudentExamFeeCollectionContent() {
       setLoading(true);
       try {
         const [details, receipts, batches] = await Promise.all([
-          getExamMasterDetailsByGroup({
-            examId: selectedExamId,
-            courseGroupId: student.courseGroupId ?? 0,
-            regulationId: student.regulationId ?? 0,
-          }),
+          isRevaluation
+            ? Promise.resolve([] as AnyRow[])
+            : getExamMasterDetailsByGroup({
+                examId: selectedExamId,
+                courseGroupId: student.courseGroupId ?? 0,
+                regulationId: student.regulationId ?? 0,
+              }),
           listExamFeeReceipts({
             studentId: student.studentId ?? 0,
             examId: selectedExamId,
@@ -656,7 +601,7 @@ function StudentExamFeeCollectionContent() {
         if (mountedRef.current) setLoading(false);
       }
     },
-    [student],
+    [student, isRevaluation],
   );
 
   useEffect(() => {
@@ -677,17 +622,26 @@ function StudentExamFeeCollectionContent() {
   }, [examId]);
 
   useEffect(() => {
-    if (!student || !examDetails.length) return;
-    resolveCourseYearsForExam(examDetails, examType, academicBatches, student);
+    if (!student || !examId) return;
+    if (!isRevaluation && !examDetails.length) return;
+    resolveCourseYearsForExam(
+      examDetails,
+      examType,
+      academicBatches,
+      student,
+      !isRevaluation,
+    );
     setSubjects([]);
     setCourseYearFee([]);
     setFeeStructure(null);
     setAdditionalFees([]);
   }, [
+    examId,
     examType,
     examDetails,
     academicBatches,
     student,
+    isRevaluation,
     resolveCourseYearsForExam,
   ]);
 
@@ -832,6 +786,15 @@ function StudentExamFeeCollectionContent() {
       0,
     );
     const examFeeAmount = computeExamFeeAmount(selectedSubjects.length, cyId);
+    const fineRow = fineCheck(feeStructure.examFeeFineDTOs);
+    const isCurrentYear = cyId === (student.courseYearId ?? 0);
+    const examFineAmount = fineRow
+      ? Number(
+          isCurrentYear
+            ? (fineRow.regFeeFine ?? 0)
+            : (fineRow.supplyFeeFine ?? 0),
+        )
+      : 0;
     const courseYearName =
       courseYearOptions.find((o) => o.value === courseYearId)?.label ??
       "Course Year";
@@ -842,7 +805,7 @@ function StudentExamFeeCollectionContent() {
       courseYearName,
       examType: typeLabel,
       examFeeAmount,
-      examFineAmount: 0,
+      examFineAmount,
       examAddFee: addFeeTotal,
       subjects: selectedSubjects,
       examFeeStructureId: feeStructure.examFeeStructureId,
@@ -852,7 +815,9 @@ function StudentExamFeeCollectionContent() {
         txt(firstSubject, ["courseName", "courseCode"]) || student.courseCode,
       academicYear: txt(firstSubject, ["academicYear"]) || student.academicYear,
       examtypeCatId: resolveExamTypeCategoryId(examFeeTypes, typeLabel),
-      examFeeFineId: null,
+      examFeeFineId: fineRow
+        ? Number(fineRow.examFeeFineId ?? fineRow.examfeefineId ?? 0) || null
+        : null,
     };
     setCourseYearFee((prev) => {
       const without = prev.filter((p) => p.courseYearId !== cyId);
@@ -875,6 +840,317 @@ function StudentExamFeeCollectionContent() {
     setViewSubjOpen(true);
   }, []);
 
+  const viewReceiptSubjects = useCallback((receipt: AnyRow) => {
+    const details =
+      receipt?.examStudentDTOs?.[0]?.examStudentDetailDTOs ??
+      receipt?.examStudentDetails ??
+      receipt?.subjects ??
+      [];
+    const rows = Array.isArray(details) ? details : [];
+    const subs: SubjectListRow[] = rows.map((s: AnyRow) => ({
+      subjectName: String(s.subjectName ?? s.shortName ?? ""),
+      subjectCode: String(s.subjectCode ?? ""),
+      subjectTypeCode: String(
+        s.subjectTypeCode ??
+          s.subjecttypeCode ??
+          s.subjectTypeName ??
+          s.subjecttypeName ??
+          "",
+      ),
+      credits: s.credits ?? s.subCredits ?? "",
+      regulationName: String(s.regulationName ?? s.regulationCode ?? ""),
+    }));
+    setViewSubjRows(subs);
+    setViewSubjOpen(true);
+  }, []);
+
+  async function loadAllSubjects() {
+    const cy = Number(courseYearId);
+    if (!student || !cy) return;
+    setLoading(true);
+    try {
+      const isCurrentYear = cy === (student.courseYearId ?? 0);
+      const rows = isCurrentYear
+        ? await getStudentSubjectsForRegularExam({
+            collegeId: student.collegeId ?? 0,
+            academicYearId: student.academicYearId ?? 0,
+            studentId: student.studentId ?? 0,
+            courseYearId: cy,
+            examId: Number(examId),
+          })
+        : await getExamCourseYearSubjects({
+            collegeId: student.collegeId ?? 0,
+            academicYearId: student.academicYearId ?? 0,
+            courseYearId: cy,
+            courseGroupId: student.courseGroupId ?? 0,
+          });
+      const examTypeCode = examType === 1 ? "Regular" : "Supple";
+      setSubjects(
+        rows.map((row) => ({
+          ...row,
+          shortName: txt(row, ["shortName", "subjectCode", "subjectName"]),
+          subjectCode: txt(row, ["subjectCode"]),
+          subjectName: txt(row, ["subjectName", "shortName"]),
+          examType: examTypeCode,
+          checked: true,
+          courseYearId: cy,
+          courseYearName: txt(row, ["courseYearName", "fromCourseYearName"]),
+        })),
+      );
+      setSelectAllSubjects(true);
+    } catch (e) {
+      toastError(e, "Failed to load subjects");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadSuppleSubjects() {
+    const cy = Number(courseYearId);
+    if (!student || !cy) return;
+    setLoading(true);
+    try {
+      let rows = await getStudentSubjectsForSupplyExam({
+        collegeId: student.collegeId ?? 0,
+        courseYearId: cy,
+        studentId: student.studentId ?? 0,
+        examId: Number(examId),
+      });
+      if (rows.length === 0) {
+        rows = await listExamStdCourseYearSubjects({
+          collegeId: student.collegeId ?? 0,
+          courseYearId: cy,
+          studentId: student.studentId ?? 0,
+        });
+      }
+      setSubjects(
+        rows.map((row) => ({
+          ...row,
+          shortName: txt(row, ["shortName", "subjectCode", "subjectName"]),
+          subjectCode: txt(row, ["subjectCode"]),
+          subjectName: txt(row, ["subjectName", "shortName"]),
+          examType: "Supple",
+          checked: true,
+          courseYearId: cy,
+          courseYearName: txt(row, ["courseYearName", "fromCourseYearName"]),
+        })),
+      );
+      setSelectAllSubjects(true);
+    } catch (e) {
+      toastError(e, "Failed to load supplementary subjects");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function printReceipt(receipt: AnyRow) {
+    const receiptId = num(receipt, ["examFeeReceiptId"]);
+    if (isRevaluation) {
+      if (!receiptId) {
+        toastError("Receipt id missing.");
+        return;
+      }
+      void downloadStudentExamFeeReceiptPdf(receiptId)
+        .then(printPdfBlob)
+        .catch((e) => toastError(e, "Failed to print receipt"));
+      return;
+    }
+    saveExamFeePrintPayload({
+      ...receipt,
+      stdName: receipt.studentName ?? student?.firstName,
+      stdRollNumber:
+        receipt.rollno ?? student?.hallticketNumber ?? student?.rollNumber,
+      groupCode: receipt.courseGroupName ?? student?.groupCode,
+      courseCode: student?.courseCode,
+    });
+    setExamFeePrintReturnHref(redirectPath);
+    router.push("/examination-section/exam-fee-registration/exam-fee-receipt");
+  }
+
+  function openDeleteReceipt(receipt: AnyRow) {
+    setDeleteTarget(receipt);
+    setDeleteReason("");
+    setDeleteOpen(true);
+  }
+
+  async function confirmDeleteReceipt() {
+    if (!deleteTarget) return;
+    if (!deleteReason.trim()) {
+      toastInfo("Reason is required.");
+      return;
+    }
+    const receiptId = num(deleteTarget, ["examFeeReceiptId"]);
+    if (!receiptId) {
+      toastError("Receipt id missing.");
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteExamFeeReceipt(receiptId);
+      toastSuccess("Receipt deleted.");
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      if (student && examId) {
+        const receipts = await listExamFeeReceipts({
+          studentId: student.studentId ?? 0,
+          examId: Number(examId),
+        });
+        if (mountedRef.current) setFeeReceipts(receipts);
+      }
+    } catch (e) {
+      toastError(e, "Failed to delete receipt");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function buildRevaluationReceipts(
+    paymentModeCatId: number,
+    receiptDate: string,
+  ): AnyRow[] {
+    if (!student || !selectedExam) return [];
+    const examMasterId = num(selectedExam, ["examId", "id"]);
+    return courseYearFee.map((row) => {
+      const addTFee = (row.examAdditionalFeeReceiptDTOs ?? []).filter(
+        (f) => Number(f.fee ?? 0) > 0,
+      );
+      const addFeeAmt = addTFee.reduce((s, f) => s + Number(f.fee ?? 0), 0);
+      return {
+        chequeNo: null,
+        ddno: null,
+        examFeeAmount: row.examFeeAmount,
+        examFineAmount: row.examFineAmount,
+        examAddtFee: addFeeAmt,
+        examTotalAmount: row.examFeeAmount + row.examFineAmount + addFeeAmt,
+        collegeCode: row.collegeCode,
+        examName: txt(selectedExam, ["examName", "name"]),
+        courseName: row.courseName,
+        courseYearName: row.courseYearName,
+        examType: row.examType,
+        examFromDate: examFromDate(selectedExam),
+        examToDate: examToDate(selectedExam),
+        courseGroupName: student.groupCode,
+        academicYear: row.academicYear,
+        studentName: student.firstName,
+        rollno: student.rollNumber ?? student.hallticketNumber,
+        feeComments: null,
+        employeeId: null,
+        collegeId: student.collegeId,
+        courseYearId: row.courseYearId,
+        examFeeFineId: row.examFeeFineId,
+        examFeeStructureId: row.examFeeStructureId,
+        examId: examMasterId,
+        examtypeCatId: row.examtypeCatId,
+        paymentModeCatId,
+        studentId: student.studentId,
+        isActive: true,
+        otherPaymentNumber: null,
+        receiptDate,
+        referenceNumber: null,
+        transactionNo: null,
+        examAdditionalFeeReceiptDTOs: addTFee.map((f) => ({
+          ...f,
+          collegeId: student.collegeId,
+          addtFeeAmount: f.fee,
+          isActive: true,
+          addtExamFeeTypeCatId: f.adtExamfeetypeCatId,
+          collectedEmpId: null,
+          addtReceiptDate: receiptDate,
+        })),
+        examStudentDTOs: [
+          {
+            feeComments: null,
+            collegeId: student.collegeId,
+            courseYearId: row.courseYearId,
+            examFeeAmount: row.examFeeAmount,
+            examtypeCatId: row.examtypeCatId,
+            regulationId: student.regulationId,
+            studentId: student.studentId,
+            isActive: true,
+            isFeePaid: true,
+            registrationDate: receiptDate,
+            examId: examMasterId,
+            examStudentDetailDTOs: row.subjects,
+          },
+        ],
+      };
+    });
+  }
+
+  async function payRevaluationWithRazorpay(receipts: AnyRow[]) {
+    const amount = Number(receipts[0]?.examTotalAmount ?? 0);
+    if (!student || amount <= 0) {
+      toastError("Invalid payment amount.");
+      return;
+    }
+    await loadRazorpayCheckoutScript();
+    const amountPaise = `${amount}00`;
+    const order = await createRazorpayOrder(
+      student.studentId ?? 0,
+      amountPaise,
+    );
+    const RazorpayCtor = (
+      window as Window & {
+        Razorpay?: new (opts: AnyRow) => { open: () => void };
+      }
+    ).Razorpay;
+    if (!RazorpayCtor) {
+      throw new Error("Razorpay checkout is not available.");
+    }
+    await new Promise<void>((resolve, reject) => {
+      const options: AnyRow = {
+        key: decodeRazorValue(order.apiKey),
+        amount: amount,
+        currency: "INR",
+        name: "Genesis",
+        description: "Exam Fee Collection",
+        order_id: decodeRazorValue(order.orderId),
+        modal: { escape: false },
+        theme: { color: "#0c238a" },
+        handler: async (response: AnyRow) => {
+          try {
+            const charged = await chargeRazorpayPayment({
+              paymentId: String(response.razorpay_payment_id ?? ""),
+              signature: String(response.razorpay_signature ?? ""),
+              orderId: String(response.razorpay_order_id ?? ""),
+            });
+            const verify =
+              charged?.signVerify ?? charged?.data?.signVerify ?? "";
+            if (String(verify) !== "Success") {
+              reject(new Error("Payment Failed"));
+              return;
+            }
+            const txn =
+              charged?.paymentTransaction ??
+              charged?.data?.paymentTransaction ??
+              {};
+            receipts[0].transactionNo =
+              txn.bankRefNo ?? txn.bank_ref_no ?? null;
+            await payExamFeeReceipts(receipts);
+            toastSuccess("Exam fee paid.");
+            setPayDialogOpen(false);
+            setCourseYearFee([]);
+            if (student && examId) {
+              const next = await listExamFeeReceipts({
+                studentId: student.studentId ?? 0,
+                examId: Number(examId),
+              });
+              if (mountedRef.current) setFeeReceipts(next);
+            }
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        },
+      };
+      options.modal.ondismiss = () => {
+        reject(new Error("Transaction cancelled."));
+      };
+      const rzp = new RazorpayCtor(options);
+      rzp.open();
+    });
+  }
+
   const subjectListColumnDefs = useMemo<ColDef<SubjectListRow>[]>(
     () => [
       SUBJECT_LIST_COL_DEFS.siNo,
@@ -885,36 +1161,6 @@ function StudentExamFeeCollectionContent() {
       SUBJECT_LIST_COL_DEFS.subjectType,
       SUBJECT_LIST_COL_DEFS.credits,
       SUBJECT_LIST_COL_DEFS.regulation,
-    ],
-    [],
-  );
-
-  const feePaymentColumnDefs = useMemo<ColDef<CourseYearFeeRow>[]>(
-    () => [
-      FEE_PAYMENT_COL_DEFS.siNo,
-      FEE_PAYMENT_COL_DEFS.courseYearName,
-      FEE_PAYMENT_COL_DEFS.examType,
-      FEE_PAYMENT_COL_DEFS.subjectCount,
-      FEE_PAYMENT_COL_DEFS.examFineAmount,
-      FEE_PAYMENT_COL_DEFS.examAddFee,
-      FEE_PAYMENT_COL_DEFS.examFeeAmount,
-      {
-        ...FEE_PAYMENT_COL_DEFS.actions,
-        cellRenderer: makeViewSubjectsRenderer(viewCourseYearSubjects),
-      },
-    ],
-    [viewCourseYearSubjects],
-  );
-
-  const payDialogColumnDefs = useMemo<ColDef<CourseYearFeeRow>[]>(
-    () => [
-      PAY_DIALOG_COL_DEFS.siNo,
-      PAY_DIALOG_COL_DEFS.courseYearName,
-      PAY_DIALOG_COL_DEFS.subjectCount,
-      PAY_DIALOG_COL_DEFS.examType,
-      PAY_DIALOG_COL_DEFS.examFeeAmount,
-      PAY_DIALOG_COL_DEFS.examFineAmount,
-      PAY_DIALOG_COL_DEFS.examAddFee,
     ],
     [],
   );
@@ -940,15 +1186,20 @@ function StudentExamFeeCollectionContent() {
     setPaying(true);
     try {
       const examMasterId = num(selectedExam, ["examId", "id"]);
-      setSecuredValue(
-        "paymentRedirectUrl",
-        "/examination-section/exam-fee-registration",
-      );
+      setSecuredValue("paymentRedirectUrl", redirectPath);
       setSecuredValue("payFeeDueDetails", { examId: examMasterId });
 
       const paymentModes = await listPaymentModes();
-      const paymentModeCatId =
-        resolveOnlinePaymentModeId(paymentModes) ?? 132;
+      const paymentModeCatId = resolveOnlinePaymentModeId(paymentModes) ?? 132;
+
+      if (isRevaluation) {
+        const receipts = buildRevaluationReceipts(
+          paymentModeCatId,
+          utcMidnightIso(new Date()),
+        );
+        await payRevaluationWithRazorpay(receipts);
+        return;
+      }
 
       // Angular overwrites examFeePayload in the loop — last course-year wins.
       const row = courseYearFee[courseYearFee.length - 1];
@@ -966,8 +1217,8 @@ function StudentExamFeeCollectionContent() {
         exam: {
           examId: examMasterId,
           examName: txt(selectedExam, ["examName", "name"]),
-          fromDate: selectedExam.fromDate,
-          toDate: selectedExam.toDate,
+          fromDate: examFromDate(selectedExam),
+          toDate: examToDate(selectedExam),
         },
         row,
         paymentModeCatId,
@@ -1011,46 +1262,45 @@ function StudentExamFeeCollectionContent() {
 
   if (sessionLoading) {
     return (
-      <FilteredPage
-        title="Exam Fee Registration"
-        filtersCollapsible={false}
-        filters={null}
-      >
+      <PageContainer>
         <p className="text-sm text-muted-foreground">Loading…</p>
-      </FilteredPage>
+      </PageContainer>
     );
   }
 
   return (
-    <>
-      <FilteredPage
-        title="Exam Fee Registration"
-        filters={
-          <GlobalFilterBarRow columns={3}>
-            <GlobalFilterField label="Exam">
-              <Select
-                value={examId || null}
-                onChange={(v) => setExamId(v ?? "")}
-                options={examOptions}
-                placeholder="Select exam"
-                searchable
-                disabled={loading || exams.length === 0}
-              />
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
-        }
-        body={
-          examId && student ? (
-            <StudentExamFeeProfileBanner student={student} />
-          ) : null
-        }
-      >
-        {examId && student ? (
-          <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
-            <h2 className="text-sm font-semibold">Select Exam Fee Subjects</h2>
+    <PageContainer>
+      <div className="student-exam-fee-page">
+        <div className="student-exam-fee-page__header">
+          <Banknote className="student-exam-fee-page__header-icon h-5 w-5" />
+          <span className="student-exam-fee-page__header-text">
+            {pageTitle}
+          </span>
+        </div>
 
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm">
+        <div className="mx-[15px] mt-2.5 px-2 py-2">
+          <div className="max-w-[60%]">
+            <Select
+              label="Exam"
+              value={examId || null}
+              onChange={(v) => setExamId(v ?? "")}
+              options={examOptions}
+              placeholder="Exam"
+              searchable
+              disabled={loading || exams.length === 0}
+            />
+          </div>
+        </div>
+
+        {examId && student ? (
+          <StudentExamFeeProfileBanner student={student} />
+        ) : null}
+
+        {examId && student ? (
+          <div className="yar-bordr">
+            <h2>{subjectsHeading}</h2>
+            <div className="radio-btn bg-white px-5 py-2.5">
+              <label className="mr-8 inline-flex items-center gap-2 text-sm">
                 <input
                   type="radio"
                   name="examType"
@@ -1059,7 +1309,7 @@ function StudentExamFeeCollectionContent() {
                 />
                 Regular
               </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="inline-flex items-center gap-2 text-sm">
                 <input
                   type="radio"
                   name="examType"
@@ -1070,208 +1320,357 @@ function StudentExamFeeCollectionContent() {
               </label>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Course Year</Label>
-                <Select
-                  value={courseYearId || null}
-                  onChange={(v) => setCourseYearId(v ?? "")}
-                  options={courseYearOptions}
-                  placeholder="Select course year"
-                  disabled={loading || courseYearOptions.length === 0}
-                />
-              </div>
-            </div>
+            <div className="flex flex-wrap gap-2">
+              {courseYears.length > 0 ? (
+                <div className="bordr w-full bg-white p-2 md:w-[20%]">
+                  <Select
+                    label="Course Year"
+                    value={courseYearId || null}
+                    onChange={(v) => setCourseYearId(v ?? "")}
+                    options={courseYearOptions}
+                    placeholder="Course Year"
+                    disabled={loading || courseYearOptions.length === 0}
+                  />
+                  {courseYearId && examType === 2 ? (
+                    <div className="mt-2 flex gap-4">
+                      <span
+                        className="txt-all"
+                        onClick={() => void loadAllSubjects()}
+                      >
+                        All
+                      </span>
+                      <span
+                        className="txt-all"
+                        onClick={() => void loadSuppleSubjects()}
+                      >
+                        Supple
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
-            {subjects.length > 0 ? (
-              <div className="grid gap-4 lg:grid-cols-3">
-                <div className="rounded-md border bg-background p-3 lg:col-span-1">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <Input
-                      value={subjectSearch}
-                      onChange={(e) => setSubjectSearch(e.target.value)}
-                      placeholder="Search subjects…"
-                      className="h-8 text-xs"
-                    />
-                    <span className="text-xs text-blue-600 whitespace-nowrap">
+              {subjects.length > 0 ? (
+                <div className="bordr first-table w-full bg-white md:w-[25%]">
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <div className="search-box flex-1">
+                      <input
+                        value={subjectSearch}
+                        onChange={(e) => setSubjectSearch(e.target.value)}
+                        placeholder="Search..."
+                      />
+                    </div>
+                    <span className="whitespace-nowrap text-sm font-medium text-blue-600">
                       Subjects: {selectedSubjects.length}
                     </span>
                   </div>
-                  <div className="max-h-64 overflow-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="py-1 pr-2">
-                            <Checkbox
-                              checked={selectAllSubjects}
-                              onCheckedChange={(v) =>
-                                toggleAllSubjects(Boolean(v))
-                              }
-                            />
-                          </th>
-                          <th className="py-1">Subject</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredSubjects.map((sub) => {
-                          const id = num(sub, ["subjectId"]);
-                          return (
-                            <tr key={id} className="border-b border-dashed">
-                              <td className="py-1 pr-2">
-                                <Checkbox
-                                  checked={Boolean(sub.checked)}
-                                  onCheckedChange={(v) =>
-                                    toggleSubject(id, Boolean(v))
-                                  }
-                                />
-                              </td>
-                              <td className="py-1">
-                                {sub.shortName}
-                                {sub.subjectCode ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="w-[15%]">
+                          <Checkbox
+                            checked={selectAllSubjects}
+                            onCheckedChange={(v) =>
+                              toggleAllSubjects(Boolean(v))
+                            }
+                          />{" "}
+                          All
+                        </th>
+                        <th>Subjects</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSubjects.map((sub) => {
+                        const id = num(sub, ["subjectId"]);
+                        return (
+                          <tr key={id}>
+                            <td>
+                              <Checkbox
+                                checked={Boolean(sub.checked)}
+                                onCheckedChange={(v) =>
+                                  toggleSubject(id, Boolean(v))
+                                }
+                              />
+                            </td>
+                            <td>
+                              {sub.shortName}
+                              {sub.subjectCode ? (
+                                <span>
+                                  {" "}
+                                  -{" "}
                                   <span className="text-blue-600">
-                                    {" "}
-                                    — {sub.subjectCode}
+                                    {sub.subjectCode}
                                   </span>
-                                ) : null}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                </span>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
+              ) : null}
 
-                {selectedSubjects.length > 0 ? (
-                  <div className="overflow-hidden rounded-md border bg-background lg:col-span-1">
-                    <p className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold text-blue-700">
-                      Selected Subjects: {selectedSubjects.length}
-                    </p>
-                    <ul className="max-h-64 space-y-1 overflow-auto p-3 text-xs">
+              {selectedSubjects.length > 0 ? (
+                <div className="bordr first-table first-table-sub w-full md:w-[20%]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="text-blue-600">
+                          Selected Subjects : {selectedSubjects.length}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {selectedSubjects.map((sub) => (
-                        <li key={num(sub, ["subjectId"])}>
-                          {sub.shortName}
-                          {sub.subjectCode ? (
-                            <span className="text-blue-600">
-                              {" "}
-                              — {sub.subjectCode}
-                            </span>
-                          ) : null}
-                        </li>
+                        <tr key={num(sub, ["subjectId"])}>
+                          <td>
+                            {sub.shortName}
+                            {sub.subjectCode ? (
+                              <span>
+                                {" "}
+                                -{" "}
+                                <span className="text-blue-600">
+                                  {sub.subjectCode}
+                                </span>
+                              </span>
+                            ) : null}
+                          </td>
+                        </tr>
                       ))}
-                    </ul>
-                  </div>
-                ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
 
-                {additionalFees.length > 0 ? (
-                  <div className="overflow-hidden rounded-md border bg-background lg:col-span-1">
-                    <p className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-semibold">
-                      Additional Fee
-                    </p>
-                    <div className="space-y-2 p-3">
+              {additionalFees.length > 0 ? (
+                <div className="bordr first-table first-table-sub w-full md:w-[22%]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th>Additional Fee</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {additionalFees.map((fee, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between gap-2 text-xs"
-                        >
-                          <span>
+                        <tr key={idx}>
+                          <td>
                             {txt(fee, [
                               "adtExamfeetypeCatDisplayName",
                               "addtExamFeeTypeName",
                             ])}
-                          </span>
-                          <Input
-                            type="number"
-                            className="h-8 w-24"
-                            value={String(fee.fee ?? 0)}
-                            disabled={Boolean(fee.isDisable)}
-                            onChange={(e) => {
-                              const next = Number(e.target.value);
-                              setAdditionalFees((prev) =>
-                                prev.map((row, i) =>
-                                  i === idx ? { ...row, fee: next } : row,
-                                ),
-                              );
-                            }}
-                          />
-                        </div>
+                            <input
+                              className="ex-amt"
+                              type="number"
+                              value={String(fee.fee ?? 0)}
+                              disabled={Boolean(fee.isDisable)}
+                              onChange={(e) => {
+                                const next = Number(e.target.value);
+                                setAdditionalFees((prev) =>
+                                  prev.map((row, i) =>
+                                    i === idx ? { ...row, fee: next } : row,
+                                  ),
+                                );
+                              }}
+                            />
+                          </td>
+                        </tr>
                       ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
 
-            {subjects.length > 0 && feeReceipts.length === 0 ? (
-              <Button type="button" onClick={handleCheckFee} disabled={loading}>
-                Check Fee
-              </Button>
-            ) : null}
+              {subjects.length > 0 ? (
+                <div className="relative w-full p-2 md:w-[10%]">
+                  <button
+                    type="button"
+                    className="add-btn-gold absolute bottom-[-4px]"
+                    onClick={handleCheckFee}
+                    disabled={loading}
+                  >
+                    Check Fee
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
         {courseYearFee.length > 0 ? (
-          <div className="exam-fee-payment-table app-data-table app-data-table-card flex flex-col">
-            <div className="app-data-table-heading px-5 pt-5 pb-0">
-              <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                Exam Fee Payment
-              </h2>
-            </div>
-            <DataTable
-              title=""
-              bordered={false}
-              rowData={courseYearFee}
-              columnDefs={feePaymentColumnDefs}
-              loading={loading}
-              pagination
-              paginationPageSize={10}
-              height="auto"
-              getRowId={(p) => String(p.data.courseYearId)}
-              toolbar={{
-                search: true,
-                searchPlaceholder: "Search…",
-                columnFilters: true,
-                exportExcel: true,
-                pdfDocumentTitle: "Exam Fee Payment",
-              }}
-            />
-            <div className="exam-fee-payment-footer border-t border-border bg-primary/[0.04] px-5 py-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                    Summary
-                  </p>
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      Total Fees
-                    </span>
-                    <span className="text-2xl font-bold tabular-nums text-foreground">
-                      ₹{totalReceiptAmt.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  className="shrink-0 self-end sm:self-auto"
-                  onClick={payExamFees}
-                  disabled={loading}
-                >
-                  Pay fees
-                </Button>
+          <>
+            <div className="yar-bordr-list">
+              <h2>Exam Fee Payment</h2>
+              <div className="table-bac">
+                <table className="fee">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "5%" }}>SI No</th>
+                      <th style={{ width: "35%" }}>Course Year</th>
+                      <th className="text-right" style={{ width: "10%" }}>
+                        Exam Type
+                      </th>
+                      <th className="text-right" style={{ width: "10%" }}>
+                        No of Subjects
+                      </th>
+                      <th className="text-right" style={{ width: "10%" }}>
+                        LateFee
+                      </th>
+                      <th className="text-right" style={{ width: "10%" }}>
+                        Add. Fee Amt(₹)
+                      </th>
+                      <th className="text-right" style={{ width: "10%" }}>
+                        Fee Amt (₹)
+                      </th>
+                      <th className="text-right" style={{ width: "10%" }}>
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courseYearFee.map((row, i) => (
+                      <tr key={row.courseYearId}>
+                        <td>{i + 1}</td>
+                        <td>{row.courseYearName}</td>
+                        <td className="text-right">{row.examType}</td>
+                        <td className="text-right">{row.subjects.length}</td>
+                        <td className="text-right">{row.examFineAmount}</td>
+                        <td className="text-right">{row.examAddFee}</td>
+                        <td className="text-right">{row.examFeeAmount}</td>
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            title="View Subjects"
+                            onClick={() => viewCourseYearSubjects(row)}
+                          >
+                            <Eye className="inline h-4 w-4 text-[#9E9E9E]" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-transparent">
+                      <td />
+                      <td
+                        colSpan={7}
+                        className="text-[15px] font-bold text-blue-600"
+                      >
+                        Summary
+                      </td>
+                    </tr>
+                    <tr>
+                      <td />
+                      <td colSpan={6} className="font-bold">
+                        Total Fees
+                      </td>
+                      <td className="text-right font-bold">
+                        {totalReceiptAmt}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
+            <div className="pay-strip">
+              <button
+                type="button"
+                className="add-btn-gold"
+                onClick={payExamFees}
+                disabled={loading}
+              >
+                Pay fees
+              </button>
+            </div>
+          </>
         ) : null}
 
         {feeReceipts.length > 0 ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-3 text-sm text-emerald-800">
-            You already have {feeReceipts.length} fee receipt(s) for this exam.
+          <div className="receipts-block">
+            <h2>{receiptsHeading}</h2>
+            <div className="table-bac">
+              <table className="fee">
+                <thead>
+                  <tr>
+                    <th style={{ width: "5%" }}>SI No.</th>
+                    <th>Course Year</th>
+                    <th>Receipt No.</th>
+                    <th>Payment Date</th>
+                    <th>Payment Mode</th>
+                    {isRevaluation ? null : <th>Exam Type</th>}
+                    <th className="text-right">Exam Fee (₹)</th>
+                    <th className="text-right">Add. Fee (₹)</th>
+                    <th className="text-right">LateFee(₹)</th>
+                    <th className="text-right">Amount (₹)</th>
+                    <th>Subjects</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feeReceipts.map((receipt, i) => (
+                    <tr key={num(receipt, ["examFeeReceiptId"]) || i}>
+                      <td>{i + 1}</td>
+                      <td>{txt(receipt, ["courseYearName"])}</td>
+                      <td>{txt(receipt, ["feeReceiptNo"])}</td>
+                      <td>{fmtDate(receipt.receiptDate)}</td>
+                      <td>{txt(receipt, ["paymentModeCatDisplayName"])}</td>
+                      {isRevaluation ? null : (
+                        <td>{txt(receipt, ["examtypeCatDisplayName"])}</td>
+                      )}
+                      <td className="text-right">
+                        {receipt.examFeeAmount != null
+                          ? String(receipt.examFeeAmount)
+                          : "-"}
+                      </td>
+                      <td className="text-right">
+                        {receipt.examAddtFee != null
+                          ? String(receipt.examAddtFee)
+                          : "-"}
+                      </td>
+                      <td className="text-right">
+                        {receipt.examFineAmount != null
+                          ? String(receipt.examFineAmount)
+                          : "-"}
+                      </td>
+                      <td className="text-right">
+                        {receipt.examTotalAmount ?? ""}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="subj-btn-gold"
+                          onClick={() => viewReceiptSubjects(receipt)}
+                        >
+                          Subjects
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          title="Print Receipt"
+                          className="mr-2"
+                          onClick={() => printReceipt(receipt)}
+                        >
+                          <Printer className="inline h-5 w-5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete Exam Subject"
+                          onClick={() => openDeleteReceipt(receipt)}
+                        >
+                          <Trash2 className="inline h-5 w-5 text-red-600" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : null}
-      </FilteredPage>
+      </div>
 
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
-        <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <DialogContent className="student-exam-fee-pay-dialog max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">
           <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-3">
             <ClipboardList className="h-5 w-5 text-primary" aria-hidden />
             <DialogTitle className="text-base font-semibold">
@@ -1281,59 +1680,71 @@ function StudentExamFeeCollectionContent() {
 
           <div className="space-y-4 p-4">
             {student && selectedExam ? (
-              <div className="space-y-2 rounded-lg bg-muted/20 p-3 text-sm">
-                <div className="grid grid-cols-[minmax(5rem,20%)_1fr] gap-x-2 gap-y-1">
-                  <span className="text-muted-foreground">Student :</span>
-                  <span className="text-blue-700">
+              <div className="space-y-1 rounded border border-[#dedede] p-3 text-sm">
+                <p className="details-off">
+                  Student :{" "}
+                  <span className="colr">
                     {student.firstName} (
                     {student.hallticketNumber ?? student.rollNumber})
                   </span>
-                </div>
-                <div className="grid grid-cols-[minmax(5rem,20%)_1fr] gap-x-2 gap-y-1">
-                  <span className="text-muted-foreground">College :</span>
-                  <span className="text-blue-700">
+                </p>
+                <p className="details-off">
+                  College :{" "}
+                  <span className="colr">
                     {student.collegeCode}
                     {student.academicYear ? ` / (${student.academicYear})` : ""}
                   </span>
-                </div>
-                <div className="grid grid-cols-[minmax(5rem,20%)_1fr] gap-x-2 gap-y-1">
-                  <span className="text-muted-foreground">Course :</span>
-                  <span className="text-blue-700">
+                </p>
+                <p className="details-off">
+                  Course :{" "}
+                  <span className="colr">
                     {student.courseName ?? student.courseCode} / (
                     {student.groupCode})
                   </span>
-                </div>
-                <div className="grid grid-cols-[minmax(5rem,20%)_1fr] gap-x-2 gap-y-1">
-                  <span className="text-muted-foreground">Exam :</span>
-                  <span className="text-blue-700">
+                </p>
+                <p className="details-off">
+                  Exam :{" "}
+                  <span className="colr">
                     {txt(selectedExam, ["examName", "name"])} (
-                    {fmtDate(selectedExam.fromDate)} -{" "}
-                    {fmtDate(selectedExam.toDate)})
+                    {fmtDate(examFromDate(selectedExam))} -{" "}
+                    {fmtDate(examToDate(selectedExam))})
                   </span>
-                </div>
+                </p>
               </div>
             ) : null}
 
-            <div className="exam-fee-payment-table app-data-table app-data-table-card flex flex-col overflow-hidden">
-              <DataTable
-                bordered={false}
-                rowData={courseYearFee}
-                columnDefs={payDialogColumnDefs}
-                height="auto"
-                getRowId={(p) => String(p.data.courseYearId)}
-                toolbar={false}
-              />
-              <div className="exam-fee-payment-footer border-t border-border bg-primary/[0.04] px-4 py-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium text-muted-foreground">
+            <table>
+              <thead>
+                <tr>
+                  <th>SI.No.</th>
+                  <th>Course Year</th>
+                  <th>Subjects</th>
+                  <th>Exam Type</th>
+                  <th className="text-right">Fee Amount</th>
+                  <th className="text-right">Fine Amount</th>
+                  <th className="text-right">Additional Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {courseYearFee.map((row, i) => (
+                  <tr key={row.courseYearId}>
+                    <td>{i + 1}</td>
+                    <td>{row.courseYearName}</td>
+                    <td>{row.subjects.length}</td>
+                    <td>{row.examType}</td>
+                    <td className="text-right">{row.examFeeAmount}</td>
+                    <td className="text-right">{row.examFineAmount}</td>
+                    <td className="text-right">{row.examAddFee}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={6} className="text-right font-medium">
                     Total Amount
-                  </span>
-                  <span className="text-xl font-bold tabular-nums text-foreground">
-                    ₹{totalReceiptAmt.toLocaleString("en-IN")}
-                  </span>
-                </div>
-              </div>
-            </div>
+                  </td>
+                  <td className="text-right font-medium">{totalReceiptAmt}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
           <DialogFooter className="border-t px-4 py-3">
@@ -1344,9 +1755,14 @@ function StudentExamFeeCollectionContent() {
             >
               Close
             </Button>
-            <Button disabled={paying} onClick={() => void confirmPay()}>
+            <button
+              type="button"
+              className="add-btn-gold"
+              disabled={paying}
+              onClick={() => void confirmPay()}
+            >
               {paying ? "Processing…" : "Pay"}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1378,10 +1794,80 @@ function StudentExamFeeCollectionContent() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="student-exam-fee-pay-dialog max-w-xl gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b px-5 py-4">
+            <DialogTitle>Delete Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 p-5 text-sm">
+            {deleteTarget ? (
+              <>
+                <p className="details-off">
+                  College :{" "}
+                  <span className="colr">
+                    {txt(deleteTarget, ["collegeCode"])}
+                  </span>
+                </p>
+                <p className="details-off">
+                  Course Year :{" "}
+                  <span className="colr">
+                    {txt(deleteTarget, ["courseYearName"])}
+                  </span>
+                </p>
+                <p className="details-off">
+                  Exam :{" "}
+                  <span className="colr">
+                    {txt(deleteTarget, ["examName"])}
+                  </span>
+                </p>
+                <p className="details-off">
+                  Receipt No. :{" "}
+                  <span className="colr">
+                    {txt(deleteTarget, ["feeReceiptNo"])}
+                  </span>
+                </p>
+                <p className="details-off">
+                  Receipt Amount :{" "}
+                  <span className="colr">
+                    {String(deleteTarget.examFeeAmount ?? "")}
+                  </span>
+                </p>
+              </>
+            ) : null}
+            <label className="block pt-2">
+              Reason
+              <input
+                className="mt-1 w-full rounded border border-[#c4c4c4] px-2 py-1.5"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+          <DialogFooter className="border-t px-4 py-3">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Close
+            </Button>
+            <button
+              type="button"
+              className="add-btn-gold"
+              disabled={deleting}
+              onClick={() => void confirmDeleteReceipt()}
+            >
+              {deleting ? "Deleting…" : "Ok"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </PageContainer>
   );
 }
 
-export function StudentExamFeeCollectionPage() {
-  return <StudentExamFeeCollectionContent />;
+export function StudentExamFeeCollectionPage({
+  variant = "exam-fee",
+}: {
+  variant?: StudentExamFeeVariant;
+}) {
+  return <StudentExamFeeCollectionContent variant={variant} />;
 }

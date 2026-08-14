@@ -391,6 +391,8 @@ export const QK = {
       ["FeesCollection", "allocateStructures", filters] as const,
     payStudentData: (filters: Record<string, unknown>) =>
       ["FeesCollection", "payStudentData", filters] as const,
+    studentFeeDuePayment: (filters: Record<string, unknown>) =>
+      ["StudentFees", "feeDuePayment", filters] as const,
     payLookups: () => ["FeesCollection", "payLookups"] as const,
     payCategories: (collegeId: number, code: string) =>
       ["FeesCollection", "payCategories", collegeId, code] as const,

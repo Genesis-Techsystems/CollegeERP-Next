@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   clearExamFeePrintPayload,
+  clearExamFeePrintReturnHref,
   examFeeCollectionReturnHref,
   loadExamFeePrintPayload,
   type ExamFeePrintPayload,
@@ -266,8 +267,10 @@ export default function PrintExamFeeReceiptPage() {
   }, [router]);
 
   function goBack() {
+    const href = examFeeCollectionReturnHref(data);
     clearExamFeePrintPayload();
-    router.replace(examFeeCollectionReturnHref(data));
+    clearExamFeePrintReturnHref();
+    router.replace(href);
   }
 
   function onPrint() {

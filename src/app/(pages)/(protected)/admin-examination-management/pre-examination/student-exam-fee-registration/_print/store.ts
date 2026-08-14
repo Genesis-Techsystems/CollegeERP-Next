@@ -41,6 +41,25 @@ export const EXAM_FEE_RETURN_STATE_KEY = "collegeerp.examFeeReturnState";
 export const EXAM_FEE_COLLECTION_HREF =
   "/admin-examination-management/pre-examination/student-exam-fee-registration";
 
+const EXAM_FEE_PRINT_RETURN_HREF_KEY = "collegeerp.examFeePrintReturnHref";
+
+/** Student portal printreceipt() returns here instead of staff collection. */
+export function setExamFeePrintReturnHref(href: string): void {
+  try {
+    sessionStorage.setItem(EXAM_FEE_PRINT_RETURN_HREF_KEY, href);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+export function clearExamFeePrintReturnHref(): void {
+  try {
+    sessionStorage.removeItem(EXAM_FEE_PRINT_RETURN_HREF_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export type ExamFeeReturnState = {
   students: Record<string, any>[];
   studentId: number | null;
@@ -104,5 +123,11 @@ export function clearExamFeeReturnState(): void {
 export function examFeeCollectionReturnHref(
   _data?: ExamFeePrintPayload | null,
 ): string {
+  try {
+    const custom = sessionStorage.getItem(EXAM_FEE_PRINT_RETURN_HREF_KEY);
+    if (custom && custom.startsWith("/")) return custom;
+  } catch {
+    // ignore
+  }
   return EXAM_FEE_COLLECTION_HREF;
 }
