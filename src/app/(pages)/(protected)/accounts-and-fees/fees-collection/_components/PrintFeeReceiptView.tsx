@@ -120,9 +120,9 @@ function ReceiptPreview({
         marginTop: 10,
       }}
     >
-      {/* Header — Angular `.firstborder` */}
+      {/* Angular `.firstborder` — logo left, college name/address centered */}
       <div
-        className="flex items-center"
+        className="firstborder flex items-center"
         style={{ borderBottom: "2px solid #000" }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -160,7 +160,6 @@ function ReceiptPreview({
         </div>
       </div>
 
-      {/* Angular: <h3> FEE-RECEIPT </h3> — no line under the title */}
       <h3
         style={{
           textAlign: "center",
@@ -171,6 +170,16 @@ function ReceiptPreview({
       >
         FEE-RECEIPT
       </h3>
+      <hr
+        className="line"
+        style={{
+          backgroundColor: "#000",
+          height: 2,
+          width: "90%",
+          margin: "0 auto 8px",
+          border: "none",
+        }}
+      />
 
       {/* Angular `.main-card` + `.img-3` backdrop logo */}
       <div className="main-card flex" style={{ padding: 15 }}>
@@ -492,35 +501,41 @@ export function PrintFeeReceiptView() {
 
   return (
     <PageContainer className="space-y-4">
-      <div className="overflow-hidden" data-no-page-name data-print-hide>
-        <div className="px-1 py-1">
-          <h1 className="text-base font-semibold text-black">Fee-Receipt</h1>
+      <div className="app-card overflow-hidden" data-no-page-name data-print-hide>
+        <div className="table-context-header !m-0">
+          <span
+            className="material-icons table-context-header__icon"
+            aria-hidden
+          >
+            ballot
+          </span>
+          <strong className="table-context-header__title">Fee-Receipt</strong>
         </div>
 
-        <div className="py-3">
+        <div className="px-4 py-4">
           <ReceiptPreview
             data={data}
             resolvedLogo={resolvedLogo}
             fallbackLogo={collegeLogo || DEFAULT_COLLEGE_LOGO}
           />
-        </div>
 
-        <div className="flex justify-end gap-2 px-1 py-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-9 min-w-[88px] bg-white px-5 text-[13px] font-medium text-slate-900 hover:bg-slate-50"
-            onClick={() => router.push(backHref)}
-          >
-            Back
-          </Button>
-          <Button
-            type="button"
-            className="h-9 min-w-[88px] bg-[#1565c0] px-5 text-[13px] font-medium text-white hover:bg-[#0d47a1]"
-            onClick={handlePrint}
-          >
-            Print
-          </Button>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 min-w-[88px] bg-white px-5 text-[13px] font-medium text-slate-900 hover:bg-slate-50"
+              onClick={() => router.push(backHref)}
+            >
+              Back
+            </Button>
+            <Button
+              type="button"
+              className="h-9 min-w-[88px] bg-[#1565c0] px-5 text-[13px] font-medium text-white hover:bg-[#0d47a1]"
+              onClick={handlePrint}
+            >
+              Print
+            </Button>
+          </div>
         </div>
       </div>
 

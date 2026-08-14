@@ -2678,6 +2678,11 @@ export const NEXT_API = {
     LOGOUT: "/api/auth/logout",
     /** GET: return current SessionUser from iron-session */
     ME: "/api/auth/me",
+    /**
+     * POST: student first-login password change.
+     * Angular `resetStdPassword` → PUT `api/auth/updatePassword`.
+     */
+    UPDATE_PASSWORD: "/api/auth/update-password",
   },
   /** POST (multipart) to store a file in S3; DELETE ?key=... to remove one */
   UPLOAD: "/api/upload",

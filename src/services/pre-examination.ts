@@ -5,6 +5,7 @@ import {
   domainListRawQuery,
   domainUpdate,
   fetchDetails,
+  fetchDetailsEnvelope,
   getAllRecords,
   getAllRecordsEnvelope,
   postDetails,
@@ -517,32 +518,29 @@ export async function autoAssignInvigilators(params: {
 }
 
 export async function listStudents(q: string): Promise<AnyRow[]> {
-  if (!q?.trim()) return [];
-  const term = q.trim();
-  try {
-    // Legacy endpoint used by Angular app:
-    // /studentsearch?isActive=true&q=<term>
-    const data = await fetchDetails<any>("studentsearch", {
-      isActive: "true",
-      q: term,
-    });
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.resultList)) return data.resultList;
-    if (Array.isArray(data?.result)) return data.result;
-    if (Array.isArray(data?.data)) return data.data;
-  } catch {
-    // fallback below
+  const term = String(q ?? "").trim();
+  if (!term) return [];
+  // Angular exam-fee-registration enteredStudent:
+  // GET studentsearch?isActive=true&q=  (same as exam-hallticket)
+  const envelope = await fetchDetailsEnvelope<unknown>("studentsearch", {
+    isActive: "true",
+    q: term,
+  });
+  const status = Number(
+    (envelope as { statusCode?: number } | null)?.statusCode ?? 0,
+  );
+  if (status && status !== 200) return [];
+  const data = (envelope as { data?: unknown; resultList?: unknown } | null)
+    ?.data;
+  if (Array.isArray(data)) return data as AnyRow[];
+  const listed = (envelope as { resultList?: unknown } | null)?.resultList;
+  if (Array.isArray(listed)) return listed as AnyRow[];
+  if (data && typeof data === "object") {
+    const nested = data as { resultList?: unknown; result?: unknown };
+    if (Array.isArray(nested.resultList)) return nested.resultList as AnyRow[];
+    if (Array.isArray(nested.result)) return nested.result as AnyRow[];
   }
-  // Domain fallback in some environments uses StudentProfile (not Student).
-  // Keep this best-effort and never throw from search.
-  try {
-    return await domainList<AnyRow>(
-      "StudentProfile",
-      buildQuery({ isActive: true, firstName: term }),
-    );
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 export async function getStudentExamHallticketDetail(
@@ -2025,6 +2023,29 @@ export async function listExamMastersByCourse(
   );
 }
 
+/**
+ * Angular revaluation-fee-registration getExamsList():
+ * listDetailsByThreeIdsWithSort(ExamMaster, collegeId, courseId, true, DESC,
+ *   College.collegeId, Course.courseId, isActive, createdDt)
+ */
+export async function listExamMastersByCollegeAndCourse(
+  collegeId: number,
+  courseId: number,
+): Promise<AnyRow[]> {
+  if (!collegeId || !courseId) return [];
+  return domainList<AnyRow>(
+    "ExamMaster",
+    buildQuery(
+      {
+        "College.collegeId": collegeId,
+        "Course.courseId": courseId,
+        isActive: true,
+      },
+      { field: "createdDt", direction: "DESC" },
+    ),
+  );
+}
+
 export async function resolveStudentPortalProfile(args: {
   userId?: number | null;
   studentId?: number | null;
@@ -2247,6 +2268,138 @@ export async function listStudentPortalExams(
     );
     const published = Boolean(exam.isPublished ?? exam.is_published);
     return !internal && (!resultStarted || !published);
+  });
+}
+
+/**
+ * Angular revaluation-fee-registration getExamsList(): drop internal exams only.
+ */
+export async function listStudentPortalRevaluationExams(
+  collegeId: number,
+  courseId: number,
+): Promise<AnyRow[]> {
+  const rows = await listExamMastersByCollegeAndCourse(collegeId, courseId);
+  return rows.filter(
+    (exam) => !Boolean(exam.isInternalExam ?? exam.is_internal_exam),
+  );
+}
+
+/**
+ * Angular deleteWithName(examfeereceipt, examFeeReceiptId, 'examFeeReceiptId'):
+ * DELETE /cms/examfeereceipt?examFeeReceiptId=
+ */
+export async function deleteExamFeeReceipt(
+  examFeeReceiptId: number,
+): Promise<void> {
+  if (!examFeeReceiptId) return;
+  const res = await fetch(
+    NEXT_API.PROXY(
+      `${EXAM_API.EXAM_FEE_RECEIPT}?examFeeReceiptId=${examFeeReceiptId}`,
+    ),
+    { method: "DELETE", credentials: "include" },
+  );
+  const body = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+  if (!res.ok || !body?.success) {
+    throw new Error(body?.message ?? "Failed to delete exam fee receipt");
+  }
+}
+
+/**
+ * Angular print(): GET studentExamFeeReceiptDownload?examFeeReceiptId= as PDF blob.
+ */
+export async function downloadStudentExamFeeReceiptPdf(
+  examFeeReceiptId: number,
+): Promise<Blob> {
+  const res = await fetch(
+    NEXT_API.PROXY(
+      `${EXAM_API.STUDENT_EXAM_FEE_RECEIPT}?examFeeReceiptId=${examFeeReceiptId}`,
+    ),
+    { credentials: "include" },
+  );
+  if (!res.ok) {
+    throw new Error("Failed to download exam fee receipt");
+  }
+  return res.blob();
+}
+
+export function printPdfBlob(blob: Blob): void {
+  const blobUrl = URL.createObjectURL(blob);
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.src = blobUrl;
+  document.body.appendChild(iframe);
+  iframe.onload = () => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+  };
+}
+
+/**
+ * Angular getRazorId(): GET RazorPay/payment/{studentId}/{amount}
+ * Amount is rupees concatenated with '00' (paise), e.g. 500 → "50000".
+ */
+export async function createRazorpayOrder(
+  studentId: number,
+  amountPaise: string,
+): Promise<AnyRow> {
+  const res = await fetch(
+    NEXT_API.PROXY(
+      `${PAYMENT_GATEWAY_API.RAZORPAY_CREATE_ORDER}/${studentId}/${amountPaise}`,
+    ),
+    { credentials: "include" },
+  );
+  const body = (await res.json().catch(() => null)) as
+    | (ApiResponse<AnyRow> & { statusCode?: number })
+    | null;
+  const data = body?.data;
+  const ok =
+    res.ok &&
+    Boolean(data) &&
+    (body?.success === true ||
+      body?.statusCode === 200 ||
+      body?.success == null);
+  if (!ok) {
+    throw new Error(body?.message ?? "Failed to create Razorpay order");
+  }
+  return data as AnyRow;
+}
+
+/**
+ * Angular payWithRazor handler: POST RazorPay/charge
+ */
+export async function chargeRazorpayPayment(details: {
+  paymentId: string;
+  signature: string;
+  orderId: string;
+}): Promise<AnyRow> {
+  return postDetails<AnyRow>(PAYMENT_GATEWAY_API.RAZORPAY_CHARGE, details);
+}
+
+export async function loadRazorpayCheckoutScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    throw new Error("Razorpay is only available in the browser");
+  }
+  const w = window as Window & { Razorpay?: unknown };
+  if (w.Razorpay) return;
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[src="https://checkout.razorpay.com/v1/checkout.js"]',
+    );
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => reject(new Error("Failed to load Razorpay")),
+        { once: true },
+      );
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Failed to load Razorpay"));
+    document.body.appendChild(script);
   });
 }
 
