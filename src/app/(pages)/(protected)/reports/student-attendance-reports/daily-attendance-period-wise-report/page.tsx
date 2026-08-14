@@ -9,15 +9,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type {
-  ColDef,
-  ColGroupDef,
-  ICellRendererParams,
-} from "ag-grid-community";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { exportHtmlTableAsExcel } from "@/common/export-html-table";
+import { DataTable } from "@/common/components/table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
@@ -91,18 +88,15 @@ type GridRow = {
   totalPeriods: string;
 } & Record<string, string | number | boolean | undefined>;
 
-type PeriodTotals = { present: number; absent: number; strength: number };
-
-/** Angular footer rows under the period matrix. */
-const TOTAL_ROWS: {
-  id: string;
-  label: string;
-  pick: (t: PeriodTotals) => number;
-}[] = [
-  { id: "total-present", label: "Total Present", pick: (t) => t.present },
-  { id: "total-absent", label: "Total Absent", pick: (t) => t.absent },
-  { id: "total-strength", label: "Total Strength", pick: (t) => t.strength },
-];
+type NoteRow = {
+  __rowId: string;
+  siNo: number;
+  subjectCode: string;
+  subjectName: string;
+  subjectType: string;
+  faculty: string;
+  creditPoints: string;
+};
 
 const REPORT_TITLE = "Student Daily Attendance Report";
 const PRINT_TITLE = "Day Wise Attendance Report";
@@ -147,27 +141,6 @@ function getAttendance(
 ): string {
   const record = findAttendanceRecord(resultList, student, periodNo, key);
   return record ? str(record.Present_Classes) || "-" : "-";
-}
-
-/** Strength counts students with a record for the period, marked or not. */
-function computeColumnTotals(
-  resultList: AnyRow[],
-  studentAttendance: StudentAtt[],
-  periodNo: string,
-  key: string | null,
-): PeriodTotals {
-  let present = 0;
-  let absent = 0;
-  let strength = 0;
-  for (const student of studentAttendance) {
-    const record = findAttendanceRecord(resultList, student, periodNo, key);
-    if (!record) continue;
-    strength += 1;
-    const val = str(record.Present_Classes);
-    if (val === "A") absent += 1;
-    else if (val !== "" && val !== "-") present += 1;
-  }
-  return { present, absent, strength };
 }
 
 function transformDailyRows(rows: AnyRow[]) {
@@ -270,7 +243,7 @@ function collectAttCols(groupedPeriods: GroupedPeriod[]): AttCol[] {
         field: attField(period.Period_no, null),
         period,
         key: null,
-        childHeader: `${str(period.subject)}\n(${period.subject_type})`,
+        childHeader: `(${str(period.subject)})`,
       });
       continue;
     }
@@ -278,9 +251,9 @@ function collectAttCols(groupedPeriods: GroupedPeriod[]): AttCol[] {
       const key =
         period.subject_type === "LAB" ? str(batch.batch_name) : batch.subject;
       const childHeader =
-        period.subject_type === "LAB"
-          ? `${str(batch.batch_name)} (${batch.subject})\n(${period.subject_type})`
-          : `${batch.subject}\n(${period.subject_type})`;
+        period.subject_type === "LAB" && str(batch.batch_name)
+          ? `${str(batch.batch_name)}(${batch.subject})`
+          : `(${batch.subject})`;
       cols.push({
         field: attField(period.Period_no, key),
         period,
@@ -300,17 +273,21 @@ function presentCellRenderer(p: ICellRendererParams<GridRow>) {
   return val || "-";
 }
 
-/** Angular renders the student name and father's mobile on separate lines. */
+/** Angular AMS: `firstName (Father_Mobile_No)` with the number in blue. */
 function studentCellRenderer(p: ICellRendererParams<GridRow>) {
   const row = p.data;
   if (!row) return "";
-  // Total rows carry their label here so the column borders stay unbroken.
   if (!row.studentName) return row.student || "";
   return (
-    <div className="leading-tight">
-      <div>{row.studentName}</div>
-      {row.studentMobile ? <div>({row.studentMobile})</div> : null}
-    </div>
+    <span>
+      {row.studentName}
+      {row.studentMobile ? (
+        <>
+          {" "}
+          (<span className="text-[#0014ff]">{row.studentMobile}</span>)
+        </>
+      ) : null}
+    </span>
   );
 }
 
@@ -326,9 +303,6 @@ const LEADING_COLS: ColDef<GridRow>[] = [
     pinned: "left",
     sortable: false,
     filter: false,
-    // Total rows leave this blank; without this AG Grid infers a number column
-    // and renders their empty label as "Invalid Number".
-    cellDataType: false,
   },
   {
     colId: "rollNumber",
@@ -346,90 +320,106 @@ const LEADING_COLS: ColDef<GridRow>[] = [
     maxWidth: 260,
     pinned: "left",
     cellRenderer: studentCellRenderer,
-    cellStyle: (p) =>
-      p.node?.rowPinned === "bottom"
-        ? { textAlign: "right", fontWeight: 600 }
-        : null,
   },
 ];
 
-function buildGridColumnDefs(
-  attCols: AttCol[],
-): (ColDef<GridRow> | ColGroupDef<GridRow>)[] {
-  const cols: (ColDef<GridRow> | ColGroupDef<GridRow>)[] = [...LEADING_COLS];
+function periodHeaderTooltip(col: AttCol): string {
+  const batch = col.period.batches.find((b) =>
+    col.period.subject_type === "LAB"
+      ? str(b.batch_name) === (col.key ?? "")
+      : b.subject === (col.key ?? ""),
+  );
+  return str(batch?.Subject_name ?? col.period.Subject_name);
+}
 
-  const byPeriod = new Map<string, AttCol[]>();
+function buildGridColumnDefs(attCols: AttCol[]): ColDef<GridRow>[] {
+  const cols: ColDef<GridRow>[] = [...LEADING_COLS];
+
   for (const col of attCols) {
-    const list = byPeriod.get(col.period.Period_no) ?? [];
-    list.push(col);
-    byPeriod.set(col.period.Period_no, list);
-  }
-
-  for (const [, periodCols] of byPeriod) {
-    const period = periodCols[0]?.period;
-    if (!period) continue;
-    const isSplit =
-      period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
-    const groupHeader = `${str(period.timeset)}\n${period.Period_no}`;
-
-    if (!isSplit) {
-      const only = periodCols[0];
-      cols.push({
-        colId: only.field,
-        field: only.field,
-        headerName: `${groupHeader}\n${only.childHeader}`,
-        headerTooltip: str(period.Subject_name),
-        headerClass: "app-header-lines",
-        wrapHeaderText: true,
-        autoHeaderHeight: true,
-        minWidth: 110,
-        // Marks are text, totals rows are numbers — skip AG Grid type inference.
-        cellDataType: false,
-        cellRenderer: presentCellRenderer,
-        cellClass: "text-center",
-      });
-      continue;
-    }
-
     cols.push({
-      headerName: groupHeader,
+      colId: col.field,
+      field: col.field,
+      headerName: `${col.period.Period_no}\n${col.childHeader}`,
+      headerTooltip: periodHeaderTooltip(col),
       headerClass: "app-header-lines",
-      marryChildren: true,
-      children: periodCols.map(
-        (c) =>
-          ({
-            colId: c.field,
-            field: c.field,
-            headerName: c.childHeader,
-            headerClass: "app-header-lines",
-            headerTooltip: str(
-              c.period.batches.find((b) =>
-                c.period.subject_type === "LAB"
-                  ? str(b.batch_name) === (c.key ?? "")
-                  : b.subject === (c.key ?? ""),
-              )?.Subject_name ?? c.period.Subject_name,
-            ),
-            wrapHeaderText: true,
-            autoHeaderHeight: true,
-            minWidth: 120,
-            cellDataType: false,
-            cellRenderer: presentCellRenderer,
-            cellClass: "text-center",
-          }) as ColDef<GridRow>,
-      ),
+      wrapHeaderText: true,
+      autoHeaderHeight: true,
+      minWidth: 110,
+      cellDataType: false,
+      cellRenderer: presentCellRenderer,
+      cellClass: "text-center",
     });
   }
 
-  cols.push({
-    colId: "totalPeriods",
-    field: "totalPeriods",
-    headerName: "Total Periods",
-    minWidth: 100,
-    maxWidth: 140,
-    cellClass: "text-center",
-  });
-
   return cols;
+}
+
+const NOTE_COL_DEFS = {
+  siNo: {
+    field: "siNo",
+    headerName: "S.No",
+    width: 80,
+    minWidth: 70,
+    maxWidth: 90,
+    sortable: false,
+    filter: false,
+  } as ColDef<NoteRow>,
+  subjectCode: {
+    field: "subjectCode",
+    headerName: "Subject Code",
+    minWidth: 130,
+  } as ColDef<NoteRow>,
+  subject: {
+    field: "subjectName",
+    headerName: "Subject",
+    minWidth: 220,
+    flex: 1,
+  } as ColDef<NoteRow>,
+  faculty: {
+    field: "faculty",
+    headerName: "Faculty",
+    minWidth: 160,
+  } as ColDef<NoteRow>,
+  creditPoints: {
+    field: "creditPoints",
+    headerName: "Credit Points",
+    minWidth: 120,
+    maxWidth: 150,
+    cellClass: "text-center",
+  } as ColDef<NoteRow>,
+};
+
+function noteSubjectRenderer(p: ICellRendererParams<NoteRow>) {
+  const name = p.data?.subjectName ?? "";
+  const type = p.data?.subjectType ?? "";
+  if (!type) return name;
+  return (
+    <span>
+      {name} (<span className="text-[#0014ff]">{type}</span>)
+    </span>
+  );
+}
+
+function buildNoteColumnDefs(): ColDef<NoteRow>[] {
+  return [
+    NOTE_COL_DEFS.siNo,
+    NOTE_COL_DEFS.subjectCode,
+    { ...NOTE_COL_DEFS.subject, cellRenderer: noteSubjectRenderer },
+    NOTE_COL_DEFS.faculty,
+    NOTE_COL_DEFS.creditPoints,
+  ];
+}
+
+function buildNoteRows(uniqueKeys: UniqueKey[]): NoteRow[] {
+  return uniqueKeys.map((key, i) => ({
+    __rowId: `note-${key.subject}-${i}`,
+    siNo: i + 1,
+    subjectCode: key.subject,
+    subjectName: str(key.Subject_name),
+    subjectType: str(key.subject_type),
+    faculty: str(key.Faculty),
+    creditPoints: str(key.sub_credits),
+  }));
 }
 
 function buildGridRows(opts: {
@@ -466,77 +456,16 @@ function buildGridRows(opts: {
   });
 }
 
-/** Angular Total Present / Absent / Strength footer, pinned so paging keeps it. */
-function buildPinnedTotalRows(opts: {
-  studentAttendance: StudentAtt[];
-  resultList: AnyRow[];
-  attCols: AttCol[];
-}): GridRow[] {
-  const { studentAttendance, resultList, attCols } = opts;
-  if (studentAttendance.length === 0) return [];
-
-  const totals = attCols.map((col) =>
-    computeColumnTotals(
-      resultList,
-      studentAttendance,
-      col.period.Period_no,
-      col.key,
-    ),
-  );
-
-  return TOTAL_ROWS.map(({ id, label, pick }) => {
-    const row: GridRow = {
-      __rowId: id,
-      siNo: "",
-      rollNumber: "",
-      student: label,
-      studentName: "",
-      studentMobile: "",
-      totalPeriods: "",
-    };
-    attCols.forEach((col, i) => {
-      const t = totals[i];
-      if (t) row[col.field] = pick(t);
-    });
-    return row;
-  });
-}
-
-function buildPeriodHeaderCells(groupedPeriods: GroupedPeriod[]): {
-  row1: string;
-  row2: string;
-} {
-  let row1 = "";
-  let row2 = "";
-  for (const period of groupedPeriods) {
-    const isSplit =
-      period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
-    if (!isSplit) {
-      row1 += `<th rowspan="2" style="border:1px solid #333;padding:4px;background:#e8f0fe;text-align:center;vertical-align:middle;">
-        <div>${escapeHtml(str(period.timeset))}</div>
-        <div>${escapeHtml(period.Period_no)}</div>
-        <div title="${escapeHtml(str(period.Subject_name))}">${escapeHtml(str(period.subject))}</div>
-        <div>(${escapeHtml(period.subject_type)})</div>
+function buildPeriodHeaderCells(groupedPeriods: GroupedPeriod[]): string {
+  const attCols = collectAttCols(groupedPeriods);
+  return attCols
+    .map((col) => {
+      return `<th style="border:1px solid #333;padding:4px;background:#e8f0fe;text-align:center;vertical-align:middle;" title="${escapeHtml(periodHeaderTooltip(col))}">
+        <div>${escapeHtml(col.period.Period_no)}</div>
+        <div>${escapeHtml(col.childHeader)}</div>
       </th>`;
-    } else {
-      const colspan = Math.max(period.batches.length, 1);
-      row1 += `<th colspan="${colspan}" style="border:1px solid #333;padding:4px;background:#e8f0fe;text-align:center;">
-        <div>${escapeHtml(str(period.timeset))}</div>
-        <div>${escapeHtml(period.Period_no)}</div>
-      </th>`;
-      for (const batch of period.batches) {
-        const label =
-          period.subject_type === "LAB"
-            ? `${escapeHtml(str(batch.batch_name))} (${escapeHtml(batch.subject)})`
-            : escapeHtml(batch.subject);
-        row2 += `<th style="border:1px solid #333;padding:4px;background:#e8f0fe;text-align:center;" title="${escapeHtml(str(batch.Subject_name))}">
-          ${label}
-          <div>(${escapeHtml(period.subject_type)})</div>
-        </th>`;
-      }
-    }
-  }
-  return { row1, row2 };
+    })
+    .join("");
 }
 
 function buildPeriodBodyCells(
@@ -565,43 +494,6 @@ function buildPeriodBodyCells(
   return cells;
 }
 
-function buildTotalsRowsHtml(opts: {
-  groupedPeriods: GroupedPeriod[];
-  studentAttendance: StudentAtt[];
-  resultList: AnyRow[];
-}): string {
-  const { groupedPeriods, studentAttendance, resultList } = opts;
-  if (studentAttendance.length === 0) return "";
-  const cell = "border:1px solid #333;padding:3px 5px;text-align:center;";
-
-  return TOTAL_ROWS.map(({ label, pick }) => {
-    let cells = "";
-    for (const period of groupedPeriods) {
-      const isSplit =
-        period.subject_type === "LAB" || period.subject_type === "ELECTIVE";
-      const keys = isSplit
-        ? period.batches.map((b) =>
-            period.subject_type === "LAB" ? b.batch_name : b.subject,
-          )
-        : [null];
-      for (const key of keys) {
-        const totals = computeColumnTotals(
-          resultList,
-          studentAttendance,
-          period.Period_no,
-          key,
-        );
-        cells += `<td style="${cell}">${pick(totals)}</td>`;
-      }
-    }
-    return `<tr>
-      <td colspan="3" style="border:1px solid #333;padding:3px 5px;text-align:right;font-weight:600;">${escapeHtml(label)}</td>
-      ${cells}
-      <td style="${cell}"></td>
-    </tr>`;
-  }).join("");
-}
-
 function buildReportTableHtml(opts: {
   groupedPeriods: GroupedPeriod[];
   studentAttendance: StudentAtt[];
@@ -609,20 +501,19 @@ function buildReportTableHtml(opts: {
   resultList: AnyRow[];
 }): string {
   const { groupedPeriods, studentAttendance, uniqueKeys, resultList } = opts;
-  const { row1, row2 } = buildPeriodHeaderCells(groupedPeriods);
+  const periodHeaders = buildPeriodHeaderCells(groupedPeriods);
 
   const body = studentAttendance
     .map((student, i) => {
-      const total =
-        student.classes_attended != null || student.total_clasess != null
-          ? `${str(student.classes_attended) || "0"}/${str(student.total_clasess) || "0"}`
-          : "";
+      const mobile = str(student.Father_Mobile_No);
+      const studentCell = mobile
+        ? `${escapeHtml(student.firstName)} (<span style="color:blue;">${escapeHtml(mobile)}</span>)`
+        : escapeHtml(student.firstName);
       return `<tr>
         <td style="border:1px solid #333;padding:3px 5px;text-align:center;">${i + 1}</td>
         <td style="border:1px solid #333;padding:3px 5px;">${escapeHtml(student.rollNumber)}</td>
-        <td style="border:1px solid #333;padding:3px 5px;">${escapeHtml(student.firstName)} (${escapeHtml(str(student.Father_Mobile_No))})</td>
+        <td style="border:1px solid #333;padding:3px 5px;">${studentCell}</td>
         ${buildPeriodBodyCells(resultList, student, groupedPeriods)}
-        <td style="border:1px solid #333;padding:3px 5px;mso-number-format:'\\@';">${escapeHtml(total)}</td>
       </tr>`;
     })
     .join("");
@@ -642,15 +533,13 @@ function buildReportTableHtml(opts: {
   return `<table style="width:100%;border-collapse:collapse;font-size:10px;">
   <thead>
     <tr>
-      <th rowspan="2" style="border:1px solid #333;padding:4px;background:#e8f0fe;">S.No</th>
-      <th rowspan="2" style="border:1px solid #333;padding:4px;background:#e8f0fe;">Roll No.</th>
-      <th rowspan="2" style="border:1px solid #333;padding:4px;background:#e8f0fe;">Student</th>
-      ${row1}
-      <th rowspan="2" style="border:1px solid #333;padding:4px;background:#e8f0fe;">Total Periods</th>
+      <th style="border:1px solid #333;padding:4px;background:#e8f0fe;">S.No</th>
+      <th style="border:1px solid #333;padding:4px;background:#e8f0fe;">Roll No.</th>
+      <th style="border:1px solid #333;padding:4px;background:#e8f0fe;">Student</th>
+      ${periodHeaders}
     </tr>
-    <tr>${row2}</tr>
   </thead>
-  <tbody>${body}${buildTotalsRowsHtml({ groupedPeriods, studentAttendance, resultList })}</tbody>
+  <tbody>${body}</tbody>
 </table>
 <div style="padding:8px 0;margin-top:8px;">
   <p style="margin:7px 0;"><span style="font-weight:500;color:red;">Note :</span></p>
@@ -729,12 +618,10 @@ export default function DailyAttendancePeriodWiseReportPage() {
     [showTable, studentAttendance, resultList, attCols],
   );
 
-  const pinnedTotalRows = useMemo(
-    () =>
-      showTable
-        ? buildPinnedTotalRows({ studentAttendance, resultList, attCols })
-        : [],
-    [showTable, studentAttendance, resultList, attCols],
+  const noteColumnDefs = useMemo(() => buildNoteColumnDefs(), []);
+  const noteRows = useMemo(
+    () => (showTable ? buildNoteRows(uniqueKeys) : []),
+    [showTable, uniqueKeys],
   );
 
   const tableHtml = useMemo(() => {
@@ -972,7 +859,6 @@ ${tableHtml}
       showTable={showTable}
       rowData={gridRows}
       columnDefs={columnDefs}
-      pinnedBottomRowData={pinnedTotalRows}
       rowHeight={48}
       loading={loadingList}
       resultsVisible={showTable}
@@ -1012,55 +898,20 @@ ${tableHtml}
         ) : null
       }
       afterGrid={
-        showTable && uniqueKeys.length > 0 ? (
-          <div className="overflow-x-auto">
+        showTable && noteRows.length > 0 ? (
+          <div>
             <p className="mb-2 text-sm font-medium text-red-600">Note :</p>
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
-                    S.No
-                  </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
-                    Subject Code
-                  </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
-                    Subject
-                  </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
-                    Faculty
-                  </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
-                    Credit Points
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {uniqueKeys.map((key, i) => (
-                  <tr key={`${key.subject}-${i}`}>
-                    <td className="border border-border px-2 py-1.5 text-center">
-                      {i + 1}
-                    </td>
-                    <td className="border border-border px-2 py-1.5">
-                      {key.subject}
-                    </td>
-                    <td className="border border-border px-2 py-1.5">
-                      {str(key.Subject_name)} (
-                      <span className="text-blue-600">
-                        {str(key.subject_type)}
-                      </span>
-                      )
-                    </td>
-                    <td className="border border-border px-2 py-1.5">
-                      {str(key.Faculty)}
-                    </td>
-                    <td className="border border-border px-2 py-1.5 text-center">
-                      {str(key.sub_credits)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable<NoteRow>
+              title=""
+              bordered={false}
+              rowData={noteRows}
+              columnDefs={noteColumnDefs}
+              pagination={false}
+              columnFilters={false}
+              autoHeight
+              getRowId={(p) => String(p.data?.__rowId ?? "")}
+              toolbar={false}
+            />
           </div>
         ) : null
       }

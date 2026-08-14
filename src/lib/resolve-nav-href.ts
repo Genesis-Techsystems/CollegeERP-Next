@@ -103,7 +103,9 @@ export function mapLegacyMasterSettingsHref(href?: string): string | null {
 const EXAM_MASTERS_PATH = "/admin-examination-management/admin-exam-masters";
 
 import {
+  EMPLOYEE_DETAIL_REPORT_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
+  isEmployeeDetailReportNav,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
   isSecretaryRole,
@@ -112,13 +114,80 @@ import {
 } from "@/lib/role-routing";
 
 export {
+  EMPLOYEE_DETAIL_REPORT_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
+  isEmployeeDetailReportNav,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
   isSecretaryRole,
   resolveFacultyDetailsNavRoute,
   roleNameIsSecretary,
 } from "@/lib/role-routing";
+
+const STUDENT_DETAILS_SIS_ROUTE =
+  "/admin-student-information-system/students-list";
+const STUDENT_DETAILS_REPORT_ROUTE =
+  "/reports/admin-student-reports/students-list-report";
+
+function studentDetailsLabelKey(label: string | undefined): string {
+  return (label ?? "").toLowerCase().trim();
+}
+
+/** Reports → Student Reports → "Student Details" (DB label) vs SIS module. */
+export function isStudentDetailsReportNav(
+  href: string | undefined,
+  label: string | undefined,
+  depth?: number,
+): boolean {
+  const labelKey = studentDetailsLabelKey(label);
+  const hrefLower = (href ?? "").toLowerCase();
+  if (
+    hrefLower.includes("students-list-report") ||
+    hrefLower.includes("academic_branch_course_yr_std")
+  ) {
+    return true;
+  }
+  const isDetailsLabel =
+    labelKey === "student details" ||
+    (labelKey.includes("student details") && labelKey.includes("report"));
+  if (!isDetailsLabel) return false;
+  if (labelKey.includes("report")) return true;
+  if (
+    hrefLower.includes("admin-student-reports") ||
+    hrefLower.includes("student-admission-reports") ||
+    hrefLower.includes("/reports/")
+  ) {
+    return true;
+  }
+  // Nested under Reports → Student Reports (typically depth 2).
+  return (depth ?? 0) >= 2 && labelKey === "student details";
+}
+
+export function resolveStudentDetailsNavRoute(
+  href: string | undefined,
+  label: string | undefined,
+  depth?: number,
+): string | null {
+  const labelKey = studentDetailsLabelKey(label);
+  if (isStudentDetailsReportNav(href, label, depth)) {
+    return STUDENT_DETAILS_REPORT_ROUTE;
+  }
+  if (labelKey === "student details") {
+    return STUDENT_DETAILS_SIS_ROUTE;
+  }
+  return null;
+}
+
+export function studentDetailsNavDisplayLabel(
+  href: string | undefined,
+  label: string | undefined,
+  depth?: number,
+): string {
+  if (isStudentDetailsReportNav(href, label, depth)) {
+    return "Student Details Report";
+  }
+  return label ?? "";
+}
 
 /**
  * Sidebar/Search shared route pins (legacy Angular → App Router).
@@ -138,8 +207,15 @@ export function resolveForcedNavRoute(
 
   const hrefLower = (href ?? "").toLowerCase();
 
+  if (isEmployeeDetailReportNav(href, label)) {
+    return EMPLOYEE_DETAIL_REPORT_ROUTE;
+  }
+
   const facultyDetailsRoute = resolveFacultyDetailsNavRoute(href, label);
   if (facultyDetailsRoute) return facultyDetailsRoute;
+
+  const studentDetailsRoute = resolveStudentDetailsNavRoute(href, label);
+  if (studentDetailsRoute) return studentDetailsRoute;
 
   const sidebarPin = resolveSidebarLabelPin(href, label);
   if (sidebarPin) return sidebarPin;
@@ -2110,14 +2186,12 @@ export function resolveForcedNavRoute(
     ) {
       return "/reports/admin-student-reports/branch-and-academicyear-wise-caste-count";
     }
-    // Angular Student Details Report (students list)
+    // Angular Student Details Report — require "report" in the label (or
+    // an explicit report href). Bare "Student Details" is the SIS module.
     if (
       hrefLower.includes("students-list-report") ||
       hrefLower.includes("academic_branch_course_yr_std") ||
-      (labelLower.includes("student details") &&
-        (labelLower.includes("report") ||
-          hrefLower.includes("student") ||
-          hrefLower.includes("admin-student")))
+      (labelLower.includes("student details") && labelLower.includes("report"))
     ) {
       return "/reports/admin-student-reports/students-list-report";
     }
@@ -3390,6 +3464,12 @@ export function resolveForcedNavRoute(
       !labelLower.includes("result sheet"))
   ) {
     return "/admin-examination-management/result-processing/t-sheets";
+  }
+  if (
+    hrefLower.includes("post-examination/verify-exam-marks") ||
+    hrefLower.includes("admin-post-examination/verify-exam-marks")
+  ) {
+    return "/admin-examination-management/post-examination/verify-exam-marks";
   }
   if (
     labelLower.includes("verify exam marks") ||

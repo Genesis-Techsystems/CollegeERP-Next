@@ -54,10 +54,18 @@ export function isHodFacultyDetailsHref(href?: string): boolean {
 }
 
 export const HR_EMPLOYEE_LIST_ROUTE = "/hr-payroll/employee/employee-list";
+export const EMPLOYEE_DETAIL_REPORT_ROUTE =
+  "/reports/admin-hr-reports/employee-detail-report";
 
 export function isHrEmployeeListHref(href?: string): boolean {
   const hrefLower = (href ?? "").toLowerCase();
-  if (hrefLower.includes("employee-list-by-campus")) return false;
+  if (
+    hrefLower.includes("employee-detail-report") ||
+    hrefLower.includes("employee-details-report") ||
+    hrefLower.includes("employee-list-by-campus")
+  ) {
+    return false;
+  }
   return (
     hrefLower.includes("hr-payroll/employee/employee-list") ||
     hrefLower.includes("/apps/hr-payroll/employee/employee-list") ||
@@ -77,7 +85,29 @@ function normalizeNavLabelKey(label: string): string {
     .trim();
 }
 
+/** Reports → HR Reports → Employee Detail Report (not Faculty Details / employee list). */
+export function isEmployeeDetailReportNav(
+  href?: string,
+  label?: string,
+): boolean {
+  const hrefLower = (href ?? "").toLowerCase();
+  const labelKey = normalizeNavLabelKey(label ?? "");
+  if (
+    hrefLower.includes("employee-detail-report") ||
+    hrefLower.includes("employee-details-report") ||
+    hrefLower.includes("hr-reports/employee-detail")
+  ) {
+    return true;
+  }
+  return (
+    labelKey.includes("employee") &&
+    labelKey.includes("detail") &&
+    labelKey.includes("report")
+  );
+}
+
 function isHrEmployeeListNavLabel(labelKey: string): boolean {
+  if (labelKey.includes("report")) return false;
   return (
     labelKey === "faculty details" ||
     labelKey === "faculty detail" ||
@@ -101,6 +131,8 @@ export function resolveFacultyDetailsNavRoute(
   roleName?: string,
   userRoles?: Array<{ roleName?: string } | string> | null,
 ): string | null {
+  if (isEmployeeDetailReportNav(href, label)) return null;
+
   const hrefLower = (href ?? "").toLowerCase();
   const labelKey = normalizeNavLabelKey(label ?? "");
 

@@ -1,68 +1,68 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
-import { format } from 'date-fns'
-import { FormModal } from '@/common/components/feedback'
-import { Select } from '@/common/components/select'
-import { DatePicker } from '@/common/components/date-picker'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import type { PlacementTraining } from '@/types/trainings'
-import type { College } from '@/types/college'
-import { listColleges } from '@/services/admin/college'
-import { listGeneralDetailsByMaster } from '@/services/examination'
-import { searchEmployeesForCompanyMeeting } from '@/services/placements'
-import { createTraining, updateTraining } from '@/services/trainings'
-import { GM_CODES } from '@/config/constants/ui'
+import { useEffect, useMemo, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { format } from "date-fns";
+import { FormModal } from "@/common/components/feedback";
+import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { PlacementTraining } from "@/types/trainings";
+import type { College } from "@/types/college";
+import { listColleges } from "@/services/admin/college";
+import { listGeneralDetailsByMaster } from "@/services/examination";
+import { searchEmployeesForCompanyMeeting } from "@/services/placements";
+import { createTraining, updateTraining } from "@/services/trainings";
+import { GM_CODES } from "@/config/constants/ui";
 
-type TrackAudience = 'null' | 'true' | 'false'
+type TrackAudience = "null" | "true" | "false";
 
 type FormValues = {
-  collegeId: string | null
-  yearName: string | null
-  trainingTypeCatId: string | null
-  trainingTitle: string
-  employeeId: string | null
-  trainingDescription: string
-  trainerName: string
-  trainerDetails: string
-  discussionPoints: string
-  startDate: Date | null
-  endDate: Date | null
-  isTrackAudience: TrackAudience
-  isActive: boolean
-  reason: string
-}
+  collegeId: string | null;
+  yearName: string | null;
+  trainingTypeCatId: string | null;
+  trainingTitle: string;
+  employeeId: string | null;
+  trainingDescription: string;
+  trainerName: string;
+  trainerDetails: string;
+  discussionPoints: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  isTrackAudience: TrackAudience;
+  isActive: boolean;
+  reason: string;
+};
 
 function buildYearOptions(): { value: string; label: string }[] {
-  const current = new Date().getFullYear()
+  const current = new Date().getFullYear();
   return Array.from({ length: 10 }, (_, i) => {
-    const y = String(current - i)
-    return { value: y, label: y }
-  })
+    const y = String(current - i);
+    return { value: y, label: y };
+  });
 }
 
 function parseDate(value?: string | null): Date | null {
-  if (!value) return null
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 function toTrackAudience(
-  v: boolean | null | undefined | 'null' | string,
+  v: boolean | null | undefined | "null" | string,
 ): TrackAudience {
   // API / Angular may return null, string "null", or booleans
-  if (v == null || v === 'null' || v === 'All') return 'null'
-  if (v === true || v === 'true') return 'true'
-  return 'false'
+  if (v == null || v === "null" || v === "All") return "null";
+  if (v === true || v === "true") return "true";
+  return "false";
 }
 
 /** Angular mat-option values: `'null'` | true | false — All must stay the string `"null"`. */
-function fromTrackAudience(v: TrackAudience): boolean | 'null' {
-  if (v === 'null') return 'null'
-  return v === 'true'
+function fromTrackAudience(v: TrackAudience): boolean | "null" {
+  if (v === "null") return "null";
+  return v === "true";
 }
 
 function getDefaults(edit?: PlacementTraining | null): FormValues {
@@ -70,55 +70,61 @@ function getDefaults(edit?: PlacementTraining | null): FormValues {
     return {
       collegeId: String(edit.collegeId),
       yearName: String(edit.yearName),
-      trainingTypeCatId: edit.trainingTypeCatId != null ? String(edit.trainingTypeCatId) : null,
-      trainingTitle: edit.trainingTitle ?? '',
+      trainingTypeCatId:
+        edit.trainingTypeCatId != null ? String(edit.trainingTypeCatId) : null,
+      trainingTitle: edit.trainingTitle ?? "",
       employeeId: edit.employeeId != null ? String(edit.employeeId) : null,
-      trainingDescription: edit.trainingDescription ?? '',
-      trainerName: edit.trainerName ?? '',
-      trainerDetails: edit.trainerDetails ?? '',
-      discussionPoints: edit.discussionPoints ?? '',
+      trainingDescription: edit.trainingDescription ?? "",
+      trainerName: edit.trainerName ?? "",
+      trainerDetails: edit.trainerDetails ?? "",
+      discussionPoints: edit.discussionPoints ?? "",
       startDate: parseDate(edit.startDate) ?? new Date(),
       endDate: parseDate(edit.endDate) ?? new Date(),
       isTrackAudience: toTrackAudience(edit.isTrackAudience),
       isActive: edit.isActive,
-      reason: edit.reason ?? 'active',
-    }
+      reason: edit.reason ?? "active",
+    };
   }
   return {
     collegeId: null,
     yearName: null,
     trainingTypeCatId: null,
-    trainingTitle: '',
+    trainingTitle: "",
     employeeId: null,
-    trainingDescription: '',
-    trainerName: '',
-    trainerDetails: '',
-    discussionPoints: '',
+    trainingDescription: "",
+    trainerName: "",
+    trainerDetails: "",
+    discussionPoints: "",
     startDate: new Date(),
     endDate: new Date(),
-    isTrackAudience: 'null',
+    isTrackAudience: "null",
     isActive: true,
-    reason: 'active',
-  }
+    reason: "active",
+  };
 }
 
 interface Props {
-  open: boolean
-  onClose: () => void
-  editData: PlacementTraining | null
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  editData: PlacementTraining | null;
+  onSaved: () => void;
 }
 
-export default function AddTrainingModal({ open, onClose, editData, onSaved }: Props) {
-  const [colleges, setColleges] = useState<College[]>([])
+export default function AddTrainingModal({
+  open,
+  onClose,
+  editData,
+  onSaved,
+}: Props) {
+  const [colleges, setColleges] = useState<College[]>([]);
   const [trainingTypes, setTrainingTypes] = useState<
     Array<{ generalDetailId: number; generalDetailDisplayName: string }>
-  >([])
+  >([]);
   const [employees, setEmployees] = useState<
     Array<{ employeeId: number; firstName: string; empNumber?: string | null }>
-  >([])
-  const [loadingEmployees, setLoadingEmployees] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  >([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -130,53 +136,58 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
     formState: { isSubmitting },
   } = useForm<FormValues>({
     defaultValues: getDefaults(editData),
-  })
+  });
 
-  const collegeId = watch('collegeId')
-  const isActive = watch('isActive')
-  const employeeId = watch('employeeId')
+  const collegeId = watch("collegeId");
+  const isActive = watch("isActive");
+  const employeeId = watch("employeeId");
 
   useEffect(() => {
-    if (!open) return
-    listColleges().then(setColleges).catch(console.error)
+    if (!open) return;
+    listColleges().then(setColleges).catch(console.error);
     listGeneralDetailsByMaster(GM_CODES.TRAINING_TYPE)
       .then((rows) =>
         setTrainingTypes(
-          (rows as Array<{ generalDetailId: number; generalDetailDisplayName: string }>) ?? [],
+          (rows as Array<{
+            generalDetailId: number;
+            generalDetailDisplayName: string;
+          }>) ?? [],
         ),
       )
-      .catch(console.error)
-  }, [open])
+      .catch(console.error);
+  }, [open]);
 
   useEffect(() => {
-    reset(getDefaults(editData))
-    setSubmitError(null)
-    setEmployees([])
+    reset(getDefaults(editData));
+    setSubmitError(null);
+    setEmployees([]);
     if (open && editData?.empNumber && editData.collegeId) {
-      void searchIncharge(String(editData.empNumber), editData.collegeId)
+      void searchIncharge(String(editData.empNumber), editData.collegeId);
     }
-  }, [open, editData, reset])
+  }, [open, editData, reset]);
 
   async function searchIncharge(term: string, college?: number) {
-    const cid = college ?? Number(collegeId)
+    const cid = college ?? Number(collegeId);
     if (!cid || term.trim().length < 5) {
-      setEmployees([])
-      return
+      setEmployees([]);
+      return;
     }
-    setLoadingEmployees(true)
+    setLoadingEmployees(true);
     try {
-      const rows = await searchEmployeesForCompanyMeeting(cid, term)
+      const rows = await searchEmployeesForCompanyMeeting(cid, term);
       setEmployees(
-        rows.map((r) => ({
-          employeeId: Number(r.employeeId ?? 0),
-          firstName: String(r.firstName ?? r.empName ?? r.employeeName ?? ''),
-          empNumber: (r.empNumber as string | null | undefined) ?? null,
-        })).filter((e) => e.employeeId > 0),
-      )
+        rows
+          .map((r) => ({
+            employeeId: Number(r.employeeId ?? 0),
+            firstName: String(r.firstName ?? r.empName ?? r.employeeName ?? ""),
+            empNumber: (r.empNumber as string | null | undefined) ?? null,
+          }))
+          .filter((e) => e.employeeId > 0),
+      );
     } catch {
-      setEmployees([])
+      setEmployees([]);
     } finally {
-      setLoadingEmployees(false)
+      setLoadingEmployees(false);
     }
   }
 
@@ -184,7 +195,7 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
     const opts = employees.map((e) => ({
       value: String(e.employeeId),
       label: e.empNumber ? `${e.firstName} (${e.empNumber})` : e.firstName,
-    }))
+    }));
     // Keep selected edit employee visible even if search not re-run
     if (
       editData?.employeeId &&
@@ -194,18 +205,23 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
       opts.unshift({
         value: String(editData.employeeId),
         label: editData.empNumber
-          ? `${editData.empName ?? 'Employee'} (${editData.empNumber})`
-          : (editData.empName ?? 'Employee'),
-      })
+          ? `${editData.empName ?? "Employee"} (${editData.empNumber})`
+          : (editData.empName ?? "Employee"),
+      });
     }
-    return opts
-  }, [employees, editData, employeeId])
+    return opts;
+  }, [employees, editData, employeeId]);
 
   async function onSubmit(values: FormValues) {
-    setSubmitError(null)
-    if (!values.collegeId || !values.yearName || !values.startDate || !values.endDate) {
-      setSubmitError('Please fill required fields')
-      return
+    setSubmitError(null);
+    if (
+      !values.collegeId ||
+      !values.yearName ||
+      !values.startDate ||
+      !values.endDate
+    ) {
+      setSubmitError("Please fill required fields");
+      return;
     }
     try {
       // Angular closes the dialog with the form object; update also sets traningId on the body.
@@ -221,24 +237,26 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
         trainerName: values.trainerName,
         trainerDetails: values.trainerDetails,
         discussionPoints: values.discussionPoints,
-        startDate: format(values.startDate, 'yyyy-MM-dd'),
-        endDate: format(values.endDate, 'yyyy-MM-dd'),
+        startDate: format(values.startDate, "yyyy-MM-dd"),
+        endDate: format(values.endDate, "yyyy-MM-dd"),
         // Must be string `"null"` for All (not JSON null) — Angular `[value]="'null'"`
         isTrackAudience: fromTrackAudience(values.isTrackAudience),
         isActive: values.isActive,
-        reason: values.isActive ? (values.reason || 'active') : values.reason,
-      }
+        reason: values.isActive ? values.reason || "active" : values.reason,
+      };
       if (editData) {
-        payload.traningId = editData.traningId
-        payload.createdDt = editData.createdDt
-        await updateTraining(editData.traningId, payload)
+        payload.traningId = editData.traningId;
+        payload.createdDt = editData.createdDt;
+        await updateTraining(editData.traningId, payload);
       } else {
-        await createTraining(payload)
+        await createTraining(payload);
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Failed to save training')
+      setSubmitError(
+        e instanceof Error ? e.message : "Failed to save training",
+      );
     }
   }
 
@@ -246,12 +264,15 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
     <FormModal
       open={open}
       onClose={onClose}
-      title={editData ? 'Edit Training' : 'Add Training'}
+      title={editData ? "Edit Training" : "Add Training"}
       size="xl"
       cancelLabel="Close"
       submitLabel="Save"
       isSubmitting={isSubmitting}
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }}
       formClassName="space-y-3"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
@@ -264,10 +285,10 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
                 label="College"
                 value={field.value}
                 onChange={(v) => {
-                  field.onChange(v)
-                  setValue('yearName', null)
-                  setValue('employeeId', null)
-                  setEmployees([])
+                  field.onChange(v);
+                  setValue("yearName", null);
+                  setValue("employeeId", null);
+                  setEmployees([]);
                 }}
                 options={colleges.map((c) => ({
                   value: String(c.collegeId),
@@ -314,8 +335,10 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
         </div>
 
         <div className="sm:col-span-6">
-          <label className="text-xs font-medium mb-1 block">Training Title</label>
-          <Input {...register('trainingTitle')} placeholder="Training Title" />
+          <label className="text-xs font-medium mb-1 block">
+            Training Title
+          </label>
+          <Input {...register("trainingTitle")} placeholder="Training Title" />
         </div>
         <div className="sm:col-span-6">
           <Controller
@@ -338,22 +361,39 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
         </div>
 
         <div className="sm:col-span-12">
-          <label className="text-xs font-medium mb-1 block">Training Description</label>
-          <Textarea {...register('trainingDescription')} rows={2} placeholder="Training Description" />
+          <label className="text-xs font-medium mb-1 block">
+            Training Description
+          </label>
+          <Textarea
+            {...register("trainingDescription")}
+            rows={3}
+            placeholder="Training Description"
+          />
         </div>
 
         <div className="sm:col-span-6">
           <label className="text-xs font-medium mb-1 block">Trainer Name</label>
-          <Input {...register('trainerName')} placeholder="Trainer Name" />
+          <Input {...register("trainerName")} placeholder="Trainer Name" />
         </div>
         <div className="sm:col-span-6">
-          <label className="text-xs font-medium mb-1 block">Trainer Details</label>
-          <Input {...register('trainerDetails')} placeholder="Trainer Details" />
+          <label className="text-xs font-medium mb-1 block">
+            Trainer Details
+          </label>
+          <Input
+            {...register("trainerDetails")}
+            placeholder="Trainer Details"
+          />
         </div>
 
         <div className="sm:col-span-12">
-          <label className="text-xs font-medium mb-1 block">Discussion Points</label>
-          <Textarea {...register('discussionPoints')} rows={2} placeholder="Discussion Points" />
+          <label className="text-xs font-medium mb-1 block">
+            Discussion Points
+          </label>
+          <Textarea
+            {...register("discussionPoints")}
+            rows={2}
+            placeholder="Discussion Points"
+          />
         </div>
 
         <div className="sm:col-span-4">
@@ -394,11 +434,11 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
               <Select
                 label="Training To"
                 value={field.value}
-                onChange={(v) => field.onChange((v ?? 'null') as TrackAudience)}
+                onChange={(v) => field.onChange((v ?? "null") as TrackAudience)}
                 options={[
-                  { value: 'null', label: 'All' },
-                  { value: 'true', label: 'Student' },
-                  { value: 'false', label: 'Staff' },
+                  { value: "null", label: "All" },
+                  { value: "true", label: "Student" },
+                  { value: "false", label: "Staff" },
                 ]}
                 placeholder="Training To"
                 clearable={false}
@@ -416,9 +456,9 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={(v) => {
-                    const active = v === true
-                    field.onChange(active)
-                    if (active) setValue('reason', 'active')
+                    const active = v === true;
+                    field.onChange(active);
+                    if (active) setValue("reason", "active");
                   }}
                 />
                 Active
@@ -430,14 +470,16 @@ export default function AddTrainingModal({ open, onClose, editData, onSaved }: P
         {!isActive && (
           <div className="sm:col-span-4">
             <label className="text-xs font-medium mb-1 block">Reason</label>
-            <Input {...register('reason')} placeholder="Reason" />
+            <Input {...register("reason")} placeholder="Reason" />
           </div>
         )}
       </div>
 
       {submitError && (
-        <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+        <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
+          {submitError}
+        </p>
       )}
     </FormModal>
-  )
+  );
 }

@@ -644,22 +644,37 @@ export default function CurriculumReportPage() {
 
   return (
     <FilteredListPage
-      title={rows.length > 0 ? `Curriculum Report` : "Curriculum Report"}
+      title="Curriculum Report"
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
       loading={loadingList}
       showTable={rows.length > 0}
       pagination
+      tableHeader={
+        <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              book
+            </span>
+            <strong className="table-context-header__title">
+              Curriculum Report
+            </strong>
+          </div>
+          {reportSubtitle ? (
+            <span className="text-[15px] font-semibold text-[#0c51a4]">
+              {reportSubtitle}
+            </span>
+          ) : null}
+        </div>
+      }
       toolbar={TOOLBAR}
       toolbarTrailing={
         rows.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {reportSubtitle ? (
-              <span className="text-[12px] font-medium text-blue-700">
-                {reportSubtitle}
-              </span>
-            ) : null}
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
