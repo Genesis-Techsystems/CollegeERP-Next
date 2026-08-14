@@ -217,8 +217,43 @@ export function resolveForcedNavRoute(
   const studentDetailsRoute = resolveStudentDetailsNavRoute(href, label);
   if (studentDetailsRoute) return studentDetailsRoute;
 
+  // Grievance Committee Members — Angular `#/grievance/grievance-masters/committee-members`.
+  // Must beat generic "Committee Members" sidebar pin → Univ `/committees/add-committee-members`.
+  if (labelLower === "committee members" && hrefLower.includes("grievance")) {
+    if (
+      hrefLower.includes("members-list") ||
+      hrefLower.includes("member-list")
+    ) {
+      return "/grievance/grievance-masters/committee-members/members-list";
+    }
+    return "/grievance/grievance-masters/committee-members";
+  }
+
   const sidebarPin = resolveSidebarLabelPin(href, label);
-  if (sidebarPin) return sidebarPin;
+  if (sidebarPin) {
+    // "Student Details" pin must not override the Student Details Report URL.
+    const pinIsSisStudentsList =
+      sidebarPin === "/admin-student-information-system/students-list";
+    const hrefIsStudentsListReport =
+      hrefLower.includes("students-list-report") ||
+      hrefLower.includes("academic_branch_course_yr_std") ||
+      hrefLower.includes("/reports/") ||
+      hrefLower.includes("admin-student-reports") ||
+      hrefLower.includes("student-admission-reports");
+    const pinIsUnivCommitteeMembers =
+      sidebarPin === "/committees/add-committee-members";
+    const hrefIsGrievanceCommitteeMembers =
+      hrefLower.includes("grievance") &&
+      (hrefLower.includes("committee-members") ||
+        hrefLower.includes("grievance-masters") ||
+        hrefLower.includes("add-committee-members"));
+    if (
+      !(pinIsSisStudentsList && hrefIsStudentsListReport) &&
+      !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers)
+    ) {
+      return sidebarPin;
+    }
+  }
 
   // Faculty Details "Staff Workload Adjustment" (Angular StaffProxyList) — pin
   // before the faculty-details / workload-adjustment remaps below, otherwise it
@@ -1048,6 +1083,15 @@ export function resolveForcedNavRoute(
       !labelLower.includes("consolidated"))
   ) {
     return `${ttBase}/staff-class-diary-report`;
+  }
+  if (
+    hrefLower.includes("staff-assignment-report") ||
+    (labelLower.includes("staff") &&
+      labelLower.includes("assignment") &&
+      labelLower.includes("report") &&
+      !labelLower.includes("pending"))
+  ) {
+    return `${ttBase}/staff-assignment-report`;
   }
 
   // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
@@ -2595,6 +2639,15 @@ export function resolveForcedNavRoute(
           labelLower.includes("report"))
       ) {
         return `${ttBase}/staff-proxy-report`;
+      }
+      if (
+        hrefLower.includes("staff-assignment-report") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("assignment") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("pending"))
+      ) {
+        return `${ttBase}/staff-assignment-report`;
       }
       if (
         hrefLower.includes("consolidated-staff-class-diary-report") ||

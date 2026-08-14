@@ -209,6 +209,8 @@ export default function StaffSubjectUnmappingPage() {
     );
   }
 
+  const filtersComplete = Boolean(collegeId && employeeId);
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
@@ -304,9 +306,11 @@ export default function StaffSubjectUnmappingPage() {
             />
           </div>
         }
-        rowData={employeeId ? rows : []}
+        rowData={rows}
         columnDefs={columnDefs}
         loading={loading}
+        showTable={filtersComplete}
+        resultsVisible={filtersComplete}
         toolbar={{ search: true, searchPlaceholder: "Search" }}
         // Angular has mat-paginator commented out — show the full mapped list
         pagination={false}

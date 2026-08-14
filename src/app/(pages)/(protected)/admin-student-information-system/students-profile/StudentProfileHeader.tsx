@@ -1,15 +1,17 @@
 "use client";
 
-import { Monitor } from "lucide-react";
 import type { ProfileField } from "./profile-utils";
 import {
-  formatProfileDate,
   pickDisplay,
   pickText,
   studentFullName,
   studentPhotoSrc,
-  studentStatusClass,
 } from "./profile-utils";
+import {
+  STUDENT_PROFILE_VIEW,
+  formatAdmissionDate,
+  studentProfileStatusClass,
+} from "./profile-view-styles";
 
 type AnyRow = Record<string, any>;
 
@@ -18,10 +20,7 @@ export interface StudentProfileHeaderProps {
   feeLedger?: AnyRow | null;
 }
 
-export function StudentProfileHeader({
-  student,
-  feeLedger,
-}: StudentProfileHeaderProps) {
+export function StudentProfileHeader({ student }: StudentProfileHeaderProps) {
   const isLateral = student.isLateral === true;
   const statusCode = pickText(student, ["studentStatusCode", "statusCode"]);
   const statusLabel = pickDisplay(student, [
@@ -36,7 +35,7 @@ export function StudentProfileHeader({
     pickText(student, ["courseName", "course_code", "courseCode"]),
     pickText(student, ["groupCode", "group_code", "courseGroupCode"]),
     pickText(student, ["courseYearName", "course_year_name"]),
-    student.section ? `Section ${student.section}` : "",
+    student.section ? `Section ${student.section}` : "Section",
   ]
     .filter(Boolean)
     .join(" / ");
@@ -44,7 +43,7 @@ export function StudentProfileHeader({
   const metaFields: ProfileField[] = [
     {
       label: "Admission Date",
-      value: formatProfileDate(
+      value: formatAdmissionDate(
         student.adminssionDate ??
           student.admissionDate ??
           student.admission_date,
@@ -54,24 +53,18 @@ export function StudentProfileHeader({
       label: "Quota",
       value: pickDisplay(student, ["quotaDisplayName", "quotaName"]),
     },
-    {
-      label: "Category",
-      value: pickDisplay(feeLedger, [
-        "scholarship_type_code",
-        "scholarshipTypeCode",
-      ]),
-    },
     { label: "Student Status", value: statusLabel },
   ];
 
   return (
     <div className="app-card overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
-        <Monitor className="h-4 w-4 text-primary" aria-hidden />
-        <h2 className="text-[15px] font-semibold text-primary">Student Details</h2>
-      </div>
-
-      <div className="border-4 border-sky-200/80 bg-sky-50/20 p-3 sm:p-4">
+      <div
+        className="border-2 p-3 sm:p-4"
+        style={{
+          borderColor: STUDENT_PROFILE_VIEW.photoBoxBorder,
+          backgroundColor: `${STUDENT_PROFILE_VIEW.photoBoxBg}55`,
+        }}
+      >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="shrink-0">
             <img
@@ -79,7 +72,8 @@ export function StudentProfileHeader({
                 student.studentPhotoPath ?? student.student_photo_path,
               )}
               alt=""
-              className="h-28 w-28 rounded border-4 border-sky-200 bg-white object-cover sm:h-32 sm:w-32"
+              className="h-[110px] w-[110px] border-2 bg-white object-cover sm:h-[120px] sm:w-[120px]"
+              style={{ borderColor: STUDENT_PROFILE_VIEW.photoBoxBorder }}
               onError={(e) => {
                 const img = e.currentTarget;
                 if (!img.src.includes("default_Student.png")) {
@@ -89,20 +83,18 @@ export function StudentProfileHeader({
             />
           </div>
 
-          <div className="min-w-0 flex-1 space-y-1 text-sm">
-            <p className="font-medium text-foreground">
+          <div className="min-w-0 flex-1 space-y-1 text-[13px]">
+            <p
+              className="text-[15px] font-bold uppercase leading-snug"
+              style={{ color: STUDENT_PROFILE_VIEW.darkBlue }}
+            >
               {studentFullName(student)}{" "}
-              <span className="font-semibold text-primary">
-                ({isLateral ? "LATERAL" : "REGULAR"})
-              </span>
-            </p>
-            <p className="text-muted-foreground">
-              {pickDisplay(student, ["hallticketNumber", "rollNumber"])}
+              <span>({isLateral ? "LATERAL" : "REGULAR"})</span>
             </p>
             {pathLine ? (
-              <p className="text-muted-foreground">{pathLine}</p>
+              <p style={{ color: STUDENT_PROFILE_VIEW.label }}>{pathLine}</p>
             ) : null}
-            <p className="text-muted-foreground">
+            <p style={{ color: STUDENT_PROFILE_VIEW.label }}>
               {pickDisplay(student, [
                 "mobile",
                 "mobileNumber",
@@ -111,16 +103,22 @@ export function StudentProfileHeader({
             </p>
           </div>
 
-          <div className="space-y-1 text-sm lg:min-w-[200px]">
+          <div className="space-y-1 text-[13px] lg:min-w-[210px]">
             {metaFields.map((field) => (
-              <p key={field.label} className="text-foreground">
+              <p
+                key={field.label}
+                style={{ color: STUDENT_PROFILE_VIEW.label }}
+              >
                 <span>{field.label} : </span>
                 {field.label === "Student Status" ? (
-                  <span className={studentStatusClass(statusCode)}>
+                  <span className={studentProfileStatusClass(statusCode)}>
                     {field.value}
                   </span>
                 ) : (
-                  <span className="font-medium text-primary">
+                  <span
+                    className="font-medium"
+                    style={{ color: STUDENT_PROFILE_VIEW.linkBlue }}
+                  >
                     {field.value}
                   </span>
                 )}

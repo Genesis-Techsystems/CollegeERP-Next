@@ -207,6 +207,7 @@ import {
   EMPLOYEE_DETAIL_REPORT_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
 } from "@/lib/role-routing";
+import { resolveSidebarLabelPin } from "@/lib/sidebar-route-pins";
 import { useSessionContext } from "@/context/SessionContext";
 import type { NavItem as NavItemType } from "@/types/navigation";
 
@@ -810,6 +811,75 @@ interface NavItemProps {
   layoutHydrated?: boolean;
 }
 
+/** Lowercase href/label hints from a nav subtree — used to disambiguate duplicate module labels. */
+function collectNavTreeHints(item: NavItemType): string {
+  const parts: string[] = [];
+  function walk(node: NavItemType) {
+    if (node.href) parts.push(node.href.toLowerCase());
+    if (node.label) parts.push(node.label.toLowerCase());
+    node.children?.forEach(walk);
+  }
+  walk(item);
+  return parts.join(" ");
+}
+
+/** Staff/student portal Academics (My Classes, My Timetable, Class Diary, …). */
+function isStaffPortalAcademicsModule(item: NavItemType): boolean {
+  const hints = collectNavTreeHints(item);
+  return (
+    hints.includes("staff-classes") ||
+    hints.includes("student-academics") ||
+    hints.includes("my-classes") ||
+    hints.includes("myclasses") ||
+    hints.includes("my-timetable") ||
+    hints.includes("mytimetable") ||
+    hints.includes("my timetable")
+  );
+}
+
+/** Admin college curriculum Academics (subject mapping, college curriculum, …). */
+function isAdminCollegeAcademicsModule(item: NavItemType): boolean {
+  const hints = collectNavTreeHints(item);
+  return (
+    hints.includes("college-curriculum") ||
+    hints.includes("subject-mapping") ||
+    hints.includes("subject-allocation") ||
+    hints.includes("academic-batches") ||
+    hints.includes("modify-student") ||
+    hints.includes("course-year-subjects") ||
+    hints.includes("assign-student-subject") ||
+    hints.includes("/apps/academics/") ||
+    hints.includes("admin-academics")
+  );
+}
+
+/** Two top-level sidebar modules share the label "Academics" — scope highlight by route family. */
+function academicsModulePathActive(
+  item: NavItemType,
+  pathname: string,
+): boolean {
+  const norm = normalizeHref(pathname);
+  const onStaff =
+    norm.startsWith("/staff-classes/") ||
+    norm.startsWith("/student-academics/");
+  const onAdmin = norm.startsWith("/academics/");
+
+  if (!onStaff && !onAdmin) return false;
+
+  const staffModule = isStaffPortalAcademicsModule(item);
+  const adminModule = isAdminCollegeAcademicsModule(item);
+
+  if (onStaff) {
+    if (adminModule && !staffModule) return false;
+    return staffModule;
+  }
+  if (onAdmin) {
+    if (staffModule) return false;
+    return adminModule;
+  }
+  return false;
+}
+
 /** Recursively checks if any descendant has an href matching the current pathname. */
 function hasActiveDescendant(
   item: NavItemType,
@@ -1373,6 +1443,45 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       user?.roleName,
     );
     if (facultyDetailsRoute) return facultyDetailsRoute;
+
+    // Grievance Committee Members — Angular `#/grievance/grievance-masters/committee-members`.
+    // Must beat generic "Committee Members" sidebar pin → Univ `/committees/add-committee-members`.
+    if (labelLower === "committee members" && hrefLower.includes("grievance")) {
+      if (
+        hrefLower.includes("members-list") ||
+        hrefLower.includes("member-list")
+      ) {
+        return "/grievance/grievance-masters/committee-members/members-list";
+      }
+      return "/grievance/grievance-masters/committee-members";
+    }
+
+    // Label pins (e.g. "Student Details" → SIS students-list) beat fuzzy remaps.
+    const sidebarPin = resolveSidebarLabelPin(item.href, item.label);
+    if (sidebarPin) {
+      // "Student Details" pin must not override the Student Details Report URL.
+      const pinIsSisStudentsList =
+        sidebarPin === "/admin-student-information-system/students-list";
+      const hrefIsStudentsListReport =
+        hrefLower.includes("students-list-report") ||
+        hrefLower.includes("academic_branch_course_yr_std") ||
+        hrefLower.includes("/reports/") ||
+        hrefLower.includes("admin-student-reports") ||
+        hrefLower.includes("student-admission-reports");
+      const pinIsUnivCommitteeMembers =
+        sidebarPin === "/committees/add-committee-members";
+      const hrefIsGrievanceCommitteeMembers =
+        hrefLower.includes("grievance") &&
+        (hrefLower.includes("committee-members") ||
+          hrefLower.includes("grievance-masters") ||
+          hrefLower.includes("add-committee-members"));
+      if (
+        !(pinIsSisStudentsList && hrefIsStudentsListReport) &&
+        !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers)
+      ) {
+        return sidebarPin;
+      }
+    }
 
     // Faculty Details "Staff Workload Adjustment" (Angular StaffProxyList) —
     // distinct from Faculty Leaves "Workload Adjustment"; pin before remaps.
@@ -2182,6 +2291,15 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("consolidated"))
     ) {
       return `${ttBase}/staff-class-diary-report`;
+    }
+    if (
+      hrefLower.includes("staff-assignment-report") ||
+      (labelLower.includes("staff") &&
+        labelLower.includes("assignment") &&
+        labelLower.includes("report") &&
+        !labelLower.includes("pending"))
+    ) {
+      return `${ttBase}/staff-assignment-report`;
     }
 
     // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
@@ -3606,6 +3724,15 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             labelLower.includes("report"))
         ) {
           return `${ttBase}/staff-proxy-report`;
+        }
+        if (
+          hrefLower.includes("staff-assignment-report") ||
+          (labelLower.includes("staff") &&
+            labelLower.includes("assignment") &&
+            labelLower.includes("report") &&
+            !labelLower.includes("pending"))
+        ) {
+          return `${ttBase}/staff-assignment-report`;
         }
         if (
           hrefLower.includes("consolidated-staff-class-diary-report") ||
@@ -5452,7 +5579,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const modulePathActive = (() => {
     const label = (item.label ?? "").toLowerCase().trim();
     if (label === "admin") return normPathname.startsWith("/admin/");
-    if (label === "academics") return normPathname.startsWith("/academics/");
+    if (label === "academics" && depth === 0) {
+      return academicsModulePathActive(item, normPathname);
+    }
     if (
       label.includes("excel bulk uploads") ||
       label.includes("bulk uploads")

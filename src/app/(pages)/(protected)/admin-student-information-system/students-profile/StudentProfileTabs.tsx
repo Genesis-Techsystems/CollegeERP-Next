@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Settings } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { EmptyState } from "@/common/components/feedback";
 import { Table, type TableColumn } from "@/common/components/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,13 +24,14 @@ import { FeeDetailsTab } from "./FeeDetailsTab";
 import { PlacementsTab } from "./PlacementsTab";
 import { ProfileFieldGrid } from "./ProfileFieldGrid";
 import { buildFields, formatProfileDate, pickDisplay } from "./profile-utils";
+import { STUDENT_PROFILE_VIEW } from "./profile-view-styles";
 
 type AnyRow = Record<string, any>;
 
 type MainTab = "general" | "personal" | StudentProfileTab;
 
 const TAB_TRIGGER_CLASS =
-  "rounded-none border-b-2 border-transparent px-3 py-2 text-[12px] whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:shadow-none";
+  "rounded-none border-b-2 border-transparent px-3 py-2 text-[12px] whitespace-nowrap text-[#333] data-[state=active]:border-[#ffc107] data-[state=active]:bg-[#ffc107] data-[state=active]:text-[#333] data-[state=active]:shadow-none";
 
 const MAIN_TABS: Array<{ id: MainTab; label: string }> = [
   { id: "general", label: "General Information" },
@@ -298,6 +299,16 @@ function DataTab({
 
 export function StudentProfileTabs({ student }: { readonly student: AnyRow }) {
   const [activeTab, setActiveTab] = useState<MainTab>("general");
+  const tabScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = useCallback((direction: "left" | "right") => {
+    const el = tabScrollRef.current;
+    if (!el) return;
+    el.scrollBy({
+      left: direction === "left" ? -180 : 180,
+      behavior: "smooth",
+    });
+  }, []);
 
   const renderTab = useCallback(
     (tab: MainTab) => {
@@ -375,18 +386,39 @@ export function StudentProfileTabs({ student }: { readonly student: AnyRow }) {
   return (
     <div className="app-card overflow-hidden">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MainTab)}>
-        <div className="overflow-x-auto border-b border-border bg-muted/20">
-          <TabsList className="h-auto w-full overflow-x-auto text-base justify-between rounded-none bg-transparent p-0">
-            {MAIN_TABS.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className={TAB_TRIGGER_CLASS}
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div
+          className="flex items-stretch border-b bg-white"
+          style={{ borderColor: STUDENT_PROFILE_VIEW.border }}
+        >
+          <button
+            type="button"
+            className="flex shrink-0 items-center px-2 text-[#666] hover:text-[#333]"
+            onClick={() => scrollTabs("left")}
+            aria-label="Scroll tabs left"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div ref={tabScrollRef} className="min-w-0 flex-1 overflow-x-auto">
+            <TabsList className="inline-flex h-auto w-max min-w-full justify-start rounded-none bg-transparent p-0">
+              {MAIN_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className={TAB_TRIGGER_CLASS}
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <button
+            type="button"
+            className="flex shrink-0 items-center px-2 text-[#666] hover:text-[#333]"
+            onClick={() => scrollTabs("right")}
+            aria-label="Scroll tabs right"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
         {MAIN_TABS.map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="m-0 p-4">

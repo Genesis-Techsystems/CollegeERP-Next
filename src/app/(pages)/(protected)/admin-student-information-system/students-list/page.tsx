@@ -838,16 +838,8 @@ export default function StudentDetailsPage() {
   }
 
   function navigateViewProfile(row: AnyRow) {
-    const sid = pickNum(row, ["studentId", "fk_student_id"]);
-    const roll = pickText(row, ["rollNumber", "hallticketNumber"]);
-    const params = new URLSearchParams({
-      studentId: String(sid),
-      check: String(check),
-    });
-    if (roll) params.set("rollNumber", roll);
-    router.push(
-      `/principal-student-information-system/student-details?${params.toString()}`,
-    );
+    // Angular admin SIS: both "View Profile" and "View details" open students-profile.
+    navigateProfile(pickNum(row, ["studentId", "fk_student_id"]));
   }
 
   async function openHodEdit(row: AnyRow) {
