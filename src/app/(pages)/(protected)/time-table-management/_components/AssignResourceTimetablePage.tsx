@@ -24,6 +24,7 @@ import {
   courseGroupsFromFilterRows,
   coursesFromFilterRows,
   courseYearsFromFilterRows,
+  defaultAcademicYearIdFromRows,
   formatDateHeader,
   num,
   sectionsFromFilterRows,
@@ -136,13 +137,16 @@ export function AssignResourceTimetablePage() {
         setFilterRows(rows);
         const colleges = collegesFromFilterRows(rows);
         if (colleges.length === 0) return;
-        const firstCollege = num(colleges[0].fk_college_id);
-        setCollegeId(firstCollege);
-        const ays = academicYearsFromFilterRows(rows, firstCollege);
-        if (ays.length > 0) setAcademicYearId(num(ays[0].fk_academic_year_id));
+        setCollegeId(num(colleges[0].fk_college_id));
       })
       .finally(() => setFiltersLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!collegeId || filtersLoading) return;
+    const ays = academicYearsFromFilterRows(filterRows, collegeId);
+    setAcademicYearId(defaultAcademicYearIdFromRows(ays));
+  }, [collegeId, filterRows, filtersLoading]);
 
   const colleges = useMemo(
     () => collegesFromFilterRows(filterRows),
@@ -553,7 +557,6 @@ export function AssignResourceTimetablePage() {
                 value={collegeId ? String(collegeId) : null}
                 onChange={(v) => {
                   setCollegeId(v ? num(v) : null);
-                  setAcademicYearId(null);
                   setCourseId(null);
                   setCourseGroupId(null);
                   setCourseYearId(null);

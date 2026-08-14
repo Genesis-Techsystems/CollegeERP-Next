@@ -1768,6 +1768,8 @@ export const ASSIGNMENT_API = {
   STUDENT_UPLOAD: "studentassignmentupload",
   /** GET: assignment pending list */
   GET_PENDING_LIST: "getAllRecords/s_get_assignment_pending_list",
+  /** Angular `getAssignmentDetailsUrl` — Staff Assignment Report */
+  GET_DETAILS: "getAllRecords/s_get_assignment_details",
 } as const;
 
 // ─── Dashboard / Reports ─────────────────────────────────────────────────────

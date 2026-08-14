@@ -161,6 +161,10 @@ export async function listMapRegulationSubjects(params: {
   return [];
 }
 
+/**
+ * Angular View Semester Subjects / getSubjectCourseYears:
+ * GET subjectcourseyrs/?collegeId=&academicYearId=&groupSectionId=
+ */
 export async function listSubjectCourseYearsBySection(params: {
   collegeId: number;
   academicYearId: number;
@@ -168,27 +172,17 @@ export async function listSubjectCourseYearsBySection(params: {
 }): Promise<AnyRow[]> {
   const { collegeId, academicYearId, groupSectionId } = params;
   if (!collegeId || !academicYearId || !groupSectionId) return [];
-  const paths = [
-    "subjectcourseyears",
-    "subjectcourseyrs",
-    "subjectCourseYears",
-  ];
-  const queryVariants: Array<Record<string, string | number>> = [
-    { collegeId, academicYearId, groupSectionId },
-    { collegeId, academicYearId, groupsectionId: groupSectionId },
-    { collegeId, academicYearId, group_section_id: groupSectionId },
-  ];
-  for (const path of paths) {
-    for (const query of queryVariants) {
-      try {
-        const rows = await fetchDetails<AnyRow[]>(path, query);
-        if (Array.isArray(rows)) return rows;
-      } catch {
-        // next
-      }
-    }
+
+  try {
+    const rows = await fetchDetails<unknown>(SUBJECT_API.SUBJECT_COURSE_YEARS, {
+      collegeId,
+      academicYearId,
+      groupSectionId,
+    });
+    return unwrapDataArray(rows);
+  } catch {
+    return [];
   }
-  return [];
 }
 
 export async function listProgramOutcomeCategories(): Promise<AnyRow[]> {

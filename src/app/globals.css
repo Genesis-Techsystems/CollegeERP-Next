@@ -2007,6 +2007,17 @@ a.app-control[data-app-add]:hover {
   border-color: hsl(var(--border)) !important;
 }
 
+/* Fit-to-width list tables — hide horizontal scroll track (columns use sizeColumnsToFit) */
+.app-data-table:not(.app-data-table-wide) .ag-theme-quartz .ag-body-horizontal-scroll,
+.app-data-table:not(.app-data-table-wide)
+  .ag-theme-quartz
+  .ag-body-horizontal-scroll-viewport {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Wide tables (fitColumnsToWidth=false) — scroll every column, not just the viewport */
 .app-data-table-wide.app-data-table-card {
   overflow-x: auto;

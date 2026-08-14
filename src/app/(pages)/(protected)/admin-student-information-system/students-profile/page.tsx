@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { PageContainer, PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/toast";
@@ -121,12 +121,10 @@ export default function StudentsProfilePage() {
       <div className="flex justify-end">
         <Button
           type="button"
-          variant="outline"
           size="sm"
           onClick={goBack}
-          className="gap-1.5"
+          className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
         >
-          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
           Back
         </Button>
       </div>

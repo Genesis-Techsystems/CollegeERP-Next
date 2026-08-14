@@ -101,7 +101,13 @@
   },
   {
     "label": "committee members",
-    "route": "/committees/add-committee-members"
+    "route": "/committees/add-committee-members",
+    "hrefIncludes": "committees"
+  },
+  {
+    "label": "committee members",
+    "route": "/grievance/grievance-masters/committee-members",
+    "hrefIncludes": "grievance"
   },
   {
     "label": "company placement requirements",
