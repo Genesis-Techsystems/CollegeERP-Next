@@ -51,7 +51,6 @@ const EXCEL_COLUMNS = [
   { key: "Admission_Date", header: "Admission Date" },
   { key: "Roll_No", header: "Roll No" },
   { key: "Student_Quota", header: "Student Quota" },
-  { key: "Student_Category", header: "Student Category" },
   { key: "Regulation", header: "Regulation" },
   { key: "Caste", header: "Caste" },
   { key: "Lateral", header: "Lateral" },
@@ -90,12 +89,6 @@ const COL_DEFS = {
     field: "Student_Quota",
     headerName: "Student Quota",
     minWidth: 120,
-  } as ColDef<AnyRow>,
-  studentCategory: {
-    headerName: "Student Category",
-    minWidth: 130,
-    valueGetter: (p) =>
-      String(p.data?.scholarship_type ?? p.data?.Student_Category ?? ""),
   } as ColDef<AnyRow>,
   regulation: {
     field: "Regulation",
@@ -549,7 +542,6 @@ ${tableHtml}
       COL_DEFS.admissionDate,
       COL_DEFS.rollNo,
       COL_DEFS.studentQuota,
-      COL_DEFS.studentCategory,
       COL_DEFS.regulation,
       COL_DEFS.caste,
       COL_DEFS.lateral,

@@ -423,12 +423,20 @@ export function buildStatisticalTableHtml(opts: {
   keys: StatisticalPeriodKey[];
   rows: StatisticalRow[];
 }): string {
+  const th =
+    "border:1px solid #333;padding:5px;background:#C3D9FF;font-weight:500;text-align:center;";
+  const td =
+    "border:1px solid #333;padding:8px;text-align:center;font-weight:500;";
   const head = [
-    `<th>Days/Hours</th>`,
-    ...opts.keys.map(
-      (k) =>
-        `<th>${escape(String(k.periodno))}<br/><span style="font-weight:400;font-size:10px">${escape(k.Period_TIme)}</span></th>`,
-    ),
+    `<th style="${th}">Days/Hours</th>`,
+    ...opts.keys.map((k) => {
+      const time = escape(k.Period_TIme);
+      return `<th style="${th}">${escape(String(k.periodno))}${
+        time
+          ? `<p style="margin:5px 0;color:#c76d2f;font-weight:400;">${time}</p>`
+          : ""
+      }</th>`;
+    }),
   ].join("");
 
   const body = opts.rows
@@ -436,19 +444,19 @@ export function buildStatisticalTableHtml(opts: {
       const cells = r.subjectTimetable
         .map((c) => {
           if (!c.text) {
-            return `<td style="text-align:center;background:#f5f5f5;"></td>`;
+            return `<td style="${td}background:#dedede;"></td>`;
           }
-          const bg = c.attendanceTaken === 1 ? "#c8e6c9" : "#ffcdd2";
-          return `<td style="text-align:center;background:${bg};">${escape(c.text)}</td>`;
+          const color = c.attendanceTaken === 1 ? "green" : "red";
+          return `<td style="${td}"><p style="color:${color};padding-bottom:10px;margin:5px 0;">${escape(c.text)}</p></td>`;
         })
         .join("");
-      return `<tr><th style="text-align:center;color:blue">${escape(r.SEC_Display_Name)}</th>${cells}</tr>`;
+      return `<tr><th style="${td}color:blue;">${escape(r.SEC_Display_Name)}</th>${cells}</tr>`;
     })
     .join("");
 
-  const legend = `<p style="margin-top:8px;font-size:11px"><span style="color:green;font-weight:500">Attendance Capture</span> | <span style="color:red;font-weight:500">Not Capture</span></p>`;
+  const legend = `<p style="margin-top:8px;font-size:11px"><span style="color:green;font-weight:500">Attendance Capture</span> | <span style="color:red;font-weight:500">Attendance Not Capture</span></p>`;
 
-  return `<table border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${legend}`;
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>${legend}`;
 }
 
 export function buildDepartmentWiseTableHtml(opts: {

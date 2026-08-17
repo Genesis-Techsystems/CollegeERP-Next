@@ -18,14 +18,15 @@ import {
   getLabRemunerationRestFilters,
   getLabRemunerationSubjects,
 } from "@/services";
-import { toastError, toastInfo } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   Building2,
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
   Layers,
-  RotateCcw,
+  Printer,
   School,
   UserRound,
 } from "lucide-react";
@@ -40,8 +41,8 @@ const TOOLBAR = {
   search: true,
   searchPlaceholder: "Search…",
   columnPicker: true,
-  exportPdf: true,
-  exportExcel: true,
+  exportPdf: false,
+  exportExcel: false,
 } as const;
 
 const COL_DEFS = {
@@ -138,9 +139,9 @@ export default function LabRemunerationReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
-  const organizationId = Number(
-    globalThis?.localStorage?.getItem("organizationId") ?? 0,
-  );
+  // Angular: +localStorage.organizationId. Proc rejects org 0 (no rows / error).
+  const organizationId =
+    Number(globalThis?.localStorage?.getItem("organizationId") ?? 0) || 1;
 
   const [loading, setLoading] = useState(false);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -459,6 +460,61 @@ export default function LabRemunerationReportPage() {
     );
   }, [regulationRows, skipAutoSelect]);
 
+  /**
+   * Angular selectedsubject() — load evaluators only after a subject is chosen
+   * (including All = 0). Empty evaluator_list is success, not an error toast.
+   */
+  const selectedSubject = useCallback(
+    async (nextSubjectId: number) => {
+      setSubjectId(nextSubjectId);
+      setEvaluatorRows([]);
+      setEvaluatorProfileId(0);
+      clearResults();
+      if (!courseId || !academicYearId || !examId || !regulationId) return;
+      setLoading(true);
+      try {
+        const list = await getLabRemunerationEvaluators({
+          organizationId,
+          employeeId,
+          examId,
+          courseYearId,
+          subjectId: nextSubjectId,
+          regulationId,
+          courseId,
+          academicYearId,
+        });
+        setEvaluatorRows(list);
+        const next = dedupeBy(list, [
+          "pk_exam_evaluator_profile_id",
+          "examEvaluatorProfileId",
+        ]);
+        setEvaluatorProfileId(
+          next[0]
+            ? numFrom(next[0], [
+                "pk_exam_evaluator_profile_id",
+                "examEvaluatorProfileId",
+              ])
+            : 0,
+        );
+      } catch (e) {
+        toastError(e, "Failed to load evaluators");
+        setEvaluatorRows([]);
+        setEvaluatorProfileId(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      academicYearId,
+      courseId,
+      courseYearId,
+      employeeId,
+      examId,
+      organizationId,
+      regulationId,
+    ],
+  );
+
   useEffect(() => {
     let cancelled = false;
     async function loadSubjects() {
@@ -491,12 +547,15 @@ export default function LabRemunerationReportPage() {
         setSubjectRows(list);
         if (skipAutoSelect) {
           setSubjectId(0);
+          setEvaluatorRows([]);
+          setEvaluatorProfileId(0);
           return;
         }
         const next = dedupeBy(list, ["fk_subject_id", "subjectId"]);
-        setSubjectId(
-          next[0] ? numFrom(next[0], ["fk_subject_id", "subjectId"]) : 0,
-        );
+        const nextSubjectId = next[0]
+          ? numFrom(next[0], ["fk_subject_id", "subjectId"])
+          : 0;
+        await selectedSubject(nextSubjectId);
       } catch {
         if (!cancelled) toastError("Failed to load subjects");
       } finally {
@@ -517,66 +576,7 @@ export default function LabRemunerationReportPage() {
     regulationId,
     employeeId,
     skipAutoSelect,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadEvaluators() {
-      if (!courseId || !academicYearId || !examId || !regulationId) {
-        setEvaluatorRows([]);
-        setEvaluatorProfileId(0);
-        return;
-      }
-      setLoading(true);
-      try {
-        const list = await getLabRemunerationEvaluators({
-          organizationId,
-          employeeId,
-          examId,
-          courseYearId,
-          subjectId,
-          regulationId,
-          courseId,
-          academicYearId,
-        });
-        if (cancelled) return;
-        setEvaluatorRows(list);
-        if (skipAutoSelect) {
-          setEvaluatorProfileId(0);
-          return;
-        }
-        const next = dedupeBy(list, [
-          "pk_exam_evaluator_profile_id",
-          "examEvaluatorProfileId",
-        ]);
-        setEvaluatorProfileId(
-          next[0]
-            ? numFrom(next[0], [
-                "pk_exam_evaluator_profile_id",
-                "examEvaluatorProfileId",
-              ])
-            : 0,
-        );
-      } catch {
-        if (!cancelled) toastError("Failed to load evaluators");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void loadEvaluators();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    courseId,
-    academicYearId,
-    examId,
-    courseYearId,
-    subjectId,
-    regulationId,
-    organizationId,
-    employeeId,
-    skipAutoSelect,
+    selectedSubject,
   ]);
 
   async function handleGetReport() {
@@ -600,10 +600,11 @@ export default function LabRemunerationReportPage() {
         isReevaluation,
       });
       if (list.length === 0) {
-        toastInfo("No records found");
+        toastSuccess("No Records Found.");
         return;
       }
       setRows(list);
+      toastSuccess("Data retrieved successfully");
       setExamName(
         strFrom(
           exams.find((r) => numFrom(r, ["fk_exam_id", "examId"]) === examId) ??
@@ -611,30 +612,11 @@ export default function LabRemunerationReportPage() {
           ["exam_name", "examName"],
         ),
       );
-    } catch {
-      toastError("Failed to load lab remuneration report");
+    } catch (error) {
+      toastError(error, "Failed to load lab remuneration report");
     } finally {
       setLoading(false);
     }
-  }
-
-  function handleReset() {
-    setSkipAutoSelect(true);
-    clearResults();
-    setCourseId(null);
-    setAcademicYearId(null);
-    setExamId(null);
-    setCollegeId(null);
-    setCourseGroupId(0);
-    setCourseYearId(0);
-    setRegulationId(null);
-    setSubjectId(0);
-    setEvaluatorProfileId(0);
-    setIsReevaluation(false);
-    setRestRows([]);
-    setRegulationRows([]);
-    setSubjectRows([]);
-    setEvaluatorRows([]);
   }
 
   function handleExport() {
@@ -682,9 +664,28 @@ export default function LabRemunerationReportPage() {
 
   function handlePrint() {
     if (profiles.length === 0) return;
+    const selectedCollege =
+      colleges.find(
+        (row) =>
+          numFrom(row, ["fk_college_id", "collegeId"]) === Number(collegeId),
+      ) ?? {};
+    const selectedCourse =
+      courses.find(
+        (row) =>
+          numFrom(row, ["fk_course_id", "courseId"]) === Number(courseId),
+      ) ?? {};
     printLabRemunerationReport(profiles, {
       title: "Lab Remuneration Report",
       examName,
+      collegeName: strFrom(selectedCollege, [
+        "college_name",
+        "collegeName",
+        "college_code",
+      ]),
+      universityCode: strFrom(selectedCourse, [
+        "university_code",
+        "universityCode",
+      ]),
     });
   }
 
@@ -697,7 +698,7 @@ export default function LabRemunerationReportPage() {
             <GlobalFilterField
               label="Course"
               icon={GraduationCap}
-              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+              className="!flex-[2_1_10rem] !min-w-[9rem]"
             >
               <Select
                 value={courseId ? String(courseId) : null}
@@ -722,7 +723,7 @@ export default function LabRemunerationReportPage() {
             <GlobalFilterField
               label="Exam Year"
               icon={CalendarDays}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="!flex-[2_1_10rem] !min-w-[9rem]"
             >
               <Select
                 value={academicYearId ? String(academicYearId) : null}
@@ -744,7 +745,7 @@ export default function LabRemunerationReportPage() {
             <GlobalFilterField
               label="Exam Master"
               icon={ClipboardList}
-              className="!flex-[1_1_22rem] !min-w-[16rem]"
+              className="!flex-[6_1_30rem] !min-w-[18rem]"
             >
               <Select
                 value={examId ? String(examId) : null}
@@ -761,10 +762,13 @@ export default function LabRemunerationReportPage() {
                 searchable
               />
             </GlobalFilterField>
+          </GlobalFilterBarRow>
+
+          <GlobalFilterBarRow>
             <GlobalFilterField
               label="College"
               icon={Building2}
-              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+              className="!flex-[4_1_10rem] !min-w-[9rem]"
             >
               <Select
                 value={collegeId ? String(collegeId) : null}
@@ -786,13 +790,10 @@ export default function LabRemunerationReportPage() {
                 isLoading={Boolean(examId) && loading}
               />
             </GlobalFilterField>
-          </GlobalFilterBarRow>
-
-          <GlobalFilterBarRow>
             <GlobalFilterField
               label="Course Group"
               icon={Layers}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="!flex-[4_1_10rem] !min-w-[9rem]"
             >
               <Select
                 value={String(courseGroupId)}
@@ -821,7 +822,7 @@ export default function LabRemunerationReportPage() {
             <GlobalFilterField
               label="Course Year"
               icon={School}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="!flex-[3_1_8rem] !min-w-[7rem]"
             >
               <Select
                 value={String(courseYearId)}
@@ -850,7 +851,7 @@ export default function LabRemunerationReportPage() {
             <GlobalFilterField
               label="Regulation"
               icon={Layers}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="!flex-[3_1_8rem] !min-w-[7rem]"
             >
               <Select
                 value={regulationId ? String(regulationId) : null}
@@ -872,14 +873,13 @@ export default function LabRemunerationReportPage() {
             <GlobalFilterField
               label="Subject"
               icon={ClipboardList}
-              className="!flex-[1_1_16rem] !min-w-[12rem]"
+              className="!flex-[6_1_18rem] !min-w-[13rem]"
             >
               <Select
                 value={String(subjectId)}
                 onChange={(v) => {
                   setSkipAutoSelect(false);
-                  clearResults();
-                  setSubjectId(v ? Number(v) : 0);
+                  void selectedSubject(v ? Number(v) : 0);
                 }}
                 options={[
                   { value: "0", label: "All" },
@@ -892,10 +892,13 @@ export default function LabRemunerationReportPage() {
                 searchable
               />
             </GlobalFilterField>
+          </GlobalFilterBarRow>
+
+          <GlobalFilterBarRow>
             <GlobalFilterField
               label="Evaluators"
               icon={UserRound}
-              className="!flex-[1_1_16rem] !min-w-[12rem]"
+              className="!flex-[0_1_40%] !min-w-[16rem]"
             >
               <Select
                 value={String(evaluatorProfileId)}
@@ -919,7 +922,7 @@ export default function LabRemunerationReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+            <div className="flex min-w-[10rem] flex-[0_1_15%] items-end pb-0.5">
               <label className="flex h-8 items-center gap-2 text-[12px] whitespace-nowrap">
                 <Checkbox
                   checked={isReevaluation}
@@ -930,23 +933,15 @@ export default function LabRemunerationReportPage() {
                 />
                 <span>Is Re-Evaluation</span>
               </label>
+            </div>
+            <div className="flex min-w-[6rem] flex-[0_1_10%] items-end pb-0.5">
               <Button
                 type="button"
-                className="h-8 text-[12px]"
+                className="h-8 w-full text-[12px]"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >
                 {loading ? "Loading..." : "Get List"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
-                onClick={handleReset}
-                title="Reset"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
               </Button>
             </div>
           </GlobalFilterBarRow>
@@ -954,12 +949,36 @@ export default function LabRemunerationReportPage() {
       }
       rowData={rows}
       columnDefs={columnDefs}
+      resultsVisible={rows.length > 0}
       loading={loading}
+      showTable={rows.length > 0}
       pagination
       paginationPageSize={25}
       getRowId={getRowId}
       onExportExcel={handleExport}
       onExportPdf={handlePrint}
+      toolbarTrailing={
+        <>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={handleExport}
+          >
+            <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+            Export Excel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={handlePrint}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        </>
+      }
       toolbar={{
         ...TOOLBAR,
         excelDocumentTitle: "Lab Remuneration Report",

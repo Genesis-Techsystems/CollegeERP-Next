@@ -9,7 +9,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { format } from "date-fns";
-import { Eye, Printer } from "lucide-react";
+import { Eye, FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -23,10 +23,7 @@ import { printHtmlInIframe } from "@/lib/print";
 import { getErrorMessage } from "@/lib/errors";
 import { rowIndexGetter, cn } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   getClassStudentWisePtmReport,
   getCollegeById,
@@ -286,9 +283,7 @@ export default function ClassStudentWisePtmReportPage() {
       const collegeId =
         Number(student?.collegeId ?? 0) ||
         Number(
-          typeof window !== "undefined"
-            ? localStorage.getItem("collegeId")
-            : 0,
+          typeof window !== "undefined" ? localStorage.getItem("collegeId") : 0,
         );
       // Angular: both fromDate/toDate = today (`momentFormatYMD`)
       const today = format(new Date(), "yyyy/MM/dd");
@@ -415,22 +410,32 @@ export default function ClassStudentWisePtmReportPage() {
         toolbar={{
           search: true,
           searchPlaceholder: "Search",
-          exportExcel: true,
+          exportExcel: false,
           exportPdf: false,
         }}
         onExportExcel={handleExcelExport}
         toolbarTrailing={
           showTable ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-9 px-3 text-[12px]"
-              onClick={() => void printReport()}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
-            </Button>
+            <>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={handleExcelExport}
+              >
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                Export Excel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={() => void printReport()}
+              >
+                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                Print Report
+              </Button>
+            </>
           ) : null
         }
       />

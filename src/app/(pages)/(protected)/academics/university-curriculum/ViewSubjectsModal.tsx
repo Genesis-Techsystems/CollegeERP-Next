@@ -152,6 +152,11 @@ export default function ViewSubjectsModal({
     return [uni, course, group, year].filter(Boolean).join(" / ");
   }, [context]);
 
+  const pdfTitle = useMemo(() => {
+    const base = "University Curriculum Regulation Subjects List";
+    return heading ? `${base} - ${heading}` : base;
+  }, [heading]);
+
   return (
     <Dialog
       open={open}
@@ -195,7 +200,7 @@ export default function ViewSubjectsModal({
               searchPlaceholder: "Search",
               exportExcel: false,
               exportPdf: false,
-              columnPicker: false,
+              pdfDocumentTitle: pdfTitle,
             }}
             pagination
             paginationPageSize={10}

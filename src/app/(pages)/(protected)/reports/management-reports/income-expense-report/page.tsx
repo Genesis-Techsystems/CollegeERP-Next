@@ -456,10 +456,26 @@ export default function IncomeExpenseReportPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      tableTitle={
-        resultsVisible && dataDetails
-          ? `Income & Expense Report - ${dataDetails}`
-          : "Income & Expense Report"
+      showTable={resultsVisible}
+      tableHeader={
+        <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="flex items-center gap-2">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              book
+            </span>
+            <strong className="table-context-header__title">
+              Income & Expense Report
+            </strong>
+          </div>
+          {dataDetails ? (
+            <span className="text-[15px] font-semibold text-[#0c51a4]">
+              {dataDetails}
+            </span>
+          ) : null}
+        </div>
       }
       rowData={tableRows}
       columnDefs={columnDefs}

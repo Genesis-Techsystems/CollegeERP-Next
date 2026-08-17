@@ -103,7 +103,14 @@ function makeActionsRenderer(onEdit: (row: AppraisalRow) => void) {
 export function AppraisalReportPage() {
   const router = useRouter();
   const { user, isLoading: sessionLoading } = useSessionContext();
-  const { employeeId, isResolving } = useLoginEmployeeId(user, sessionLoading);
+  const { employeeId: sessionEmployeeId, isResolving } = useLoginEmployeeId(
+    user,
+    sessionLoading,
+  );
+  const employeeId =
+    sessionEmployeeId > 0
+      ? sessionEmployeeId
+      : Number(readStorage("employeeId") || user?.employeeId || 0);
   const collegeId = user?.collegeId ?? Number(readStorage("collegeId") || 0);
   const isPrincipal =
     Boolean(user?.isPrincipal) || readStorage("isPRINCIPAL") === "true";

@@ -15,11 +15,16 @@ import {
   toNavSlug,
 } from "@/lib/navigation";
 import {
+  isSalarySlipsNav,
+  isSetProxyNav,
+  isStaffSelfAppraisalNav,
   isStaffWorkloadAdjustmentNav,
   isStudentClassDiaryViewer,
   isStudentPortalViewer,
   mapErpModuleLabelToRoute,
   mapErpModuleNavRoute,
+  SALARY_SLIPS_ROUTE,
+  SET_PROXY_ROUTE,
   STAFF_WORKLOAD_ADJUSTMENT_ROUTE,
 } from "@/lib/erp-modules-navigation";
 import {
@@ -103,22 +108,96 @@ export function mapLegacyMasterSettingsHref(href?: string): string | null {
 const EXAM_MASTERS_PATH = "/admin-examination-management/admin-exam-masters";
 
 import {
+  HOD_FACULTY_DETAILS_ROUTE,
+  EMPLOYEE_DETAIL_REPORT_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
+  isEmployeeDetailReportNav,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
+  isManagementNavRole,
   isSecretaryRole,
   resolveFacultyDetailsNavRoute,
   roleNameIsSecretary,
 } from "@/lib/role-routing";
 
 export {
+  HOD_FACULTY_DETAILS_ROUTE,
+  EMPLOYEE_DETAIL_REPORT_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
+  isChancellorRole,
+  isEmployeeDetailReportNav,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
+  isManagementNavRole,
   isSecretaryRole,
   resolveFacultyDetailsNavRoute,
   roleNameIsSecretary,
 } from "@/lib/role-routing";
+
+const STUDENT_DETAILS_SIS_ROUTE =
+  "/admin-student-information-system/students-list";
+const STUDENT_DETAILS_REPORT_ROUTE =
+  "/reports/admin-student-reports/students-list-report";
+
+function studentDetailsLabelKey(label: string | undefined): string {
+  return (label ?? "").toLowerCase().trim();
+}
+
+/** Reports → Student Reports → "Student Details" (DB label) vs SIS module. */
+export function isStudentDetailsReportNav(
+  href: string | undefined,
+  label: string | undefined,
+  depth?: number,
+): boolean {
+  const labelKey = studentDetailsLabelKey(label);
+  const hrefLower = (href ?? "").toLowerCase();
+  if (
+    hrefLower.includes("students-list-report") ||
+    hrefLower.includes("academic_branch_course_yr_std")
+  ) {
+    return true;
+  }
+  const isDetailsLabel =
+    labelKey === "student details" ||
+    (labelKey.includes("student details") && labelKey.includes("report"));
+  if (!isDetailsLabel) return false;
+  if (labelKey.includes("report")) return true;
+  if (
+    hrefLower.includes("admin-student-reports") ||
+    hrefLower.includes("student-admission-reports") ||
+    hrefLower.includes("/reports/")
+  ) {
+    return true;
+  }
+  // Nested under Reports → Student Reports (typically depth 2).
+  return (depth ?? 0) >= 2 && labelKey === "student details";
+}
+
+export function resolveStudentDetailsNavRoute(
+  href: string | undefined,
+  label: string | undefined,
+  depth?: number,
+): string | null {
+  const labelKey = studentDetailsLabelKey(label);
+  if (isStudentDetailsReportNav(href, label, depth)) {
+    return STUDENT_DETAILS_REPORT_ROUTE;
+  }
+  if (labelKey === "student details") {
+    return STUDENT_DETAILS_SIS_ROUTE;
+  }
+  return null;
+}
+
+export function studentDetailsNavDisplayLabel(
+  href: string | undefined,
+  label: string | undefined,
+  depth?: number,
+): string {
+  if (isStudentDetailsReportNav(href, label, depth)) {
+    return "Student Details Report";
+  }
+  return label ?? "";
+}
 
 /**
  * Sidebar/Search shared route pins (legacy Angular → App Router).
@@ -138,11 +217,53 @@ export function resolveForcedNavRoute(
 
   const hrefLower = (href ?? "").toLowerCase();
 
+  if (isEmployeeDetailReportNav(href, label)) {
+    return EMPLOYEE_DETAIL_REPORT_ROUTE;
+  }
+
   const facultyDetailsRoute = resolveFacultyDetailsNavRoute(href, label);
   if (facultyDetailsRoute) return facultyDetailsRoute;
 
+  const studentDetailsRoute = resolveStudentDetailsNavRoute(href, label);
+  if (studentDetailsRoute) return studentDetailsRoute;
+
+  // Grievance Committee Members — Angular `#/grievance/grievance-masters/committee-members`.
+  // Must beat generic "Committee Members" sidebar pin → Univ `/committees/add-committee-members`.
+  if (labelLower === "committee members" && hrefLower.includes("grievance")) {
+    if (
+      hrefLower.includes("members-list") ||
+      hrefLower.includes("member-list")
+    ) {
+      return "/grievance/grievance-masters/committee-members/members-list";
+    }
+    return "/grievance/grievance-masters/committee-members";
+  }
+
   const sidebarPin = resolveSidebarLabelPin(href, label);
-  if (sidebarPin) return sidebarPin;
+  if (sidebarPin) {
+    // "Student Details" pin must not override the Student Details Report URL.
+    const pinIsSisStudentsList =
+      sidebarPin === "/admin-student-information-system/students-list";
+    const hrefIsStudentsListReport =
+      hrefLower.includes("students-list-report") ||
+      hrefLower.includes("academic_branch_course_yr_std") ||
+      hrefLower.includes("/reports/") ||
+      hrefLower.includes("admin-student-reports") ||
+      hrefLower.includes("student-admission-reports");
+    const pinIsUnivCommitteeMembers =
+      sidebarPin === "/committees/add-committee-members";
+    const hrefIsGrievanceCommitteeMembers =
+      hrefLower.includes("grievance") &&
+      (hrefLower.includes("committee-members") ||
+        hrefLower.includes("grievance-masters") ||
+        hrefLower.includes("add-committee-members"));
+    if (
+      !(pinIsSisStudentsList && hrefIsStudentsListReport) &&
+      !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers)
+    ) {
+      return sidebarPin;
+    }
+  }
 
   // Faculty Details "Staff Workload Adjustment" (Angular StaffProxyList) — pin
   // before the faculty-details / workload-adjustment remaps below, otherwise it
@@ -218,6 +339,12 @@ export function resolveForcedNavRoute(
       labelLower === "budgetallocation")
   ) {
     return "/budget/budgetallocation";
+  }
+
+  // Faculty Leaves → Set Proxy (Angular `staff-faculty-leaves/set-proxy`).
+  // Missing route 404s to dashboard; pin before generic leave remaps.
+  if (isSetProxyNav(href, label)) {
+    return SET_PROXY_ROUTE;
   }
 
   // Faculty Leaves → Leave Summary (Angular `staff-faculty-leaves/leave-summary`)
@@ -643,15 +770,20 @@ export function resolveForcedNavRoute(
   }
 
   // Exam Timetable Report (Exam Reports) — must not fall through to Time-Table Management / 404→dashboard
-  if (
-    hrefLower.includes("exam-timetable-report") ||
-    (labelLower.includes("exam") &&
-      labelLower.includes("timetable") &&
-      labelLower.includes("report") &&
-      !labelLower.includes("course year") &&
-      !labelLower.includes("lab"))
-  ) {
-    return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
+  {
+    const labelCompact = labelLower.replace(/[^a-z0-9]+/g, "");
+    if (
+      hrefLower.includes("exam-timetable-report") ||
+      hrefLower.includes("exam_timetable_report") ||
+      hrefLower.includes("exam-time-table-report") ||
+      (labelCompact.includes("examtimetable") &&
+        labelCompact.includes("report") &&
+        !labelCompact.includes("courseyear") &&
+        !labelCompact.includes("lab") &&
+        !labelCompact.includes("notification"))
+    ) {
+      return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
+    }
   }
 
   // Admin Grievance List — Angular `/grievance/complaint`
@@ -972,6 +1104,15 @@ export function resolveForcedNavRoute(
       !labelLower.includes("consolidated"))
   ) {
     return `${ttBase}/staff-class-diary-report`;
+  }
+  if (
+    hrefLower.includes("staff-assignment-report") ||
+    (labelLower.includes("staff") &&
+      labelLower.includes("assignment") &&
+      labelLower.includes("report") &&
+      !labelLower.includes("pending"))
+  ) {
+    return `${ttBase}/staff-assignment-report`;
   }
 
   // Staff/Student Class Diary labels first so shared staff-classes/class-dairy
@@ -1481,16 +1622,16 @@ export function resolveForcedNavRoute(
     // Staff Self Appraisal — Angular `staff-faculty-details/appraisal-report`.
     // Pin before the generic faculty-details matcher so principal login reaches
     // the implemented route instead of falling through to the dashboard.
-    if (
-      hrefLower.includes("staff-faculty-details/appraisal-report") ||
-      labelKey === "staff self appraisal forms" ||
-      labelKey === "staff self appraisal" ||
-      labelKey === "appraisal report"
-    ) {
+    if (isStaffSelfAppraisalNav(href, label)) {
       if (hrefLower.includes("review-appraisal")) {
         return "/staff-faculty-details/appraisal-report/review-appraisal";
       }
       return "/staff-faculty-details/appraisal-report";
+    }
+
+    // Salary Slips — Angular `staff-faculty-details/salary-slips`.
+    if (isSalarySlipsNav(href, label)) {
+      return SALARY_SLIPS_ROUTE;
     }
 
     // Faculty Performance Assessment — Angular `staff-faculty-details/performance-assessment`
@@ -1533,9 +1674,10 @@ export function resolveForcedNavRoute(
     // (must pin before leave-approvals / faculty-details/leave-approvals remap)
     if (
       !isHrEmployeeListHref(hrefLower) &&
+      !isManagementNavRole() &&
       isHodFacultyDetailsHref(hrefLower)
     ) {
-      return "/staff-faculty-details/faculty-details";
+      return HOD_FACULTY_DETAILS_ROUTE;
     }
 
     // Principal Leave Approvals (Angular `leave-approvals`) — before leave-applications.
@@ -2120,12 +2262,12 @@ export function resolveForcedNavRoute(
     ) {
       return "/reports/admin-student-reports/branch-and-academicyear-wise-caste-count";
     }
-    // Angular Student Details Report — only the report, not Student Details
+    // Angular Student Details Report — require "report" in the label (or
+    // an explicit report href). Bare "Student Details" is the SIS module.
     if (
       hrefLower.includes("students-list-report") ||
       hrefLower.includes("academic_branch_course_yr_std") ||
-      (labelLower.includes("student details") &&
-        labelLower.includes("report"))
+      (labelLower.includes("student details") && labelLower.includes("report"))
     ) {
       return "/reports/admin-student-reports/students-list-report";
     }
@@ -2529,6 +2671,15 @@ export function resolveForcedNavRoute(
           labelLower.includes("report"))
       ) {
         return `${ttBase}/staff-proxy-report`;
+      }
+      if (
+        hrefLower.includes("staff-assignment-report") ||
+        (labelLower.includes("staff") &&
+          labelLower.includes("assignment") &&
+          labelLower.includes("report") &&
+          !labelLower.includes("pending"))
+      ) {
+        return `${ttBase}/staff-assignment-report`;
       }
       if (
         hrefLower.includes("consolidated-staff-class-diary-report") ||
@@ -3398,6 +3549,12 @@ export function resolveForcedNavRoute(
       !labelLower.includes("result sheet"))
   ) {
     return "/admin-examination-management/result-processing/t-sheets";
+  }
+  if (
+    hrefLower.includes("post-examination/verify-exam-marks") ||
+    hrefLower.includes("admin-post-examination/verify-exam-marks")
+  ) {
+    return "/admin-examination-management/post-examination/verify-exam-marks";
   }
   if (
     labelLower.includes("verify exam marks") ||

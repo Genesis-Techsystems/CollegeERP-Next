@@ -3,20 +3,17 @@
 /**
  * Student Attendance Percentage Report —
  * Angular `reports/student-attendance-reports/student-attendance-percentage-report` parity.
- * AG Grid: pinned "No. of Classes" row + one row per student + dynamic subject columns.
- * Table appears only after Get List.
+ * Table appears only after Get List. Note subjects table is a DataTable below the grid.
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type {
-  CellClassParams,
-  CellStyle,
-  ColDef,
-  RowClassParams,
-} from "ag-grid-community";
+import type { CellStyle, ColDef, ICellRendererParams } from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
+import { FormModal } from "@/common/components/feedback";
+import { SearchInput } from "@/common/components/search";
 import { Select } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
 import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -26,18 +23,19 @@ import { useCollegeLogo, DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { getErrorMessage } from "@/lib/errors";
 import { printHtmlInIframe } from "@/lib/print";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
-import { toastError, toastInfo } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
 import {
   fetchStudentAttendancePercentageReport,
   getCollegeById,
+  sendBulkSmsToStudents,
 } from "@/services";
 import {
   useAttendanceReportFilters,
   buildBannerHtml,
 } from "../_lib/useAttendanceReportFilters";
 
-type AnyRow = Record<string, unknown> & { __isClassesRow?: boolean };
+type AnyRow = Record<string, unknown>;
 
 type SubjectKey = {
   subject: string;
@@ -50,8 +48,107 @@ type SubjectKey = {
   Total_classes: unknown;
 };
 
+type SmsStudentRow = {
+  __rowId: string;
+  rollNumber: string;
+  firstName: string;
+  Father_Mobile_No: string;
+};
+
+type NoteRow = {
+  __rowId: string;
+  siNo: number;
+  subjectCode: string;
+  subjectName: string;
+  subjectType: string;
+  faculty: string;
+  creditPoints: string;
+};
+
 const REPORT_TITLE = "Student Attendance Percentage Report";
-const CLASSES_ROW_BG = "#c5d9f1";
+const SMS_MESSAGE = "You have less attendance percentage";
+
+const SMS_COL_DEFS: ColDef<SmsStudentRow>[] = [
+  {
+    headerName: "S No",
+    valueGetter: rowIndexGetter,
+    width: 80,
+    minWidth: 70,
+    maxWidth: 90,
+    sortable: false,
+    filter: false,
+  },
+  {
+    field: "rollNumber",
+    headerName: "Roll No.",
+    minWidth: 130,
+  },
+  {
+    field: "firstName",
+    headerName: "Student Name",
+    minWidth: 180,
+    flex: 1,
+  },
+  {
+    field: "Father_Mobile_No",
+    headerName: "Mobile No.",
+    minWidth: 140,
+  },
+];
+
+const NOTE_COL_DEFS = {
+  siNo: {
+    field: "siNo",
+    headerName: "S.No",
+    width: 80,
+    minWidth: 70,
+    maxWidth: 90,
+    sortable: false,
+    filter: false,
+  } as ColDef<NoteRow>,
+  subjectCode: {
+    field: "subjectCode",
+    headerName: "Subject Code",
+    minWidth: 130,
+  } as ColDef<NoteRow>,
+  subject: {
+    field: "subjectName",
+    headerName: "Subject",
+    minWidth: 220,
+    flex: 1,
+  } as ColDef<NoteRow>,
+  faculty: {
+    field: "faculty",
+    headerName: "Faculty",
+    minWidth: 160,
+  } as ColDef<NoteRow>,
+  creditPoints: {
+    field: "creditPoints",
+    headerName: "Credit Points",
+    minWidth: 120,
+    maxWidth: 150,
+    cellClass: "text-center",
+  } as ColDef<NoteRow>,
+};
+
+function noteSubjectRenderer(p: ICellRendererParams<NoteRow>) {
+  const name = p.data?.subjectName ?? "";
+  const type = p.data?.subjectType ?? "";
+  if (!type) return name;
+  return (
+    <span>
+      {name} (<span className="text-[#0014ff]">{type}</span>)
+    </span>
+  );
+}
+
+const NOTE_COLUMN_DEFS: ColDef<NoteRow>[] = [
+  NOTE_COL_DEFS.siNo,
+  NOTE_COL_DEFS.subjectCode,
+  { ...NOTE_COL_DEFS.subject, cellRenderer: noteSubjectRenderer },
+  NOTE_COL_DEFS.faculty,
+  NOTE_COL_DEFS.creditPoints,
+];
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -67,34 +164,22 @@ function subjectFieldKey(code: string): string {
   return `sub_${code}`;
 }
 
-function isClassesRow(data: AnyRow | undefined | null): boolean {
-  return Boolean(data?.__isClassesRow);
-}
-
-function buildClassesRow(keys: SubjectKey[]): AnyRow {
-  const cells: Record<string, string> = {};
-  let total = 0;
-  for (const key of keys) {
-    const n = num(key.Total_classes);
-    cells[subjectFieldKey(key.subject)] = String(n);
-    total += n;
-  }
-  return {
-    __isClassesRow: true,
-    rollNumber: "",
-    firstName: "",
-    Father_Mobile_No: "",
-    studentDisplay: "No. of Classes",
-    present: total,
-    total: total,
-    totalPercenteage: "",
-    ...cells,
-  };
+function buildNoteRows(keys: SubjectKey[]): NoteRow[] {
+  return keys.map((key, i) => ({
+    __rowId: `note-${key.subject}-${i}`,
+    siNo: i + 1,
+    subjectCode: key.subject,
+    subjectName: str(key.Subject_name),
+    subjectType: str(key.Subject_Type),
+    faculty: str(key.Faculty),
+    creditPoints: str(key.sub_credits),
+  }));
 }
 
 function transformPercentageRows(rows: AnyRow[]): {
   keys: SubjectKey[];
   gridRows: AnyRow[];
+  academicDetails: string;
 } {
   const keys: SubjectKey[] = [];
   const byRoll = new Map<
@@ -172,7 +257,11 @@ function transformPercentageRows(rows: AnyRow[]): {
       ...s.cells,
     }));
 
-  return { keys, gridRows };
+  const academicDetails = str(
+    rows.find((row) => str(row.Academic_details))?.Academic_details,
+  );
+
+  return { keys, gridRows, academicDetails };
 }
 
 export default function StudentAttendancePercentageReportPage() {
@@ -191,6 +280,10 @@ export default function StudentAttendancePercentageReportPage() {
   const [collegeName, setCollegeName] = useState("");
   const [keys, setKeys] = useState<SubjectKey[]>([]);
   const [gridRows, setGridRows] = useState<AnyRow[]>([]);
+  const [academicDetails, setAcademicDetails] = useState("");
+  const [smsOpen, setSmsOpen] = useState(false);
+  const [smsSearch, setSmsSearch] = useState("");
+  const [sendingSms, setSendingSms] = useState(false);
 
   const clearResults = useCallback(() => {
     setShowTable(false);
@@ -198,6 +291,9 @@ export default function StudentAttendancePercentageReportPage() {
     setCollegeName("");
     setKeys([]);
     setGridRows([]);
+    setAcademicDetails("");
+    setSmsOpen(false);
+    setSmsSearch("");
   }, []);
 
   const filters = useAttendanceReportFilters({
@@ -208,32 +304,12 @@ export default function StudentAttendancePercentageReportPage() {
   const collegeNum = Number(filters.collegeId || 0) || null;
   const collegeLogo = useCollegeLogo(collegeNum);
 
-  const classesRow = useMemo(
-    () => (keys.length > 0 ? buildClassesRow(keys) : null),
-    [keys],
+  const noteRows = useMemo(
+    () => (showTable ? buildNoteRows(keys) : []),
+    [showTable, keys],
   );
-
-  const pinnedTopRowData = useMemo(
-    () => (classesRow ? [classesRow] : undefined),
-    [classesRow],
-  );
-
-  const getRowStyle = useCallback((params: RowClassParams<AnyRow>) => {
-    if (isClassesRow(params.data)) {
-      return {
-        background: CLASSES_ROW_BG,
-        fontWeight: "bold",
-      };
-    }
-    return undefined;
-  }, []);
 
   const columnDefs = useMemo((): ColDef<AnyRow>[] => {
-    const boldCenter = (p: CellClassParams<AnyRow>): CellStyle => ({
-      textAlign: "center",
-      ...(isClassesRow(p.data) ? { fontWeight: "bold" } : {}),
-    });
-
     const subjectCols = keys.map((key): ColDef<AnyRow> => {
       const field = subjectFieldKey(key.subject);
       const typeLabel = str(key.Subject_Type);
@@ -243,12 +319,9 @@ export default function StudentAttendancePercentageReportPage() {
         headerTooltip: str(key.Subject_name),
         minWidth: 110,
         flex: 0,
-        cellStyle: boldCenter,
+        cellStyle: { textAlign: "center" } satisfies CellStyle,
         valueGetter: (p) => {
           const v = p.data?.[field];
-          if (isClassesRow(p.data)) {
-            return v == null || v === "" ? "0" : String(v);
-          }
           return v == null || v === "" ? "-" : String(v);
         },
       };
@@ -257,17 +330,9 @@ export default function StudentAttendancePercentageReportPage() {
     return [
       {
         headerName: "S.No",
-        colSpan: (p) => (isClassesRow(p.data) ? 3 : 1),
-        valueGetter: (p) => {
-          if (isClassesRow(p.data)) return "No. of Classes";
-          return rowIndexGetter(p);
-        },
+        valueGetter: rowIndexGetter,
         width: 70,
         flex: 0,
-        cellStyle: (p): CellStyle | undefined =>
-          isClassesRow(p.data)
-            ? { textAlign: "right", fontWeight: "bold" }
-            : undefined,
       },
       {
         field: "rollNumber",
@@ -285,16 +350,15 @@ export default function StudentAttendancePercentageReportPage() {
         headerName: "Total",
         minWidth: 90,
         flex: 0,
-        cellStyle: boldCenter,
+        cellStyle: { textAlign: "center" } satisfies CellStyle,
       },
       {
         field: "totalPercenteage",
         headerName: "Percentage(%)",
         minWidth: 120,
         flex: 0,
-        cellStyle: boldCenter,
+        cellStyle: { textAlign: "center" } satisfies CellStyle,
         valueGetter: (p) => {
-          if (isClassesRow(p.data)) return "";
           const v = p.data?.totalPercenteage;
           return v == null || v === "" ? "" : String(v);
         },
@@ -326,18 +390,9 @@ export default function StudentAttendancePercentageReportPage() {
         .map((key) => {
           const f = subjectFieldKey(key.subject);
           const v = row[f];
-          return `<td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(v ?? (isClassesRow(row) ? "0" : "-")))}</td>`;
+          return `<td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(v ?? "-"))}</td>`;
         })
         .join("");
-
-    const classesHtml = classesRow
-      ? `<tr style="background:${CLASSES_ROW_BG};font-weight:bold;">
-      <td colspan="3" style="border:1px solid #333;padding:4px 6px;text-align:right;">No. of Classes</td>
-      ${subjectCells(classesRow)}
-      <td style="border:1px solid #333;padding:4px 6px;text-align:center;">${escapeHtml(String(classesRow.present ?? ""))}</td>
-      <td style="border:1px solid #333;padding:4px 6px;"></td>
-    </tr>`
-      : "";
 
     const body = gridRows
       .map((row, i) => {
@@ -352,8 +407,8 @@ export default function StudentAttendancePercentageReportPage() {
       })
       .join("");
 
-    return `<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr>${head}</tr></thead><tbody>${classesHtml}${body}</tbody></table>`;
-  }, [classesRow, gridRows, keys]);
+    return `<table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }, [gridRows, keys]);
 
   const handleGetList = async () => {
     const cid = Number(filters.collegeId || 0);
@@ -422,6 +477,7 @@ export default function StudentAttendancePercentageReportPage() {
       }
       setKeys(transformed.keys);
       setGridRows(transformed.gridRows);
+      setAcademicDetails(transformed.academicDetails);
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
@@ -510,6 +566,86 @@ ${tableHtml}</body></html>`);
 
   const goBack = () => {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
+  };
+
+  const smsRows = useMemo<SmsStudentRow[]>(
+    () =>
+      gridRows.map((row, i) => ({
+        __rowId: `sms-${str(row.rollNumber)}-${i}`,
+        rollNumber: str(row.rollNumber),
+        firstName: str(row.firstName),
+        Father_Mobile_No: str(row.Father_Mobile_No),
+      })),
+    [gridRows],
+  );
+
+  const filteredSmsRows = useMemo(() => {
+    const q = smsSearch.trim().toLowerCase();
+    if (!q) return smsRows;
+    return smsRows.filter(
+      (row) =>
+        row.rollNumber.toLowerCase().includes(q) ||
+        row.firstName.toLowerCase().includes(q) ||
+        row.Father_Mobile_No.toLowerCase().includes(q),
+    );
+  }, [smsRows, smsSearch]);
+
+  const openSmsModal = () => {
+    if (gridRows.length === 0) {
+      toastInfo("No students to send SMS.");
+      return;
+    }
+    setSmsSearch("");
+    setSmsOpen(true);
+  };
+
+  const handleSendSms = async () => {
+    const collegeId = Number(filters.collegeId || 0);
+    const academicYearId = Number(filters.academicYearId || 0);
+    const courseId = Number(filters.courseId || 0);
+    const courseGroupId = Number(filters.courseGroupId || 0);
+    const courseYearId = Number(filters.courseYearId || 0);
+    const groupSectionId = Number(filters.sectionId || 0);
+    if (
+      !collegeId ||
+      !academicYearId ||
+      !courseId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !groupSectionId
+    ) {
+      toastError("Please complete all filters");
+      return;
+    }
+    const numbers = smsRows
+      .map((row) => row.Father_Mobile_No.trim())
+      .filter(Boolean);
+    if (numbers.length === 0) {
+      toastError("No student is selected with a valid mobile number.");
+      return;
+    }
+    setSendingSms(true);
+    try {
+      await sendBulkSmsToStudents({
+        collegeId,
+        academicYearId,
+        courseId,
+        courseGroupId,
+        courseYearId,
+        groupSectionId,
+        messageContent: SMS_MESSAGE,
+        isSmsAlert: true,
+        patternId: 2,
+        numbers,
+      });
+      toastSuccess("SMS sent successfully");
+      setSmsOpen(false);
+      await handleGetList();
+    } catch (err) {
+      toastError(getErrorMessage(err));
+    } finally {
+      setSendingSms(false);
+    }
   };
 
   return (
@@ -635,8 +771,7 @@ ${tableHtml}</body></html>`);
       showTable={showTable}
       resultsVisible={showTable}
       hideEmptyGrid
-      pinnedTopRowData={showTable ? pinnedTopRowData : undefined}
-      getRowStyle={getRowStyle}
+      getRowId={(p) => str(p.data?.rollNumber)}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
@@ -664,71 +799,88 @@ ${tableHtml}</body></html>`);
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report
             </Button>
+            {gridRows.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={openSmsModal}
+              >
+                Send SMS
+              </Button>
+            ) : null}
           </div>
         ) : undefined
       }
-    >
-      {showTable && keys.length > 0 ? (
-        <div className="app-data-table app-data-table-card mt-4 p-4">
-          <p className="mb-3 text-sm font-medium">
-            <span className="text-red-600">Note :</span>
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="border border-border px-3 py-2 text-left font-semibold">
-                    S.No
-                  </th>
-                  <th className="border border-border px-3 py-2 text-left font-semibold">
-                    Subject Code
-                  </th>
-                  <th className="border border-border px-3 py-2 text-left font-semibold">
-                    Subject
-                  </th>
-                  <th className="border border-border px-3 py-2 text-left font-semibold">
-                    Faculty
-                  </th>
-                  <th className="border border-border px-3 py-2 text-center font-semibold">
-                    Credit Points
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {keys.map((key, i) => (
-                  <tr key={key.subject}>
-                    <td className="border border-border px-3 py-2 text-center">
-                      {i + 1}
-                    </td>
-                    <td className="border border-border px-3 py-2">
-                      {key.subject}
-                    </td>
-                    <td className="border border-border px-3 py-2">
-                      {str(key.Subject_name)}
-                      {str(key.Subject_Type) ? (
-                        <>
-                          {" "}
-                          (
-                          <span className="text-blue-600">
-                            {str(key.Subject_Type)}
-                          </span>
-                          )
-                        </>
-                      ) : null}
-                    </td>
-                    <td className="border border-border px-3 py-2">
-                      {str(key.Faculty)}
-                    </td>
-                    <td className="border border-border px-3 py-2 text-center">
-                      {str(key.sub_credits)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      afterGrid={
+        showTable && noteRows.length > 0 ? (
+          <div>
+            <p className="mb-2 text-sm font-medium text-red-600">Note :</p>
+            <DataTable<NoteRow>
+              title=""
+              bordered={false}
+              rowData={noteRows}
+              columnDefs={NOTE_COLUMN_DEFS}
+              pagination={false}
+              columnFilters={false}
+              autoHeight
+              getRowId={(p) => String(p.data?.__rowId ?? "")}
+              toolbar={false}
+            />
           </div>
+        ) : null
+      }
+    >
+      <FormModal
+        open={smsOpen}
+        onClose={() => {
+          if (!sendingSms) setSmsOpen(false);
+        }}
+        title="Send SMS to Students"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSendSms();
+        }}
+        submitLabel="Save"
+        cancelLabel="Close"
+        isSubmitting={sendingSms}
+        size="lg"
+      >
+        <div className="space-y-3">
+          {academicDetails || dataDetails ? (
+            <span
+              style={{ color: "#0c51a4" }}
+              className="text-sm font-medium color-[#0c51a4]"
+            >
+              Course Details : {academicDetails || dataDetails}
+            </span>
+          ) : undefined}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-5">
+            <SearchInput
+              className="max-w-sm"
+              placeholder="Student Name / Roll No."
+              value={smsSearch}
+              onChange={setSmsSearch}
+            />
+            <div className="text-sm">
+              Selected Students Count :{" "}
+              <span className="font-semibold">{smsRows.length}</span>
+            </div>
+          </div>
+          <DataTable<SmsStudentRow>
+            title=""
+            bordered={false}
+            rowData={filteredSmsRows}
+            columnDefs={SMS_COL_DEFS}
+            pagination={filteredSmsRows.length > 10}
+            paginationPageSize={10}
+            columnFilters={false}
+            autoHeight
+            getRowId={(p) => String(p.data?.__rowId ?? "")}
+            toolbar={false}
+          />
         </div>
-      ) : null}
+      </FormModal>
     </FilteredListPage>
   );
 }

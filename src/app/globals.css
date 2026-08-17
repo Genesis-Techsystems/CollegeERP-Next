@@ -645,7 +645,9 @@
   min-width: 0 !important;
 }
 
-.global-filter-bar__row--vem > .global-filter-field--action .global-filter-field__label {
+.global-filter-bar__row--vem
+  > .global-filter-field--action
+  .global-filter-field__label {
   min-height: 1.25rem;
 }
 
@@ -2007,6 +2009,19 @@ a.app-control[data-app-add]:hover {
   border-color: hsl(var(--border)) !important;
 }
 
+/* Fit-to-width list tables — hide horizontal scroll track (columns use sizeColumnsToFit) */
+.app-data-table:not(.app-data-table-wide)
+  .ag-theme-quartz
+  .ag-body-horizontal-scroll,
+.app-data-table:not(.app-data-table-wide)
+  .ag-theme-quartz
+  .ag-body-horizontal-scroll-viewport {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Wide tables (fitColumnsToWidth=false) — scroll every column, not just the viewport */
 .app-data-table-wide.app-data-table-card {
   overflow-x: auto;
@@ -2016,7 +2031,9 @@ a.app-control[data-app-add]:hover {
 .app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll,
 .app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll-viewport {
   display: block !important;
-  min-height: 14px !important;
+  min-height: 16px !important;
+  height: 16px !important;
+  visibility: visible !important;
 }
 
 .app-data-table-wide .ag-theme-quartz .ag-center-cols-viewport {
@@ -2038,9 +2055,14 @@ a.app-control[data-app-add]:hover {
 }
 
 /* Hide horizontal-scroll track under pinned SI.No / Actions columns —
-  scrollbar only appears under the scrollable center viewport. */
-.app-data-table .ag-theme-quartz .ag-horizontal-left-spacer,
-.app-data-table .ag-theme-quartz .ag-horizontal-right-spacer {
+  scrollbar only appears under the scrollable center viewport.
+  Wide tables keep spacers so the center scrollbar stays aligned. */
+.app-data-table:not(.app-data-table-wide)
+  .ag-theme-quartz
+  .ag-horizontal-left-spacer,
+.app-data-table:not(.app-data-table-wide)
+  .ag-theme-quartz
+  .ag-horizontal-right-spacer {
   display: none !important;
   width: 0 !important;
   min-width: 0 !important;
@@ -3593,6 +3615,26 @@ button.back-btn:hover,
 a.back-btn:hover {
   background-color: #f5f5f5 !important;
   color: #042956 !important;
+}
+
+/* Angular report filter Back (`styles.scss` later `.back-btn { background: #ffcf46 }`) */
+button.app-control.back-btn[data-app-back],
+a.app-control.back-btn[data-app-back],
+button.app-control.back-btn,
+a.app-control.back-btn {
+  background: #ffcf46 !important;
+  background-color: #ffcf46 !important;
+  color: #000 !important;
+  border: 0 !important;
+}
+
+button.app-control.back-btn[data-app-back]:hover,
+a.app-control.back-btn[data-app-back]:hover,
+button.app-control.back-btn:hover,
+a.app-control.back-btn:hover {
+  background: #e5b535 !important;
+  background-color: #e5b535 !important;
+  color: #000 !important;
 }
 
 /* Angular dialog title icon */

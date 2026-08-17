@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
-import { FileSpreadsheet, FileText } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
@@ -330,14 +330,13 @@ ${tableHtml}
           >
             {isFetching ? "Loading…" : "Get List"}
           </Button>
-          <Button
+          <button
             type="button"
-            variant="secondary"
             onClick={onBack}
-            className="h-[30px] px-3 text-[12px] bg-amber-400 text-black hover:bg-amber-500"
+            className="app-control inline-flex h-[30px] cursor-pointer items-center justify-center rounded-[5px] border-0 bg-amber-400 px-3 text-[12px] font-medium text-slate-900 shadow-sm transition-colors hover:bg-amber-500"
           >
             Back
-          </Button>
+          </button>
         </div>
       }
       rowData={tableRows}
@@ -360,23 +359,21 @@ ${tableHtml}
           <>
             <Button
               type="button"
-              variant="outline"
               size="sm"
               className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
               onClick={() => void handleExcelExport()}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Excel
+              Export Excel
             </Button>
             <Button
               type="button"
-              variant="outline"
               size="sm"
               className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
               onClick={() => void handlePdfExport()}
             >
-              <FileText className="mr-1.5 h-3.5 w-3.5" />
-              PDF
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
             </Button>
           </>
         ) : null

@@ -412,6 +412,7 @@ export default function CertificateRequestsPage() {
   return (
     <FilteredListPage
       title="Certificate Requests"
+      showTable={showTable && orgNum > 0 && collegeNum > 0 && certNum > 0}
       filters={
         <GlobalFilterBarRow>
           <Select

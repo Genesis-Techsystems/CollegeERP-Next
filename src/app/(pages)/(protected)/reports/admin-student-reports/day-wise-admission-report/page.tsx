@@ -2,13 +2,14 @@
 
 /**
  * Student Admission Report (Day Wise) —
- * Angular `reports/student-admission-reports/day-wise-admission-report` parity.
+ * Angular AMS `day-wise-admission-report` parity (relabeled Quota/Course/Route columns).
  * Get List: `getAllRecords/s_get_student_reports?in_flag=admission_report&…`
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ColDef } from "ag-grid-community";
+import { format, isValid, parseISO } from "date-fns";
+import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
@@ -49,6 +50,9 @@ const EXCEL_COLUMNS = [
   { key: "siNo", header: "SI.No" },
   { key: "Application_Number", header: "Application Number" },
   { key: "Academic_Details", header: "Academic Details" },
+  { key: "Admission_Number", header: "Quota" },
+  { key: "Admission_Date", header: "Course" },
+  { key: "RollNo", header: "Route" },
   { key: "Student_Quota", header: "Student Quota" },
   { key: "Regulation", header: "Regulation" },
   { key: "Lateral", header: "Lateral" },
@@ -56,8 +60,25 @@ const EXCEL_COLUMNS = [
   { key: "Gender", header: "Gender" },
   { key: "Student_Mobile", header: "Student Mobile" },
   { key: "Father_Name", header: "Father Name" },
+  { key: "WorkFlow_Name", header: "WorkFlow Name" },
   { key: "Student_Status", header: "Student Status" },
 ] as const;
+
+function rowText(row: AnyRow, key: string): string {
+  const v = row[key];
+  if (v == null || v === "") return "";
+  return String(v);
+}
+
+/** Angular AMS: Admission_Date column header is "Course", formatted `dd MMM, y`. */
+function formatAdmissionDate(value: unknown): string {
+  if (value == null || value === "") return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  const d = parseISO(raw.includes("T") ? raw : raw.slice(0, 10));
+  if (!isValid(d)) return raw;
+  return format(d, "dd MMM, yyyy");
+}
 
 const COL_DEFS = {
   siNo: {
@@ -74,7 +95,24 @@ const COL_DEFS = {
   academicDetails: {
     field: "Academic_Details",
     headerName: "Academic Details",
-    minWidth: 160,
+    minWidth: 200,
+  } as ColDef<AnyRow>,
+  quota: {
+    field: "Admission_Number",
+    headerName: "Quota",
+    minWidth: 130,
+  } as ColDef<AnyRow>,
+  course: {
+    field: "Admission_Date",
+    headerName: "Course",
+    minWidth: 110,
+    valueFormatter: (p: ValueFormatterParams<AnyRow>) =>
+      formatAdmissionDate(p.value),
+  } as ColDef<AnyRow>,
+  route: {
+    field: "RollNo",
+    headerName: "Route",
+    minWidth: 90,
   } as ColDef<AnyRow>,
   studentQuota: {
     field: "Student_Quota",
@@ -110,6 +148,11 @@ const COL_DEFS = {
     field: "Father_Name",
     headerName: "Father Name",
     minWidth: 140,
+  } as ColDef<AnyRow>,
+  workflowName: {
+    field: "WorkFlow_Name",
+    headerName: "WorkFlow Name",
+    minWidth: 130,
   } as ColDef<AnyRow>,
   studentStatus: {
     field: "Student_Status",
@@ -439,16 +482,20 @@ export default function DayWiseAdmissionReportPage() {
     () =>
       rows.map((row, i) => ({
         siNo: i + 1,
-        Application_Number: String(row.Application_Number ?? ""),
-        Academic_Details: String(row.Academic_Details ?? ""),
-        Student_Quota: String(row.Student_Quota ?? ""),
-        Regulation: String(row.Regulation ?? ""),
-        Lateral: String(row.Lateral ?? ""),
-        Student_Name: String(row.Student_Name ?? ""),
-        Gender: String(row.Gender ?? ""),
-        Student_Mobile: String(row.Student_Mobile ?? ""),
-        Father_Name: String(row.Father_Name ?? ""),
-        Student_Status: String(row.Student_Status ?? ""),
+        Application_Number: rowText(row, "Application_Number"),
+        Academic_Details: rowText(row, "Academic_Details"),
+        Admission_Number: rowText(row, "Admission_Number"),
+        Admission_Date: formatAdmissionDate(row.Admission_Date),
+        RollNo: rowText(row, "RollNo"),
+        Student_Quota: rowText(row, "Student_Quota"),
+        Regulation: rowText(row, "Regulation"),
+        Lateral: rowText(row, "Lateral"),
+        Student_Name: rowText(row, "Student_Name"),
+        Gender: rowText(row, "Gender"),
+        Student_Mobile: rowText(row, "Student_Mobile"),
+        Father_Name: rowText(row, "Father_Name"),
+        WorkFlow_Name: rowText(row, "WorkFlow_Name"),
+        Student_Status: rowText(row, "Student_Status"),
       })),
     [rows],
   );
@@ -502,6 +549,9 @@ ${tableHtml}
       COL_DEFS.siNo,
       COL_DEFS.applicationNumber,
       COL_DEFS.academicDetails,
+      COL_DEFS.quota,
+      COL_DEFS.course,
+      COL_DEFS.route,
       COL_DEFS.studentQuota,
       COL_DEFS.regulation,
       COL_DEFS.lateral,
@@ -509,6 +559,7 @@ ${tableHtml}
       COL_DEFS.gender,
       COL_DEFS.studentMobile,
       COL_DEFS.fatherName,
+      COL_DEFS.workflowName,
       COL_DEFS.studentStatus,
     ],
     [],

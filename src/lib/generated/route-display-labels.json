@@ -19,5 +19,7 @@
   "/hr-payroll/employee/employee-list": "Faculty Details",
   "/staff-faculty-details/performance-assessment": "Faculty Performance Assessment",
   "/staff-faculty-details/performance-assessment/add-performance": "Take Performance Assessment",
-  "/staff-faculty-details/salary-slips": "Salary Slips"
+  "/staff-faculty-leaves/set-proxy": "Set Proxy",
+  "/staff-faculty-details/salary-slips": "Salary Slips",
+  "/staff-faculty-details/appraisal-report": "Staff Self Appraisal Forms"
 }

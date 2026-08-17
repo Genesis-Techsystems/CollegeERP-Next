@@ -1,37 +1,63 @@
-'use client'
+"use client";
 
-import { useState, useMemo, useEffect } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { EyeIcon } from 'lucide-react'
-import { FilteredListPage } from '@/components/layout'
-import { Select } from '@/common/components/select'
-import { StatusBadge } from '@/common/components/data-display'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { formatDate } from '@/common/generic-functions'
-import { listActiveCampuses } from '@/services'
+import { useState, useMemo, useEffect, useRef } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { EyeIcon } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilteredListPage } from "@/components/layout";
+import { Select } from "@/common/components/select";
+import { StatusBadge } from "@/common/components/data-display";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { toastSuccess } from "@/lib/toast";
+import { formatDate } from "@/common/generic-functions";
+import { listActiveCampuses } from "@/services";
 import {
   listPlacementsByCampus,
   listCompanies,
   listPlacementStudentRegs,
-} from '@/services/placements'
-import type { Campus } from '@/types/campus'
-import type { Company, Placement, PlacementStudentRegistration } from '@/types/placements'
-import { rowIndexGetter } from '@/lib/utils'
-import PlacementInterviewModal from '../PlacementInterviewModal'
-import InterviewDetailsModal from './InterviewDetailsModal'
+} from "@/services/placements";
+import type { Campus } from "@/types/campus";
+import type {
+  Company,
+  Placement,
+  PlacementStudentRegistration,
+} from "@/types/placements";
+import { rowIndexGetter } from "@/lib/utils";
+import PlacementInterviewModal from "../PlacementInterviewModal";
+import InterviewDetailsModal from "./InterviewDetailsModal";
 
 const COL_DEFS = {
-  siNo: { headerName: 'No.', valueGetter: rowIndexGetter, width: 60, flex: 0 } as ColDef<PlacementStudentRegistration>,
-  studentName: { field: 'firstName', headerName: 'Student Name', minWidth: 180, flex: 2 } as ColDef<PlacementStudentRegistration>,
-  cvShortlisted: { field: 'isCVShortlisted', headerName: 'CV Short List', minWidth: 120, flex: 0.9 } as ColDef<PlacementStudentRegistration>,
-  actions: { headerName: 'Actions', width: 150, flex: 0 } as ColDef<PlacementStudentRegistration>,
-}
+  siNo: {
+    headerName: "No.",
+    valueGetter: rowIndexGetter,
+    width: 60,
+    flex: 0,
+  } as ColDef<PlacementStudentRegistration>,
+  studentName: {
+    field: "firstName",
+    headerName: "Student Name",
+    minWidth: 180,
+    flex: 2,
+  } as ColDef<PlacementStudentRegistration>,
+  cvShortlisted: {
+    field: "isCVShortlisted",
+    headerName: "CV Short List",
+    minWidth: 120,
+    flex: 0.9,
+  } as ColDef<PlacementStudentRegistration>,
+  actions: {
+    headerName: "Actions",
+    width: 150,
+    flex: 0,
+  } as ColDef<PlacementStudentRegistration>,
+};
 
-function studentNameRenderer(p: ICellRendererParams<PlacementStudentRegistration>) {
-  const row = p.data
-  if (!row) return null
+function studentNameRenderer(
+  p: ICellRendererParams<PlacementStudentRegistration>,
+) {
+  const row = p.data;
+  if (!row) return null;
   return (
     <span className="text-xs">
       {row.firstName}
@@ -39,16 +65,18 @@ function studentNameRenderer(p: ICellRendererParams<PlacementStudentRegistration
         <span className="text-muted-foreground"> ({row.rollNumber})</span>
       )}
     </span>
-  )
+  );
 }
 
-function cvShortlistedRenderer(p: ICellRendererParams<PlacementStudentRegistration>) {
+function cvShortlistedRenderer(
+  p: ICellRendererParams<PlacementStudentRegistration>,
+) {
   return (
     <StatusBadge
       status={p.data?.isCVShortlisted ?? false}
-      label={p.data?.isCVShortlisted ? 'Yes' : 'No'}
+      label={p.data?.isCVShortlisted ? "Yes" : "No"}
     />
-  )
+  );
 }
 
 function makeActionsRenderer(
@@ -56,75 +84,121 @@ function makeActionsRenderer(
   onView: (row: PlacementStudentRegistration) => void,
 ) {
   return (p: ICellRendererParams<PlacementStudentRegistration>) => {
-    if (!p.data) return null
+    if (!p.data) return null;
     return (
       <div className="flex items-center gap-1">
-        <Button size="sm" variant="outline" className="h-7 px-2 text-xs"
-          onClick={() => onInterview(p.data!)}>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 text-xs"
+          onClick={() => onInterview(p.data!)}
+        >
           Interview
         </Button>
-        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="View Interview Details"
-          onClick={() => onView(p.data!)}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 w-8 p-0"
+          title="View Interview Details"
+          onClick={() => onView(p.data!)}
+        >
           <EyeIcon className="h-3.5 w-3.5" />
         </Button>
       </div>
-    )
-  }
+    );
+  };
 }
 
 export default function PlacementRegisteredListPage() {
-  const [campuses, setCampuses] = useState<Campus[]>([])
-  const [placements, setPlacements] = useState<Placement[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [campusId, setCampusId] = useState<string | null>(null)
-  const [placementId, setPlacementId] = useState<string | null>(null)
-  const [companyId, setCompanyId] = useState<string | null>(null)
-  const [filtersLoading, setFiltersLoading] = useState(false)
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [viewModalOpen, setViewModalOpen] = useState(false)
-  const [editData, setEditData] = useState<PlacementStudentRegistration | null>(null)
-  const [viewData, setViewData] = useState<PlacementStudentRegistration | null>(null)
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [placements, setPlacements] = useState<Placement[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [campusId, setCampusId] = useState<string | null>(null);
+  const [placementId, setPlacementId] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [filtersLoading, setFiltersLoading] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editData, setEditData] = useState<PlacementStudentRegistration | null>(
+    null,
+  );
+  const [viewData, setViewData] = useState<PlacementStudentRegistration | null>(
+    null,
+  );
 
-  const selectedPlacement = placements.find((p) => String(p.placementId) === placementId) ?? null
-  const filtersReady = Boolean(companyId && placementId)
+  const selectedPlacement =
+    placements.find((p) => String(p.placementId) === placementId) ?? null;
+  const filtersReady = Boolean(companyId && placementId);
+  const toastedKey = useRef<string | null>(null);
+  const queryClient = useQueryClient();
+  const queryKey = QK.placementStudentRegs.byCompanyAndPlacement(
+    Number(companyId),
+    Number(placementId),
+  );
 
   useEffect(() => {
-    listActiveCampuses().then(setCampuses).catch(console.error)
-    listCompanies().then(setCompanies).catch(console.error)
-  }, [])
+    listActiveCampuses().then(setCampuses).catch(console.error);
+    listCompanies().then(setCompanies).catch(console.error);
+  }, []);
 
   async function handleCampusChange(value: string | null) {
-    setCampusId(value)
-    setPlacementId(null)
-    setCompanyId(null)
-    setPlacements([])
+    setCampusId(value);
+    setPlacementId(null);
+    setCompanyId(null);
+    setPlacements([]);
 
-    if (!value) return
-    setFiltersLoading(true)
+    if (!value) return;
+    setFiltersLoading(true);
     try {
-      const rows = await listPlacementsByCampus(Number(value))
-      setPlacements(rows)
+      const rows = await listPlacementsByCampus(Number(value));
+      setPlacements(rows);
     } catch {
-      setPlacements([])
+      setPlacements([]);
     } finally {
-      setFiltersLoading(false)
+      setFiltersLoading(false);
     }
   }
 
   function handlePlacementChange(value: string | null) {
-    setPlacementId(value)
-    setCompanyId(null)
+    setPlacementId(value);
+    setCompanyId(null);
   }
 
   function handleCompanyChange(value: string | null) {
-    setCompanyId(value)
+    toastedKey.current = null;
+    setCompanyId(value);
   }
 
-  const { data, isLoading, invalidate } = useCrudList<PlacementStudentRegistration>({
-    queryKey: QK.placementStudentRegs.byCompanyAndPlacement(Number(companyId), Number(placementId)),
-    queryFn: () => listPlacementStudentRegs(Number(companyId), Number(placementId)),
+  const query = useQuery({
+    queryKey,
+    queryFn: () =>
+      listPlacementStudentRegs(Number(companyId), Number(placementId)),
     enabled: filtersReady,
-  })
+    retry: false,
+  });
+  const data = query.data?.rows ?? [];
+  const isLoading = query.isFetching;
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey });
+  };
+
+  useEffect(() => {
+    if (!filtersReady || query.isFetching || !query.isSuccess) return;
+    const key = `${companyId}:${placementId}`;
+    if (toastedKey.current === key) return;
+    toastedKey.current = key;
+    if (data.length === 0) {
+      toastSuccess(query.data?.message?.trim() || "No Record(s) found.");
+    }
+  }, [
+    companyId,
+    data.length,
+    filtersReady,
+    placementId,
+    query.data?.message,
+    query.isFetching,
+    query.isSuccess,
+  ]);
 
   const columnDefs = useMemo<ColDef<PlacementStudentRegistration>[]>(
     () => [
@@ -134,42 +208,51 @@ export default function PlacementRegisteredListPage() {
       {
         ...COL_DEFS.actions,
         cellRenderer: makeActionsRenderer(
-          (row) => { setEditData(row); setEditModalOpen(true) },
-          (row) => { setViewData(row); setViewModalOpen(true) },
+          (row) => {
+            setEditData(row);
+            setEditModalOpen(true);
+          },
+          (row) => {
+            setViewData(row);
+            setViewModalOpen(true);
+          },
         ),
       },
     ],
     [],
-  )
+  );
 
   const campusOptions = useMemo(
-    () => campuses.map((c) => ({
-      value: String(c.campusId),
-      label: `${c.campusName} - ${c.orgCode}`,
-    })),
+    () =>
+      campuses.map((c) => ({
+        value: String(c.campusId),
+        label: `${c.campusName} - ${c.orgCode}`,
+      })),
     [campuses],
-  )
+  );
 
   const placementOptions = useMemo(
-    () => placements.map((p) => ({
-      value: String(p.placementId),
-      label: `${p.plaecmentTitle} (${formatDate(p.placementStartDate)} - ${formatDate(p.placementEndDate)})`,
-    })),
+    () =>
+      placements.map((p) => ({
+        value: String(p.placementId),
+        label: `${p.plaecmentTitle} (${formatDate(p.placementStartDate)} - ${formatDate(p.placementEndDate)})`,
+      })),
     [placements],
-  )
+  );
 
   const companyOptions = useMemo(
-    () => companies.map((c) => ({
-      value: String(c.companyId),
-      label: c.companyname,
-    })),
+    () =>
+      companies.map((c) => ({
+        value: String(c.companyId),
+        label: c.companyname,
+      })),
     [companies],
-  )
+  );
 
   return (
     <FilteredListPage
       title="Placement Students List"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Select
             label="Campus *"
@@ -202,15 +285,16 @@ export default function PlacementRegisteredListPage() {
             clearable
           />
         </div>
-      )}
-      rowData={filtersReady ? data : []}
+      }
+      rowData={data}
       columnDefs={columnDefs}
       loading={isLoading}
+      showTable={filtersReady && data.length > 0}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search students…',
-        pdfDocumentTitle: 'Placement Students List',
+        searchPlaceholder: "Search students…",
+        pdfDocumentTitle: "Placement Students List",
       }}
     >
       <PlacementInterviewModal
@@ -227,5 +311,5 @@ export default function PlacementRegisteredListPage() {
         placementTitle={selectedPlacement?.plaecmentTitle}
       />
     </FilteredListPage>
-  )
+  );
 }

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
+import { escapeHtml, exportHtmlTableAsExcel } from "@/common/components/table";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
@@ -13,14 +14,17 @@ import { rowIndexGetter } from "@/lib/utils";
 import {
   getGradeMemoIssueFilters,
   getGradeMemoIssueRestFilters,
+  getCollegeById,
   getInvigilatorsRemunerationReport,
 } from "@/services";
-import { toastError, toastInfo } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   Building2,
   CalendarDays,
   ClipboardList,
+  FileSpreadsheet,
   GraduationCap,
+  Printer,
   RotateCcw,
 } from "lucide-react";
 import { printInvigilatorsRemunerationReport } from "../_components/printInvigilatorsRemunerationReport";
@@ -31,8 +35,8 @@ const TOOLBAR = {
   search: true,
   searchPlaceholder: "Search...",
   columnPicker: true,
-  exportPdf: true,
-  exportExcel: true,
+  exportPdf: false,
+  exportExcel: false,
 } as const;
 
 function numFrom(row: AnyRow, keys: string[]): number {
@@ -82,6 +86,7 @@ export default function InvigilatorsRemunerationReportPage() {
   const [columns, setColumns] = useState<string[]>([]);
   const [filterSummary, setFilterSummary] = useState("");
   const [collegeName, setCollegeName] = useState("");
+  const [collegeLogo, setCollegeLogo] = useState("");
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -131,6 +136,7 @@ export default function InvigilatorsRemunerationReportPage() {
         valueGetter: rowIndexGetter,
         width: 80,
         flex: 0,
+        suppressMovable: true,
       },
       ...columns.map(
         (col) =>
@@ -139,6 +145,7 @@ export default function InvigilatorsRemunerationReportPage() {
             field: col,
             minWidth: 140,
             flex: 1,
+            suppressMovable: true,
             valueGetter: (p) => String(p.data?.[col] ?? ""),
           }) as ColDef<AnyRow>,
       ),
@@ -156,6 +163,7 @@ export default function InvigilatorsRemunerationReportPage() {
     setColumns([]);
     setFilterSummary("");
     setCollegeName("");
+    setCollegeLogo("");
   }
 
   useEffect(() => {
@@ -281,9 +289,12 @@ export default function InvigilatorsRemunerationReportPage() {
     setLoading(true);
     clearResults();
     try {
-      const list = await getInvigilatorsRemunerationReport({ examId });
+      const [list, collegeDetails] = await Promise.all([
+        getInvigilatorsRemunerationReport({ examId }),
+        getCollegeById(collegeId).catch(() => null),
+      ]);
       if (list.length === 0) {
-        toastInfo("No records found");
+        toastSuccess("No Records Found.");
         return;
       }
       const nextColumns = Object.keys(list[0] ?? {});
@@ -308,12 +319,17 @@ export default function InvigilatorsRemunerationReportPage() {
         "college_code",
         "collegeCode",
       ]);
-      setCollegeName(strFrom(college ?? {}, ["college_name", "collegeName"]));
+      setCollegeName(
+        collegeDetails?.collegeName ||
+          strFrom(college ?? {}, ["college_name", "collegeName"]),
+      );
+      setCollegeLogo(collegeDetails?.logo ?? "");
       setFilterSummary(
         [collegeCode, courseCode, examName].filter(Boolean).join(" / "),
       );
-    } catch {
-      toastError("Failed to load invigilator remuneration report");
+      toastSuccess("Data retrieved successfully");
+    } catch (error) {
+      toastError(error, "Failed to load invigilator remuneration report");
     } finally {
       setLoading(false);
     }
@@ -334,10 +350,32 @@ export default function InvigilatorsRemunerationReportPage() {
     printInvigilatorsRemunerationReport(rows, {
       title: "Invigilator Remuneration Report",
       collegeName,
+      collegeLogo,
       filterSummary,
       columns,
     });
-  }, [rows, collegeName, filterSummary, columns]);
+  }, [rows, collegeName, collegeLogo, filterSummary, columns]);
+
+  const handleExport = useCallback(() => {
+    if (rows.length === 0 || columns.length === 0) return;
+    const header = ["S.No", ...columns]
+      .map((column) => `<th>${escapeHtml(column)}</th>`)
+      .join("");
+    const body = rows
+      .map(
+        (row, index) =>
+          `<tr><td>${index + 1}</td>${columns
+            .map(
+              (column) => `<td>${escapeHtml(String(row[column] ?? ""))}</td>`,
+            )
+            .join("")}</tr>`,
+      )
+      .join("");
+    exportHtmlTableAsExcel(
+      "Invigilator Remuneration Report.xls",
+      `<table border="1"><caption>Invigilator Remuneration Report</caption><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`,
+    );
+  }, [rows, columns]);
 
   return (
     <FilteredListPage
@@ -462,20 +500,47 @@ export default function InvigilatorsRemunerationReportPage() {
       }
       rowData={rows}
       columnDefs={columnDefs}
+      resultsVisible={rows.length > 0}
       loading={loading}
       pagination
       paginationPageSize={25}
       getRowId={getRowId}
+      onExportExcel={handleExport}
       onExportPdf={handlePrint}
+      toolbarTrailing={
+        <>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={handleExport}
+          >
+            <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+            Export Excel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={handlePrint}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        </>
+      }
       toolbar={{
         ...TOOLBAR,
         excelDocumentTitle: "Invigilator Remuneration Report",
         excelFileName: "Invigilator Remuneration Report.xls",
         pdfDocumentTitle: "Invigilator Remuneration Report",
       }}
-      filtersFooter={
+      tableHeader={
         filterSummary ? (
-          <p className="text-sm font-medium text-primary">{filterSummary}</p>
+          <TableContextHeader
+            title="Invigilator Remuneration Report"
+            info={filterSummary}
+          />
         ) : null
       }
     />

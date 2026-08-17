@@ -10,6 +10,7 @@ import {
   domainList,
   domainUpdate,
   fetchDetails,
+  getAllRecords,
   postDetails,
   uploadFile,
 } from "@/services/crud";
@@ -402,6 +403,67 @@ export async function updateStaffAssignment(params: {
     params.assignmentDoc1,
     params.assignmentDoc2,
   );
+}
+
+/**
+ * Angular staff-assignment-report `selectedEmployee` —
+ * `staffSubjects?collegeId=&academicYearId=&employeeId=` (no classDate).
+ */
+export async function listStaffSubjectsForAssignmentReport(params: {
+  collegeId: number;
+  academicYearId: number;
+  employeeId: number;
+}): Promise<AnyRow[]> {
+  const collegeId = positiveId(params.collegeId);
+  const academicYearId = positiveId(params.academicYearId);
+  const employeeId = positiveId(params.employeeId);
+  if (!collegeId || !academicYearId || !employeeId) return [];
+  try {
+    const data = await fetchDetails<unknown>(EMPLOYEE_API.STAFF_SUBJECTS, {
+      collegeId,
+      academicYearId,
+      employeeId,
+    });
+    return asArray<AnyRow>(data);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Angular staff-assignment-report `getClassDiary` —
+ * `getAllRecords/s_get_assignment_details?in_flag=&in_emp_id=&in_subject_id=`.
+ * Returns `result[0]` rows (dynamic columns including `Submission_File`).
+ */
+export async function getStaffAssignmentReportDetails(params: {
+  employeeId: number;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  const employeeId = positiveId(params.employeeId);
+  const subjectId = positiveId(params.subjectId);
+  if (!employeeId || !subjectId) return [];
+  try {
+    const data = await getAllRecords<{ result?: unknown }>(
+      ASSIGNMENT_API.GET_DETAILS.replace(/^getAllRecords\//, ""),
+      {
+        in_flag: "",
+        in_emp_id: employeeId,
+        in_subject_id: subjectId,
+      },
+    );
+    const raw = data?.result;
+    if (!Array.isArray(raw)) return [];
+    const first = raw[0];
+    if (Array.isArray(first)) {
+      return first.filter((r): r is AnyRow => !!r && typeof r === "object");
+    }
+    if (first && typeof first === "object") return [first as AnyRow];
+    return [];
+  } catch (error: unknown) {
+    const msg = String(error instanceof Error ? error.message : (error ?? ""));
+    if (msg.toLowerCase().includes("no record")) return [];
+    throw error;
+  }
 }
 
 /** Angular review save → `add(studentAssignmentUrl, studentAssignment)`. */

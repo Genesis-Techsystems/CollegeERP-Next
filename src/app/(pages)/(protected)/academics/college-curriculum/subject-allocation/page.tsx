@@ -6,7 +6,7 @@ import { Eye } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -481,6 +481,44 @@ export default function SubjectAllocationPage() {
     return text(selectedAy?.academic_year);
   }, [viewModal.rows, academicYears, academicYearId]);
 
+  const filtersComplete = Boolean(
+    collegeId && courseId && courseGroupId && academicYearId,
+  );
+
+  const filterSummaryLine = useMemo(() => {
+    if (!filtersComplete) return "";
+    const selectedCollege = colleges.find(
+      (x) => num(x.fk_college_id) === (collegeId ?? 0),
+    );
+    const selectedCourse = courses.find(
+      (x) => num(x.fk_course_id) === (courseId ?? 0),
+    );
+    const selectedGroup = groups.find(
+      (x) => num(x.fk_course_group_id) === (courseGroupId ?? 0),
+    );
+    const selectedAy = academicYears.find(
+      (x) => num(x.fk_academic_year_id) === (academicYearId ?? 0),
+    );
+    return [
+      text(selectedCollege?.college_code),
+      text(selectedCourse?.course_code),
+      text(selectedGroup?.group_code),
+      text(selectedAy?.academic_year),
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }, [
+    filtersComplete,
+    colleges,
+    collegeId,
+    courses,
+    courseId,
+    groups,
+    courseGroupId,
+    academicYears,
+    academicYearId,
+  ]);
+
   return (
     <>
       <FilteredListPage
@@ -546,7 +584,15 @@ export default function SubjectAllocationPage() {
         rowData={courseYears}
         columnDefs={columnDefs}
         loading={loading}
-        resultsVisible={courseYears.length > 0}
+        resultsVisible={filtersComplete}
+        tableHeader={
+          filtersComplete && filterSummaryLine ? (
+            <TableContextHeader
+              title="Assign Semester Subjects"
+              info={<span>{filterSummaryLine}</span>}
+            />
+          ) : null
+        }
         toolbar={{ search: true, searchPlaceholder: "Search" }}
         pagination
         paginationPageSize={10}

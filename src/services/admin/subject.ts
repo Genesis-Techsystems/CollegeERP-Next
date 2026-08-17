@@ -34,7 +34,7 @@ export async function listSubjectsByCourse(
   // Angular: listDetailsByTwoIds(Subject, courseId, true, Course.courseId, isActive)
   const rows = await domainList<AnyRow>(
     ENTITIES.SUBJECT.name,
-    buildQuery({ "Course.courseId": courseId, isActive: true }),
+    buildQuery({ "Course.courseId": courseId }),
   );
   return [...rows].sort(
     (a, b) => Number(b.subjectId ?? 0) - Number(a.subjectId ?? 0),

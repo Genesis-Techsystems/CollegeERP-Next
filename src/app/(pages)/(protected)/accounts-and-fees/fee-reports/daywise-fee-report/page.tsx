@@ -63,16 +63,26 @@ const EXCEL_COLUMNS = [
 ] as const;
 
 function payTypeDisplay(row: DayWiseFeeCollectionRow): string {
-  const pay = String(row.pay_type ?? "").trim();
-  const mode = String(row.payment_mode ?? "").trim();
-  const card = String(row.card_name ?? "").trim();
+  const pay = String(
+    row.pay_type ?? row.Pay_Type ?? row.paymentType ?? row.payment_type ?? "",
+  ).trim();
+  const mode = String(
+    row.payment_mode ?? row.Payment_Mode ?? row.paymentMode ?? "",
+  ).trim();
+  const card = String(
+    row.card_name ?? row.Card_Name ?? row.cardName ?? "",
+  ).trim();
   if (!mode) return pay;
   const modePart = card ? `${mode}-${card}` : mode;
   return pay ? `${pay} (${modePart})` : `(${modePart})`;
 }
 
 function receiptDateDisplay(row: DayWiseFeeCollectionRow): string {
-  const raw = row.receipt_date;
+  const raw =
+    row.receipt_date ??
+    row.Receipt_Date ??
+    row.payment_date ??
+    row.Payment_Date;
   if (raw == null || String(raw).trim() === "") return "";
   const d = new Date(String(raw));
   if (Number.isNaN(d.getTime())) return String(raw);
@@ -510,9 +520,9 @@ export default function DayWiseFeeReportPage() {
     const title =
       mode === "month" ? "Monthly Fee Report" : "Day Wise Fee Report";
     const headerHtml = `<div style="text-align:center;margin-bottom:12px;">
-      <div style="font-size:18px;font-weight:bold;">${escapeHtml(selectedCollegeName)}</div>
-      <div style="font-size:14px;font-weight:bold;margin-top:6px;">( ${escapeHtml(title)} )</div>
-      <div style="margin-top:4px;">${escapeHtml(dataDetails)}</div>
+      <div style="font-size:18px;font-weight:bold;color:#000;">${escapeHtml(selectedCollegeName)}</div>
+      <div style="font-size:14px;font-weight:bold;color:#000;margin-top:6px;">( ${escapeHtml(title)} )</div>
+      <div style="margin-top:4px;font-size:14px;font-weight:bold;color:#000;">${escapeHtml(dataDetails)}</div>
     </div>`;
     const tableHtml = buildHtmlTable(
       EXCEL_COLUMNS.map((c) => ({ key: c.key, header: c.header })),
@@ -535,47 +545,54 @@ export default function DayWiseFeeReportPage() {
   }, [dataDetails, exportFlatRows, mode, selectedCollegeName, totalAmount]);
 
   const handlePrintReport = () => {
-    const columns = [
-      { key: "siNo", header: "S.No" },
-      { key: "course_code", header: "Course" },
-      { key: "firstName", header: "Student Name" },
-      { key: "rollNumber", header: "USN" },
-      { key: "payType", header: "Pay Type" },
-      { key: "paymentDate", header: "Payment Date" },
-      { key: "payment_receipts_no", header: "Receipt No." },
-      { key: "transaction_no", header: "Merchant Ref. No." },
-      { key: "receipt_amount", header: "Amount" },
-    ];
+    if (exportFlatRows.length === 0) {
+      toastError("No records to print.");
+      return;
+    }
 
-    // Add S.No to rows
-    const rowsWithIndex = rows.map((row: any, idx: number) => ({
-      ...row,
-      siNo: idx + 1,
-    }));
+    // Same display fields as Excel / grid (payTypeDisplay, receiptDateDisplay).
+    const tableHtml = buildHtmlTable(
+      EXCEL_COLUMNS.map((c) => ({ key: c.key, header: c.header })),
+      [
+        ...exportFlatRows,
+        {
+          siNo: "",
+          course_code: "",
+          studentDisplay: "",
+          rollNumber: "",
+          payTypeDisplay: "",
+          receiptDateDisplay: "",
+          payment_receipts_no: "",
+          transaction_no: "Total",
+          receipt_amount: totalAmount,
+        },
+      ] as Record<string, unknown>[],
+    );
 
-    const tableHtml = buildHtmlTable(columns as any, rowsWithIndex as any);
+    const reportTitle =
+      mode === "month" ? "Monthly Fee Report" : "Day Wise Fee Report";
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Day Wise Fee Report</title>
+<html><head><meta charset="utf-8"/><title>${escapeHtml(reportTitle)}</title>
 <style>
 @page{margin:12mm}
 body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
 .header{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
 .header img{width:90px;height:auto;max-height:100px;object-fit:contain}
 .header-text{flex:1}
-.collegeName{font-size:24px;font-weight:600;margin:0 0 6px}
-.title{font-size:20px;font-weight:550;margin:0 0 6px}
-.details{font-size:12px;color:#666;margin:0}
+.collegeName{font-size:24px;font-weight:600;margin:0 0 6px;color:#000}
+.title{font-size:20px;font-weight:550;margin:0 0 6px;color:#000}
+.details{font-size:14px;font-weight:700;color:#000;margin:0 0 6px}
 table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
 th,td{border:1px solid #333;padding:6px 5px}
 th{background:#f2f2f2;font-weight:600}
 </style></head><body>
 <div class="header">
-  <img src="${collegeLogo}" alt="College Logo" onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'" />
+  <img src="${collegeLogo || DEFAULT_COLLEGE_LOGO}" alt="College Logo" onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'" />
   <div class="header-text">
     <p class="collegeName">${escapeHtml(selectedCollegeName)}</p>
     ${dataDetails ? `<p class="details">${escapeHtml(dataDetails)}</p>` : ""}
-    <p class="title">${mode === "month" ? "Monthly Fee Report" : "Day Wise Fee Report"}</p>
+    <p class="title">${escapeHtml(reportTitle)}</p>
   </div>
 </div>
 ${tableHtml}
@@ -739,9 +756,9 @@ ${tableHtml}
           </div>
         </div>
       }
-      filtersFooter={
+      afterGrid={
         showTable ? (
-          <p className="px-1 pt-1 text-sm font-semibold text-foreground">
+          <p className="text-right text-sm font-semibold text-foreground">
             Total Amount: {totalAmount}
           </p>
         ) : null

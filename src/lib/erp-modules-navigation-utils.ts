@@ -30,6 +30,31 @@ export function isStudentPortalViewer(): boolean {
 /** @deprecated Prefer `isStudentPortalViewer` — same predicate. */
 export const isStudentClassDiaryViewer = isStudentPortalViewer;
 
+/** Registrar login — Angular `event-calendar` Events Calendar (student-events). */
+export function isRegistrarLogin(): boolean {
+  if (typeof globalThis.window === "undefined") return false;
+  try {
+    const storage = globalThis.localStorage;
+    const role = (storage.getItem("userRole") ?? "").toUpperCase();
+    const roleName = (storage.getItem("roleName") ?? "").toUpperCase();
+    if (role.includes("REGISTRAR") || roleName.includes("REGISTRAR")) {
+      return true;
+    }
+    const raw = storage.getItem("userDetails");
+    if (!raw) return false;
+    const details = JSON.parse(raw) as {
+      userRoles?: Array<{ roleName?: string } | string>;
+    };
+    return (details.userRoles ?? []).some((entry) => {
+      const name =
+        typeof entry === "string" ? entry : String(entry?.roleName ?? "");
+      return name.toUpperCase().includes("REGISTRAR");
+    });
+  } catch {
+    return false;
+  }
+}
+
 export function mapModuleTail(
   href: string,
   angularSegment: string,

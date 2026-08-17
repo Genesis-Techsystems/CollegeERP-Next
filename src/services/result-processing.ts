@@ -19,6 +19,7 @@ import {
   domainUpdate,
   fetchDetails,
   getAllRecords,
+  getAllRecordsEnvelope,
 } from "./crud";
 import { buildQuery } from "./query";
 import { EXAM_API, EXAM_EVAL_API, NEXT_API } from "@/config/constants/api";
@@ -701,25 +702,25 @@ export async function getBatchWiseSgpaReport(params: {
 export async function getInvigilatorsRemunerationReport(params: {
   examId: number;
 }): Promise<AnyRow[]> {
-  const data = await getAllRecords<{ result: AnyRow[][] | AnyRow[] }>(
-    "s_get_evaluators_bank_copy_report",
-    {
-      in_flag: "invigilators_remuneration",
-      in_fdate: "1990-01-01",
-      in_tdate: "1990-01-01",
-      in_exam_id: params.examId,
-      in_subject_id: 0,
-      in_evalutor_profileid: 0,
-      in_exam_date: "1990-01-01",
-      in_emp_id: 0,
-      in_questionpaper_id: 0,
-      in_evaluator_role_id: 0,
-      in_academic_year: 0,
-      in_exam_short_name: 0,
-      in_affiliatedto_catdet_id: 1,
-    },
-  );
-  return unwrapProcResultRows(data);
+  const response = await getAllRecordsEnvelope<{
+    result: AnyRow[][] | AnyRow[];
+  }>("s_get_evaluators_bank_copy_report", {
+    in_flag: "invigilators_remuneration",
+    in_fdate: "1990-01-01",
+    in_tdate: "1990-01-01",
+    in_exam_id: params.examId,
+    in_subject_id: 0,
+    in_evalutor_profileid: 0,
+    in_exam_date: "1990-01-01",
+    in_emp_id: 0,
+    in_questionpaper_id: 0,
+    in_evaluator_role_id: 0,
+    in_academic_year: 0,
+    in_exam_short_name: 0,
+    in_affiliatedto_catdet_id: 1,
+  });
+  if (!response.success || !response.data) return [];
+  return unwrapProcResultRows(response.data);
 }
 
 /**
@@ -805,6 +806,7 @@ export async function getLabRemunerationSubjects(params: {
 /**
  * Angular lab-remuneration-report selectedsubject():
  * `s_get_examevaluation_bycodes` flag `filter_univexam_evaluator_moderator`.
+ * Empty / "no records" is success in Angular (success toast), not an error.
  */
 export async function getLabRemunerationEvaluators(params: {
   organizationId: number;
@@ -820,7 +822,7 @@ export async function getLabRemunerationEvaluators(params: {
     "s_get_examevaluation_bycodes",
     {
       in_flag: "filter_univexam_evaluator_moderator",
-      in_orgid: params.organizationId || 0,
+      in_orgid: params.organizationId || 1,
       in_fdate: "1990-01-01",
       in_tdate: "1990-01-01",
       in_evalutor_profileid: 0,
@@ -839,7 +841,7 @@ export async function getLabRemunerationEvaluators(params: {
       in_academic_year_id: params.academicYearId,
       in_loginuser_empid: params.employeeId || 0,
     },
-  );
+  ).catch(() => ({ result: [] as AnyRow[][] }));
   const groups = data?.result ?? [];
   return groups.find((g) => (g?.[0]?.flag ?? "") === "evaluator_list") ?? [];
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadIcon, PencilIcon } from "lucide-react";
@@ -14,6 +15,7 @@ import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
+import { isChancellorRole, isSecretaryRole } from "@/lib/role-routing";
 import {
   getGeneralDetails,
   getStaffEmployeeDetailsById,
@@ -187,6 +189,24 @@ export function FacultyDetailsPage() {
     isResolving,
   } = useStaffLoginContext(user, sessionLoading);
   const queryClient = useQueryClient();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (sessionLoading) return;
+    if (isSecretaryRole(user?.roleName)) {
+      router.replace("/hr-payroll/employee/employee-list");
+      return;
+    }
+    // Angular `#/staff-faculty-details/faculty-details` (Faculty List) is used by
+    // HOD, Principal, and Pro Vice Chancellor — not HR Employee Search.
+    if (
+      !user?.isHod &&
+      !user?.isPrincipal &&
+      !isChancellorRole(user?.roleName)
+    ) {
+      router.replace("/hr-payroll/employee/employee-list");
+    }
+  }, [router, sessionLoading, user?.isHod, user?.isPrincipal, user?.roleName]);
 
   const [mode, setMode] = useState<FacultyMode>("active");
   const [editOpen, setEditOpen] = useState(false);

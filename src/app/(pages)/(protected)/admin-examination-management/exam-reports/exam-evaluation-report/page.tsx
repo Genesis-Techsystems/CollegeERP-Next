@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { FilteredListPage } from "@/components/layout";
 import {
@@ -219,11 +219,15 @@ export default function ExamEvaluationReportPage() {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const collegeLogo = useCollegeLogo(null);
-  const [showBack, setShowBack] = useState(false);
 
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
-  const [subjectFilterRows, setSubjectFilterRows] = useState<AnyRow[]>([]);
-  const [evaluatorRows, setEvaluatorRows] = useState<AnyRow[]>([]);
+  const [academicYears, setAcademicYears] = useState<AnyRow[]>([]);
+  const [exams, setExams] = useState<AnyRow[]>([]);
+  const [regulations, setRegulations] = useState<AnyRow[]>([]);
+  const [subjects, setSubjects] = useState<AnyRow[]>([]);
+  const [evaluators, setEvaluators] = useState<AnyRow[]>([]);
+  /** Angular `regulationFilterList` — subject/regulation source after exam select. */
+  const regulationFilterListRef = useRef<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
 
   const [courseId, setCourseId] = useState("");
@@ -238,202 +242,278 @@ export default function ExamEvaluationReportPage() {
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
 
-  useEffect(() => {
-    try {
-      setShowBack(sessionStorage.getItem("examVerificationBack") === "back");
-    } catch {
-      setShowBack(false);
-    }
-  }, []);
-
   const courses = useMemo(
     () => dedupeBy(baseRows, (r) => num(r.fk_course_id)),
     [baseRows],
   );
 
-  const academicYears = useMemo(() => {
-    const cid = Number(courseId);
-    const list = baseRows.filter((r) => num(r.fk_course_id) === cid);
-    const unique = dedupeBy(list, (r) => num(r.fk_academic_year_id));
-    return [...unique].sort(
-      (a, b) =>
-        parseInt(txt(b.academic_year), 10) - parseInt(txt(a.academic_year), 10),
-    );
-  }, [baseRows, courseId]);
-
-  const exams = useMemo(() => {
-    const cid = Number(courseId);
-    const ay = Number(academicYearId);
-    const list = baseRows.filter(
-      (r) => num(r.fk_course_id) === cid && num(r.fk_academic_year_id) === ay,
-    );
-    return dedupeBy(list, (r) => num(r.fk_exam_id));
-  }, [baseRows, courseId, academicYearId]);
-
-  const regulations = useMemo(
-    () => dedupeBy(subjectFilterRows, (r) => num(r.fk_regulation_id)),
-    [subjectFilterRows],
-  );
-
-  const subjects = useMemo(() => {
-    const reg = Number(regulationId);
-    const list =
-      reg === 0
-        ? subjectFilterRows
-        : subjectFilterRows.filter((r) => num(r.fk_regulation_id) === reg);
-    return dedupeBy(list, (r) => num(r.fk_subject_id));
-  }, [subjectFilterRows, regulationId]);
-
-  const evaluators = useMemo(
-    () => dedupeBy(evaluatorRows, (r) => num(r.fk_exam_evaluator_profile_id)),
-    [evaluatorRows],
-  );
-
-  useEffect(() => {
-    async function init() {
-      setLoadingFilters(true);
-      try {
-        const list = await getEvalReportBaseFilters(employeeId);
-        setBaseRows(list);
-        const first = dedupeBy(list, (r) => num(r.fk_course_id))[0];
-        if (first) setCourseId(String(num(first.fk_course_id)));
-      } catch (e) {
-        toastError(e, "Failed to load filters");
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void init();
-  }, [employeeId]);
-
-  // Course → AY
-  useEffect(() => {
-    setAcademicYearId("");
-    setExamId("");
-    setRegulationId("");
-    setSubjectId("");
-    setEvaluatorProfileId("");
-    setSubjectFilterRows([]);
-    setEvaluatorRows([]);
+  /** Angular dateChange / selectedEvaluator — clear report grid only. */
+  function clearResults() {
     setRows([]);
-    if (!courseId || !academicYears.length) return;
-    setAcademicYearId(String(num(academicYears[0].fk_academic_year_id)));
-  }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
-  // AY → Exam
-  useEffect(() => {
-    setExamId("");
-    setRegulationId("");
-    setSubjectId("");
-    setEvaluatorProfileId("");
-    setSubjectFilterRows([]);
-    setEvaluatorRows([]);
-    setRows([]);
-    if (!academicYearId || !exams.length) return;
-    setExamId(String(num(exams[0].fk_exam_id)));
-  }, [academicYearId]); // eslint-disable-line react-hooks/exhaustive-deps
+  /**
+   * Angular selectedsubject → univ_exam_subject_inep / ONL_EVAL,
+   * then auto-select first evaluator when list has rows.
+   */
+  const selectedSubject = useCallback(
+    async (
+      nextSubjectId: string,
+      ctx: {
+        courseId: string;
+        academicYearId: string;
+        examId: string;
+        regulationId: string;
+      },
+    ) => {
+      setSubjectId(nextSubjectId);
+      setEvaluatorProfileId("0");
+      setEvaluators([]);
+      clearResults();
 
-  // Exam → regulations / subjects
-  useEffect(() => {
-    async function loadSubjects() {
-      setRegulationId("");
-      setSubjectId("");
-      setEvaluatorProfileId("");
-      setEvaluatorRows([]);
-      setRows([]);
-      if (!courseId || !academicYearId || !examId) {
-        setSubjectFilterRows([]);
-        return;
-      }
-      setLoadingFilters(true);
-      try {
-        const list = await getEvalReportSubjectRows({
-          courseId: Number(courseId),
-          academicYearId: Number(academicYearId),
-          examId: Number(examId),
-          employeeId,
-        });
-        setSubjectFilterRows(list);
-        const regs = dedupeBy(list, (r) => num(r.fk_regulation_id));
-        if (regs.length) {
-          setRegulationId(String(num(regs[0].fk_regulation_id)));
-        } else {
-          setRegulationId("0");
-        }
-      } catch (e) {
-        toastError(e, "Failed to load subjects");
-        setSubjectFilterRows([]);
-      } finally {
-        setLoadingFilters(false);
-      }
-    }
-    void loadSubjects();
-  }, [courseId, academicYearId, examId, employeeId]);
-
-  // Regulation → subject auto-select
-  useEffect(() => {
-    setSubjectId("");
-    setEvaluatorProfileId("");
-    setEvaluatorRows([]);
-    setRows([]);
-    if (regulationId === "" || !subjects.length) {
-      if (regulationId !== "" && !subjects.length) setSubjectId("0");
-      return;
-    }
-    setSubjectId(String(num(subjects[0].fk_subject_id)));
-  }, [regulationId, subjectFilterRows]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Subject → evaluators
-  useEffect(() => {
-    async function loadEvals() {
-      setEvaluatorProfileId("");
-      setRows([]);
       if (
-        !courseId ||
-        !academicYearId ||
-        !examId ||
-        regulationId === "" ||
-        subjectId === ""
+        !ctx.courseId ||
+        !ctx.academicYearId ||
+        !ctx.examId ||
+        ctx.regulationId === "" ||
+        nextSubjectId === ""
       ) {
-        setEvaluatorRows([]);
         return;
       }
+
       setLoadingFilters(true);
       try {
         const list = await getEvalReportEvaluators({
-          courseId: Number(courseId),
-          academicYearId: Number(academicYearId),
-          examId: Number(examId),
-          regulationId: Number(regulationId),
-          subjectId: Number(subjectId),
+          courseId: Number(ctx.courseId),
+          academicYearId: Number(ctx.academicYearId),
+          examId: Number(ctx.examId),
+          regulationId: Number(ctx.regulationId),
+          subjectId: Number(nextSubjectId),
           employeeId,
         });
-        setEvaluatorRows(list);
-        const first = dedupeBy(list, (r) =>
+        const unique = dedupeBy(list, (r) =>
           num(r.fk_exam_evaluator_profile_id),
-        )[0];
-        // Angular selectedsubject: default to first evaluator when list has rows
-        if (first) {
-          setEvaluatorProfileId(
-            String(num(first.fk_exam_evaluator_profile_id)),
-          );
-        } else {
-          setEvaluatorProfileId("0");
-        }
+        );
+        setEvaluators(unique);
+        setEvaluatorProfileId(
+          unique.length
+            ? String(num(unique[0].fk_exam_evaluator_profile_id))
+            : "0",
+        );
       } catch (e) {
         toastError(e, "Failed to load evaluators");
-        setEvaluatorRows([]);
+        setEvaluators([]);
         setEvaluatorProfileId("0");
       } finally {
         setLoadingFilters(false);
       }
-    }
-    void loadEvals();
-  }, [courseId, academicYearId, examId, regulationId, subjectId, employeeId]);
+    },
+    [employeeId],
+  );
 
-  function clearResults() {
-    setRows([]);
-  }
+  /**
+   * Angular selectedRegulation — local filter of regulationFilterList → subjects,
+   * then auto first subject → selectedsubject.
+   */
+  const selectedRegulation = useCallback(
+    async (
+      nextRegulationId: string,
+      ctx: { courseId: string; academicYearId: string; examId: string },
+    ) => {
+      setRegulationId(nextRegulationId);
+      setSubjectId("0");
+      setEvaluatorProfileId("0");
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      const filterList = regulationFilterListRef.current;
+      const detailList =
+        Number(nextRegulationId) === 0
+          ? filterList
+          : filterList.filter(
+              (x) => num(x.fk_regulation_id) === Number(nextRegulationId),
+            );
+      const subjectList = dedupeBy(detailList, (r) => num(r.fk_subject_id));
+      setSubjects(subjectList);
+
+      if (subjectList.length > 0) {
+        const firstSubjectId = String(num(subjectList[0].fk_subject_id));
+        await selectedSubject(firstSubjectId, {
+          ...ctx,
+          regulationId: nextRegulationId,
+        });
+      } else {
+        setSubjectId("0");
+        setEvaluatorProfileId("0");
+      }
+    },
+    [selectedSubject],
+  );
+
+  /**
+   * Angular selectedExam → univ_exam_subject_regexamstd / NoLAB,
+   * distinct regulations → auto first → selectedRegulation.
+   */
+  const selectedExam = useCallback(
+    async (
+      nextExamId: string,
+      ctx: { courseId: string; academicYearId: string },
+    ) => {
+      setExamId(nextExamId);
+      setRegulationId("0");
+      setSubjectId("0");
+      setEvaluatorProfileId("0");
+      regulationFilterListRef.current = [];
+      setRegulations([]);
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      if (!nextExamId || !ctx.courseId || !ctx.academicYearId) return;
+
+      setLoadingFilters(true);
+      try {
+        const list = await getEvalReportSubjectRows({
+          courseId: Number(ctx.courseId),
+          academicYearId: Number(ctx.academicYearId),
+          examId: Number(nextExamId),
+          employeeId,
+        });
+        regulationFilterListRef.current = list;
+        const regs = dedupeBy(list, (r) => num(r.fk_regulation_id));
+        setRegulations(regs);
+
+        if (regs.length > 0) {
+          const firstRegId = String(num(regs[0].fk_regulation_id));
+          await selectedRegulation(firstRegId, {
+            ...ctx,
+            examId: nextExamId,
+          });
+        }
+      } catch (e) {
+        toastError(e, "Failed to load subjects");
+        regulationFilterListRef.current = [];
+        setRegulations([]);
+        setSubjects([]);
+      } finally {
+        setLoadingFilters(false);
+      }
+    },
+    [employeeId, selectedRegulation],
+  );
+
+  /**
+   * Angular selectedAcademicYear — local filter exams by course + year,
+   * auto first exam → selectedExam.
+   */
+  const selectedAcademicYear = useCallback(
+    async (nextYearId: string, ctx: { courseId: string; base: AnyRow[] }) => {
+      setAcademicYearId(nextYearId);
+      setExamId("");
+      setRegulationId("0");
+      setSubjectId("0");
+      setEvaluatorProfileId("0");
+      setExams([]);
+      regulationFilterListRef.current = [];
+      setRegulations([]);
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      if (!nextYearId || !ctx.courseId) return;
+
+      const examList = dedupeBy(
+        ctx.base.filter(
+          (x) =>
+            num(x.fk_course_id) === Number(ctx.courseId) &&
+            num(x.fk_academic_year_id) === Number(nextYearId),
+        ),
+        (r) => num(r.fk_exam_id),
+      );
+      setExams(examList);
+
+      if (examList.length > 0) {
+        const firstExamId = String(num(examList[0].fk_exam_id));
+        await selectedExam(firstExamId, {
+          courseId: ctx.courseId,
+          academicYearId: nextYearId,
+        });
+      }
+    },
+    [selectedExam],
+  );
+
+  /**
+   * Angular selectedCourse — local filter academic years by course (DESC),
+   * auto first year → selectedAcademicYear.
+   */
+  const selectedCourse = useCallback(
+    async (nextCourseId: string, base: AnyRow[]) => {
+      setCourseId(nextCourseId);
+      setAcademicYearId("");
+      setExamId("");
+      setRegulationId("0");
+      setSubjectId("0");
+      setEvaluatorProfileId("0");
+      setAcademicYears([]);
+      setExams([]);
+      regulationFilterListRef.current = [];
+      setRegulations([]);
+      setSubjects([]);
+      setEvaluators([]);
+      clearResults();
+
+      if (!nextCourseId) return;
+
+      const years = [
+        ...dedupeBy(
+          base.filter((x) => num(x.fk_course_id) === Number(nextCourseId)),
+          (r) => num(r.fk_academic_year_id),
+        ),
+      ].sort(
+        (a, b) =>
+          parseInt(txt(b.academic_year), 10) -
+          parseInt(txt(a.academic_year), 10),
+      );
+      setAcademicYears(years);
+
+      if (years.length > 0) {
+        const firstYearId = String(num(years[0].fk_academic_year_id));
+        await selectedAcademicYear(firstYearId, {
+          courseId: nextCourseId,
+          base,
+        });
+      }
+    },
+    [selectedAcademicYear],
+  );
+
+  // Angular ngOnInit → getFiltersList → auto first course → selectedCourse
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      setLoadingFilters(true);
+      try {
+        const list = await getEvalReportBaseFilters(employeeId);
+        if (cancelled) return;
+        setBaseRows(list);
+        const courseList = dedupeBy(list, (r) => num(r.fk_course_id));
+        if (courseList.length > 0) {
+          await selectedCourse(String(num(courseList[0].fk_course_id)), list);
+        }
+      } catch (e) {
+        if (!cancelled) toastError(e, "Failed to load filters");
+      } finally {
+        if (!cancelled) setLoadingFilters(false);
+      }
+    }
+    void init();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId]);
 
   function onBack() {
     try {
@@ -441,7 +521,8 @@ export default function ExamEvaluationReportPage() {
     } catch {
       /* ignore */
     }
-    router.back();
+    // Angular goBack() → navigate to exam-verification hub
+    router.push("/admin-examination-management/exam-reports/exam-verification");
   }
 
   async function onGetList() {
@@ -621,7 +702,9 @@ export default function ExamEvaluationReportPage() {
               label: txt(c.course_code),
             }))}
             value={courseId || null}
-            onChange={(v) => setCourseId(v ?? "")}
+            onChange={(v) => {
+              void selectedCourse(v ?? "", baseRows);
+            }}
             disabled={loadingFilters}
             placeholder="Course"
           />
@@ -633,7 +716,12 @@ export default function ExamEvaluationReportPage() {
               label: txt(y.academic_year),
             }))}
             value={academicYearId || null}
-            onChange={(v) => setAcademicYearId(v ?? "")}
+            onChange={(v) => {
+              void selectedAcademicYear(v ?? "", {
+                courseId,
+                base: baseRows,
+              });
+            }}
             disabled={loadingFilters || !courseId}
             placeholder="Exam Year"
           />
@@ -648,7 +736,12 @@ export default function ExamEvaluationReportPage() {
               label: formatExamLabel(e),
             }))}
             value={examId || null}
-            onChange={(v) => setExamId(v ?? "")}
+            onChange={(v) => {
+              void selectedExam(v ?? "", {
+                courseId,
+                academicYearId,
+              });
+            }}
             disabled={loadingFilters || !academicYearId}
             placeholder="Exam Master"
             searchable
@@ -667,7 +760,13 @@ export default function ExamEvaluationReportPage() {
               })),
             ]}
             value={regulationId || null}
-            onChange={(v) => setRegulationId(v ?? "")}
+            onChange={(v) => {
+              void selectedRegulation(v ?? "", {
+                courseId,
+                academicYearId,
+                examId,
+              });
+            }}
             disabled={loadingFilters || !examId}
             placeholder="Regulation"
           />
@@ -682,7 +781,14 @@ export default function ExamEvaluationReportPage() {
               })),
             ]}
             value={subjectId || null}
-            onChange={(v) => setSubjectId(v ?? "")}
+            onChange={(v) => {
+              void selectedSubject(v ?? "", {
+                courseId,
+                academicYearId,
+                examId,
+                regulationId,
+              });
+            }}
             disabled={loadingFilters || regulationId === ""}
             placeholder="Subject"
             searchable
@@ -737,6 +843,14 @@ export default function ExamEvaluationReportPage() {
               className="h-[30px] px-3 text-[12px]"
             >
               Get List
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onBack}
+              className="h-[30px] px-3 text-[12px] bg-amber-400 hover:bg-amber-500 text-black"
+            >
+              Back
             </Button>
           </div>
         </GlobalFilterField>

@@ -8,31 +8,40 @@ import {
   ChevronRight,
   FileText,
   MessageSquare,
+  Pencil,
   Plus,
+  Quote,
   UtensilsCrossed,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Select } from "@/common/components/select";
+import { Select, type SelectOption } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import { FilteredListPage } from "@/components/layout";
+import { FormModal } from "@/common/components/feedback";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { getErrorMessage } from "@/lib/errors";
 import { printHtmlInIframe } from "@/lib/print";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
-import { toastError, toastInfo } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import { useSession } from "@/hooks/useSession";
-import { txt } from "../_lib/timetable-report-filters";
 import {
   buildStaffClassDiaryPrintHtml,
   employeePrintName,
 } from "../_lib/staff-class-diary-print";
+import { staffDiaryEmployeeSelectOption } from "../_lib/staff-class-diary-employees";
 import {
   getStaffClassDiaryReport,
   listEmployeesForStaffClassDiaryReport,
+  saveEmployeeManagementDiaryComments,
+  searchEmployeesForManagerAssign,
 } from "@/services";
 
 const REPORT_TITLE = "Staff Class Diary Report";
+const PRIMARY_ACTION_BTN =
+  "h-9 shrink-0 rounded-[5px] bg-[#042956] px-4 text-[13px] text-white hover:bg-[#031f42]";
 
 type PeriodItem = {
   periodNo: number;
@@ -57,12 +66,26 @@ type DayGroup = {
 
 type CommentItem = {
   date_for?: string;
+  dateFor?: string;
   comments?: string;
   fk_staff_id?: number;
+  fkStaffId?: number;
   fk_mngt_emp_id?: number;
+  fkMngtEmpId?: number;
   is_active?: boolean;
+  isActive?: boolean;
   [key: string]: unknown;
 };
+
+function commentDateKey(c: CommentItem): string {
+  const raw = c.date_for ?? c.dateFor;
+  if (raw == null) return "";
+  return String(raw).slice(0, 10);
+}
+
+function isCommentActive(c: CommentItem): boolean {
+  return c.is_active !== false && c.isActive !== false;
+}
 
 export default function StaffClassDiaryReportPage() {
   const router = useRouter();
@@ -82,6 +105,10 @@ export default function StaffClassDiaryReportPage() {
   }, [user?.collegeId]);
 
   const [employeeId, setEmployeeId] = useState("");
+  const [employeeSearchOptions, setEmployeeSearchOptions] = useState<
+    SelectOption[]
+  >([]);
+  const [employeeSearchLoading, setEmployeeSearchLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(
     () => new Date(),
   );
@@ -90,6 +117,9 @@ export default function StaffClassDiaryReportPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [searched, setSearched] = useState(false);
   const [selectedTab, setSelectedTab] = useState("0");
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
 
   const employeesQuery = useQuery({
     queryKey: ["staffClassDiaryEmployees", activeCollegeId],
@@ -102,29 +132,54 @@ export default function StaffClassDiaryReportPage() {
     [employeesQuery.data],
   );
 
+  const collegeName = useMemo(() => {
+    if (user?.collegeName) return user.collegeName;
+    if (typeof window === "undefined") return "";
+    return (
+      globalThis.localStorage.getItem("collegeName") ??
+      globalThis.localStorage.getItem("currentCollege") ??
+      ""
+    );
+  }, [user?.collegeName]);
+
   const employeeOptions = useMemo(() => {
-    if (!rawEmployees.length) return [];
-    const empMap = new Map<number, string>();
-    for (const r of rawEmployees) {
-      const catId = Number(r.empCategoryId ?? r.emp_category_id ?? 18);
-      if (catId !== 18) continue;
-      const eId = Number(
-        r.employeeId ?? r.employee_id ?? r.fk_emp_id ?? r.id ?? 0,
+    const byValue = new Map<string, SelectOption>();
+    for (const opt of employeeSearchOptions) {
+      byValue.set(opt.value, opt);
+    }
+    // Keep the selected employee visible after the dropdown closes.
+    if (employeeId && !byValue.has(employeeId)) {
+      const row = rawEmployees.find(
+        (r) =>
+          String(r.employeeId ?? r.employee_id ?? r.fk_emp_id ?? r.id ?? "") ===
+          employeeId,
       );
-      const name = txt(
-        r.firstName ?? r.employee_name ?? r.employeeName ?? r.empName,
-      );
-      const empNum = txt(r.empNumber ?? r.emp_number);
-      if (eId > 0 && name) {
-        const label = empNum ? `${name} (${empNum})` : name;
-        empMap.set(eId, label);
+      if (row) {
+        byValue.set(employeeId, staffDiaryEmployeeSelectOption(row));
       }
     }
-    return Array.from(empMap.entries()).map(([value, label]) => ({
-      value: String(value),
-      label,
-    }));
-  }, [rawEmployees]);
+    return Array.from(byValue.values());
+  }, [employeeSearchOptions, employeeId, rawEmployees]);
+
+  const onEmployeeSearch = useCallback(async (term: string) => {
+    const q = term.trim();
+    if (q.length < 3) {
+      setEmployeeSearchOptions([]);
+      return;
+    }
+    setEmployeeSearchLoading(true);
+    try {
+      const list = await searchEmployeesForManagerAssign(q);
+      setEmployeeSearchOptions(
+        list.map((r) => staffDiaryEmployeeSelectOption(r)),
+      );
+    } catch (e) {
+      toastError(getErrorMessage(e) || "Failed to search employees");
+      setEmployeeSearchOptions([]);
+    } finally {
+      setEmployeeSearchLoading(false);
+    }
+  }, []);
 
   const weekRange = useMemo(() => {
     const d = selectedDate ?? new Date();
@@ -156,8 +211,8 @@ export default function StaffClassDiaryReportPage() {
       setCommentsList(
         rawComments.filter(
           (c) =>
-            Number(c.fk_staff_id) === Number(employeeId) &&
-            Number(c.fk_mngt_emp_id) === empId,
+            Number(c.fk_staff_id ?? c.fkStaffId) === Number(employeeId) &&
+            Number(c.fk_mngt_emp_id ?? c.fkMngtEmpId) === empId,
         ),
       );
 
@@ -225,6 +280,60 @@ export default function StaffClassDiaryReportPage() {
 
   const selectedDayIndex = Number(selectedTab) || 0;
   const selectedDay = weekDaysList[selectedDayIndex] ?? null;
+  const selectedDayComment = useMemo(() => {
+    if (!selectedDay) return undefined;
+    return commentsList.find(
+      (c) => commentDateKey(c) === selectedDay.classDate && isCommentActive(c),
+    );
+  }, [commentsList, selectedDay]);
+
+  const openCommentModal = useCallback(() => {
+    setCommentDraft(String(selectedDayComment?.comments ?? ""));
+    setCommentModalOpen(true);
+  }, [selectedDayComment]);
+
+  const handleSaveComment = useCallback(async () => {
+    if (!employeeId || !selectedDay || !empId) return;
+    const text = commentDraft.trim();
+    if (!text) {
+      toastInfo("Please enter comments.");
+      return;
+    }
+    setSavingComment(true);
+    try {
+      await saveEmployeeManagementDiaryComments([
+        {
+          managementEmployeeId: empId,
+          staffEmployeeId: Number(employeeId),
+          dateFor: selectedDay.classDate,
+          comments: text,
+          isActive: true,
+        },
+      ]);
+      toastSuccess("Comments saved successfully!");
+      setCommentModalOpen(false);
+      setCommentsList((prev) => {
+        const rest = prev.filter(
+          (c) => commentDateKey(c) !== selectedDay.classDate,
+        );
+        return [
+          ...rest,
+          {
+            date_for: selectedDay.classDate,
+            comments: text,
+            fk_staff_id: Number(employeeId),
+            fk_mngt_emp_id: empId,
+            is_active: true,
+          },
+        ];
+      });
+    } catch (e) {
+      toastError(getErrorMessage(e) || "Failed to save comments.");
+    } finally {
+      setSavingComment(false);
+    }
+  }, [commentDraft, employeeId, empId, selectedDay]);
+
   const selectedPeriods = useMemo(
     () => (selectedDay ? sortDiaryPeriods(selectedDay.periods) : []),
     [selectedDay],
@@ -252,6 +361,7 @@ export default function StaffClassDiaryReportPage() {
     });
     printHtmlInIframe(
       buildStaffClassDiaryPrintHtml({
+        collegeName,
         employeeName: employeePrintName(label),
         weekStart,
         days: weekDaysList.map((day) => ({
@@ -266,7 +376,7 @@ export default function StaffClassDiaryReportPage() {
         })),
       }),
     );
-  }, [weekDaysList, employeeOptions, employeeId, selectedDate]);
+  }, [weekDaysList, employeeOptions, employeeId, selectedDate, collegeName]);
 
   return (
     <FilteredListPage
@@ -280,9 +390,11 @@ export default function StaffClassDiaryReportPage() {
             value={employeeId}
             onChange={(v) => setEmployeeId(v ?? "")}
             options={employeeOptions}
-            placeholder="Select Employee"
+            placeholder="Search..."
             searchable
-            isLoading={employeesQuery.isLoading}
+            onSearch={onEmployeeSearch}
+            isLoading={employeeSearchLoading}
+            listClassName="max-h-[400px] divide-y divide-[#9e9e9e52]"
           />
           <div className="space-y-1">
             <label className="text-xs font-medium text-slate-700">
@@ -299,7 +411,7 @@ export default function StaffClassDiaryReportPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="h-9 rounded-[5px] px-4"
+              className={PRIMARY_ACTION_BTN}
               disabled={loadingList || !employeeId}
               onClick={() => void handleGetClassDiary()}
             >
@@ -338,11 +450,46 @@ export default function StaffClassDiaryReportPage() {
             </div>
 
             <StaffDiaryComments
-              comment={commentsList.find(
-                (c) =>
-                  c.date_for === selectedDay.classDate && c.is_active !== false,
-              )}
+              comment={selectedDayComment}
+              onAddComments={openCommentModal}
             />
+
+            <FormModal
+              open={commentModalOpen}
+              onClose={() => {
+                if (!savingComment) setCommentModalOpen(false);
+              }}
+              title={
+                selectedDayComment?.comments ? "Edit Comments" : "Add Comments"
+              }
+              submitLabel="Save"
+              cancelLabel="Close"
+              isSubmitting={savingComment}
+              showHeaderDivider
+              titleClassName="text-[#0c51a4] font-semibold"
+              contentClassName="sm:max-w-md"
+              onSubmit={() => void handleSaveComment()}
+            >
+              <div className="space-y-1">
+                <Label
+                  htmlFor="staff-diary-comment"
+                  className="text-[13px] font-medium text-destructive"
+                >
+                  {selectedDayComment?.comments
+                    ? "Edit Comments"
+                    : "Add Comments"}{" "}
+                  *
+                </Label>
+                <Textarea
+                  id="staff-diary-comment"
+                  rows={5}
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  className="min-h-[120px] resize-y rounded-none border-0 border-b border-destructive bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  placeholder=""
+                />
+              </div>
+            </FormModal>
 
             <div className="mt-6 flex justify-end print:hidden">
               <Button
@@ -437,8 +584,8 @@ function StaffDiaryWeekTabs({
               onClick={() => onSelect(idx)}
               className={`min-w-[9.5rem] shrink-0 border-r border-[#ddd] px-4 py-2.5 text-center text-[13px] font-medium transition-colors last:border-r-0 ${
                 active
-                  ? "border-b-2 border-b-[#e5b535] bg-[#ffcf46] text-slate-900"
-                  : "bg-white text-slate-700 hover:bg-[#fafafa]"
+                  ? "border-t-[3px] border-t-[#0c51a4] bg-[#ffcf46] text-slate-900"
+                  : "border-t-[3px] border-t-transparent bg-white text-slate-700 hover:bg-[#fafafa]"
               }`}
             >
               {day.weekDay} ({format(new Date(day.classDate), "dd-MM-yyyy")})
@@ -477,13 +624,11 @@ function StaffDiaryPeriodCard({ period }: { period: PeriodItem }) {
         <div className="mt-1 text-[12px] text-slate-600">
           {period.startTime} - {period.endTime}
         </div>
-        {!isLunch ? (
-          <span
-            className={`mt-3 inline-flex w-fit rounded-full px-3 py-0.5 text-[11px] font-semibold uppercase ${styles.badge}`}
-          >
-            {slotType}
-          </span>
-        ) : null}
+        <span
+          className={`mt-3 inline-flex w-fit rounded-full px-3 py-0.5 text-[11px] font-semibold uppercase ${styles.badge}`}
+        >
+          {slotType}
+        </span>
       </div>
 
       <div className="flex min-h-[110px] flex-1 items-center px-6 py-4">
@@ -502,11 +647,14 @@ function StaffDiaryPeriodCard({ period }: { period: PeriodItem }) {
             </div>
           </div>
         ) : isLunch ? (
-          <div className="flex w-full justify-center">
+          <div className="flex w-full flex-col items-center justify-center py-4">
             <UtensilsCrossed
-              className="h-8 w-8 text-slate-700"
+              className="h-8 w-8 text-slate-900"
               strokeWidth={1.75}
             />
+            <p className="mt-2 text-[14px] font-medium text-slate-900">
+              Lunch Break
+            </p>
           </div>
         ) : isClass || period.diaryNotes ? (
           <div className="w-full">
@@ -530,7 +678,15 @@ function StaffDiaryPeriodCard({ period }: { period: PeriodItem }) {
   );
 }
 
-function StaffDiaryComments({ comment }: { comment?: CommentItem }) {
+function StaffDiaryComments({
+  comment,
+  onAddComments,
+}: {
+  comment?: CommentItem;
+  onAddComments: () => void;
+}) {
+  const hasComment = Boolean(comment?.comments?.trim());
+
   return (
     <div className="mt-5 overflow-hidden rounded border border-[#ddd] bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#eee] border-l-[5px] border-l-[#5bc0de] bg-[#edf6fb] px-4 py-3">
@@ -543,22 +699,43 @@ function StaffDiaryComments({ comment }: { comment?: CommentItem }) {
             Add any additional comments for the day.
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          className="h-8 rounded-[5px] bg-[#337ab7] px-3 text-[12px] text-white hover:bg-[#286090]"
-          onClick={() =>
-            toastInfo("Add Comments is available in the staff portal.")
-          }
-        >
-          <Plus className="mr-1 h-3.5 w-3.5" />
-          Add Comments
-        </Button>
+        {hasComment ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 rounded-[5px] border-[#ccc] bg-white px-3 text-[12px] text-slate-800 shadow-sm hover:bg-[#f9f9f9]"
+            onClick={onAddComments}
+          >
+            <Pencil className="mr-1.5 h-3.5 w-3.5 text-[#337ab7]" />
+            Edit Comment
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 rounded-[5px] bg-[#337ab7] px-3 text-[12px] text-white hover:bg-[#286090]"
+            onClick={onAddComments}
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            Add Comments
+          </Button>
+        )}
       </div>
       <div className="p-4">
-        {comment?.comments ? (
-          <div className="rounded border border-dashed border-[#ccc] bg-[#fafafa] px-4 py-3 text-[13px] text-slate-700">
-            {comment.comments}
+        {hasComment ? (
+          <div className="flex gap-3 rounded border border-dashed border-[#ccc] bg-[#fafafa] px-4 py-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#5bc0de]">
+              <Quote className="h-4 w-4 fill-white text-white" />
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                Comment
+              </p>
+              <p className="mt-0.5 text-[13px] text-slate-700">
+                {comment?.comments}
+              </p>
+            </div>
           </div>
         ) : (
           <div className="flex min-h-[88px] flex-col items-center justify-center rounded border border-dashed border-[#ccc] bg-[#fafafa] px-4 py-6 text-center">

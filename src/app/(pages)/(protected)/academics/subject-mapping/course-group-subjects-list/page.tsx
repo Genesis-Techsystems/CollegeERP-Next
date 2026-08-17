@@ -5,7 +5,7 @@ import { Eye } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -297,7 +297,17 @@ export default function StaffSubjectMappingPage() {
       .finally(() => setLoading(false));
   }, [collegeId, academicYearId, groupSectionId]);
 
+  const filtersComplete = Boolean(
+    collegeId &&
+    courseId &&
+    courseGroupId &&
+    courseYearId &&
+    academicYearId &&
+    groupSectionId,
+  );
+
   const contextLine = useMemo(() => {
+    if (!filtersComplete) return "";
     const clg = s(
       colleges.find((x) => n(x.fk_college_id) === collegeId)?.college_code,
     );
@@ -323,6 +333,7 @@ export default function StaffSubjectMappingPage() {
     );
     return [clg, ay, c, g, y, sec].filter(Boolean).join(" / ");
   }, [
+    filtersComplete,
     colleges,
     academicYears,
     courses,
@@ -570,13 +581,6 @@ export default function StaffSubjectMappingPage() {
     <>
       <FilteredListPage
         title="Staff Subject Mapping"
-        notice={
-          rows.length > 0 ? (
-            <div className="px-1 text-[13px] text-blue-700 font-medium">
-              {contextLine}
-            </div>
-          ) : undefined
-        }
         filters={
           <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
             <Select
@@ -649,6 +653,15 @@ export default function StaffSubjectMappingPage() {
         rowData={rows}
         columnDefs={columnDefs}
         loading={loading}
+        resultsVisible={filtersComplete}
+        tableHeader={
+          filtersComplete && contextLine ? (
+            <TableContextHeader
+              title="Staff Subject Mapping"
+              info={<span>{contextLine}</span>}
+            />
+          ) : null
+        }
         toolbar={{ search: true, searchPlaceholder: "Search" }}
         pagination
         paginationPageSize={10}
@@ -727,6 +740,11 @@ export default function StaffSubjectMappingPage() {
                   flex: 1.1,
                 },
               ]}
+              toolbar={{
+                search: false,
+                exportExcel: false,
+                exportPdf: false,
+              }}
               pagination
               paginationPageSize={10}
             />

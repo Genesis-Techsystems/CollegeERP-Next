@@ -672,14 +672,13 @@ export default function ClassSyllabusStatusReportPage() {
             >
               {loadingList ? "Loading…" : "Get Class Syllabus"}
             </Button>
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="app-control inline-flex h-9 w-fit cursor-pointer items-center justify-center rounded-[5px] border-0 bg-amber-400 px-4 font-medium text-slate-900 shadow-sm transition-colors hover:bg-amber-500"
               onClick={goBack}
             >
               Back
-            </Button>
+            </button>
           </div>
         </div>
       }

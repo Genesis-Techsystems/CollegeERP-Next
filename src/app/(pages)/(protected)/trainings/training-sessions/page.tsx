@@ -102,6 +102,8 @@ function TrainingSessionsContent() {
       .finally(() => setLoadingDetails(false));
   }, [collegeId, traningId]);
 
+  const rows = filtersReady ? sessions : [];
+
   const columnDefs = useMemo<ColDef<TrainingSession>[]>(
     () => [
       { headerName: "No.", valueGetter: rowIndexGetter, width: 60, flex: 0 },
@@ -231,9 +233,10 @@ function TrainingSessionsContent() {
           />
         </div>
       }
-      rowData={filtersReady ? sessions : []}
+      rowData={rows}
       columnDefs={columnDefs}
       loading={isLoading}
+      showTable={rows.length > 0}
       pagination
       toolbar={{
         search: true,
@@ -245,7 +248,6 @@ function TrainingSessionsContent() {
       toolbarTrailing={
         <Button
           size="sm"
-          disabled={!filtersReady}
           onClick={() => {
             setEditData(null);
             setModalOpen(true);
@@ -253,6 +255,21 @@ function TrainingSessionsContent() {
         >
           + Add Session
         </Button>
+      }
+      filtersFooter={
+        filtersReady && rows.length === 0 ? (
+          <div className="flex justify-end pt-1">
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditData(null);
+                setModalOpen(true);
+              }}
+            >
+              + Add Session
+            </Button>
+          </div>
+        ) : undefined
       }
     >
       <AddTrainingSessionModal

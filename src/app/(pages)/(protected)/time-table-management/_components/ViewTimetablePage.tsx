@@ -389,6 +389,7 @@ export function ViewTimetablePage() {
         title="View Timetable"
         className="screen-only"
         defaultOpen
+        pageFirstCard
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <FilterField label="College" required>

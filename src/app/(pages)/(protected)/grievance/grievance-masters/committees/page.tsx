@@ -28,36 +28,42 @@ const COLS = {
     field: "committeeCode",
     headerName: "Committee Code",
     minWidth: 130,
+    flex: 1,
   } as ColDef<GrievanceCommittee>,
   committeeName: {
     colId: "committeeName",
     field: "committeeName",
     headerName: "Committe Name",
     minWidth: 160,
+    flex: 1.2,
   } as ColDef<GrievanceCommittee>,
   orgCode: {
     colId: "orgCode",
     field: "orgCode",
     headerName: "Organization",
     minWidth: 120,
+    flex: 0.9,
   } as ColDef<GrievanceCommittee>,
   escalateInDays: {
     colId: "escalateInDays",
     field: "escalateInDays",
     headerName: "Escalate In Days",
     minWidth: 130,
+    flex: 1,
   } as ColDef<GrievanceCommittee>,
   hierarchyLevel: {
     colId: "hierarchyLevel",
     field: "hierarchyLevel",
     headerName: "Hierarchy Level",
     minWidth: 130,
+    flex: 1,
   } as ColDef<GrievanceCommittee>,
   isActive: {
     colId: "isActive",
     field: "isActive",
     headerName: "Status",
     minWidth: 110,
+    flex: 0.7,
   } as ColDef<GrievanceCommittee>,
   actions: {
     colId: "actions",
@@ -100,16 +106,21 @@ export default function GrievanceCommitteesPage() {
   });
 
   const columnDefs = useMemo<ColDef<GrievanceCommittee>[]>(
-    () => [
-      COLS.siNo,
-      COLS.committeeCode,
-      COLS.committeeName,
-      COLS.orgCode,
-      COLS.escalateInDays,
-      COLS.hierarchyLevel,
-      { ...COLS.isActive, cellRenderer: statusRenderer },
-      { ...COLS.actions, cellRenderer: makeActionsRenderer(setRow, setOpen) },
-    ],
+    () =>
+      [
+        COLS.siNo,
+        COLS.committeeCode,
+        COLS.committeeName,
+        COLS.orgCode,
+        COLS.escalateInDays,
+        COLS.hierarchyLevel,
+        { ...COLS.isActive, cellRenderer: statusRenderer },
+        { ...COLS.actions, cellRenderer: makeActionsRenderer(setRow, setOpen) },
+      ].map((col) => ({
+        ...col,
+        suppressMovable: true,
+        resizable: false,
+      })),
     [],
   );
 

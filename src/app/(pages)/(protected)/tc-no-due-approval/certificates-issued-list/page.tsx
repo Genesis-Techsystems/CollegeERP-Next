@@ -415,6 +415,7 @@ export default function CertificatesIssuedListPage() {
   return (
     <FilteredListPage
       title="Certificate Issued List"
+      showTable={tableVisible && orgNum > 0 && collegeNum > 0}
       filters={
         <GlobalFilterBarRow>
           <Select

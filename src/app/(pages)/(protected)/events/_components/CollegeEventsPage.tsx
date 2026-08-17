@@ -244,14 +244,14 @@ export function CollegeEventsPage({
   const collegeLogo = useCollegeLogo(user?.collegeId ?? null);
 
   const [colleges, setColleges] = useState<College[]>([]);
-  const [collegeId, setCollegeId] = useState<number | null>(
-    useStorageFilters ? readStorageNum("collegeId") || null : null,
+  const [collegeId, setCollegeId] = useState<number | null>(() =>
+    useStorageFilters ? positiveId(user?.collegeId) || null : null,
   );
   const [academicYears, setAcademicYears] = useState<
     { academicYearId?: number; academicYear?: string }[]
   >([]);
-  const [academicYearId, setAcademicYearId] = useState<number | null>(
-    useStorageFilters ? readStorageNum("academicYearId") || null : null,
+  const [academicYearId, setAcademicYearId] = useState<number | null>(() =>
+    useStorageFilters ? positiveId(user?.academicYearId) || null : null,
   );
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   const [viewMonth, setViewMonth] = useState<Date>(() => new Date());
@@ -333,8 +333,7 @@ export function CollegeEventsPage({
           );
         }
       });
-    }
-    if (isStudent) {
+    } else if (isStudent) {
       void listGeneralDetailsByMaster(GM_CODES.AUDIENCE).then((list) => {
         const std = list.find(
           (a) =>

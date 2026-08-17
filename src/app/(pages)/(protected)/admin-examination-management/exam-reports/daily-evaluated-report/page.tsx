@@ -30,11 +30,10 @@ import {
   getDailyEvalSubjectRows,
   getDailyEvaluatedReport,
   getDailyEvaluatedStudentList,
-  listCollegesActive,
 } from "@/services";
 import { useRouter } from "next/navigation";
 import { printHtmlInIframe } from "@/lib/print";
-import { logoToDataUrl } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 
 type AnyRow = Record<string, unknown>;
 
@@ -74,58 +73,24 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Angular default_logo.png when Logo == null. */
-const NO_LOGO_PLACEHOLDER =
-  "data:image/svg+xml," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><circle cx="60" cy="60" r="58" fill="#e8e8e8" stroke="#bdbdbd" stroke-width="2"/><text x="60" y="66" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#757575">NO LOGO</text></svg>`,
-  );
-
 /**
- * Angular getCollegeLogo + template:
- *   this.Logo = collegesLogoList[0].logo
- *   *ngIf="Logo != null" → <img [src]="Logo">
- *   *ngIf="Logo == null" → default_logo.png (NO LOGO)
- *
- * Important: Angular uses Logo as img src **as-is** (no MinIO prefix in this
- * component). On your Angular env Logo is null → NO LOGO. React must not
- * invent/force another college logo via MinIO.
+ * Angular printPage() only does window.print() — no college API.
+ * Logo is null on this print path, so the template uses
+ * assets/images/avatars/default_logo.png (circular NO LOGO).
  */
-async function resolveAngularPrintLogo(): Promise<string | null> {
-  try {
-    const colleges = await listCollegesActive();
-    // Angular only reads `.logo` (not `.Logo`)
-    const raw = (colleges[0] as AnyRow | undefined)?.logo;
-    // Angular *ngIf="Logo == null" — null / undefined only (empty string is
-    // still truthy for != null in JS, but treat blank as no logo for print).
-    if (raw == null) return null;
-    const src = String(raw).trim();
-    if (!src) return null;
-
-    // Angular: [src]="Logo" with no MinIO rewrite. Only use if already absolute
-    // (http/https/data). Relative paths are what Angular would put in src; in a
-    // print iframe they won't load — fall back to NO LOGO (same visible result
-    // as your Angular print when Logo is null / not usable).
-    if (!/^(https?:\/\/|data:)/i.test(src)) return null;
-
-    return await logoToDataUrl(src);
-  } catch {
-    return null;
-  }
+function defaultNoLogoSrc(): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return origin ? `${origin}${DEFAULT_COLLEGE_LOGO}` : DEFAULT_COLLEGE_LOGO;
 }
 
 /**
- * Angular printPage() — !bulk print block:
- * - orgCode != 'SUK': small left logo + title
- * - orgCode == 'SUK': wide logo + title (+ subject code)
- * - Logo != null → college logo; Logo == null → default_logo.png (NO LOGO)
+ * Angular printPage() → window.print() of the !bulk block
+ * (daily-evaluated-report.component.html + @media print SCSS).
  */
-async function printDailyReport(rows: AnyRow[], subjectCode = "") {
+function printDailyReport(rows: AnyRow[], subjectCode = "") {
   if (!rows.length) return;
 
-  const collegeLogo = await resolveAngularPrintLogo();
-  // Angular: Logo == null → default_logo.png
-  const logoSrc = collegeLogo ?? NO_LOGO_PLACEHOLDER;
+  const logoSrc = defaultNoLogoSrc();
 
   const orgCode = (
     globalThis?.localStorage?.getItem("orgCode") ?? ""
@@ -138,71 +103,84 @@ async function printDailyReport(rows: AnyRow[], subjectCode = "") {
 <td>${escapeHtml(txt(row.evaluator_name))}</td>
 <td>${escapeHtml(txt(row.subject_code))}</td>
 <td>${escapeHtml(txt(row.email))}</td>
-<td style="text-align:center;color:blue">${num(row.no_of_students_assigned)}</td>
-<td style="text-align:center;color:blue">${num(row.no_of_evaluations_completed)}</td>
+<td class="hover"><span style="color:blue">${num(row.no_of_students_assigned)}</span></td>
+<td class="hover"><span style="color:blue">${num(row.no_of_evaluations_completed)}</span></td>
 </tr>`,
     )
     .join("");
 
+  // Angular: orgCode != 'SUK' → 15% logo + 85% collegeName; SUK → wide logo then title.
   const header =
     orgCode === "SUK"
-      ? `<div class="suk-header">
-  <img src="${escapeHtml(logoSrc)}" alt="" class="suk-logo"
-    onerror="this.onerror=null;this.src='${NO_LOGO_PLACEHOLDER}'" />
-  <p class="collegeName">Daily Evaluated Report</p>
-  ${subjectCode ? `<p class="title">${escapeHtml(subjectCode)}</p>` : ""}
+      ? `<div class="suk-logo-row">
+  <img src="${escapeHtml(logoSrc)}" alt="" class="suk-logo" />
+</div>
+<div>
+  <p class="collegeName">Daily Evaluated Report </p>
+  <p class="title">${escapeHtml(subjectCode)}</p>
 </div>`
       : `<div class="banner-row">
   <div class="logo-col">
-    <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo"
-      onerror="this.onerror=null;this.src='${NO_LOGO_PLACEHOLDER}'" />
+    <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo" />
   </div>
   <div class="banner-text">
-    <p class="collegeName">Daily Evaluated Report</p>
+    <p class="collegeName">Daily Evaluated Report </p>
   </div>
 </div>`;
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Daily Evaluated Report</title>
 <style>
-@page { size: A4 portrait; margin: 12mm; }
-* { box-sizing: border-box; }
-body { margin: 0; padding: 0; color: #000; font: 12px/1.4 Arial, Helvetica, sans-serif; }
-.banner-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 12px; }
+@page { size: A4 portrait; }
+html, body {
+  margin: 0;
+  padding: 0;
+  color: #000;
+  background: #fff;
+}
+.banner-row {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
 .logo-col { width: 15%; flex-shrink: 0; }
-.portraitLogo { width: 80%; height: auto; object-fit: contain; }
 .banner-text { width: 85%; }
-.suk-header { text-align: center; margin-bottom: 12px; }
-.suk-logo { max-width: 100%; height: auto; width: 100%; object-fit: contain; margin-bottom: 8px; }
+.portraitLogo { height: 80%; width: 80%; }
+.suk-logo-row { width: 100%; }
+.suk-logo { height: 100px; width: 500px; }
 .collegeName {
   text-align: center !important;
   font-size: 20px !important;
   margin-top: 1% !important;
-  margin-bottom: 10px !important;
-  color: #000 !important;
+  margin-bottom: -10px !important;
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
   font-weight: 550 !important;
 }
 .title {
   text-align: center !important;
   font-size: 16px !important;
+  font-family: none !important;
+  color: rgb(0, 0, 0) !important;
   font-weight: 500 !important;
-  color: #000 !important;
 }
+.hover { text-align: center !important; }
+table, th, td { padding: 8px; }
+th { background-color: #f2f2f2; }
 table {
   width: 100%;
-  border-collapse: collapse !important;
   page-break-inside: auto;
-}
-th, td {
+  border-collapse: collapse !important;
   border: 1px solid #000 !important;
-  padding: 8px;
-  text-align: left;
 }
-th { background-color: #f2f2f2; font-weight: 600; }
+th, td { border: 1px solid #000 !important; }
 tr { page-break-inside: avoid; page-break-after: auto; }
 thead { display: table-header-group; }
+tfoot { display: table-footer-group; }
 </style></head>
 <body>
+<div style="width:100% !important">
 ${header}
+<div>
 <table>
   <thead>
     <tr>
@@ -216,6 +194,8 @@ ${header}
   </thead>
   <tbody>${bodyRows}</tbody>
 </table>
+</div>
+</div>
 </body></html>`;
 
   printHtmlInIframe(html);
@@ -1012,7 +992,7 @@ export default function DailyEvaluatedReportPage() {
                 const sub = subjects.find(
                   (s) => String(num(s.fk_subject_id)) === subjectId,
                 );
-                void printDailyReport(rows, txt(sub?.subject_code));
+                printDailyReport(rows, txt(sub?.subject_code));
               }}
             >
               Print Report

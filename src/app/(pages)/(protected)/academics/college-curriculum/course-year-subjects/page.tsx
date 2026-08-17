@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
+import { toastInfo } from "@/lib/toast";
 import {
   getDigitalOnlineSyncFilters,
   listGroupSections,
@@ -21,6 +22,10 @@ function text(v: unknown): string {
   if (typeof v === "number" || typeof v === "boolean") return String(v);
   return "";
 }
+function sectionId(row: AnyRow): number {
+  return num(row.groupSectionId ?? row.pk_group_section_id);
+}
+
 function uniqBy<T extends AnyRow>(rows: T[], key: string): T[] {
   const seen = new Set<number>();
   return rows.filter((r) => {
@@ -191,6 +196,10 @@ export default function CourseYearSubjectsPage() {
       setAcademicYearId(num(current?.fk_academic_year_id));
     }
   }, [academicYears, academicYearId]);
+  useEffect(() => {
+    setGroupSectionId(null);
+    setRows([]);
+  }, [academicYearId]);
 
   useEffect(() => {
     if (!courseYearId || !academicYearId || !courseGroupId || !collegeId) {
@@ -201,36 +210,105 @@ export default function CourseYearSubjectsPage() {
     listGroupSections(courseYearId, academicYearId, courseGroupId)
       .then((list) => {
         setSections(list);
-        setGroupSectionId(
-          num(list[0]?.groupSectionId ?? list[0]?.pk_group_section_id) || null,
-        );
       })
       .catch(() => {
         setSections([]);
-        setGroupSectionId(null);
       });
   }, [courseYearId, academicYearId, courseGroupId, collegeId]);
 
   useEffect(() => {
+    if (!groupSectionId || sections.length === 0) return;
+    if (!sections.some((x) => sectionId(x) === groupSectionId)) {
+      setGroupSectionId(null);
+    }
+  }, [sections, groupSectionId]);
+
+  const filtersComplete = Boolean(
+    universityId &&
+    collegeId &&
+    courseId &&
+    courseGroupId &&
+    courseYearId &&
+    academicYearId &&
+    groupSectionId,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
     async function loadSubjects() {
-      if (!collegeId || !academicYearId || !groupSectionId) {
+      const sectionReady =
+        groupSectionId != null &&
+        sections.some((x) => sectionId(x) === groupSectionId);
+
+      if (!collegeId || !academicYearId || !sectionReady) {
         setRows([]);
         return;
       }
+
       setLoading(true);
+      setRows([]);
       try {
         const list = await listSubjectCourseYearsBySection({
           collegeId,
           academicYearId,
           groupSectionId,
         });
+        if (cancelled) return;
         setRows(list);
+        if (list.length === 0) {
+          toastInfo("No Record(s) found.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
+
     void loadSubjects();
-  }, [collegeId, academicYearId, groupSectionId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [collegeId, academicYearId, groupSectionId, sections]);
+
+  const filterSummaryLine = useMemo(() => {
+    if (!filtersComplete) return "";
+    const clg = text(
+      colleges.find((x) => num(x.fk_college_id) === collegeId)?.college_code,
+    );
+    const ay = text(
+      academicYears.find((x) => num(x.fk_academic_year_id) === academicYearId)
+        ?.academic_year,
+    );
+    const c = text(
+      courses.find((x) => num(x.fk_course_id) === courseId)?.course_code,
+    );
+    const g = text(
+      courseGroups.find((x) => num(x.fk_course_group_id) === courseGroupId)
+        ?.group_code,
+    );
+    const y = text(
+      courseYears.find((x) => num(x.fk_course_year_id) === courseYearId)
+        ?.course_year_name,
+    );
+    const sec = text(
+      sections.find((x) => sectionId(x) === groupSectionId)?.section,
+    );
+    return [clg, ay, c, g, y, sec].filter(Boolean).join(" / ");
+  }, [
+    filtersComplete,
+    colleges,
+    collegeId,
+    academicYears,
+    academicYearId,
+    courses,
+    courseId,
+    courseGroups,
+    courseGroupId,
+    courseYears,
+    courseYearId,
+    sections,
+    groupSectionId,
+  ]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -364,7 +442,21 @@ export default function CourseYearSubjectsPage() {
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
-      toolbar={{ search: true, searchPlaceholder: "Search" }}
+      resultsVisible={filtersComplete && rows.length > 0}
+      tableHeader={
+        filtersComplete && filterSummaryLine ? (
+          <TableContextHeader
+            title="View Semester Subjects"
+            info={<span>{filterSummaryLine}</span>}
+          />
+        ) : null
+      }
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
       pagination
       paginationPageSize={10}
     />

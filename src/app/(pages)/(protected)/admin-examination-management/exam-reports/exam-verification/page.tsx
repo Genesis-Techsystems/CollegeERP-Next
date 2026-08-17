@@ -41,7 +41,7 @@ const REPORTS = [
     title: "5. Marks Entered Status",
     description: "This report  will give list of evaluator marks status.",
     button: "Verify Exam Marks",
-    href: "/admin-examination-management/result-processing/verify-exam-marks",
+    href: "/admin-examination-management/post-examination/verify-exam-marks",
   },
 ] as const;
 

@@ -1364,8 +1364,19 @@ export async function updateSelfAppraisalContribution(
 /** Angular POST `empSelfappraisalDetails` (create and principal review). */
 export async function saveStaffSelfAppraisal(
   payload: AnyRow[],
-): Promise<unknown> {
-  return postDetails(APPRAISAL_API.DETAILS, payload);
+): Promise<string> {
+  const envelope = await postDetailsEnvelope<unknown>(
+    APPRAISAL_API.DETAILS,
+    payload,
+  );
+  if (!envelope.success) {
+    throw new AppError(
+      "API_ERROR",
+      envelope.message ??
+        "Unable to process your request at this time, please try again!",
+    );
+  }
+  return envelope.message ?? "Record(s) added successfully!";
 }
 
 export async function createSelfAppraisalForm(

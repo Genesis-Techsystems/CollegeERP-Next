@@ -70,6 +70,7 @@ function isAdminExaminationContext(
 ): boolean {
   return (
     hrefLower.includes("admin-examination-management") ||
+    hrefLower.includes("admin-exam-reports") ||
     hrefLower.includes("examination-management") ||
     hrefLower.includes("/pre-examination/") ||
     hrefLower.includes("admin-pre-examination") ||
@@ -133,7 +134,13 @@ export function mapExaminationSectionNavRoute(
 
   if (
     labelLower.includes("exam timetable") &&
-    !labelLower.includes("college")
+    !labelLower.includes("college") &&
+    !labelLower.includes("report") &&
+    !hrefLower.includes("exam-timetable-report") &&
+    !hrefLower.includes("exam_timetable_report") &&
+    !hrefLower.includes("exam-time-table-report") &&
+    !hrefLower.includes("admin-exam-reports") &&
+    !hrefLower.includes("exam-reports")
   ) {
     return `${EXAMINATION_SECTION_BASE}/student-exam-timetable`;
   }

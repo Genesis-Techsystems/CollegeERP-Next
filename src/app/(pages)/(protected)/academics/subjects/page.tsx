@@ -221,6 +221,8 @@ export default function SubjectsMasterPage() {
     [courses],
   );
 
+  const filtersComplete = Boolean(universityId && courseId);
+
   const loadSubjects = useCallback(async (id: number) => {
     setLoading(true);
     try {
@@ -234,11 +236,6 @@ export default function SubjectsMasterPage() {
     listActiveUniversities()
       .then((list) => {
         setUniversities(toAnyRows(list));
-        const firstId = pickNum(toAnyRow(list[0]), [
-          "universityId",
-          "pk_university_id",
-        ]);
-        if (firstId) setUniversityId(firstId);
       })
       .catch(() => setUniversities([]));
   }, []);
@@ -250,15 +247,11 @@ export default function SubjectsMasterPage() {
       setRows([]);
       return;
     }
+    setCourseId(null);
     setRows([]);
     listActiveCoursesByUniversity(universityId)
       .then((list) => {
         setCourses(toAnyRows(list));
-        const firstId = pickNum(toAnyRow(list[0]), [
-          "courseId",
-          "pk_course_id",
-        ]);
-        setCourseId(firstId || null);
       })
       .catch(() => {
         setCourses([]);
@@ -296,9 +289,10 @@ export default function SubjectsMasterPage() {
   return (
     <FilteredListPage
       title="Subject Master"
-      showTable={Boolean(courseId)}
+      showTable={filtersComplete}
+      resultsVisible={filtersComplete}
       tableHeader={
-        courseId ? (
+        filtersComplete ? (
           <TableContextHeader
             title="Subjects List"
             info={
@@ -348,7 +342,7 @@ export default function SubjectsMasterPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      rowData={courseId ? rows : []}
+      rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
       toolbar={{

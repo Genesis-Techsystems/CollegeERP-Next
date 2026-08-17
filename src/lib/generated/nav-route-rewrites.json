@@ -440,6 +440,10 @@
     "destination": "/finance/check-book"
   },
   {
+    "source": "/finance/cheque-issue",
+    "destination": "/finance/check-issue"
+  },
+  {
     "source": "/finance/finance-sub-category",
     "destination": "/finance/finance-subcategory"
   },
@@ -502,5 +506,13 @@
   {
     "source": "/user-management/parent-accounts/parent-account",
     "destination": "/user-management/parent-accounts/manage"
+  },
+  {
+    "source": "/staff-faculty-leaves/staff-workload",
+    "destination": "/staff-faculty-leaves/set-proxy"
+  },
+  {
+    "source": "/staff-faculty-details/salary-slip",
+    "destination": "/staff-faculty-details/salary-slips"
   }
 ]

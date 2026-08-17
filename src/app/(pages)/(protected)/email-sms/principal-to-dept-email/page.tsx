@@ -201,38 +201,40 @@ export default function PrincipalToDeptEmailPage() {
     <FilteredListPage
       title="Send Email"
       filters={
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6 sm:max-w-[720px] sm:items-end">
-          <Select
-            label="College"
-            required
-            value={collegeId ? String(collegeId) : null}
-            onChange={(v) => {
-              setCollegeId(v ? Number(v) : null);
-              setDepartmentIds([]);
-            }}
-            options={collegeOptions}
-            searchable
-            placeholder="College"
-          />
-          <MultiSelect
-            label="Department"
-            required
-            value={departmentIds}
-            onChange={setDepartmentIds}
-            options={departmentOptions}
-            searchable
-            placeholder="Department"
-            disabled={!collegeId || departmentOptions.length === 0}
-          />
-        </div>
-      }
-      body={
-        <div className="space-y-5">
-          {/* Angular: Subject outline field fxFlex 80% */}
+        <div className="space-y-4">
+          {/* College + Department */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-6 sm:max-w-[720px] sm:items-end">
+            <Select
+              label="College"
+              required
+              value={collegeId ? String(collegeId) : null}
+              onChange={(v) => {
+                setCollegeId(v ? Number(v) : null);
+                setDepartmentIds([]);
+              }}
+              options={collegeOptions}
+              searchable
+              placeholder="College"
+            />
+
+            <MultiSelect
+              label="Department"
+              required
+              value={departmentIds}
+              onChange={setDepartmentIds}
+              options={departmentOptions}
+              searchable
+              placeholder="Department"
+              disabled={!collegeId || departmentOptions.length === 0}
+            />
+          </div>
+
+          {/* Subject */}
           <div className="w-full sm:w-[80%]">
             <label htmlFor="p2d-subject" className="sr-only">
               Subject
             </label>
+
             <input
               id="p2d-subject"
               type="text"
@@ -249,38 +251,37 @@ export default function PrincipalToDeptEmailPage() {
             />
           </div>
 
-          {/* Angular: file left; Send Email then Clear on the right */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pt-1">
-            <div className="text-sm sm:w-[25%] sm:min-w-[200px]">
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".png,.jpg,.jpeg,.pdf,.doc"
-                className="max-w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium"
-                onChange={onFileChange}
-                disabled={sending}
-              />
-            </div>
-            <div className="flex flex-wrap justify-end gap-2 sm:shrink-0">
-              <Button
-                type="button"
-                className="gap-1 px-5"
-                onClick={() => void handleSend()}
-                disabled={!canSend}
-              >
-                <Send className="h-4 w-4" aria-hidden />
-                {sending ? "Sending…" : "Send Email"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="border-amber-400 bg-amber-50 px-5 text-amber-950 hover:bg-amber-100 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-50 dark:hover:bg-amber-950/70"
-                onClick={clearForm}
-                disabled={sending}
-              >
-                Clear
-              </Button>
-            </div>
+          {/* Choose File */}
+          <div className="text-sm sm:w-[25%] sm:min-w-[200px]">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".png,.jpg,.jpeg,.pdf,.doc"
+              className="max-w-full text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm file:font-medium"
+              onChange={onFileChange}
+              disabled={sending}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              className="gap-1 px-5"
+              onClick={() => void handleSend()}
+              disabled={!canSend}
+            >
+              <Send className="h-4 w-4" aria-hidden />
+              {sending ? "Sending…" : "Send Email"}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="border-black-400 bg-white-50 px-5 text-black-950 hover:bg-black-100 dark:border-black-500 dark:bg-black-950/50 dark:text-black-50 dark:hover:bg-black-950/70"
+              onClick={clearForm}
+              disabled={sending}
+            >
+              Clear
+            </Button>
           </div>
         </div>
       }

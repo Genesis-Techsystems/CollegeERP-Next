@@ -1,44 +1,67 @@
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
-export type TimetableFilterFlag = 'clg_filters' | 'cls_timtable_filters'
+export type TimetableFilterFlag = "clg_filters" | "cls_timtable_filters";
 
 export function num(value: unknown): number {
-  const n = Number(value ?? 0)
-  return Number.isFinite(n) ? n : 0
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 
 export function text(row: AnyRow, keys: string[]): string {
   for (const key of keys) {
-    const v = row[key]
-    if (v != null && String(v).trim()) return String(v).trim()
+    const v = row[key];
+    if (v != null && String(v).trim()) return String(v).trim();
   }
-  return ''
+  return "";
 }
 
 /** Distinct rows by a numeric/string key (first occurrence wins). */
 export function distinctByKey(rows: AnyRow[], key: string): AnyRow[] {
-  const seen = new Set<unknown>()
-  const out: AnyRow[] = []
+  const seen = new Set<unknown>();
+  const out: AnyRow[] = [];
   for (const row of rows) {
-    const id = row[key]
-    if (id == null || id === '') continue
-    if (seen.has(id)) continue
-    seen.add(id)
-    out.push(row)
+    const id = row[key];
+    if (id == null || id === "") continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(row);
   }
-  return out
+  return out;
 }
 
 export function collegesFromFilterRows(rows: AnyRow[]): AnyRow[] {
-  const list = distinctByKey(rows, 'fk_college_id')
-  return [...list].sort((a, b) => num(a.clg_sort_order) - num(b.clg_sort_order))
+  const list = distinctByKey(rows, "fk_college_id");
+  return [...list].sort(
+    (a, b) => num(a.clg_sort_order) - num(b.clg_sort_order),
+  );
 }
 
-export function academicYearsFromFilterRows(rows: AnyRow[], collegeId: number): AnyRow[] {
-  return distinctByKey(
+/** Angular parity: latest academic year first (parseInt on "2026-2027" → 2026). */
+export function sortAcademicYearsDesc(rows: AnyRow[]): AnyRow[] {
+  return [...rows].sort(
+    (a, b) =>
+      parseInt(text(b, ["academic_year", "academicYear"]), 10) -
+      parseInt(text(a, ["academic_year", "academicYear"]), 10),
+  );
+}
+
+/** Prefer `is_curr_ay`, else newest academic year (list should be sorted desc). */
+export function defaultAcademicYearIdFromRows(rows: AnyRow[]): number | null {
+  if (rows.length === 0) return null;
+  const sorted = sortAcademicYearsDesc(rows);
+  const current = sorted.find((r) => num(r.is_curr_ay) > 0);
+  return num((current ?? sorted[0]).fk_academic_year_id) || null;
+}
+
+export function academicYearsFromFilterRows(
+  rows: AnyRow[],
+  collegeId: number,
+): AnyRow[] {
+  const list = distinctByKey(
     rows.filter((r) => num(r.fk_college_id) === collegeId),
-    'fk_academic_year_id',
-  )
+    "fk_academic_year_id",
+  );
+  return sortAcademicYearsDesc(list);
 }
 
 export function coursesFromFilterRows(
@@ -48,10 +71,12 @@ export function coursesFromFilterRows(
 ): AnyRow[] {
   return distinctByKey(
     rows.filter(
-      (r) => num(r.fk_college_id) === collegeId && num(r.fk_academic_year_id) === academicYearId,
+      (r) =>
+        num(r.fk_college_id) === collegeId &&
+        num(r.fk_academic_year_id) === academicYearId,
     ),
-    'fk_course_id',
-  )
+    "fk_course_id",
+  );
 }
 
 export function courseGroupsFromFilterRows(
@@ -67,8 +92,8 @@ export function courseGroupsFromFilterRows(
         num(r.fk_academic_year_id) === academicYearId &&
         num(r.fk_course_id) === courseId,
     ),
-    'fk_course_group_id',
-  )
+    "fk_course_group_id",
+  );
 }
 
 export function courseYearsFromFilterRows(
@@ -86,9 +111,9 @@ export function courseYearsFromFilterRows(
         num(r.fk_course_id) === courseId &&
         num(r.fk_course_group_id) === courseGroupId,
     ),
-    'fk_course_year_id',
-  )
-  return [...list].sort((a, b) => num(a.year_order) - num(b.year_order))
+    "fk_course_year_id",
+  );
+  return [...list].sort((a, b) => num(a.year_order) - num(b.year_order));
 }
 
 export function sectionsFromFilterRows(
@@ -108,8 +133,8 @@ export function sectionsFromFilterRows(
         num(r.fk_course_group_id) === courseGroupId &&
         num(r.fk_course_year_id) === courseYearId,
     ),
-    'fk_group_section_id',
-  )
+    "fk_group_section_id",
+  );
 }
 
 export function timetablesFromFilterRows(
@@ -129,15 +154,18 @@ export function timetablesFromFilterRows(
         num(r.fk_course_group_id) === courseGroupId &&
         num(r.fk_group_section_id) === groupSectionId,
     ),
-    'pk_timetable_id',
-  )
+    "pk_timetable_id",
+  );
 }
 
-export function coursesFromAllocationFilters(rows: AnyRow[], collegeId: number): AnyRow[] {
+export function coursesFromAllocationFilters(
+  rows: AnyRow[],
+  collegeId: number,
+): AnyRow[] {
   return distinctByKey(
     rows.filter((r) => num(r.fk_college_id) === collegeId),
-    'fk_course_id',
-  )
+    "fk_course_id",
+  );
 }
 
 export function courseGroupsFromAllocationFilters(
@@ -146,27 +174,35 @@ export function courseGroupsFromAllocationFilters(
   courseId: number,
 ): AnyRow[] {
   return distinctByKey(
-    rows.filter((r) => num(r.fk_college_id) === collegeId && num(r.fk_course_id) === courseId),
-    'fk_course_group_id',
-  )
+    rows.filter(
+      (r) =>
+        num(r.fk_college_id) === collegeId && num(r.fk_course_id) === courseId,
+    ),
+    "fk_course_group_id",
+  );
 }
 
 export function formatClockAmPm(value: string): string {
-  if (!value) return ''
-  const raw = value.trim()
-  if (/AM|PM/i.test(raw)) return raw.replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase())
-  const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/)
-  if (!match) return raw
-  let hours = Number(match[1])
-  const minutes = match[2]
-  const meridiem = hours >= 12 ? 'PM' : 'AM'
-  hours = hours % 12 || 12
-  return `${hours}:${minutes} ${meridiem}`
+  if (!value) return "";
+  const raw = value.trim();
+  if (/AM|PM/i.test(raw))
+    return raw.replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase());
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!match) return raw;
+  let hours = Number(match[1]);
+  const minutes = match[2];
+  const meridiem = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${hours}:${minutes} ${meridiem}`;
 }
 
 export function formatDateHeader(value: unknown): string {
-  if (value == null || value === '') return ''
-  const d = new Date(String(value))
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (value == null || value === "") return "";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }

@@ -209,6 +209,8 @@ export function mapTimetableNavRoute(
   // Keep Exam Reports / student portal Academics out of Time-Table Management remapping
   if (
     hrefLower.includes("exam-timetable-report") ||
+    hrefLower.includes("exam_timetable_report") ||
+    hrefLower.includes("exam-time-table-report") ||
     hrefLower.includes("course-year-timetable-report") ||
     hrefLower.includes("exam-invigilator-allotment-report") ||
     hrefLower.includes("exam-student-registration-report") ||
