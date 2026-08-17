@@ -451,7 +451,12 @@ export default function CourseYearSubjectsPage() {
           />
         ) : null
       }
-      toolbar={{ search: true, searchPlaceholder: "Search" }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
       pagination
       paginationPageSize={10}
     />

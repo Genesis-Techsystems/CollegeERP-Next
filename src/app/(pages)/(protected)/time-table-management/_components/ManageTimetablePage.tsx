@@ -201,7 +201,8 @@ export function ManageTimetablePage() {
         toolbar={{
           search: true,
           searchPlaceholder: "Search timetables…",
-          exportPdf: true,
+          exportPdf: false,
+          exportExcel: false,
         }}
         toolbarTrailing={
           <Button

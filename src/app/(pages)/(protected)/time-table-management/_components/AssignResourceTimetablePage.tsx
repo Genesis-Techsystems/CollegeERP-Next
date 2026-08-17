@@ -700,7 +700,7 @@ export function AssignResourceTimetablePage() {
           loading={workloadsLoading}
           toolbar={{
             search: true,
-            exportExcel: true,
+            exportExcel: false,
             exportPdf: false,
             columnPicker: false,
           }}

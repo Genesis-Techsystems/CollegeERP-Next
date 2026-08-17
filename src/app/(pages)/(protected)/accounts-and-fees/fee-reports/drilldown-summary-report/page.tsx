@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSpreadsheet, Printer } from "lucide-react";
+import { FileSpreadsheet, Monitor, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,12 @@ import {
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
+  buildStudentFeeParticularGroups,
+  fetchFeeLedgerRows,
   fetchScholarshipDetailedSummary,
   getFeeMasterCollegeFilters,
   listOrganizations,
+  type StudentFeeParticularGroup,
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
@@ -88,6 +91,141 @@ function n(v: unknown): number {
   return Number.isFinite(x) ? x : 0;
 }
 
+/** Angular `function(input)` — dash when empty, else Indian grouping. */
+function printAmt(v: unknown): string {
+  if (v == null || v === "") return "-";
+  return escapeHtml(formatIndianNumber(v));
+}
+
+const DRILL_AMOUNT_HEADERS = [
+  "Total Amount",
+  "RTF Amount",
+  "College Amount",
+  "College Discount",
+  "NET Amount",
+  "Paid Amount",
+  "Due College Amount",
+  "RTF Received",
+  "Due RTF Amount",
+  "Total Due",
+] as const;
+
+const DRILL_AMOUNT_KEYS = [
+  "total_gross_amount",
+  "total_rtf_amount",
+  "total_college_amount",
+  "total_discount_amount",
+  "total_net_college_amount",
+  "total_paid_amount",
+  "total_due_college_amount",
+  "total_rtf_received",
+  "total_due_rtf_amount",
+  "total_balance_amount",
+] as const;
+
+type DrillTotals = {
+  gross: number;
+  rtf: number;
+  college: number;
+  discount: number;
+  net: number;
+  paid: number;
+  dueCollege: number;
+  rtfReceived: number;
+  dueRtf: number;
+  balance: number;
+};
+
+/**
+ * Angular print/excel table (no Expand). Screen table keeps Expand.
+ * Print thead: S.NO + (blank, blank) or (Student, Category) + amount cols.
+ */
+function buildDrilldownExportTableHtml(args: {
+  currentPosition: string;
+  rows: AnyRow[];
+  totals: DrillTotals;
+  steps: { name: string }[];
+}): string {
+  const isParticular = args.currentPosition === "student_particular";
+  const identHeads = isParticular
+    ? `<th class="table-th">Student</th><th class="table-th">Category</th>`
+    : `<th class="table-th"></th><th class="table-th"></th>`;
+  const amountHeads = DRILL_AMOUNT_HEADERS.map(
+    (h) => `<th class="table-th">${h}</th>`,
+  ).join("");
+
+  const body = args.rows
+    .map((row, i) => {
+      const ident = isParticular
+        ? `<td class="table-td">${escapeHtml(studentParticularLabel(row.student_name, row.hallticket_number))}</td><td class="table-td">${escapeHtml(String(row.fee_category_name ?? ""))}</td>`
+        : `<td class="table-td">${escapeHtml(String(row.varaiableName ?? ""))}</td><td class="table-td">${escapeHtml(String(row.varaiableValue ?? ""))}</td>`;
+      const amts = DRILL_AMOUNT_KEYS.map(
+        (k) => `<td class="table-td">${printAmt(row[k])}</td>`,
+      ).join("");
+      return `<tr><td class="table-td">${i + 1}</td>${ident}${amts}</tr>`;
+    })
+    .join("");
+
+  const totalVals = [
+    args.totals.gross,
+    args.totals.rtf,
+    args.totals.college,
+    args.totals.discount,
+    args.totals.net,
+    args.totals.paid,
+    args.totals.dueCollege,
+    args.totals.rtfReceived,
+    args.totals.dueRtf,
+    args.totals.balance,
+  ]
+    .map((v) => `<td class="table-td">${printAmt(v)}</td>`)
+    .join("");
+
+  const grand = isParticular
+    ? ""
+    : `<tr><td class="table-td" colspan="3">Grand Total</td>${totalVals}</tr>`;
+
+  const crumb =
+    args.steps.length > 0
+      ? `<div class="drilldown">${args.steps
+          .map(
+            (s, i) =>
+              `${escapeHtml(s.name)}${i < args.steps.length - 1 ? " &gt; " : ""}`,
+          )
+          .join("")}</div>`
+      : "";
+
+  return `${crumb}<table class="mar">
+<thead><tr><th class="table-th">S.NO</th>${identHeads}${amountHeads}</tr></thead>
+<tbody>${body}${grand}</tbody>
+</table>`;
+}
+
+const DEFAULT_STUDENT_PHOTO = "/assets/images/avatars/default_Student.png";
+
+function displayHt(ht: unknown): string {
+  if (ht == null || ht === "" || ht === "null" || ht === "undefined") return "";
+  return String(ht);
+}
+
+/** Angular students list: `name + ' (' + hallticket_number + ')'`. */
+function studentListLabel(name: unknown, ht: unknown): string {
+  return `${name == null ? "" : String(name)} (${displayHt(ht)})`;
+}
+
+/** Angular particular cell: `student_name(hallticket_number)`. */
+function studentParticularLabel(name: unknown, ht: unknown): string {
+  return `${name == null ? "" : String(name)}(${displayHt(ht)})`;
+}
+
+function studentPhotoUrl(path: unknown): string {
+  const raw = String(path ?? "").trim();
+  if (!raw) return DEFAULT_STUDENT_PHOTO;
+  if (/^(https?:\/\/|data:|\/)/i.test(raw)) return raw;
+  const base = String(MINIO_URL ?? "").replace(/\/$/, "");
+  return base ? `${base}/${raw.replace(/^\/+/, "")}` : raw;
+}
+
 function annotateRows(
   rows: AnyRow[],
   flag: string,
@@ -98,8 +236,8 @@ function annotateRows(
     if (flag === "student_fee_details_students") {
       return {
         ...x,
-        varaiableName: x.hallticket_number,
-        varaiableValue: x[detailValue],
+        varaiableName: detailName,
+        varaiableValue: studentListLabel(x[detailValue], x.hallticket_number),
       };
     }
     return {
@@ -108,6 +246,87 @@ function annotateRows(
       varaiableValue: x[detailValue],
     };
   });
+}
+
+function sumAmtList(values: (number | null)[]): number {
+  return values.reduce<number>((acc, v) => acc + (v ?? 0), 0);
+}
+
+function ledgerColumnTotals(groups: StudentFeeParticularGroup[]) {
+  return {
+    total: groups.reduce((a, g) => a + sumAmtList(g.totalAmt), 0),
+    rtf: groups.reduce((a, g) => a + sumAmtList(g.rtfAmt), 0),
+    college: groups.reduce((a, g) => a + sumAmtList(g.collegeAmt), 0),
+    discount: groups.reduce((a, g) => a + sumAmtList(g.discountAmt), 0),
+    net: groups.reduce((a, g) => a + sumAmtList(g.netAmt), 0),
+    paid: groups.reduce((a, g) => a + sumAmtList(g.paidAmt), 0),
+    dueCollege: groups.reduce((a, g) => a + sumAmtList(g.dueCollegeAmt), 0),
+    rtfReceived: groups.reduce((a, g) => a + sumAmtList(g.rtfReceivedAmt), 0),
+    dueRtf: groups.reduce((a, g) => a + sumAmtList(g.dueRtfAmt), 0),
+    totalDue: groups.reduce((a, g) => a + sumAmtList(g.totalDueAmt), 0),
+  };
+}
+
+function stackedPrintAmt(values: (number | null)[]): string {
+  return values
+    .map((v) => `<p>${v == null ? "-" : escapeHtml(formatIndianNumber(v))}</p>`)
+    .join("");
+}
+
+function buildLedgerPrintTableHtml(
+  groups: StudentFeeParticularGroup[],
+): string {
+  if (groups.length === 0) return "";
+  const totals = ledgerColumnTotals(groups);
+  const rows = groups
+    .map(
+      (g) => `<tr>
+      <td class="table-td">${escapeHtml(String(g.year))} year</td>
+      <td class="table-td text-left">${g.structures.map((s) => `<p>${escapeHtml(s)}</p>`).join("")}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.totalAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.rtfAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.collegeAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.discountAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.netAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.paidAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.dueCollegeAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.rtfReceivedAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.dueRtfAmt)}</td>
+      <td class="table-td text-right">${stackedPrintAmt(g.totalDueAmt)}</td>
+    </tr>`,
+    )
+    .join("");
+  const totalCells = [
+    totals.total,
+    totals.rtf,
+    totals.college,
+    totals.discount,
+    totals.net,
+    totals.paid,
+    totals.dueCollege,
+    totals.rtfReceived,
+    totals.dueRtf,
+    totals.totalDue,
+  ]
+    .map(
+      (v) =>
+        `<td class="table-td text-right">${escapeHtml(formatIndianNumber(v))}</td>`,
+    )
+    .join("");
+  return `<table class="mar" style="margin-top:8px">
+<thead>
+  <tr>
+    <th class="table-th" rowspan="2">Year</th>
+    <th class="table-th" rowspan="2">Particulars</th>
+    <th class="table-th" colspan="10">Amount</th>
+  </tr>
+  <tr>${DRILL_AMOUNT_HEADERS.map((h) => `<th class="table-th">${h}</th>`).join("")}</tr>
+</thead>
+<tbody>
+${rows}
+<tr><td class="table-td" colspan="2">Total</td>${totalCells}</tr>
+</tbody>
+</table>`;
 }
 
 export default function DrilldownSummaryReportPage() {
@@ -126,7 +345,7 @@ export default function DrilldownSummaryReportPage() {
   const [steps, setSteps] = useState<DrillStep[]>([]);
   const [currentPosition, setCurrentPosition] = useState("");
   const [loading, setLoading] = useState(false);
-  const excelTableRef = useRef<HTMLTableElement>(null);
+  const [feeLedgerRows, setFeeLedgerRows] = useState<AnyRow[]>([]);
   const autoLoadedAy = useRef<string | null>(null);
 
   const filtersQuery = useQuery({
@@ -234,6 +453,16 @@ export default function DrilldownSummaryReportPage() {
     };
   }, [summaryList]);
 
+  const feeLedgerGroups = useMemo(
+    () => buildStudentFeeParticularGroups(feeLedgerRows),
+    [feeLedgerRows],
+  );
+  const feeLedgerTotals = useMemo(
+    () => ledgerColumnTotals(feeLedgerGroups),
+    [feeLedgerGroups],
+  );
+  const feeLedgerProfile = feeLedgerRows[0] ?? null;
+
   const loadSummary = useCallback(
     async (args: {
       flag: string;
@@ -273,8 +502,21 @@ export default function DrilldownSummaryReportPage() {
         setCurrentPosition(
           args.detailValue === "college_code" ? "" : args.detailValue,
         );
+        if (
+          args.flag === "student_fee_details_std_particular" &&
+          args.studentId
+        ) {
+          const ledger = await fetchFeeLedgerRows(
+            { in_std_id: args.studentId },
+            { resultIndex: 0 },
+          );
+          setFeeLedgerRows(ledger);
+        } else {
+          setFeeLedgerRows([]);
+        }
         if (annotated.length === 0) toastInfo("No records found.");
       } catch (err) {
+        setFeeLedgerRows([]);
         toastError(getErrorMessage(err));
       } finally {
         setLoading(false);
@@ -487,7 +729,17 @@ export default function DrilldownSummaryReportPage() {
   };
 
   const exportAsExcel = () => {
-    if (!excelTableRef.current) return;
+    if (summaryList.length === 0) return;
+    const orgLabel = orgPrintMeta.orgName || "Organization";
+    const titleLine = academicYear
+      ? `Student Fee Report - (${academicYear})`
+      : "Student Fee Report";
+    const tableHtml = buildDrilldownExportTableHtml({
+      currentPosition,
+      rows: summaryList,
+      totals,
+      steps,
+    });
     const uri = "data:application/vnd.ms-excel;base64,";
     const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>`;
     const base64 = (s: string) => window.btoa(unescape(encodeURIComponent(s)));
@@ -500,53 +752,59 @@ export default function DrilldownSummaryReportPage() {
       base64(
         formatTpl(template, {
           worksheet: "Worksheet",
-          table: excelTableRef.current.innerHTML,
+          table: `<p>${escapeHtml(orgLabel)}</p><p>${escapeHtml(titleLine)}</p>${tableHtml}`,
         }),
       );
     link.click();
   };
 
   const printReport = () => {
-    if (!excelTableRef.current) return;
+    if (summaryList.length === 0) return;
     const orgLabel = orgPrintMeta.orgName || "Organization";
     const titleLine = academicYear
       ? `Student Fee Report - (${academicYear})`
       : "Student Fee Report";
-    // Angular: MINIO + organization.logoPath (GIT org logo, not college logo)
     const logoSrc = toOrgPrintLogoUrl(orgPrintMeta.logoPath);
+    const tableHtml = buildDrilldownExportTableHtml({
+      currentPosition,
+      rows: summaryList,
+      totals,
+      steps,
+    });
 
     printHtmlInIframe(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Student Fee Report</title>
 <style>
 @page{margin:12mm}
-body{font-family:Arial,Helvetica,sans-serif;padding:12px;color:#111;margin:0;background:#fff}
-.print-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:10px}
-.portraitLogo{
-  height:90px;width:90px;min-width:90px;min-height:90px;
-  object-fit:contain;display:block;flex-shrink:0
-}
-.print-header-text{flex:1;min-width:0}
-.collegeName{text-align:left!important;font-size:24px;font-weight:550;margin:12px 0 2px;color:#000}
-.title{text-align:left!important;font-size:18px;font-weight:550;margin:0 0 8px;color:#000}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px;text-align:center}
-th{background:#e8f0fe}
+body{font-family:Arial,Helvetica,sans-serif;padding:12px;color:#000;margin:0;background:#fff}
+.print-header{display:flex;align-items:flex-start;width:100%;margin-bottom:10px}
+.portraitLogo{height:96px;width:100px;object-fit:contain;display:block;flex-shrink:0}
+.print-header-text{flex:1;min-width:0;padding-left:8px}
+.collegeName{text-align:left!important;font-size:25px;font-weight:700;margin:20px 0 -5px;color:#000}
+.title{text-align:left!important;font-size:23px;font-weight:700;margin:0 0 2%;color:#000}
+.drilldown{color:#0c51a4;font-size:16px;font-weight:500;padding:5px 10px}
+table.mar{width:100%;border-collapse:collapse;border-spacing:1px}
+.table-th{padding:5px;background:#C3D9FF;font-weight:500;text-align:center;border:1px solid #000}
+.table-td{padding:5px 8px;text-align:center;font-weight:400;border:1px solid #000}
+.table-td p{margin:2px 0}
+.text-left{text-align:left}
+.text-right{text-align:right}
 </style></head><body>
 <div class="print-header">
-  <img src="${escapeHtml(logoSrc)}" alt="Organization Logo" class="portraitLogo" />
+  <img src="${escapeHtml(logoSrc)}" alt="" class="portraitLogo" />
   <div class="print-header-text">
     <p class="collegeName">${escapeHtml(orgLabel)}</p>
     <p class="title">${escapeHtml(titleLine)}</p>
   </div>
 </div>
-${excelTableRef.current.outerHTML}
+${tableHtml}
+${currentPosition === "student_particular" ? buildLedgerPrintTableHtml(feeLedgerGroups) : ""}
 </body></html>`);
   };
 
   const isParticular = currentPosition === "student_particular";
-  const isStudentName = currentPosition === "student_name";
   const canExpand = !isParticular;
-  const amountColSpan = isParticular || isStudentName ? 5 : 4;
+  const amountColSpan = 4;
 
   return (
     <PageContainer className="space-y-4">
@@ -589,7 +847,7 @@ ${excelTableRef.current.outerHTML}
         <div className="space-y-3">
           {(steps.length > 0 || loading) && (
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-              <div className="text-sm text-muted-foreground">
+              <div className="text-[16px] font-medium text-[#0c51a4]">
                 {steps.map((s, i) => (
                   <span key={s.id}>
                     {s.name}
@@ -611,10 +869,7 @@ ${excelTableRef.current.outerHTML}
             </div>
           )}
           <div className="overflow-x-auto">
-            <table
-              ref={excelTableRef}
-              className="w-full border-collapse text-sm"
-            >
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-muted/50">
                   {!isParticular && (
@@ -624,9 +879,8 @@ ${excelTableRef.current.outerHTML}
                   {isParticular ? (
                     <>
                       <th className="border px-2 py-1.5 text-center">
-                        Hall Ticket
+                        Student
                       </th>
-                      <th className="border px-2 py-1.5 text-center">Name</th>
                       <th className="border px-2 py-1.5 text-center">
                         Category
                       </th>
@@ -635,11 +889,6 @@ ${excelTableRef.current.outerHTML}
                     <>
                       <th className="border px-2 py-1.5" />
                       <th className="border px-2 py-1.5" />
-                      {isStudentName && (
-                        <th className="border px-2 py-1.5 text-center">
-                          Category
-                        </th>
-                      )}
                     </>
                   )}
                   <th className="border px-2 py-1.5 text-center">
@@ -712,13 +961,13 @@ ${excelTableRef.current.outerHTML}
                       </td>
                       {isParticular ? (
                         <>
+                          <td className="border px-2 py-1.5 text-center whitespace-nowrap">
+                            {studentParticularLabel(
+                              row.student_name,
+                              row.hallticket_number,
+                            )}
+                          </td>
                           <td className="border px-2 py-1.5 text-center">
-                            {String(row.hallticket_number ?? "")}
-                          </td>
-                          <td className="border px-2 py-1.5 text-left">
-                            {String(row.student_name ?? "")}
-                          </td>
-                          <td className="border px-2 py-1.5 text-left">
                             {String(row.fee_category_name ?? "")}
                           </td>
                         </>
@@ -730,15 +979,6 @@ ${excelTableRef.current.outerHTML}
                           <td className="border px-2 py-1.5 text-center">
                             {String(row.varaiableValue ?? "")}
                           </td>
-                          {isStudentName && (
-                            <td className="border px-2 py-1.5 text-left">
-                              {String(
-                                row.fee_category_name ??
-                                  row.scholarship_type ??
-                                  "",
-                              )}
-                            </td>
-                          )}
                         </>
                       )}
                       <td className="border px-2 py-1.5 text-center">
@@ -773,7 +1013,7 @@ ${excelTableRef.current.outerHTML}
                       </td>
                     </tr>
                   ))}
-                {!loading && summaryList.length > 0 && (
+                {!loading && summaryList.length > 0 && !isParticular && (
                   <tr className="font-medium">
                     <td
                       className="border px-2 py-1.5 text-center"
@@ -816,6 +1056,160 @@ ${excelTableRef.current.outerHTML}
               </tbody>
             </table>
           </div>
+
+          {isParticular ? (
+            <div className="overflow-hidden rounded-md border border-border">
+              <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
+                <Monitor className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Student Details</span>
+              </div>
+              <div className="flex flex-col gap-3 p-3 lg:flex-row">
+                <div className="flex w-full flex-col items-center px-2 text-center lg:w-[18%]">
+                  <img
+                    src={studentPhotoUrl(feeLedgerProfile?.student_photo_path)}
+                    alt=""
+                    className="mb-3 mt-2 w-[70%] max-w-[140px] bg-[#c3d9ff] p-1.5 object-contain"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      if (!img.src.endsWith("default_Student.png")) {
+                        img.src = DEFAULT_STUDENT_PHOTO;
+                      }
+                    }}
+                  />
+                  <p className="m-0.5 font-semibold text-[#c76d2f]">
+                    {String(feeLedgerProfile?.student_name ?? "")}
+                  </p>
+                  <p className="m-0.5 text-[#8c8c8c]">
+                    {displayHt(summaryList[0]?.hallticket_number)}
+                  </p>
+                  <p className="m-0.5 text-[#8c8c8c]">
+                    {String(
+                      feeLedgerProfile?.Current_Academic_Details ??
+                        feeLedgerProfile?.current_academic_details ??
+                        "",
+                    )}
+                  </p>
+                  <p className="m-0.5 text-[#8c8c8c]">
+                    {String(feeLedgerProfile?.student_mobile ?? "")}
+                  </p>
+                  {feeLedgerProfile?.student_quota != null &&
+                  String(feeLedgerProfile.student_quota) !== "" ? (
+                    <span className="font-semibold text-blue-600">
+                      {String(feeLedgerProfile.student_quota)}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1 overflow-x-auto py-2">
+                  <table className="w-full border-collapse text-xs">
+                    <thead>
+                      <tr>
+                        <th
+                          className="border bg-[#C3D9FF] px-2 py-1.5 text-center font-medium"
+                          rowSpan={2}
+                        >
+                          Year
+                        </th>
+                        <th
+                          className="border bg-[#C3D9FF] px-2 py-1.5 text-center font-medium"
+                          rowSpan={2}
+                        >
+                          Particulars
+                        </th>
+                        <th
+                          className="border bg-[#C3D9FF] px-2 py-1.5 text-center font-medium"
+                          colSpan={10}
+                        >
+                          Amount
+                        </th>
+                      </tr>
+                      <tr>
+                        {DRILL_AMOUNT_HEADERS.map((h) => (
+                          <th
+                            key={h}
+                            className="border bg-[#C3D9FF] px-2 py-1.5 text-center font-medium"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feeLedgerGroups.map((g) => (
+                        <tr key={g.year}>
+                          <td className="border px-2 py-1.5 text-center">
+                            {g.year} year
+                          </td>
+                          <td className="border px-2 py-1.5">
+                            {g.structures.map((s, i) => (
+                              <p key={i} className="my-0.5">
+                                {s}
+                              </p>
+                            ))}
+                          </td>
+                          {(
+                            [
+                              g.totalAmt,
+                              g.rtfAmt,
+                              g.collegeAmt,
+                              g.discountAmt,
+                              g.netAmt,
+                              g.paidAmt,
+                              g.dueCollegeAmt,
+                              g.rtfReceivedAmt,
+                              g.dueRtfAmt,
+                              g.totalDueAmt,
+                            ] as (number | null)[][]
+                          ).map((vals, col) => (
+                            <td
+                              key={col}
+                              className="border px-2 py-1.5 text-right"
+                            >
+                              {vals.map((v, i) => (
+                                <p key={i} className="my-0.5">
+                                  {v == null ? "-" : formatIndianNumber(v)}
+                                </p>
+                              ))}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                      {feeLedgerGroups.length > 0 ? (
+                        <tr>
+                          <td
+                            className="border px-2 py-1.5 text-center font-medium"
+                            colSpan={2}
+                          >
+                            Total
+                          </td>
+                          {(
+                            [
+                              feeLedgerTotals.total,
+                              feeLedgerTotals.rtf,
+                              feeLedgerTotals.college,
+                              feeLedgerTotals.discount,
+                              feeLedgerTotals.net,
+                              feeLedgerTotals.paid,
+                              feeLedgerTotals.dueCollege,
+                              feeLedgerTotals.rtfReceived,
+                              feeLedgerTotals.dueRtf,
+                              feeLedgerTotals.totalDue,
+                            ] as number[]
+                          ).map((v, i) => (
+                            <td
+                              key={i}
+                              className="border px-2 py-1.5 text-right font-medium"
+                            >
+                              {formatIndianNumber(v)}
+                            </td>
+                          ))}
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </PageContainer>

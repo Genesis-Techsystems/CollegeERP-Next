@@ -50,12 +50,14 @@ function hourCellsForDay(day: StaffDiaryPrintDay | undefined): string[] {
 }
 
 export function buildStaffClassDiaryPrintHtml(params: {
+  collegeName?: string;
   employeeName: string;
   weekStart: Date;
   days: StaffDiaryPrintDay[];
 }): string {
   const dayByDate = new Map(params.days.map((d) => [d.classDate, d]));
   const rows: string[] = [];
+  const collegeName = (params.collegeName ?? "").trim();
 
   for (let i = 0; i < 7; i += 1) {
     const date = addDays(params.weekStart, i);
@@ -65,7 +67,7 @@ export function buildStaffClassDiaryPrintHtml(params: {
     const hours = hourCellsForDay(dayByDate.get(dateKey));
 
     rows.push(`<tr>
-      <td class="day-date">${escapeHtml(weekDay)} ${escapeHtml(dateLabel)}</td>
+      <td class="day-date"><div>${escapeHtml(weekDay)}</div><div>${escapeHtml(dateLabel)}</div></td>
       ${hours
         .map(
           (cell, idx) =>
@@ -79,6 +81,10 @@ export function buildStaffClassDiaryPrintHtml(params: {
     (label, idx) =>
       `<th class="hour-head${idx === 5 ? " last-hour" : ""}">${escapeHtml(label)}</th>`,
   ).join("");
+
+  const orgHeader = collegeName
+    ? `<div class="org-name">${escapeHtml(collegeName)}</div>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -94,6 +100,13 @@ export function buildStaffClassDiaryPrintHtml(params: {
       color: #111;
       font-family: "Times New Roman", Times, serif;
       font-size: 12px;
+    }
+    .org-name {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.25;
     }
     h1 {
       margin: 0 0 10px;
@@ -125,10 +138,15 @@ export function buildStaffClassDiaryPrintHtml(params: {
       width: 18%;
       text-align: left;
       font-weight: 400;
+      line-height: 1.35;
     }
-    .hour-head,
-    .hour-cell {
+    .hour-head {
       text-align: center;
+    }
+    .hour-cell {
+      text-align: left;
+      font-size: 11px;
+      line-height: 1.35;
     }
     .last-hour {
       border-right: 2px solid #111;
@@ -151,6 +169,7 @@ export function buildStaffClassDiaryPrintHtml(params: {
   </style>
 </head>
 <body>
+  ${orgHeader}
   <h1>Staff Class Diary Report</h1>
   <div class="employee">Employee: ${escapeHtml(params.employeeName)}</div>
   <table>

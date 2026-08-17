@@ -4,7 +4,7 @@
  */
 
 import { MISC_REPORT_API, TIMETABLE_REPORT_API } from "@/config/constants/api";
-import { fetchDetails, getAllRecords } from "./crud";
+import { fetchDetails, getAllRecords, postDetails } from "./crud";
 
 type AnyRow = Record<string, unknown>;
 
@@ -446,4 +446,17 @@ export async function getConsolidatedStaffDiaryReport(params: {
   );
   const groups = allResultGroups(data);
   return { result: groups };
+}
+
+/** Angular staff / consolidated class diary — POST `employeemanagementdiaries`. */
+export async function saveEmployeeManagementDiaryComments(
+  payload: Array<{
+    managementEmployeeId: number;
+    staffEmployeeId: number;
+    dateFor: string;
+    comments: string;
+    isActive: boolean;
+  }>,
+): Promise<unknown> {
+  return postDetails("employeemanagementdiaries", payload);
 }

@@ -740,6 +740,11 @@ export default function StaffSubjectMappingPage() {
                   flex: 1.1,
                 },
               ]}
+              toolbar={{
+                search: false,
+                exportExcel: false,
+                exportPdf: false,
+              }}
               pagination
               paginationPageSize={10}
             />

@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { Eye, PencilIcon, PlusIcon } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
-import { DataTable, TableCard } from "@/common/components/table";
-import { PageContainer } from "@/components/layout";
+import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,8 +30,10 @@ const COL_DEFS = {
   siNo: {
     headerName: "SI.No",
     valueGetter: rowIndexGetter,
-    width: 70,
+    width: 80,
     flex: 0,
+    sortable: false,
+    filter: false,
   } as ColDef<TimingSetRow>,
   name: {
     field: "timingsetName",
@@ -52,7 +53,10 @@ const COL_DEFS = {
   actions: {
     headerName: "Actions",
     minWidth: 120,
+    width: 120,
     flex: 0,
+    sortable: false,
+    filter: false,
   } as ColDef<TimingSetRow>,
 };
 
@@ -71,7 +75,7 @@ function makeActionsRenderer(
         {/* Angular: border_color → getTimings (edit / navigate to timing-slots) */}
         <button
           type="button"
-          className="p-0.5 text-blue-700"
+          className="app-table-action-edit p-0.5"
           title="Edit"
           onClick={() => {
             setTimingSetContext({
@@ -85,17 +89,17 @@ function makeActionsRenderer(
             router.push(`${TIMING_SLOTS_HREF}?timingsetId=${timingsetId}`);
           }}
         >
-          <PencilIcon className="h-3.5 w-3.5" />
+          <PencilIcon className="h-4 w-4" />
         </button>
         <span className="text-muted-foreground">|</span>
         {/* Angular: fa-eye → editDialog (view modal) */}
         <button
           type="button"
-          className="p-0.5 text-blue-700"
+          className="app-table-action-edit p-0.5"
           title="View"
           onClick={() => onView(row)}
         >
-          <Eye className="h-3.5 w-3.5" />
+          <Eye className="h-4 w-4" />
         </button>
       </div>
     );
@@ -165,41 +169,41 @@ export function TimingSetsPage() {
     : "Timings";
 
   return (
-    <PageContainer className="space-y-4">
-      <TableCard>
-        {error ? (
-          <p className="px-3 pb-2 text-sm text-destructive">
-            {getErrorMessage(error)}
-          </p>
-        ) : null}
-        <DataTable
-          rowData={rows}
-          columnDefs={columnDefs}
-          loading={isFetching}
-          pagination
-          toolbar={{
-            search: true,
-            searchPlaceholder: "Search timing sets…",
-            exportPdf: true,
-            pdfDocumentTitle: "Timing Sets",
+    <ListPage
+      title="Timing Set"
+      titleIcon="timelapse"
+      notice={
+        error ? (
+          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
+        ) : null
+      }
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={isFetching}
+      pagination
+      paginationPageSize={10}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        columnPicker: false,
+        exportPdf: false,
+        exportExcel: false,
+      }}
+      toolbarTrailing={
+        <Button
+          type="button"
+          size="sm"
+          data-table-primary-action
+          onClick={() => {
+            clearTimingSetContext();
+            router.push(TIMING_SLOTS_HREF);
           }}
-          toolbarTrailing={
-            <Button
-              type="button"
-              size="sm"
-              className="h-[30px] gap-1 px-3 text-[12px]"
-              onClick={() => {
-                clearTimingSetContext();
-                router.push(TIMING_SLOTS_HREF);
-              }}
-            >
-              <PlusIcon className="h-3.5 w-3.5" />
-              Add Timing Set
-            </Button>
-          }
-        />
-      </TableCard>
-
+        >
+          <PlusIcon className="mr-1.5 h-4 w-4" />
+          Add Timing Set
+        </Button>
+      }
+    >
       {/* Angular TimingSetModalComponent — GET timingsets/{id}, read-only structure */}
       <Dialog
         open={viewOpen}
@@ -235,6 +239,6 @@ export function TimingSetsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </ListPage>
   );
 }

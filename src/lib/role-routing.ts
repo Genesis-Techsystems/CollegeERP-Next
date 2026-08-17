@@ -5,6 +5,16 @@ export function roleNameIsSecretary(roleName?: string | null): boolean {
   return role === "SECRETARY" || role.includes("SECRETARY");
 }
 
+export function roleNameIsChairman(roleName?: string | null): boolean {
+  const role = (roleName ?? "").toUpperCase().trim();
+  return (
+    role === "CHAIRMAN" ||
+    role === "CHAIRPERSON" ||
+    role.includes("CHAIRMAN") ||
+    role.includes("CHAIRPERSON")
+  );
+}
+
 function readNavRoleName(): string {
   if (typeof globalThis.window === "undefined") return "";
   return (globalThis.localStorage.getItem("roleName") ?? "").trim();
@@ -24,6 +34,19 @@ function readNavUserRoles(): Array<{ roleName?: string } | string> {
   }
 }
 
+function readNavIsManagement(): boolean {
+  const roleName = readNavRoleName().toUpperCase();
+  if (roleName.includes("MANAGEMENT")) return true;
+  return readNavUserRoles().some((entry) => {
+    const name = (
+      typeof entry === "string" ? entry : String(entry?.roleName ?? "")
+    )
+      .toUpperCase()
+      .trim();
+    return name === "MANAGEMENT" || name === "MMANAGEMENT";
+  });
+}
+
 /** Secretary login — active roleName or any entry in Angular userRoles[]. */
 export function isSecretaryRole(
   roleName?: string | null,
@@ -36,6 +59,32 @@ export function isSecretaryRole(
       typeof entry === "string" ? entry : String(entry?.roleName ?? "");
     return roleNameIsSecretary(name);
   });
+}
+
+/** Chairman / Chairperson — active roleName or any entry in Angular userRoles[]. */
+export function isChairmanRole(
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string } | string> | null,
+): boolean {
+  if (roleNameIsChairman(roleName ?? readNavRoleName())) return true;
+  const roles = userRoles ?? readNavUserRoles();
+  return roles.some((entry) => {
+    const name =
+      typeof entry === "string" ? entry : String(entry?.roleName ?? "");
+    return roleNameIsChairman(name);
+  });
+}
+
+/** Angular management dashboard roles — Secretary, Chairman, or MANAGEMENT/MMANAGEMENT. */
+export function isManagementNavRole(
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string } | string> | null,
+  isManagement?: boolean,
+): boolean {
+  if (isManagement ?? readNavIsManagement()) return true;
+  return (
+    isSecretaryRole(roleName, userRoles) || isChairmanRole(roleName, userRoles)
+  );
 }
 
 export function isHodFacultyDetailsHref(href?: string): boolean {
@@ -124,12 +173,17 @@ function isHrEmployeeListNavLabel(labelKey: string): boolean {
 /**
  * Faculty Details / Employee Details sidebar — Angular `#/hr-payroll/employee/employee-list`
  * unless the menu href is explicitly the HOD `staff-faculty-details/faculty-details` page.
+ *
+ * Angular Fuse: collapsable module rows have no `url` — only leaf `page_*` items get
+ * routerLinkActive. Do not remap label-only collapsable parents to the HR employee list.
  */
 export function resolveFacultyDetailsNavRoute(
   href?: string,
   label?: string,
   roleName?: string,
   userRoles?: Array<{ roleName?: string } | string> | null,
+  isManagement?: boolean,
+  hasChildren?: boolean,
 ): string | null {
   if (isEmployeeDetailReportNav(href, label)) return null;
 
@@ -144,11 +198,32 @@ export function resolveFacultyDetailsNavRoute(
     return null;
   }
 
-  if (isSecretaryRole(roleName, userRoles)) {
-    return HR_EMPLOYEE_LIST_ROUTE;
+  // staff-faculty-details collapsable tree — never remap to HR employee list.
+  if (
+    hrefLower.includes("staff-faculty-details") ||
+    hrefLower.includes("staff-faculty-leaves")
+  ) {
+    return null;
+  }
+
+  // Angular collapsable module parent (no url) — no forced route / no active highlight.
+  if (hasChildren && !hrefLower) {
+    return null;
+  }
+
+  // Angular management/chairman/secretary: flat pages[] Faculty Details leaf (HR) only.
+  if (isManagementNavRole(roleName, userRoles, isManagement)) {
+    if (isHrEmployeeListHref(hrefLower) || hrefLower.includes("hr-payroll")) {
+      return HR_EMPLOYEE_LIST_ROUTE;
+    }
+    return null;
   }
 
   if (isHodFacultyDetailsHref(hrefLower)) {
+    return null;
+  }
+
+  if (!hrefLower) {
     return null;
   }
 

@@ -201,7 +201,7 @@ import { scheduleNavigation } from "@/lib/schedule-navigation";
 import {
   resolveFacultyDetailsNavRoute,
   isEmployeeDetailReportNav,
-  isSecretaryRole,
+  isManagementNavRole,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
   EMPLOYEE_DETAIL_REPORT_ROUTE,
@@ -1441,6 +1441,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       item.href,
       item.label,
       user?.roleName,
+      undefined,
+      user?.isManagement,
+      hasChildren,
     );
     if (facultyDetailsRoute) return facultyDetailsRoute;
 
@@ -2836,7 +2839,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       // (must pin before leave-approvals / faculty-details/leave-approvals remap)
       if (
         !isHrEmployeeListHref(hrefLower) &&
-        !isSecretaryRole(user?.roleName) &&
+        !isManagementNavRole(user?.roleName, undefined, user?.isManagement) &&
         isHodFacultyDetailsHref(hrefLower)
       ) {
         return "/staff-faculty-details/faculty-details";
@@ -5998,6 +6001,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       isActive = false;
     }
+  }
+  // Angular Fuse: collapsable Faculty Details module (staff-faculty-details) has no
+  // routerLinkActive on the parent — only the flat pages[] HR leaf highlights on employee-list.
+  const onHrEmployeeListPath =
+    normPathname === HR_EMPLOYEE_LIST_ROUTE ||
+    normPathname.startsWith(`${HR_EMPLOYEE_LIST_ROUTE}/`);
+  if (
+    (labelForActive === "faculty details" ||
+      labelForActive === "faculty detail") &&
+    onHrEmployeeListPath &&
+    hasChildren
+  ) {
+    isActive = false;
   }
 
   const isOpen = !isItemCollapsed;

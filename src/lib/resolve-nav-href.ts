@@ -108,6 +108,7 @@ import {
   isEmployeeDetailReportNav,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
+  isManagementNavRole,
   isSecretaryRole,
   resolveFacultyDetailsNavRoute,
   roleNameIsSecretary,
@@ -119,6 +120,7 @@ export {
   isEmployeeDetailReportNav,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
+  isManagementNavRole,
   isSecretaryRole,
   resolveFacultyDetailsNavRoute,
   roleNameIsSecretary,
@@ -1642,7 +1644,7 @@ export function resolveForcedNavRoute(
     // (must pin before leave-approvals / faculty-details/leave-approvals remap)
     if (
       !isHrEmployeeListHref(hrefLower) &&
-      !isSecretaryRole() &&
+      !isManagementNavRole() &&
       isHodFacultyDetailsHref(hrefLower)
     ) {
       return "/staff-faculty-details/faculty-details";

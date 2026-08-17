@@ -136,6 +136,8 @@ function adoptLegacyTableShell(root: HTMLElement): () => void {
 export interface DataTableProps<T> {
   /** Optional title above the toolbar */
   title?: string;
+  /** Material Icons ligature for the card title. Default `book`. */
+  titleIcon?: string;
   /** Optional subtitle; defaults to filter hint when column filters are on */
   subtitle?: string;
   /** Wrap in a bordered card. Default **true**. */
@@ -542,6 +544,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
 
 export function DataTable<T>({
   title,
+  titleIcon,
   subtitle,
   bordered = true,
   filters,
@@ -891,7 +894,9 @@ export function DataTable<T>({
                     aria-expanded={contentOpen}
                     aria-label={`Toggle ${resolvedTitle}`}
                   >
-                    <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
+                    <CardHeadingTitle icon={titleIcon}>
+                      {resolvedTitle}
+                    </CardHeadingTitle>
                     <ChevronDown
                       className={cn(
                         "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300",
@@ -908,7 +913,9 @@ export function DataTable<T>({
                     aria-expanded={filtersOpen}
                     aria-label="Toggle filters"
                   >
-                    <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
+                    <CardHeadingTitle icon={titleIcon}>
+                      {resolvedTitle}
+                    </CardHeadingTitle>
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-muted-foreground">
                       <Filter className="h-3.5 w-3.5" aria-hidden />
                       <ChevronDown
@@ -921,7 +928,9 @@ export function DataTable<T>({
                     </span>
                   </button>
                 ) : (
-                  <CardHeadingTitle>{resolvedTitle}</CardHeadingTitle>
+                  <CardHeadingTitle icon={titleIcon}>
+                    {resolvedTitle}
+                  </CardHeadingTitle>
                 )
               ) : null}
               {/* {resolvedSubtitle ? (

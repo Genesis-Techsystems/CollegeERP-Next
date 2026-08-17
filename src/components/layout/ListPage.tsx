@@ -12,6 +12,8 @@ export interface ListPageProps<T> extends Omit<
 > {
   /** Page / table card title — defaults to the sidebar menu label when omitted. */
   title?: string;
+  /** Material Icons ligature for the card title. Default `book`. */
+  titleIcon?: string;
   /** Optional notice / alert above the table card. */
   notice?: ReactNode;
   /** Empty-state UI when there is no data and not loading (replaces the table). */
@@ -27,6 +29,7 @@ export interface ListPageProps<T> extends Omit<
  */
 export function ListPage<T>({
   title,
+  titleIcon,
   subtitle = "",
   notice,
   emptyState,
@@ -49,6 +52,7 @@ export function ListPage<T>({
       ) : (
         <DataTable
           title={displayTitle}
+          titleIcon={titleIcon}
           subtitle={subtitle}
           bordered
           loading={loading}

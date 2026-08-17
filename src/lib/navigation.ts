@@ -1096,6 +1096,19 @@ function getOrphanPages(flatPages: Page[], modules: Module[]): Page[] {
   });
 }
 
+/** When API sends both a flat page and module with the same label, keep the flat page (Angular pages[] first). */
+function dedupeTopLevelNavByLabel(items: NavItem[]): NavItem[] {
+  const flatLabels = new Set(
+    items
+      .filter((item) => item.id.startsWith("page_"))
+      .map((item) => item.label.trim().toLowerCase()),
+  );
+  return items.filter((item) => {
+    if (!item.id.startsWith("module_")) return true;
+    return !flatLabels.has(item.label.trim().toLowerCase());
+  });
+}
+
 export function buildNavTree(modules: Module[], pages: Page[]): NavItem[] {
   const safeModules = modules ?? [];
   const safePages = pages ?? [];
@@ -1110,10 +1123,12 @@ export function buildNavTree(modules: Module[], pages: Page[]): NavItem[] {
 
   if (!hasModules) return [];
 
-  const mergedModules = mergeFlatPagesIntoModules(safeModules, safePages);
-  const orphanPages = getOrphanPages(safePages, mergedModules);
+  // Angular navbar.component.ts: addPagesToNavigation(all pages[]) then
+  // addModuleToNavigation(modules[] as returned — no merge into modules, no orphan filter).
   return ensureErpModuleNavChildren(
-    ensureTimetableNavChildren(buildModuleTree(mergedModules, orphanPages)),
+    ensureTimetableNavChildren(
+      dedupeTopLevelNavByLabel(buildModuleTree(safeModules, safePages)),
+    ),
   );
 }
 

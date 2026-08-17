@@ -516,8 +516,7 @@ function hrReportsMenuBreadcrumb(
   const leafByPath: Record<string, string> = {
     "/reports/admin-hr-reports/employee-list-by-campus-report":
       "Employee List By Campus",
-    "/reports/admin-hr-reports/employee-detail-report":
-      "Employee Detail Report",
+    "/reports/admin-hr-reports/employee-detail-report": "Employee Details",
   };
   const leaf = leafByPath[path];
   if (!leaf) return items;

@@ -40,6 +40,7 @@ import {
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
   fetchFeeDueListScholarshipHold,
+  getCollegeById,
   getFeePaylinkCollegeFilters,
   listBatchesByCourse,
   listFeeCategoriesByCollege,
@@ -361,6 +362,7 @@ export default function FeeDueListPage() {
   const [flatRows, setFlatRows] = useState<DueListRow[]>([]);
   const [pivotRows, setPivotRows] = useState<PivotRow[]>([]);
   const [dataDetails, setDataDetails] = useState("");
+  const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
 
@@ -475,6 +477,34 @@ export default function FeeDueListPage() {
     if (collegeId || collegeOptions.length === 0) return;
     setCollegeId(collegeOptions[0].value);
   }, [collegeId, collegeOptions]);
+
+  // Angular getCollegeLogo: print header uses College.collegeName, not college_code.
+  useEffect(() => {
+    const cid = Number(collegeId ?? 0);
+    if (!cid) {
+      setCollegeName("");
+      return;
+    }
+    const filterRow = filterColleges(filtersData).find(
+      (r) => String(pickNum(r, ["fk_college_id", "collegeId"])) === collegeId,
+    );
+    const fromFilters = pickText(filterRow, ["college_name", "collegeName"]);
+    if (fromFilters) setCollegeName(fromFilters);
+
+    let cancelled = false;
+    void getCollegeById(cid)
+      .then((college) => {
+        if (cancelled) return;
+        const name = String(college?.collegeName ?? "").trim();
+        if (name) setCollegeName(name);
+      })
+      .catch(() => {
+        /* keep filter-row name */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collegeId, filtersData]);
 
   useEffect(() => {
     const cid = Number(collegeId ?? 0);
@@ -702,12 +732,11 @@ export default function FeeDueListPage() {
       toastInfo("No records to export.");
       return;
     }
-    const collegeLabel =
-      collegeOptions.find((o) => o.value === collegeId)?.label || "";
-    const headerHtml = `<div style="margin-bottom:12px;">
-      <div style="font-size:18px;font-weight:600;">${escapeHtml(collegeLabel)}</div>
-      ${dataDetails ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(dataDetails)}</div>` : ""}
-      <div style="font-size:16px;font-weight:550;margin-top:4px;">Fee Due List Report</div>
+    const collegeLabel = collegeName.trim();
+    const headerHtml = `<div style="margin-bottom:12px;color:#000;">
+      <div style="font-size:25px;font-weight:700;margin:0 0 4px;">${escapeHtml(collegeLabel)}</div>
+      ${dataDetails ? `<div style="font-size:21px;font-weight:700;margin:0 0 4px;">${escapeHtml(dataDetails)}</div>` : ""}
+      <div style="font-size:23px;font-weight:700;margin:0;">Student Fee Due List Report</div>
     </div>`;
 
     if (pivot) {
@@ -781,8 +810,7 @@ export default function FeeDueListPage() {
   };
 
   const handlePrintReport = () => {
-    const collegeLabel =
-      collegeOptions.find((o) => o.value === collegeId)?.label || "";
+    const collegeLabel = collegeName.trim();
 
     // Build columns including S.No
     const columns = [
@@ -809,16 +837,16 @@ export default function FeeDueListPage() {
     const tableHtml = buildHtmlTable(columns as any, rowsWithIndex as any);
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Fee Due List Report</title>
+<html><head><meta charset="utf-8"/><title>Student Fee Due List Report</title>
 <style>
 @page{margin:12mm}
-body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
+body{font-family:Arial,sans-serif;padding:12px;color:#000;margin:0}
 .header{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
-.header img{width:90px;height:auto;max-height:100px;object-fit:contain}
-.header-text{flex:1}
-.collegeName{font-size:24px;font-weight:600;margin:0 0 6px}
-.title{font-size:20px;font-weight:550;margin:0 0 6px}
-.details{font-size:12px;color:#666;margin:0}
+.header img{width:130px;height:125px;object-fit:contain}
+.header-text{flex:1;text-align:left}
+.collegeName{font-size:25px;font-weight:700;margin:0 0 4px;color:#000}
+.title{font-size:21px;font-weight:700;margin:0 0 4px;color:#000}
+.title-2{font-size:23px;font-weight:700;margin:0;color:#000}
 table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
 th,td{border:1px solid #333;padding:6px 5px}
 th{background:#f2f2f2;font-weight:600}
@@ -827,8 +855,8 @@ th{background:#f2f2f2;font-weight:600}
   <img src="${collegeLogo}" alt="College Logo" onerror="this.onerror=null;this.src='${DEFAULT_COLLEGE_LOGO}'" />
   <div class="header-text">
     <p class="collegeName">${escapeHtml(collegeLabel)}</p>
-    ${dataDetails ? `<p class="details">${escapeHtml(dataDetails)}</p>` : ""}
-    <p class="title">Fee Due List Report</p>
+    ${dataDetails ? `<p class="title">${escapeHtml(dataDetails)}</p>` : ""}
+    <p class="title-2">Student Fee Due List Report</p>
   </div>
 </div>
 ${tableHtml}

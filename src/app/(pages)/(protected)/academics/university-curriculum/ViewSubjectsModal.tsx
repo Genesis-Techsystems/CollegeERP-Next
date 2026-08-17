@@ -198,6 +198,8 @@ export default function ViewSubjectsModal({
             toolbar={{
               search: true,
               searchPlaceholder: "Search",
+              exportExcel: false,
+              exportPdf: false,
               pdfDocumentTitle: pdfTitle,
             }}
             pagination
