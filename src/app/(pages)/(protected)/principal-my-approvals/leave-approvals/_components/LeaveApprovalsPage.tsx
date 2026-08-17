@@ -186,19 +186,23 @@ export function LeaveApprovalsPage() {
       if (!collegeId || !year) return;
       setLoading(true);
       try {
-        const rows = sortLeaveApplicationsDesc(
-          await listCollegeLeaveApplications(collegeId, year),
+        const { rows, message } = await listCollegeLeaveApplications(
+          collegeId,
+          year,
         );
         const pending: AnyRow[] = [];
         const processed: AnyRow[] = [];
-        for (const row of rows) {
+        for (const row of sortLeaveApplicationsDesc(rows)) {
           if (isPendingApproval(row)) pending.push(row);
           else processed.push(row);
         }
         setAppliedLeaves(pending);
         setRemainingLeaves(processed);
+        if (rows.length === 0) {
+          toastSuccess(message?.trim() || "No Record(s) found.");
+        }
       } catch (e) {
-        toastError(e, "Failed to load leave applications");
+        toastError(e);
         setAppliedLeaves([]);
         setRemainingLeaves([]);
       } finally {
@@ -241,12 +245,7 @@ export function LeaveApprovalsPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    collegeId,
-    sessionLoading,
-    loadLeaveApplications,
-    loadLeaveStatuses,
-  ]);
+  }, [collegeId, sessionLoading, loadLeaveApplications, loadLeaveStatuses]);
 
   async function selectedLeaveYear(year: number | null) {
     setLeaveYear(year);
@@ -268,8 +267,7 @@ export function LeaveApprovalsPage() {
     if (!actionRow || !actionName) return;
 
     const item: AnyRow = { ...actionRow };
-    const statusCode =
-      actionName === "APPROVE" ? "LPSAPPROVED" : "LPSREJECTED";
+    const statusCode = actionName === "APPROVE" ? "LPSAPPROVED" : "LPSREJECTED";
     const status = leaveStatuses.find(
       (x) => String(x.generalDetailCode) === statusCode,
     );

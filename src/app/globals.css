@@ -645,7 +645,9 @@
   min-width: 0 !important;
 }
 
-.global-filter-bar__row--vem > .global-filter-field--action .global-filter-field__label {
+.global-filter-bar__row--vem
+  > .global-filter-field--action
+  .global-filter-field__label {
   min-height: 1.25rem;
 }
 
@@ -2008,7 +2010,9 @@ a.app-control[data-app-add]:hover {
 }
 
 /* Fit-to-width list tables — hide horizontal scroll track (columns use sizeColumnsToFit) */
-.app-data-table:not(.app-data-table-wide) .ag-theme-quartz .ag-body-horizontal-scroll,
+.app-data-table:not(.app-data-table-wide)
+  .ag-theme-quartz
+  .ag-body-horizontal-scroll,
 .app-data-table:not(.app-data-table-wide)
   .ag-theme-quartz
   .ag-body-horizontal-scroll-viewport {
@@ -3602,6 +3606,26 @@ button.back-btn:hover,
 a.back-btn:hover {
   background-color: #f5f5f5 !important;
   color: #042956 !important;
+}
+
+/* Angular report filter Back (`styles.scss` later `.back-btn { background: #ffcf46 }`) */
+button.app-control.back-btn[data-app-back],
+a.app-control.back-btn[data-app-back],
+button.app-control.back-btn,
+a.app-control.back-btn {
+  background: #ffcf46 !important;
+  background-color: #ffcf46 !important;
+  color: #000 !important;
+  border: 0 !important;
+}
+
+button.app-control.back-btn[data-app-back]:hover,
+a.app-control.back-btn[data-app-back]:hover,
+button.app-control.back-btn:hover,
+a.app-control.back-btn:hover {
+  background: #e5b535 !important;
+  background-color: #e5b535 !important;
+  color: #000 !important;
 }
 
 /* Angular dialog title icon */

@@ -676,7 +676,7 @@ ${tableHtml}</body></html>`);
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="bg-muted/50">
+                <tr className="bg-[#c3d9ff]">
                   <th className="border border-border px-3 py-2 text-left font-semibold">
                     S.No
                   </th>

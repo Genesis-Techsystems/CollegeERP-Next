@@ -10,24 +10,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { Download } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
-import { buildHtmlTable, escapeHtml } from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
-import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
 import {
   dedupeBy,
   filterColleges,
@@ -40,13 +33,6 @@ import {
   getAttendanceCollegeDeptFilters,
   getCounselorActivityReport,
 } from "@/services";
-import {
-  attendancePrintShell,
-  resolveAttendancePrintLogo,
-  toPrintLogoUrl,
-} from "../_lib/attendance-report-print";
-
-const PRINT_REPORT_TITLE = "Counselor Activity Report";
 
 type AnyRow = Record<string, unknown>;
 
@@ -71,6 +57,10 @@ function humanizeKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function isSerialNoKey(key: string): boolean {
+  return key.toLowerCase().replace(/[.\s_]/g, "") === "sno";
+}
+
 export default function CounselorActivityReportPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -86,17 +76,13 @@ export default function CounselorActivityReportPage() {
   const [meetingTaken, setMeetingTaken] = useState(false);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
-  const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showTable, setShowTable] = useState(false);
 
-  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
-
   const clearResults = useCallback(() => {
     setRows([]);
     setShowTable(false);
-    setCollegeName("");
   }, []);
 
   const filtersQuery = useQuery({
@@ -113,7 +99,9 @@ export default function CounselorActivityReportPage() {
     const fromDept = (filtersQuery.data?.departmentData ?? []) as FilterRow[];
     if (fromDept.length > 0) return fromDept;
     return filtersData.filter(
-      (r) => pickNum(r, DEPT_KEYS) > 0 && pickText(r, ["dept_code", "deptCode", "dept_name", "department_name"]),
+      (r) =>
+        pickNum(r, DEPT_KEYS) > 0 &&
+        pickText(r, ["dept_code", "deptCode", "dept_name", "department_name"]),
     );
   }, [filtersQuery.data?.departmentData, filtersData]);
 
@@ -124,16 +112,6 @@ export default function CounselorActivityReportPage() {
         label: pickText(r, ["college_code", "collegeCode"]),
       })),
     [filtersData],
-  );
-
-  const selectedCollegeRow = useMemo(
-    () =>
-      filterColleges(filtersData).find(
-        (r) =>
-          String(pickNum(r, ["fk_college_id", "collegeId"])) ===
-          String(collegeId ?? ""),
-      ) ?? null,
-    [filtersData, collegeId],
   );
 
   const deptOptions = useMemo(() => {
@@ -182,60 +160,26 @@ export default function CounselorActivityReportPage() {
     return Object.keys(rows[0]!).filter((k) => !isInternalKey(k));
   }, [rows]);
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
-    if (dataKeys.length === 0) {
-      return [
-        {
-          headerName: "SI.No",
-          valueGetter: rowIndexGetter,
-          width: 70,
-          flex: 0,
-        },
-      ];
-    }
-    return [
-      {
-        headerName: "SI.No",
-        valueGetter: rowIndexGetter,
-        width: 70,
-        flex: 0,
-      },
-      ...dataKeys.map(
-        (key) =>
-          ({
-            field: key,
-            headerName: humanizeKey(key),
-            minWidth: 120,
-            valueGetter: (p) => String(p.data?.[key] ?? ""),
-          }) as ColDef<AnyRow>,
-      ),
-    ];
-  }, [dataKeys]);
-
-  const excelColumns = useMemo(
-    () => [
-      { key: "siNo", header: "SI.No" },
-      ...dataKeys.map((key) => ({ key, header: humanizeKey(key) })),
-    ],
-    [dataKeys],
-  );
-
-  const exportRows = useMemo(
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () =>
-      rows.map((row, i) => {
-        const out: AnyRow = { siNo: i + 1 };
-        for (const key of dataKeys) out[key] = row[key] ?? "";
-        return out;
+      dataKeys.map((key) => {
+        const serial = isSerialNoKey(key);
+        return {
+          field: key,
+          headerName: humanizeKey(key),
+          minWidth: serial ? 70 : 120,
+          flex: serial ? 0 : undefined,
+          width: serial ? 70 : undefined,
+          valueGetter: (p) => String(p.data?.[key] ?? ""),
+        } as ColDef<AnyRow>;
       }),
-    [rows, dataKeys],
+    [dataKeys],
   );
 
   const reportParams = () => ({
     collegeId: Number(collegeId ?? 0),
     departmentId: Number(departmentId || 0),
-    attendanceDate: attendanceDate
-      ? format(attendanceDate, "yyyy-MM-dd")
-      : "",
+    attendanceDate: attendanceDate ? format(attendanceDate, "yyyy-MM-dd") : "",
     zeroCounselling: meetingTaken ? -1 : 0,
   });
 
@@ -258,13 +202,8 @@ export default function CounselorActivityReportPage() {
   const handleGetList = async () => {
     if (!validateFilters()) return;
     const params = reportParams();
-    const name =
-      pickText(selectedCollegeRow, ["college_name", "collegeName"]) ||
-      collegeOptions.find((o) => o.value === collegeId)?.label ||
-      "";
     setLoadingList(true);
     clearResults();
-    setCollegeName(name);
     try {
       const raw = await getCounselorActivityReport(params);
       if (raw.length === 0) {
@@ -294,30 +233,6 @@ export default function CounselorActivityReportPage() {
     } finally {
       setExporting(false);
     }
-  };
-
-  const printReport = async () => {
-    if (exportRows.length === 0) {
-      toastInfo("No records to print.");
-      return;
-    }
-    const cid = Number(collegeId ?? 0);
-    const logoSrc = await resolveAttendancePrintLogo(
-      selectedCollegeRow,
-      cid,
-      collegeLogo || DEFAULT_COLLEGE_LOGO,
-    );
-    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
-    const tableHtml = buildHtmlTable(excelColumns, exportRows);
-    printHtmlInIframe(
-      attendancePrintShell({
-        title: escapeHtml(PRINT_REPORT_TITLE),
-        logoSrc: escapeHtml(logoSrc),
-        fallbackLogo: escapeHtml(fallbackLogo),
-        collegeName: escapeHtml(collegeName || "College"),
-        tableHtml,
-      }),
-    );
   };
 
   const goBack = () => {
@@ -410,22 +325,23 @@ export default function CounselorActivityReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
-      onExportExcel={() => void handleExcelExport()}
       toolbarTrailing={
         showTable ? (
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
+            className="group relative z-[100] inline-flex h-30 w-30 items-center justify-center text-[#E91E63] hover:opacity-80 disabled:opacity-50"
+            aria-label="Download Counselor Activity Report"
+            disabled={exporting}
+            onClick={() => void handleExcelExport()}
           >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+            <Download className="h-7 w-7" strokeWidth={2.5} />
+            <span className="pointer-events-none absolute right-0 top-full z-[9999] mt-1.5 whitespace-nowrap rounded bg-neutral-800 px-2.5 py-1.5 text-[12px] text-white opacity-0 shadow-md group-hover:opacity-100">
+              Download Counselor Activity Report
+            </span>
+          </button>
         ) : null
       }
     />

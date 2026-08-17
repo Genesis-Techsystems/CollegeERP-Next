@@ -15,11 +15,16 @@ import {
   toNavSlug,
 } from "@/lib/navigation";
 import {
+  isSalarySlipsNav,
+  isSetProxyNav,
+  isStaffSelfAppraisalNav,
   isStaffWorkloadAdjustmentNav,
   isStudentClassDiaryViewer,
   isStudentPortalViewer,
   mapErpModuleLabelToRoute,
   mapErpModuleNavRoute,
+  SALARY_SLIPS_ROUTE,
+  SET_PROXY_ROUTE,
   STAFF_WORKLOAD_ADJUSTMENT_ROUTE,
 } from "@/lib/erp-modules-navigation";
 import {
@@ -253,6 +258,12 @@ export function resolveForcedNavRoute(
       labelLower === "budgetallocation")
   ) {
     return "/budget/budgetallocation";
+  }
+
+  // Faculty Leaves → Set Proxy (Angular `staff-faculty-leaves/set-proxy`).
+  // Missing route 404s to dashboard; pin before generic leave remaps.
+  if (isSetProxyNav(href, label)) {
+    return SET_PROXY_ROUTE;
   }
 
   // Faculty Leaves → Leave Summary (Angular `staff-faculty-leaves/leave-summary`)
@@ -1525,16 +1536,16 @@ export function resolveForcedNavRoute(
     // Staff Self Appraisal — Angular `staff-faculty-details/appraisal-report`.
     // Pin before the generic faculty-details matcher so principal login reaches
     // the implemented route instead of falling through to the dashboard.
-    if (
-      hrefLower.includes("staff-faculty-details/appraisal-report") ||
-      labelKey === "staff self appraisal forms" ||
-      labelKey === "staff self appraisal" ||
-      labelKey === "appraisal report"
-    ) {
+    if (isStaffSelfAppraisalNav(href, label)) {
       if (hrefLower.includes("review-appraisal")) {
         return "/staff-faculty-details/appraisal-report/review-appraisal";
       }
       return "/staff-faculty-details/appraisal-report";
+    }
+
+    // Salary Slips — Angular `staff-faculty-details/salary-slips`.
+    if (isSalarySlipsNav(href, label)) {
+      return SALARY_SLIPS_ROUTE;
     }
 
     // Faculty Performance Assessment — Angular `staff-faculty-details/performance-assessment`

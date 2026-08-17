@@ -231,8 +231,15 @@ export default function StaffWorkloadReportPage() {
 
   const columnDefs = useMemo<ColDef<WorkloadRow>[]>(
     () => [
-      COL_DEFS.siNo,
-      COL_DEFS.employee,
+      {
+        ...COL_DEFS.siNo,
+        valueGetter: (p) => (p.data?.isTotal ? "" : rowIndexGetter(p)),
+      },
+      {
+        ...COL_DEFS.employee,
+        cellStyle: (p) =>
+          p.data?.isTotal ? { textAlign: "right", fontWeight: 600 } : undefined,
+      },
       COL_DEFS.totalClasses,
       COL_DEFS.attendanceCapture,
       COL_DEFS.pending,

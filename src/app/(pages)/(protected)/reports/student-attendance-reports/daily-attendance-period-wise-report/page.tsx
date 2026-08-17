@@ -1018,19 +1018,19 @@ ${tableHtml}
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                  <th className="border border-border bg-[#c3d9ff] px-2 py-1.5 text-left">
                     S.No
                   </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                  <th className="border border-border bg-[#c3d9ff] px-2 py-1.5 text-left">
                     Subject Code
                   </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                  <th className="border border-border bg-[#c3d9ff] px-2 py-1.5 text-left">
                     Subject
                   </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                  <th className="border border-border bg-[#c3d9ff] px-2 py-1.5 text-left">
                     Faculty
                   </th>
-                  <th className="border border-border bg-muted/40 px-2 py-1.5 text-left">
+                  <th className="border border-border bg-[#c3d9ff] px-2 py-1.5 text-left">
                     Credit Points
                   </th>
                 </tr>

@@ -205,7 +205,12 @@ export function MyClassesPage() {
 
   const load = useCallback(async () => {
     const empId = employeeId || Number(readStorage("employeeId") || 0);
-    if (!empId) return;
+    if (!empId) {
+      setMyClasses([]);
+      setLabProxies([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const userName =

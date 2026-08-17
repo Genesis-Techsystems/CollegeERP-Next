@@ -213,32 +213,38 @@ export function ApplyLeavePage() {
       if (year == null || !employeeId) return;
       setLoading(true);
       try {
-        const details = await getStaffEmployeeDetailsById(employeeId);
-        setEmployeeDetails(details ?? {});
-        if (details) {
-          if (details.empNumber != null) {
-            window.localStorage.setItem("empNumber", String(details.empNumber));
+        try {
+          const details = await getStaffEmployeeDetailsById(employeeId);
+          setEmployeeDetails(details ?? {});
+          if (details) {
+            if (details.empNumber != null) {
+              window.localStorage.setItem(
+                "empNumber",
+                String(details.empNumber),
+              );
+            }
+            if (details.reportingManagerId != null) {
+              window.localStorage.setItem(
+                "reportingManagerId",
+                String(details.reportingManagerId),
+              );
+            }
+            if (details.reportingManagerName != null) {
+              window.localStorage.setItem(
+                "reportingManagerName",
+                String(details.reportingManagerName),
+              );
+            }
+            if (details.firstName != null) {
+              window.localStorage.setItem("uName", String(details.firstName));
+            }
           }
-          if (details.reportingManagerId != null) {
-            window.localStorage.setItem(
-              "reportingManagerId",
-              String(details.reportingManagerId),
-            );
-          }
-          if (details.reportingManagerName != null) {
-            window.localStorage.setItem(
-              "reportingManagerName",
-              String(details.reportingManagerName),
-            );
-          }
-          if (details.firstName != null) {
-            window.localStorage.setItem("uName", String(details.firstName));
-          }
+        } catch {
+          // Employee details are independent of leave year. A failed lookup
+          // must not toast on year change — enrolment still loads below.
         }
         void loadLeaveStatuses();
         await loadLeaveHistory(year);
-      } catch (e) {
-        toastError(e, "Failed to load employee details");
       } finally {
         setLoading(false);
       }

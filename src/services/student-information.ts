@@ -2229,8 +2229,11 @@ export async function listDetainRecommendedStudentsForApproval(params: {
       ...row,
     }));
     return { rows, message: body.message || undefined };
-  } catch {
-    return { rows: [] };
+  } catch (error) {
+    return {
+      rows: [],
+      message: error instanceof Error ? error.message : undefined,
+    };
   }
 }
 
