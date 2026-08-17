@@ -57,17 +57,13 @@ function isStudentToolbarUser(userTypeCode?: string, userRole?: string): boolean
 }
 
 /**
- * Angular toolbar.component.html:
- *   ({{uNumber}}
- *     student: / {{groupCode}})  / {{courseYearName}})
- *     staff:   / {{deptName}} )
- * `uNumber` is empNumber (staff) or rollNumber (student) — never EMP+employeeId.
+ * Toolbar subtitle: username / roll number only (no department).
+ * Students also append groupCode / courseYearName when present.
  */
 function toolbarUserSubLabel(opts: {
   userTypeCode?: string;
   userRole?: string;
   empNumber?: string;
-  deptName?: string;
 }): string | null {
   const uNumber =
     (opts.empNumber ?? "").trim() ||
@@ -77,8 +73,6 @@ function toolbarUserSubLabel(opts: {
   if (!uNumber) return null;
 
   if (!isStudentToolbarUser(opts.userTypeCode, opts.userRole)) {
-    const deptName = (opts.deptName ?? "").trim() || readLs("deptName");
-    if (deptName) return `(${uNumber} / ${deptName} )`;
     return `(${uNumber})`;
   }
 
@@ -264,7 +258,6 @@ export function Topbar() {
     userTypeCode: user?.userTypeCode,
     userRole: user?.userRole,
     empNumber: employeeLogin?.empNumber,
-    deptName: employeeLogin?.deptName,
   });
   const fullName = toolbarFullName(user);
 

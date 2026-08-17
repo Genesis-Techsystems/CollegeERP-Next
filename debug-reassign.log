@@ -1,0 +1,425 @@
+2026-06-05T08:50:51.248Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 3,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 144,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
+2026-06-05T08:51:19.665Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 3,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 69,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
+2026-06-05T08:51:42.166Z flag=list_evaluatorassignment_list_reevaluation status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 3,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "pk_examevaluator_profiledet_id",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 8,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
+2026-06-05T08:52:17.129Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 6,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 319,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
+2026-06-05T08:55:29.481Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 0,
+  "keys": []
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 0,
+  "keys": []
+ }
+]
+
+2026-06-05T08:59:48.687Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 4,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 29,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
+2026-06-05T09:00:22.153Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 4,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 28,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
+2026-06-05T09:08:17.936Z flag=list_evaluatorassignment_list status=200 groups=3
+[
+ {
+  "i": 0,
+  "len": 2,
+  "keys": [
+   "evaluatorlistdetails",
+   "exam_month_yr",
+   "course_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "exam_names",
+   "fk_regulation_id",
+   "fk_subject_id",
+   "no_of_students_assigned",
+   "no_of_evaluations_completed"
+  ]
+ },
+ {
+  "i": 1,
+  "len": 1,
+  "keys": [
+   "StudentEvaluationAssignment",
+   "totalStudents",
+   "NoOfAnswerpapersUploaded",
+   "EvaluationStudents",
+   "UnAssinged"
+  ]
+ },
+ {
+  "i": 2,
+  "len": 28,
+  "keys": [
+   "StudentEvaluationAssignment_list",
+   "exam_month_yr",
+   "course_code",
+   "course_year_code",
+   "regulation_code",
+   "subject_code",
+   "pk_exam_evaluator_profile_id",
+   "evaluator_name",
+   "phonenumber",
+   "email",
+   "fk_subject_id",
+   "omr_serial_no",
+   "evaluated_totalmarks",
+   "fk_evaluationstatus_catdet_id",
+   "evaluationstatus",
+   "pk_exam_evaluationassignment_id"
+  ]
+ }
+]
+
