@@ -2,15 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { FilteredPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select } from "@/common/components/select";
+import { SearchInput } from "@/common/components/search";
 import { DataTable } from "@/common/components/table";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
 import { rowIndexGetter } from "@/lib/utils";
+import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   getGeneralDetails,
   getGradeMemoIssueFilters,
@@ -24,6 +34,7 @@ import {
   Building2,
   CalendarDays,
   ClipboardList,
+  Columns3,
   GraduationCap,
   Layers,
   RotateCcw,
@@ -43,14 +54,6 @@ type GroupBucket = {
   groupCode: string;
   subjects: SubjectBucket[];
 };
-
-const TABLE_TOOLBAR = {
-  search: true,
-  searchPlaceholder: "Search hall ticket…",
-  columnPicker: true,
-  exportPdf: true,
-  exportExcel: true,
-} as const;
 
 const COL_DEFS = {
   sno: {
@@ -92,6 +95,22 @@ const COL_DEFS = {
     valueGetter: (p) => strFrom(p.data ?? {}, ["moderated_ext_marks"]),
   } as ColDef<AnyRow>,
 };
+
+const REPORT_COLUMNS = [
+  { id: "sno", label: "S.No", def: COL_DEFS.sno },
+  { id: "hallTicket", label: "Hall Ticket No.", def: COL_DEFS.hallTicket },
+  {
+    id: "originalMarks",
+    label: "Original Marks",
+    def: COL_DEFS.originalMarks,
+  },
+  {
+    id: "moderationMarks",
+    label: "Moderation Marks",
+    def: COL_DEFS.moderationMarks,
+  },
+  { id: "finalMarks", label: "Final Marks", def: COL_DEFS.finalMarks },
+] as const;
 
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
@@ -190,6 +209,12 @@ export default function ModerationBenefitedStudentsReportPage() {
   const [groupResults, setGroupResults] = useState<GroupBucket[]>([]);
   const [dataDetails, setDataDetails] = useState("");
   const [examLabel, setExamLabel] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [visibleColumnIds, setVisibleColumnIds] = useState(
+    () => new Set(REPORT_COLUMNS.map((column) => column.id)),
+  );
+
+  const collegeLogo = useCollegeLogo(collegeId);
 
   const courses = useMemo(
     () => dedupeBy(baseRows, ["fk_course_id", "courseId"]),
@@ -260,14 +285,48 @@ export default function ModerationBenefitedStudentsReportPage() {
   );
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      COL_DEFS.sno,
-      COL_DEFS.hallTicket,
-      COL_DEFS.originalMarks,
-      COL_DEFS.moderationMarks,
-      COL_DEFS.finalMarks,
-    ],
-    [],
+    () =>
+      REPORT_COLUMNS.filter((column) => visibleColumnIds.has(column.id)).map(
+        (column) => column.def,
+      ),
+    [visibleColumnIds],
+  );
+
+  const filteredGroupResults = useMemo(() => {
+    const query = searchText.trim().toLowerCase();
+    if (!query) return groupResults;
+
+    return groupResults
+      .map((group) => ({
+        ...group,
+        subjects: group.subjects
+          .map((subject) => ({
+            ...subject,
+            students: subject.students.filter((student) =>
+              Object.values(student).some((value) =>
+                String(value ?? "")
+                  .toLowerCase()
+                  .includes(query),
+              ),
+            ),
+          }))
+          .filter((subject) => subject.students.length > 0),
+      }))
+      .filter((group) => group.subjects.length > 0);
+  }, [groupResults, searchText]);
+
+  const filteredRowCount = useMemo(
+    () =>
+      filteredGroupResults.reduce(
+        (groupTotal, group) =>
+          groupTotal +
+          group.subjects.reduce(
+            (subjectTotal, subject) => subjectTotal + subject.students.length,
+            0,
+          ),
+        0,
+      ),
+    [filteredGroupResults],
   );
 
   const getRowId = useCallback(
@@ -281,6 +340,7 @@ export default function ModerationBenefitedStudentsReportPage() {
     setGroupResults([]);
     setDataDetails("");
     setExamLabel("");
+    setSearchText("");
   }
 
   useEffect(() => {
@@ -610,12 +670,23 @@ export default function ModerationBenefitedStudentsReportPage() {
       title: "Moderation Benefited Students Data",
       examLabel,
       collegeName: strFrom(college ?? {}, ["college_name", "collegeName"]),
+      logoUrl: collegeLogo,
     });
   }
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Moderation Benefited Students Data"
+      showTable={groupResults.length > 0}
+      tableHeader={
+        groupResults.length > 0 ? (
+          <TableContextHeader
+            title="Moderation Benefited Students Data"
+            info={dataDetails || undefined}
+          />
+        ) : null
+      }
+      bodyClassName="app-data-table app-data-table-card flex flex-col !border !border-border !bg-white !shadow-md"
       filters={
         <div className="space-y-3">
           <GlobalFilterBarRow>
@@ -802,13 +873,79 @@ export default function ModerationBenefitedStudentsReportPage() {
       }
       body={
         groupResults.length > 0 ? (
-          <div className="space-y-4">
-            {dataDetails ? (
-              <p className="text-sm font-medium text-primary">{dataDetails}</p>
-            ) : null}
+          <div className="-mx-4 -mb-4 space-y-4 bg-white px-4 pb-4">
+            <div className="app-data-table-toolbar flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-x-3">
+                <SearchInput
+                  value={searchText}
+                  onChange={setSearchText}
+                  placeholder="Search..."
+                  className="min-w-0 w-full max-w-md"
+                />
+                <span className="inline-flex shrink-0 items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
+                  {filteredRowCount} {filteredRowCount === 1 ? "row" : "rows"}
+                </span>
+              </div>
+              <div className="flex shrink-0 flex-nowrap items-center justify-end gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="app-data-table-toolbar-btn h-[30px] px-3 text-[12px]"
+                    >
+                      <Columns3 className="mr-1.5 h-3.5 w-3.5" />
+                      Columns
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuLabel className="text-[12px]">
+                      Toggle columns
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {REPORT_COLUMNS.map((column) => {
+                      const checked = visibleColumnIds.has(column.id);
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={column.id}
+                          checked={checked}
+                          disabled={checked && visibleColumnIds.size === 1}
+                          className="text-[12px]"
+                          onCheckedChange={(nextChecked) => {
+                            setVisibleColumnIds((current) => {
+                              const next = new Set(current);
+                              if (nextChecked) next.add(column.id);
+                              else if (next.size > 1) next.delete(column.id);
+                              return next;
+                            });
+                          }}
+                        >
+                          {column.label}
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  type="button"
+                  className="h-[30px] px-3 text-[12px]"
+                  onClick={handleExportExcel}
+                >
+                  Export Excel
+                </Button>
+                <Button
+                  type="button"
+                  className="h-[30px] px-3 text-[12px]"
+                  onClick={handlePrint}
+                >
+                  Print Report
+                </Button>
+              </div>
+            </div>
 
             <div className="space-y-5">
-              {groupResults.map((group) => (
+              {filteredGroupResults.map((group) => (
                 <div key={group.groupCode} className="space-y-3">
                   <p className="text-sm font-semibold text-[#042956]">
                     Course Group: {group.groupCode}
@@ -828,21 +965,10 @@ export default function ModerationBenefitedStudentsReportPage() {
                         rowData={subj.students}
                         columnDefs={columnDefs}
                         loading={loading}
-                        pagination
-                        paginationPageSize={25}
+                        pagination={false}
                         getRowId={getRowId}
                         height="auto"
-                        onExportExcel={handleExportExcel}
-                        onExportPdf={handlePrint}
-                        toolbar={{
-                          ...TABLE_TOOLBAR,
-                          excelDocumentTitle:
-                            "Moderation Benefited Students Data",
-                          excelFileName:
-                            "Moderation Benefited Students Data.xls",
-                          pdfDocumentTitle:
-                            "Moderation Benefited Students Data",
-                        }}
+                        toolbar={false}
                       />
                     </div>
                   ))}

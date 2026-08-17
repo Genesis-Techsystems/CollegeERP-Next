@@ -807,7 +807,6 @@ export default function TabulationRegisterPage() {
         <Button
           type="button"
           size="sm"
-          variant="outline"
           className="h-9 text-[12px]"
           onClick={() =>
             exportTableAsExcel(tableRef.current, "Tabulation Register Report")

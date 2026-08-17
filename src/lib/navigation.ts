@@ -248,6 +248,18 @@ export function normalizeHref(path: string): string {
       "/admin-exam-reports/tabulation-register",
     )
     .replace(
+      /\/admin-exam-reports\/exam_timetable_report(?=\/|$)/gi,
+      "/admin-exam-reports/exam-timetable-report",
+    )
+    .replace(
+      /\/admin-exam-reports\/exam-time-table-report(?=\/|$)/gi,
+      "/admin-exam-reports/exam-timetable-report",
+    )
+    .replace(
+      /\/admin-exam-reports\/exam-timetable(?=\/|$)/gi,
+      "/admin-exam-reports/exam-timetable-report",
+    )
+    .replace(
       /\/reports\/admin-exam-reports\/exam_results_sheets(?=\/|$)/gi,
       "/admin-examination-management/admin-exam-reports/exam-results-sheets",
     )

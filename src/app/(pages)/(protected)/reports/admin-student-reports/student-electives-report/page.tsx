@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -25,10 +25,7 @@ import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import { MINIO_URL } from "@/config/constants/api";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   filterColleges,
   filterCourses,
@@ -98,8 +95,7 @@ async function resolveElectivesPrintLogo(
   liveLogo: string,
 ): Promise<string> {
   const fromFilter = pickText(filterRow, LOGO_FILTER_KEYS);
-  const fromHook =
-    liveLogo && !isDefaultLogoUrl(liveLogo) ? liveLogo : "";
+  const fromHook = liveLogo && !isDefaultLogoUrl(liveLogo) ? liveLogo : "";
   let fromCollege = "";
   if (collegeId > 0) {
     try {
@@ -488,14 +484,13 @@ ${tableHtml}
             >
               {loadingList ? "Loading…" : "Get Student Electives"}
             </Button>
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="app-control inline-flex h-9 w-fit cursor-pointer items-center justify-center rounded-[5px] border-0 bg-amber-400 px-4 font-medium text-slate-900 shadow-sm transition-colors hover:bg-amber-500"
               onClick={goBack}
             >
               Back
-            </Button>
+            </button>
           </div>
         </div>
       }
@@ -509,22 +504,32 @@ ${tableHtml}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
       onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

@@ -91,7 +91,6 @@ export function AppShell({
     if (!root) return;
 
     let cancelled = false;
-    let tagTimer: ReturnType<typeof setTimeout> | undefined;
 
     const isCardShell = (el: Element) => {
       const cls = typeof el.className === "string" ? el.className : "";
@@ -125,12 +124,18 @@ export function AppShell({
       }
     };
 
-    // Defer imperative attribute writes until after React hydration. The
-    // MutationObserver fires synchronously when Suspense/streamed children
-    // mount; setAttribute before hydrate causes mismatches on Client Components.
+    // Defer until after paint. Suspense/streamed Client Components hydrate
+    // after this observer sees the HTML; setTimeout(0) still races and stamps
+    // data-page-first-card before hydrate (mismatch). Two animation frames
+    // wait until that hydrate commit has landed.
+    let raf1 = 0;
+    let raf2 = 0;
     const scheduleTag = () => {
-      clearTimeout(tagTimer);
-      tagTimer = setTimeout(tag, 0);
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(tag);
+      });
     };
 
     scheduleTag();
@@ -138,11 +143,10 @@ export function AppShell({
     const observer = new MutationObserver(scheduleTag);
     observer.observe(root, { childList: true, subtree: true });
     return () => {
-      {
-        cancelled = true;
-        clearTimeout(tagTimer);
-        observer.disconnect();
-      }
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      observer.disconnect();
     };
   }, [pathname, mounted]);
 

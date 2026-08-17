@@ -26,6 +26,9 @@ export const EXAM_REPORTS_DB_SLUG_ALIASES: Record<string, string> = {
 
 /** DB / Angular admin-exam-reports slugs → real App Router folder names. */
 export const ADMIN_EXAM_REPORTS_DB_SLUG_ALIASES: Record<string, string> = {
+  "exam-timetable": "exam-timetable-report",
+  exam_timetable_report: "exam-timetable-report",
+  "exam-time-table-report": "exam-timetable-report",
   "grace-benefited-students-report": "grace-marks-benefited-students-report",
   // exam-gracemarks-reports is its own page (not Benefited Students)
   "re-evaluation-comparison-report": "re-evaluation-comparision-report",
@@ -84,6 +87,21 @@ export function resolveExaminationReportHref(
   const hrefLower = (href ?? "").toLowerCase();
   const labelLower = (label ?? "").toLowerCase().trim();
   if (!hrefLower && !labelLower) return null;
+
+  const labelCompact = labelLower.replace(/[^a-z0-9]+/g, "");
+  // Exam Timetable Report — must not go to missing /examination-section/student-exam-timetable (404→dashboard)
+  if (
+    hrefLower.includes("exam-timetable-report") ||
+    hrefLower.includes("exam_timetable_report") ||
+    hrefLower.includes("exam-time-table-report") ||
+    (labelCompact.includes("examtimetable") &&
+      labelCompact.includes("report") &&
+      !labelCompact.includes("courseyear") &&
+      !labelCompact.includes("lab") &&
+      !labelCompact.includes("notification"))
+  ) {
+    return `${ADMIN_EXAM_REPORTS}/exam-timetable-report`;
+  }
 
   // ── /exam-reports/* ─────────────────────────────────────────────────────
   if (

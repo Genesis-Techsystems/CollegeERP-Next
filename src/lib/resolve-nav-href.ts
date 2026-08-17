@@ -103,6 +103,7 @@ export function mapLegacyMasterSettingsHref(href?: string): string | null {
 const EXAM_MASTERS_PATH = "/admin-examination-management/admin-exam-masters";
 
 import {
+  HOD_FACULTY_DETAILS_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
@@ -112,7 +113,9 @@ import {
 } from "@/lib/role-routing";
 
 export {
+  HOD_FACULTY_DETAILS_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
+  isChancellorRole,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
   isSecretaryRole,
@@ -678,15 +681,20 @@ export function resolveForcedNavRoute(
   }
 
   // Exam Timetable Report (Exam Reports) — must not fall through to Time-Table Management / 404→dashboard
-  if (
-    hrefLower.includes("exam-timetable-report") ||
-    (labelLower.includes("exam") &&
-      labelLower.includes("timetable") &&
-      labelLower.includes("report") &&
-      !labelLower.includes("course year") &&
-      !labelLower.includes("lab"))
-  ) {
-    return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
+  {
+    const labelCompact = labelLower.replace(/[^a-z0-9]+/g, "");
+    if (
+      hrefLower.includes("exam-timetable-report") ||
+      hrefLower.includes("exam_timetable_report") ||
+      hrefLower.includes("exam-time-table-report") ||
+      (labelCompact.includes("examtimetable") &&
+        labelCompact.includes("report") &&
+        !labelCompact.includes("courseyear") &&
+        !labelCompact.includes("lab") &&
+        !labelCompact.includes("notification"))
+    ) {
+      return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
+    }
   }
 
   // Admin Grievance List — Angular `/grievance/complaint`
@@ -1569,7 +1577,7 @@ export function resolveForcedNavRoute(
       !isSecretaryRole() &&
       isHodFacultyDetailsHref(hrefLower)
     ) {
-      return "/staff-faculty-details/faculty-details";
+      return HOD_FACULTY_DETAILS_ROUTE;
     }
 
     // Principal Leave Approvals (Angular `leave-approvals`) — before leave-applications.

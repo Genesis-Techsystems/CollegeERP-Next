@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -172,13 +172,17 @@ export default function SubjectWiseSyllabusReportPage() {
     () =>
       dedupeBy(
         filterRows.filter(
-          (r) => !collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+          (r) =>
+            !collegeId ||
+            num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
         ),
         (r) => num(r.fk_academic_year_id ?? r.academicYearId),
       ).sort(
         (a, b) =>
           num(b.is_curr_ay ?? b.isCurrAy) - num(a.is_curr_ay ?? a.isCurrAy) ||
-          String(b.academic_year ?? "").localeCompare(String(a.academic_year ?? "")),
+          String(b.academic_year ?? "").localeCompare(
+            String(a.academic_year ?? ""),
+          ),
       ),
     [filterRows, collegeId],
   );
@@ -188,9 +192,11 @@ export default function SubjectWiseSyllabusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)),
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)),
         ),
         (r) => num(r.fk_course_id ?? r.courseId),
       ),
@@ -202,10 +208,13 @@ export default function SubjectWiseSyllabusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)) &&
-            (!courseId || num(r.fk_course_id ?? r.courseId) === Number(courseId)),
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)) &&
+            (!courseId ||
+              num(r.fk_course_id ?? r.courseId) === Number(courseId)),
         ),
         (r) => num(r.fk_course_group_id ?? r.courseGroupId),
       ),
@@ -217,12 +226,16 @@ export default function SubjectWiseSyllabusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)) &&
-            (!courseId || num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)) &&
+            (!courseId ||
+              num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
             (!courseGroupId ||
-              num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId)),
+              num(r.fk_course_group_id ?? r.courseGroupId) ===
+                Number(courseGroupId)),
         ),
         (r) => num(r.fk_course_year_id ?? r.courseYearId),
       ).sort(
@@ -237,14 +250,19 @@ export default function SubjectWiseSyllabusReportPage() {
       dedupeBy(
         filterRows.filter(
           (r) =>
-            (!collegeId || num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
+            (!collegeId ||
+              num(r.fk_college_id ?? r.collegeId) === Number(collegeId)) &&
             (!academicYearId ||
-              num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId)) &&
-            (!courseId || num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
+              num(r.fk_academic_year_id ?? r.academicYearId) ===
+                Number(academicYearId)) &&
+            (!courseId ||
+              num(r.fk_course_id ?? r.courseId) === Number(courseId)) &&
             (!courseGroupId ||
-              num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId)) &&
+              num(r.fk_course_group_id ?? r.courseGroupId) ===
+                Number(courseGroupId)) &&
             (!courseYearId ||
-              num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId)),
+              num(r.fk_course_year_id ?? r.courseYearId) ===
+                Number(courseYearId)),
         ),
         (r) => num(r.fk_group_section_id ?? r.groupSectionId ?? r.sectionId),
       ).sort(
@@ -252,13 +270,26 @@ export default function SubjectWiseSyllabusReportPage() {
           num(a.fk_group_section_id ?? a.groupSectionId) -
           num(b.fk_group_section_id ?? b.groupSectionId),
       ),
-    [filterRows, collegeId, academicYearId, courseId, courseGroupId, courseYearId],
+    [
+      filterRows,
+      collegeId,
+      academicYearId,
+      courseId,
+      courseGroupId,
+      courseYearId,
+    ],
   );
 
   useEffect(() => {
     if (!colleges.length) return;
-    if (!colleges.some((r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId))) {
-      setCollegeId(String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)));
+    if (
+      !colleges.some(
+        (r) => num(r.fk_college_id ?? r.collegeId) === Number(collegeId),
+      )
+    ) {
+      setCollegeId(
+        String(num(colleges[0].fk_college_id ?? colleges[0].collegeId)),
+      );
     }
   }, [colleges, collegeId]);
 
@@ -269,12 +300,17 @@ export default function SubjectWiseSyllabusReportPage() {
     }
     if (
       !academicYears.some(
-        (r) => num(r.fk_academic_year_id ?? r.academicYearId) === Number(academicYearId),
+        (r) =>
+          num(r.fk_academic_year_id ?? r.academicYearId) ===
+          Number(academicYearId),
       )
     ) {
       setAcademicYearId(
         String(
-          num(academicYears[0].fk_academic_year_id ?? academicYears[0].academicYearId),
+          num(
+            academicYears[0].fk_academic_year_id ??
+              academicYears[0].academicYearId,
+          ),
         ),
       );
     }
@@ -285,7 +321,11 @@ export default function SubjectWiseSyllabusReportPage() {
       setCourseId("");
       return;
     }
-    if (!courses.some((r) => num(r.fk_course_id ?? r.courseId) === Number(courseId))) {
+    if (
+      !courses.some(
+        (r) => num(r.fk_course_id ?? r.courseId) === Number(courseId),
+      )
+    ) {
       setCourseId(String(num(courses[0].fk_course_id ?? courses[0].courseId)));
     }
   }, [courses, courseId]);
@@ -297,11 +337,17 @@ export default function SubjectWiseSyllabusReportPage() {
     }
     if (
       !courseGroups.some(
-        (r) => num(r.fk_course_group_id ?? r.courseGroupId) === Number(courseGroupId),
+        (r) =>
+          num(r.fk_course_group_id ?? r.courseGroupId) ===
+          Number(courseGroupId),
       )
     ) {
       setCourseGroupId(
-        String(num(courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId)),
+        String(
+          num(
+            courseGroups[0].fk_course_group_id ?? courseGroups[0].courseGroupId,
+          ),
+        ),
       );
     }
   }, [courseGroups, courseGroupId]);
@@ -313,11 +359,14 @@ export default function SubjectWiseSyllabusReportPage() {
     }
     if (
       !courseYears.some(
-        (r) => num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
+        (r) =>
+          num(r.fk_course_year_id ?? r.courseYearId) === Number(courseYearId),
       )
     ) {
       setCourseYearId(
-        String(num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId)),
+        String(
+          num(courseYears[0].fk_course_year_id ?? courseYears[0].courseYearId),
+        ),
       );
     }
   }, [courseYears, courseYearId]);
@@ -537,7 +586,9 @@ export default function SubjectWiseSyllabusReportPage() {
       sectionOptions.find((o) => o.value === sectionId)?.label,
     ].filter(Boolean);
     let details = parts.join(" / ");
-    const sub = subjectOptions.find((o) => o.value === subjectId && o.value !== "0");
+    const sub = subjectOptions.find(
+      (o) => o.value === subjectId && o.value !== "0",
+    );
     if (sub) {
       const codeMatch = sub.label.match(/\(([^)]+)\)\s*$/);
       details += codeMatch ? `- ${codeMatch[1]}` : `- ${sub.label}`;
@@ -551,7 +602,13 @@ export default function SubjectWiseSyllabusReportPage() {
       toastInfo("College is required");
       return;
     }
-    if (!academicYearId || !courseId || !courseGroupId || !courseYearId || !sectionId) {
+    if (
+      !academicYearId ||
+      !courseId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !sectionId
+    ) {
       toastInfo("All filters are required");
       return;
     }
@@ -733,14 +790,13 @@ export default function SubjectWiseSyllabusReportPage() {
               >
                 {loadingList ? "Loading…" : "Get Syllabus List"}
               </Button>
-              <Button
+              <button
                 type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
+                className="app-control inline-flex h-9 w-fit cursor-pointer items-center justify-center rounded-[5px] border-0 bg-amber-400 px-4 font-medium text-slate-900 shadow-sm transition-colors hover:bg-amber-500"
                 onClick={goBack}
               >
                 Back
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -755,22 +811,32 @@ export default function SubjectWiseSyllabusReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
       onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

@@ -198,6 +198,7 @@ import {
   isSecretaryRole,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
+  HOD_FACULTY_DETAILS_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
 } from "@/lib/role-routing";
 import { resolveSidebarLabelPin } from "@/lib/sidebar-route-pins";
@@ -1037,7 +1038,7 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
       return "/admin/room-details";
     if (
       lower.includes("exam") &&
-      lower.includes("timetable") &&
+      (lower.includes("timetable") || lower.includes("time table")) &&
       lower.includes("report") &&
       !lower.includes("course year") &&
       !lower.includes("lab")
@@ -1569,6 +1570,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/reports/admin-attendance-reports/course-wise-students-attendance-report";
     }
 
+    // Exam Timetable Report — pin before student examination-section remap (404→dashboard)
+    {
+      const labelCompact = labelLower.replace(/[^a-z0-9]+/g, "");
+      if (
+        hrefLower.includes("exam-timetable-report") ||
+        hrefLower.includes("exam_timetable_report") ||
+        hrefLower.includes("exam-time-table-report") ||
+        (labelCompact.includes("examtimetable") &&
+          labelCompact.includes("report") &&
+          !labelCompact.includes("courseyear") &&
+          !labelCompact.includes("lab") &&
+          !labelCompact.includes("notification"))
+      ) {
+        return "/admin-examination-management/admin-exam-reports/exam-timetable-report";
+      }
+    }
+
     // ── Student Examination Section (Angular examination-section module) ───────
     const examinationSectionRoute = mapExaminationSectionNavRoute(
       item.href,
@@ -1605,6 +1623,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return `${examReportsAltBase}/${slug}`;
       }
       // Angular folder aliases → App Router folder names (admin-exam-reports).
+      if (
+        slug === "exam-timetable" ||
+        slug === "exam_timetable_report" ||
+        slug === "exam-time-table-report" ||
+        slug === "exam-timetable-report"
+      ) {
+        return `${examReportsBase}/exam-timetable-report`;
+      }
       if (slug === "grace-benefited-students-report") {
         return "/reports/admin-exam-reports/grace-marks-benefited-students-report";
       }
@@ -1890,8 +1916,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     // Exam Timetable Report (Exam Reports) — must not fall through to Time-Table Management / 404→dashboard
     if (
       hrefLower.includes("exam-timetable-report") ||
-      (labelLower.includes("exam") &&
-        labelLower.includes("timetable") &&
+      hrefLower.includes("exam_timetable_report") ||
+      hrefLower.includes("exam-time-table-report") ||
+      (labelLower.replace(/[^a-z0-9]+/g, "").includes("examtimetable") &&
         labelLower.includes("report") &&
         !labelLower.includes("course year") &&
         !labelLower.includes("lab"))
@@ -2805,7 +2832,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !isSecretaryRole(user?.roleName) &&
         isHodFacultyDetailsHref(hrefLower)
       ) {
-        return "/staff-faculty-details/faculty-details";
+        return HOD_FACULTY_DETAILS_ROUTE;
       }
 
       // Principal Leave Approvals (Angular `leave-approvals`) — before leave-applications.

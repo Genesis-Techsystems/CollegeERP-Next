@@ -38,6 +38,25 @@ export function isSecretaryRole(
   });
 }
 
+export function roleNameIsChancellor(roleName?: string | null): boolean {
+  const compact = (roleName ?? "").toUpperCase().replace(/[\s_-]+/g, "");
+  return compact.includes("CHANCELLOR");
+}
+
+/** Pro Vice Chancellor / Vice Chancellor / Chancellor — Angular Faculty List login. */
+export function isChancellorRole(
+  roleName?: string | null,
+  userRoles?: Array<{ roleName?: string } | string> | null,
+): boolean {
+  if (roleNameIsChancellor(roleName ?? readNavRoleName())) return true;
+  const roles = userRoles ?? readNavUserRoles();
+  return roles.some((entry) => {
+    const name =
+      typeof entry === "string" ? entry : String(entry?.roleName ?? "");
+    return roleNameIsChancellor(name);
+  });
+}
+
 export function isHodFacultyDetailsHref(href?: string): boolean {
   const hrefLower = (href ?? "").toLowerCase();
   return (
@@ -54,6 +73,8 @@ export function isHodFacultyDetailsHref(href?: string): boolean {
 }
 
 export const HR_EMPLOYEE_LIST_ROUTE = "/hr-payroll/employee/employee-list";
+export const HOD_FACULTY_DETAILS_ROUTE =
+  "/staff-faculty-details/faculty-details";
 
 export function isHrEmployeeListHref(href?: string): boolean {
   const hrefLower = (href ?? "").toLowerCase();
@@ -81,6 +102,7 @@ function isHrEmployeeListNavLabel(labelKey: string): boolean {
   return (
     labelKey === "faculty details" ||
     labelKey === "faculty detail" ||
+    labelKey === "faculty list" ||
     labelKey === "employees details" ||
     labelKey === "employees detalis" ||
     labelKey === "employee details" ||
@@ -91,9 +113,18 @@ function isHrEmployeeListNavLabel(labelKey: string): boolean {
   );
 }
 
+function isAngularFacultyListNavLabel(labelKey: string): boolean {
+  return (
+    labelKey === "faculty details" ||
+    labelKey === "faculty detail" ||
+    labelKey === "faculty list"
+  );
+}
+
 /**
- * Faculty Details / Employee Details sidebar — Angular `#/hr-payroll/employee/employee-list`
- * unless the menu href is explicitly the HOD `staff-faculty-details/faculty-details` page.
+ * Faculty Details / Employee Details sidebar:
+ * - Secretary / HR → Angular `#/hr-payroll/employee/employee-list`
+ * - HOD / Principal / Pro Vice Chancellor → Angular `#/staff-faculty-details/faculty-details`
  */
 export function resolveFacultyDetailsNavRoute(
   href?: string,
@@ -103,20 +134,29 @@ export function resolveFacultyDetailsNavRoute(
 ): string | null {
   const hrefLower = (href ?? "").toLowerCase();
   const labelKey = normalizeNavLabelKey(label ?? "");
+  const facultyListLabel = isHrEmployeeListNavLabel(labelKey);
+  const angularFacultyList =
+    isAngularFacultyListNavLabel(labelKey) ||
+    (labelKey === "college list" &&
+      hrefLower.includes("staff-faculty-details"));
+  const chancellor = isChancellorRole(roleName, userRoles);
+
+  if (
+    isHodFacultyDetailsHref(hrefLower) &&
+    !isSecretaryRole(roleName, userRoles)
+  ) {
+    return HOD_FACULTY_DETAILS_ROUTE;
+  }
+
+  if (chancellor && angularFacultyList) {
+    return HOD_FACULTY_DETAILS_ROUTE;
+  }
 
   if (isHrEmployeeListHref(hrefLower)) {
     return HR_EMPLOYEE_LIST_ROUTE;
   }
 
-  if (!isHrEmployeeListNavLabel(labelKey)) {
-    return null;
-  }
-
-  if (isSecretaryRole(roleName, userRoles)) {
-    return HR_EMPLOYEE_LIST_ROUTE;
-  }
-
-  if (isHodFacultyDetailsHref(hrefLower)) {
+  if (!facultyListLabel) {
     return null;
   }
 

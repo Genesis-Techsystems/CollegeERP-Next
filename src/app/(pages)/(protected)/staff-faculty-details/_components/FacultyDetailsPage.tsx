@@ -15,7 +15,7 @@ import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
-import { isSecretaryRole } from "@/lib/role-routing";
+import { isChancellorRole, isSecretaryRole } from "@/lib/role-routing";
 import {
   getGeneralDetails,
   getStaffEmployeeDetailsById,
@@ -197,8 +197,13 @@ export function FacultyDetailsPage() {
       router.replace("/hr-payroll/employee/employee-list");
       return;
     }
-    // Angular HR employee list — non-HOD / non-Principal logins must not stay on HOD faculty-details.
-    if (!user?.isHod && !user?.isPrincipal) {
+    // Angular `#/staff-faculty-details/faculty-details` (Faculty List) is used by
+    // HOD, Principal, and Pro Vice Chancellor — not HR Employee Search.
+    if (
+      !user?.isHod &&
+      !user?.isPrincipal &&
+      !isChancellorRole(user?.roleName)
+    ) {
       router.replace("/hr-payroll/employee/employee-list");
     }
   }, [router, sessionLoading, user?.isHod, user?.isPrincipal, user?.roleName]);

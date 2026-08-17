@@ -8,8 +8,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
-import { Printer, RefreshCw } from "lucide-react";
-import { buildHtmlTable, escapeHtml } from "@/common/export-html-table";
+import { FileSpreadsheet, Printer, RefreshCw } from "lucide-react";
+import {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
 import { printHtmlInIframe } from "@/lib/print";
 import { FilteredListPage } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
@@ -564,47 +568,65 @@ export default function ExamTimetableReportPage() {
     }
   }
 
+  const PRINT_COLS = [
+    { key: "siNo", header: "S.No" },
+    { key: "exam_name", header: "Exam" },
+    { key: "exam_date", header: "Exam Date" },
+    { key: "group_code", header: "Group" },
+    { key: "course_year_code", header: "Course Year" },
+    { key: "subject_name", header: "Subject" },
+    { key: "gd_display_name", header: "Exam Type" },
+    { key: "session_display", header: "Session" },
+  ];
+
+  const exportRows = rows.map((r, i) => ({
+    siNo: i + 1,
+    exam_name: txt(r.exam_name ?? r.examName),
+    exam_date: txt(r.exam_date ?? r.examDate),
+    group_code: txt(r.group_code ?? r.groupCode ?? r.course_group_code),
+    course_year_code: txt(
+      r.course_year_code ?? r.courseYearCode ?? r.course_year_name,
+    ),
+    subject_name: (() => {
+      const sn = txt(r.subject_name ?? r.subjectName);
+      const sc = txt(r.subject_code ?? r.subjectCode);
+      return sn && sc ? `${sn} (${sc})` : sn || sc;
+    })(),
+    gd_display_name: txt(
+      r.gd_display_name ?? r.exam_type ?? r.examType ?? r.paper_type,
+    ),
+    session_display: (() => {
+      const name = txt(
+        r.exam_session_name ?? r.session_name ?? r.examSessionName,
+      );
+      const start = txt(r.session_start_time ?? r.sessionStartTime);
+      const end = txt(r.session_end_time ?? r.sessionEndTime);
+      return name && start && end ? `${name}-(${start} To ${end})` : name;
+    })(),
+  }));
+
+  function handleExcelExport() {
+    if (!exportRows.length) {
+      toast.info("No records to export.");
+      return;
+    }
+    const headerHtml = `<div style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:600;">Exam Timetable Report</div>
+      ${filterSummary ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(filterSummary)}</div>` : ""}
+    </div>`;
+    exportHtmlTableAsExcel(
+      "Exam Timetable Report.xls",
+      buildHtmlTable(PRINT_COLS, exportRows),
+      headerHtml,
+    );
+  }
+
   function printReport() {
-    if (!rows.length) {
+    if (!exportRows.length) {
       toast.info("No records to print.");
       return;
     }
-    const PRINT_COLS = [
-      { key: "siNo", header: "S.No" },
-      { key: "exam_name", header: "Exam" },
-      { key: "exam_date", header: "Exam Date" },
-      { key: "group_code", header: "Group" },
-      { key: "course_year_code", header: "Course Year" },
-      { key: "subject_name", header: "Subject" },
-      { key: "gd_display_name", header: "Exam Type" },
-      { key: "session_display", header: "Session" },
-    ];
-    const printRows = rows.map((r, i) => ({
-      siNo: i + 1,
-      exam_name: txt(r.exam_name ?? r.examName),
-      exam_date: txt(r.exam_date ?? r.examDate),
-      group_code: txt(r.group_code ?? r.groupCode ?? r.course_group_code),
-      course_year_code: txt(
-        r.course_year_code ?? r.courseYearCode ?? r.course_year_name,
-      ),
-      subject_name: (() => {
-        const sn = txt(r.subject_name ?? r.subjectName);
-        const sc = txt(r.subject_code ?? r.subjectCode);
-        return sn && sc ? `${sn} (${sc})` : sn || sc;
-      })(),
-      gd_display_name: txt(
-        r.gd_display_name ?? r.exam_type ?? r.examType ?? r.paper_type,
-      ),
-      session_display: (() => {
-        const name = txt(
-          r.exam_session_name ?? r.session_name ?? r.examSessionName,
-        );
-        const start = txt(r.session_start_time ?? r.sessionStartTime);
-        const end = txt(r.session_end_time ?? r.sessionEndTime);
-        return name && start && end ? `${name}-(${start} To ${end})` : name;
-      })(),
-    }));
-    const tableHtml = buildHtmlTable(PRINT_COLS, printRows);
+    const tableHtml = buildHtmlTable(PRINT_COLS, exportRows);
     const detailsHtml = filterSummary
       ? `<p style="font-size:14px;font-weight:550;margin:0 0 6px">${escapeHtml(filterSummary)}</p>`
       : "";
@@ -787,11 +809,6 @@ ${tableHtml}
               </Button>
             </div>
           </div>
-          {hasFetched && filterSummary ? (
-            <p className="mt-2 text-[12px] font-medium text-blue-700">
-              {filterSummary}
-            </p>
-          ) : null}
         </>
       }
       rowData={hasFetched ? rows : []}
@@ -803,20 +820,31 @@ ${tableHtml}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",
-        pdfDocumentTitle: "Exam Timetable Report",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={printReport}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={printReport}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

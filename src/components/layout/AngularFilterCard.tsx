@@ -47,6 +47,8 @@ export function AngularFilterCard({
       className={cn("app-card angular-filter-card overflow-hidden", className)}
       data-filters-collapsed={open ? "false" : "true"}
       {...(pageFirstCard ? { "data-page-first-card": "" } : {})}
+      // AppShell may stamp data-page-first-card on streamed HTML before hydrate.
+      suppressHydrationWarning
     >
       <div className="angular-filter-card__header">
         {collapsible ? (

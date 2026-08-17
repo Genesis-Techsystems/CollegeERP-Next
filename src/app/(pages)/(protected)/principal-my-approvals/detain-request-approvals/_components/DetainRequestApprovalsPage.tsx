@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { DataTable } from "@/common/components/table";
-import { FilteredPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
+import { Button } from "@/components/ui/button";
 import { useSessionContext } from "@/context/SessionContext";
 import { utcMidnightIso } from "@/common/generic-functions";
 import { rowIndexGetter } from "@/lib/utils";
@@ -274,11 +274,10 @@ export function DetainRequestApprovalsPage() {
     const seq = ++loadSeq.current;
     setLoadingRows(true);
     try {
-      const { rows: data } =
-        await listDetainRecommendedStudentsForApproval({
-          collegeId,
-          courseGroupId,
-        });
+      const { rows: data } = await listDetainRecommendedStudentsForApproval({
+        collegeId,
+        courseGroupId,
+      });
       if (seq !== loadSeq.current) return;
       setRows(
         data.map((row) => ({
@@ -388,6 +387,16 @@ export function DetainRequestApprovalsPage() {
     label: pickText(r, ["group_code", "groupCode"]) || "Group",
   }));
 
+  const selectedCollegeLabel =
+    collegeOpts.find((o) => o.value === String(collegeId))?.label ?? "";
+  const selectedAyLabel =
+    ayOpts.find((o) => o.value === String(academicYearId))?.label ?? "";
+  const selectedCourseLabel =
+    courseOpts.find((o) => o.value === String(courseId))?.label ?? "";
+  const selectedGroupLabel =
+    groupOpts.find((o) => o.value === String(courseGroupId))?.label ?? "";
+  const filtersComplete = Boolean(collegeId && courseGroupId);
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
       {
@@ -441,10 +450,26 @@ export function DetainRequestApprovalsPage() {
   );
 
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Detain Request Approvals"
       tableTitle="Detain Request Approval List"
-      tableHeader={rows.length > 0 ? undefined : null}
+      showTable={filtersComplete}
+      resultsVisible={filtersComplete}
+      tableHeader={
+        filtersComplete ? (
+          <TableContextHeader
+            title="Detain Request Approval List"
+            info={[
+              selectedCollegeLabel,
+              selectedAyLabel,
+              selectedCourseLabel,
+              selectedGroupLabel,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          />
+        ) : null
+      }
       filters={
         <GlobalFilterBarRow>
           <GlobalFilterField label="College">
@@ -517,76 +542,58 @@ export function DetainRequestApprovalsPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      body={
-        rows.length > 0 ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px]">
-              <div className="border-b p-1 lg:border-b-0 lg:border-r lg:pr-3">
-                <DataTable
-                  title=""
-                  subtitle=""
-                  rowData={rows}
-                  columnDefs={columnDefs}
-                  loading={loadingRows}
-                  pagination
-                  bordered={false}
-                  toolbar={SEARCH_ONLY_TOOLBAR}
-                />
-              </div>
-              <div className="p-1 lg:pl-3">
-                <div className="overflow-hidden rounded border">
-                  <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-[12px] font-semibold">
-                    <span>Selected Student List</span>
-                    <span>{selectedRows.length}</span>
-                  </div>
-                  <div className="p-3 text-[12px] text-slate-700">
-                    {selectedRows.length === 0 ? (
-                      <p>No Students Detain.</p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {selectedRows.map((row, index) => (
-                          <li
-                            key={`selected-${studentId(row, index + 1)}-${index}`}
-                          >
-                            {pickText(row, ["firstName", "studentName"]) || "-"}{" "}
-                            <span className="text-muted-foreground">
-                              (
-                              {pickText(row, [
-                                "rollNumber",
-                                "hallticketNumber",
-                              ]) || "-"}
-                              )
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            {selectedRows.length > 0 ? (
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => openConfirm("detain")}
-                  disabled={submitting}
-                  className="inline-flex items-center rounded bg-red-600 px-3 py-1.5 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Detain
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openConfirm("inCollege")}
-                  disabled={submitting}
-                  className="inline-flex items-center rounded bg-emerald-600 px-3 py-1.5 text-[12px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  In College
-                </button>
-              </div>
-            ) : null}
+      rowData={rows}
+      columnDefs={columnDefs}
+      loading={loadingRows}
+      pagination
+      toolbar={SEARCH_ONLY_TOOLBAR}
+      rightRail={
+        <div className="overflow-hidden rounded border">
+          <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-[12px] font-semibold">
+            <span>Selected Student List</span>
+            <span>{selectedRows.length}</span>
           </div>
-        ) : undefined
+          <div className="max-h-[420px] overflow-auto p-3 text-[12px] text-slate-700">
+            {selectedRows.length === 0 ? (
+              <p>No Students Detain.</p>
+            ) : (
+              <ul className="space-y-2">
+                {selectedRows.map((row, index) => (
+                  <li key={`selected-${studentId(row, index + 1)}-${index}`}>
+                    {pickText(row, ["firstName", "studentName"]) || "-"}{" "}
+                    <span className="text-muted-foreground">
+                      (
+                      {pickText(row, ["rollNumber", "hallticketNumber"]) || "-"}
+                      )
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      }
+      afterGrid={
+        selectedRows.length > 0 ? (
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              onClick={() => openConfirm("detain")}
+              disabled={submitting}
+              className="h-8 bg-red-600 px-3 text-[12px] text-white hover:bg-red-700"
+            >
+              Detain
+            </Button>
+            <Button
+              type="button"
+              onClick={() => openConfirm("inCollege")}
+              disabled={submitting}
+              className="h-8 bg-emerald-600 px-3 text-[12px] text-white hover:bg-emerald-700"
+            >
+              In College
+            </Button>
+          </div>
+        ) : null
       }
     >
       <DetainConfirmModal
@@ -597,6 +604,6 @@ export function DetainRequestApprovalsPage() {
         onClose={() => setConfirmOpen(false)}
         onConfirm={(details) => void onConfirm(details)}
       />
-    </FilteredPage>
+    </FilteredListPage>
   );
 }

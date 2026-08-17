@@ -3,86 +3,31 @@ import type { NavItem } from "@/types/navigation";
 /** Canonical App Router base for Angular `time-table-management` module. */
 export const TIMETABLE_MGMT_BASE = "/time-table-management";
 
-/** Default sidebar children when API module has no nested pages (Angular parity). */
-export const TIMETABLE_SIDEBAR_CHILDREN: NavItem[] = [
-  {
-    id: "ttm_timing_sets",
-    label: "TimingSets",
-    icon: "arrow_forward",
-    href: `${TIMETABLE_MGMT_BASE}/timing-sets`,
-    sortOrder: 1,
-    isActive: true,
-  },
-  {
-    id: "ttm_manage_timetable",
-    label: "Create Class TimeTable",
-    icon: "arrow_forward",
-    href: `${TIMETABLE_MGMT_BASE}/manage-timetable`,
-    sortOrder: 2,
-    isActive: true,
-  },
-  {
-    id: "ttm_allocation",
-    label: "Timetable Allocation",
-    icon: "arrow_forward",
-    href: `${TIMETABLE_MGMT_BASE}/timetable-allocation`,
-    sortOrder: 3,
-    isActive: true,
-  },
-  {
-    id: "ttm_assign_resource",
-    label: "Assign Resource To Timetable",
-    icon: "arrow_forward",
-    href: `${TIMETABLE_MGMT_BASE}/create-timetable`,
-    sortOrder: 4,
-    isActive: true,
-  },
-  {
-    id: "ttm_view_timetable",
-    label: "View Class TimeTable",
-    icon: "arrow_forward",
-    href: `${TIMETABLE_MGMT_BASE}/view-timetable`,
-    sortOrder: 6,
-    isActive: true,
-  },
-];
-
 export function isTimetableModuleLabel(label?: string): boolean {
   if (!label) return false;
   const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "");
   return key.includes("timetable") && key.includes("management");
 }
 
-/** Ensure Time-Table Management always shows the four legacy sub-tabs. */
+/**
+ * Keep Time-Table Management children as returned by `/api/authorization`.
+ * Angular only shows pages assigned to the login role — do not inject the
+ * full timetable menu (TimingSets, Create Class TimeTable, etc.) when the
+ * role only has View Class TimeTable.
+ */
 export function ensureTimetableNavChildren(items: NavItem[]): NavItem[] {
   return items.map((item) => {
     const children = item.children?.length
       ? ensureTimetableNavChildren(item.children)
       : undefined;
 
-    if (isTimetableModuleLabel(item.label)) {
-      const merged = mergeTimetableSidebarChildren(children ?? []);
-      return { ...item, href: undefined, children: merged };
+    if (isTimetableModuleLabel(item.label) && children?.length) {
+      return { ...item, href: undefined, children };
     }
 
     if (children) return { ...item, children };
     return item;
   });
-}
-
-function mergeTimetableSidebarChildren(existing: NavItem[]): NavItem[] {
-  if (existing.length === 0) return [...TIMETABLE_SIDEBAR_CHILDREN];
-
-  const byRoute = new Set(
-    existing
-      .map((c) => mapTimetableNavRoute(c.href, c.label) ?? c.href ?? "")
-      .filter(Boolean),
-  );
-  const extras = TIMETABLE_SIDEBAR_CHILDREN.filter((fallback) => {
-    const route = fallback.href ?? "";
-    return route && !byRoute.has(route);
-  });
-  return [...existing, ...extras].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 const SLUG_ALIASES: Record<string, string> = {
@@ -202,6 +147,8 @@ export function mapTimetableNavRoute(
   // Keep Exam Reports / student portal Academics out of Time-Table Management remapping
   if (
     hrefLower.includes("exam-timetable-report") ||
+    hrefLower.includes("exam_timetable_report") ||
+    hrefLower.includes("exam-time-table-report") ||
     hrefLower.includes("course-year-timetable-report") ||
     hrefLower.includes("exam-invigilator-allotment-report") ||
     hrefLower.includes("exam-student-registration-report") ||

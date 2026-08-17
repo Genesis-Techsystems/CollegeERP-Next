@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { buildHtmlTable, escapeHtml } from "@/common/export-html-table";
@@ -24,10 +24,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  DEFAULT_COLLEGE_LOGO,
-  useCollegeLogo,
-} from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   dedupeBy,
   filterColleges,
@@ -112,14 +109,11 @@ const COL_DEFS = {
 function mapFortnightRow(row: AnyRow): FortnightRow {
   const name = String(row.Student_Name ?? row.student_name ?? "");
   const roll = String(row.Roll_no ?? row.roll_no ?? row.Roll_No ?? "");
-  const student =
-    name && roll ? `${name} (${roll})` : name || roll || "";
+  const student = name && roll ? `${name} (${roll})` : name || roll || "";
   return {
     student,
     className: String(row.Class ?? row.class ?? ""),
-    studentMobile: String(
-      row.Student_Mobile ?? row.student_mobile ?? "",
-    ),
+    studentMobile: String(row.Student_Mobile ?? row.student_mobile ?? ""),
     parentMobile: String(row.Parent_Mobile ?? row.parent_mobile ?? ""),
     mentor: String(
       row.Mentor ?? row.Counselor ?? row.mentor ?? row.counselor ?? "",
@@ -358,10 +352,7 @@ export default function MentorFortnightReportPage() {
     clearResults();
   };
 
-  const displayRows = useMemo(
-    () => rows.map(mapFortnightRow),
-    [rows],
-  );
+  const displayRows = useMemo(() => rows.map(mapFortnightRow), [rows]);
 
   const exportRows = useMemo(
     () =>
@@ -446,7 +437,9 @@ export default function MentorFortnightReportPage() {
         toastInfo("No records found.");
         return;
       }
-      const fromData = String(raw[0]?.College_Name ?? raw[0]?.college_name ?? "");
+      const fromData = String(
+        raw[0]?.College_Name ?? raw[0]?.college_name ?? "",
+      );
       setCollegeName(fromData || name);
       setRows(raw);
       setShowTable(true);
@@ -674,14 +667,13 @@ export default function MentorFortnightReportPage() {
             >
               {loadingList ? "Loading…" : "Get Fortnight List"}
             </Button>
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="app-control inline-flex h-9 w-fit cursor-pointer items-center justify-center rounded-[5px] border-0 bg-amber-400 px-4 font-medium text-slate-900 shadow-sm transition-colors hover:bg-amber-500"
               onClick={goBack}
             >
               Back
-            </Button>
+            </button>
           </div>
         </div>
       }
@@ -695,22 +687,33 @@ export default function MentorFortnightReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
       onExportExcel={() => void handleExcelExport()}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              disabled={exporting}
+              onClick={() => void handleExcelExport()}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              {exporting ? "Exporting…" : "Export Excel"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />
