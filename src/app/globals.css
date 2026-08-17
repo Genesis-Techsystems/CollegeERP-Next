@@ -3617,6 +3617,26 @@ a.back-btn:hover {
   color: #042956 !important;
 }
 
+/* Angular report filter Back (`styles.scss` later `.back-btn { background: #ffcf46 }`) */
+button.app-control.back-btn[data-app-back],
+a.app-control.back-btn[data-app-back],
+button.app-control.back-btn,
+a.app-control.back-btn {
+  background: #ffcf46 !important;
+  background-color: #ffcf46 !important;
+  color: #000 !important;
+  border: 0 !important;
+}
+
+button.app-control.back-btn[data-app-back]:hover,
+a.app-control.back-btn[data-app-back]:hover,
+button.app-control.back-btn:hover,
+a.app-control.back-btn:hover {
+  background: #e5b535 !important;
+  background-color: #e5b535 !important;
+  color: #000 !important;
+}
+
 /* Angular dialog title icon */
 .app-dialog-title__icon {
   font-size: 20px !important;

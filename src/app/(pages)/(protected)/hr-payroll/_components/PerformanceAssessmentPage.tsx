@@ -49,9 +49,11 @@ function canPickEmployee(user: SessionUser | null | undefined): boolean {
 
 /** Angular option line 1: `{{empNumber}} ( {{firstName}})`. */
 function employeeOptionLabel(row: Record<string, unknown>): string {
-  const num = row.empNumber != null ? String(row.empNumber) : "";
-  const name = row.firstName != null ? `( ${String(row.firstName)})` : "";
-  return [num, name].filter(Boolean).join(" ") || String(row.employeeId ?? "");
+  const name = row.firstName != null ? String(row.firstName).trim() : "";
+  const num = row.empNumber != null ? String(row.empNumber).trim() : "";
+
+  if (name && num) return `${name} (${num})`;
+  return name || num || String(row.employeeId ?? "");
 }
 
 /** Angular option line 2: `{{collegeCode}} / {{empDeptName}} / {{designation}}`. */
@@ -72,8 +74,8 @@ function employeeSelectOption(row: Record<string, unknown>): SelectOption {
     label: employeeOptionLabel(row),
     labelNode: (
       <>
-        {number}
-        {name ? <span className="text-[#3d3de3]"> ( {name})</span> : null}
+        {name}
+        {number ? <span className="text-[#3d3de3]"> ({number})</span> : null}
       </>
     ),
     description: employeeOptionMeta(row),

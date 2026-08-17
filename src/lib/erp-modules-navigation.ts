@@ -4,6 +4,7 @@ import {
   mapMirroredModuleNavRoute,
 } from "@/lib/erp-module-mirror/navigation";
 import {
+  isRegistrarLogin,
   isStudentClassDiaryViewer,
   isStudentPortalViewer,
   mapModuleTail,
@@ -13,6 +14,7 @@ import { mapAdminInstitutionalRoomRoute } from "@/lib/admin-institutional-naviga
 import { mapHostelNavRoute } from "./hostel-navigation";
 
 export {
+  isRegistrarLogin,
   isStudentClassDiaryViewer,
   isStudentPortalViewer,
 } from "./erp-modules-navigation-utils";
@@ -61,6 +63,62 @@ const ATTENDANCE_SLUGS: Record<string, string> = {
 /** Angular `staff-faculty-details/staff-workload-adjustment` (StaffProxyList). */
 export const STAFF_WORKLOAD_ADJUSTMENT_ROUTE =
   "/staff-faculty-details/staff-workload-adjustment";
+
+/** Angular `staff-faculty-leaves/set-proxy` (StaffWorkloadComponent). */
+export const SET_PROXY_ROUTE = "/staff-faculty-leaves/set-proxy";
+
+/** Angular `staff-faculty-details/salary-slips` (SalarySlipsComponent). */
+export const SALARY_SLIPS_ROUTE = "/staff-faculty-details/salary-slips";
+
+export function isSalarySlipsNav(href?: string, label?: string): boolean {
+  const hrefLower = (href ?? "").toLowerCase();
+  if (
+    hrefLower.includes("salary-slips") ||
+    hrefLower.includes("staff-faculty-details/salary-slips")
+  ) {
+    return true;
+  }
+  const labelLower = (label ?? "").trim().toLowerCase();
+  return labelLower === "salary slips" || labelLower === "my payslips";
+}
+
+export function isStaffSelfAppraisalNav(
+  href?: string,
+  label?: string,
+): boolean {
+  const hrefLower = (href ?? "").toLowerCase();
+  const key = normalizeLabelKey(label ?? "");
+  const labelLower = (label ?? "").trim().toLowerCase();
+  if (hrefLower.includes("staff-faculty-details/appraisal-report")) {
+    return true;
+  }
+  return (
+    key === "staffselfappraisalforms" ||
+    key === "staffselfappraisal" ||
+    key === "appraisalreport" ||
+    key === "selfappraisalform" ||
+    labelLower === "self appraisal form" ||
+    labelLower === "staff self appraisal forms" ||
+    labelLower === "staff self appraisal"
+  );
+}
+
+/**
+ * True for the Faculty Leaves "Set Proxy" menu item (Registrar/admin).
+ * Distinct from workload-adjustment's in-page Set Proxy action.
+ */
+export function isSetProxyNav(href?: string, label?: string): boolean {
+  const hrefLower = (href ?? "").toLowerCase();
+  if (
+    hrefLower.includes("set-proxy") ||
+    hrefLower.includes("staff-faculty-leaves/set-proxy") ||
+    hrefLower.includes("staff-faculty-leaves/staff-workload")
+  ) {
+    return true;
+  }
+  const labelLower = (label ?? "").trim().toLowerCase();
+  return labelLower === "set proxy";
+}
 
 /**
  * True for the Faculty Details "Staff Workload Adjustment" menu item — must not
@@ -581,7 +639,8 @@ export function mapEventsLabelToRoute(label?: string): string | null {
   if (key.includes("collegecalendar")) return `${EVENTS_BASE}/college-calendar`;
   if (key.includes("schoolcalendar")) return `${EVENTS_BASE}/school-calendar`;
   if (key.includes("staffevent")) return `${EVENTS_BASE}/staff-events`;
-  if (key.includes("eventscalendar")) return `${EVENTS_BASE}/events-calendar`;
+  if (key.includes("eventscalendar") || key === "eventcalendar")
+    return `${EVENTS_BASE}/events-calendar`;
   return null;
 }
 
@@ -591,6 +650,33 @@ export function mapEventsNavRoute(
 ): string | null {
   const hrefRaw = (href ?? "").trim();
   const hrefLower = hrefRaw.toLowerCase();
+  const labelKey = normalizeLabelKey(label ?? "");
+
+  // Registrar Login: sidebar "Events Calendar" is Angular student-events
+  // (`event-calendar/events-calendar`), not staff-events radios or the admin hub.
+  if (
+    isRegistrarLogin() &&
+    (labelKey.includes("eventscalendar") || labelKey === "eventcalendar") &&
+    !hrefLower.includes("school-calendar") &&
+    !hrefLower.includes("college-calendar") &&
+    !hrefLower.includes("add-event") &&
+    !hrefLower.includes("event-type") &&
+    !hrefLower.includes("department-events")
+  ) {
+    return `${EVENTS_BASE}/events-calendar`;
+  }
+
+  // Angular `event-calendar` module (student-events / staff-events / school-calendar).
+  // Must run before the generic `events` tail parse, which treats `events-calendar`
+  // as `events` + `-calendar` and 404s to the dashboard.
+  const fromEventCalendar = mapModuleTail(
+    hrefRaw,
+    "event-calendar",
+    EVENTS_BASE,
+    EVENTS_SLUGS,
+    "events-calendar",
+  );
+  if (fromEventCalendar) return fromEventCalendar;
 
   // Prefer Angular path segments over labels. event-calendar `school-calendar`
   // is titled "College Calendar" in Angular, which would otherwise map to
@@ -1025,6 +1111,14 @@ export function mapErpModuleNavRoute(
 
   if (isStaffWorkloadAdjustmentNav(href, label)) {
     return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+  }
+
+  if (isSetProxyNav(href, label)) {
+    return SET_PROXY_ROUTE;
+  }
+
+  if (isSalarySlipsNav(href, label)) {
+    return SALARY_SLIPS_ROUTE;
   }
 
   // Staff/Student Class Diary labels (and student portal bare Class Diary /

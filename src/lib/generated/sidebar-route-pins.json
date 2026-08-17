@@ -100,6 +100,14 @@
     "route": "/finance/check-book"
   },
   {
+    "label": "check issue",
+    "route": "/finance/check-issue"
+  },
+  {
+    "label": "cheque issue",
+    "route": "/finance/check-issue"
+  },
+  {
     "label": "committee members",
     "route": "/committees/add-committee-members",
     "hrefIncludes": "committees"
@@ -636,5 +644,35 @@
   {
     "label": "view answer papers",
     "route": "/admin-examination-management/evaluation-process/view-answer-papers"
+  },
+  {
+    "label": "set proxy",
+    "route": "/staff-faculty-leaves/set-proxy",
+    "hrefIncludes": "staff-faculty-leaves/set-proxy"
+  },
+  {
+    "label": "set proxy",
+    "route": "/staff-faculty-leaves/set-proxy",
+    "hrefIncludes": "staff-faculty-leaves/staff-workload"
+  },
+  {
+    "label": "salary slips",
+    "route": "/staff-faculty-details/salary-slips",
+    "hrefIncludes": "staff-faculty-details/salary-slips"
+  },
+  {
+    "label": "my payslips",
+    "route": "/staff-faculty-details/salary-slips",
+    "hrefIncludes": "staff-faculty-details/salary-slips"
+  },
+  {
+    "label": "self appraisal form",
+    "route": "/staff-faculty-details/appraisal-report",
+    "hrefIncludes": "staff-faculty-details/appraisal-report"
+  },
+  {
+    "label": "staff self appraisal forms",
+    "route": "/staff-faculty-details/appraisal-report",
+    "hrefIncludes": "staff-faculty-details/appraisal-report"
   }
 ]

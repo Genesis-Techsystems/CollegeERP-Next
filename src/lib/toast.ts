@@ -6,6 +6,11 @@ function isNoRecordsFoundMessage(message: string): boolean {
   return /no\s+record(?:\(s\)|s)?/i.test(message);
 }
 
+/** Backend/script crashes (e.g. `retur is not defined`) — not useful in the UI. */
+function isTechnicalErrorMessage(message: string): boolean {
+  return /is not defined/i.test(message);
+}
+
 /**
  * Show a sonner error toast from any thrown value.
  * Extracts a safe user-facing message via getErrorMessage.
@@ -23,6 +28,7 @@ export function toastError(err: unknown, context?: string): void {
     toast.message(msg);
     return;
   }
+  if (isTechnicalErrorMessage(msg)) return;
   toast.error(context ? `${context}: ${msg}` : msg);
 }
 

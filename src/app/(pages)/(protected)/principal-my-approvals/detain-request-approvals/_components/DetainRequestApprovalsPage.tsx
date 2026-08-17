@@ -274,7 +274,7 @@ export function DetainRequestApprovalsPage() {
     const seq = ++loadSeq.current;
     setLoadingRows(true);
     try {
-      const { rows: data } =
+      const { rows: data, message } =
         await listDetainRecommendedStudentsForApproval({
           collegeId,
           courseGroupId,
@@ -289,9 +289,12 @@ export function DetainRequestApprovalsPage() {
       );
       setSelectedIds([]);
       setMarkAll(false);
+      if (data.length === 0) {
+        toastSuccess(message?.trim() || "No Record(s) found.");
+      }
     } catch (error) {
       if (seq !== loadSeq.current) return;
-      toastError(error, "Failed to load detain recommended students");
+      toastError(error);
       setRows([]);
       setSelectedIds([]);
       setMarkAll(false);

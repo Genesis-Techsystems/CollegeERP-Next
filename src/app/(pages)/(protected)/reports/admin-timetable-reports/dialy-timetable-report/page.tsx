@@ -613,8 +613,8 @@ export default function DialyTimetableReportPage() {
             <div className="rounded border border-[#d0d7de]">
               <table className="w-full table-fixed border-collapse text-[12px] leading-snug">
                 <thead>
-                  <tr className="bg-[#d9edf7]">
-                    <th className="w-[14%] border border-[#c5d6e0] bg-[#d9edf7] px-2 py-3 text-center font-semibold text-[#0b4f8a]">
+                  <tr className="bg-[#c3d9ff]">
+                    <th className="w-[14%] border border-[#c5d6e0] bg-[#c3d9ff] px-2 py-3 text-center font-semibold text-[#0b4f8a]">
                       Course Details/Hours
                     </th>
                     {keys.map((key) => {

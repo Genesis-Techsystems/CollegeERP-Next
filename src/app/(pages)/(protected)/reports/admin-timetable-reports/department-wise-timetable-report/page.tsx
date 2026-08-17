@@ -23,6 +23,7 @@ import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError, toastInfo } from "@/lib/toast";
+import { isRegistrarLogin } from "@/lib/erp-modules-navigation-utils";
 import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import { useSession } from "@/hooks/useSession";
@@ -51,6 +52,12 @@ import {
   txt,
 } from "../_lib/timetable-report-filters";
 
+function roleLooksLikeRegistrar(value: unknown): boolean {
+  return String(value ?? "")
+    .toUpperCase()
+    .includes("REGISTRAR");
+}
+
 const REPORT_TITLE = "Department Wise Timetable Report";
 
 const DEPT_KEYS = ["fk_dept_id", "deptId", "departmentId", "emp_dept_id"];
@@ -72,6 +79,17 @@ export default function DepartmentWiseTimetableReportPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isLoading: sessionLoading } = useSession();
+  const isAdmin = Boolean(user?.isAdmin);
+  const [storageRegistrar, setStorageRegistrar] = useState(false);
+  useEffect(() => {
+    setStorageRegistrar(isRegistrarLogin());
+  }, []);
+  const isRegistrar =
+    storageRegistrar ||
+    roleLooksLikeRegistrar(user?.userRole) ||
+    roleLooksLikeRegistrar(user?.roleName);
+  /** Registrar-only: hide Date, enable checkbox, and Back. Admin keeps them. */
+  const hideDateBackCheckbox = isRegistrar && !isAdmin;
   const { employeeId: loginEmployeeId } = useLoginEmployeeId(
     user,
     sessionLoading,
@@ -247,7 +265,8 @@ export default function DepartmentWiseTimetableReportPage() {
       toastInfo("College, Academic Year and Department are required");
       return;
     }
-    if (!reportDate) {
+    const dateForReport = reportDate ?? new Date();
+    if (!hideDateBackCheckbox && !reportDate) {
       toastInfo("Date is required");
       return;
     }
@@ -268,7 +287,7 @@ export default function DepartmentWiseTimetableReportPage() {
       .filter(Boolean)
       .join(" / ");
 
-    const fromDate = format(reportDate, "yyyy-MM-dd");
+    const fromDate = format(dateForReport, "yyyy-MM-dd");
 
     setLoadingList(true);
     clearResults();
@@ -405,35 +424,39 @@ export default function DepartmentWiseTimetableReportPage() {
               isLoading={deptFiltersQuery.isLoading}
             />
           </div>
-          <div className="min-w-[9rem] flex-1 basis-[9rem] sm:min-w-[10rem]">
-            <DatePicker
-              label="Date"
-              value={reportDate}
-              onChange={(d) => {
-                setReportDate(d);
-                clearResults();
-              }}
-              displayFormat="dd/MM/yyyy"
-              clearable={false}
-              placeholder="Date"
-              disabled={!dateEnabled}
-            />
-          </div>
-          <div className="flex h-9 items-center gap-2 px-1">
-            <Checkbox
-              id="dept-wise-date-enabled"
-              checked={dateEnabled}
-              onCheckedChange={(checked) => {
-                const enabled = checked === true;
-                setDateEnabled(enabled);
-                if (enabled) setReportDate(new Date());
-                clearResults();
-              }}
-            />
-            <Label htmlFor="dept-wise-date-enabled" className="text-[12px]">
-              {dateEnabled ? "enable" : "Disable"}
-            </Label>
-          </div>
+          {!hideDateBackCheckbox ? (
+            <>
+              <div className="min-w-[9rem] flex-1 basis-[9rem] sm:min-w-[10rem]">
+                <DatePicker
+                  label="Date"
+                  value={reportDate}
+                  onChange={(d) => {
+                    setReportDate(d);
+                    clearResults();
+                  }}
+                  displayFormat="dd/MM/yyyy"
+                  clearable={false}
+                  placeholder="Date"
+                  disabled={!dateEnabled}
+                />
+              </div>
+              <div className="flex h-9 items-center gap-2 px-1">
+                <Checkbox
+                  id="dept-wise-date-enabled"
+                  checked={dateEnabled}
+                  onCheckedChange={(checked) => {
+                    const enabled = checked === true;
+                    setDateEnabled(enabled);
+                    if (enabled) setReportDate(new Date());
+                    clearResults();
+                  }}
+                />
+                <Label htmlFor="dept-wise-date-enabled" className="text-[12px]">
+                  {dateEnabled ? "enable" : "Disable"}
+                </Label>
+              </div>
+            </>
+          ) : null}
           <Button
             type="button"
             className="h-9 w-fit px-4"
@@ -442,13 +465,15 @@ export default function DepartmentWiseTimetableReportPage() {
           >
             {loadingList ? "Loading…" : "Get Timetable"}
           </Button>
-          <Button
-            type="button"
-            className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
-            onClick={goBack}
-          >
-            Back
-          </Button>
+          {!hideDateBackCheckbox ? (
+            <Button
+              type="button"
+              className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
+              onClick={goBack}
+            >
+              Back
+            </Button>
+          ) : null}
         </div>
       }
       body={

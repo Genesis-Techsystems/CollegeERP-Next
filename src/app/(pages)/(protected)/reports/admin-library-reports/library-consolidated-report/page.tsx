@@ -8,14 +8,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import type { CellStyle, ColDef, ICellRendererParams } from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
-import {
-  buildHtmlTable,
-  escapeHtml,
-  exportHtmlTableAsExcel,
-} from "@/common/export-html-table";
+import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { printHtmlInIframe } from "@/lib/print";
@@ -93,12 +89,16 @@ function amountRenderer(p: ICellRendererParams<ConsolRow>) {
 const COL_DEFS = {
   siNo: {
     headerName: "S.No",
+    // Angular: colspan="3" text-align:right on S.No + Library + Book Department
+    colSpan: (p: { data?: ConsolRow }) => (p.data?.__isTotal ? 3 : 1),
     valueGetter: (p: {
       data?: ConsolRow;
       node?: { rowIndex: number | null };
-    }) => (p.data?.__isTotal ? "" : (p.node?.rowIndex ?? 0) + 1),
+    }) => (p.data?.__isTotal ? "Total" : (p.node?.rowIndex ?? 0) + 1),
     width: 70,
     flex: 0,
+    cellStyle: (p: { data?: ConsolRow }): CellStyle | undefined =>
+      p.data?.__isTotal ? { textAlign: "right", fontWeight: 600 } : undefined,
   } as ColDef<ConsolRow>,
   libraryCode: {
     field: "libraryCode",
@@ -254,7 +254,7 @@ export default function LibraryConsolidatedReportPage() {
         const totals: ConsolRow = {
           __rowId: "total",
           __isTotal: true,
-          libraryCode: "Total",
+          libraryCode: "",
           category: "",
           totalTitleCount: mapped.reduce((s, r) => s + r.totalTitleCount, 0),
           totalBooks: mapped.reduce((s, r) => s + r.totalBooks, 0),
@@ -299,24 +299,41 @@ export default function LibraryConsolidatedReportPage() {
     [],
   );
 
-  const exportRows = useMemo(
-    () =>
-      rows.map((row, i) => ({
-        siNo: row.__isTotal ? "" : i + 1,
-        libraryCode: row.libraryCode,
-        category: row.category,
-        totalTitleCount: row.totalTitleCount,
-        totalBooks: row.totalBooks,
-        inLibrary: row.inLibrary,
-        issuedBooks: row.issuedBooks,
-        dueBooks: row.dueBooks,
-        totalBooksCost: formatIndianAmount(row.totalBooksCost),
-      })),
-    [rows],
-  );
+  const exportTableHtml = useMemo(() => {
+    const head = EXCEL_COLUMNS.map(
+      (c) => `<th>${escapeHtml(c.header)}</th>`,
+    ).join("");
+    const body = rows
+      .map((row, i) => {
+        if (row.__isTotal) {
+          return `<tr style="background:#f2f2f2;font-weight:600;">
+            <td colspan="3" style="text-align:right;">Total</td>
+            <td>${row.totalTitleCount}</td>
+            <td>${row.totalBooks}</td>
+            <td>${row.inLibrary}</td>
+            <td>${row.issuedBooks}</td>
+            <td>${row.dueBooks}</td>
+            <td>${escapeHtml(formatIndianAmount(row.totalBooksCost))}</td>
+          </tr>`;
+        }
+        return `<tr>
+          <td>${i + 1}</td>
+          <td>${escapeHtml(row.libraryCode)}</td>
+          <td>${escapeHtml(row.category)}</td>
+          <td>${row.totalTitleCount}</td>
+          <td>${row.totalBooks}</td>
+          <td>${row.inLibrary}</td>
+          <td>${row.issuedBooks}</td>
+          <td>${row.dueBooks}</td>
+          <td>${escapeHtml(formatIndianAmount(row.totalBooksCost))}</td>
+        </tr>`;
+      })
+      .join("");
+    return `<table border="1" cellspacing="0" cellpadding="4"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }, [rows]);
 
   const handleExcelExport = () => {
-    if (exportRows.length === 0) {
+    if (rows.length === 0) {
       toastInfo("No records to export.");
       return;
     }
@@ -327,13 +344,13 @@ export default function LibraryConsolidatedReportPage() {
     </div>`;
     exportHtmlTableAsExcel(
       "Library Books Report.xls",
-      buildHtmlTable(EXCEL_COLUMNS, exportRows),
+      exportTableHtml,
       headerHtml,
     );
   };
 
   const printReport = async () => {
-    if (exportRows.length === 0) {
+    if (rows.length === 0) {
       toastInfo("No records to print.");
       return;
     }
@@ -350,7 +367,7 @@ export default function LibraryConsolidatedReportPage() {
         fallbackLogo: escapeHtml(fallbackLogo),
         collegeName: escapeHtml(collegeName || "College"),
         dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
-        tableHtml: buildHtmlTable(EXCEL_COLUMNS, exportRows),
+        tableHtml: exportTableHtml,
       }),
     );
   };
@@ -383,18 +400,23 @@ export default function LibraryConsolidatedReportPage() {
               isLoading={librariesQuery.isLoading}
             />
           </div>
-          <Button
+          {/* <Button
             type="button"
             variant="secondary"
             className="h-9 w-fit px-4"
             onClick={goBack}
           >
             Back
-          </Button>
+          </Button> */}
         </div>
       }
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
+      getRowStyle={(p) =>
+        p.data?.__isTotal
+          ? { background: "#f2f2f2", fontWeight: 600 }
+          : undefined
+      }
       loading={loadingList}
       resultsVisible={showTable}
       hideEmptyGrid

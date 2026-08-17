@@ -17,6 +17,7 @@ import {
   domainUpdate,
   fetchDetails,
 } from "./crud";
+import { getErrorMessage } from "@/lib/errors";
 import { ENTITIES } from "@/config/constants/entities";
 
 const EP = ENTITIES.PLACEMENT;
@@ -283,14 +284,23 @@ export async function updatePlacementCompany(
 export async function listPlacementStudentRegs(
   companyId: number,
   placementId: number,
-): Promise<PlacementStudentRegistration[]> {
-  return domainList<PlacementStudentRegistration>(
-    EPS.name,
-    buildQuery({
-      "Company.companyId": companyId,
-      "Placement.placementId": placementId,
-    }),
-  );
+): Promise<{ rows: PlacementStudentRegistration[]; message?: string }> {
+  if (!companyId || !placementId) return { rows: [] };
+  try {
+    const rows = await domainList<PlacementStudentRegistration>(
+      EPS.name,
+      buildQuery({
+        "Company.companyId": companyId,
+        "Placement.placementId": placementId,
+      }),
+    );
+    return {
+      rows,
+      message: rows.length === 0 ? "No Record(s) found." : undefined,
+    };
+  } catch (error) {
+    return { rows: [], message: getErrorMessage(error) };
+  }
 }
 
 export async function listPlacedStudentsByPlacement(

@@ -192,19 +192,23 @@ export async function loadMyTimetableSchedules(employeeId: number): Promise<{
 }> {
   if (!employeeId)
     return { rows: [], success: false, message: "Employee id missing" };
-  const envelope = await fetchDetailsEnvelope<unknown>(
-    SUBJECT_API.SUBJECT_RESOURCES_SCHEDULES,
-    { staffId: employeeId },
-  );
-  if (!envelope.success) {
-    return {
-      rows: [],
-      success: false,
-      message: envelope.message ?? "Failed to load timetable",
-    };
+  try {
+    const envelope = await fetchDetailsEnvelope<unknown>(
+      SUBJECT_API.SUBJECT_RESOURCES_SCHEDULES,
+      { staffId: employeeId },
+    );
+    if (!envelope.success) {
+      return {
+        rows: [],
+        success: false,
+        message: envelope.message ?? "Failed to load timetable",
+      };
+    }
+    const rows = asRows<AnyRow>(envelope.data);
+    return { rows, success: true, message: envelope.message };
+  } catch {
+    return { rows: [], success: false, message: "Failed to load timetable" };
   }
-  const rows = asRows<AnyRow>(envelope.data);
-  return { rows, success: true, message: envelope.message };
 }
 
 /**
@@ -340,36 +344,40 @@ export async function listProxySubjectsForMyClasses(params: {
   employeeId: number;
   proxyDate?: string;
 }): Promise<ProxySubjectRow[]> {
-  const envelope = await fetchDetailsEnvelope<ProxySubjectRow[]>(
-    EMPLOYEE_API.PROXY_SUBJECT,
-    {
-      employeeId: params.employeeId,
-      proxyDate: params.proxyDate ?? formatClassDateYmdSlash(),
-    },
-  );
-  if (!envelope.success && envelope.data == null) return [];
-  const proxies = asRows<ProxySubjectRow>(envelope.data);
-  const myLabProxies: ProxySubjectRow[] = [];
-  for (const p of proxies) {
-    if (String(p.proxySubjecttypeDisplayName ?? "") !== "LAB") continue;
-    const row: ProxySubjectRow = {
-      ...p,
-      firstName: p.proxyFirstName ?? p.firstName,
-      employeeId: Number(p.proxyEmpId ?? p.employeeId ?? 0) || undefined,
-      section: String(p.groupSectionName ?? p.section ?? ""),
-      subjectType: String(
-        p.proxySubjecttypeDisplayName ?? p.subjectType ?? "LAB",
-      ),
-    };
-    const exists = myLabProxies.some(
-      (x) =>
-        Number(x.employeeId) === Number(row.employeeId) &&
-        Number(x.subjectId) === Number(row.subjectId) &&
-        Number(x.studentbatchId) === Number(row.studentbatchId),
+  try {
+    const envelope = await fetchDetailsEnvelope<ProxySubjectRow[]>(
+      EMPLOYEE_API.PROXY_SUBJECT,
+      {
+        employeeId: params.employeeId,
+        proxyDate: params.proxyDate ?? formatClassDateYmdSlash(),
+      },
     );
-    if (!exists) myLabProxies.push(row);
+    if (!envelope.success && envelope.data == null) return [];
+    const proxies = asRows<ProxySubjectRow>(envelope.data);
+    const myLabProxies: ProxySubjectRow[] = [];
+    for (const p of proxies) {
+      if (String(p.proxySubjecttypeDisplayName ?? "") !== "LAB") continue;
+      const row: ProxySubjectRow = {
+        ...p,
+        firstName: p.proxyFirstName ?? p.firstName,
+        employeeId: Number(p.proxyEmpId ?? p.employeeId ?? 0) || undefined,
+        section: String(p.groupSectionName ?? p.section ?? ""),
+        subjectType: String(
+          p.proxySubjecttypeDisplayName ?? p.subjectType ?? "LAB",
+        ),
+      };
+      const exists = myLabProxies.some(
+        (x) =>
+          Number(x.employeeId) === Number(row.employeeId) &&
+          Number(x.subjectId) === Number(row.subjectId) &&
+          Number(x.studentbatchId) === Number(row.studentbatchId),
+      );
+      if (!exists) myLabProxies.push(row);
+    }
+    return myLabProxies;
+  } catch {
+    return [];
   }
-  return myLabProxies;
 }
 
 /** Load staff subjects + live schedules + proxies (Angular getMyClasses flow). */
@@ -409,13 +417,20 @@ export async function loadMyClassesPage(params: {
     };
   }
 
-  const { myClasses, isZoom } = mergeMyClassesWithLiveSchedules({
-    myClasses: subjects,
-    liveSchedules: schedules,
-    userName: params.userName,
-  });
-
-  return { myClasses, labProxies: proxies, isZoom };
+  try {
+    const { myClasses, isZoom } = mergeMyClassesWithLiveSchedules({
+      myClasses: subjects,
+      liveSchedules: schedules,
+      userName: params.userName,
+    });
+    return { myClasses, labProxies: proxies, isZoom };
+  } catch {
+    return {
+      myClasses: subjects,
+      labProxies: proxies,
+      isZoom: getDigitalLiveClassEnv() === "ZOOM",
+    };
+  }
 }
 
 /**
