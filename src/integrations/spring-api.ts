@@ -1,8 +1,36 @@
 // SERVER ONLY — never import this in client components
-import type { UserDTO } from '@/types/user'
+import type { UserDTO, UserRoleEntry } from '@/types/user'
+import type { Module, Page } from '@/types/navigation'
 import type { ApiResponse } from '@/types/api'
 import { AUTH_API } from '@/config/constants/api'
 import { getEncryptedValue } from '@/common/generic-functions'
+
+function asArray<T>(...candidates: unknown[]): T[] {
+  for (const value of candidates) {
+    if (Array.isArray(value)) return value as T[]
+  }
+  return []
+}
+
+/** Spring field names vary; Angular reads `modules` / `pages` / `userRoles`. */
+function normalizeAuthorizationDto(data: UserDTO): UserDTO {
+  const row = data as UserDTO & Record<string, unknown>
+  return {
+    ...data,
+    userRole: String(row.userRole ?? row.UserRole ?? data.userRole ?? ''),
+    userTypeCode: String(
+      row.userTypeCode ?? row.UserTypeCode ?? data.userTypeCode ?? '',
+    ),
+    roleName: String(row.roleName ?? row.RoleName ?? data.roleName ?? ''),
+    userRoles: asArray<UserRoleEntry>(
+      row.userRoles,
+      row.UserRoles,
+      row.userRoleList,
+    ),
+    modules: asArray<Module>(row.modules, row.Modules, row.moduleList),
+    pages: asArray<Page>(row.pages, row.Pages, row.pageList),
+  }
+}
 
 /**
  * Result of the Spring `/api/auth/login` call. The backend's login is two-phase
@@ -118,7 +146,7 @@ export async function springGetUserDetails(jwt: string): Promise<UserDTO> {
     throw new Error('Failed to retrieve user details')
   }
 
-  return body.data
+  return normalizeAuthorizationDto(body.data)
 }
 
 /**

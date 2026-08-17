@@ -117,6 +117,7 @@ export function CollegeUploadsApprovalPage() {
     examFilters: true,
     requireGroupYear: false,
     allowAllGroupYear: true,
+    allowAllCollegeYearCourse: true,
   });
   const [loadKey, setLoadKey] = useState<string | null>(null);
 
@@ -216,6 +217,7 @@ export function CollegeUploadsApprovalPage() {
           cascade={cascade}
           hideGroupYear
           allowAllGroupYear
+          allowAllCollegeYearCourse
           onGetDetails={() => {
             if (!cascade.filtersValid) return;
             setLoadKey(

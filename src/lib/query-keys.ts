@@ -728,6 +728,9 @@ export const QK = {
       employeeId != null
         ? (["HrPayroll", "performanceAssessment", employeeId] as const)
         : (["HrPayroll", "performanceAssessment"] as const),
+    /** Angular `staff-faculty-details/salary-slips` */
+    salarySlips: (employeeId: number) =>
+      ["HrPayroll", "salarySlips", employeeId] as const,
     selfAppraisalForms: (collegeId: number) =>
       ["HrPayroll", "selfAppraisalForms", collegeId] as const,
     staffSelfAppraisals: (
@@ -1388,6 +1391,16 @@ export const QK = {
         audienceId,
         deptId,
       ] as const,
+  },
+
+  // ── Vice Chancellor Dashboard (Angular vice-chancellor + highchart widgets)
+  vcDashboard: {
+    all: ["VcDashboard"] as const,
+    academicYears: (orgId: number, empId: number) =>
+      ["VcDashboard", "academicYears", orgId, empId] as const,
+    report: () => ["VcDashboard", "report"] as const,
+    chart: (name: string, collegeId: number, year: string) =>
+      ["VcDashboard", "chart", name, collegeId, year] as const,
   },
 
   // ── Grievance Masters ────────────────────────────────────────────────────

@@ -18,9 +18,11 @@ import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
 import { flattenNavItemsForSearch } from "@/lib/navigation";
 import { resolveNavHref } from "@/lib/resolve-nav-href";
-import { logout } from "@/services/auth";
+import { QK } from "@/lib/query-keys";
+import { getEmployeeLoginContextByUserId, logout } from "@/services";
 import { ThemeSwitcher } from "@/common/components/theme-setting-modal";
 import { scheduleNavigation } from "@/lib/schedule-navigation";
+import { useQuery } from "@tanstack/react-query";
 
 const roleAvatarStyle: Record<string, string> = {
   ADMIN: "bg-red-100    text-red-700",
@@ -32,10 +34,60 @@ const roleAvatarStyle: Record<string, string> = {
 
 const MAX_SEARCH_RESULTS = 8;
 
+function readLs(key: string): string {
+  if (typeof window === "undefined") return "";
+  const v = window.localStorage.getItem(key)?.trim() ?? "";
+  if (!v || v === "null" || v === "undefined") return "";
+  return v;
+}
+
+/**
+ * Angular toolbar: `({{uNumber}} / {{deptName}} )` for STAFF,
+ * `({{uNumber}} / {{groupCode}} / {{courseYearName}})` otherwise.
+ * `uNumber` is empNumber (staff) or rollNumber (student) — never EMP+employeeId.
+ */
+function toolbarUserSubLabel(opts: {
+  userTypeCode?: string;
+  empNumber?: string;
+  deptName?: string;
+  userName?: string;
+}): string | null {
+  const type = String(
+    opts.userTypeCode ?? readLs("userTypeCode"),
+  ).toUpperCase();
+  const uNumber =
+    (opts.empNumber ?? "").trim() ||
+    readLs("empNumber") ||
+    readLs("uNumber") ||
+    readLs("rollNumber") ||
+    (opts.userName ?? "").trim() ||
+    readLs("userName");
+  if (!uNumber) return null;
+
+  if (type === "STAFF") {
+    const deptName = (opts.deptName ?? "").trim() || readLs("deptName");
+    if (deptName) return `(${uNumber} / ${deptName} )`;
+    return `(${uNumber})`;
+  }
+
+  const extras = [readLs("groupCode"), readLs("courseYearName")].filter(
+    Boolean,
+  );
+  if (extras.length > 0) return `(${uNumber} / ${extras.join(" / ")})`;
+  return `(${uNumber})`;
+}
+
 export function Topbar() {
   const router = useRouter();
-  const { user } = useSessionContext();
+  const { user, isLoading: sessionLoading } = useSessionContext();
   const { toggleSidebar, navItems } = useNavigationStore();
+
+  const { data: employeeLogin } = useQuery({
+    queryKey: QK.staffLoginContext(user?.userId ?? 0),
+    queryFn: () => getEmployeeLoginContextByUserId(user!.userId),
+    enabled: !sessionLoading && Boolean(user?.userId),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
   const pages = useMemo(() => {
     return flattenNavItemsForSearch(navItems).map((page) => ({
@@ -183,11 +235,12 @@ export function Topbar() {
   const avatarStyle =
     roleAvatarStyle[user?.userRole ?? ""] ?? "bg-cyan-100 text-cyan-700";
 
-  const empLabel = user?.employeeId
-    ? `EMP${String(user.employeeId).padStart(3, "0")}`
-    : user?.userName
-      ? user.userName
-      : null;
+  const empLabel = toolbarUserSubLabel({
+    userTypeCode: user?.userTypeCode,
+    empNumber: employeeLogin?.empNumber,
+    deptName: employeeLogin?.deptName,
+    userName: user?.userName,
+  });
 
   async function handleLogout() {
     await logout();
@@ -339,7 +392,7 @@ export function Topbar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#042956]/30"
+              className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#042956]/30"
               aria-label="User menu"
             >
               <Avatar className="h-[30px] w-[30px] shrink-0">
@@ -354,21 +407,22 @@ export function Topbar() {
                 </AvatarFallback>
               </Avatar>
 
-              <div className="hidden text-left md:block">
-                <p className="text-[13px] font-medium leading-tight text-black">
-                  {user?.firstName} {user?.lastName}
-                </p>
+              <span className="hidden min-w-0 flex-col items-start md:flex">
+                <span className="inline-flex items-center gap-0.5">
+                  <span className="whitespace-nowrap text-[13px] font-medium leading-5 text-black">
+                    {user?.firstName} {user?.lastName}
+                  </span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-black/70"
+                    aria-hidden="true"
+                  />
+                </span>
                 {empLabel ? (
-                  <p className="mt-0.5 text-[11px] leading-tight text-[#7b7667]">
-                    ({empLabel})
-                  </p>
+                  <span className="whitespace-nowrap text-[11px] leading-4 text-[#7b7667]">
+                    {empLabel}
+                  </span>
                 ) : null}
-              </div>
-
-              <ChevronDown
-                className="hidden h-4 w-4 text-black/70 md:block"
-                aria-hidden="true"
-              />
+              </span>
             </button>
           </DropdownMenuTrigger>
 

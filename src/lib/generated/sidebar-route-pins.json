@@ -392,6 +392,16 @@
     "hrefIncludes": "hr-payroll"
   },
   {
+    "label": "salary slips",
+    "route": "/staff-faculty-details/salary-slips",
+    "hrefIncludes": "salary-slips"
+  },
+  {
+    "label": "salary slip",
+    "route": "/staff-faculty-details/salary-slips",
+    "hrefIncludes": "salary-slip"
+  },
+  {
     "label": "faculty details",
     "route": "/hr-payroll/employee/employee-list",
     "hrefIncludes": "hr-payroll/employee/employee-list"

@@ -90,6 +90,11 @@ export type AffiliatedCascadeOptions = {
   scopeByAcademicYear?: boolean;
   /** Allow "All" (0) for group/year selects — Angular summary parity. */
   allowAllGroupYear?: boolean;
+  /**
+   * College uploads approval — Angular `mat-option [value]="0"> All` on
+   * College / Academic Year / Course (defaults to 0).
+   */
+  allowAllCollegeYearCourse?: boolean;
   /** Auto-select first college on load (Angular default). */
   autoSelectFirst?: boolean;
   /** College uploads approval only needs college / year / course (Angular staffForm). */
@@ -165,9 +170,15 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
   ];
 
   const [universityId, setUniversityId] = useState<number | null>(null);
-  const [collegeId, setCollegeId] = useState<number | null>(null);
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
-  const [courseId, setCourseId] = useState<number | null>(null);
+  const [collegeId, setCollegeId] = useState<number | null>(
+    options.allowAllCollegeYearCourse ? 0 : null,
+  );
+  const [academicYearId, setAcademicYearId] = useState<number | null>(
+    options.allowAllCollegeYearCourse ? 0 : null,
+  );
+  const [courseId, setCourseId] = useState<number | null>(
+    options.allowAllCollegeYearCourse ? 0 : null,
+  );
   const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
   const [examId, setExamId] = useState<number | null>(null);
@@ -660,38 +671,49 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
       const collegeRow = filtersData.find((r) => pickNum(r, COL) === id);
       const inferredUniversity = pickNum(collegeRow ?? {}, UNI);
       if (inferredUniversity > 0) setUniversityId(inferredUniversity);
+      const resetId = options.allowAllCollegeYearCourse ? 0 : null;
       if (options.courseFirstCascade) {
         setCourseGroupId(null);
         setCourseYearId(null);
       } else {
-        setAcademicYearId(null);
-        setCourseId(null);
+        setAcademicYearId(resetId);
+        setCourseId(resetId);
         setCourseGroupId(null);
         setCourseYearId(null);
         setExamId(null);
       }
       if (options.trackRegulation) setRegulationId(null);
     },
-    [filtersData, options.trackRegulation, options.courseFirstCascade],
+    [
+      filtersData,
+      options.trackRegulation,
+      options.courseFirstCascade,
+      options.allowAllCollegeYearCourse,
+    ],
   );
 
   const onAcademicYearChange = useCallback(
     (id: number) => {
       setAcademicYearId(id);
+      const resetCourse = options.allowAllCollegeYearCourse ? 0 : null;
       if (options.courseFirstCascade) {
         setExamId(null);
         setCollegeId(null);
         setCourseGroupId(null);
         setCourseYearId(null);
       } else {
-        setCourseId(null);
+        setCourseId(resetCourse);
         setCourseGroupId(null);
         setCourseYearId(null);
         setExamId(null);
       }
       if (options.trackRegulation) setRegulationId(null);
     },
-    [options.trackRegulation, options.courseFirstCascade],
+    [
+      options.trackRegulation,
+      options.courseFirstCascade,
+      options.allowAllCollegeYearCourse,
+    ],
   );
 
   const onCourseChange = useCallback(
@@ -782,8 +804,11 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
   const requireGroupYear = options.requireGroupYear !== false;
   const requireCourse = options.requireCourse !== false;
   const requireUniversity = options.requireUniversity === true;
+  const allowAllCollegeYearCourse = options.allowAllCollegeYearCourse === true;
 
-  const baseFiltersValid = requireGroupYear
+  const baseFiltersValid = allowAllCollegeYearCourse
+    ? collegeId != null && academicYearId != null && courseId != null
+    : requireGroupYear
     ? collegeId != null &&
       collegeId > 0 &&
       academicYearId != null &&

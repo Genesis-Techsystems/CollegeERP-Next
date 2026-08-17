@@ -252,6 +252,7 @@ export * from "./e-office";
 export * from "./affiliated-colleges";
 export * from "./hr-payroll";
 export * from "./staff-dashboard";
+export * from "./vc-dashboard";
 export * from "./my-classes";
 export * from "./staff-assignments";
 export * from "./exam-online-papers";

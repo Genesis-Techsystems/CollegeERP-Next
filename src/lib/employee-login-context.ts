@@ -6,6 +6,8 @@ export type EmployeeLoginContext = {
   isHod: boolean;
   uName: string;
   empNumber: string;
+  /** Angular login: `localStorage.deptName` — toolbar `(empNumber / deptName)`. */
+  deptName: string;
   /** Angular login: `localStorage.empStatusCode` — 'ACTV' gates staff pages. */
   empStatusCode: string;
   /** Angular login: `localStorage.empCategoryName` — 'Teaching' / 'Non Teaching'. */
@@ -115,6 +117,14 @@ export function parseEmployeeLoginContext(
   const empNumber = String(
     row.empNumber ?? row.employeeCode ?? nestedEmp?.empNumber ?? "",
   ).trim();
+  const deptName = String(
+    row.deptName ??
+      row.departmentName ??
+      nestedDept?.deptName ??
+      nestedDept?.departmentName ??
+      nestedEmp?.deptName ??
+      "",
+  ).trim();
   const uName = String(
     row.uName ?? row.userName ?? row.firstName ?? nestedEmp?.uName ?? empNumber,
   ).trim();
@@ -141,6 +151,7 @@ export function parseEmployeeLoginContext(
     isHod,
     uName,
     empNumber,
+    deptName,
     empStatusCode,
     empCategoryName,
   };
@@ -163,6 +174,20 @@ const STICKY_ROLE_STORAGE_KEYS = [
   "isPRINCIPAL",
   "isMgnt",
   "isDeprtAdmin",
+  "isViceChancellor",
+  "isRegistrar",
+  "isFinanceOfficer",
+  "isProVC",
+  "isChairman",
+  "isSecretary",
+  "isLibrarian",
+  "isVicePrincipal",
+  "isAccountant",
+  "isTC",
+  "isUnvDean",
+  "showNewVCDashboard",
+  "userDetails",
+  "DASHBOARD",
 ] as const;
 
 /** Call on logout so a prior HOD session cannot show HOD Dashboard after admin login. */
@@ -189,7 +214,11 @@ export function syncEmployeeLoginContextToStorage(
   storage.setItem("isHOD", ctx.isHod ? "true" : "false");
   storage.setItem("isHODDashboard", ctx.isHod ? "true" : "false");
   if (ctx.uName) storage.setItem("uName", ctx.uName);
-  if (ctx.empNumber) storage.setItem("empNumber", ctx.empNumber);
+  if (ctx.empNumber) {
+    storage.setItem("empNumber", ctx.empNumber);
+    storage.setItem("uNumber", ctx.empNumber);
+  }
+  if (ctx.deptName) storage.setItem("deptName", ctx.deptName);
   if (ctx.empStatusCode) storage.setItem("empStatusCode", ctx.empStatusCode);
   if (ctx.empCategoryName)
     storage.setItem("empCategoryName", ctx.empCategoryName);

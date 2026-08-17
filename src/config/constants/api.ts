@@ -1821,6 +1821,18 @@ export const DASHBOARD_API = {
   DAY_WISE_EXPENSE: "getAllRecords/s_get_daywsie_expense_report",
   /** GET: library summary */
   LIBRARY_SUMMARY: "getAllRecords/s_get_library_summary",
+  /** GET: fee summary (VC / management dashboard) */
+  FEE_SUMMARY: "getAllRecords/s_fee_summary",
+  /** GET: admissions / applications / enquiries pie */
+  APPLICATION_SUMMARY: "getAllRecords/s_get_application_summary",
+  /** GET: scholarship summary */
+  FEE_SCH_SUMMARY: "getAllRecords/s_fee_sch_summary",
+  /** GET: school-wise employees */
+  SCHOOL_WISE_EMPLOYEES: "getAllRecords/s_get_school_wise_employees",
+  /** GET: school-wise students */
+  SCHOOL_WISE_STUDENTS: "getAllRecords/s_school_wise_students",
+  /** GET: fee discount summary */
+  FEE_DISCOUNT_SUMMARY: "getAllRecords/s_fee_discount_summary",
 } as const;
 
 // ─── Attendance ──────────────────────────────────────────────────────────────

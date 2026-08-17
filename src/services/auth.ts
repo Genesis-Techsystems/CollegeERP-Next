@@ -10,6 +10,10 @@
 
 import { EMPLOYEE_API, NEXT_API, AUTH_API } from "@/config/constants/api";
 import { clearStickyRoleFlagsFromLocalStorage } from "@/lib/employee-login-context";
+import {
+  isNewVcDashboardUserType,
+  roleLooksLikeViceChancellor,
+} from "@/lib/user-context";
 import type { SessionUser, UserRoleEntry } from "@/types/user";
 import { fetchDetails } from "./crud";
 
@@ -38,15 +42,94 @@ export interface LoginResult {
   message?: string;
 }
 
-function persistUserRolesForApprovalPages(userRoles?: UserRoleEntry[]): void {
-  if (typeof globalThis.window === "undefined" || !userRoles?.length) return;
+function persistUserRolesForApprovalPages(
+  user?: SessionUser,
+  userRoles?: UserRoleEntry[],
+): void {
+  if (typeof globalThis.window === "undefined") return;
+  const storage = globalThis.localStorage;
+  const roles = Array.isArray(userRoles) ? userRoles : [];
+
+  // Always replace — leftover userDetails from a previous account must not
+  // drive dashboard tabs or approval filters.
   try {
-    globalThis.localStorage.setItem(
-      "userDetails",
-      JSON.stringify({ userRoles }),
-    );
+    storage.setItem("userDetails", JSON.stringify({ userRoles: roles }));
   } catch {
     // ignore quota / private mode
+  }
+
+  const lastRoleName = [...roles]
+    .map((r) => String(r.roleName ?? "").trim())
+    .filter(Boolean)
+    .at(-1);
+  if (lastRoleName) storage.setItem("roleName", lastRoleName);
+  else if (user?.roleName) storage.setItem("roleName", user.roleName);
+
+  if (user?.userTypeCode) storage.setItem("userTypeCode", user.userTypeCode);
+  if (user?.userRole) storage.setItem("userRole", user.userRole);
+
+  // Angular login.component.ts resets these then sets true from userRoles[].
+  const sticky = [
+    "isHOD",
+    "isHODDashboard",
+    "isPRINCIPAL",
+    "isMgnt",
+    "isUnvDean",
+    "isViceChancellor",
+    "isRegistrar",
+    "isFinanceOfficer",
+    "isProVC",
+    "isAdmin",
+    "isDeprtAdmin",
+    "isChairman",
+    "isSecretary",
+    "isLibrarian",
+    "isVicePrincipal",
+    "isAccountant",
+    "isTC",
+    "showNewVCDashboard",
+  ] as const;
+  for (const key of sticky) storage.setItem(key, "false");
+
+  for (const role of roles) {
+    const name = String(role.roleName ?? "").trim();
+    if (name === "VICE PRINCIPAL") storage.setItem("isVicePrincipal", "true");
+    if (name === "HOD" || name === "CHAIRPERSON") {
+      storage.setItem("isHODDashboard", "true");
+      storage.setItem("isHOD", "true");
+    }
+    if (name === "PRINCIPAL" || name === "DEAN") {
+      storage.setItem("isPRINCIPAL", "true");
+    }
+    if (name === "ACCOUNTANT") storage.setItem("isAccountant", "true");
+    if (name === "MANAGEMENT" || name === "MMANAGEMENT") {
+      storage.setItem("isMgnt", "true");
+    }
+    if (name === "ADMIN" || name === "EXAMADMIN") {
+      storage.setItem("isAdmin", "true");
+    }
+    if (name === "FINANCE OFFICER") storage.setItem("isFinanceOfficer", "true");
+    if (name === "UNIVERSITY DEAN") storage.setItem("isUnvDean", "true");
+    if (roleLooksLikeViceChancellor(name)) {
+      storage.setItem("isViceChancellor", "true");
+    }
+    if (name === "REGISTRAR") storage.setItem("isRegistrar", "true");
+    if (name === "PRO VICE CHANCELLOR") storage.setItem("isProVC", "true");
+    if (name === "CHAIRMAN") storage.setItem("isChairman", "true");
+    if (name === "SECRETARY") storage.setItem("isSecretary", "true");
+    if (name === "LIBRARY ASSISTANT" || name === "Library Head") {
+      storage.setItem("isLibrarian", "true");
+    }
+    if (name === "TC") storage.setItem("isTC", "true");
+    if (name === "DEPTADMIN") storage.setItem("isDeprtAdmin", "true");
+  }
+
+  const showNewVc = isNewVcDashboardUserType(user?.userTypeCode);
+  storage.setItem("showNewVCDashboard", showNewVc ? "true" : "false");
+  if (Boolean(user?.isViceChancellor) || showNewVc) {
+    if (user?.isViceChancellor || roleLooksLikeViceChancellor(user?.userTypeCode)) {
+      storage.setItem("isViceChancellor", "true");
+    }
   }
 }
 
@@ -80,7 +163,11 @@ export async function login(
   }
 
   const result = (await res.json()) as LoginResult;
-  persistUserRolesForApprovalPages(result.userRoles);
+  persistUserRolesForApprovalPages(result.user, result.userRoles);
+  if (typeof globalThis.window !== "undefined") {
+    const { useNavigationStore } = await import("@/store/navigation-store");
+    useNavigationStore.getState().resetNavItems();
+  }
   return result;
 }
 
@@ -134,6 +221,10 @@ export async function logout(): Promise<void> {
     await fetch(NEXT_API.AUTH.LOGOUT, { method: "POST" });
   } finally {
     clearStickyRoleFlagsFromLocalStorage();
+    if (typeof globalThis.window !== "undefined") {
+      const { useNavigationStore } = await import("@/store/navigation-store");
+      useNavigationStore.getState().resetNavItems();
+    }
   }
 }
 

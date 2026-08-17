@@ -14,9 +14,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
+import {
+  roleLooksLikeViceChancellor,
+  isNewVcDashboardUserType,
+} from "@/lib/user-context";
 import { getDigitalLiveClassEnv, readDashStorage } from "@/services";
 import type { SessionUser, UserRoleEntry } from "@/types/user";
 import { StaffDashboard } from "./_components/StaffDashboard";
+import {
+  VcOverviewDashboard,
+  ViceChancellorChartsTab,
+} from "./_components/vice-chancellor";
 
 // ─── Role tab visibility (Angular main-dashboard.component.ts) ───────────────
 
@@ -30,8 +38,9 @@ interface DashboardTabs {
   showEvaluator: boolean;
   showModerator: boolean;
   showManagement: boolean;
-  showVc: boolean;
-  vcLabel: string;
+  showVcCharts: boolean;
+  showVcOverview: boolean;
+  vcOverviewLabel: string;
   showVision: boolean;
 }
 
@@ -75,11 +84,23 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
   const showModerator =
     hasRole("Moderator") || roles.some((r) => Number(r.roleId) === 116);
   const showManagement = readDashStorage("isMgnt") === "true";
-  const showVc =
-    hasRole("VICECHANCELLOR") ||
+  const isCenterIncharge =
     hasRole("CENTER INCHARGE") ||
-    readDashStorage("roleName") === "VICECHANCELLOR" ||
-    readDashStorage("roleName") === "CENTER INCHARGE";
+    readDashStorage("roleName") === "CENTER INCHARGE" ||
+    readDashStorage("userRole") === "CENTER INCHARGE";
+  const isViceChancellor =
+    Boolean(user.isViceChancellor) ||
+    roleNames.some((r) => roleLooksLikeViceChancellor(r)) ||
+    roleLooksLikeViceChancellor(user.roleName) ||
+    roleLooksLikeViceChancellor(user.userTypeCode) ||
+    roleLooksLikeViceChancellor(user.userRole) ||
+    roleLooksLikeViceChancellor(readDashStorage("roleName")) ||
+    roleLooksLikeViceChancellor(readDashStorage("userTypeCode")) ||
+    readDashStorage("isViceChancellor") === "true";
+  const showNewVcHome =
+    isNewVcDashboardUserType(user.userTypeCode) ||
+    isNewVcDashboardUserType(readDashStorage("userTypeCode")) ||
+    readDashStorage("showNewVCDashboard") === "true";
 
   const hodLabel = hasRole("CHAIRPERSON")
     ? "Chairperson Dashboard"
@@ -87,12 +108,9 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
   const principalLabel = hasRole("DEAN")
     ? "Dean Dashboard"
     : "Principal Dashboard";
-  const vcLabel =
-    readDashStorage("roleName") === "CENTER INCHARGE"
-      ? "Center Incharge Dashboard"
-      : "Vice Chancellor Dashboard";
 
-  // Angular starts isStaff = 'true'; only Evaluator/Moderator-only can hide it
+  // Angular login sends VICECHANCELLOR / CENTER INCHARGE to
+  // vicechancellor-dashboard (not main-dashboard / staff "My Dashboard").
   let showMy = true;
   if (showEvaluator && !roleNames.some((r) => r === "STAFF") && !showAdmin) {
     const onlyEval =
@@ -111,8 +129,20 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
   }
   // SUPERADMIN / ACCOUNTS / etc. still get My Dashboard when isStaff default
   if (!showEvaluator && !showModerator) showMy = true;
+  // Angular: VC / registrar / exam-controller never land on staff main-dashboard.
+  if (isViceChancellor || showNewVcHome) showMy = false;
 
   const showVision = getDigitalLiveClassEnv() === "TEAMS";
+  // VC role → old vicechancellor-dashboard charts. userTypeCode VC/REGISTRAR/
+  // EXAMCONTROLLER without that role → new `#/dashboard` overview.
+  // Center Incharge keeps its own overview tab.
+  const showVcCharts = isViceChancellor && !isCenterIncharge;
+  const showVcOverview =
+    (isCenterIncharge && !isViceChancellor) ||
+    (showNewVcHome && !isViceChancellor);
+  const vcOverviewLabel = isCenterIncharge
+    ? "Center Incharge Dashboard"
+    : "Dashboard";
 
   return {
     showMy,
@@ -124,8 +154,9 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
     showEvaluator,
     showModerator,
     showManagement,
-    showVc,
-    vcLabel,
+    showVcCharts,
+    showVcOverview,
+    vcOverviewLabel,
     showVision,
   };
 }
@@ -219,7 +250,7 @@ export default function DashboardPage() {
   const { user, isLoading } = useSessionContext();
   const breadcrumbs = useBreadcrumb();
   const { employeeId, isResolving } = useLoginEmployeeId(user, isLoading);
-  const [tab, setTab] = useState("my");
+  const [tab, setTab] = useState("");
 
   // Tab visibility comes from localStorage (Angular parity), which the server
   // cannot read — rendering it during SSR produces a different set of tabs than
@@ -239,13 +270,17 @@ export default function DashboardPage() {
     readDashStorage("isHODDashboard") === "true" || Boolean(user.isHod);
   const deptName = readDashStorage("deptName");
 
-  const defaultTab = tabs.showMy
-    ? "my"
-    : tabs.showAdmin
-      ? "admin"
-      : tabs.showHod
-        ? "hod"
-        : "my";
+  const defaultTab = tabs.showVcCharts
+    ? "vc-charts"
+    : tabs.showVcOverview
+      ? "vc-overview"
+      : tabs.showMy
+        ? "my"
+        : tabs.showAdmin
+          ? "admin"
+          : tabs.showHod
+            ? "hod"
+            : "my";
 
   return (
     <PageContainer className="app-dashboard-page space-y-3 bg-white">
@@ -321,9 +356,14 @@ export default function DashboardPage() {
               Management Dashboard
             </TabsTrigger>
           ) : null}
-          {tabs.showVc ? (
-            <TabsTrigger value="vc" className="app-dashboard-tab">
-              {tabs.vcLabel}
+          {tabs.showVcCharts ? (
+            <TabsTrigger value="vc-charts" className="app-dashboard-tab">
+              ViceChancellor Dashboard
+            </TabsTrigger>
+          ) : null}
+          {tabs.showVcOverview ? (
+            <TabsTrigger value="vc-overview" className="app-dashboard-tab">
+              {tabs.vcOverviewLabel}
             </TabsTrigger>
           ) : null}
           {tabs.showVision ? (
@@ -388,9 +428,20 @@ export default function DashboardPage() {
             <RoleDashboardPlaceholder title="Management Dashboard" />
           </TabsContent>
         ) : null}
-        {tabs.showVc ? (
-          <TabsContent value="vc" className="mt-4">
-            <RoleDashboardPlaceholder title={tabs.vcLabel} />
+        {tabs.showVcCharts ? (
+          <TabsContent value="vc-charts" className="mt-4">
+            <ViceChancellorChartsTab
+              organizationId={
+                user.organizationId ??
+                Number(readDashStorage("organizationId") ?? 0)
+              }
+              employeeId={employeeId}
+            />
+          </TabsContent>
+        ) : null}
+        {tabs.showVcOverview ? (
+          <TabsContent value="vc-overview" className="mt-4">
+            <VcOverviewDashboard />
           </TabsContent>
         ) : null}
         {tabs.showVision ? (

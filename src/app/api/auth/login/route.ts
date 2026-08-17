@@ -213,6 +213,7 @@ export async function POST(request: NextRequest) {
       isPrincipal: roleFlags.isPrincipal,
       isHod: roleFlags.isHod,
       isManagement: roleFlags.isManagement,
+      isViceChancellor: roleFlags.isViceChancellor,
       isDeptAdmin,
       // Angular parity: evaluators → /evaluator, students → /student-dashboard,
       // Admin/Staff/others → /dashboard.

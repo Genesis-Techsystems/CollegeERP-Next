@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { Download, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
@@ -11,12 +11,12 @@ import {
 import { Select, type SelectOption } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import { Button } from "@/components/ui/button";
+import { USER_ROLES } from "@/config/constants/app";
 import { useSessionContext } from "@/context/SessionContext";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import {
-  downloadEmpLeaveSummaryReport,
   getEmpLeaveSummaryReport,
   getLeaveSummaryFilters,
   listLeaveTypesForEntitlement,
@@ -68,19 +68,32 @@ function employeeLabel(row: AnyRow): string {
   return num ? `${name} ( ${num} )` : name || "Employee";
 }
 
+function isViceChancellorUser(user: { roleName?: string } | null): boolean {
+  const role = String(user?.roleName ?? "").toUpperCase();
+  if (
+    role === USER_ROLES.VICE_CHANCELLOR ||
+    role.includes("VICECHANCELLOR") ||
+    role.includes("VICE CHANCELLOR")
+  ) {
+    return true;
+  }
+  if (typeof globalThis.window === "undefined") return false;
+  return globalThis.localStorage.getItem("isViceChancellor") === "true";
+}
+
 export function LeaveSummaryPage() {
   const { user, isLoading: sessionLoading } = useSessionContext();
 
   const isAdmin = Boolean(user?.isAdmin);
   const isPrincipal = Boolean(user?.isPrincipal);
+  const isViceChancellor = isViceChancellorUser(user);
   /** Angular `dataSecurity` — college-wide employee search. */
-  const canSearchCollegeWide = isAdmin || isPrincipal;
-  /** Angular `dataSecStaff` — lock department to login emp dept. */
-  const lockDepartment = !isAdmin && !isPrincipal;
+  const canSearchCollegeWide = isAdmin || isPrincipal || isViceChancellor;
+  /** Angular `dataSecStaff` — lock department to login emp dept (not VC). */
+  const lockDepartment = !isAdmin && !isPrincipal && !isViceChancellor;
 
   const [filtersLoading, setFiltersLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
-  const [downloading, setDownloading] = useState(false);
 
   const [collegeRows, setCollegeRows] = useState<AnyRow[]>([]);
   const [deptRows, setDeptRows] = useState<AnyRow[]>([]);
@@ -364,30 +377,6 @@ export function LeaveSummaryPage() {
     }
   }
 
-  async function handleDownload() {
-    if (!collegeId) return;
-    const fromYmd = toLeaveYmd(fromDate);
-    if (!fromYmd) {
-      toastError("From Date is required");
-      return;
-    }
-    setDownloading(true);
-    try {
-      await downloadEmpLeaveSummaryReport({
-        collegeId,
-        employeeId: employeeId || 0,
-        academicYearId: academicYearId || 0,
-        departmentId: departmentId || 0,
-        leaveTypeId: leaveTypeId || 0,
-        fromDate: fromYmd,
-      });
-    } catch (e) {
-      toastError(getErrorMessage(e));
-    } finally {
-      setDownloading(false);
-    }
-  }
-
   function handleReset() {
     clearResults();
     setEmployeeId(null);
@@ -564,19 +553,6 @@ export function LeaveSummaryPage() {
                 disabled={loading || !collegeId}
               >
                 {reportLoading ? "Loading..." : "Get List"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
-                onClick={() => void handleDownload()}
-                disabled={
-                  downloading || rows.length === 0 || !collegeId || !fromDate
-                }
-                title="Download Report"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {downloading ? "Downloading..." : "Download"}
               </Button>
               <Button
                 type="button"

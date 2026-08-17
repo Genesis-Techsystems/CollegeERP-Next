@@ -3,7 +3,10 @@ import type { NavItem } from "@/types/navigation";
 /** Canonical App Router base for Angular `time-table-management` module. */
 export const TIMETABLE_MGMT_BASE = "/time-table-management";
 
-/** Default sidebar children when API module has no nested pages (Angular parity). */
+/** Full Time-Table Management page set (staff/admin). Do not inject these
+ * into the sidebar — authorization `pages[]` is the source of truth.
+ * Vice Chancellor is typically granted only View Class TimeTable.
+ */
 export const TIMETABLE_SIDEBAR_CHILDREN: NavItem[] = [
   {
     id: "ttm_timing_sets",
@@ -53,36 +56,40 @@ export function isTimetableModuleLabel(label?: string): boolean {
   return key.includes("timetable") && key.includes("management");
 }
 
-/** Ensure Time-Table Management always shows the four legacy sub-tabs. */
+function sortGrantedTimetableChildren(existing: NavItem[]): NavItem[] {
+  const order = new Map(
+    TIMETABLE_SIDEBAR_CHILDREN.map((child) => [
+      child.href ?? "",
+      child.sortOrder,
+    ]),
+  );
+  return [...existing].sort((a, b) => {
+    const ra = mapTimetableNavRoute(a.href, a.label) ?? a.href ?? "";
+    const rb = mapTimetableNavRoute(b.href, b.label) ?? b.href ?? "";
+    return (order.get(ra) ?? a.sortOrder ?? 0) - (order.get(rb) ?? b.sortOrder ?? 0);
+  });
+}
+
+/** Map Time-Table Management children from authorization — never pad with
+ * pages the user was not granted (Angular navbar uses modules/pages as-is).
+ */
 export function ensureTimetableNavChildren(items: NavItem[]): NavItem[] {
   return items.map((item) => {
     const children = item.children?.length
       ? ensureTimetableNavChildren(item.children)
       : undefined;
 
-    if (isTimetableModuleLabel(item.label)) {
-      const merged = mergeTimetableSidebarChildren(children ?? []);
-      return { ...item, href: undefined, children: merged };
+    if (isTimetableModuleLabel(item.label) && children?.length) {
+      return {
+        ...item,
+        href: undefined,
+        children: sortGrantedTimetableChildren(children),
+      };
     }
 
     if (children) return { ...item, children };
     return item;
   });
-}
-
-function mergeTimetableSidebarChildren(existing: NavItem[]): NavItem[] {
-  if (existing.length === 0) return [...TIMETABLE_SIDEBAR_CHILDREN];
-
-  const byRoute = new Set(
-    existing
-      .map((c) => mapTimetableNavRoute(c.href, c.label) ?? c.href ?? "")
-      .filter(Boolean),
-  );
-  const extras = TIMETABLE_SIDEBAR_CHILDREN.filter((fallback) => {
-    const route = fallback.href ?? "";
-    return route && !byRoute.has(route);
-  });
-  return [...existing, ...extras].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 const SLUG_ALIASES: Record<string, string> = {

@@ -1509,6 +1509,17 @@ export function resolveForcedNavRoute(
       return "/staff-faculty-details/performance-assessment";
     }
 
+    // Faculty Salary Slips — Angular `staff-faculty-details/salary-slips`
+    if (
+      hrefLower.includes("staff-faculty-details/salary-slips") ||
+      hrefLower.includes("salary-slips") ||
+      labelKey === "salary slips" ||
+      labelKey === "salary slip" ||
+      (labelLower.includes("salary") && labelLower.includes("slip"))
+    ) {
+      return "/staff-faculty-details/salary-slips";
+    }
+
     // Secretary / HR — Faculty Details label under hr-payroll (before HOD faculty-details remap)
     if (
       (labelKey === "faculty details" || labelKey === "faculty detail") &&
@@ -1522,7 +1533,6 @@ export function resolveForcedNavRoute(
     // (must pin before leave-approvals / faculty-details/leave-approvals remap)
     if (
       !isHrEmployeeListHref(hrefLower) &&
-      !isSecretaryRole() &&
       isHodFacultyDetailsHref(hrefLower)
     ) {
       return "/staff-faculty-details/faculty-details";
@@ -2110,14 +2120,12 @@ export function resolveForcedNavRoute(
     ) {
       return "/reports/admin-student-reports/branch-and-academicyear-wise-caste-count";
     }
-    // Angular Student Details Report (students list)
+    // Angular Student Details Report — only the report, not Student Details
     if (
       hrefLower.includes("students-list-report") ||
       hrefLower.includes("academic_branch_course_yr_std") ||
       (labelLower.includes("student details") &&
-        (labelLower.includes("report") ||
-          hrefLower.includes("student") ||
-          hrefLower.includes("admin-student")))
+        labelLower.includes("report"))
     ) {
       return "/reports/admin-student-reports/students-list-report";
     }

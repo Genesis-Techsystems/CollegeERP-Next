@@ -20,8 +20,10 @@ type CacheEntry = {
 const TTL_MS = 6 * 60 * 60 * 1000;
 const cache = new Map<string, CacheEntry>();
 
+const NAV_TREE_VERSION = 2;
+
 function key(userId: number, issuedAt: number): string {
-  return `${userId}:${issuedAt}`;
+  return `${NAV_TREE_VERSION}:${userId}:${issuedAt}`;
 }
 
 export function getCachedNav(
@@ -53,8 +55,8 @@ export function clearCachedNav(userId: number, issuedAt?: number): void {
     cache.delete(key(userId, issuedAt));
     return;
   }
-  const prefix = `${userId}:`;
+  const needle = `:${userId}:`;
   for (const k of cache.keys()) {
-    if (k.startsWith(prefix)) cache.delete(k);
+    if (k.includes(needle) || k.startsWith(`${userId}:`)) cache.delete(k);
   }
 }

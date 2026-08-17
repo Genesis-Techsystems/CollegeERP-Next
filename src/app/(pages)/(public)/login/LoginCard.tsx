@@ -80,8 +80,10 @@ export function LoginCard() {
         return;
       }
       setIsPending(true);
+      const dest = result.user?.defaultDashboardPath || "/dashboard";
       scheduleNavigation(() => {
-        router.push(result.user?.defaultDashboardPath || "/dashboard");
+        router.push(dest);
+        router.refresh();
       });
     } catch (err) {
       setError(
@@ -99,8 +101,10 @@ export function LoginCard() {
       throw new Error("Invalid or expired code. Please try again.");
     pendingCreds.current = null;
     setIsPending(true);
+    const dest = result.user.defaultDashboardPath || "/dashboard";
     scheduleNavigation(() => {
-      router.push(result.user.defaultDashboardPath || "/dashboard");
+      router.push(dest);
+      router.refresh();
     });
   };
 

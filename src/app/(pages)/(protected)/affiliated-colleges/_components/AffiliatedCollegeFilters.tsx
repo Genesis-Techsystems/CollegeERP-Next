@@ -64,6 +64,10 @@ type AffiliatedCollegeFiltersProps = {
    */
   courseFirst?: boolean;
   allowAllGroupYear?: boolean;
+  /**
+   * College uploads approval — All (0) on College, Academic Year, Course.
+   */
+  allowAllCollegeYearCourse?: boolean;
   /** College uploads approval — college, academic year, course only. */
   hideGroupYear?: boolean;
   /** Student Dost summary — college + academic year only (Angular parity). */
@@ -96,6 +100,7 @@ export function AffiliatedCollegeFilters({
   examFirst,
   courseFirst,
   allowAllGroupYear,
+  allowAllCollegeYearCourse,
   hideGroupYear,
   hideCourse,
   showUniversity,
@@ -337,12 +342,15 @@ export function AffiliatedCollegeFilters({
             label="College"
             value={collegeId != null ? String(collegeId) : null}
             onChange={(v) => onCollegeChange(Number(v))}
-            options={colleges.map((c) => ({
-              value: String(
-                pickId(c, ["fk_college_id", "collegeId", "fk_collegeId"]),
-              ),
-              label: optLabel(c, "college_code", "collegeCode"),
-            }))}
+            options={[
+              ...(allowAllCollegeYearCourse ? [allOpt] : []),
+              ...colleges.map((c) => ({
+                value: String(
+                  pickId(c, ["fk_college_id", "collegeId", "fk_collegeId"]),
+                ),
+                label: optLabel(c, "college_code", "collegeCode"),
+              })),
+            ]}
             isLoading={isLoading}
             searchable
             disabled={readOnly}
@@ -351,13 +359,19 @@ export function AffiliatedCollegeFilters({
             label="Academic Year"
             value={academicYearId != null ? String(academicYearId) : null}
             onChange={(v) => onAcademicYearChange(Number(v))}
-            options={academicYears.map((a) => ({
-              value: String(
-                pickId(a, ["fk_academic_year_id", "academicYearId"]),
-              ),
-              label: optLabel(a, "academic_year", "academicYear"),
-            }))}
-            disabled={readOnly || !collegeId}
+            options={[
+              ...(allowAllCollegeYearCourse ? [allOpt] : []),
+              ...academicYears.map((a) => ({
+                value: String(
+                  pickId(a, ["fk_academic_year_id", "academicYearId"]),
+                ),
+                label: optLabel(a, "academic_year", "academicYear"),
+              })),
+            ]}
+            disabled={
+              readOnly ||
+              (allowAllCollegeYearCourse ? collegeId == null : !collegeId)
+            }
             searchable
           />
           {showCourse ? (
@@ -365,11 +379,19 @@ export function AffiliatedCollegeFilters({
               label="Course"
               value={courseId != null ? String(courseId) : null}
               onChange={(v) => onCourseChange(Number(v))}
-              options={courses.map((c) => ({
-                value: String(pickId(c, ["fk_course_id", "courseId"])),
-                label: optLabel(c, "course_code", "courseCode"),
-              }))}
-              disabled={readOnly || !academicYearId}
+              options={[
+                ...(allowAllCollegeYearCourse ? [allOpt] : []),
+                ...courses.map((c) => ({
+                  value: String(pickId(c, ["fk_course_id", "courseId"])),
+                  label: optLabel(c, "course_code", "courseCode"),
+                })),
+              ]}
+              disabled={
+                readOnly ||
+                (allowAllCollegeYearCourse
+                  ? academicYearId == null
+                  : !academicYearId)
+              }
               searchable
             />
           ) : null}

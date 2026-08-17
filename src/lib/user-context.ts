@@ -45,7 +45,34 @@ export function resolveOrganizationId(user?: SessionUser | null): number {
  * Bumped whenever `deriveRoleFlagsFromDto` changes so `/api/auth/me` can refresh
  * sessions that were issued by the previous derivation.
  */
-export const ROLE_FLAGS_VERSION = 2;
+export const ROLE_FLAGS_VERSION = 4;
+
+function normalizeRoleToken(value: unknown): string {
+  return String(value ?? "")
+    .toUpperCase()
+    .replace(/[\s_-]+/g, "");
+}
+
+/** Angular `roleName === 'VICECHANCELLOR'` plus spaced / typed variants. */
+export function roleLooksLikeViceChancellor(value: unknown): boolean {
+  const token = normalizeRoleToken(value);
+  return token === "VICECHANCELLOR" || token === "VICECHANCELLER";
+}
+
+/**
+ * Angular login `showNewVCDashboard` — userTypeCode VICECHANCELLOR / REGISTRAR /
+ * EXAMCONTROLLER navigates to `#/dashboard` (VcDashboardModule), not staff
+ * main-dashboard.
+ */
+export function isNewVcDashboardUserType(value: unknown): boolean {
+  const token = normalizeRoleToken(value);
+  return (
+    token === "VICECHANCELLOR" ||
+    token === "VICECHANCELLER" ||
+    token === "REGISTRAR" ||
+    token === "EXAMCONTROLLER"
+  );
+}
 
 /**
  * Angular login.component.ts derives isPRINCIPAL / isHOD / isMgnt by looping the
@@ -58,17 +85,18 @@ export function deriveRoleFlagsFromDto(
   dto: Pick<UserDTO, "userRoles"> & {
     roleName?: string;
     userTypeCode?: string;
+    userRole?: string;
   },
-  current?: { roleName?: string; userTypeCode?: string },
-): Pick<SessionUser, "isPrincipal" | "isHod" | "isManagement"> {
+  current?: { roleName?: string; userTypeCode?: string; userRole?: string },
+): Pick<
+  SessionUser,
+  "isPrincipal" | "isHod" | "isManagement" | "isViceChancellor"
+> {
   const granted = new Set(
-    (dto.userRoles ?? []).map((r) =>
-      String(r.roleName ?? "")
-        .toUpperCase()
-        .trim(),
-    ),
+    (dto.userRoles ?? []).map((r) => normalizeRoleToken(r.roleName)),
   );
-  const hasRole = (...names: string[]) => names.some((n) => granted.has(n));
+  const hasRole = (...names: string[]) =>
+    names.some((n) => granted.has(normalizeRoleToken(n)));
 
   const roleName = String(
     dto.roleName ?? current?.roleName ?? "",
@@ -76,6 +104,7 @@ export function deriveRoleFlagsFromDto(
   const userTypeCode = String(
     dto.userTypeCode ?? current?.userTypeCode ?? "",
   ).toUpperCase();
+  const userRole = String(dto.userRole ?? current?.userRole ?? "").toUpperCase();
 
   return {
     isPrincipal: roleName.includes("PRINCIPAL") || hasRole("PRINCIPAL", "DEAN"),
@@ -87,6 +116,11 @@ export function deriveRoleFlagsFromDto(
       userTypeCode.includes("MGNT") ||
       roleName.includes("MANAGEMENT") ||
       hasRole("MANAGEMENT", "MMANAGEMENT"),
+    isViceChancellor:
+      roleLooksLikeViceChancellor(roleName) ||
+      roleLooksLikeViceChancellor(userTypeCode) ||
+      roleLooksLikeViceChancellor(userRole) ||
+      [...granted].some((name) => roleLooksLikeViceChancellor(name)),
   };
 }
 

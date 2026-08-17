@@ -33,7 +33,7 @@ export interface SelectOption {
    */
   title?: string;
   /** Secondary line under the label (e.g. course-group names on subject options). */
-  description?: string;
+  description?: React.ReactNode;
   /**
    * Rich rendering of the label inside the dropdown list. The trigger, tooltip
    * and search filter keep using the plain `label`.
@@ -191,6 +191,7 @@ export function Select({
 
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const hasImageOptions = options.some((opt) => Boolean(opt.image));
   const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -363,6 +364,7 @@ export function Select({
           sideOffset={4}
           className={cn(
             "mat-select-panel w-[var(--radix-popover-trigger-width)] min-w-[180px] p-0",
+            hasImageOptions && "min-w-[min(100vw-2rem,28rem)]",
             contentClassName,
           )}
           onWheel={(e) => scrollListOnWheel(e, listRef.current)}
@@ -396,7 +398,7 @@ export function Select({
             role="listbox"
             className={cn(
               "mat-select-panel__list overflow-y-auto overscroll-contain touch-pan-y",
-              listClassName ?? "max-h-60",
+              listClassName ?? (hasImageOptions ? "max-h-72" : "max-h-60"),
             )}
           >
             {isLoading ? (
@@ -425,7 +427,8 @@ export function Select({
                       wrapOptionLabels || opt.description
                         ? "items-start"
                         : "items-center",
-                      opt.image && "py-2",
+                      opt.image &&
+                        "border-b border-[#9e9e9e52] py-2 last:border-b-0",
                       isSelected && "mat-select-panel__option--active",
                     )}
                   >
@@ -436,7 +439,7 @@ export function Select({
                         alt=""
                         aria-hidden="true"
                         className={cn(
-                          "h-10 w-10 shrink-0 rounded-full object-cover",
+                          "h-[50px] w-[50px] shrink-0 rounded-full object-cover",
                           opt.image.className,
                         )}
                         onError={(e) => {

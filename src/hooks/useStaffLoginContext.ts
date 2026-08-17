@@ -75,6 +75,7 @@ export function useStaffLoginContext(
       isHod: false,
       uName: "",
       empNumber: "",
+      deptName: "",
       empStatusCode: "",
       empCategoryName: "",
     };

@@ -94,6 +94,8 @@ export interface SessionUser {
   isPrincipal: boolean; // roleName includes 'PRINCIPAL', or userRoles has PRINCIPAL/DEAN
   isHod: boolean; // roleName includes 'HOD'/'HEAD OF', or userRoles has HOD/CHAIRPERSON
   isManagement: boolean; // userTypeCode 'MGNT', roleName 'MANAGEMENT', or userRoles has MANAGEMENT/MMANAGEMENT
+  /** Angular `isViceChancellor` — userTypeCode / roleName / userRoles VICECHANCELLOR */
+  isViceChancellor: boolean;
   /** Angular `isDeprtAdmin` — any active userRoles entry with roleName DEPTADMIN */
   isDeptAdmin: boolean;
   defaultDashboardPath: string; // computed from userRole/userTypeCode on the server

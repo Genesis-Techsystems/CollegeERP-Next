@@ -21,14 +21,23 @@ import { Breadcrumb, useBreadcrumb } from "@/common/components/breadcrumb";
 import { Toaster } from "sonner";
 import { APP_CONFIG } from "@/config/constants/app";
 
+function navSignature(items: NavItem[]): string {
+  return items
+    .map((item) => `${item.id}:${item.children?.length ?? 0}`)
+    .join("|");
+}
+
 interface AppShellProps {
   children: ReactNode;
   initialNavItems: NavItem[];
+  /** Logged-in user id — re-seeds the sidebar when the account changes. */
+  navUserId?: number;
 }
 
 export function AppShell({
   children,
   initialNavItems,
+  navUserId = 0,
 }: Readonly<AppShellProps>) {
   const {
     isSidebarOpen,
@@ -36,11 +45,16 @@ export function AppShell({
     isSidebarHovered,
     autoCollapse,
     setNavItems,
+    resetNavItems,
     setSidebarCollapsed,
   } = useNavigationStore();
 
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
+  const prevNavUserId = useRef<number | null>(null);
+  const initialNavRef = useRef(initialNavItems);
+  initialNavRef.current = initialNavItems;
+  const navTreeSignature = navSignature(initialNavItems);
 
   // Global page-header card — page name + breadcrumb trail, rendered above
   // each page's filter card. The dashboard renders its own breadcrumb, so it
@@ -210,9 +224,15 @@ export function AppShell({
   useTheme();
 
   useEffect(() => {
-    if (initialNavItems.length > 0) setNavItems(initialNavItems);
+    if (prevNavUserId.current !== navUserId) {
+      resetNavItems();
+      prevNavUserId.current = navUserId;
+    }
+    setNavItems(initialNavRef.current);
+    // Re-bind when the logged-in user or authorization tree changes so the
+    // sidebar is never leftover from a previous account.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navUserId, navTreeSignature]);
 
   // Auto-collapse only fires when sidebar was manually expanded and user opted in.
   // Hover-expanded state is excluded — hover collapse happens naturally on mouse-leave.

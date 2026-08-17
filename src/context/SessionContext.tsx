@@ -3,6 +3,10 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { SessionUser } from "@/types/user";
 import { useSession } from "@/hooks/useSession";
+import {
+  isNewVcDashboardUserType,
+  roleLooksLikeViceChancellor,
+} from "@/lib/user-context";
 
 interface SessionContextValue {
   user: SessionUser | null;
@@ -41,6 +45,8 @@ function syncUserToLocalStorage(user: SessionUser): void {
     ["userId", user.userId],
     ["userName", user.userName],
     ["userRole", user.userRole],
+    ["userTypeCode", user.userTypeCode],
+    ["roleName", user.roleName],
     ["studentId", user.studentId],
     // rollNumber comes from Angular login getStudent() / page fetch — not userName.
   ];
@@ -65,6 +71,35 @@ function syncSessionRoleFlags(user: SessionUser): void {
   storage.setItem("isAdmin", user.isAdmin ? "true" : "false");
   storage.setItem("isDeprtAdmin", user.isDeptAdmin ? "true" : "false");
   storage.setItem("roleName", user.roleName ?? "");
+  storage.setItem("userTypeCode", user.userTypeCode ?? "");
+  const roleNameUpper = String(user.roleName ?? "").toUpperCase();
+  let isViceChancellor = Boolean(user.isViceChancellor);
+  if (!isViceChancellor) {
+    isViceChancellor =
+      roleLooksLikeViceChancellor(roleNameUpper) ||
+      roleLooksLikeViceChancellor(user.userTypeCode) ||
+      roleLooksLikeViceChancellor(user.userRole);
+  }
+  try {
+    const raw = storage.getItem("userDetails");
+    if (raw) {
+      const parsed = JSON.parse(raw) as {
+        userRoles?: Array<{ roleName?: string }>;
+      };
+      isViceChancellor =
+        isViceChancellor ||
+        (parsed.userRoles ?? []).some((r) =>
+          roleLooksLikeViceChancellor(r.roleName),
+        );
+    }
+  } catch {
+    // ignore
+  }
+  storage.setItem("isViceChancellor", isViceChancellor ? "true" : "false");
+  storage.setItem(
+    "showNewVCDashboard",
+    isNewVcDashboardUserType(user.userTypeCode) ? "true" : "false",
+  );
 
   const userId = Number(user.userId) || 0;
   const userChanged = lastSyncedRoleUserId !== userId;
@@ -75,6 +110,10 @@ function syncSessionRoleFlags(user: SessionUser): void {
     storage.setItem("isHOD", user.isHod ? "true" : "false");
     storage.setItem("isHODDashboard", user.isHod ? "true" : "false");
     storage.setItem("isPRINCIPAL", user.isPrincipal ? "true" : "false");
+    storage.setItem(
+      "showNewVCDashboard",
+      isNewVcDashboardUserType(user.userTypeCode) ? "true" : "false",
+    );
     return;
   }
 

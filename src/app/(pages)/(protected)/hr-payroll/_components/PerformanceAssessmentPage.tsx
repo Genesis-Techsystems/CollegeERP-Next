@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { PlusIcon } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
-import { Select, type SelectOption } from "@/common/components/select";
+import {
+  DEFAULT_EMPLOYEE_PHOTO,
+  Select,
+  toEmployeeSearchSelectOption,
+  type SelectOption,
+} from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
@@ -14,92 +19,99 @@ import { getErrorMessage } from "@/lib/errors";
 import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import {
+  getEmployeeByIdForHr,
   listPerformanceAssessmentByEmployee,
   searchEmployeesForHr,
 } from "@/services";
 import type { SessionUser } from "@/types/user";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
+import { performanceAssessmentFormHref } from "../_lib/performance-assessment-routes";
 
 type PerfRow = Record<string, unknown>;
-
-/** Same default avatar the faculty details grids fall back to. */
-const DEFAULT_EMPLOYEE_PHOTO = "/assets/images/avatars/default_Student.png";
 
 function readStorage(key: string): string {
   if (typeof globalThis.window === "undefined") return "";
   return globalThis.localStorage.getItem(key) ?? "";
 }
 
-/** Principal / HOD / admin can search and pick any employee (Angular `dataSecStaff === false`). */
+/**
+ * Angular `dataSecStaff === false` only for principal or HOD.
+ * Everyone else is locked to the logged-in employee.
+ */
 function canPickEmployee(user: SessionUser | null | undefined): boolean {
-  if (user) {
-    if (user.isAdmin || user.isPrincipal || user.isManagement || user.isHod)
-      return true;
-    const role = (user.roleName ?? "").toUpperCase();
-    if (role.includes("HOD") || role.includes("HEAD OF")) return true;
-  }
-  const isPrincipal =
+  if (user?.isPrincipal || user?.isHod) return true;
+  const role = (user?.roleName ?? "").toUpperCase();
+  if (role.includes("HOD") || role.includes("HEAD OF")) return true;
+  return (
     readStorage("isPRINCIPAL") === "true" ||
-    readStorage("isPrincipal") === "true";
-  const isHod = readStorage("isHOD") === "true";
-  const isAdmin = readStorage("isAdmin") === "true";
-  return isPrincipal || isHod || isAdmin;
+    readStorage("isPrincipal") === "true" ||
+    readStorage("isHOD") === "true"
+  );
 }
 
-/** Angular option line 1: `{{empNumber}} ( {{firstName}})`. */
-function employeeOptionLabel(row: Record<string, unknown>): string {
-  const num = row.empNumber != null ? String(row.empNumber) : "";
-  const name = row.firstName != null ? `( ${String(row.firstName)})` : "";
-  return [num, name].filter(Boolean).join(" ") || String(row.employeeId ?? "");
-}
-
-/** Angular option line 2: `{{collegeCode}} / {{empDeptName}} / {{designation}}`. */
-function employeeOptionMeta(row: Record<string, unknown>): string {
-  if (!row.collegeCode) return "";
-  return [row.collegeCode, row.empDeptName, row.designation]
-    .filter(Boolean)
-    .join(" / ");
-}
-
-/** Angular `employee-img-active` (green ring) / `employee-img-inactive` (red ring). */
-function employeeSelectOption(row: Record<string, unknown>): SelectOption {
-  const inactive = String(row.empStatus ?? "").toUpperCase() === "INACTV";
-  const number = row.empNumber != null ? String(row.empNumber) : "";
-  const name = row.firstName != null ? String(row.firstName) : "";
-  return {
-    value: String(row.employeeId),
-    label: employeeOptionLabel(row),
-    labelNode: (
-      <>
-        {number}
-        {name ? <span className="text-[#3d3de3]"> ( {name})</span> : null}
-      </>
-    ),
-    description: employeeOptionMeta(row),
-    image: {
-      src: String(row.photoPath ?? "").trim() || DEFAULT_EMPLOYEE_PHOTO,
-      fallbackSrc: DEFAULT_EMPLOYEE_PHOTO,
-      className: inactive
-        ? "border-2 border-[#f44336]"
-        : "border-2 border-[#34e834]",
-    },
-  };
-}
-
-/** Angular passes `firstName(empNumber)` to the assessment/history page. */
+/** Angular `empFirstName = firstName + '(' + empNumber + ')'`. */
 function assessmentEmployeeLabel(row: Record<string, unknown>): string {
   const name = String(row.firstName ?? "").trim();
   const number = String(row.empNumber ?? "").trim();
-  if (name && number) return `${name} (${number})`;
+  if (name && number) return `${name}(${number})`;
   return name || number || String(row.employeeId ?? "");
+}
+
+function asEmployeeRow(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== "object") return null;
+  if (Array.isArray(data)) {
+    const first = data[0];
+    return first && typeof first === "object"
+      ? (first as Record<string, unknown>)
+      : null;
+  }
+  const row = data as Record<string, unknown>;
+  if (Array.isArray(row.resultList) && row.resultList[0]) {
+    return row.resultList[0] as Record<string, unknown>;
+  }
+  return row;
+}
+
+function pickLoginEmployee(
+  list: Record<string, unknown>[],
+  employeeId: number,
+  empNumber: string,
+): Record<string, unknown> | null {
+  if (employeeId > 0) {
+    const byId = list.find((row) => Number(row.employeeId) === employeeId);
+    if (byId) return byId;
+  }
+  const needle = empNumber.trim().toLowerCase();
+  if (needle) {
+    const byNumber = list.find(
+      (row) =>
+        String(row.empNumber ?? "")
+          .trim()
+          .toLowerCase() === needle,
+    );
+    if (byNumber) return byNumber;
+  }
+  return list[0] ?? null;
+}
+
+function employeeSelectOption(row: Record<string, unknown>): SelectOption {
+  return (
+    toEmployeeSearchSelectOption(row, {
+      layout: "number-first",
+      triggerLabel: assessmentEmployeeLabel(row),
+    }) ?? {
+      value: String(row.employeeId ?? ""),
+      label: assessmentEmployeeLabel(row),
+    }
+  );
 }
 
 function formatFeedbackDate(value: unknown): string {
   if (value == null || value === "") return "—";
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
-  return format(d, "dd MMM, yyyy");
+  return format(d, "d MMM, yyyy");
 }
 
 /**
@@ -110,12 +122,14 @@ const EMPLOYEE_SEARCH_HINT: SelectOption = {
   value: "__search-hint__",
   label: "( Search by Employee name or Id.)",
   labelNode: (
-    <span className="text-[#3d3de3]">( Search by Employee name or Id.)</span>
+    <span className="font-medium text-blue-600">
+      ( Search by Employee name or Id.)
+    </span>
   ),
   disabled: true,
   image: {
     src: DEFAULT_EMPLOYEE_PHOTO,
-    className: "border-2 border-[#34e834]",
+    className: "h-[60px] w-[60px] border-2 border-[#34e834]",
   },
 };
 
@@ -139,22 +153,24 @@ const COL_DEFS = {
   } as ColDef<PerfRow>,
   actions: {
     headerName: "Actions",
-    minWidth: 100,
+    minWidth: 110,
     flex: 0,
-    width: 100,
+    width: 110,
   } as ColDef<PerfRow>,
 };
 
 export function PerformanceAssessmentPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading: sessionLoading } = useSessionContext();
-  const { employeeId: loggedInEmployeeId } = useLoginEmployeeId(
+  const { employeeId: loggedInEmployeeId, isResolving } = useLoginEmployeeId(
     user,
     sessionLoading,
   );
   const collegeId = user?.collegeId ?? Number(readStorage("collegeId") || 0);
-  const empNumber = readStorage("empNumber") || user?.userName || "";
+  const empNumber = readStorage("empNumber") || readStorage("uNumber") || "";
   const staffLocked = !canPickEmployee(user);
+  const autoSelectDone = useRef(false);
   // Angular hides "Take Assessment" for principals (`*ngIf="isPRINCIPAL === 'false'"`).
   const isPrincipal =
     user?.isPrincipal ?? readStorage("isPRINCIPAL") === "true";
@@ -199,32 +215,63 @@ export function PerformanceAssessmentPage() {
   }, []);
 
   useEffect(() => {
-    if (!staffLocked || !empNumber || !collegeId) return;
+    // Angular `enteredEmployee(empNumber, 'params')` — select the logged-in
+    // employee on load. Principal/HOD keep the dropdown enabled so they can
+    // still search others.
+    if (sessionLoading || isResolving || autoSelectDone.current) return;
+    if (!collegeId) return;
+    if (!empNumber && loggedInEmployeeId <= 0) return;
+
+    autoSelectDone.current = true;
     void (async () => {
       setEmployeeSearchLoading(true);
       try {
-        const list = await searchEmployeesForHr(empNumber, collegeId);
+        let list: Record<string, unknown>[] = [];
+        if (empNumber) {
+          list = (await searchEmployeesForHr(
+            empNumber,
+            collegeId,
+            1,
+          )) as Record<string, unknown>[];
+        }
+        let row = pickLoginEmployee(list, loggedInEmployeeId, empNumber);
+        if (!row && loggedInEmployeeId > 0) {
+          row = asEmployeeRow(await getEmployeeByIdForHr(loggedInEmployeeId));
+          if (row) list = [row, ...list];
+        }
+        if (!row) {
+          autoSelectDone.current = false;
+          return;
+        }
         setEmployeeRows(list);
-        setEmployeeOptions(list.map((e) => employeeSelectOption(e)));
-        if (list.length > 0) loadEmployee(list[0] as Record<string, unknown>);
+        setEmployeeOptions(list.map((item) => employeeSelectOption(item)));
+        loadEmployee(row);
       } catch (e) {
+        autoSelectDone.current = false;
         toastError(e, "Failed to load employee");
       } finally {
         setEmployeeSearchLoading(false);
       }
     })();
-  }, [staffLocked, empNumber, collegeId, loadEmployee]);
+  }, [
+    sessionLoading,
+    isResolving,
+    collegeId,
+    empNumber,
+    loggedInEmployeeId,
+    loadEmployee,
+  ]);
 
   const onEmployeeSearch = useCallback(
     async (term: string) => {
       if (!collegeId) return;
       const q = term.trim();
       setSearchTouched(q.length > 0);
-      // The Select also calls onSearch('') when the dropdown closes. Angular only
+      // Select also calls onSearch('') when the dropdown closes. Angular only
       // resets its list on keyup, so an empty term must keep the last results.
       if (q.length === 0) return;
-      // Angular queries only past 4 characters and clears the list until then.
-      if (q.length < 4) {
+      // Angular: `event.target.value.length > 4`
+      if (q.length <= 4) {
         setEmployeeRows([]);
         setEmployeeOptions([]);
         return;
@@ -233,7 +280,11 @@ export function PerformanceAssessmentPage() {
       try {
         const list = await searchEmployeesForHr(q, collegeId);
         setEmployeeRows(list);
-        setEmployeeOptions(list.map((e) => employeeSelectOption(e)));
+        setEmployeeOptions(
+          list.map((row) =>
+            employeeSelectOption(row as Record<string, unknown>),
+          ),
+        );
       } catch (e) {
         toastError(e, "Employee search failed");
         setEmployeeRows([]);
@@ -272,10 +323,10 @@ export function PerformanceAssessmentPage() {
         params.set("assessmentFeedbackId", String(assessmentFeedbackId));
       }
       router.push(
-        `/hr-payroll/employee/performance-assessment/add-performance?${params.toString()}`,
+        `${performanceAssessmentFormHref(pathname)}?${params.toString()}`,
       );
     },
-    [selectedEmployeeId, selectedEmployee, empDisplayName, router],
+    [selectedEmployeeId, selectedEmployee, empDisplayName, router, pathname],
   );
 
   const columnDefs = useMemo<ColDef<PerfRow>[]>(
@@ -298,8 +349,7 @@ export function PerformanceAssessmentPage() {
             <Button
               type="button"
               size="sm"
-              variant="default"
-              className="h-7 px-2 text-[11px]"
+              className="h-[30px] rounded-full bg-[#00b9f5] px-3 text-[12px] text-white hover:bg-[#00a6dc]"
               onClick={() => openAssessment(id || undefined)}
             >
               {viewOnly ? "View" : "Edit"}
@@ -311,11 +361,8 @@ export function PerformanceAssessmentPage() {
     [empDisplayName, viewOnly, openAssessment],
   );
 
-  // Angular wraps the history card in `*ngIf="perForm.value.employeeId"`.
   const hasEmployee = selectedEmployeeId != null && selectedEmployeeId > 0;
 
-  // The trigger label comes from `options`, so the picked employee must stay in
-  // the list even after a later search replaces the results.
   const employeeSelectOptions = useMemo<SelectOption[]>(() => {
     const base =
       employeeOptions.length > 0
@@ -330,18 +377,13 @@ export function PerformanceAssessmentPage() {
       selected,
       ...base.filter((o) => o.value !== EMPLOYEE_SEARCH_HINT.value),
     ];
-  }, [
-    employeeOptions,
-    searchTouched,
-    hasEmployee,
-    selectedEmployee,
-    selectedEmployeeId,
-  ]);
+  }, [employeeOptions, searchTouched, hasEmployee, selectedEmployee]);
 
   return (
     <FilteredListPage
-      title="Performance Assessment"
+      title="Faculty Performance Assessment"
       tableTitle="Faculty Performance History"
+      filtersCollapsible={false}
       filters={
         <div className="max-w-xl">
           <Select
@@ -349,13 +391,26 @@ export function PerformanceAssessmentPage() {
             value={selectedEmployeeId ? String(selectedEmployeeId) : null}
             onChange={handleEmployeeChange}
             options={employeeSelectOptions}
-            placeholder="Search by Employee name or Id."
+            placeholder="Employee"
             searchable
             onSearch={onEmployeeSearch}
             isLoading={employeeSearchLoading}
             disabled={!sessionLoading && staffLocked}
             clearable={!staffLocked}
           />
+        </div>
+      }
+      tableHeader={
+        <div className="table-context-header">
+          <span
+            className="material-icons table-context-header__icon"
+            aria-hidden
+          >
+            ballot
+          </span>
+          <strong className="table-context-header__title">
+            Faculty Performance History
+          </strong>
         </div>
       }
       notice={
@@ -371,16 +426,15 @@ export function PerformanceAssessmentPage() {
       loading={isFetching}
       pagination
       toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        pdfDocumentTitle: "Faculty Performance History",
+        search: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         !sessionLoading && !isPrincipal ? (
           <Button
             type="button"
             size="sm"
-            className="h-[30px] px-3 text-[12px]"
+            className="h-[30px] rounded-full bg-[#00b9f5] px-3 text-[12px] text-white hover:bg-[#00a6dc]"
             onClick={() => openAssessment()}
           >
             <PlusIcon className="mr-1.5 h-3.5 w-3.5" />

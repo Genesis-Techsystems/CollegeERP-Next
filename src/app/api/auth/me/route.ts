@@ -96,6 +96,9 @@ export async function GET() {
     const dto = await springGetUserDetails(session.jwt).catch(() => null);
     if (dto) {
       Object.assign(session.user, deriveRoleFlagsFromDto(dto, session.user));
+      if (dto.userTypeCode) session.user.userTypeCode = dto.userTypeCode;
+      if (dto.userRole) session.user.userRole = dto.userRole;
+      if (dto.roleName) session.user.roleName = dto.roleName;
       session.roleFlagsVersion = ROLE_FLAGS_VERSION;
       await session.save();
     }

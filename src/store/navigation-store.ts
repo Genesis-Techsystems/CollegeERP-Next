@@ -16,6 +16,7 @@ interface NavigationState {
   /** Which side of the screen the sidebar is docked to */
   sidebarPosition: 'left' | 'right'
   setNavItems: (items: NavItem[]) => void
+  resetNavItems: () => void
   toggleCollapsed: (id: string) => void
   /**
    * Open or close one collapsible group in a single store update.
@@ -66,6 +67,13 @@ export const useNavigationStore = create<NavigationState>()(
             ? {}
             : { collapsedItems: new Set(collectCollapsibleItemIds(items)), navItemsSeeded: true }),
         })),
+
+      resetNavItems: () =>
+        set({
+          navItems: [],
+          collapsedItems: new Set(),
+          navItemsSeeded: false,
+        }),
 
       toggleCollapsed: (id) =>
         set((state) => {

@@ -108,16 +108,18 @@ export function resolveFacultyDetailsNavRoute(
     return HR_EMPLOYEE_LIST_ROUTE;
   }
 
+  // Angular `#/staff-faculty-details/faculty-details` — keep this module URL.
+  // Do not send it to HR `employee-list` (secretary / non-HOD logins included).
+  if (isHodFacultyDetailsHref(hrefLower)) {
+    return null;
+  }
+
   if (!isHrEmployeeListNavLabel(labelKey)) {
     return null;
   }
 
   if (isSecretaryRole(roleName, userRoles)) {
     return HR_EMPLOYEE_LIST_ROUTE;
-  }
-
-  if (isHodFacultyDetailsHref(hrefLower)) {
-    return null;
   }
 
   return HR_EMPLOYEE_LIST_ROUTE;

@@ -1173,9 +1173,10 @@ export async function listEmployeeReportingByEmployee(
 export async function searchEmployeesForHr(
   term: string,
   collegeId?: number,
+  minLength = 4,
 ): Promise<AnyRow[]> {
   const q = term.trim();
-  if (q.length < 4) return [];
+  if (q.length < minLength) return [];
   const params: Record<string, string | number> = { q, empStatus: "ACTV" };
   if (collegeId) params.collegeId = collegeId;
 

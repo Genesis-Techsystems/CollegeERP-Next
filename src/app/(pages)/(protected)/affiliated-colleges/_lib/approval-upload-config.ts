@@ -80,7 +80,10 @@ export const APPROVAL_UPLOAD_DETAIL_CONFIG: Record<ApprovalUploadDetailKind, App
     detailProc: 's_pop_univ_upload_std_exam_registration',
     loadProc: 's_pop_univ_upload_std_exam_registration',
     exportFileName: 'Exam_Registration_Data',
-    extraDetailParams: (row) => ({ examId: Number(row.fk_exam_id ?? 0) }),
+    extraDetailParams: (row) => ({
+      examId: Number(row.fk_exam_id ?? 0),
+      studentId: 0,
+    }),
     columns: [
       col('sno', 'SNo', 5),
       col('hallticketno', 'Hall Ticket No', 12),

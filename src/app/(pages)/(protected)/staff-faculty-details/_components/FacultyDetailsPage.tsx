@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadIcon, PencilIcon } from "lucide-react";
@@ -15,7 +14,6 @@ import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
-import { isSecretaryRole } from "@/lib/role-routing";
 import {
   getGeneralDetails,
   getStaffEmployeeDetailsById,
@@ -182,7 +180,6 @@ function bustPhotoCache(rows: EmpRow[]): EmpRow[] {
 }
 
 export function FacultyDetailsPage() {
-  const router = useRouter();
   const { user, isLoading: sessionLoading } = useSessionContext();
   const {
     employeeId,
@@ -190,18 +187,6 @@ export function FacultyDetailsPage() {
     isResolving,
   } = useStaffLoginContext(user, sessionLoading);
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    if (sessionLoading) return;
-    if (isSecretaryRole(user?.roleName)) {
-      router.replace("/hr-payroll/employee/employee-list");
-      return;
-    }
-    // Angular HR employee list — non-HOD / non-Principal logins must not stay on HOD faculty-details.
-    if (!user?.isHod && !user?.isPrincipal) {
-      router.replace("/hr-payroll/employee/employee-list");
-    }
-  }, [router, sessionLoading, user?.isHod, user?.isPrincipal, user?.roleName]);
 
   const [mode, setMode] = useState<FacultyMode>("active");
   const [editOpen, setEditOpen] = useState(false);

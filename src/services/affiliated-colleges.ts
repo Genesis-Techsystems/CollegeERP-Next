@@ -628,6 +628,13 @@ async function callUnivUploadStoredProc<T>(
   if (params.fromDate != null) body.in_from_date = params.fromDate;
   if (params.toDate != null) body.in_to_date = params.toDate;
   if (params.studentId != null) body.in_student_id = params.studentId;
+  // Angular view-std-registration always sends in_student_id=0.
+  if (
+    procPath === "s_pop_univ_upload_std_exam_registration" &&
+    body.in_student_id == null
+  ) {
+    body.in_student_id = 0;
+  }
   if (params.fkUnivCollegewisePaymentId != null) {
     body.fk_univ_collegewise_payment_id = params.fkUnivCollegewisePaymentId;
   }

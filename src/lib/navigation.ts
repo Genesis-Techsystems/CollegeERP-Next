@@ -1177,11 +1177,15 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
 
   for (const module of sorted) {
     const icon = normalizeModuleIcon(module.iconName);
-    const moduleUrl = buildModuleUrl(module.url, module.moduleName);
+    const moduleUrl = buildModuleUrl(
+      module.url,
+      module.moduleName || module.displayName || "",
+    );
 
-    const moduleHasPages = module.pages && module.pages.length > 0;
-    const moduleHasSubModules =
-      module.subModules && module.subModules.length > 0;
+    const modulePages = module.pages ?? [];
+    const moduleSubs = module.subModules ?? [];
+    const moduleHasPages = modulePages.length > 0;
+    const moduleHasSubModules = moduleSubs.length > 0;
 
     if (!moduleHasPages && !moduleHasSubModules) {
       navItems.push({
@@ -1196,7 +1200,7 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
       const children: NavItem[] = [];
 
       if (moduleHasPages) {
-        const sortedPages = [...module.pages].sort(
+        const sortedPages = [...modulePages].sort(
           (a, b) => a.sortOrder - b.sortOrder,
         );
         for (const page of sortedPages) {
@@ -1218,7 +1222,7 @@ function buildModuleTree(modules: Module[], pages: Page[]): NavItem[] {
       }
 
       if (moduleHasSubModules) {
-        for (const subModule of module.subModules) {
+        for (const subModule of moduleSubs) {
           children.push(buildSubModuleItem(subModule, moduleUrl));
         }
       }

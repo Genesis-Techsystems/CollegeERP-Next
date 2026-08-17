@@ -59,7 +59,9 @@ export default async function ProtectedLayout({
 
   return (
     <SessionProvider initialUser={session.user}>
-      <AppShell initialNavItems={navItems}>{children}</AppShell>
+      <AppShell initialNavItems={navItems} navUserId={session.user.userId}>
+        {children}
+      </AppShell>
     </SessionProvider>
   );
 }

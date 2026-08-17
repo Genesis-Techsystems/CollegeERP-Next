@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Loader2, PlusIcon, Trash2Icon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +24,7 @@ import {
   listPerformanceAssessmentStaffSubjects,
   savePerformanceAssessmentFeedback,
 } from "@/services";
+import { performanceAssessmentListHref } from "../_lib/performance-assessment-routes";
 
 type AnyRow = Record<string, any>;
 
@@ -115,9 +116,44 @@ function subjectOptionLabel(row: AnyRow): string {
   return `${name}${code}${type}`.trim() || String(row.subjectId ?? "");
 }
 
+function subjectSelectOption(row: AnyRow): SelectOption {
+  const name = String(row.subjectName ?? "");
+  const code = row.subjectCode ? String(row.subjectCode) : "";
+  const type = row.subjectType ? String(row.subjectType) : "";
+  return {
+    value: String(row.subjectId),
+    label: subjectOptionLabel(row),
+    labelNode: (
+      <>
+        {name}
+        {code ? <span className="text-[#9E9E9E]"> - {code} </span> : null}
+        {type ? <span className="text-blue-600"> ({type})</span> : null}
+      </>
+    ),
+  };
+}
+
 function studentOptionLabel(row: AnyRow): string {
   const roll = row.rollNumber ? `(${String(row.rollNumber)}) ` : "";
   return `${roll}${String(row.studentName ?? row.firstName ?? "")}`.trim();
+}
+
+function studentSelectOption(row: AnyRow): SelectOption {
+  const roll = row.rollNumber ? String(row.rollNumber) : "";
+  const name = String(row.studentName ?? row.firstName ?? "");
+  return {
+    value: String(row.studentId),
+    label: studentOptionLabel(row),
+    labelNode: (
+      <>
+        {roll ? (
+          <span className="font-medium text-blue-600">({roll})</span>
+        ) : null}
+        {roll ? " " : null}
+        {name}
+      </>
+    ),
+  };
 }
 
 function detailQuestionId(detail: AnyRow): number {
@@ -139,29 +175,63 @@ function AssessmentSubjectTable({
   onAdd,
   onRemove,
 }: Readonly<AssessmentTableProps>) {
-  const options: SelectOption[] = subjects.map((subject) => ({
-    value: String(subject.subjectId),
-    label: subjectOptionLabel(subject),
-  }));
+  const options: SelectOption[] = subjects.map((subject) =>
+    subjectSelectOption(subject),
+  );
 
   return (
-    <div className="mt-3 overflow-x-auto rounded-md border border-border">
-      <table className="w-full min-w-[880px] text-[12px]">
-        <thead className="bg-muted/55">
-          <tr className="border-b border-border">
-            <th className="w-14 px-2 py-2 text-center font-medium">S.No</th>
-            <th className="min-w-[240px] px-2 py-2 text-left font-medium">
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full min-w-[880px] border-collapse text-[12px]">
+        <thead>
+          <tr>
+            <th className="w-14 bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black">
+              S.No
+            </th>
+            <th
+              className="bg-[#C3D9FF] px-2 py-2 text-left font-semibold text-black"
+              style={{ width: "40%" }}
+            >
               {subjectLabel}
             </th>
-            <th className="px-2 py-2 text-center font-medium">Appeared</th>
-            <th className="px-2 py-2 text-center font-medium">Passed</th>
-            <th className="px-2 py-2 text-center font-medium">Pass %</th>
-            <th className="px-2 py-2 text-center font-medium">1st Division</th>
-            <th className="px-2 py-2 text-center font-medium">2nd Division</th>
-            <th className="px-2 py-2 text-center font-medium">3rd Division</th>
+            <th
+              className="bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black"
+              colSpan={2}
+            >
+              No. of Students
+            </th>
+            <th className="bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black">
+              Pass %
+            </th>
+            <th
+              className="bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black"
+              colSpan={3}
+            >
+              Division
+            </th>
             {!readOnly ? (
-              <th className="w-12 px-2 py-2" aria-label="Actions" />
+              <th className="w-12 bg-[#C3D9FF]" aria-label="Actions" />
             ) : null}
+          </tr>
+          <tr>
+            <th className="bg-[#C3D9FF]" />
+            <th className="bg-[#C3D9FF]" />
+            <th className="bg-[#C3D9FF] px-2 py-1 text-center font-semibold text-black">
+              Appeared
+            </th>
+            <th className="bg-[#C3D9FF] px-2 py-1 text-center font-semibold text-black">
+              Passed
+            </th>
+            <th className="bg-[#C3D9FF]" />
+            <th className="bg-[#C3D9FF] px-2 py-1 text-center font-semibold text-black">
+              1st
+            </th>
+            <th className="bg-[#C3D9FF] px-2 py-1 text-center font-semibold text-black">
+              2nd
+            </th>
+            <th className="bg-[#C3D9FF] px-2 py-1 text-center font-semibold text-black">
+              3rd
+            </th>
+            {!readOnly ? <th className="bg-[#C3D9FF]" /> : null}
           </tr>
         </thead>
         <tbody>
@@ -222,18 +292,14 @@ function AssessmentSubjectTable({
         </tbody>
       </table>
       {!readOnly ? (
-        <div className="border-t border-border p-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 text-[12px]"
-            onClick={onAdd}
-          >
-            <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-            Add {label}
-          </Button>
-        </div>
+        <button
+          type="button"
+          className="mt-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#4caf50] text-white hover:bg-[#43a047]"
+          aria-label={`Add ${label} row`}
+          onClick={onAdd}
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
       ) : null}
     </div>
   );
@@ -256,20 +322,24 @@ function LevelWorkTable({
   }));
 
   return (
-    <div className="mt-3 overflow-x-auto rounded-md border border-border">
-      <table className="w-full min-w-[760px] text-[12px]">
-        <thead className="bg-muted/55">
-          <tr className="border-b border-border">
-            <th className="w-14 px-2 py-2 text-center font-medium">S.No</th>
-            <th className="w-[40%] px-2 py-2 text-left font-medium">
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full min-w-[760px] border-collapse text-[12px]">
+        <thead>
+          <tr>
+            <th className="w-14 bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black">
+              S.No
+            </th>
+            <th className="w-[40%] bg-[#C3D9FF] px-2 py-2 text-left font-semibold text-black">
               Nature of work
             </th>
-            <th className="w-[25%] px-2 py-2 text-left font-medium">
+            <th className="w-[25%] bg-[#C3D9FF] px-2 py-2 text-left font-semibold text-black">
               {ratingLabel}
             </th>
-            <th className="px-2 py-2 text-left font-medium">{remarksLabel}</th>
+            <th className="bg-[#C3D9FF] px-2 py-2 text-left font-semibold text-black">
+              {remarksLabel}
+            </th>
             {!readOnly ? (
-              <th className="w-12 px-2 py-2" aria-label="Actions" />
+              <th className="w-12 bg-[#C3D9FF]" aria-label="Actions" />
             ) : null}
           </tr>
         </thead>
@@ -339,18 +409,14 @@ function LevelWorkTable({
         </tbody>
       </table>
       {!readOnly ? (
-        <div className="border-t border-border p-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-8 text-[12px]"
-            onClick={onAdd}
-          >
-            <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-            Add {label}
-          </Button>
-        </div>
+        <button
+          type="button"
+          className="mt-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#4caf50] text-white hover:bg-[#43a047]"
+          aria-label={`Add ${label} row`}
+          onClick={onAdd}
+        >
+          <PlusIcon className="h-4 w-4" />
+        </button>
       ) : null}
     </div>
   );
@@ -358,9 +424,11 @@ function LevelWorkTable({
 
 export function AddPerformanceAssessmentPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useSessionContext();
+  const listHref = performanceAssessmentListHref(pathname);
 
   const empId = Number(searchParams.get("empId") ?? 0);
   const empFirstName = searchParams.get("empFirstName") ?? "";
@@ -744,7 +812,7 @@ export function AddPerformanceAssessmentPage() {
           ? "Performance assessment updated."
           : "Performance assessment saved.",
       );
-      router.push("/hr-payroll/employee/performance-assessment");
+      router.push(listHref);
     } catch (error) {
       toastError(error, "Failed to save performance assessment");
     } finally {
@@ -768,42 +836,42 @@ export function AddPerformanceAssessmentPage() {
   return (
     <PageContainer className="space-y-5 pb-10">
       <div className="app-card space-y-5 p-4">
-        <div className="border-b border-border pb-2 text-center">
-          <h1 className="text-[15px] font-semibold text-foreground">
+        <div className="text-left">
+          <h1 className="text-[18px] font-semibold text-[#042956]">
             For faculty members Performance Based Assessment Scheme (PBAS) -
             360°
           </h1>
         </div>
 
-        <div className="grid grid-cols-1 gap-x-8 gap-y-2 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-x-8 gap-y-2 border-b-2 border-[#9E9E9E] pb-2.5 text-[14px] sm:grid-cols-2 lg:grid-cols-3">
           <p className="lg:col-start-1 lg:row-start-1">
-            <span className="text-muted-foreground">Academic Year: </span>
-            <span className="font-medium text-primary">
+            <span className="font-semibold text-black">Academic Year : </span>
+            <span className="font-medium text-blue-600">
               {academicYear || "—"}
             </span>
           </p>
           <p className="lg:col-start-2 lg:row-start-1">
-            <span className="text-muted-foreground">Designation: </span>
-            <span className="font-medium text-primary">
+            <span className="font-semibold text-black">Designation : </span>
+            <span className="font-medium text-blue-600">
               {designation || "—"}
             </span>
           </p>
           <p className="lg:col-start-1 lg:row-start-2">
-            <span className="text-muted-foreground">Employee: </span>
-            <span className="font-medium text-primary">
+            <span className="font-semibold text-black">Employee : </span>
+            <span className="font-medium text-blue-600">
               {empFirstName || empId || "—"}
             </span>
           </p>
           <p className="lg:col-start-2 lg:row-start-2">
-            <span className="text-muted-foreground">Department: </span>
-            <span className="font-medium text-primary">
+            <span className="font-semibold text-black">Department : </span>
+            <span className="font-medium text-blue-600">
               {empDeptName || "—"}
             </span>
           </p>
           <p className="lg:col-start-3 lg:row-start-2 lg:text-right">
-            <span className="text-muted-foreground">Date: </span>
-            <span className="font-medium text-primary">
-              {format(feedbackDate, "dd MMM, yyyy")}
+            <span className="font-semibold text-black">Date : </span>
+            <span className="font-medium text-blue-600">
+              {format(feedbackDate, "d MMM, yyyy")}
             </span>
           </p>
         </div>
@@ -829,7 +897,7 @@ export function AddPerformanceAssessmentPage() {
                   key={String(question.assessmentQuestionId ?? index)}
                   className="space-y-2"
                 >
-                  <p className="text-[13px] font-medium text-foreground">
+                  <p className="text-[14px] font-semibold text-black">
                     {index + 1}. {String(question.questionName ?? "")}
                   </p>
 
@@ -839,7 +907,7 @@ export function AddPerformanceAssessmentPage() {
                         (option) => (
                           <label
                             key={String(option.assessmentOptionId)}
-                            className="flex items-center gap-2 text-[13px]"
+                            className="flex items-center gap-2 text-[14px] text-[#808080]"
                           >
                             <input
                               type="radio"
@@ -910,20 +978,23 @@ export function AddPerformanceAssessmentPage() {
                   ) : null}
 
                   {code === "ACHMNTMENT" ? (
-                    <div className="mt-3 overflow-x-auto rounded-md border border-border">
-                      <table className="w-full min-w-[720px] text-[12px]">
-                        <thead className="bg-muted/55">
-                          <tr className="border-b border-border">
-                            <th className="w-14 px-2 py-2 text-center font-medium">
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full min-w-[720px] border-collapse text-[12px]">
+                        <thead>
+                          <tr>
+                            <th className="w-14 bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black">
                               S.No
                             </th>
-                            <th className="min-w-[240px] px-2 py-2 text-left font-medium">
+                            <th
+                              className="bg-[#C3D9FF] px-2 py-2 text-left font-semibold text-black"
+                              style={{ width: "45%" }}
+                            >
                               Mentee’s Name
                             </th>
                             {generalDetails.engagements.map((engagement) => (
                               <th
                                 key={String(engagement.generalDetailId)}
-                                className="px-2 py-2 text-center font-medium"
+                                className="bg-[#C3D9FF] px-2 py-2 text-center font-semibold text-black"
                               >
                                 {String(
                                   engagement.generalDetailDisplayName ?? "",
@@ -955,10 +1026,7 @@ export function AddPerformanceAssessmentPage() {
                                     )
                                   }
                                   options={(studentsQuery.data ?? []).map(
-                                    (student) => ({
-                                      value: String(student.studentId),
-                                      label: studentOptionLabel(student),
-                                    }),
+                                    (student) => studentSelectOption(student),
                                   )}
                                   placeholder="Student"
                                   searchable
@@ -1007,26 +1075,19 @@ export function AddPerformanceAssessmentPage() {
                         </tbody>
                       </table>
                       {!readOnly ? (
-                        <div className="border-t border-border p-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-[12px]"
-                            onClick={() =>
-                              setMentorRows((current) => [
-                                ...current,
-                                emptyMentorRow(
-                                  empId,
-                                  generalDetails.engagements,
-                                ),
-                              ])
-                            }
-                          >
-                            <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-                            Add Mentee
-                          </Button>
-                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#4caf50] text-white hover:bg-[#43a047]"
+                          aria-label="Add mentee row"
+                          onClick={() =>
+                            setMentorRows((current) => [
+                              ...current,
+                              emptyMentorRow(empId, generalDetails.engagements),
+                            ])
+                          }
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                        </button>
                       ) : null}
                     </div>
                   ) : null}
@@ -1034,7 +1095,7 @@ export function AddPerformanceAssessmentPage() {
                   {code === "DEPTLVLWRKPER" ? (
                     <LevelWorkTable
                       label="Department Work"
-                      ratingLabel="Rating by HoD"
+                      ratingLabel="Rating by HoD (Good/Satisfactory/To be Improved)"
                       remarksLabel="Remarks by HoD"
                       rows={departmentRows}
                       ratings={generalDetails.ratings}
@@ -1061,8 +1122,8 @@ export function AddPerformanceAssessmentPage() {
                   {code === "INSTLEVWORKS" ? (
                     <LevelWorkTable
                       label="Institution Work"
-                      ratingLabel="Rating by Concerned Authority"
-                      remarksLabel="Remarks by Concerned Authority"
+                      ratingLabel="Rating by Concerned authority (Vice Principal/ Deans/COE) (Good/Satisfactory/To be Improved)"
+                      remarksLabel="Remarks by Concerned authority"
                       rows={institutionRows}
                       ratings={generalDetails.ratings}
                       readOnly={readOnly}
@@ -1101,7 +1162,8 @@ export function AddPerformanceAssessmentPage() {
                     <Textarea
                       value={String(question.description ?? "")}
                       disabled={readOnly}
-                      rows={4}
+                      rows={6}
+                      className="min-h-[130px] border-2 border-[#dedede]"
                       onChange={(event) =>
                         updateQuestion(index, {
                           description: event.target.value,
@@ -1116,11 +1178,11 @@ export function AddPerformanceAssessmentPage() {
         ) : null}
 
         {!readOnly && questionRows.length > 0 ? (
-          <div className="flex justify-center border-t border-border pt-4">
+          <div className="flex justify-center pt-4">
             <Button
               type="button"
               size="sm"
-              className="w-full max-w-md bg-amber-400 text-amber-950 hover:bg-amber-500"
+              className="h-[35px] w-1/2 min-w-[220px] bg-[#4caf50] text-white hover:bg-[#43a047]"
               disabled={saving || loading}
               onClick={() => void handleSave()}
             >
@@ -1133,14 +1195,13 @@ export function AddPerformanceAssessmentPage() {
         ) : null}
       </div>
 
-      <div className="flex justify-end">
+      <div className="mt-4 flex justify-end">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() =>
-            router.push("/hr-payroll/employee/performance-assessment")
-          }
+          className="h-[35px]"
+          onClick={() => router.push(listHref)}
         >
           Back
         </Button>
