@@ -2,10 +2,12 @@
 
 /**
  * Employee Detail Report —
- * Angular `reports/admin-hr-reports/employee-detail-report` parity.
+ * Angular `reports/hr-reports/employee-detail-report` parity
+ * (`goldcollegeerp_2024_dev3`): College + Get Report, then table with
+ * Export Excel / Print Report / Search.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
@@ -43,9 +45,11 @@ import {
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import type { AnyRow } from "@/app/(pages)/(protected)/reports/admin-library-reports/_lib/library-report-columns";
 
-const PRINT_REPORT_TITLE = "Employee Detail Report";
+const PAGE_TITLE = "Employee Details";
+const PRINT_REPORT_TITLE = "Employee Details Report";
 
 type EmpDetailRow = {
+  __rowId: string;
   firstName: string;
   empNumber: string;
   deptName: string;
@@ -58,7 +62,7 @@ type EmpDetailRow = {
 
 const COL_DEFS = {
   siNo: {
-    headerName: "S.No",
+    headerName: "No.",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
@@ -101,7 +105,7 @@ const COL_DEFS = {
 };
 
 const EXCEL_COLUMNS = [
-  { key: "siNo", header: "S.No" },
+  { key: "siNo", header: "No." },
   { key: "empDisplay", header: "Employee" },
   { key: "deptName", header: "Department" },
   { key: "designationName", header: "Designation" },
@@ -111,21 +115,26 @@ const EXCEL_COLUMNS = [
   { key: "email", header: "Email" },
 ];
 
+/** Angular `.rol-no` — emp number in blue. */
 function empNameRenderer(p: ICellRendererParams<EmpDetailRow>) {
   const name = p.data?.firstName ?? "";
   const num = p.data?.empNumber?.trim();
   if (!num) return name;
   return (
     <span>
-      {name} <span className="text-muted-foreground">( {num} )</span>
+      {name} <span className="font-medium text-[#0014ff]">( {num} )</span>
     </span>
   );
 }
 
-function mapRow(row: AnyRow): EmpDetailRow {
+function mapRow(row: AnyRow, index: number): EmpDetailRow {
+  const empNumber = String(row.empNumber ?? row.emp_number ?? "");
   return {
+    __rowId: String(
+      row.employeeId ?? row.employee_id ?? `${empNumber}-${index}`,
+    ),
     firstName: String(row.firstName ?? row.Emp_Name ?? ""),
-    empNumber: String(row.empNumber ?? row.emp_number ?? ""),
+    empNumber,
     deptName: String(row.deptName ?? row.Emp_Department ?? ""),
     designationName: String(row.designationName ?? row.Emp_Designation ?? ""),
     empCategoryName: String(row.empCategoryName ?? row.Emp_Category ?? ""),
@@ -150,6 +159,7 @@ export default function EmployeeDetailReportPage() {
   const [dataDetails, setDataDetails] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const autoFetchedCollegeRef = useRef<string | null>(null);
 
   const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
@@ -216,7 +226,7 @@ export default function EmployeeDetailReportPage() {
     [rows],
   );
 
-  const handleGetList = async () => {
+  const handleGetList = useCallback(async () => {
     const cid = Number(collegeId ?? 0);
     if (!cid) {
       toastInfo("College is required");
@@ -258,16 +268,23 @@ export default function EmployeeDetailReportPage() {
     } finally {
       setLoadingList(false);
     }
-  };
+  }, [collegeId, collegeOptions, filtersData, clearResults]);
+
+  // Angular sets first college on load; fetch once so the table appears like AMS.
+  useEffect(() => {
+    if (!collegeId || filtersQuery.isLoading) return;
+    if (autoFetchedCollegeRef.current === collegeId) return;
+    autoFetchedCollegeRef.current = collegeId;
+    void handleGetList();
+  }, [collegeId, filtersQuery.isLoading, handleGetList]);
 
   const handleExcelExport = () => {
     if (exportRows.length === 0) {
       toastInfo("No records to export.");
       return;
     }
-    const headerHtml = `<div style="margin-bottom:12px;">
+    const headerHtml = `<div style="margin-bottom:12px;text-align:center;">
       <div style="font-size:18px;font-weight:600;">${escapeHtml(collegeName || "College")}</div>
-      ${dataDetails ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(dataDetails)}</div>` : ""}
       <div style="font-size:16px;font-weight:550;margin-top:4px;">${escapeHtml(PRINT_REPORT_TITLE)}</div>
     </div>`;
     exportHtmlTableAsExcel(
@@ -294,8 +311,8 @@ export default function EmployeeDetailReportPage() {
         logoSrc: escapeHtml(logoSrc),
         fallbackLogo: escapeHtml(fallbackLogo),
         collegeName: escapeHtml(collegeName || "College"),
-        dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
         tableHtml: buildHtmlTable(EXCEL_COLUMNS, exportRows),
+        textAlign: "center",
       }),
     );
   };
@@ -306,7 +323,9 @@ export default function EmployeeDetailReportPage() {
 
   return (
     <FilteredListPage<EmpDetailRow>
-      title={PRINT_REPORT_TITLE}
+      title={PAGE_TITLE}
+      filterTitle={PAGE_TITLE}
+      tableTitle={PAGE_TITLE}
       filters={
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-full min-w-[200px] max-w-xs sm:w-auto">
@@ -316,6 +335,7 @@ export default function EmployeeDetailReportPage() {
               value={collegeId}
               onChange={(v) => {
                 setCollegeId(v);
+                autoFetchedCollegeRef.current = null;
                 clearResults();
               }}
               options={collegeOptions}
@@ -327,24 +347,21 @@ export default function EmployeeDetailReportPage() {
             type="button"
             className="h-9 w-fit px-4"
             disabled={loadingList}
-            onClick={() => void handleGetList()}
+            onClick={() => {
+              autoFetchedCollegeRef.current = collegeId;
+              void handleGetList();
+            }}
           >
             {loadingList ? "Loading…" : "Get Report"}
           </Button>
-          {/* <Button
+          <Button
             type="button"
-            variant="secondary"
-            className="h-9 w-fit px-4"
+            className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
             onClick={goBack}
           >
             Back
-          </Button> */}
+          </Button>
         </div>
-      }
-      tableTitle={
-        showTable && dataDetails
-          ? `${PRINT_REPORT_TITLE} - ${dataDetails}`
-          : PRINT_REPORT_TITLE
       }
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
@@ -353,12 +370,13 @@ export default function EmployeeDetailReportPage() {
       hideEmptyGrid
       pagination
       paginationPageSize={25}
+      getRowId={(p) => String(p.data?.__rowId ?? "")}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
         exportExcel: false,
         exportPdf: false,
-        columnPicker: true,
+        columnPicker: false,
       }}
       toolbarTrailing={
         showTable ? (
@@ -370,7 +388,7 @@ export default function EmployeeDetailReportPage() {
               onClick={handleExcelExport}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Excel Export
+              Export Excel
             </Button>
             <Button
               type="button"

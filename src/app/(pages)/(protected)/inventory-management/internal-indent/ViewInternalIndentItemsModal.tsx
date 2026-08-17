@@ -101,11 +101,11 @@ export default function ViewInternalIndentItemsModal({
 
           <table className="w-full border-collapse border border-border text-xs">
             <thead>
-              <tr className="bg-muted/40">
-                <th className="border border-border px-2 py-1.5 text-left font-semibold uppercase">
+              <tr>
+                <th className="border border-[#b8d2fa] bg-[#ecf3ff] px-2 py-1.5 text-left font-semibold uppercase text-[#173b6d]">
                   Item
                 </th>
-                <th className="border border-border px-2 py-1.5 text-left font-semibold uppercase w-28">
+                <th className="border border-[#b8d2fa] bg-[#ecf3ff] px-2 py-1.5 text-left font-semibold uppercase text-[#173b6d] w-28">
                   Quantity
                 </th>
               </tr>

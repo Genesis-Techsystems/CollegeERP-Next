@@ -2,13 +2,24 @@
  * AG Grid helpers for timetable matrix reports.
  */
 
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import type {
+  ColDef,
+  ICellRendererParams,
+  IHeaderParams,
+} from "ag-grid-community";
 import type {
   PeriodKey,
   StatisticalPeriodKey,
   WeekdayKey,
 } from "./timetable-matrix";
 import { statisticalPeriodField, weekdayField } from "./timetable-matrix";
+
+/** Angular `daily-statistical-report` cell / header colors. */
+const STAT_COL_FIRST = "blue";
+const STAT_COL_CAPTURED = "green";
+const STAT_COL_NOT_CAPTURED = "red";
+const STAT_COL_TIME = "#c76d2f";
+const STAT_COL_BREAK_BG = "#dedede";
 
 export type MatrixGridRow = {
   __rowId: string;
@@ -25,9 +36,7 @@ export function periodField(period: string | number): string {
 }
 
 export function labelCellRenderer(p: ICellRendererParams<MatrixGridRow>) {
-  return (
-    <span className="font-medium text-blue-600">{p.value ?? ""}</span>
-  );
+  return <span className="font-medium text-blue-600">{p.value ?? ""}</span>;
 }
 
 export function buildMatrixColumnDefs(
@@ -83,16 +92,47 @@ export function toMatrixGridRows(
   });
 }
 
+function statisticalLabelRenderer(p: ICellRendererParams<StatisticalGridRow>) {
+  return (
+    <span
+      className="block text-center font-medium"
+      style={{ color: STAT_COL_FIRST }}
+    >
+      {String(p.value ?? "")}
+    </span>
+  );
+}
+
 function statisticalCellRenderer(p: ICellRendererParams<StatisticalGridRow>) {
   const field = p.colDef?.field ?? "";
-  const att = p.data?.[`${field}_att`];
+  const att = Number(p.data?.[`${field}_att`] ?? 0);
   const text = String(p.value ?? "");
   if (!text) return null;
-  const bg = att === 1 ? "#c8e6c9" : "#ffcdd2";
   return (
-    <span className="block px-1 py-0.5 text-center" style={{ backgroundColor: bg }}>
+    <span
+      className="block whitespace-pre-wrap text-center font-medium"
+      style={{
+        color: att === 1 ? STAT_COL_CAPTURED : STAT_COL_NOT_CAPTURED,
+        paddingBottom: 10,
+      }}
+    >
       {text}
     </span>
+  );
+}
+
+function StatisticalPeriodHeader(
+  p: IHeaderParams<StatisticalGridRow> & { periodTime?: string },
+) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center text-center leading-tight">
+      <span className="font-medium" style={{ color: STAT_COL_FIRST }}>
+        {p.displayName}
+      </span>
+      {p.periodTime ? (
+        <span style={{ color: STAT_COL_TIME }}>{p.periodTime}</span>
+      ) : null}
+    </div>
   );
 }
 
@@ -107,7 +147,8 @@ export function buildStatisticalColumnDefs(
       minWidth: 160,
       pinned: "left",
       lockVisible: true,
-      cellRenderer: labelCellRenderer,
+      cellRenderer: statisticalLabelRenderer,
+      cellStyle: { textAlign: "center" },
     },
   ];
 
@@ -117,12 +158,23 @@ export function buildStatisticalColumnDefs(
     cols.push({
       colId: field,
       field,
-      headerName: time ? `${key.periodno}\n${time}` : String(key.periodno),
+      headerName: String(key.periodno),
+      headerComponent: StatisticalPeriodHeader,
+      headerComponentParams: { periodTime: time },
       wrapHeaderText: true,
       autoHeaderHeight: true,
       minWidth: 120,
       flex: 1,
+      wrapText: true,
+      autoHeight: true,
       cellRenderer: statisticalCellRenderer,
+      cellStyle: (p) => {
+        const v = String(p.value ?? "");
+        return {
+          textAlign: "center",
+          ...(v ? {} : { backgroundColor: STAT_COL_BREAK_BG }),
+        };
+      },
     });
   }
 

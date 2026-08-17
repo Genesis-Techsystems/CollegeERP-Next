@@ -10,7 +10,9 @@ import { Eye, EyeOff, Mail, AlertCircle, Loader2 } from "lucide-react";
 import logo from "@/assets/images/logo.jpg";
 import { login } from "@/services/auth";
 import { scheduleNavigation } from "@/lib/schedule-navigation";
+import { toastSuccess } from "@/lib/toast";
 import { OtpStep } from "./OtpStep";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(1, "Username is required"),
@@ -26,6 +28,10 @@ export function LoginCard() {
   const [isPending, setIsPending] = useState(false);
   // 'credentials' → username/password form; 'otp' → evaluator two-factor step.
   const [phase, setPhase] = useState<"credentials" | "otp">("credentials");
+  const [resetCreds, setResetCreds] = useState<{
+    usernameOrEmail: string;
+    password: string;
+  } | null>(null);
   // Credentials held in memory only between the OTP prompt and its verification.
   // Never persisted — cleared once the challenge resolves or is cancelled.
   const pendingCreds = useRef<{
@@ -36,6 +42,7 @@ export function LoginCard() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({ resolver: zodResolver(loginSchema) });
 
@@ -59,6 +66,17 @@ export function LoginCard() {
           password: data.password,
         };
         setPhase("otp");
+        return;
+      }
+      if (result.resetPwdRequired) {
+        // Student first-login — Angular opens Change Password and does not
+        // complete the session. Keep creds for old-password check.
+        setResetCreds({
+          usernameOrEmail: data.usernameOrEmail,
+          password: data.password,
+        });
+        setValue("password", "");
+        if (result.message) toastSuccess(result.message);
         return;
       }
       setIsPending(true);
@@ -298,6 +316,17 @@ export function LoginCard() {
           </form>
         </div>
       )}
+
+      <ChangePasswordModal
+        open={resetCreds != null}
+        usernameOrEmail={resetCreds?.usernameOrEmail ?? ""}
+        currentPassword={resetCreds?.password ?? ""}
+        onClose={() => setResetCreds(null)}
+        onSaved={() => {
+          setResetCreds(null);
+          setValue("password", "");
+        }}
+      />
     </div>
   );
 }

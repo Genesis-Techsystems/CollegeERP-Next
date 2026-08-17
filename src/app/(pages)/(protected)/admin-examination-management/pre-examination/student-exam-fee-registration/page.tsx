@@ -34,9 +34,9 @@ import {
   listExamFeeTypes,
   listExamMastersByCourse,
   listPaymentModes,
-  listStudents,
   payExamFeeReceipts,
 } from "@/services/pre-examination";
+import { searchStudentsByKeyword } from "@/services/student-information";
 import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
@@ -583,8 +583,12 @@ export default function StudentExamFeeRegistrationPage() {
     if (q.length < 5) return;
     setStudentSearchLoading(true);
     try {
-      const list = await listStudents(q).catch(() => []);
+      // Angular exam-fee-registration / hallticket enteredStudent:
+      // GET studentsearch?isActive=true&q=
+      const list = await searchStudentsByKeyword(q);
       setStudents(Array.isArray(list) ? list : []);
+    } catch {
+      setStudents([]);
     } finally {
       setStudentSearchLoading(false);
     }

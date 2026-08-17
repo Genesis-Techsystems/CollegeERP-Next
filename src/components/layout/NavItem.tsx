@@ -169,11 +169,16 @@ import {
   mapExaminationSectionNavRoute,
 } from "@/lib/examination-section-navigation";
 import {
+  isSalarySlipsNav,
+  isSetProxyNav,
+  isStaffSelfAppraisalNav,
   isStaffWorkloadAdjustmentNav,
   isStudentClassDiaryViewer,
   isStudentPortalViewer,
   mapErpModuleLabelToRoute,
   mapErpModuleNavRoute,
+  SALARY_SLIPS_ROUTE,
+  SET_PROXY_ROUTE,
   STAFF_WORKLOAD_ADJUSTMENT_ROUTE,
 } from "@/lib/erp-modules-navigation";
 import {
@@ -190,15 +195,22 @@ import {
   isHostelRoomAllocationPath,
   mapHostelNavRoute,
 } from "@/lib/hostel-navigation";
+import {
+  isStudentDetailsReportNav,
+  resolveStudentDetailsNavRoute,
+  studentDetailsNavDisplayLabel,
+} from "@/lib/resolve-nav-href";
 import { useNavigationStore } from "@/store/navigation-store";
 import { cn } from "@/lib/utils";
 import { scheduleNavigation } from "@/lib/schedule-navigation";
 import {
   resolveFacultyDetailsNavRoute,
-  isSecretaryRole,
+  isEmployeeDetailReportNav,
+  isManagementNavRole,
   isHodFacultyDetailsHref,
   isHrEmployeeListHref,
   HOD_FACULTY_DETAILS_ROUTE,
+  EMPLOYEE_DETAIL_REPORT_ROUTE,
   HR_EMPLOYEE_LIST_ROUTE,
 } from "@/lib/role-routing";
 import { resolveSidebarLabelPin } from "@/lib/sidebar-route-pins";
@@ -875,7 +887,11 @@ function academicsModulePathActive(
 }
 
 /** Recursively checks if any descendant has an href matching the current pathname. */
-function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
+function hasActiveDescendant(
+  item: NavItemType,
+  pathname: string,
+  depth = 0,
+): boolean {
   if (!item.children) return false;
   const normPath = normalizeHref(pathname);
 
@@ -1192,8 +1208,15 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
   };
 
   return item.children.some((child) => {
+    const childDepth = depth + 1;
     const ch = child.href?.trim();
+    const studentDetailsRoute = resolveStudentDetailsNavRoute(
+      ch,
+      child.label,
+      childDepth,
+    );
     const mapped =
+      studentDetailsRoute ??
       mapAdminInstitutionalRoomRoute(ch, child.label) ??
       mapHostelNavRoute(ch, child.label) ??
       mapErpModuleNavRoute(ch, child.label) ??
@@ -1204,7 +1227,7 @@ function hasActiveDescendant(item: NavItemType, pathname: string): boolean {
       const nh = normalizeHref(mapped);
       if (normPath === nh || normPath.startsWith(`${nh}/`)) return true;
     }
-    return hasActiveDescendant(child, pathname);
+    return hasActiveDescendant(child, pathname, childDepth);
   });
 }
 
@@ -1404,6 +1427,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const renderedIconName = iconName ?? inferredIconName;
 
   const labelLower = (item.label ?? "").toLowerCase();
+  const displayLabel = studentDetailsNavDisplayLabel(
+    item.href,
+    item.label,
+    depth,
+  );
   const preExamBase = "/admin-examination-management/pre-examination";
   const reEvalBase = "/admin-examination-management/re-evaluation";
   const evalProcessBase = "/admin-examination-management/evaluation-process";
@@ -1411,10 +1439,17 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   const forcedRoute = (() => {
     const hrefLower = (item.href ?? "").toLowerCase();
 
+    if (isEmployeeDetailReportNav(item.href, item.label)) {
+      return EMPLOYEE_DETAIL_REPORT_ROUTE;
+    }
+
     const facultyDetailsRoute = resolveFacultyDetailsNavRoute(
       item.href,
       item.label,
       user?.roleName,
+      undefined,
+      user?.isManagement,
+      hasChildren,
     );
     if (facultyDetailsRoute) return facultyDetailsRoute;
 
@@ -1461,6 +1496,18 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     // distinct from Faculty Leaves "Workload Adjustment"; pin before remaps.
     if (isStaffWorkloadAdjustmentNav(item.href, item.label)) {
       return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+    }
+
+    const studentDetailsRoute = resolveStudentDetailsNavRoute(
+      item.href,
+      item.label,
+      depth,
+    );
+    if (studentDetailsRoute) return studentDetailsRoute;
+
+    // Faculty Leaves → Set Proxy (Angular `staff-faculty-leaves/set-proxy`).
+    if (isSetProxyNav(item.href, item.label)) {
+      return SET_PROXY_ROUTE;
     }
 
     // Secretary / HR — Angular `#/hr-payroll/employee/employee-list`
@@ -2788,16 +2835,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       // Staff Self Appraisal — Angular `staff-faculty-details/appraisal-report`.
       // Pin before the generic faculty-details matcher so principal login reaches
       // the implemented route instead of falling through to the dashboard.
-      if (
-        hrefLower.includes("staff-faculty-details/appraisal-report") ||
-        labelKey === "staff self appraisal forms" ||
-        labelKey === "staff self appraisal" ||
-        labelKey === "appraisal report"
-      ) {
+      if (isStaffSelfAppraisalNav(item.href, item.label)) {
         if (hrefLower.includes("review-appraisal")) {
           return "/staff-faculty-details/appraisal-report/review-appraisal";
         }
         return "/staff-faculty-details/appraisal-report";
+      }
+
+      // Salary Slips — Angular `staff-faculty-details/salary-slips`.
+      if (isSalarySlipsNav(item.href, item.label)) {
+        return SALARY_SLIPS_ROUTE;
       }
 
       // Faculty Performance Assessment — Angular `staff-faculty-details/performance-assessment`
@@ -2829,7 +2876,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       // (must pin before leave-approvals / faculty-details/leave-approvals remap)
       if (
         !isHrEmployeeListHref(hrefLower) &&
-        !isSecretaryRole(user?.roleName) &&
+        !isManagementNavRole(user?.roleName, undefined, user?.isManagement) &&
         isHodFacultyDetailsHref(hrefLower)
       ) {
         return HOD_FACULTY_DETAILS_ROUTE;
@@ -3283,18 +3330,9 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       ) {
         return "/reports/admin-student-reports/branch-and-academicyear-wise-caste-count";
       }
-      // Angular Student Details Report — not SIS "Student Details"
-      // (`#/admin-student-information-system/students-list`).
-      if (
-        hrefLower.includes("students-list-report") ||
-        hrefLower.includes("academic_branch_course_yr_std") ||
-        (labelLower.includes("student details") &&
-          labelLower.includes("report")) ||
-        (labelLower.includes("student details") &&
-          (hrefLower.includes("/reports/") ||
-            hrefLower.includes("admin-student-reports") ||
-            hrefLower.includes("student-admission-reports")))
-      ) {
+      // Angular Student Details Report vs SIS Student Details — see
+      // resolveStudentDetailsNavRoute (depth + href).
+      if (isStudentDetailsReportNav(hrefLower, labelLower, depth)) {
         return "/reports/admin-student-reports/students-list-report";
       }
       // Angular Semister wise Students Report
@@ -4492,6 +4530,12 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         !labelLower.includes("result sheet"))
     ) {
       return "/admin-examination-management/result-processing/t-sheets";
+    }
+    if (
+      hrefLower.includes("post-examination/verify-exam-marks") ||
+      hrefLower.includes("admin-post-examination/verify-exam-marks")
+    ) {
+      return "/admin-examination-management/post-examination/verify-exam-marks";
     }
     if (
       labelLower.includes("verify exam marks") ||
@@ -5915,8 +5959,35 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   ) {
     isSelfActive = onLiveClassSchedule;
   }
+  // Student Details (SIS, depth 0) vs Student Details Report (under Reports).
+  const onStudentDetailsReport =
+    normPathname === "/reports/admin-student-reports/students-list-report" ||
+    normPathname.startsWith(
+      "/reports/admin-student-reports/students-list-report/",
+    ) ||
+    normPathname ===
+      "/reports/student-admission-reports/students-list-report" ||
+    normPathname.startsWith(
+      "/reports/student-admission-reports/students-list-report/",
+    );
+  const onStudentDetailsModule =
+    (normPathname === "/admin-student-information-system/students-list" ||
+      normPathname.startsWith(
+        "/admin-student-information-system/students-list/",
+      )) &&
+    !onStudentDetailsReport;
+  if (!hasChildren && isEmployeeDetailReportNav(item.href, item.label)) {
+    isSelfActive =
+      normPathname === EMPLOYEE_DETAIL_REPORT_ROUTE ||
+      normPathname.startsWith(`${EMPLOYEE_DETAIL_REPORT_ROUTE}/`);
+  }
+  if (!hasChildren && isStudentDetailsReportNav(item.href, item.label, depth)) {
+    isSelfActive = onStudentDetailsReport;
+  } else if (!hasChildren && diaryLabelKey === "student details") {
+    isSelfActive = onStudentDetailsModule;
+  }
   const isChildActive =
-    (hasChildren ? hasActiveDescendant(item, pathname) : false) ||
+    (hasChildren ? hasActiveDescendant(item, pathname, depth) : false) ||
     modulePathActive;
   // Exam report URLs may be under /admin-examination-management/(admin-)exam-reports
   // or Angular `/reports/admin-exam-reports`, but live in the sidebar under
@@ -5968,6 +6039,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       isActive = false;
     }
   }
+  // Angular Fuse: collapsable Faculty Details module (staff-faculty-details) has no
+  // routerLinkActive on the parent — only the flat pages[] HR leaf highlights on employee-list.
+  const onHrEmployeeListPath =
+    normPathname === HR_EMPLOYEE_LIST_ROUTE ||
+    normPathname.startsWith(`${HR_EMPLOYEE_LIST_ROUTE}/`);
+  if (
+    (labelForActive === "faculty details" ||
+      labelForActive === "faculty detail") &&
+    onHrEmployeeListPath &&
+    hasChildren
+  ) {
+    isActive = false;
+  }
 
   const isOpen = !isItemCollapsed;
 
@@ -5994,7 +6078,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     return (
       <button
         type="button"
-        title={item.label}
+        title={displayLabel}
         onClick={handleCollapsedClick}
         className={cn(
           "group relative flex w-full items-center justify-center rounded-md py-2 px-1",
@@ -6096,7 +6180,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
             />
           )}
           <span className="flex-1 text-left leading-5 whitespace-normal break-words">
-            {item.label}
+            {displayLabel}
           </span>
           <span
             className={cn(
@@ -6154,7 +6238,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         <NavIcon name={renderedIconName} active={isSelfActive} kind="page" />
       )}
       <span className="flex-1 leading-5 whitespace-normal break-words">
-        {item.label}
+        {displayLabel}
       </span>
     </Link>
   );

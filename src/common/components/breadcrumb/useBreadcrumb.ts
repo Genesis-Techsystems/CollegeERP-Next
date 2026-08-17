@@ -516,8 +516,7 @@ function hrReportsMenuBreadcrumb(
   const leafByPath: Record<string, string> = {
     "/reports/admin-hr-reports/employee-list-by-campus-report":
       "Employee List By Campus",
-    "/reports/admin-hr-reports/employee-detail-report":
-      "Employee Detail Report",
+    "/reports/admin-hr-reports/employee-detail-report": "Employee Details",
   };
   const leaf = leafByPath[path];
   if (!leaf) return items;
@@ -1228,6 +1227,81 @@ function principalCommunicationsSendEmailBreadcrumb(
 }
 
 /**
+ * Angular Faculty Leaves → Set Proxy:
+ *   Home → Faculty Leaves → Set Proxy
+ */
+function facultyLeavesSetProxyBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    path !== "/staff-faculty-leaves/set-proxy" &&
+    path !== "/staff-faculty-leaves/staff-workload"
+  ) {
+    return items;
+  }
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  if (
+    labels.some((l) => l.includes("faculty leaves")) &&
+    labels.some((l) => l === "set proxy")
+  ) {
+    return items;
+  }
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  return [home, { label: "Faculty Leaves" }, { label: "Set Proxy" }];
+}
+
+/** Angular Faculty Details module crumbs for implemented staff-faculty-details pages. */
+function facultyDetailsModuleBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  const leafByPath: Record<string, string> = {
+    "/staff-faculty-details/salary-slips": "Salary Slips",
+    "/staff-faculty-details/appraisal-report": "Staff Self Appraisal Forms",
+    "/staff-faculty-details/appraisal-report/review-appraisal":
+      "Staff Self Appraisal Forms",
+  };
+  const leaf = leafByPath[path];
+  if (!leaf) return items;
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  if (
+    labels.some((l) => l.includes("faculty details")) &&
+    labels.some((l) => l === leaf.toLowerCase())
+  ) {
+    return items;
+  }
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  if (path === "/staff-faculty-details/appraisal-report/review-appraisal") {
+    return [
+      home,
+      { label: "Faculty Details" },
+      {
+        label: "Staff Self Appraisal Forms",
+        href: "/staff-faculty-details/appraisal-report",
+      },
+      { label: "Review Appraisal" },
+    ];
+  }
+
+  return [home, { label: "Faculty Details" }, { label: leaf }];
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -1332,6 +1406,8 @@ export function useBreadcrumb(
   items = leaveRequestsBreadcrumb(pathname, items);
   items = principalCommunicationsNotificationsBreadcrumb(pathname, items);
   items = principalCommunicationsSendEmailBreadcrumb(pathname, items);
+  items = facultyLeavesSetProxyBreadcrumb(pathname, items);
+  items = facultyDetailsModuleBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).
   if (items[0]?.label === "Home") {

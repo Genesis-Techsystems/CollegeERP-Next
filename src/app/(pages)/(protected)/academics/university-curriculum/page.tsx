@@ -516,6 +516,8 @@ export default function UniversityCurriculumPage() {
         toolbar={{
           search: true,
           searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
           pdfDocumentTitle: "University Curriculum",
         }}
         pagination

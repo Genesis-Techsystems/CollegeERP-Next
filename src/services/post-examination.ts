@@ -694,6 +694,159 @@ export async function getVerifyExamMarksReport(params: {
   return parseVerifyExamMarksReportRows(data);
 }
 
+/**
+ * Post-examination Verify Exam Marks (Angular post-examination/verify-exam-marks).
+ * Filters: Course → Academic Year → Exam → Course Group → Course Year → Regulation → Subject.
+ */
+function postExamVerifyFlagType(mode: VerifyExamMarksMode): "INT" | "REGSUP" {
+  return mode === "internal" ? "INT" : "REGSUP";
+}
+
+/** Angular getFiltersList: univ_exam_filters + ALL, in_sub_flag_type ''. */
+export async function getPostExamVerifyMarksBaseFilters(
+  employeeId: number,
+): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_filters",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: 0,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: 0,
+      in_academic_year_id: 0,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: employeeId || 0,
+    },
+  ).catch(() => ({ result: [] as AnyRow[][] }));
+  return pickVerifyExamMarksFilterGroup(
+    data?.result ?? [],
+    "univ_exam_filters",
+  );
+}
+
+/**
+ * Angular selectedExam: univ_exam_rest_in_regexamstd
+ * flagType INT when Internal Marks Status, else REGSUP
+ * → group univ_exam_rest_filters.
+ */
+export async function getPostExamVerifyMarksRestFilters(params: {
+  mode: VerifyExamMarksMode;
+  courseId: number;
+  academicYearId: number;
+  examId: number;
+  employeeId: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_rest_in_regexamstd",
+      in_flag_type: postExamVerifyFlagType(params.mode),
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
+    },
+  ).catch(() => ({ result: [] as AnyRow[][] }));
+  return pickVerifyExamMarksFilterGroup(
+    data?.result ?? [],
+    "univ_exam_rest_filters",
+  );
+}
+
+/**
+ * Angular selectedRegulation: univ_exam_subject_regexamstd
+ * flagType INT / REGSUP, in_sub_flag_type ALL
+ * → group univ_exam_sub_regexamstd.
+ */
+export async function getPostExamVerifyMarksSubjects(params: {
+  mode: VerifyExamMarksMode;
+  courseId: number;
+  academicYearId: number;
+  examId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  regulationId: number;
+  employeeId: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_subject_regexamstd",
+      in_flag_type: postExamVerifyFlagType(params.mode),
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId,
+      in_course_year_id: params.courseYearId,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: params.regulationId,
+      in_sub_flag_type: "ALL",
+      in_subject_id: 0,
+      in_param1: 0,
+      in_param2: 0,
+      in_loginuser_roleid: 0,
+      in_loginuser_empid: params.employeeId || 0,
+    },
+  ).catch(() => ({ result: [] as AnyRow[][] }));
+  return pickVerifyExamMarksFilterGroup(
+    data?.result ?? [],
+    "univ_exam_sub_regexamstd",
+  );
+}
+
+/**
+ * Angular getGradeList() — all radio modes call this (not getGradeInternalList).
+ * Flag always `ext_int_exam_marks_entered_count`, in_college_id: 0.
+ */
+export async function getPostExamVerifyMarksReport(params: {
+  examId: number;
+  courseId: number;
+  courseGroupId: number;
+  courseYearId: number;
+  academicYearId: number;
+  regulationId: number;
+  subjectId: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<unknown>(
+    EXAM_EVAL_API.PREMODERATION_REPORTS_BYCODES,
+    {
+      in_flag: "ext_int_exam_marks_entered_count",
+      in_exam_id: params.examId,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: params.courseGroupId || 0,
+      in_course_year_id: params.courseYearId || 0,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: params.regulationId || 0,
+      in_subject_id: params.subjectId || 0,
+    },
+  );
+  return parseVerifyExamMarksReportRows(data);
+}
+
 /** Angular `getStudentsList` → `s_get_exam_allotment_details_invigilator` / `invigilator_room_details`. */
 export async function getInternalAttendanceStudents(params: {
   collegeId: number;

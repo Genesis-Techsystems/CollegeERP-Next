@@ -54,7 +54,10 @@ export function Breadcrumb({
     : items;
 
   return (
-    <nav aria-label="Breadcrumb" className={cn("link-header", className)}>
+    <nav
+      aria-label="Breadcrumb"
+      className={cn("link-header w-full", className)}
+    >
       <div className="flex w-full items-center justify-between gap-2">
         <ol className="flex min-w-0 flex-wrap items-center gap-0 text-[13px] leading-5">
           {visibleItems.map((item, index) => {

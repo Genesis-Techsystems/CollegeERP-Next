@@ -129,7 +129,6 @@ const STUDENT_EXCEL_COLUMNS: { key: string; header: string }[] = [
   { key: "father_name", header: "Father Name" },
   { key: "date_of_birth", header: "Date Of Birth" },
   { key: "student_quota", header: "Quota" },
-  { key: "scholarship_type", header: "Category" },
 ];
 
 const STUDENT_PRINT_COLUMNS: { key: string; header: string }[] = [
@@ -139,7 +138,6 @@ const STUDENT_PRINT_COLUMNS: { key: string; header: string }[] = [
   { key: "father_name", header: "Father Name" },
   { key: "date_of_birth", header: "Date Of Birth" },
   { key: "student_quota", header: "Quota" },
-  { key: "scholarship_type", header: "Category" },
 ];
 
 function txt(v: unknown): string {
@@ -570,11 +568,6 @@ export default function StudentCountDrilldownReportPage() {
           headerName: "Quota",
           minWidth: 110,
         },
-        {
-          field: "scholarship_type",
-          headerName: "Category",
-          minWidth: 120,
-        },
       ];
     }
 
@@ -642,35 +635,41 @@ export default function StudentCountDrilldownReportPage() {
     return buildHtmlTable(AGG_EXCEL_COLUMNS, exportRows);
   };
 
-  /** Angular print body — logo/header + table (no Expand; Grand Total colspan 2). */
+  /** Angular print body — logo/header + drill path + table (no Expand). */
   const buildPrintTableHtml = () => {
+    const th = (label: string) =>
+      `<th class="table-th">${escapeHtml(label)}</th>`;
+    const td = (value: string) =>
+      `<td class="table-td">${escapeHtml(value)}</td>`;
+
     if (isStudentLeaf) {
-      const exportRows = displayRows.map((row) => ({
-        varaiableName: row.varaiableName,
-        varaiableValue: row.varaiableValue,
-        gender: row.gender ?? "",
-        father_name: row.father_name ?? "",
-        date_of_birth: row.date_of_birth ?? "",
-        student_quota: row.student_quota ?? "",
-        scholarship_type: row.scholarship_type ?? "",
-      }));
-      return buildHtmlTable(STUDENT_PRINT_COLUMNS, exportRows);
+      const heads = STUDENT_PRINT_COLUMNS.map((c) => th(c.header)).join("");
+      const body = displayRows
+        .map((row) => {
+          const cells = STUDENT_PRINT_COLUMNS.map((c) =>
+            td(txt(row[c.key as keyof DrillRow])),
+          ).join("");
+          return `<tr>${cells}</tr>`;
+        })
+        .join("");
+      return `<table class="mar"><thead><tr>${heads}</tr></thead><tbody>${body}</tbody></table>`;
     }
-    const exportRows = displayRows.map((row) => ({
-      varaiableName: row.varaiableName,
-      varaiableValue: row.varaiableValue,
-      Total_Students: txt(row.Total_Students),
-    }));
-    const tableHtml = buildHtmlTable(AGG_PRINT_COLUMNS, exportRows);
-    if (displayRows.length === 0) return tableHtml;
-    // Append Grand Total row (Angular: colspan=2 + total cell)
-    return tableHtml.replace(
-      "</tbody>",
-      `<tr>
-        <td colspan="2" style="text-align:center;font-weight:600;border:1px solid #333;padding:6px 5px">Grand Total</td>
-        <td style="text-align:center;font-weight:600;border:1px solid #333;padding:6px 5px">${escapeHtml(String(grandTotal))}</td>
-      </tr></tbody>`,
-    );
+
+    const heads = AGG_PRINT_COLUMNS.map((c) => th(c.header)).join("");
+    const body = displayRows
+      .map(
+        (row) =>
+          `<tr>${td(txt(row.varaiableName))}${td(txt(row.varaiableValue))}${td(txt(row.Total_Students))}</tr>`,
+      )
+      .join("");
+    const grand =
+      displayRows.length > 0
+        ? `<tr class="grand">
+            <td class="table-td" colspan="2">Grand Total</td>
+            <td class="table-td">${escapeHtml(grandTotal == null ? "-" : String(grandTotal))}</td>
+          </tr>`
+        : "";
+    return `<table class="mar"><thead><tr>${heads}</tr></thead><tbody>${body}${grand}</tbody></table>`;
   };
 
   const handleExcelExport = () => {
@@ -706,31 +705,42 @@ export default function StudentCountDrilldownReportPage() {
     const titleLine = academicYear
       ? `Student Count Report - (${academicYear})`
       : "Student Count Report";
+    const drillPath =
+      steps.length > 0
+        ? `<div class="drilldown">${steps
+            .map(
+              (s, i) =>
+                `${escapeHtml(s.name)}${i < steps.length - 1 ? " &gt; " : ""}`,
+            )
+            .join("")}</div>`
+        : "";
 
     printHtmlInIframe(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Student Count Report</title>
 <style>
 @page{margin:12mm}
-body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
-.header{display:flex;align-items:flex-start;gap:16px;margin-bottom:12px}
-.header img{width:100px;height:96px;object-fit:contain}
-.header-text{flex:1;text-align:left}
-.collegeName{font-size:24px;font-weight:550;margin:20px 0 -10px}
-.title{font-size:20px;font-weight:550;margin:0}
-hr{border:none;border-top:1px solid #333;margin:10px 0 12px}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:6px 5px;text-align:center}
-th{background:#fff;font-weight:600}
+body{font-family:Arial,sans-serif;padding:12px;color:#000;margin:0;background:#fff}
+.header{display:flex;align-items:flex-start;width:100%;margin-bottom:8px}
+.header img{width:100px;height:96px;object-fit:contain;flex-shrink:0}
+.header-text{flex:1;text-align:left;padding-left:8px}
+.collegeName{font-size:24px;font-weight:700;margin:20px 0 -10px;color:#000;text-align:left}
+.title{font-size:20px;font-weight:700;margin:0 0 8px;color:#000;text-align:left}
+.drilldown{color:#0c51a4;font-size:16px;font-weight:500;padding:5px 10px}
+table.mar{width:100%;border-collapse:collapse}
+.table-th,.table-td{border:1px solid #cacaca;padding:6px 8px;text-align:center}
+.table-th{padding:9px 5px;background:#C3D9FF;font-weight:500}
+.table-td{font-weight:400}
+tr.grand .table-td{font-weight:700}
 </style></head><body>
 <div class="header">
-  <img src="${escapeHtml(logoSrc)}" alt="Logo"
+  <img src="${escapeHtml(logoSrc)}" alt=""
     onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
   <div class="header-text">
     <p class="collegeName">${escapeHtml(orgLabel)}</p>
     <p class="title">${escapeHtml(titleLine)}</p>
   </div>
 </div>
-<hr />
+${drillPath}
 ${tableHtml}
 </body></html>`);
   };

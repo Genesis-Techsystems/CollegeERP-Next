@@ -50,7 +50,7 @@ export default function ViewPurchaseOrderItemsModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[hsl(var(--primary))] text-base font-semibold">
             Purchase Order Items
@@ -139,101 +139,147 @@ export default function ViewPurchaseOrderItemsModal({
             </table>
           </div>
 
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full min-w-[640px] border-collapse text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px] border-collapse text-[13px]">
               <thead>
-                <tr className="bg-muted/50">
-                  <th className="border-b px-2 py-2 text-left font-medium">
+                <tr>
+                  <th className="border border-[#b8d2fa] bg-[#eef4ff] px-2 py-2 text-left font-medium">
                     Items
                   </th>
-                  <th className="border-b px-2 py-2 text-left font-medium">
+                  <th className="border border-[#b8d2fa] bg-[#eef4ff] px-2 py-2 text-left font-medium">
                     Unit Price
                   </th>
-                  <th className="border-b px-2 py-2 text-left font-medium">
+                  <th className="border border-[#b8d2fa] bg-[#eef4ff] px-2 py-2 text-left font-medium">
                     Quantity
                   </th>
-                  <th className="border-b px-2 py-2 text-left font-medium">
+                  <th className="border border-[#b8d2fa] bg-[#eef4ff] px-2 py-2 text-left font-medium">
                     Discount(%)
                   </th>
-                  <th className="border-b px-2 py-2 text-left font-medium">
+                  <th className="border border-[#b8d2fa] bg-[#eef4ff] px-2 py-2 text-left font-medium">
                     Total cost
                   </th>
                 </tr>
               </thead>
+
               <tbody>
                 {items.length === 0 ? (
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-2 py-4 text-center text-muted-foreground"
+                      className="border border-[#b8d2fa] px-2 py-4 text-center text-muted-foreground"
                     >
                       No items
                     </td>
                   </tr>
                 ) : (
-                  items.map((item, idx) => (
-                    <tr key={`${item.itemName ?? "item"}-${idx}`}>
-                      <td className="border-b px-2 py-1.5">
-                        {item.itemName ?? ""}
+                  <>
+                    {/* ITEM ROW + BLANK SUMMARY AREA */}
+                    <tr>
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {items[0]?.itemName ?? ""}
                       </td>
-                      <td className="border-b px-2 py-1.5">
-                        {item.unitPrice ?? ""}
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {items[0]?.unitPrice ?? ""}
                       </td>
-                      <td className="border-b px-2 py-1.5">
-                        {item.orderQuantity ?? ""}
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {items[0]?.orderQuantity ?? ""}
                       </td>
-                      <td className="border-b px-2 py-1.5">
-                        {item.itemTotalDiscountAmount ?? ""}
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {items[0]?.itemTotalDiscountAmount ?? ""}
                       </td>
-                      <td className="border-b px-2 py-1.5">
-                        {item.itemTotalCost ?? ""}
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {items[0]?.itemTotalCost ?? ""}
                       </td>
                     </tr>
-                  ))
+
+                    {/* ADDITIONAL ITEMS */}
+                    {items.slice(1).map((item, idx) => (
+                      <tr key={`${item.itemName ?? "item"}-${idx + 1}`}>
+                        <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                          {item.itemName ?? ""}
+                        </td>
+
+                        <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                          {item.unitPrice ?? ""}
+                        </td>
+
+                        <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                          {item.orderQuantity ?? ""}
+                        </td>
+
+                        <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                          {item.itemTotalDiscountAmount ?? ""}
+                        </td>
+
+                        <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                          {item.itemTotalCost ?? ""}
+                        </td>
+                      </tr>
+                    ))}
+
+                    {/* SUMMARY */}
+                    <tr>
+                      {/* One large blank area without internal horizontal lines */}
+                      <td
+                        colSpan={3}
+                        rowSpan={5}
+                        className="border-x border-[#b8d2fa]"
+                      />
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-right font-medium">
+                        Gross Amt
+                      </td>
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {data?.poActualAmount ?? ""}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-right font-medium">
+                        GST %
+                      </td>
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {data?.sgst ?? ""}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-right font-medium">
+                        Shipping Charges
+                      </td>
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {data?.shippingCharges ?? ""}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-right font-medium">
+                        Other Charges
+                      </td>
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center">
+                        {data?.otherCharges ?? ""}
+                      </td>
+                    </tr>
+
+                    <tr>
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-right font-medium">
+                        Total Amt
+                      </td>
+
+                      <td className="border border-[#b8d2fa] px-2 py-2 text-center font-bold">
+                        {data?.poNetCost ?? ""}
+                      </td>
+                    </tr>
+                  </>
                 )}
-                <tr>
-                  <td colSpan={3} className="border-b px-2 py-1.5" />
-                  <td className="border-b px-2 py-1.5 text-right font-medium">
-                    Gross Amt
-                  </td>
-                  <td className="border-b px-2 py-1.5">
-                    {data?.poActualAmount ?? ""}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={3} className="border-b px-2 py-1.5" />
-                  <td className="border-b px-2 py-1.5 text-right font-medium">
-                    GST %
-                  </td>
-                  <td className="border-b px-2 py-1.5">{data?.sgst ?? ""}</td>
-                </tr>
-                <tr>
-                  <td colSpan={3} className="border-b px-2 py-1.5" />
-                  <td className="border-b px-2 py-1.5 text-right font-medium">
-                    Shipping Charges
-                  </td>
-                  <td className="border-b px-2 py-1.5">
-                    {data?.shippingCharges ?? ""}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={3} className="border-b px-2 py-1.5" />
-                  <td className="border-b px-2 py-1.5 text-right font-medium">
-                    Other Charges
-                  </td>
-                  <td className="border-b px-2 py-1.5">
-                    {data?.otherCharges ?? ""}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={3} className="px-2 py-1.5" />
-                  <td className="px-2 py-1.5 text-right font-medium">
-                    Total Amt
-                  </td>
-                  <td className="px-2 py-1.5 font-bold">
-                    {data?.poNetCost ?? ""}
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>

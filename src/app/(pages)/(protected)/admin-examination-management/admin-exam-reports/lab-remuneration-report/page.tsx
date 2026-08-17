@@ -139,9 +139,9 @@ export default function LabRemunerationReportPage() {
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
   );
-  const organizationId = Number(
-    globalThis?.localStorage?.getItem("organizationId") ?? 0,
-  );
+  // Angular: +localStorage.organizationId. Proc rejects org 0 (no rows / error).
+  const organizationId =
+    Number(globalThis?.localStorage?.getItem("organizationId") ?? 0) || 1;
 
   const [loading, setLoading] = useState(false);
   const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
@@ -460,6 +460,61 @@ export default function LabRemunerationReportPage() {
     );
   }, [regulationRows, skipAutoSelect]);
 
+  /**
+   * Angular selectedsubject() — load evaluators only after a subject is chosen
+   * (including All = 0). Empty evaluator_list is success, not an error toast.
+   */
+  const selectedSubject = useCallback(
+    async (nextSubjectId: number) => {
+      setSubjectId(nextSubjectId);
+      setEvaluatorRows([]);
+      setEvaluatorProfileId(0);
+      clearResults();
+      if (!courseId || !academicYearId || !examId || !regulationId) return;
+      setLoading(true);
+      try {
+        const list = await getLabRemunerationEvaluators({
+          organizationId,
+          employeeId,
+          examId,
+          courseYearId,
+          subjectId: nextSubjectId,
+          regulationId,
+          courseId,
+          academicYearId,
+        });
+        setEvaluatorRows(list);
+        const next = dedupeBy(list, [
+          "pk_exam_evaluator_profile_id",
+          "examEvaluatorProfileId",
+        ]);
+        setEvaluatorProfileId(
+          next[0]
+            ? numFrom(next[0], [
+                "pk_exam_evaluator_profile_id",
+                "examEvaluatorProfileId",
+              ])
+            : 0,
+        );
+      } catch (e) {
+        toastError(e, "Failed to load evaluators");
+        setEvaluatorRows([]);
+        setEvaluatorProfileId(0);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      academicYearId,
+      courseId,
+      courseYearId,
+      employeeId,
+      examId,
+      organizationId,
+      regulationId,
+    ],
+  );
+
   useEffect(() => {
     let cancelled = false;
     async function loadSubjects() {
@@ -492,12 +547,15 @@ export default function LabRemunerationReportPage() {
         setSubjectRows(list);
         if (skipAutoSelect) {
           setSubjectId(0);
+          setEvaluatorRows([]);
+          setEvaluatorProfileId(0);
           return;
         }
         const next = dedupeBy(list, ["fk_subject_id", "subjectId"]);
-        setSubjectId(
-          next[0] ? numFrom(next[0], ["fk_subject_id", "subjectId"]) : 0,
-        );
+        const nextSubjectId = next[0]
+          ? numFrom(next[0], ["fk_subject_id", "subjectId"])
+          : 0;
+        await selectedSubject(nextSubjectId);
       } catch {
         if (!cancelled) toastError("Failed to load subjects");
       } finally {
@@ -518,66 +576,7 @@ export default function LabRemunerationReportPage() {
     regulationId,
     employeeId,
     skipAutoSelect,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadEvaluators() {
-      if (!courseId || !academicYearId || !examId || !regulationId) {
-        setEvaluatorRows([]);
-        setEvaluatorProfileId(0);
-        return;
-      }
-      setLoading(true);
-      try {
-        const list = await getLabRemunerationEvaluators({
-          organizationId,
-          employeeId,
-          examId,
-          courseYearId,
-          subjectId,
-          regulationId,
-          courseId,
-          academicYearId,
-        });
-        if (cancelled) return;
-        setEvaluatorRows(list);
-        if (skipAutoSelect) {
-          setEvaluatorProfileId(0);
-          return;
-        }
-        const next = dedupeBy(list, [
-          "pk_exam_evaluator_profile_id",
-          "examEvaluatorProfileId",
-        ]);
-        setEvaluatorProfileId(
-          next[0]
-            ? numFrom(next[0], [
-                "pk_exam_evaluator_profile_id",
-                "examEvaluatorProfileId",
-              ])
-            : 0,
-        );
-      } catch {
-        if (!cancelled) toastError("Failed to load evaluators");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void loadEvaluators();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    courseId,
-    academicYearId,
-    examId,
-    courseYearId,
-    subjectId,
-    regulationId,
-    organizationId,
-    employeeId,
-    skipAutoSelect,
+    selectedSubject,
   ]);
 
   async function handleGetReport() {
@@ -880,8 +879,7 @@ export default function LabRemunerationReportPage() {
                 value={String(subjectId)}
                 onChange={(v) => {
                   setSkipAutoSelect(false);
-                  clearResults();
-                  setSubjectId(v ? Number(v) : 0);
+                  void selectedSubject(v ? Number(v) : 0);
                 }}
                 options={[
                   { value: "0", label: "All" },
@@ -953,6 +951,7 @@ export default function LabRemunerationReportPage() {
       columnDefs={columnDefs}
       resultsVisible={rows.length > 0}
       loading={loading}
+      showTable={rows.length > 0}
       pagination
       paginationPageSize={25}
       getRowId={getRowId}

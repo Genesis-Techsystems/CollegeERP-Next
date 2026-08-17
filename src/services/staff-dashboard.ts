@@ -366,16 +366,20 @@ export async function getStaffSubjectsForToday(params: {
   employeeId: number;
   classDate?: string;
 }): Promise<StaffSubjectClass[]> {
-  const envelope = await fetchDetailsEnvelope<StaffSubjectClass[]>(
-    EMPLOYEE_API.STAFF_SUBJECTS,
-    {
-      employeeId: params.employeeId,
-      status: "true",
-      classDate: params.classDate ?? formatClassDateYmdSlash(),
-    },
-  );
-  if (!envelope.success) return [];
-  return asArray<StaffSubjectClass>(envelope.data);
+  try {
+    const envelope = await fetchDetailsEnvelope<StaffSubjectClass[]>(
+      EMPLOYEE_API.STAFF_SUBJECTS,
+      {
+        employeeId: params.employeeId,
+        status: "true",
+        classDate: params.classDate ?? formatClassDateYmdSlash(),
+      },
+    );
+    if (!envelope.success) return [];
+    return asArray<StaffSubjectClass>(envelope.data);
+  } catch {
+    return [];
+  }
 }
 
 function liveSchedulePath(env: DigitalLiveClassEnv): string {
@@ -401,12 +405,16 @@ export async function getLiveClassSchedules(params: {
   } else {
     query.scheduledOnDate = formatScheduleDateYmd();
   }
-  const envelope = await fetchDetailsEnvelope<LiveScheduleRow[]>(
-    liveSchedulePath(env),
-    query,
-  );
-  if (!envelope.success) return [];
-  return asArray<LiveScheduleRow>(envelope.data);
+  try {
+    const envelope = await fetchDetailsEnvelope<LiveScheduleRow[]>(
+      liveSchedulePath(env),
+      query,
+    );
+    if (!envelope.success) return [];
+    return asArray<LiveScheduleRow>(envelope.data);
+  } catch {
+    return [];
+  }
 }
 
 /**

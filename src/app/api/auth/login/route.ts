@@ -103,6 +103,14 @@ export async function POST(request: NextRequest) {
       // Backend sent an OTP → prompt for it. No session is created yet.
       return NextResponse.json({ otpRequired: true });
     }
+    if (loginResult.status === "reset_pwd_required") {
+      // Student first-login — Angular opens Change Password and does not
+      // store a token. No session is created until they log in again.
+      return NextResponse.json({
+        resetPwdRequired: true,
+        message: loginResult.message,
+      });
+    }
     const jwt = loginResult.jwt;
 
     // 4. Call springGetUserDetails(jwt) → UserDTO

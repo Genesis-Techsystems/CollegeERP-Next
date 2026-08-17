@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { MailIcon, PencilIcon, PlusIcon } from "lucide-react";
-import { StatusBadge } from "@/common/components/data-display";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { SearchModeRadioStrip } from "@/common/components/forms";
 import { Select, type SelectOption } from "@/common/components/select";
@@ -109,7 +108,20 @@ const COL_DEFS = {
 };
 
 function statusRenderer(p: ICellRendererParams<EmpRow>) {
-  return <StatusBadge status={p.data?.isActive !== false} />;
+  const code = String(p.data?.empStateCode ?? "").trim();
+  const resigned = code === "RESIGN";
+  if (resigned) {
+    return (
+      <span className="inline-block rounded-[3px] bg-[#ff6636] px-2 py-0.5 text-xs font-medium text-white">
+        {code || "RESIGN"}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block rounded-[3px] bg-[#229c27] px-2 py-1 text-xs font-medium text-white">
+      Active
+    </span>
+  );
 }
 
 function photoRenderer(p: ICellRendererParams<EmpRow>) {
@@ -138,6 +150,54 @@ function employeeOptionLabel(row: EmpRow): string {
   const num = String(row.empNumber ?? "").trim();
   if (name && num) return `${name} (${num})`;
   return name || num || String(row.employeeId ?? "");
+}
+
+/** Angular mat-select-trigger: firstName(empNumber). */
+function employeeTriggerLabel(row: EmpRow): string {
+  const name = String(row.firstName ?? "").trim();
+  const num = String(row.empNumber ?? "").trim();
+  if (name && num) return `${name}(${num})`;
+  return name || num || String(row.employeeId ?? "");
+}
+
+/** Angular employee-list mat-option line 2: college / dept / designation. */
+function employeeOptionMeta(row: EmpRow): string {
+  const college = row.collegeCode != null ? String(row.collegeCode) : "";
+  if (!college) return "";
+  const dept = String(row.empDeptName ?? row.deptName ?? "").trim();
+  const designation = String(
+    row.designation ?? row.designationName ?? "",
+  ).trim();
+  return [college, dept, designation].filter(Boolean).join(" / ");
+}
+
+/** Angular employee-list search dropdown row (photo + book-title + rol-no + emp-dpt). */
+function employeeSearchSelectOption(row: EmpRow): SelectOption {
+  const inactive = String(row.empStatus ?? "").toUpperCase() === "INACTV";
+  const firstName = String(row.firstName ?? "").trim();
+  const empNumber = String(row.empNumber ?? "").trim();
+  const meta = employeeOptionMeta(row);
+
+  return {
+    value: String(row.employeeId),
+    label: employeeTriggerLabel(row),
+    labelNode: (
+      <>
+        <span className="font-medium text-[#3d3de3]">{firstName}</span>
+        {empNumber ? (
+          <span className="font-medium text-blue-600"> ( {empNumber})</span>
+        ) : null}
+      </>
+    ),
+    description: meta || undefined,
+    image: {
+      src: String(row.photoPath ?? "").trim() || DEFAULT_EMPLOYEE_PHOTO,
+      fallbackSrc: DEFAULT_EMPLOYEE_PHOTO,
+      className: inactive
+        ? "!h-[60px] !w-[60px] border-2 border-[#f44336]"
+        : "!h-[60px] !w-[60px] border-2 border-[#34e834]",
+    },
+  };
 }
 
 /** Map Angular employeesearch row fields onto list column fields. */
@@ -221,10 +281,7 @@ export function EmployeeListPage() {
       const list = await searchEmployeesForManagerAssign(q);
       setSearchRows(list.map(normalizeSearchRow));
       setSearchOptions(
-        list.map((e) => ({
-          value: String(e.employeeId),
-          label: employeeOptionLabel(e),
-        })),
+        list.map((e) => employeeSearchSelectOption(normalizeSearchRow(e))),
       );
     } catch (e) {
       toastError(e, "Failed to search employees");
@@ -351,11 +408,12 @@ export function EmployeeListPage() {
                 value={selectedEmployeeId ? String(selectedEmployeeId) : null}
                 onChange={(v) => setSelectedEmployeeId(v ? Number(v) : null)}
                 options={searchOptions}
-                placeholder="Search by name or employee id (min 3 chars)"
+                placeholder="Search..."
                 searchable
                 onSearch={onEmployeeSearch}
                 isLoading={searchLoading}
                 clearable
+                listClassName="max-h-[400px] divide-y divide-[#9e9e9e52]"
               />
             </div>
             <Button
@@ -379,14 +437,24 @@ export function EmployeeListPage() {
           bordered
           rowData={displayRows}
           columnDefs={columnDefs}
-          loading={mode === "all" ? isFetching : false}
+          loading={mode === "all" ? isFetching : isFetchingSearch}
           pagination
           rowHeight={60}
-          toolbar={{
-            search: true,
-            searchPlaceholder: "Employee Search",
-            pdfDocumentTitle: "Employee List",
-          }}
+          toolbar={
+            mode === "all"
+              ? {
+                  search: true,
+                  exportExcel: false,
+                  exportPdf: false,
+                  searchPlaceholder: "Employee Search",
+                }
+              : {
+                  exportExcel: false,
+                  exportPdf: false,
+                  search: true,
+                  searchPlaceholder: "Employee Search",
+                }
+          }
           toolbarTrailing={
             mode === "all" ? (
               <div className="flex items-center gap-2">

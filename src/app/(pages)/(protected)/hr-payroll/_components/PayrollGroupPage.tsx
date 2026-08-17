@@ -142,8 +142,8 @@ export function PayrollGroupPage() {
         search: true,
         searchPlaceholder: "Search payroll groups…",
         columnPicker: true,
-        exportPdf: true,
-        pdfDocumentTitle: "Payroll Groups",
+        exportPdf: false,
+        exportExcel: false,
       }}
       toolbarTrailing={
         <Button asChild size="sm" className="h-[30px] gap-1 px-3 text-[12px]">

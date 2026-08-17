@@ -160,6 +160,7 @@ export type FeeReceiptPaymentPayload = {
   isFeeRefund: boolean;
   receiptAmount: number;
   feeStdDataId: number;
+  feeStructureId?: number;
   revertbByEmployeeId?: number | string;
   feeParticularwisePayments: FeeStudentParticularRow[];
   payerTypeId?: number;

@@ -68,6 +68,50 @@ function employeeLabel(row: AnyRow): string {
   return num ? `${name} ( ${num} )` : name || "Employee";
 }
 
+function textIncludes(value: unknown, token: string): boolean {
+  return String(value ?? "")
+    .toUpperCase()
+    .includes(token.toUpperCase());
+}
+
+function readLeaveSummaryRoleFlagsFromStorage(): {
+  registrar: boolean;
+  accountant: boolean;
+} {
+  if (typeof globalThis.window === "undefined") {
+    return { registrar: false, accountant: false };
+  }
+  try {
+    const storage = globalThis.localStorage;
+    const role = (storage.getItem("userRole") ?? "").toUpperCase();
+    const roleName = (storage.getItem("roleName") ?? "").toUpperCase();
+    let registrar =
+      storage.getItem("isRegistrar") === "true" ||
+      role.includes("REGISTRAR") ||
+      roleName.includes("REGISTRAR");
+    let accountant =
+      storage.getItem("isAccountant") === "true" ||
+      role.includes("ACCOUNTANT") ||
+      roleName.includes("ACCOUNTANT");
+    const raw = storage.getItem("userDetails");
+    if (raw) {
+      const details = JSON.parse(raw) as {
+        userRoles?: Array<{ roleName?: string } | string>;
+      };
+      for (const entry of details.userRoles ?? []) {
+        const name = (
+          typeof entry === "string" ? entry : String(entry?.roleName ?? "")
+        ).toUpperCase();
+        if (name.includes("REGISTRAR")) registrar = true;
+        if (name.includes("ACCOUNTANT")) accountant = true;
+      }
+    }
+    return { registrar, accountant };
+  } catch {
+    return { registrar: false, accountant: false };
+  }
+}
+
 export function LeaveSummaryPage() {
   const { user, isLoading: sessionLoading } = useSessionContext();
 
@@ -77,6 +121,22 @@ export function LeaveSummaryPage() {
   const canSearchCollegeWide = isAdmin || isPrincipal;
   /** Angular `dataSecStaff` — lock department to login emp dept. */
   const lockDepartment = !isAdmin && !isPrincipal;
+
+  const [storageRoleFlags, setStorageRoleFlags] = useState({
+    registrar: false,
+    accountant: false,
+  });
+  useEffect(() => {
+    setStorageRoleFlags(readLeaveSummaryRoleFlagsFromStorage());
+  }, []);
+
+  const hideFilterDownloadReset =
+    storageRoleFlags.registrar ||
+    storageRoleFlags.accountant ||
+    textIncludes(user?.userRole, "REGISTRAR") ||
+    textIncludes(user?.roleName, "REGISTRAR") ||
+    textIncludes(user?.userRole, "ACCOUNTANT") ||
+    textIncludes(user?.roleName, "ACCOUNTANT");
 
   const [filtersLoading, setFiltersLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
@@ -496,7 +556,7 @@ export function LeaveSummaryPage() {
                 options={departmentOptions}
                 placeholder="Select"
                 searchable
-                disabled={!collegeId || lockDepartment}
+                // disabled={!collegeId || lockDepartment}
               />
             </GlobalFilterField>
           </GlobalFilterBarRow>
@@ -565,29 +625,36 @@ export function LeaveSummaryPage() {
               >
                 {reportLoading ? "Loading..." : "Get List"}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
-                onClick={() => void handleDownload()}
-                disabled={
-                  downloading || rows.length === 0 || !collegeId || !fromDate
-                }
-                title="Download Report"
-              >
-                <Download className="h-3.5 w-3.5" />
-                {downloading ? "Downloading..." : "Download"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
-                onClick={handleReset}
-                title="Reset"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
-              </Button>
+              {!hideFilterDownloadReset ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[12px]"
+                    onClick={() => void handleDownload()}
+                    disabled={
+                      downloading ||
+                      rows.length === 0 ||
+                      !collegeId ||
+                      !fromDate
+                    }
+                    title="Download Report"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    {downloading ? "Downloading..." : "Download"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-[12px]"
+                    onClick={handleReset}
+                    title="Reset"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reset
+                  </Button>
+                </>
+              ) : null}
             </div>
           </GlobalFilterBarRow>
         </div>

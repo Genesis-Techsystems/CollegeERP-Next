@@ -28,7 +28,7 @@ import { listStaffSubjectRows } from "./admin/staff-subject-mapping";
 import { getFeeMasterCollegeFilters } from "./fee-masters";
 import {
   listStudentSubjectsForStudent,
-  normalizeStudentRow,
+  searchStudentsByKeyword,
 } from "./student-information";
 
 type AnyRow = Record<string, unknown>;
@@ -407,24 +407,7 @@ export async function searchAffiliatedStudents(
 ): Promise<AnyRow[]> {
   const q = term.trim();
   if (q.length < 5) return [];
-  try {
-    const data = await fetchDetails<AnyRow[]>("studentsearch", {
-      isActive: "true",
-      q,
-    });
-    const rows = Array.isArray(data) ? data : [];
-    return rows.map(normalizeStudentRow);
-  } catch {
-    try {
-      const rows = await domainList<AnyRow>(
-        "StudentProfile",
-        buildQuery({ isActive: true, firstName: q }),
-      );
-      return rows.map(normalizeStudentRow);
-    } catch {
-      return [];
-    }
-  }
+  return searchStudentsByKeyword(q);
 }
 
 /** Angular `subjectcourseyrsUrl` — subjects available for section. */

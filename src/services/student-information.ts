@@ -998,20 +998,18 @@ export async function updateStudentQuickProfile(
 export async function searchStudentsByKeyword(term: string): Promise<AnyRow[]> {
   const q = term.trim();
   if (!q) return [];
-  try {
-    const data = await fetchDetails<any>("studentsearch", {
-      isActive: "true",
-      q,
-    });
-    return asArray<AnyRow>(data).map(normalizeStudentRow);
-  } catch {
-    // Some environments expose only domain access. Keep fallback permissive.
-    const rows = await domainList<AnyRow>(
-      "StudentProfile",
-      buildQuery({ isActive: true, firstName: q }),
-    );
-    return rows.map(normalizeStudentRow);
-  }
+  // Angular ExamHallticketComponent / exam-fee-registration enteredStudent:
+  // listByTwoIds(studentSearchUrl, 'true', q, 'isActive', 'q')
+  // GET /cms/studentsearch?isActive=true&q=
+  const envelope = await fetchDetailsEnvelope<unknown>("studentsearch", {
+    isActive: "true",
+    q,
+  });
+  const status = Number(envelope?.statusCode ?? 0);
+  if (status && status !== 200) return [];
+  const rows = asArray<AnyRow>(envelope?.data);
+  if (rows.length > 0) return rows.map(normalizeStudentRow);
+  return asArray<AnyRow>(envelope).map(normalizeStudentRow);
 }
 
 export type StudentDetailsEmpSecurity = {
@@ -2229,8 +2227,11 @@ export async function listDetainRecommendedStudentsForApproval(params: {
       ...row,
     }));
     return { rows, message: body.message || undefined };
-  } catch {
-    return { rows: [] };
+  } catch (error) {
+    return {
+      rows: [],
+      message: error instanceof Error ? error.message : undefined,
+    };
   }
 }
 

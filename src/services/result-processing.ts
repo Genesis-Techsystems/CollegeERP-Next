@@ -806,6 +806,7 @@ export async function getLabRemunerationSubjects(params: {
 /**
  * Angular lab-remuneration-report selectedsubject():
  * `s_get_examevaluation_bycodes` flag `filter_univexam_evaluator_moderator`.
+ * Empty / "no records" is success in Angular (success toast), not an error.
  */
 export async function getLabRemunerationEvaluators(params: {
   organizationId: number;
@@ -821,7 +822,7 @@ export async function getLabRemunerationEvaluators(params: {
     "s_get_examevaluation_bycodes",
     {
       in_flag: "filter_univexam_evaluator_moderator",
-      in_orgid: params.organizationId || 0,
+      in_orgid: params.organizationId || 1,
       in_fdate: "1990-01-01",
       in_tdate: "1990-01-01",
       in_evalutor_profileid: 0,
@@ -840,7 +841,7 @@ export async function getLabRemunerationEvaluators(params: {
       in_academic_year_id: params.academicYearId,
       in_loginuser_empid: params.employeeId || 0,
     },
-  );
+  ).catch(() => ({ result: [] as AnyRow[][] }));
   const groups = data?.result ?? [];
   return groups.find((g) => (g?.[0]?.flag ?? "") === "evaluator_list") ?? [];
 }

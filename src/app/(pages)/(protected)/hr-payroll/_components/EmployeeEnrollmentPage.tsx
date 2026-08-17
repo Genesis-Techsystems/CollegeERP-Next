@@ -1069,9 +1069,6 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
     if (!employee.firstName.trim()) e.firstName = MSG.required;
     else if (!RE_ALPHA.test(employee.firstName.trim()))
       e.firstName = MSG.alphanumeric;
-    if (!employee.lastName.trim()) e.lastName = MSG.required;
-    else if (!RE_ALPHA.test(employee.lastName.trim()))
-      e.lastName = MSG.alphanumeric;
     if (
       employee.fatherName.trim() &&
       !RE_ALPHA.test(employee.fatherName.trim())
@@ -1414,7 +1411,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
       <div className="app-card overflow-hidden">
         <div className="px-4 py-3" style={{ borderBottom: "none" }}>
           <h1 className="text-[15px] font-semibold leading-tight text-foreground">
-            {mode === "edit" ? "Edit Enrolment" : "Employee Admission"}
+            {mode === "edit" ? "Employee Information" : "Employee Admission"}
           </h1>
         </div>
 
@@ -1546,7 +1543,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                           />
                         </Field>
                         <Field
-                          label="Last Name (as per SSC) *"
+                          label="Last Name (as per SSC)"
                           error={errors.lastName}
                         >
                           <Input
@@ -1821,15 +1818,7 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
                         }
                       />
                     </Field>
-                    <Field label="Date Of Joining">
-                      <DatePicker
-                        value={office.joiningDate}
-                        onChange={(v) =>
-                          setOffice((p) => ({ ...p, joiningDate: v }))
-                        }
-                        placeholder="Date Of Joining"
-                      />
-                    </Field>
+
                     <Field label="JNTU Date Of Joining">
                       <DatePicker
                         value={office.jntuDateOfJoining}

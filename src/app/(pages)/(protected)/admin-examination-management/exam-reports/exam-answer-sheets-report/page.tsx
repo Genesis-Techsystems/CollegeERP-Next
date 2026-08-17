@@ -14,8 +14,6 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
-import { useSessionContext } from "@/context/SessionContext";
-import { useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { printHtmlInIframe } from "@/lib/print";
 import {
   buildHtmlTable,
@@ -206,13 +204,8 @@ const REPORT_PRINT_CSS = `
   }
 `;
 
-function printAnswerSheetsReport(args: {
-  rows: AnyRow[];
-  collegeName: string;
-  collegeLogo: string;
-  subtitle: string;
-}) {
-  const { rows, collegeName, collegeLogo, subtitle } = args;
+function printAnswerSheetsReport(args: { rows: AnyRow[]; subtitle: string }) {
+  const { rows, subtitle } = args;
   if (!rows.length) return;
   const bodyRows = rows
     .map((row, index) => {
@@ -234,6 +227,7 @@ function printAnswerSheetsReport(args: {
     })
     .join("");
 
+  // Angular print: Logo + collegeName assignment is commented out — title + exam only.
   const html = `<!doctype html>
 <html>
 <head>
@@ -244,11 +238,7 @@ function printAnswerSheetsReport(args: {
 <body>
   <div class="wrap">
     <div class="header-row">
-      <div class="logo-col">
-        ${collegeLogo ? `<img src="${escapeHtml(collegeLogo)}" alt="College Logo" />` : ""}
-      </div>
-      <div class="title-col">
-        ${collegeName ? `<p class="collegeName">${escapeHtml(collegeName)}</p>` : ""}
+      <div class="title-col" style="width:100%;flex:1 1 100%">
         <p class="title">Exam Answer Sheets Report</p>
         ${subtitle ? `<p class="details">${escapeHtml(subtitle)}</p>` : ""}
       </div>
@@ -281,7 +271,6 @@ function printAnswerSheetsReport(args: {
 
 export default function ExamAnswerSheetsReportPage() {
   const router = useRouter();
-  const { user } = useSessionContext();
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [showBack, setShowBack] = useState(false);
@@ -301,10 +290,6 @@ export default function ExamAnswerSheetsReportPage() {
   const organizationId = Number(
     globalThis?.localStorage?.getItem("organizationId") ?? 0,
   );
-  const collegeLogo = useCollegeLogo(user?.collegeId ?? null);
-  const collegeName = String(
-    user?.collegeName ?? user?.collegeCode ?? "",
-  ).trim();
 
   useEffect(() => {
     try {
@@ -668,8 +653,6 @@ export default function ExamAnswerSheetsReportPage() {
               onClick={() =>
                 printAnswerSheetsReport({
                   rows,
-                  collegeName,
-                  collegeLogo,
                   subtitle: reportSubtitle,
                 })
               }

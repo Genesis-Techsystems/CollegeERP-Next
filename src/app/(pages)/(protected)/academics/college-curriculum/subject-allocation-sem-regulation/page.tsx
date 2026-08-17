@@ -8,6 +8,7 @@ import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { toastError, toastSuccess } from "@/lib/toast";
 import {
   Dialog,
   DialogContent,
@@ -297,7 +298,9 @@ export default function SubjectAllocationSemRegulationPage() {
         })),
       );
       setDeletedRows([]);
-      alert("Changes saved successfully");
+      toastSuccess("Changes saved successfully");
+    } catch {
+      toastError("Failed to save changes. Please try again.");
     } finally {
       setSaving(false);
     }

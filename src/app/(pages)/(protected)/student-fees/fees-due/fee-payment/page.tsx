@@ -1,16 +1,15 @@
 "use client";
 
 import { Suspense } from "react";
-import { PayFeesPage } from "@/app/(pages)/(protected)/accounts-and-fees/fees-collection/_components/PayFeesPage";
+import { StudentFeeDuePaymentPage } from "../_components/StudentFeeDuePaymentPage";
 
 /**
  * Angular `student-fees/fees-due/fee-payment` → `FeeDuePaymentComponent`.
- * Reuses the shared PayFeesPage (same query-param contract).
  */
-export default function StudentFeesDuePaymentPage() {
+export default function StudentFeesDuePaymentRoute() {
   return (
     <Suspense fallback={null}>
-      <PayFeesPage />
+      <StudentFeeDuePaymentPage />
     </Suspense>
   );
 }

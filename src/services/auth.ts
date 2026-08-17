@@ -29,6 +29,13 @@ export interface LoginResult {
   userRoles?: UserRoleEntry[];
   /** True when an evaluator account still needs its OTP verified. */
   otpRequired?: boolean;
+  /**
+   * Angular `result.data.resetPwd === true` — student must change password
+   * before a session is created.
+   */
+  resetPwdRequired?: boolean;
+  /** Optional backend message shown when opening the change-password modal. */
+  message?: string;
 }
 
 function persistUserRolesForApprovalPages(userRoles?: UserRoleEntry[]): void {
@@ -75,6 +82,41 @@ export async function login(
   const result = (await res.json()) as LoginResult;
   persistUserRolesForApprovalPages(result.userRoles);
   return result;
+}
+
+export type ResetStudentPasswordPayload = {
+  userName: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+/**
+ * Angular ChangePasswordModal `putUploadDetailsByRequest(resetStdPassword, …)`.
+ * Completes student first-login password change. Does not create a session —
+ * the student logs in again with the new password.
+ */
+export async function resetStudentPassword(
+  payload: ResetStudentPasswordPayload,
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(NEXT_API.AUTH.UPDATE_PASSWORD, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const body = (await res.json().catch(() => ({}))) as {
+    success?: boolean;
+    message?: string;
+  };
+
+  if (!res.ok || body.success === false) {
+    throw new Error(body.message ?? "Password update failed");
+  }
+
+  return {
+    success: true,
+    message: body.message ?? "Password updated successfully",
+  };
 }
 
 // ─── logout ───────────────────────────────────────────────────────────────────

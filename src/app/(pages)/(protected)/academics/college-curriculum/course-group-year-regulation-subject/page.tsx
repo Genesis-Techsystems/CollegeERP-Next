@@ -12,7 +12,6 @@ import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { AddCurriculumSubjectModal } from "../_components/AddCurriculumSubjectModal";
 import {
   listGroupYearRegulationSubjects,
-  listSubjectCategories,
   listSubjectsByCourse,
   saveGroupYearRegulationSubjects,
   softDeleteGroupYearRegulationDetail,
@@ -22,27 +21,36 @@ type AnyRow = Record<string, any>;
 
 type FormState = {
   subjectId: number | null;
-  subjectCategoryCatDetId: number | null;
   lectures: string;
   tutorials: string;
   practicals: string;
   internalmarks: string;
   externalmarks: string;
+  finalIntPercentage: string;
+  finalExtPercentage: string;
+  passPercentage: string;
+  externalPassPercentage: string;
   credits: string;
-  isBridgeCourse: boolean;
 };
 
 const defaultForm: FormState = {
   subjectId: null,
-  subjectCategoryCatDetId: null,
   lectures: "",
   tutorials: "",
   practicals: "",
   internalmarks: "",
   externalmarks: "",
+  finalIntPercentage: "",
+  finalExtPercentage: "",
+  passPercentage: "",
+  externalPassPercentage: "",
   credits: "",
-  isBridgeCourse: false,
 };
+
+const BACK_BTN =
+  "h-9 min-w-20 !rounded-[5px] !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]";
+const SAVE_BTN =
+  "h-9 min-w-20 !rounded-[5px] bg-[#042956] px-4 text-white hover:bg-[#031f42]";
 
 function num(v: unknown): number {
   const n = Number(v);
@@ -65,89 +73,127 @@ const BASE_COLS = {
   siNo: {
     headerName: "S.No",
     valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
-    minWidth: 70,
-    maxWidth: 80,
+    width: 80,
+    minWidth: 80,
     flex: 0,
+    pinned: "left",
+    sortable: false,
+    filter: false,
+    suppressSizeToFit: true,
   } as ColDef<AnyRow>,
   subjectCode: {
     field: "subjectCode",
     headerName: "Subject Code",
-    minWidth: 110,
-    flex: 1,
+    width: 130,
+    minWidth: 130,
+    flex: 0,
+    suppressSizeToFit: true,
   },
   subjectName: {
     field: "subjectName",
     headerName: "Subject Name",
-    minWidth: 180,
-    flex: 1.2,
+    width: 200,
+    minWidth: 200,
+    flex: 0,
+    suppressSizeToFit: true,
   },
   subjectType: {
     field: "subjecttypeCode",
     headerName: "Subject Type",
-    minWidth: 120,
-    flex: 1,
-  },
-  category: {
-    field: "subjectCategoryCatDetCode",
-    headerName: "Subject Category",
+    width: 130,
     minWidth: 130,
-    flex: 1,
+    flex: 0,
+    suppressSizeToFit: true,
   },
   lectures: {
     field: "lectures",
     headerName: "Lecture",
-    minWidth: 90,
-    maxWidth: 110,
+    width: 110,
+    minWidth: 110,
     flex: 0,
+    suppressSizeToFit: true,
   },
   tutorials: {
     field: "tutorials",
     headerName: "Tutorial",
-    minWidth: 90,
-    maxWidth: 110,
+    width: 110,
+    minWidth: 110,
     flex: 0,
+    suppressSizeToFit: true,
   },
   practicals: {
     field: "practicals",
     headerName: "Practical",
-    minWidth: 90,
-    maxWidth: 110,
+    width: 110,
+    minWidth: 110,
     flex: 0,
+    suppressSizeToFit: true,
   },
   internal: {
     field: "internalmarks",
     headerName: "Internal Marks",
-    minWidth: 110,
-    maxWidth: 130,
+    width: 130,
+    minWidth: 130,
     flex: 0,
+    suppressSizeToFit: true,
   },
   external: {
     field: "externalmarks",
     headerName: "External Marks",
-    minWidth: 110,
-    maxWidth: 130,
+    width: 130,
+    minWidth: 130,
     flex: 0,
+    suppressSizeToFit: true,
+  },
+  finalIntPercentage: {
+    field: "finalIntPercentage",
+    headerName: "Final IntPercentage",
+    width: 160,
+    minWidth: 160,
+    flex: 0,
+    suppressSizeToFit: true,
+  },
+  finalExtPercentage: {
+    field: "finalExtPercentage",
+    headerName: "Final ExtPercentage",
+    width: 160,
+    minWidth: 160,
+    flex: 0,
+    suppressSizeToFit: true,
+  },
+  passPercentage: {
+    field: "passPercentage",
+    headerName: "Pass Percentage",
+    width: 140,
+    minWidth: 140,
+    flex: 0,
+    suppressSizeToFit: true,
+  },
+  externalPassPercentage: {
+    field: "externalPassPercentage",
+    headerName: "External PassPercentage",
+    width: 180,
+    minWidth: 180,
+    flex: 0,
+    suppressSizeToFit: true,
   },
   credits: {
     field: "credits",
     headerName: "Credits",
-    minWidth: 90,
-    maxWidth: 100,
+    width: 100,
+    minWidth: 100,
     flex: 0,
+    suppressSizeToFit: true,
   },
-  bridge: {
-    headerName: "isBridgeCourse",
-    minWidth: 110,
-    maxWidth: 130,
-    valueGetter: (p: ICellRendererParams<AnyRow>) =>
-      p.data?.isBridgeCourse ? "true" : "false",
-    flex: 0,
-  } as ColDef<AnyRow>,
   actions: {
     headerName: "Actions",
+    width: 110,
     minWidth: 110,
-    maxWidth: 130,
     flex: 0,
+    pinned: "right",
+    sortable: false,
+    filter: false,
+    suppressSizeToFit: true,
   } as ColDef<AnyRow>,
 };
 
@@ -196,7 +242,6 @@ export default function CourseGroupYearRegulationSubjectPage() {
   );
 
   const [subjects, setSubjects] = useState<AnyRow[]>([]);
-  const [subjectCategories, setSubjectCategories] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [removedRows, setRemovedRows] = useState<AnyRow[]>([]);
   const [form, setForm] = useState<FormState>(defaultForm);
@@ -210,9 +255,6 @@ export default function CourseGroupYearRegulationSubjectPage() {
     listSubjectsByCourse(context.courseId)
       .then(setSubjects)
       .catch(() => setSubjects([]));
-    listSubjectCategories()
-      .then(setSubjectCategories)
-      .catch(() => setSubjectCategories([]));
   }, [context.courseId]);
 
   const loadRows = useCallback(async () => {
@@ -242,22 +284,36 @@ export default function CourseGroupYearRegulationSubjectPage() {
     void loadRows();
   }, [loadRows]);
 
-  const subjectOptions = useMemo(
+  const subjectCodeOptions = useMemo(
     () =>
       subjects.map((x) => ({
         value: String(num(x.subjectId ?? x.pk_subject_id)),
-        label: `${safe(x.subjectCode)} - ${safe(x.subjectName)}`,
+        label: safe(x.subjectCode),
       })),
     [subjects],
   );
-  const categoryOptions = useMemo(
+  const subjectNameOptions = useMemo(
     () =>
-      subjectCategories.map((x) => ({
-        value: String(num(x.generalDetailId ?? x.pk_gd_id)),
-        label: safe(x.generalDetailDisplayName ?? x.generalDetailCode),
+      subjects.map((x) => ({
+        value: String(num(x.subjectId ?? x.pk_subject_id)),
+        label: safe(x.subjectName),
       })),
-    [subjectCategories],
+    [subjects],
   );
+
+  function selectSubject(subjectId: number | null) {
+    const details = subjectId ? hydrateSubjectFields(subjectId) : {};
+    setForm((prev) => ({
+      ...prev,
+      subjectId,
+      credits:
+        details.credits != null && details.credits !== ""
+          ? String(details.credits)
+          : subjectId
+            ? prev.credits
+            : "",
+    }));
+  }
 
   function clearForm() {
     setForm(defaultForm);
@@ -283,23 +339,19 @@ export default function CourseGroupYearRegulationSubjectPage() {
     if (!form.subjectId) return null;
     const fromSubject = hydrateSubjectFields(form.subjectId);
     if (!fromSubject.subjectId) return null;
-    const category = subjectCategories.find(
-      (x) =>
-        num(x.generalDetailId ?? x.pk_gd_id) ===
-        (form.subjectCategoryCatDetId ?? 0),
-    );
     return {
       ...current,
       ...fromSubject,
-      subjectCategoryCatDetId: form.subjectCategoryCatDetId ?? undefined,
-      subjectCategoryCatDetCode: safe(category?.generalDetailCode),
       lectures: toNumberOrNull(form.lectures),
       tutorials: toNumberOrNull(form.tutorials),
       practicals: toNumberOrNull(form.practicals),
       internalmarks: toNumberOrNull(form.internalmarks),
       externalmarks: toNumberOrNull(form.externalmarks),
+      finalIntPercentage: toNumberOrNull(form.finalIntPercentage),
+      finalExtPercentage: toNumberOrNull(form.finalExtPercentage),
+      passPercentage: toNumberOrNull(form.passPercentage),
+      externalPassPercentage: toNumberOrNull(form.externalPassPercentage),
       credits: toNumberOrNull(form.credits) ?? num(fromSubject.credits),
-      isBridgeCourse: form.isBridgeCourse,
       courseYearId: context.courseYearId,
       regulationId: context.regulationId,
       courseGroupId: context.courseGroupId,
@@ -338,14 +390,16 @@ export default function CourseGroupYearRegulationSubjectPage() {
     setEditingId(num(row.subjectId));
     setForm({
       subjectId: num(row.subjectId),
-      subjectCategoryCatDetId: num(row.subjectCategoryCatDetId) || null,
       lectures: safe(row.lectures),
       tutorials: safe(row.tutorials),
       practicals: safe(row.practicals),
       internalmarks: safe(row.internalmarks),
       externalmarks: safe(row.externalmarks),
+      finalIntPercentage: safe(row.finalIntPercentage),
+      finalExtPercentage: safe(row.finalExtPercentage),
+      passPercentage: safe(row.passPercentage),
+      externalPassPercentage: safe(row.externalPassPercentage),
       credits: safe(row.credits),
-      isBridgeCourse: Boolean(row.isBridgeCourse),
     });
   }
 
@@ -385,14 +439,16 @@ export default function CourseGroupYearRegulationSubjectPage() {
       BASE_COLS.subjectName,
       BASE_COLS.subjectCode,
       BASE_COLS.subjectType,
-      BASE_COLS.category,
       BASE_COLS.lectures,
       BASE_COLS.tutorials,
       BASE_COLS.practicals,
       BASE_COLS.internal,
       BASE_COLS.external,
+      BASE_COLS.finalIntPercentage,
+      BASE_COLS.finalExtPercentage,
+      BASE_COLS.passPercentage,
+      BASE_COLS.externalPassPercentage,
       BASE_COLS.credits,
-      BASE_COLS.bridge,
       {
         ...BASE_COLS.actions,
         cellRenderer: makeActionsRenderer(onEdit, onDelete),
@@ -405,6 +461,7 @@ export default function CourseGroupYearRegulationSubjectPage() {
     <>
       <FilteredListPage
         title="University Curriculum Regulation Subjects"
+        filterTitle="Add Regulation Subject"
         notice={
           <div className="flex items-center justify-between rounded bg-[#edf0f3] px-2 p-1.5 text-[15px]">
             <strong className="font-medium text-primary">
@@ -418,59 +475,37 @@ export default function CourseGroupYearRegulationSubjectPage() {
           </div>
         }
         filters={
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">Add Regulation Subject</h3>
+          <div className="space-y-3">
+            <div className="flex justify-end">
               <button
                 type="button"
-                className="text-[12px] font-medium text-red-600 hover:underline"
+                className="text-[13px] font-medium text-red-600 hover:underline"
                 onClick={() => setSubjectModalOpen(true)}
               >
                 + New Subject
               </button>
             </div>
-            <div className="grid grid-cols-8 items-end gap-2">
-              <div className="min-w-0">
-                <Select
-                  label=""
-                  value={form.subjectId ? String(form.subjectId) : null}
-                  onChange={(v) => {
-                    const id = v ? Number(v) : null;
-                    const details = id ? hydrateSubjectFields(id) : {};
-                    setForm((prev) => ({
-                      ...prev,
-                      subjectId: id,
-                      credits: details.credits
-                        ? String(details.credits)
-                        : prev.credits,
-                    }));
-                  }}
-                  options={subjectOptions}
-                  placeholder="Select subject"
-                  searchable
-                />
-              </div>
-              <div className="min-w-0">
-                <Select
-                  label=""
-                  value={
-                    form.subjectCategoryCatDetId
-                      ? String(form.subjectCategoryCatDetId)
-                      : null
-                  }
-                  onChange={(v) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      subjectCategoryCatDetId: v ? Number(v) : null,
-                    }))
-                  }
-                  options={categoryOptions}
-                  placeholder="Select category"
-                  searchable
-                />
-              </div>
+            <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Select
+                label="Subject Code"
+                value={form.subjectId ? String(form.subjectId) : null}
+                onChange={(v) => selectSubject(v ? Number(v) : null)}
+                options={subjectCodeOptions}
+                placeholder="Subject Code"
+                searchable
+                clearable
+              />
+              <Select
+                label="Subject Name"
+                value={form.subjectId ? String(form.subjectId) : null}
+                onChange={(v) => selectSubject(v ? Number(v) : null)}
+                options={subjectNameOptions}
+                placeholder="Subject Name"
+                searchable
+                clearable
+              />
               <Input
-                placeholder="Lectures"
+                placeholder="Lectures *"
                 type="number"
                 value={form.lectures}
                 onChange={(e) =>
@@ -478,7 +513,7 @@ export default function CourseGroupYearRegulationSubjectPage() {
                 }
               />
               <Input
-                placeholder="Tutorials"
+                placeholder="Tutorials *"
                 type="number"
                 value={form.tutorials}
                 onChange={(e) =>
@@ -510,31 +545,60 @@ export default function CourseGroupYearRegulationSubjectPage() {
                 }
               />
               <Input
-                placeholder="Credits"
+                placeholder="Final Int Percentage"
+                type="number"
+                value={form.finalIntPercentage}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, finalIntPercentage: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="Final Ext Percentage"
+                type="number"
+                value={form.finalExtPercentage}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, finalExtPercentage: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="Pass Percentage"
+                type="number"
+                value={form.passPercentage}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, passPercentage: e.target.value }))
+                }
+              />
+              <Input
+                placeholder="External Pass Percentage"
+                type="number"
+                value={form.externalPassPercentage}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    externalPassPercentage: e.target.value,
+                  }))
+                }
+              />
+              <Input
+                placeholder="Credits *"
                 type="number"
                 value={form.credits}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, credits: e.target.value }))
                 }
               />
-            </div>
-            <div className="mt-2 flex items-center justify-end gap-2">
-              <label className="inline-flex items-center gap-2 whitespace-nowrap text-[12px] font-medium">
-                <input
-                  type="checkbox"
-                  checked={form.isBridgeCourse}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, isBridgeCourse: e.target.checked }))
-                  }
-                />
-                <span>Bridge Course</span>
-              </label>
-              <Button type="button" onClick={onAddOrUpdate}>
-                {editingId ? "Update" : "Add"}
-              </Button>
-              <Button type="button" variant="outline" onClick={clearForm}>
-                Clear
-              </Button>
+              <div className="flex items-center justify-end gap-2 lg:col-span-6 xl:col-span-1">
+                <Button
+                  type="button"
+                  className={SAVE_BTN}
+                  onClick={onAddOrUpdate}
+                >
+                  {editingId ? "Update" : "Add"}
+                </Button>
+                <Button type="button" className={BACK_BTN} onClick={clearForm}>
+                  Clear
+                </Button>
+              </div>
             </div>
           </div>
         }
@@ -544,12 +608,14 @@ export default function CourseGroupYearRegulationSubjectPage() {
         toolbar={{ search: true, searchPlaceholder: "Search subjects..." }}
         pagination
         paginationPageSize={10}
+        fitColumnsToWidth={false}
+        autoHeight={false}
       />
 
       <div className="mt-3 flex justify-end gap-2">
         <Button
           type="button"
-          variant="outline"
+          className={BACK_BTN}
           onClick={() => {
             // Angular goBack — restore University Curriculum filters via queryParams
             const params = new URLSearchParams();
@@ -571,7 +637,12 @@ export default function CourseGroupYearRegulationSubjectPage() {
         >
           Back
         </Button>
-        <Button type="button" onClick={onSave} disabled={saving}>
+        <Button
+          type="button"
+          className={SAVE_BTN}
+          onClick={onSave}
+          disabled={saving}
+        >
           {saving ? "Saving..." : "Save"}
         </Button>
       </div>

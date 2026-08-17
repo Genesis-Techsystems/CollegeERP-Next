@@ -13,12 +13,13 @@ import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { Eye, FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
+import { SearchInput } from "@/common/components/search";
 import {
   buildHtmlTable,
   escapeHtml,
   exportHtmlTableAsExcel,
 } from "@/common/export-html-table";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { MINIO_URL } from "@/config/constants/api";
 import { printHtmlInIframe } from "@/lib/print";
@@ -36,8 +37,14 @@ import {
   attendancePrintShell as timetablePrintShell,
   toPrintLogoUrl,
 } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
+import {
+  staffDiaryEmployeeSelectOption,
+  staffDiaryEmployeeTriggerLabel,
+} from "../_lib/staff-class-diary-employees";
 
 const REPORT_TITLE = "Staff Assignment Report";
+const PRIMARY_ACTION_BTN =
+  "h-9 shrink-0 rounded-[5px] bg-[#042956] px-4 text-[13px] text-white hover:bg-[#031f42]";
 
 type AnyRow = Record<string, unknown>;
 
@@ -58,6 +65,10 @@ function minioFileUrl(path: unknown): string {
   if (/^https?:\/\//i.test(raw)) return raw;
   const base = String(MINIO_URL ?? "").replace(/\/$/, "");
   return `${base}/${raw.replace(/^\/+/, "")}`;
+}
+
+function employeeDisplayName(label: string): string {
+  return label.replace(/\s*\(\s*[^)]+\s*\)\s*$/, "").trim();
 }
 
 function SubmissionFileCell(p: ICellRendererParams<AnyRow>) {
@@ -110,6 +121,7 @@ export default function StaffAssignmentReportPage() {
   const [dynamicColumns, setDynamicColumns] = useState<string[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const employeesQuery = useQuery({
     queryKey: ["staffAssignmentReportEmployees", activeCollegeId],
@@ -124,26 +136,35 @@ export default function StaffAssignmentReportPage() {
 
   const employeeOptions = useMemo(() => {
     if (!rawEmployees.length) return [];
-    const empMap = new Map<number, string>();
+    const empMap = new Map<
+      number,
+      ReturnType<typeof staffDiaryEmployeeSelectOption>
+    >();
     for (const r of rawEmployees) {
       const catId = Number(r.empCategoryId ?? r.emp_category_id ?? 18);
       if (catId !== 18) continue;
       const eId = Number(
         r.employeeId ?? r.employee_id ?? r.fk_emp_id ?? r.id ?? 0,
       );
-      const name = txt(
-        r.firstName ?? r.employee_name ?? r.employeeName ?? r.empName,
-      );
-      const empNum = txt(r.empNumber ?? r.emp_number);
-      if (eId > 0 && name) {
-        empMap.set(eId, empNum ? `${name} (${empNum})` : name);
+      if (eId > 0) {
+        empMap.set(eId, staffDiaryEmployeeSelectOption(r));
       }
     }
-    return Array.from(empMap.entries()).map(([value, label]) => ({
-      value: String(value),
-      label,
-    }));
+    return Array.from(empMap.values());
   }, [rawEmployees]);
+
+  const filteredRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((row) =>
+      Object.entries(row).some(([key, val]) => {
+        if (key === "Submission_File") return false;
+        return String(val ?? "")
+          .toLowerCase()
+          .includes(q);
+      }),
+    );
+  }, [rows, searchQuery]);
 
   const subjectOptions = useMemo(
     () =>
@@ -162,6 +183,7 @@ export default function StaffAssignmentReportPage() {
     setRows([]);
     setDynamicColumns([]);
     setShowTable(false);
+    setSearchQuery("");
   }, []);
 
   const handleEmployeeChange = useCallback(
@@ -172,8 +194,18 @@ export default function StaffAssignmentReportPage() {
       setSubjects([]);
       clearResults();
 
-      const opt = employeeOptions.find((e) => e.value === next);
-      setEmployeeName(opt?.label?.replace(/\s*\([^)]*\)\s*$/, "") ?? "");
+      const row = rawEmployees.find(
+        (r) =>
+          String(r.employeeId ?? r.employee_id ?? r.fk_emp_id ?? r.id) === next,
+      );
+      if (row) {
+        setEmployeeName(
+          employeeDisplayName(staffDiaryEmployeeTriggerLabel(row)),
+        );
+      } else {
+        const opt = employeeOptions.find((e) => e.value === next);
+        setEmployeeName(opt ? employeeDisplayName(opt.label) : "");
+      }
 
       const empId = Number(next);
       if (!empId || !activeCollegeId || !academicYearId) return;
@@ -202,7 +234,13 @@ export default function StaffAssignmentReportPage() {
         setSubjectsLoading(false);
       }
     },
-    [employeeOptions, activeCollegeId, academicYearId, clearResults],
+    [
+      employeeOptions,
+      rawEmployees,
+      activeCollegeId,
+      academicYearId,
+      clearResults,
+    ],
   );
 
   const handleGetReport = useCallback(async () => {
@@ -342,17 +380,18 @@ export default function StaffAssignmentReportPage() {
   return (
     <FilteredListPage
       title={REPORT_TITLE}
+      filterTitle={`${REPORT_TITLE} Filter`}
       filters={
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:items-end">
           <Select
             label="Employee"
-            required
             value={employeeId || null}
             onChange={(v) => void handleEmployeeChange(v)}
             options={employeeOptions}
             placeholder="Select Employee"
             searchable
             isLoading={employeesQuery.isLoading}
+            listClassName="max-h-[400px] divide-y divide-[#9e9e9e52]"
           />
           <Select
             label="Subjects"
@@ -368,10 +407,10 @@ export default function StaffAssignmentReportPage() {
             disabled={!employeeId}
             isLoading={subjectsLoading}
           />
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:col-span-2 lg:justify-end">
             <Button
               type="button"
-              className="h-9 rounded-[5px] px-4"
+              className={PRIMARY_ACTION_BTN}
               disabled={loadingList || !employeeId || !subjectId}
               onClick={() => void handleGetReport()}
             >
@@ -388,23 +427,24 @@ export default function StaffAssignmentReportPage() {
         </div>
       }
       showTable={showTable}
-      rowData={showTable ? rows : []}
+      rowData={showTable ? filteredRows : []}
       columnDefs={columnDefs}
       loading={loadingList}
       resultsVisible={showTable}
       hideEmptyGrid
       pagination
       paginationPageSize={25}
+      columnFilters={false}
       toolbar={{
-        search: true,
+        search: false,
         searchPlaceholder: "Search",
         exportExcel: false,
         exportPdf: false,
-        columnPicker: true,
+        columnPicker: false,
       }}
-      toolbarTrailing={
-        showTable && rows.length > 0 ? (
-          <>
+      toolbarLeading={
+        showTable ? (
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               className="h-9 min-w-[7.5rem] !rounded-[5px] gap-1.5 bg-[#042956] px-4 text-[13px] text-white shadow-sm hover:bg-[#031f42]"
@@ -421,16 +461,23 @@ export default function StaffAssignmentReportPage() {
               <Printer className="h-4 w-4" />
               Print Report
             </Button>
-          </>
+          </div>
+        ) : null
+      }
+      toolbarTrailing={
+        showTable ? (
+          <div className="min-w-[200px] max-w-xs flex-1 sm:min-w-[240px]">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search"
+            />
+          </div>
         ) : null
       }
       tableHeader={
         showTable && employeeName ? (
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            <span>
-              {REPORT_TITLE} — {employeeName}
-            </span>
-          </div>
+          <TableContextHeader title={`${REPORT_TITLE} - ${employeeName}`} />
         ) : null
       }
     />

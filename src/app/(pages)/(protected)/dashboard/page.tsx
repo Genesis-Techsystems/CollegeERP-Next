@@ -252,6 +252,7 @@ export default function DashboardPage() {
       <Breadcrumb
         items={breadcrumbs}
         maxItems={5}
+        className="w-full"
         endAction={
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

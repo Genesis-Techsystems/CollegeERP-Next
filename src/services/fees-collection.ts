@@ -4,6 +4,8 @@ import {
   EXAM_API,
   FEE_API,
   NEXT_API,
+  PAYMENT_GATEWAY_API,
+  SETUP_API,
   TRANSPORT_API,
 } from "@/config/constants/api";
 import type {
@@ -48,6 +50,7 @@ import {
 import { getGeneralDetails } from "./exam-master";
 import { listQuotaOptions } from "./fee-masters";
 import { listDesignations } from "./admin/designation";
+import { searchStudentsByKeyword } from "./student-information";
 
 export type PaginatedStudentFeeDue = {
   rows: StudentFeeDueRow[];
@@ -153,14 +156,9 @@ export async function searchStudentsForFeeCollection(
 ): Promise<StudentFeeSearchRow[]> {
   const q = term.trim();
   if (q.length < 2) return [];
-  const data = await fetchDetails<StudentFeeSearchRow[]>(
-    FEE_API.STUDENT_FEE_SEARCH,
-    {
-      isActive: "true",
-      q,
-    },
-  );
-  return Array.isArray(data) ? data : [];
+  // Angular fee-payment / hallticket: GET studentsearch?isActive=true&q=
+  const rows = await searchStudentsByKeyword(q);
+  return rows as StudentFeeSearchRow[];
 }
 
 export async function listCourseYearsForFeeCollection(courseId: number) {
@@ -253,6 +251,101 @@ export async function getFeePaymentLookups(): Promise<FeePaymentLookups> {
     paymentTypes: withoutOnline(types),
     payerTypes: payers,
   };
+}
+
+function isOnlineCode(code?: string): boolean {
+  return String(code ?? "").toUpperCase() === "ONLINE";
+}
+
+/**
+ * Angular student `fee-due-payment` `getGeneralDetails` —
+ * payment mode/type lists keep **only** ONLINE rows (staff pay-fees excludes them).
+ */
+export async function getStudentOnlineFeePaymentLookups(): Promise<FeePaymentLookups> {
+  const [modes, types, payers] = await Promise.all([
+    getGeneralDetails(GM_CODES.PAYMENT_MODE),
+    getGeneralDetails(GM_CODES.FEE_PAYMENT_TYPE),
+    getGeneralDetails(GM_CODES.PAYER_TYPE),
+  ]);
+  return {
+    paymentModes: modes.filter((r) => isOnlineCode(r.generalDetailCode)),
+    paymentTypes: types.filter((r) => isOnlineCode(r.generalDetailCode)),
+    payerTypes: payers,
+  };
+}
+
+/**
+ * Angular `listDetailsByTwoIds(GeneralPaymentSetting, true, collegeId, isActive, college.collegeId)`.
+ */
+export async function listCollegePaymentSettings(
+  collegeId: number,
+): Promise<Record<string, unknown>[]> {
+  if (!collegeId) return [];
+  return domainList<Record<string, unknown>>(
+    FEE_API.GENERAL_PAYMENT_SETTING,
+    buildQuery({ isActive: true, "college.collegeId": collegeId }),
+  );
+}
+
+/**
+ * Angular `listDetailsByThreeIds(GeneralSetting, ONLINEFEE, true, collegeId, …)`
+ * → `feeLimit` from `settingValue`.
+ */
+export async function getOnlineFeeLimit(collegeId: number): Promise<number> {
+  if (!collegeId) return 0;
+  const rows = await domainList<{ settingValue?: string | number }>(
+    SETUP_API.GENERAL_SETTING,
+    buildQuery({
+      settingCode: GM_CODES.ONLINE_FEE,
+      isActive: true,
+      "college.collegeId": collegeId,
+    }),
+  );
+  if (!rows.length) return 0;
+  const n = Number(rows[0]?.settingValue ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function fetchPaymentOrderDetails(
+  path: string,
+  orderId: string,
+): Promise<Record<string, unknown> | null> {
+  const id = String(orderId ?? "").trim();
+  if (!id) return null;
+  const data = await fetchDetails<
+    Record<string, unknown>[] | Record<string, unknown>
+  >(path, { orderId: id });
+  if (Array.isArray(data)) return data[0] ?? null;
+  return data ?? null;
+}
+
+/**
+ * Angular pay-status `listByIds(PayPhi/getDuePaymentOrderDetails, orderId, 'orderId')`.
+ */
+export async function getDuePaymentOrderDetails(
+  orderId: string,
+): Promise<Record<string, unknown> | null> {
+  return fetchPaymentOrderDetails(FEE_API.GET_DUE_PAYMENT_ORDER, orderId);
+}
+
+/** Angular pages pay-status `PayPhi/getUnivStdPaymentOrderDetails`. */
+export async function getUnivStdPaymentOrderDetails(
+  orderId: string,
+): Promise<Record<string, unknown> | null> {
+  return fetchPaymentOrderDetails(
+    PAYMENT_GATEWAY_API.PAYPHI_UNIV_STD_ORDER,
+    orderId,
+  );
+}
+
+/** Angular pages pay-status `PayPhi/getAdmissionStdPaymentOrderDetails`. */
+export async function getAdmissionStdPaymentOrderDetails(
+  orderId: string,
+): Promise<Record<string, unknown> | null> {
+  return fetchPaymentOrderDetails(
+    PAYMENT_GATEWAY_API.GET_ADMISSION_STD_PAYMENT_ORDER_DETAILS,
+    orderId,
+  );
 }
 
 export async function listFeeStructureParticularsForPayment(

@@ -457,7 +457,7 @@ export default function ExpenseReportPage() {
       loading={isFetching}
       resultsVisible={resultsVisible}
       height="auto"
-      pagination={false}
+      pagination={true}
       columnFilters={false}
       getRowId={(p) => String(p.data?.__rowKey ?? "")}
       toolbar={{

@@ -12,7 +12,7 @@ import {
 } from "@/config/constants/api";
 import { ENTITIES } from "@/config/constants/entities";
 import { GM_CODES } from "@/config/constants/ui";
-import { parseApiError } from "@/lib/errors";
+import { getErrorMessage, parseApiError } from "@/lib/errors";
 import {
   buildQuery,
   domainList,
@@ -146,8 +146,8 @@ export async function listStaffLeaveApplications(
 export async function listCollegeLeaveApplications(
   collegeId: number,
   leaveYear: number | string,
-): Promise<AnyRow[]> {
-  if (!collegeId || leaveYear == null || leaveYear === "") return [];
+): Promise<{ rows: AnyRow[]; message?: string }> {
+  if (!collegeId || leaveYear == null || leaveYear === "") return { rows: [] };
   const year = String(leaveYear);
   const queries = [
     buildQuery(
@@ -159,15 +159,17 @@ export async function listCollegeLeaveApplications(
       { field: "createdDt", direction: "DESC" },
     ),
   ];
+  let message: string | undefined;
   for (const q of queries) {
     try {
       const rows = await domainList<AnyRow>(ENTITIES.LEAVE_APPLICATION.name, q);
-      if (rows.length > 0) return rows;
-    } catch {
-      // try next query shape
+      if (rows.length > 0) return { rows };
+      message ??= "No Record(s) found.";
+    } catch (error) {
+      message = getErrorMessage(error);
     }
   }
-  return [];
+  return { rows: [], message };
 }
 
 /**

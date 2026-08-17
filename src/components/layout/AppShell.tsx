@@ -48,7 +48,12 @@ export function AppShell({
   const breadcrumbItems = useBreadcrumb();
   const pageTitle = breadcrumbItems[breadcrumbItems.length - 1]?.label ?? "";
   // Hide the trail on each role's home dashboard (admin / evaluator / student).
+  // Angular Fuse `navbar/toolbar hidden` on pay-status after gateway return.
+  const hideChrome =
+    pathname === "/apps/payment-status" || pathname === "/pages/payment-status";
+
   const showBreadcrumb =
+    !hideChrome &&
     pathname !== "/dashboard" &&
     pathname !== "/evaluator" &&
     pathname !== "/student-dashboard" &&
@@ -237,7 +242,7 @@ export function AppShell({
     >
       {IS_DEBUG_MODE && <DebugPanel />}
       {/* Mobile overlay when sidebar is open */}
-      {isSidebarOpen && (
+      {!hideChrome && isSidebarOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/40 backdrop-blur-sm md:hidden"
           aria-hidden="true"
@@ -248,33 +253,37 @@ export function AppShell({
       {/* data-print-hide on the wrapper too — hiding <aside> alone leaves a
           280px / 64px gutter on the printed sheet because this wrapper div
           carries the width. */}
-      <div
-        data-print-hide
-        className={cn(
-          "relative z-30 shrink-0 transition-all duration-200 ease-in-out",
-          isSidebarOpen
-            ? "translate-x-0"
-            : "-translate-x-full md:translate-x-0",
-          // Angular Fuse sidebar: 280px expanded / 64px folded
-          sidebarIsExpanded ? "w-[280px]" : "w-[64px]",
-        )}
-        style={{
-          height: "100vh",
-          position: "sticky",
-          top: 0,
-          // Angular fuse-sidebar shadow — keep below dialogs (z-1100)
-          boxShadow: "0 2px 8px 0 rgba(0, 0, 0, 0.35)",
-          zIndex: 30,
-        }}
-      >
-        <Sidebar />
-      </div>
+      {hideChrome ? null : (
+        <div
+          data-print-hide
+          className={cn(
+            "relative z-30 shrink-0 transition-all duration-200 ease-in-out",
+            isSidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full md:translate-x-0",
+            // Angular Fuse sidebar: 280px expanded / 64px folded
+            sidebarIsExpanded ? "w-[280px]" : "w-[64px]",
+          )}
+          style={{
+            height: "100vh",
+            position: "sticky",
+            top: 0,
+            // Angular fuse-sidebar shadow — keep below dialogs (z-1100)
+            boxShadow: "0 2px 8px 0 rgba(0, 0, 0, 0.35)",
+            zIndex: 30,
+          }}
+        >
+          <Sidebar />
+        </div>
+      )}
 
       {/* -- Main content area ---------------------------------------------- */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div data-print-hide className="sticky top-0 z-20">
-          <Topbar />
-        </div>
+        {hideChrome ? null : (
+          <div data-print-hide className="sticky top-0 z-20">
+            <Topbar />
+          </div>
+        )}
 
         <main
           key={pathname}
@@ -304,7 +313,7 @@ export function AppShell({
             )}
             {children}
           </div>
-          <AppFooter />
+          {hideChrome ? null : <AppFooter />}
         </main>
       </div>
 
