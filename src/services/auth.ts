@@ -68,6 +68,12 @@ function persistUserRolesForApprovalPages(
   if (user?.userTypeCode) storage.setItem("userTypeCode", user.userTypeCode);
   if (user?.userRole) storage.setItem("userRole", user.userRole);
 
+  // Angular login: reset student-only keys before getEmployee / getStudent.
+  storage.setItem("groupCode", "null");
+  storage.setItem("courseGroupId", "null");
+  storage.setItem("courseName", "null");
+  storage.removeItem("courseYearName");
+
   // Angular login.component.ts resets these then sets true from userRoles[].
   const sticky = [
     "isHOD",

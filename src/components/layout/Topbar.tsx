@@ -41,40 +41,65 @@ function readLs(key: string): string {
   return v;
 }
 
+function isStudentToolbarUser(userTypeCode?: string, userRole?: string): boolean {
+  const type = String(
+    userTypeCode ?? readLs("userTypeCode"),
+  ).toUpperCase();
+  const role = String(userRole ?? readLs("userRole")).toUpperCase();
+  return (
+    type === "STUDENT" ||
+    type === "MSTUDENT" ||
+    type === "PARENT" ||
+    role === "STUDENT" ||
+    role === "MSTUDENT" ||
+    role === "PARENT"
+  );
+}
+
 /**
- * Angular toolbar: `({{uNumber}} / {{deptName}} )` for STAFF,
- * `({{uNumber}} / {{groupCode}} / {{courseYearName}})` otherwise.
+ * Angular toolbar.component.html:
+ *   ({{uNumber}}
+ *     student: / {{groupCode}})  / {{courseYearName}})
+ *     staff:   / {{deptName}} )
  * `uNumber` is empNumber (staff) or rollNumber (student) — never EMP+employeeId.
  */
 function toolbarUserSubLabel(opts: {
   userTypeCode?: string;
+  userRole?: string;
   empNumber?: string;
   deptName?: string;
-  userName?: string;
 }): string | null {
-  const type = String(
-    opts.userTypeCode ?? readLs("userTypeCode"),
-  ).toUpperCase();
   const uNumber =
     (opts.empNumber ?? "").trim() ||
     readLs("empNumber") ||
     readLs("uNumber") ||
-    readLs("rollNumber") ||
-    (opts.userName ?? "").trim() ||
-    readLs("userName");
+    readLs("rollNumber");
   if (!uNumber) return null;
 
-  if (type === "STAFF") {
+  if (!isStudentToolbarUser(opts.userTypeCode, opts.userRole)) {
     const deptName = (opts.deptName ?? "").trim() || readLs("deptName");
     if (deptName) return `(${uNumber} / ${deptName} )`;
     return `(${uNumber})`;
   }
 
-  const extras = [readLs("groupCode"), readLs("courseYearName")].filter(
-    Boolean,
-  );
-  if (extras.length > 0) return `(${uNumber} / ${extras.join(" / ")})`;
-  return `(${uNumber})`;
+  // Angular extra spans each close the paren.
+  let label = `(${uNumber}`;
+  const groupCode = readLs("groupCode");
+  const courseYearName = readLs("courseYearName");
+  if (groupCode) label += ` / ${groupCode})`;
+  if (courseYearName) label += ` / ${courseYearName})`;
+  if (!label.endsWith(")")) label += ")";
+  return label;
+}
+
+function toolbarFullName(user: {
+  firstName?: string;
+  lastName?: string;
+} | null): string {
+  return [user?.firstName, user?.lastName]
+    .map((p) => String(p ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function Topbar() {
@@ -237,10 +262,11 @@ export function Topbar() {
 
   const empLabel = toolbarUserSubLabel({
     userTypeCode: user?.userTypeCode,
+    userRole: user?.userRole,
     empNumber: employeeLogin?.empNumber,
     deptName: employeeLogin?.deptName,
-    userName: user?.userName,
   });
+  const fullName = toolbarFullName(user);
 
   async function handleLogout() {
     await logout();
@@ -392,10 +418,10 @@ export function Topbar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center gap-2.5 rounded-md px-1.5 py-1 transition-colors hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#042956]/30"
+              className="app-toolbar__user-button rounded-md px-1.5 transition-colors hover:bg-black/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#042956]/30"
               aria-label="User menu"
             >
-              <Avatar className="h-[30px] w-[30px] shrink-0">
+              <Avatar className="app-toolbar__avatar">
                 <AvatarImage
                   src="/assets/images/avatars/default_Student.png"
                   alt=""
@@ -407,29 +433,25 @@ export function Topbar() {
                 </AvatarFallback>
               </Avatar>
 
-              <span className="hidden min-w-0 flex-col items-start md:flex">
-                <span className="inline-flex items-center gap-0.5">
-                  <span className="whitespace-nowrap text-[13px] font-medium leading-5 text-black">
-                    {user?.firstName} {user?.lastName}
-                  </span>
-                  <ChevronDown
-                    className="h-4 w-4 shrink-0 text-black/70"
-                    aria-hidden="true"
-                  />
-                </span>
+              <span className="app-toolbar__username hidden md:inline-block">
+                {fullName}
                 {empLabel ? (
-                  <span className="whitespace-nowrap text-[11px] leading-4 text-[#7b7667]">
-                    {empLabel}
-                  </span>
+                  <p className="app-toolbar__std-nmbr">
+                    <small>{empLabel}</small>
+                  </p>
                 ) : null}
               </span>
+              <ChevronDown
+                className="app-toolbar__user-chevron hidden sm:block"
+                aria-hidden="true"
+              />
             </button>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel className="pb-1">
               <p className="text-[13px] font-semibold text-foreground">
-                {user?.firstName} {user?.lastName}
+                {fullName}
               </p>
               <p className="text-[11px] font-normal text-muted-foreground">
                 {user?.roleName}

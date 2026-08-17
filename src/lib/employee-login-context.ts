@@ -219,6 +219,9 @@ export function syncEmployeeLoginContextToStorage(
     storage.setItem("uNumber", ctx.empNumber);
   }
   if (ctx.deptName) storage.setItem("deptName", ctx.deptName);
+  // Staff login must not keep a previous student's group/year in the toolbar.
+  storage.setItem("groupCode", "null");
+  storage.removeItem("courseYearName");
   if (ctx.empStatusCode) storage.setItem("empStatusCode", ctx.empStatusCode);
   if (ctx.empCategoryName)
     storage.setItem("empCategoryName", ctx.empCategoryName);

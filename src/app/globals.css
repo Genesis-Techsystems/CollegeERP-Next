@@ -3533,6 +3533,57 @@ h4,
   background: #f1f2f4;
 }
 
+/* Angular toolbar `.user-button` + `.avatar` + `.username` + `.std-nmbr` */
+.app-toolbar__user-button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-width: 64px;
+  height: 45px;
+  color: #000;
+}
+
+.app-toolbar__avatar {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  margin-top: -10px;
+  flex-shrink: 0;
+}
+
+.app-toolbar__username {
+  position: relative;
+  margin-right: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #000;
+  white-space: nowrap;
+}
+
+.app-toolbar__std-nmbr {
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  top: 19px;
+  left: 0;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.app-toolbar__std-nmbr small {
+  color: #7b7667;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.app-toolbar__user-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #000;
+}
+
 .app-sidebar-brand {
   height: 55px;
   min-height: 55px;
