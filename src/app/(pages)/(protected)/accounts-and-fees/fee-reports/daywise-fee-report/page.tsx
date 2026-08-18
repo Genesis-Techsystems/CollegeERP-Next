@@ -45,10 +45,13 @@ import {
 } from "@/services";
 
 /**
- * Day Wise Receipts is counter/offline collections (Cash, Cheque, etc.).
- * Online payments use Day Wise Online Fee Payment Reports.
+ * Angular day-wise-fee-report `paymentStatus` — Online / Offline.
+ * Default matches Angular `paymentStatus:['online']`.
  */
-const DEFAULT_PAYMENT_STATUS = "offline";
+const PAYMENT_STATUS_OPTIONS = [
+  { value: "online", label: "Online" },
+  { value: "offline", label: "Offline" },
+];
 
 const EXCEL_COLUMNS = [
   { key: "siNo", header: "S.No" },
@@ -182,6 +185,7 @@ export default function DayWiseFeeReportPage() {
   const [reportDate, setReportDate] = useState<Date | null>(new Date());
   const [fromMonth, setFromMonth] = useState<Date | null>(new Date());
   const [toMonth, setToMonth] = useState<Date | null>(new Date());
+  const [paymentStatus, setPaymentStatus] = useState("online");
 
   const [rows, setRows] = useState<DayWiseFeeCollectionRow[]>([]);
   const [listLoaded, setListLoaded] = useState(false);
@@ -477,7 +481,7 @@ export default function DayWiseFeeReportPage() {
         courseYearId: Number(courseYearId) || 0,
         fromDate,
         toDate,
-        paymentStatus: DEFAULT_PAYMENT_STATUS,
+        paymentStatus,
       });
       setRows(list);
       setDataDetails(buildDataDetails(dateLabel));
@@ -744,6 +748,19 @@ ${tableHtml}
                 />
               </>
             )}
+
+            <Select
+              label="Payment Status"
+              value={paymentStatus}
+              onChange={(v) => {
+                setPaymentStatus(v ?? "online");
+                clearResults();
+              }}
+              options={PAYMENT_STATUS_OPTIONS}
+              placeholder="Payment Status"
+              searchable={false}
+              clearable={false}
+            />
 
             <Button
               type="button"

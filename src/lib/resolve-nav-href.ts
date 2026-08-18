@@ -505,6 +505,9 @@ export function resolveForcedNavRoute(
     ) {
       return `${examReportsAltBase}/${slug}`;
     }
+    if (slug === "consolidated-marks-report") {
+      return "/reports/admin-exam-reports/consolidated-marks-report";
+    }
     if (slug && hrefLower.includes("admin-exam-reports/")) {
       if (
         slug === "group-wise-passed-result-sheets" ||
@@ -515,7 +518,8 @@ export function resolveForcedNavRoute(
         slug === "batchwise-sgpa-report" ||
         slug === "re-evaluation-exam-report" ||
         slug === "re-evaluation-comparision-report" ||
-        slug === "re-evaluation-comparison-report"
+        slug === "re-evaluation-comparison-report" ||
+        slug === "consolidated-marks-report"
       ) {
         const reportsSlug =
           slug === "grace-benefited-students-report"
@@ -640,12 +644,23 @@ export function resolveForcedNavRoute(
     return "/reports/admin-exam-reports/re-evaluation-exam-report";
   }
   if (
+    hrefLower.includes("consolidated-marks-report") ||
+    labelLower.includes("consolidated marks report") ||
+    (labelLower.includes("consolidated") &&
+      labelLower.includes("marks") &&
+      labelLower.includes("report") &&
+      !labelLower.includes("exam report"))
+  ) {
+    return "/reports/admin-exam-reports/consolidated-marks-report";
+  }
+  if (
     hrefLower.includes("consolidated-exam-report") ||
     hrefLower.includes("consolidated_exam_report") ||
     labelLower.includes("consolidated exam report") ||
     (labelLower.includes("consolidated") &&
       labelLower.includes("exam") &&
-      labelLower.includes("report"))
+      labelLower.includes("report") &&
+      !labelLower.includes("marks"))
   ) {
     return `${examReportsBase}/consolidated-exam-report`;
   }
@@ -1431,7 +1446,8 @@ export function resolveForcedNavRoute(
         seg === "batchwise-sgpa-report" ||
         seg === "re-evaluation-exam-report" ||
         seg === "re-evaluation-comparision-report" ||
-        seg === "re-evaluation-comparison-report"
+        seg === "re-evaluation-comparison-report" ||
+        seg === "consolidated-marks-report"
       ) {
         const reportsSeg =
           seg === "grace-benefited-students-report"

@@ -15,6 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   getExamStudentRegistrationReportRows,
   getUnivExamFiltersRegSup,
@@ -171,80 +177,91 @@ function examFormRenderer(p: ICellRendererParams<Row>) {
 
 function printReport(args: {
   collegeName: string;
+  collegeLogo: string;
+  fallbackLogo: string;
   examName: string;
-  filterSummary: string;
+  courseGroupCode: string;
+  courseYearCode: string;
   rows: Row[];
 }): void {
   const bodyRows = args.rows
     .map((r, i) => {
       return `<tr>
-        <td style="text-align:center">${i + 1}</td>
-        <td>${escapeHtml(txt(r.hallticket_no ?? r.hallticketNo) || "—")}</td>
-        <td>${escapeHtml(txt(r.student_name ?? r.studentName) || "—")}</td>
-        <td>${escapeHtml(`${txt(r.college_code)} / ${txt(r.course_year)}`.replace(/^ \/ | \/ $/g, "") || "—")}</td>
-        <td>${escapeHtml(txt(r.exam_name ?? r.examName) || "—")}</td>
-        <td>${escapeHtml(txt(r.exam_type ?? r.examType) || "—")}</td>
-        <td>${escapeHtml(formatRegDate(r.registration_date ?? r.registrationDate))}</td>
-        <td>${escapeHtml(formatSubjects(r.subject_name))}</td>
-        <td>${escapeHtml(yesNo(r.is_fee_paid ?? r.isFeePaid))}</td>
-        <td>${escapeHtml(yesNo(r.is_hallticket_issued ?? r.isHallticketIssued))}</td>
+        <td class="table-td" style="text-align:center">${i + 1}</td>
+        <td class="table-td">${escapeHtml(txt(r.hallticket_no ?? r.hallticketNo) || "—")}</td>
+        <td class="table-td">${escapeHtml(txt(r.student_name ?? r.studentName) || "—")}</td>
+        <td class="table-td">${escapeHtml(`${txt(r.college_code)} / ${txt(r.course_year)}`.replace(/^ \/ | \/ $/g, "") || "—")}</td>
+        <td class="table-td">${escapeHtml(txt(r.exam_name ?? r.examName) || "—")}</td>
+        <td class="table-td">${escapeHtml(txt(r.exam_type ?? r.examType) || "—")}</td>
+        <td class="table-td">${escapeHtml(formatRegDate(r.registration_date ?? r.registrationDate))}</td>
+        <td class="table-td">${escapeHtml(formatSubjects(r.subject_name))}</td>
+        <td class="table-td">${escapeHtml(yesNo(r.is_fee_paid ?? r.isFeePaid))}</td>
+        <td class="table-td">${escapeHtml(yesNo(r.is_hallticket_issued ?? r.isHallticketIssued))}</td>
       </tr>`;
     })
     .join("");
 
+  const courseMeta = args.courseGroupCode
+    ? `<p style="text-align:left;width:50%;margin:0;">Course : ${escapeHtml(args.courseGroupCode)}</p>`
+    : "";
+  const semesterMeta = args.courseYearCode
+    ? `<p style="text-align:right;width:50%;margin:0;">Semester : ${escapeHtml(args.courseYearCode)}</p>`
+    : "";
+
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(REPORT_TITLE)}</title><style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111; margin: 0; }
-.collegeName { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
-.title { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
-.details { margin: 0 0 10px; color: #334155; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #94a3b8; padding: 5px 6px; text-align: left; vertical-align: top; word-break: break-word; }
-th { background: #c3d9ff; font-weight: 600; }
-tr { break-inside: avoid; }
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000; margin: 0; padding: 8px 12px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 4px; }
+.logo-col { width: 15%; flex: 0 0 15%; padding-right: 8px; }
+.logo-col img { max-width: 100%; width: 90px; height: auto; display: block; object-fit: contain; }
+.title-col { width: 85%; flex: 1 1 85%; text-align: center; }
+.collegeName { text-align: center; font-size: 22px; font-weight: 550; margin: 16px 0 0; color: #000; }
+.title { text-align: center; font-size: 20px; font-weight: 550; margin: 2px 0 4px; color: #000; }
+.details { text-align: left; font-size: 16px; margin: 0 0 4px; color: #000; }
+.meta { display: flex; justify-content: space-between; width: 100%; margin: 4px 0 8px; font-size: 14px; color: #000; }
+table.mar { width: 100%; border-collapse: collapse; }
+th.table-th, td.table-td { border: 1px solid #333; padding: 6px 5px; text-align: left; vertical-align: top; word-break: break-word; }
+th.table-th { background: #c3d9ff; font-weight: 550; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+thead { display: table-header-group; }
 </style></head><body>
-  ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
-  <p class="title">Exam Student Registration</p>
-  ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
-  ${args.filterSummary ? `<p class="details">${escapeHtml(args.filterSummary)}</p>` : ""}
-  <table>
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
+    </div>
+    <div class="title-col">
+      ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
+      <p class="title">Exam Student Registration</p>
+      ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
+    </div>
+  </div>
+  ${courseMeta || semesterMeta ? `<div class="meta">${courseMeta}${semesterMeta}</div>` : ""}
+  <table class="mar">
     <thead>
       <tr>
-        <th>S.No</th>
-        <th>HallTicket No.</th>
-        <th>Student Name</th>
-        <th>Course Details</th>
-        <th>Exam</th>
-        <th>Exam Type</th>
-        <th>Registration Date</th>
-        <th>Subjects</th>
-        <th>Fee Paid</th>
-        <th>HallTicket Issued</th>
+        <th class="table-th">S.No</th>
+        <th class="table-th">HallTicket No.</th>
+        <th class="table-th">Student Name</th>
+        <th class="table-th">Course Details</th>
+        <th class="table-th">Exam</th>
+        <th class="table-th">Exam Type</th>
+        <th class="table-th">Registration Date</th>
+        <th class="table-th">Subjects</th>
+        <th class="table-th">Fee Paid</th>
+        <th class="table-th">HallTicket Issued</th>
       </tr>
     </thead>
     <tbody>${bodyRows}</tbody>
   </table>
 </body></html>`;
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const win = frame.contentWindow;
-  if (!fdoc || !win) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  win.addEventListener("afterprint", () => frame.remove());
-  setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 50);
+  printHtmlInIframe(html);
 }
 
 const COL_DEFS = {
@@ -347,6 +364,7 @@ export default function ExamStudentRegistrationReportPage() {
   const [roomId, setRoomId] = useState("0");
   const [studentId, setStudentId] = useState("");
   const [filterSummary, setFilterSummary] = useState("");
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -751,7 +769,7 @@ export default function ExamStudentRegistrationReportPage() {
     }
   }
 
-  function handlePrintReport() {
+  async function handlePrintReport() {
     if (!rows.length) {
       toast.info("No Records Found.");
       return;
@@ -760,12 +778,30 @@ export default function ExamStudentRegistrationReportPage() {
       (r) => num(r.fk_college_id) === Number(collegeId),
     );
     const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
+    const group = courseGroups.find(
+      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+    );
+    const year = courseYears.find(
+      (r) => num(r.fk_course_year_id) === Number(courseYearId),
+    );
+    const logoSrc = await resolveReportPrintLogo(
+      null,
+      Number(collegeId || 0),
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
     printReport({
       collegeName: txt(
         college?.college_name ?? college?.collegeName ?? college?.college_code,
       ),
-      examName: txt(exam?.exam_name ?? exam?.examName),
-      filterSummary,
+      collegeLogo: logoSrc,
+      fallbackLogo: toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+      examName: examMasterLabel(exam ?? {}),
+      courseGroupCode: Number(courseGroupId)
+        ? txt(group?.group_code ?? group?.groupCode)
+        : "",
+      courseYearCode: Number(courseYearId)
+        ? txt(year?.course_year_code ?? year?.courseYearCode)
+        : "",
       rows,
     });
   }
@@ -940,7 +976,7 @@ export default function ExamStudentRegistrationReportPage() {
             type="button"
             size="sm"
             className="h-9 shrink-0 px-3 text-[12px]"
-            onClick={handlePrintReport}
+            onClick={() => void handlePrintReport()}
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Print Report

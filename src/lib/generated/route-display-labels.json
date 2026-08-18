@@ -21,5 +21,7 @@
   "/staff-faculty-details/performance-assessment/add-performance": "Take Performance Assessment",
   "/staff-faculty-leaves/set-proxy": "Set Proxy",
   "/staff-faculty-details/salary-slips": "Salary Slips",
-  "/staff-faculty-details/appraisal-report": "Staff Self Appraisal Forms"
+  "/staff-faculty-details/appraisal-report": "Staff Self Appraisal Forms",
+  "/reports/admin-exam-reports/consolidated-marks-report": "Consolidated Marks Report",
+  "/admin-examination-management/admin-exam-reports/consolidated-marks-report": "Consolidated Marks Report"
 }

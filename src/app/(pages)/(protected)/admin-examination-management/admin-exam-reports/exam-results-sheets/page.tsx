@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
+import { GM_CODES } from "@/config/constants/ui";
 import {
   getExamFinalAnalysisReport,
   getUnivExamFiltersRegSup,
@@ -23,7 +24,13 @@ import {
   getGeneralDetails,
   type AnyRow,
 } from "@/services";
-import { GM_CODES } from "@/config/constants/ui";
+import { printHtmlInIframe } from "@/lib/print";
+import { escapeHtml } from "@/common/export-html-table";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
 type Row = AnyRow;
 
@@ -90,6 +97,7 @@ export default function ExamResultsSheetsPage() {
   const [courseGroupId, setCourseGroupId] = useState("");
   const [courseYearId, setCourseYearId] = useState("");
   const [examFeeTypes, setExamFeeTypes] = useState<Row[]>([]);
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -338,6 +346,76 @@ export default function ExamResultsSheetsPage() {
     }
   }
 
+  async function printReport() {
+    if (!statusGroups.length) {
+      toast.info("No Records Found.");
+      return;
+    }
+    const college = colleges.find(
+      (r) => num(r.fk_college_id) === Number(collegeId),
+    );
+    const examRow = exams.find((r) => num(r.fk_exam_id) === Number(examId));
+    const group = courseGroups.find(
+      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+    );
+    const cid = Number(collegeId || 0);
+    const logoSrc = await resolveReportPrintLogo(
+      null,
+      cid,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+    const collegeName =
+      txt(college?.college_name) || txt(college?.college_code) || "College";
+    const examLabel = examRow ? examMasterLabel(examRow) : "";
+    const courseLine = txt(group?.group_code);
+    const dateLine = format(new Date(), "dd/MM/yyyy");
+
+    const groupsHtml = statusGroups
+      .map((groupRow) => {
+        const cells = groupRow.items
+          .map(
+            (r) =>
+              `<span style="display:inline-block;width:25%;padding:4px 0;box-sizing:border-box">${escapeHtml(txt(r.hallticket_number) || "—")}</span>`,
+          )
+          .join("");
+        return `<p style="font-weight:600;margin:12px 0 4px">${escapeHtml(courseLine)} - ${escapeHtml(groupRow.status)} (${groupRow.items.length})</p>
+<hr/>
+<div>${cells}</div>
+<hr/>`;
+      })
+      .join("");
+
+    printHtmlInIframe(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>Exam Result Sheets</title>
+<style>
+@page{margin:12mm}
+body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
+.header{display:flex;align-items:flex-start;gap:16px;margin-bottom:12px}
+.header img{width:90px;height:auto;max-height:100px;object-fit:contain}
+.collegeName{font-size:24px;font-weight:600;margin:0 0 6px}
+.title{font-size:20px;font-weight:550;margin:0 0 6px}
+.details{font-size:16px;margin:0}
+.meta{display:flex;justify-content:space-between;margin:8px 0 12px}
+.footer{display:flex;justify-content:space-between;margin-top:48px;font-weight:600}
+</style></head><body>
+<div class="header">
+  <img src="${escapeHtml(logoSrc)}" alt="College Logo" onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+  <div>
+    <p class="collegeName">${escapeHtml(collegeName)}</p>
+    <p class="title">Exam Result Sheets</p>
+    ${examLabel ? `<p class="details">${escapeHtml(examLabel)}</p>` : ""}
+  </div>
+</div>
+<div class="meta">
+  <p>${courseLine ? `Course : ${escapeHtml(courseLine)}` : ""}</p>
+  <p>Date : ${escapeHtml(dateLine)}</p>
+</div>
+${groupsHtml}
+<div class="footer"><p>Controller of Examinations</p><p>Principal</p></div>
+</body></html>`);
+  }
+
   const showResults = hasFetched && rows.length > 0;
 
   return (
@@ -512,7 +590,7 @@ export default function ExamResultsSheetsPage() {
                 type="button"
                 size="sm"
                 className="h-9 text-[12px]"
-                onClick={() => window.print()}
+                onClick={() => void printReport()}
               >
                 <Printer className="mr-1.5 h-3.5 w-3.5" />
                 Print Report

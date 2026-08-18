@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Menu, LogOut, User, Search, ChevronDown, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,6 +41,17 @@ const roleAvatarStyle: Record<string, string> = {
 
 const MAX_SEARCH_RESULTS = 8;
 
+const emptySubscribe = () => () => {};
+
+/** False on the server and during hydration; true only after the client commits. */
+function useIsClient(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 function readLs(key: string): string {
   if (typeof window === "undefined") return "";
   const v = window.localStorage.getItem(key)?.trim() ?? "";
@@ -41,11 +59,12 @@ function readLs(key: string): string {
   return v;
 }
 
-function isStudentToolbarUser(userTypeCode?: string, userRole?: string): boolean {
-  const type = String(
-    userTypeCode ?? readLs("userTypeCode"),
-  ).toUpperCase();
-  const role = String(userRole ?? readLs("userRole")).toUpperCase();
+function isStudentToolbarUser(
+  userTypeCode?: string,
+  userRole?: string,
+): boolean {
+  const type = String(userTypeCode ?? "").toUpperCase();
+  const role = String(userRole ?? "").toUpperCase();
   return (
     type === "STUDENT" ||
     type === "MSTUDENT" ||
@@ -64,12 +83,10 @@ function toolbarUserSubLabel(opts: {
   userTypeCode?: string;
   userRole?: string;
   empNumber?: string;
+  groupCode?: string;
+  courseYearName?: string;
 }): string | null {
-  const uNumber =
-    (opts.empNumber ?? "").trim() ||
-    readLs("empNumber") ||
-    readLs("uNumber") ||
-    readLs("rollNumber");
+  const uNumber = (opts.empNumber ?? "").trim();
   if (!uNumber) return null;
 
   if (!isStudentToolbarUser(opts.userTypeCode, opts.userRole)) {
@@ -78,18 +95,20 @@ function toolbarUserSubLabel(opts: {
 
   // Angular extra spans each close the paren.
   let label = `(${uNumber}`;
-  const groupCode = readLs("groupCode");
-  const courseYearName = readLs("courseYearName");
+  const groupCode = (opts.groupCode ?? "").trim();
+  const courseYearName = (opts.courseYearName ?? "").trim();
   if (groupCode) label += ` / ${groupCode})`;
   if (courseYearName) label += ` / ${courseYearName})`;
   if (!label.endsWith(")")) label += ")";
   return label;
 }
 
-function toolbarFullName(user: {
-  firstName?: string;
-  lastName?: string;
-} | null): string {
+function toolbarFullName(
+  user: {
+    firstName?: string;
+    lastName?: string;
+  } | null,
+): string {
   return [user?.firstName, user?.lastName]
     .map((p) => String(p ?? "").trim())
     .filter(Boolean)
@@ -254,11 +273,20 @@ export function Topbar() {
   const avatarStyle =
     roleAvatarStyle[user?.userRole ?? ""] ?? "bg-cyan-100 text-cyan-700";
 
-  const empLabel = toolbarUserSubLabel({
-    userTypeCode: user?.userTypeCode,
-    userRole: user?.userRole,
-    empNumber: employeeLogin?.empNumber,
-  });
+  const isClient = useIsClient();
+  const empLabel = isClient
+    ? toolbarUserSubLabel({
+        userTypeCode: user?.userTypeCode,
+        userRole: user?.userRole,
+        empNumber:
+          employeeLogin?.empNumber ||
+          readLs("empNumber") ||
+          readLs("uNumber") ||
+          readLs("rollNumber"),
+        groupCode: readLs("groupCode"),
+        courseYearName: readLs("courseYearName"),
+      })
+    : null;
   const fullName = toolbarFullName(user);
 
   async function handleLogout() {
@@ -428,11 +456,9 @@ export function Topbar() {
 
               <span className="app-toolbar__username hidden md:inline-block">
                 {fullName}
-                {empLabel ? (
-                  <p className="app-toolbar__std-nmbr">
-                    <small>{empLabel}</small>
-                  </p>
-                ) : null}
+                <span className="app-toolbar__std-nmbr">
+                  {empLabel ? <small>{empLabel}</small> : null}
+                </span>
               </span>
               <ChevronDown
                 className="app-toolbar__user-chevron hidden sm:block"

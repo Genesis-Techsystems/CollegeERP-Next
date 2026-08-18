@@ -491,6 +491,7 @@ function printGradewiseReport(args: {
   title: string;
   examLabel: string;
   courseGroup: string;
+  logoUrl: string;
   rows: Row[];
 }): void {
   if (!args.rows.length) return;
@@ -510,17 +511,25 @@ function printGradewiseReport(args: {
 <style>
 @page { size: A4 landscape; margin: 10mm; }
 body { font: 11px/1.35 "Times New Roman", Times, serif; color: #000; margin: 0; }
-.college { font-size: 16px; font-weight: 700; text-align: center; margin: 0 0 4px; }
-.title { font-size: 14px; font-weight: 700; text-align: center; margin: 0 0 4px; }
-.meta { text-align: center; margin: 0 0 8px; color: #222; }
+.header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+.header img { width: 72px; height: auto; max-height: 80px; object-fit: contain; }
+.header-text { flex: 1; }
+.college { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+.title { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+.meta { margin: 0 0 8px; color: #222; }
 table { width: 100%; border-collapse: collapse; }
 th, td { border: 1px solid #000; padding: 4px 5px; text-align: center; }
 th { font-weight: 700; background: #f2f2f2; }
 </style></head><body>
-${args.collegeName ? `<p class="college">${escapeHtml(args.collegeName)}</p>` : ""}
-<p class="title">${escapeHtml(args.title)}</p>
-${args.examLabel ? `<p class="meta">${escapeHtml(args.examLabel)}</p>` : ""}
-${args.courseGroup ? `<p class="meta">Course Group : ${escapeHtml(args.courseGroup)}</p>` : ""}
+<div class="header">
+  <img src="${escapeHtml(args.logoUrl)}" alt="College Logo" />
+  <div class="header-text">
+    ${args.collegeName ? `<p class="college">${escapeHtml(args.collegeName)}</p>` : ""}
+    <p class="title">${escapeHtml(args.title)}</p>
+    ${args.examLabel ? `<p class="meta">${escapeHtml(args.examLabel)}</p>` : ""}
+    ${args.courseGroup ? `<p class="meta">Course Group : ${escapeHtml(args.courseGroup)}</p>` : ""}
+  </div>
+</div>
 <table>${head}<tbody>${body}</tbody></table>
 </body></html>`;
 
@@ -1359,6 +1368,7 @@ export function ExamFinalAnalysisReportPage({
                     "",
                   courseGroup:
                     txt(group?.group_code) || txt(rows[0]?.course_group) || "",
+                  logoUrl: collegeLogo,
                   rows,
                 });
                 return;

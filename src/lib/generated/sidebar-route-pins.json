@@ -126,6 +126,10 @@
     "route": "/admin-examination-management/evaluation-process/create-questionpaper-template"
   },
   {
+    "label": "consolidated marks report",
+    "route": "/reports/admin-exam-reports/consolidated-marks-report"
+  },
+  {
     "label": "course year subject association",
     "route": "/academics/college-curriculum/subject-allocation-sem-regulation"
   },

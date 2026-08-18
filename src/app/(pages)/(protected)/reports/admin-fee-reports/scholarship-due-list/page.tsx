@@ -18,6 +18,7 @@ import { escapeHtml } from "@/common/export-html-table";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError, toastInfo } from "@/lib/toast";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   filterAcademicYears,
   filterColleges,
@@ -28,8 +29,14 @@ import {
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
   fetchScholarshipDueList,
+  getCollegeById,
   getFeeMasterCollegeFilters,
 } from "@/services";
+import {
+  attendancePrintShell as reportPrintShell,
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
 type AnyRow = Record<string, unknown>;
 
@@ -103,12 +110,8 @@ function emptyFeeDue(studentItem: AnyRow): {
 } {
   const courseDetails = `${String(studentItem.course_code ?? "")}/${String(studentItem.group_code ?? "")}/${String(studentItem.course_year_code ?? "")}`;
   return {
-    rollNumber: String(
-      studentItem.roll_number ?? studentItem.rollNumber ?? "",
-    ),
-    firstName: String(
-      studentItem.Student_Name ?? studentItem.firstName ?? "",
-    ),
+    rollNumber: String(studentItem.roll_number ?? studentItem.rollNumber ?? ""),
+    firstName: String(studentItem.Student_Name ?? studentItem.firstName ?? ""),
     applicationNo: String(
       studentItem.sch_application_no ?? studentItem.applicationNo ?? "",
     ),
@@ -174,7 +177,11 @@ function buildPivotRows(raw: AnyRow[]): PivotRow[] {
     );
     const amounts: number[] = [];
     for (const y of ordered) {
-      amounts.push(y.scholarship_amount, y.total_amount_received, y.balance_amount);
+      amounts.push(
+        y.scholarship_amount,
+        y.total_amount_received,
+        y.balance_amount,
+      );
     }
     return {
       rollNumber: entry.rollNumber,
@@ -200,6 +207,7 @@ export default function ScholarshipDueListPage() {
   const [courseId, setCourseId] = useState<string>("0");
 
   const [pivotRows, setPivotRows] = useState<PivotRow[]>([]);
+  const [collegeName, setCollegeName] = useState("");
   const [collegeCode, setCollegeCode] = useState("");
   const [academicYearCode, setAcademicYearCode] = useState("");
   const [courseCode, setCourseCode] = useState("");
@@ -207,10 +215,23 @@ export default function ScholarshipDueListPage() {
   const [showTable, setShowTable] = useState(false);
   const [searchText, setSearchText] = useState("");
 
+  const selectedCollegeRow = useMemo(
+    () =>
+      filterColleges(filtersData).find(
+        (r) =>
+          String(pickNum(r, ["fk_college_id", "collegeId"])) ===
+          String(collegeId ?? ""),
+      ) ?? null,
+    [filtersData, collegeId],
+  );
+
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
+
   const clearResults = useCallback(() => {
     setPivotRows([]);
     setShowTable(false);
     setSearchText("");
+    setCollegeName("");
   }, []);
 
   useEffect(() => {
@@ -330,8 +351,23 @@ export default function ScholarshipDueListPage() {
       (o) => o.value === academicYearId && o.value !== "0",
     );
     setAcademicYearCode(ay?.label ?? "");
-    const cr = courseOptions.find((o) => o.value === courseId && o.value !== "0");
+    const cr = courseOptions.find(
+      (o) => o.value === courseId && o.value !== "0",
+    );
     setCourseCode(cr?.label ?? (Number(courseId) === 0 ? "All" : ""));
+
+    let name =
+      pickText(selectedCollegeRow, ["college_name", "collegeName"]) ||
+      "College";
+    try {
+      if (cid > 0) {
+        const full = await getCollegeById(cid);
+        if (full?.collegeName) name = String(full.collegeName);
+      }
+    } catch {
+      /* keep fallback */
+    }
+    setCollegeName(name);
 
     try {
       const raw = await fetchScholarshipDueList({
@@ -367,11 +403,7 @@ export default function ScholarshipDueListPage() {
     );
   }, [pivotRows, searchText]);
 
-  const dataDetails = [
-    collegeCode,
-    academicYearCode,
-    courseCode,
-  ]
+  const dataDetails = [collegeCode, academicYearCode, courseCode]
     .filter(Boolean)
     .join(" / ");
 
@@ -395,19 +427,28 @@ export default function ScholarshipDueListPage() {
     link.click();
   };
 
-  const printReport = () => {
-    if (!excelTableRef.current) return;
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Scholarship Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px}
-th{background:#e8f0fe}
-</style></head><body>
-<p style="font-weight:600">Scholarship Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</p>
-${excelTableRef.current.innerHTML}
-</body></html>`);
+  const printReport = async () => {
+    if (!excelTableRef.current) {
+      toastInfo("No records to print.");
+      return;
+    }
+    const cid = Number(collegeId ?? 0);
+    const logoSrc = await resolveReportPrintLogo(
+      selectedCollegeRow,
+      cid,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+    printHtmlInIframe(
+      reportPrintShell({
+        title: escapeHtml("Scholarship Report"),
+        logoSrc: escapeHtml(logoSrc),
+        fallbackLogo: escapeHtml(fallbackLogo),
+        collegeName: escapeHtml(collegeName || "College"),
+        dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
+        tableHtml: excelTableRef.current.innerHTML,
+      }),
+    );
   };
 
   const goBack = () => {
@@ -415,8 +456,8 @@ ${excelTableRef.current.innerHTML}
   };
 
   const pageTitle = showTable
-    ? `Scholarship Report - (${dataDetails})`
-    : "Scholarship Report";
+    ? `Scholarship Due List - (${dataDetails})`
+    : "Scholarship Due List";
 
   return (
     <FilteredListPage
@@ -502,7 +543,7 @@ ${excelTableRef.current.innerHTML}
                   type="button"
                   size="sm"
                   className="h-9 px-3 text-[12px]"
-                  onClick={printReport}
+                  onClick={() => void printReport()}
                 >
                   <Printer className="mr-1.5 h-3.5 w-3.5" />
                   Print Report

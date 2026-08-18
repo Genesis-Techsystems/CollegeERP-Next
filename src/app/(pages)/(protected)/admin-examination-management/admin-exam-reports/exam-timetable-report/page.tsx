@@ -29,6 +29,12 @@ import {
   getUnivExamRestInRegExamStd,
   type AnyRow,
 } from "@/services/pre-examination";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  attendancePrintShell as reportPrintShell,
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
 type Row = AnyRow;
 
@@ -191,6 +197,7 @@ export default function ExamTimetableReportPage() {
   const [fromDate, setFromDate] = useState<Date | null>(WIDE_FROM);
   const [toDate, setToDate] = useState<Date | null>(WIDE_TO);
   const [filterSummary, setFilterSummary] = useState("");
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   useEffect(() => {
     setEmployeeId(Number(globalThis?.localStorage?.getItem("employeeId") ?? 0));
@@ -621,29 +628,32 @@ export default function ExamTimetableReportPage() {
     );
   }
 
-  function printReport() {
+  async function printReport() {
     if (!exportRows.length) {
       toast.info("No records to print.");
       return;
     }
-    const tableHtml = buildHtmlTable(PRINT_COLS, exportRows);
-    const detailsHtml = filterSummary
-      ? `<p style="font-size:14px;font-weight:550;margin:0 0 6px">${escapeHtml(filterSummary)}</p>`
-      : "";
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Exam Timetable Report</title>
-<style>
-@page{margin:12mm}
-body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
-.title{font-size:22px;font-weight:600;margin:0 0 4px}
-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
-th,td{border:1px solid #333;padding:6px 5px}
-th{background:#f2f2f2}
-</style></head><body>
-<p class="title">Exam Timetable Report</p>
-${detailsHtml}
-${tableHtml}
-</body></html>`);
+    const college = colleges.find(
+      (r) => num(r.fk_college_id) === Number(collegeId),
+    );
+    const cid = Number(collegeId || 0);
+    const logoSrc = await resolveReportPrintLogo(
+      null,
+      cid,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    printHtmlInIframe(
+      reportPrintShell({
+        title: escapeHtml("Exam Timetable Report"),
+        logoSrc: escapeHtml(logoSrc),
+        fallbackLogo: escapeHtml(toPrintLogoUrl(DEFAULT_COLLEGE_LOGO)),
+        collegeName: escapeHtml(
+          txt(college?.college_name) || txt(college?.college_code) || "College",
+        ),
+        dataDetails: filterSummary ? escapeHtml(filterSummary) : undefined,
+        tableHtml: buildHtmlTable(PRINT_COLS, exportRows),
+      }),
+    );
   }
 
   return (
@@ -839,7 +849,7 @@ ${tableHtml}
               type="button"
               size="sm"
               className="h-9 px-3 text-[12px]"
-              onClick={printReport}
+              onClick={() => void printReport()}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report
