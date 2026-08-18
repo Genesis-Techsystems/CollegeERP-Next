@@ -508,8 +508,8 @@ export const QK = {
   // ── Question Banks ─────────────────────────────────────────────────────
   questionBanks: {
     all: ["Assessment"] as const,
-    /** Angular listAllDetails(Assessment) — order(createdDt=desc); client filters isForQuestionbank */
-    list: (userId: number) => ["Assessment", "list", userId] as const,
+    /** ADMIN: listAllDetails; else preparedbyUser.userId. Client filters isForQuestionbank */
+    list: (userId?: number) => ["Assessment", "list", userId ?? "all"] as const,
     /** Questions inside a specific bank */
     questions: (assessmentId: number) =>
       ["Assessment", assessmentId, "questions"] as const,

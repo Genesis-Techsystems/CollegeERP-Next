@@ -10,7 +10,7 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Printer } from "lucide-react";
-import { FilteredListPage } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
 import { DataTable } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
@@ -31,8 +31,8 @@ import type {
   FeeCertificateIssueRow,
   FeeCertificateWorkflowRow,
 } from "@/types/tc-no-due";
-import { StudentProfileHeader } from "@/app/(pages)/(protected)/admin-student-information-system/students-profile/StudentProfileHeader";
 import { ConfirmNoDueDialog } from "./ConfirmNoDueDialog";
+import { NoDueStudentProfile } from "./NoDueStudentProfile";
 import { ViewCertificateFlowsDialog } from "./ViewCertificateFlowsDialog";
 import {
   orderNoDueWorkflows,
@@ -122,75 +122,24 @@ function canPrintIssue(row: FeeCertificateIssueRow | undefined): boolean {
   return name === "Issued" || name === "Cleared";
 }
 
-const CLEARANCE_COL_DEFS = {
-  siNo: {
-    headerName: "SI No.",
-    valueGetter: rowIndexGetter,
-    width: 80,
-    flex: 0,
-  } as ColDef<FeeCertificateWorkflowRow>,
-  department: {
-    headerName: "Department",
-    minWidth: 160,
-    valueGetter: (p) => {
-      const row = p.data;
-      if (!row) return "—";
-      return `${row.deptName ?? ""}${row.courseGroupId != null ? " Dept Head" : ""}`;
-    },
-  } as ColDef<FeeCertificateWorkflowRow>,
-  mobile: {
-    headerName: "Mobile Number",
-    minWidth: 130,
-    valueGetter: (p) => p.data?.employeeMobile ?? "—",
-  } as ColDef<FeeCertificateWorkflowRow>,
-  status: {
-    headerName: "Approval Status",
-    minWidth: 130,
-  } as ColDef<FeeCertificateWorkflowRow>,
-  updatedOn: {
-    headerName: "Status Updated On",
-    minWidth: 140,
-    valueGetter: (p) =>
-      p.data?.approvalStatusCode != null
-        ? formatDisplayDate(p.data.updatedDt)
-        : "---",
-  } as ColDef<FeeCertificateWorkflowRow>,
-  comments: {
-    headerName: "Comments",
-    minWidth: 140,
-    valueGetter: (p) => {
-      const row = p.data;
-      if (!row) return "---";
-      const show =
-        row.comments != null &&
-        String(row.approvalStatusCode ?? "").toUpperCase() !== "NODUE";
-      return show ? row.comments : "---";
-    },
-  } as ColDef<FeeCertificateWorkflowRow>,
-};
+const CLEARANCE_HEADERS = [
+  "SI No.",
+  "Department",
+  "Mobile Number",
+  "Approval Status",
+  "Status Updated On",
+  "Comments",
+] as const;
 
-function clearanceDeptRenderer(
-  p: ICellRendererParams<FeeCertificateWorkflowRow>,
-) {
-  const row = p.data;
-  if (!row) return null;
-  return (
-    <span className="font-medium text-blue-700">
-      {row.deptName}
-      {row.courseGroupId != null ? " Dept Head" : ""}
-    </span>
-  );
+function clearanceDeptLabel(row: FeeCertificateWorkflowRow): string {
+  return `${row.deptName ?? ""}${row.courseGroupId != null ? " Dept Head" : ""}`;
 }
 
-function clearanceStatusRenderer(
-  p: ICellRendererParams<FeeCertificateWorkflowRow>,
-) {
-  const code = p.data?.approvalStatusCode;
-  return (
-    <span className={clearanceStatusClass(code)}>
-      {clearanceStatusLabel(code)}
-    </span>
-  );
+function clearanceComments(row: FeeCertificateWorkflowRow): string {
+  const show =
+    row.comments != null &&
+    String(row.approvalStatusCode ?? "").toUpperCase() !== "NODUE";
+  return show ? String(row.comments) : "---";
 }
 
 const HISTORY_COL_DEFS = {
@@ -240,9 +189,7 @@ const HISTORY_COL_DEFS = {
   } as ColDef<FeeCertificateIssueRow>,
 };
 
-function historyStatusRenderer(
-  p: ICellRendererParams<FeeCertificateIssueRow>,
-) {
+function historyStatusRenderer(p: ICellRendererParams<FeeCertificateIssueRow>) {
   const code = p.data?.applicationStatusCode;
   return (
     <span className={historyStatusClass(code)}>
@@ -317,9 +264,7 @@ export function NoDueCertificatePage() {
       }
 
       setStudent(detail);
-      setStudentId(
-        positiveId(detail.studentId, detail.fk_student_id, sid),
-      );
+      setStudentId(positiveId(detail.studentId, detail.fk_student_id, sid));
       setCollegeId(
         positiveId(
           detail.collegeId,
@@ -414,8 +359,7 @@ export function NoDueCertificatePage() {
     feeCertificateIssues.length > 0
       ? feeCertificateIssues[feeCertificateIssues.length - 1]
       : undefined;
-  const showPrint =
-    feeCertificateIssues.length > 0 && canPrintIssue(lastIssue);
+  const showPrint = feeCertificateIssues.length > 0 && canPrintIssue(lastIssue);
 
   const clgAccrd = useMemo(() => {
     if (String(student?.collegeCode ?? "").toUpperCase() === "VCE") {
@@ -528,8 +472,7 @@ export function NoDueCertificatePage() {
         row.approvalStatusCode == null
           ? "Pending"
           : String(row.approvalStatusDisplayName ?? "");
-      const approvedCell =
-        row.approvalStatusCode == null ? "-" : approvedOn;
+      const approvedCell = row.approvalStatusCode == null ? "-" : approvedOn;
       const commentCell =
         row.comments == null ||
         String(row.approvalStatusDisplayName ?? "") === "No Due"
@@ -582,18 +525,6 @@ export function NoDueCertificatePage() {
   const loading =
     sessionLoading || profileLoading || loadingCerts || nodueLoading;
 
-  const clearanceColumnDefs = useMemo<ColDef<FeeCertificateWorkflowRow>[]>(
-    () => [
-      CLEARANCE_COL_DEFS.siNo,
-      { ...CLEARANCE_COL_DEFS.department, cellRenderer: clearanceDeptRenderer },
-      CLEARANCE_COL_DEFS.mobile,
-      { ...CLEARANCE_COL_DEFS.status, cellRenderer: clearanceStatusRenderer },
-      CLEARANCE_COL_DEFS.updatedOn,
-      CLEARANCE_COL_DEFS.comments,
-    ],
-    [],
-  );
-
   const historyColumnDefs = useMemo<ColDef<FeeCertificateIssueRow>[]>(
     () => [
       HISTORY_COL_DEFS.siNo,
@@ -613,10 +544,25 @@ export function NoDueCertificatePage() {
   );
 
   return (
-    <FilteredListPage
-      title="Request For No Due Certificate"
-      filters={
-        <div className="space-y-3">
+    <PageContainer className="space-y-4">
+      <div
+        className="app-card angular-filter-card overflow-hidden"
+        data-page-first-card=""
+      >
+        <div className="angular-filter-card__header">
+          <div className="angular-filter-card__title-row">
+            <span className="app-card-title">
+              <span className="material-icons app-card-title__icon" aria-hidden>
+                computer
+              </span>
+              <span className="app-card-title__text">
+                Request For No Due Certificate
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div className="angular-filter-card__body space-y-4">
           {loading && !student ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : null}
@@ -625,60 +571,108 @@ export function NoDueCertificatePage() {
               Student profile not found for this session.
             </p>
           ) : null}
+
           {student ? (
-            <div className="relative">
-              <StudentProfileHeader student={student} />
-              {!isEmptyObject(nodueDetails) ? (
-                <div className="absolute right-4 top-14 space-y-0.5 text-right text-sm sm:top-16">
-                  <p className="font-semibold text-primary">
-                    {String(
-                      nodueDetails?.applicationStatusDisplayName ?? "—",
-                    )}
-                  </p>
-                  <p className="text-muted-foreground">
-                    Applied On :{" "}
-                    {formatDisplayDate(
-                      nodueDetails?.appliedOn ?? nodueDetails?.createdDt,
-                    )}
-                  </p>
+            <>
+              <div className="relative">
+                <NoDueStudentProfile student={student} />
+                {!isEmptyObject(nodueDetails) ? (
+                  <div className="absolute right-4 top-2 space-y-0.5 text-right text-sm">
+                    <p className="font-semibold text-[#0c51a4]">
+                      {String(
+                        nodueDetails?.applicationStatusDisplayName ?? "—",
+                      )}
+                    </p>
+                    <p className="text-[#666]">
+                      Applied On :{" "}
+                      {formatDisplayDate(
+                        nodueDetails?.appliedOn ?? nodueDetails?.createdDt,
+                      )}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              {showApply ? (
+                <div className="flex justify-end">
+                  <Button type="button" onClick={() => setConfirmOpen(true)}>
+                    Apply
+                  </Button>
                 </div>
               ) : null}
-            </div>
-          ) : null}
-          {showApply ? (
-            <div className="flex justify-end">
-              <Button type="button" onClick={() => setConfirmOpen(true)}>
-                Apply
-              </Button>
-            </div>
+
+              <div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-[15px] font-medium text-foreground">
+                    No Due Clearance
+                  </h3>
+                  {showPrint ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={printReport}
+                      title="Print Report"
+                    >
+                      <Printer className="mr-1 h-4 w-4" />
+                      Print
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead>
+                      <tr>
+                        {CLEARANCE_HEADERS.map((header) => (
+                          <th
+                            key={header}
+                            className="border border-[#d0d7de] bg-[#ecf3ff] px-3 py-2 text-left font-medium text-black"
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workflows.map((row, index) => (
+                        <tr key={String(row.feeCertificateWorkflowId ?? index)}>
+                          <td className="border border-[#d0d7de] px-3 py-2">
+                            {index + 1}
+                          </td>
+                          <td className="border border-[#d0d7de] px-3 py-2 font-medium text-[#0c51a4]">
+                            {clearanceDeptLabel(row)}
+                          </td>
+                          <td className="border border-[#d0d7de] px-3 py-2">
+                            {row.employeeMobile ?? "—"}
+                          </td>
+                          <td className="border border-[#d0d7de] px-3 py-2">
+                            <span
+                              className={clearanceStatusClass(
+                                row.approvalStatusCode,
+                              )}
+                            >
+                              {clearanceStatusLabel(row.approvalStatusCode)}
+                            </span>
+                          </td>
+                          <td className="border border-[#d0d7de] px-3 py-2">
+                            {row.approvalStatusCode != null
+                              ? formatDisplayDate(row.updatedDt)
+                              : "---"}
+                          </td>
+                          <td className="border border-[#d0d7de] px-3 py-2">
+                            {clearanceComments(row)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           ) : null}
         </div>
-      }
-      filtersDefaultOpen
-      rowData={workflows}
-      columnDefs={clearanceColumnDefs}
-      loading={loading}
-      height="auto"
-      pagination={false}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search clearance",
-      }}
-      toolbarTrailing={
-        showPrint ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={printReport}
-            title="Print Report"
-          >
-            <Printer className="mr-1 h-4 w-4" />
-            Print
-          </Button>
-        ) : null
-      }
-    >
+      </div>
+
       {feeCertificateIssues.length > 0 ? (
         <DataTable
           title="No Due Certificate History"
@@ -708,6 +702,6 @@ export function NoDueCertificatePage() {
         onClose={() => setViewIssue(null)}
         issue={viewIssue}
       />
-    </FilteredListPage>
+    </PageContainer>
   );
 }

@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { format, parseISO, isValid } from "date-fns";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
 import {
   buildHtmlTable,
@@ -126,7 +126,9 @@ function mapRow(row: AnyRow): DriverRow {
     address: String(row.address ?? ""),
     mobileNumber: String(row.mobile_number ?? row.mobileNumber ?? ""),
     licenseNumber: String(row.license_number ?? row.licenseNumber ?? ""),
-    licenseValidUpto: formatDate(row.license_valid_upto ?? row.licenseValidUpto),
+    licenseValidUpto: formatDate(
+      row.license_valid_upto ?? row.licenseValidUpto,
+    ),
     dateOfJoining: formatDate(row.date_of_joining ?? row.dateOfJoining),
   };
 }
@@ -217,7 +219,8 @@ export default function DriverDetailsReportPage() {
         (r) => pickNum(r, ["fk_college_id", "collegeId"]) === cid,
       ) ?? null;
     const code = pickText(row, ["college_code", "collegeCode"]);
-    let name = pickText(row, ["college_name", "collegeName"]) || code || "College";
+    let name =
+      pickText(row, ["college_name", "collegeName"]) || code || "College";
     try {
       const full = await getCollegeById(cid);
       if (full?.collegeName) name = String(full.collegeName);
@@ -278,9 +281,7 @@ export default function DriverDetailsReportPage() {
         logoSrc: escapeHtml(logoSrc),
         fallbackLogo: escapeHtml(fallbackLogo),
         collegeName: escapeHtml(collegeName || "College"),
-        dataDetails: dataDetails
-          ? escapeHtml(`( ${dataDetails} )`)
-          : undefined,
+        dataDetails: dataDetails ? escapeHtml(`( ${dataDetails} )`) : undefined,
         tableHtml: buildHtmlTable(EXCEL_COLUMNS, exportRows),
       }),
     );
@@ -324,7 +325,7 @@ export default function DriverDetailsReportPage() {
           <Button
             type="button"
             variant="secondary"
-            className="h-9 w-fit px-4"
+            className="h-9 w-fit border-[#e0a800] !bg-[#ffc107] px-4 !text-[#212529] hover:!bg-[#e0a800]"
             onClick={goBack}
           >
             Back
@@ -341,22 +342,31 @@ export default function DriverDetailsReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
-      onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

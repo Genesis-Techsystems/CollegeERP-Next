@@ -1078,6 +1078,17 @@ export async function searchStudentsForStudentDetailsList(params: {
       }
     }
 
+    // Angular `enteredStudent(rollNumber, 'para')`: after returning from a
+    // profile/edit page, non-dept-admin users restore through studentsearch
+    // directly instead of the typed multi-college branch.
+    if (mode === "restore") {
+      const data = await fetchDetails<any>("studentsearch", { q });
+      return asArray<AnyRow>(data).map((row) => ({
+        ...normalizeStudentRow(row),
+        ...row,
+      }));
+    }
+
     if (!params.isAdmin) {
       const collegeIds =
         params.collegeIds != null && String(params.collegeIds).trim() !== ""

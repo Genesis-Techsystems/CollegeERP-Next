@@ -222,19 +222,10 @@ export default function StudentDetailsPage() {
   const isHod = user?.isHod ?? readStorage("isHOD") === "true";
   const isDeptAdmin =
     user?.isDeptAdmin ?? readStorage("isDeprtAdmin") === "true";
-  const roleName = user?.roleName ?? readStorage("roleName");
   const check = mode === "section" ? 2 : 1;
-  // Match Angular effective visibility: full-page Edit only for Admin or
-  // Junior Accountant / Student Details / FEE COLLECTION. HOD gets modal Edit.
-  // Other staff (e.g. Additional Controller) see View Profile | View details only.
-  const specialEditRoles = [
-    "Junior Accountant",
-    "Student Details",
-    "FEE COLLECTION",
-  ];
-  const hasSpecialEditRole = specialEditRoles.includes(roleName ?? "");
-  const canNavigateEdit = isAdmin || hasSpecialEditRole;
-  const canModalEdit = isHod && !isAdmin && !hasSpecialEditRole;
+  // Student details are editable only by administrators.
+  const canNavigateEdit = isAdmin;
+  const canModalEdit = false;
   const canSendCredentials = isHod || isAdmin;
 
   const collegeIdsForSearch = useMemo(() => {
@@ -838,8 +829,29 @@ export default function StudentDetailsPage() {
   }
 
   function navigateViewProfile(row: AnyRow) {
-    // Angular admin SIS: both "View Profile" and "View details" open students-profile.
-    navigateProfile(pickNum(row, ["studentId", "fk_student_id"]));
+    const studentId = pickNum(row, ["studentId", "fk_student_id"]);
+    const params = new URLSearchParams({
+      studentId: String(studentId),
+      check: String(check),
+    });
+    const rollNumber = pickText(row, ["rollNumber", "roll_number"]);
+    if (rollNumber) params.set("rollNumber", rollNumber);
+    // Keep the originating filter state. The profile API does not always
+    // return groupSectionId, so rebuilding these values from the profile can
+    // otherwise send Back to the initial student-search mode.
+    if (check === 2) {
+      if (universityId) params.set("universityId", String(universityId));
+      if (collegeId) params.set("collegeId", String(collegeId));
+      if (academicYearId) params.set("academicYearId", String(academicYearId));
+      if (courseId) params.set("courseId", String(courseId));
+      if (courseGroupId) params.set("courseGroupId", String(courseGroupId));
+      if (courseYearId) params.set("courseYearId", String(courseYearId));
+      if (groupSectionId !== null)
+        params.set("groupSectionId", String(groupSectionId));
+    }
+    router.push(
+      `/principal-student-information-system/student-details?${params.toString()}`,
+    );
   }
 
   async function openHodEdit(row: AnyRow) {

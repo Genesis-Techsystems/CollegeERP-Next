@@ -394,7 +394,7 @@ export default function TotalBooksReportPage() {
           <Button
             type="button"
             variant="secondary"
-            className="h-9 w-fit px-4"
+            className="h-9 w-fit border-[#e0a800] !bg-[#ffc107] px-4 !text-[#212529] hover:!bg-[#e0a800]"
             onClick={goBack}
           >
             Back

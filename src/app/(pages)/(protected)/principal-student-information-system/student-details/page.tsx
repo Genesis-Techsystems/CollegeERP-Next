@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, FileText, Loader2, Printer } from "lucide-react";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { printElementInIframe } from "@/lib/print";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   loadPrincipalStudentProfile,
@@ -89,6 +90,183 @@ const EDUCATION_COLS = [
 
 function pickCourseId(student: AnyRow): number {
   return Number(student.courseId ?? student.fk_course_id ?? 0) || 0;
+}
+
+function printValue(row: AnyRow, keys: string[]): string {
+  return pickText(row, keys) || "null";
+}
+
+function PrincipalStudentPrintView({
+  data,
+}: {
+  data: PrincipalStudentProfileData;
+}) {
+  const { student } = data;
+  const activitySections = [
+    { title: "Project Executed", rows: data.projects },
+    { title: "Co-curricular", rows: data.activities },
+    { title: "Extra Curricular", rows: data.extraActivities },
+  ];
+
+  return (
+    <div
+      id="principal-student-profile-print-view"
+      className="principal-profile-print print-only"
+      data-print-root
+      aria-hidden
+    >
+      <table className="principal-profile-print__identity">
+        <tbody>
+          <tr>
+            <th>Student Roll Number :</th>
+            <td>{printValue(student, ["rollNumber", "hallticketNumber"])}</td>
+            <th>Full Name :</th>
+            <td>{studentFullName(student)}</td>
+          </tr>
+          <tr>
+            <th>Father Name :</th>
+            <td>{printValue(student, ["fatherName", "father_name"])}</td>
+            <th>Contact Number :</th>
+            <td>
+              {printValue(student, [
+                "fatherMobile",
+                "fatherContactNumber",
+                "father_mobile",
+              ])}
+            </td>
+          </tr>
+          <tr>
+            <th>Occupation :</th>
+            <td>
+              {printValue(student, ["fatherOccupation", "father_occupation"])}
+            </td>
+            <th />
+            <td />
+          </tr>
+          <tr>
+            <th>Mother /Guardian Name :</th>
+            <td>
+              {printValue(student, [
+                "motherName",
+                "guardianName",
+                "mother_name",
+              ])}
+            </td>
+            <th>Contact Number :</th>
+            <td>
+              {printValue(student, [
+                "motherMobile",
+                "guardianMobile",
+                "mother_mobile",
+              ])}
+            </td>
+          </tr>
+          <tr>
+            <th>Address :</th>
+            <td colSpan={3}>
+              {printValue(student, [
+                "permanentAddress",
+                "communicationAddress",
+                "address",
+              ])}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Academic Details</h2>
+      <table className="principal-profile-print__grid">
+        <thead>
+          <tr>
+            {EDUCATION_COLS.map((column) => (
+              <th key={column.id}>{column.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.educationDetails.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {EDUCATION_COLS.map((column) => (
+                <td key={column.id}>{column.render(row)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2>Examination</h2>
+      {data.examSemesters.map((semester) => (
+        <div key={semester.courseYearCode}>
+          <h3>SEMISTER {semester.courseYearCode}</h3>
+          <table className="principal-profile-print__grid">
+            <thead>
+              <tr>
+                <th>Sub Code</th>
+                <th>Subject Name</th>
+                <th>Grade</th>
+                <th>Credits</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {semester.subjects.map((subject, rowIndex) => (
+                <tr key={rowIndex}>
+                  <td>{cell(subject, ["subject_code", "subjectCode"])}</td>
+                  <td>{cell(subject, ["subject_name", "subjectName"])}</td>
+                  <td>{cell(subject, ["grade"])}</td>
+                  <td>{cell(subject, ["credits", "subjectCredits"])}</td>
+                  <td>—</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      {activitySections.map((section) => (
+        <div key={section.title}>
+          <h2>{section.title}</h2>
+          <table className="principal-profile-print__grid">
+            <thead>
+              <tr>
+                <th>S.No</th>
+                <th>Title of Project</th>
+                <th>Year/Semester</th>
+                <th>View Certificate</th>
+                <th>Viewing of Videos/Photos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {section.rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  <td>{rowIndex + 1}</td>
+                  <td>
+                    {printValue(row, ["eventTitle", "projectTitle", "title"])}
+                  </td>
+                  <td>
+                    {printValue(row, [
+                      "academicYear",
+                      "courseYearName",
+                      "yearSemester",
+                    ])}
+                  </td>
+                  <td>{pickText(row, ["certificatePath"]) ? "View" : ""}</td>
+                  <td>
+                    {pickText(row, ["videoPath", "photoPath"]) ? "View" : ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      <h2>Internships :</h2>
+      <p>{pickText(student, ["internship", "intership"])}</p>
+      <h2>Educational Tours :</h2>
+      <p>{pickText(student, ["educationTours", "educationalTours"])}</p>
+    </div>
+  );
 }
 
 function PrincipalStudentHeader({
@@ -287,27 +465,46 @@ export default function PrincipalStudentDetailsPage() {
     const params = new URLSearchParams();
     params.set("check", String(check));
     if (check === 1) {
-      if (student.collegeId) params.set("collegeId", String(student.collegeId));
-      if (student.academicYearId)
-        params.set("academicYearId", String(student.academicYearId));
-      if (student.rollNumber)
-        params.set("rollNumber", String(student.rollNumber));
+      const collegeId = searchParams.get("collegeId") ?? student.collegeId;
+      const academicYearId =
+        searchParams.get("academicYearId") ?? student.academicYearId;
+      const rollNumber = searchParams.get("rollNumber") ?? student.rollNumber;
+      if (collegeId) params.set("collegeId", String(collegeId));
+      if (academicYearId) params.set("academicYearId", String(academicYearId));
+      if (rollNumber) params.set("rollNumber", String(rollNumber));
       if (student.studentId) params.set("studentId", String(student.studentId));
     } else if (check === 2) {
-      if (student.collegeId) params.set("collegeId", String(student.collegeId));
-      if (student.academicYearId)
-        params.set("academicYearId", String(student.academicYearId));
-      if (student.courseId) params.set("courseId", String(student.courseId));
-      if (student.courseGroupId)
-        params.set("courseGroupId", String(student.courseGroupId));
-      if (student.courseYearId)
-        params.set("courseYearId", String(student.courseYearId));
-      if (student.groupSectionId != null)
-        params.set("groupSectionId", String(student.groupSectionId));
+      for (const key of [
+        "universityId",
+        "collegeId",
+        "academicYearId",
+        "courseId",
+        "courseGroupId",
+        "courseYearId",
+        "groupSectionId",
+      ] as const) {
+        const value = searchParams.get(key) ?? student[key];
+        if (value != null && String(value) !== "") {
+          params.set(key, String(value));
+        }
+      }
     }
     router.push(
       `/admin-student-information-system/students-list?${params.toString()}`,
     );
+  }
+
+  function handlePrint() {
+    const printView = document.getElementById(
+      "principal-student-profile-print-view",
+    );
+    if (!printView) return;
+    printElementInIframe(printView, "Student Profile", {
+      extraCss: `
+        .print-only { display: block !important; }
+        .principal-profile-print { width: 100% !important; }
+      `,
+    });
   }
 
   const examSubjectCols = [
@@ -355,7 +552,7 @@ export default function PrincipalStudentDetailsPage() {
       ) : (
         <div
           id="principal-student-profile-print"
-          className="rounded overflow-hidden border bg-white shadow-sm"
+          className="screen-only rounded overflow-hidden border bg-white shadow-sm"
           style={{ borderColor: PROFILE_VIEW.border }}
         >
           <div className="flex items-center justify-between gap-2 border-b-2 px-4 py-2.5">
@@ -377,7 +574,7 @@ export default function PrincipalStudentDetailsPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 hover:bg-transparent"
-              onClick={() => window.print()}
+              onClick={handlePrint}
             >
               <Printer
                 className="h-4 w-4"
@@ -491,6 +688,8 @@ export default function PrincipalStudentDetailsPage() {
         </div>
       )}
 
+      {data ? <PrincipalStudentPrintView data={data} /> : null}
+
       {data ? (
         <AddPrincipalActivityModal
           open={activityModalOpen}
@@ -507,7 +706,7 @@ export default function PrincipalStudentDetailsPage() {
         />
       ) : null}
 
-      <div className="flex justify-end">
+      <div className="screen-only flex justify-end">
         <Button
           type="button"
           size="sm"
@@ -518,6 +717,80 @@ export default function PrincipalStudentDetailsPage() {
           Back
         </Button>
       </div>
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 12mm;
+          }
+
+          .principal-profile-print {
+            width: 100% !important;
+            color: #000 !important;
+            font-family: Arial, sans-serif !important;
+            font-size: 9px !important;
+            line-height: 1.25 !important;
+          }
+
+          .principal-profile-print h2 {
+            margin: 8px 0 4px !important;
+            color: #00008b !important;
+            font-size: 10px !important;
+            font-weight: 700 !important;
+          }
+
+          .principal-profile-print h3 {
+            margin: 4px 0 2px !important;
+            font-size: 9px !important;
+            font-weight: 700 !important;
+          }
+
+          .principal-profile-print p {
+            min-height: 10px;
+            margin: 0 !important;
+          }
+
+          .principal-profile-print table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          .principal-profile-print__identity {
+            margin: 0 0 8px;
+          }
+
+          .principal-profile-print__identity th,
+          .principal-profile-print__identity td {
+            border: 0 !important;
+            padding: 2px 5px !important;
+            text-align: left;
+            vertical-align: top;
+          }
+
+          .principal-profile-print__identity th {
+            width: 18%;
+            font-weight: 700;
+            white-space: nowrap;
+          }
+
+          .principal-profile-print__identity td {
+            width: 32%;
+          }
+
+          .principal-profile-print__grid th,
+          .principal-profile-print__grid td {
+            border: 1px solid #777 !important;
+            padding: 3px 4px !important;
+            color: #000 !important;
+            font-size: 8px !important;
+            text-align: center;
+          }
+
+          .principal-profile-print__grid th {
+            font-weight: 700;
+          }
+        }
+      `}</style>
     </PageContainer>
   );
 }

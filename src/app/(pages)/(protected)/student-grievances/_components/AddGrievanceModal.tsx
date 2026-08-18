@@ -72,7 +72,9 @@ export function AddGrievanceModal({
   const [incident, setIncident] = useState("");
   const [incidentDescription, setIncidentDescription] = useState("");
   const [complaintDate, setComplaintDate] = useState<Date>(new Date());
-  const [durationOfIncident, setDurationOfIncident] = useState<Date>(new Date());
+  const [durationOfIncident, setDurationOfIncident] = useState<Date>(
+    new Date(),
+  );
   const [file, setFile] = useState<File | null>(null);
   const [fileTooLarge, setFileTooLarge] = useState(false);
   const [hierarchyLevel, setHierarchyLevel] = useState(0);
@@ -141,7 +143,11 @@ export function AddGrievanceModal({
     () =>
       (lookupQuery.data?.categories ?? []).map((c) => ({
         value: String(c.categoryId),
-        label: txt(c, ["grievanceCategoryCode", "categoryName", "categoryCode"]),
+        label: txt(c, [
+          "grievanceCategoryCode",
+          "categoryName",
+          "categoryCode",
+        ]),
       })),
     [lookupQuery.data?.categories],
   );
@@ -269,6 +275,7 @@ export function AddGrievanceModal({
       onClose={onClose}
       title="New Grievance"
       size="lg"
+      showHeaderDivider
       isSubmitting={isSubmitting}
       submitLabel="Save"
       cancelLabel="Close"
@@ -277,7 +284,10 @@ export function AddGrievanceModal({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Date of Grievance</Label>
-          <DatePicker value={complaintDate} onChange={(d) => d && setComplaintDate(d)} />
+          <DatePicker
+            value={complaintDate}
+            onChange={(d) => d && setComplaintDate(d)}
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Date of Problem or Incident</Label>
@@ -317,40 +327,42 @@ export function AddGrievanceModal({
           />
         </div>
         {hierarchyLevel >= 1 ? (
-          <Select
-            label="Organization"
-            value={orgId}
-            onChange={(v) => {
-              setOrgId(v);
-              setClgId(null);
-              setDepartmentId(null);
-            }}
-            options={orgOptions}
-            disabled
-          />
-        ) : null}
-        {hierarchyLevel >= 2 ? (
-          <Select
-            label="College"
-            value={clgId}
-            onChange={(v) => {
-              setClgId(v);
-              setDepartmentId(null);
-            }}
-            options={collegeOptions}
-            disabled
-            isLoading={collegesQuery.isLoading}
-          />
-        ) : null}
-        {hierarchyLevel >= 3 ? (
-          <Select
-            label="Department"
-            value={departmentId}
-            onChange={setDepartmentId}
-            options={deptOptions}
-            placeholder="Select department"
-            isLoading={deptsQuery.isLoading}
-          />
+          <div className="sm:col-span-2 grid gap-3 sm:grid-cols-3">
+            <Select
+              label="Organization"
+              value={orgId}
+              onChange={(v) => {
+                setOrgId(v);
+                setClgId(null);
+                setDepartmentId(null);
+              }}
+              options={orgOptions}
+              disabled
+            />
+            {hierarchyLevel >= 2 ? (
+              <Select
+                label="College"
+                value={clgId}
+                onChange={(v) => {
+                  setClgId(v);
+                  setDepartmentId(null);
+                }}
+                options={collegeOptions}
+                disabled
+                isLoading={collegesQuery.isLoading}
+              />
+            ) : null}
+            {hierarchyLevel >= 3 ? (
+              <Select
+                label="Department"
+                value={departmentId}
+                onChange={setDepartmentId}
+                options={deptOptions}
+                placeholder="Select department"
+                isLoading={deptsQuery.isLoading}
+              />
+            ) : null}
+          </div>
         ) : null}
         <div className="sm:col-span-2 space-y-1.5">
           <Label>Incident</Label>
@@ -379,7 +391,9 @@ export function AddGrievanceModal({
             className="h-9 cursor-pointer py-1.5 file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1 file:text-[length:var(--app-control-font-size)] file:font-medium file:text-foreground"
           />
           {file ? (
-            <p className="truncate text-xs text-muted-foreground">{file.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {file.name}
+            </p>
           ) : null}
           <p
             className={

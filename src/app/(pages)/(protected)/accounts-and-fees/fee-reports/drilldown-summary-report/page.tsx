@@ -13,7 +13,7 @@ import { CardHeadingTitle } from "@/common/components/data-display";
 import { Select } from "@/common/components/select";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { MINIO_URL } from "@/config/constants/api";
+import { FEE_API, MINIO_URL } from "@/config/constants/api";
 import { useSessionContext } from "@/context/SessionContext";
 import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import { printHtmlInIframe } from "@/lib/print";
@@ -28,7 +28,8 @@ import {
 import {
   buildStudentFeeParticularGroups,
   fetchFeeLedgerRows,
-  fetchScholarshipDetailedSummary,
+  fetchStudentProfileFeeLedgerSummary,
+  getAllRecordsEnvelope,
   getFeeMasterCollegeFilters,
   listOrganizations,
   type StudentFeeParticularGroup,
@@ -257,8 +258,8 @@ function annotateRows(
     if (flag === "student_fee_details_students") {
       return {
         ...x,
-        varaiableName: detailName,
-        varaiableValue: studentListLabel(x[detailValue], x.hallticket_number),
+        varaiableName: displayHt(x.hallticket_number),
+        varaiableValue: x[detailValue],
       };
     }
     return {
@@ -288,10 +289,40 @@ function ledgerColumnTotals(groups: StudentFeeParticularGroup[]) {
   };
 }
 
-function stackedPrintAmt(values: (number | null)[]): string {
-  return values
-    .map((v) => `<p>${v == null ? "-" : escapeHtml(formatIndianNumber(v))}</p>`)
-    .join("");
+/** Angular `feeLedger[0]` / `scholarShipDetails[0]` — skip empty / "null" strings. */
+function pickProfileText(
+  row: AnyRow | null | undefined,
+  keys: string[],
+): string {
+  if (!row) return "";
+  for (const key of keys) {
+    const v = row[key];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s && s.toLowerCase() !== "null" && s.toLowerCase() !== "undefined") {
+      return s;
+    }
+  }
+  return "";
+}
+
+function ledgerAmt(v: number | null | undefined): string {
+  return v == null ? "-" : formatIndianNumber(v);
+}
+
+function particularAmountCols(g: StudentFeeParticularGroup, i: number) {
+  return [
+    g.totalAmt[i],
+    g.rtfAmt[i],
+    g.collegeAmt[i],
+    g.discountAmt[i],
+    g.netAmt[i],
+    g.paidAmt[i],
+    g.dueCollegeAmt[i],
+    g.rtfReceivedAmt[i],
+    g.dueRtfAmt[i],
+    g.totalDueAmt[i],
+  ] as const;
 }
 
 function buildLedgerPrintTableHtml(
@@ -300,21 +331,22 @@ function buildLedgerPrintTableHtml(
   if (groups.length === 0) return "";
   const totals = ledgerColumnTotals(groups);
   const rows = groups
-    .map(
-      (g) => `<tr>
-      <td class="table-td">${escapeHtml(String(g.year))} year</td>
-      <td class="table-td text-left">${g.structures.map((s) => `<p>${escapeHtml(s)}</p>`).join("")}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.totalAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.rtfAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.collegeAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.discountAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.netAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.paidAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.dueCollegeAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.rtfReceivedAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.dueRtfAmt)}</td>
-      <td class="table-td text-right">${stackedPrintAmt(g.totalDueAmt)}</td>
-    </tr>`,
+    .map((g) =>
+      g.structures
+        .map((name, i) => {
+          const yearCell =
+            i === 0
+              ? `<td class="table-td" rowspan="${g.structures.length}">${escapeHtml(String(g.year))}</td>`
+              : "";
+          const amts = particularAmountCols(g, i)
+            .map(
+              (v) =>
+                `<td class="table-td text-right">${v == null ? "-" : escapeHtml(formatIndianNumber(v))}</td>`,
+            )
+            .join("");
+          return `<tr>${yearCell}<td class="table-td text-left">${escapeHtml(name)}</td>${amts}</tr>`;
+        })
+        .join(""),
     )
     .join("");
   const totalCells = [
@@ -367,6 +399,7 @@ export default function DrilldownSummaryReportPage() {
   const [currentPosition, setCurrentPosition] = useState("");
   const [loading, setLoading] = useState(false);
   const [feeLedgerRows, setFeeLedgerRows] = useState<AnyRow[]>([]);
+  const [feeLedgerSummary, setFeeLedgerSummary] = useState<AnyRow | null>(null);
   const autoLoadedAy = useRef<string | null>(null);
 
   const filtersQuery = useQuery({
@@ -482,7 +515,13 @@ export default function DrilldownSummaryReportPage() {
     () => ledgerColumnTotals(feeLedgerGroups),
     [feeLedgerGroups],
   );
-  const feeLedgerProfile = feeLedgerRows[0] ?? null;
+  /** Angular `feeLedger[0]` (ledger result[0]) — not scholarship result[1]. */
+  const feeLedgerStudent = feeLedgerRows[0] ?? null;
+  const scholarshipTypeCode = pickProfileText(feeLedgerSummary, [
+    "scholarship_type_code",
+    "scholarshipTypeCode",
+    "scholarship_type",
+  ]);
 
   const loadSummary = useCallback(
     async (args: {
@@ -501,18 +540,38 @@ export default function DrilldownSummaryReportPage() {
       setLoading(true);
       setSummaryList([]);
       try {
-        const rows = await fetchScholarshipDetailedSummary({
-          flag: args.flag,
-          collegeId: args.collegeId,
-          academicYear: args.academicYear || 0,
-          courseId: args.courseId,
-          courseGroupId: args.courseGroupId,
-          courseYearId: args.courseYearId,
-          loginUserEmpId: employeeId,
-          studentId: args.studentId,
-          categoryCode: args.categoryCode,
-          particularCode: args.particularCode,
-        });
+        const isStudentParticular =
+          args.flag === "student_fee_details_std_particular" &&
+          args.studentId > 0;
+        const [summaryEnvelope, ledger, ledgerSummary] = await Promise.all([
+          getAllRecordsEnvelope<{ result?: AnyRow[][] }>(
+            FEE_API.REP_FEE_STUDENT_DETAILS,
+            {
+              in_flag: args.flag,
+              in_college_id: args.collegeId,
+              in_academic_year: args.academicYear || 0,
+              in_course_id: args.courseId,
+              in_course_group_id: args.courseGroupId,
+              in_course_year_id: args.courseYearId,
+              in_loginuser_empid: employeeId,
+              in_student_id: args.studentId,
+              in_category_code: args.categoryCode,
+              in_particular_code: args.particularCode,
+            },
+          ),
+          isStudentParticular
+            ? fetchFeeLedgerRows(
+                { in_std_id: args.studentId },
+                { resultIndex: 0 },
+              )
+            : Promise.resolve([] as AnyRow[]),
+          isStudentParticular
+            ? fetchStudentProfileFeeLedgerSummary(args.studentId)
+            : Promise.resolve(null),
+        ]);
+        const rows = Array.isArray(summaryEnvelope.data?.result?.[0])
+          ? summaryEnvelope.data.result[0]
+          : [];
         const annotated = annotateRows(
           rows,
           args.flag,
@@ -520,24 +579,21 @@ export default function DrilldownSummaryReportPage() {
           args.detailValue,
         );
         setSummaryList(annotated);
-        setCurrentPosition(
-          args.detailValue === "college_code" ? "" : args.detailValue,
-        );
-        if (
-          args.flag === "student_fee_details_std_particular" &&
-          args.studentId
-        ) {
-          const ledger = await fetchFeeLedgerRows(
-            { in_std_id: args.studentId },
-            { resultIndex: 0 },
-          );
+        if (isStudentParticular) {
           setFeeLedgerRows(ledger);
+          setFeeLedgerSummary(ledgerSummary);
         } else {
           setFeeLedgerRows([]);
+          setFeeLedgerSummary(null);
         }
-        if (annotated.length === 0) toastInfo("No records found.");
+        if (!summaryEnvelope.success) {
+          toastInfo(summaryEnvelope.message?.trim() || "No records found.");
+        } else if (annotated.length === 0) {
+          toastInfo("No records found.");
+        }
       } catch (err) {
         setFeeLedgerRows([]);
+        setFeeLedgerSummary(null);
         toastError(getErrorMessage(err));
       } finally {
         setLoading(false);
@@ -580,6 +636,8 @@ export default function DrilldownSummaryReportPage() {
     setSteps([]);
     setCurrentPosition("");
     setSummaryList([]);
+    setFeeLedgerRows([]);
+    setFeeLedgerSummary(null);
   };
 
   const drill = async (
@@ -594,19 +652,7 @@ export default function DrilldownSummaryReportPage() {
     detailValue: string,
     mode: "add" | "back",
   ) => {
-    await loadSummary({
-      flag,
-      collegeId,
-      academicYear,
-      courseId,
-      courseGroupId,
-      courseYearId,
-      studentId,
-      categoryCode: "",
-      particularCode: "",
-      detailName,
-      detailValue,
-    });
+    setCurrentPosition(detailValue === "college_code" ? "" : detailValue);
     if (mode === "add") {
       setSteps((prev) => [
         ...prev,
@@ -627,6 +673,19 @@ export default function DrilldownSummaryReportPage() {
         },
       ]);
     }
+    await loadSummary({
+      flag,
+      collegeId,
+      academicYear,
+      courseId,
+      courseGroupId,
+      courseYearId,
+      studentId,
+      categoryCode: "",
+      particularCode: "",
+      detailName,
+      detailValue,
+    });
   };
 
   const goBack = async () => {
@@ -634,6 +693,9 @@ export default function DrilldownSummaryReportPage() {
     setSteps(next);
     if (next.length > 0) {
       const last = next[next.length - 1]!;
+      setCurrentPosition(
+        last.detailValue === "college_code" ? "" : last.detailValue,
+      );
       await loadSummary({
         flag: last.flag,
         collegeId: last.collegeId,
@@ -750,17 +812,25 @@ export default function DrilldownSummaryReportPage() {
   };
 
   const exportAsExcel = () => {
-    if (summaryList.length === 0) return;
     const orgLabel = orgPrintMeta.orgName || "Organization";
     const titleLine = academicYear
       ? `Student Fee Report - (${academicYear})`
       : "Student Fee Report";
-    const tableHtml = buildDrilldownExportTableHtml({
-      currentPosition,
-      rows: summaryList,
-      totals,
-      steps,
-    });
+    const summaryHtml =
+      summaryList.length > 0
+        ? buildDrilldownExportTableHtml({
+            currentPosition,
+            rows: summaryList,
+            totals,
+            steps,
+          })
+        : "";
+    const ledgerHtml =
+      currentPosition === "student_particular"
+        ? buildLedgerPrintTableHtml(feeLedgerGroups)
+        : "";
+    const tableHtml = `${summaryHtml}${ledgerHtml}`;
+    if (!tableHtml) return;
     const uri = "data:application/vnd.ms-excel;base64,";
     const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>`;
     const base64 = (s: string) => window.btoa(unescape(encodeURIComponent(s)));
@@ -780,18 +850,26 @@ export default function DrilldownSummaryReportPage() {
   };
 
   const printReport = () => {
-    if (summaryList.length === 0) return;
     const orgLabel = orgPrintMeta.orgName || "Organization";
     const titleLine = academicYear
       ? `Student Fee Report - (${academicYear})`
       : "Student Fee Report";
     const logoSrc = toOrgPrintLogoUrl(orgPrintMeta.logoPath);
-    const tableHtml = buildDrilldownExportTableHtml({
-      currentPosition,
-      rows: summaryList,
-      totals,
-      steps,
-    });
+    const summaryHtml =
+      summaryList.length > 0
+        ? buildDrilldownExportTableHtml({
+            currentPosition,
+            rows: summaryList,
+            totals,
+            steps,
+          })
+        : "";
+    const ledgerHtml =
+      currentPosition === "student_particular"
+        ? buildLedgerPrintTableHtml(feeLedgerGroups)
+        : "";
+    const tableHtml = `${summaryHtml}${ledgerHtml}`;
+    if (!tableHtml) return;
 
     printHtmlInIframe(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Student Fee Report</title>
@@ -819,7 +897,6 @@ table.mar{width:100%;border-collapse:collapse;border-spacing:1px}
   </div>
 </div>
 ${tableHtml}
-${currentPosition === "student_particular" ? buildLedgerPrintTableHtml(feeLedgerGroups) : ""}
 </body></html>`);
   };
 
@@ -835,378 +912,385 @@ ${currentPosition === "student_particular" ? buildLedgerPrintTableHtml(feeLedger
           <CardHeadingTitle>Student Fee Report</CardHeadingTitle>
         </div>
         <div className="p-4">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
-            <Select
-              label="Academic Year"
-              value={academicYear}
-              onChange={onAcademicYearChange}
-              options={ayOptions}
-              placeholder="Academic Year"
-              isLoading={filtersQuery.isLoading}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2 pb-0.5">
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 px-3 text-[12px]"
-              disabled={summaryList.length === 0}
-              onClick={exportAsExcel}
-            >
-              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Export Excel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 px-3 text-[12px]"
-              disabled={summaryList.length === 0}
-              onClick={printReport}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
-            </Button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {(steps.length > 0 || loading) && (
-            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-              <div className="text-[16px] font-medium text-[#0c51a4]">
-                {steps.map((s, i) => (
-                  <span key={s.id}>
-                    {s.name}
-                    {i < steps.length - 1 ? " > " : ""}
-                  </span>
-                ))}
-              </div>
-              {steps.length > 0 && (
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-9 px-3 text-[12px]"
-                  onClick={() => void goBack()}
-                  disabled={loading}
-                >
-                  Back
-                </Button>
-              )}
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <Select
+                label="Academic Year"
+                value={academicYear}
+                onChange={onAcademicYearChange}
+                options={ayOptions}
+                placeholder="Academic Year"
+                isLoading={filtersQuery.isLoading}
+              />
             </div>
-          )}
-          <div className="overflow-x-auto">
-            <table className="min-w-full w-max border-collapse border-spacing-px text-sm">
-              <thead>
-                <tr>
-                  {!isParticular && (
-                    <th className={`fee-drill-expand ${SUMMARY_TH}`}>Expand</th>
-                  )}
-                  <th className={SUMMARY_TH}>S.NO</th>
-                  {isParticular ? (
-                    <>
-                      <th className={SUMMARY_TH}>Student</th>
-                      <th className={SUMMARY_TH}>Category</th>
-                    </>
-                  ) : (
-                    <>
+            <div className="flex flex-wrap gap-2 pb-0.5">
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={exportAsExcel}
+              >
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                Export Excel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={printReport}
+              >
+                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                Print Report
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {(steps.length > 0 || loading) && (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                <div className="text-[16px] font-medium text-[#0c51a4]">
+                  {steps.map((s, i) => (
+                    <span key={s.id}>
+                      {s.name}
+                      {i < steps.length - 1 ? " > " : ""}
+                    </span>
+                  ))}
+                </div>
+                {steps.length > 0 && (
+                  <button
+                    type="button"
+                    className="inline-flex h-9 min-w-[80px] cursor-pointer items-center justify-center rounded-[5px] border-0 bg-[#042956] px-3 text-[12px] font-medium text-white shadow-sm hover:bg-[#031f42] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => void goBack()}
+                    disabled={loading}
+                  >
+                    Back
+                  </button>
+                )}
+              </div>
+            )}
+            {!isParticular ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full w-max border-collapse border-spacing-px text-sm">
+                  <thead>
+                    <tr>
+                      <th className={`fee-drill-expand ${SUMMARY_TH}`}>
+                        Expand
+                      </th>
+                      <th className={SUMMARY_TH}>S.NO</th>
                       <th className={SUMMARY_TH}>{idHeaders.type}</th>
                       <th className={SUMMARY_TH}>{idHeaders.value}</th>
-                    </>
-                  )}
-                  <th className={SUMMARY_TH}>Total Amount</th>
-                  <th className={SUMMARY_TH}>RTF Amount</th>
-                  <th className={SUMMARY_TH}>College Amount</th>
-                  <th className={SUMMARY_TH}>College Discount</th>
-                  <th className={SUMMARY_TH}>NET Amount</th>
-                  <th className={SUMMARY_TH}>Paid Amount</th>
-                  <th className={SUMMARY_TH}>Due College Amount</th>
-                  <th className={SUMMARY_TH}>RTF Received</th>
-                  <th className={SUMMARY_TH}>Due RTF Amount</th>
-                  <th className={SUMMARY_TH}>Total Due</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td
-                      colSpan={16}
-                      className="border px-2 py-6 text-center text-muted-foreground"
-                    >
-                      Loading…
-                    </td>
-                  </tr>
-                )}
-                {!loading && summaryList.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={16}
-                      className="border px-2 py-6 text-center text-muted-foreground"
-                    >
-                      No records
-                    </td>
-                  </tr>
-                )}
-                {!loading &&
-                  summaryList.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className={
-                        canExpand
-                          ? "cursor-pointer hover:bg-muted/40"
-                          : undefined
-                      }
-                      onClick={() => {
-                        if (canExpand) onRowExpand(row);
-                      }}
-                    >
-                      {!isParticular && (
-                        <td className="border px-2 py-1.5 text-center">
-                          {canExpand ? ">" : ""}
+                      <th className={SUMMARY_TH}>Total Amount</th>
+                      <th className={SUMMARY_TH}>RTF Amount</th>
+                      <th className={SUMMARY_TH}>College Amount</th>
+                      <th className={SUMMARY_TH}>College Discount</th>
+                      <th className={SUMMARY_TH}>NET Amount</th>
+                      <th className={SUMMARY_TH}>Paid Amount</th>
+                      <th className={SUMMARY_TH}>Due College Amount</th>
+                      <th className={SUMMARY_TH}>RTF Received</th>
+                      <th className={SUMMARY_TH}>Due RTF Amount</th>
+                      <th className={SUMMARY_TH}>Total Due</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading && (
+                      <tr>
+                        <td
+                          colSpan={16}
+                          className="border px-2 py-6 text-center text-muted-foreground"
+                        >
+                          Loading…
                         </td>
-                      )}
-                      <td className="border px-2 py-1.5 text-center">
-                        {idx + 1}
-                      </td>
-                      {isParticular ? (
-                        <>
-                          <td className="border px-2 py-1.5 text-center whitespace-nowrap">
-                            {studentParticularLabel(
-                              row.student_name,
-                              row.hallticket_number,
-                            )}
+                      </tr>
+                    )}
+                    {!loading && summaryList.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={16}
+                          className="border px-2 py-6 text-center text-muted-foreground"
+                        >
+                          No records
+                        </td>
+                      </tr>
+                    )}
+                    {!loading &&
+                      summaryList.map((row, idx) => (
+                        <tr
+                          key={idx}
+                          className={
+                            canExpand
+                              ? "cursor-pointer hover:bg-muted/40"
+                              : undefined
+                          }
+                          onClick={() => {
+                            if (canExpand) onRowExpand(row);
+                          }}
+                        >
+                          <td className="border px-2 py-1.5 text-center">
+                            {canExpand ? ">" : ""}
                           </td>
                           <td className="border px-2 py-1.5 text-center">
-                            {String(row.fee_category_name ?? "")}
+                            {idx + 1}
                           </td>
-                        </>
-                      ) : (
-                        <>
                           <td className="border px-2 py-1.5 text-center">
                             {String(row.varaiableName ?? "")}
                           </td>
                           <td className="border px-2 py-1.5 text-center">
                             {String(row.varaiableValue ?? "")}
                           </td>
-                        </>
-                      )}
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_gross_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_rtf_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_college_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_discount_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_net_college_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_paid_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_due_college_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_rtf_received)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_due_rtf_amount)}
-                      </td>
-                      <td className="border px-2 py-1.5 text-center">
-                        {formatIndianNumber(row.total_balance_amount)}
-                      </td>
-                    </tr>
-                  ))}
-                {!loading && summaryList.length > 0 && !isParticular && (
-                  <tr className="font-medium">
-                    <td
-                      className="border px-2 py-1.5 text-center"
-                      colSpan={amountColSpan}
-                    >
-                      Grand Total
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.gross)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.rtf)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.college)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.discount)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.net)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.paid)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.dueCollege)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.rtfReceived)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.dueRtf)}
-                    </td>
-                    <td className="border px-2 py-1.5 text-center">
-                      {formatIndianNumber(totals.balance)}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {isParticular ? (
-            <div className="overflow-hidden rounded-md border border-border">
-              <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
-                <Monitor className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Student Details</span>
-              </div>
-              <div className="flex flex-col gap-3 p-3 lg:flex-row">
-                <div className="flex w-full flex-col items-center px-2 text-center lg:w-[18%]">
-                  <img
-                    src={studentPhotoUrl(feeLedgerProfile?.student_photo_path)}
-                    alt=""
-                    className="mb-3 mt-2 w-[70%] max-w-[140px] bg-[#c3d9ff] p-1.5 object-contain"
-                    onError={(e) => {
-                      const img = e.currentTarget;
-                      if (!img.src.endsWith("default_Student.png")) {
-                        img.src = DEFAULT_STUDENT_PHOTO;
-                      }
-                    }}
-                  />
-                  <p className="m-0.5 font-semibold text-[#c76d2f]">
-                    {String(feeLedgerProfile?.student_name ?? "")}
-                  </p>
-                  <p className="m-0.5 text-[#8c8c8c]">
-                    {displayHt(summaryList[0]?.hallticket_number)}
-                  </p>
-                  <p className="m-0.5 text-[#8c8c8c]">
-                    {String(
-                      feeLedgerProfile?.Current_Academic_Details ??
-                        feeLedgerProfile?.current_academic_details ??
-                        "",
-                    )}
-                  </p>
-                  <p className="m-0.5 text-[#8c8c8c]">
-                    {String(feeLedgerProfile?.student_mobile ?? "")}
-                  </p>
-                  {feeLedgerProfile?.student_quota != null &&
-                  String(feeLedgerProfile.student_quota) !== "" ? (
-                    <span className="font-semibold text-blue-600">
-                      {String(feeLedgerProfile.student_quota)}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="min-w-0 flex-1 overflow-x-auto py-2">
-                  <table className="w-full border-collapse text-xs">
-                    <thead>
-                      <tr>
-                        <th className={`${SUMMARY_TH} align-middle`} rowSpan={2}>
-                          Year
-                        </th>
-                        <th className={`${SUMMARY_TH} align-middle`} rowSpan={2}>
-                          Particulars
-                        </th>
-                        <th className={SUMMARY_TH} colSpan={10}>
-                          Amount
-                        </th>
-                      </tr>
-                      <tr>
-                        {DRILL_AMOUNT_HEADERS.map((h) => (
-                          <th key={h} className={SUMMARY_TH}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {feeLedgerGroups.map((g) => (
-                        <tr key={g.year}>
                           <td className="border px-2 py-1.5 text-center">
-                            {g.year} year
+                            {formatIndianNumber(row.total_gross_amount)}
                           </td>
-                          <td className="border px-2 py-1.5">
-                            {g.structures.map((s, i) => (
-                              <p key={i} className="my-0.5">
-                                {s}
-                              </p>
-                            ))}
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_rtf_amount)}
                           </td>
-                          {(
-                            [
-                              g.totalAmt,
-                              g.rtfAmt,
-                              g.collegeAmt,
-                              g.discountAmt,
-                              g.netAmt,
-                              g.paidAmt,
-                              g.dueCollegeAmt,
-                              g.rtfReceivedAmt,
-                              g.dueRtfAmt,
-                              g.totalDueAmt,
-                            ] as (number | null)[][]
-                          ).map((vals, col) => (
-                            <td
-                              key={col}
-                              className="border px-2 py-1.5 text-right"
-                            >
-                              {vals.map((v, i) => (
-                                <p key={i} className="my-0.5">
-                                  {v == null ? "-" : formatIndianNumber(v)}
-                                </p>
-                              ))}
-                            </td>
-                          ))}
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_college_amount)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_discount_amount)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_net_college_amount)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_paid_amount)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_due_college_amount)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_rtf_received)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_due_rtf_amount)}
+                          </td>
+                          <td className="border px-2 py-1.5 text-center">
+                            {formatIndianNumber(row.total_balance_amount)}
+                          </td>
                         </tr>
                       ))}
-                      {feeLedgerGroups.length > 0 ? (
+                    {!loading && summaryList.length > 0 && (
+                      <tr className="font-medium">
+                        <td
+                          className="border px-2 py-1.5 text-center"
+                          colSpan={amountColSpan}
+                        >
+                          Grand Total
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.gross)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.rtf)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.college)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.discount)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.net)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.paid)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.dueCollege)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.rtfReceived)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.dueRtf)}
+                        </td>
+                        <td className="border px-2 py-1.5 text-center">
+                          {formatIndianNumber(totals.balance)}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {isParticular ? (
+              <div className="overflow-hidden rounded-md border border-border">
+                <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
+                  <Monitor className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Student Details</span>
+                </div>
+                <div className="flex flex-col gap-3 p-3 lg:flex-row">
+                  <div className="flex w-full flex-col items-center px-2 text-center lg:w-[18%]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={studentPhotoUrl(
+                        feeLedgerStudent?.student_photo_path ??
+                          feeLedgerStudent?.studentPhotoPath,
+                      )}
+                      alt=""
+                      className="mb-3 mt-[15px] w-[70%] max-w-[140px] bg-[#c3d9ff] p-1.5 object-contain"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (!img.src.endsWith("default_Student.png")) {
+                          img.src = DEFAULT_STUDENT_PHOTO;
+                        }
+                      }}
+                    />
+                    <p className="m-[3px] font-medium text-[#c76d2f]">
+                      {pickProfileText(feeLedgerStudent, [
+                        "student_name",
+                        "studentName",
+                      ])}
+                    </p>
+                    <p className="m-[3px] font-medium text-[#8c8c8c]">
+                      {displayHt(
+                        summaryList[0]?.hallticket_number ??
+                          feeLedgerStudent?.hallticket_number,
+                      )}
+                    </p>
+                    <p className="m-[3px] font-medium text-[#8c8c8c]">
+                      {pickProfileText(feeLedgerStudent, [
+                        "Current_Academic_Details",
+                        "current_academic_details",
+                      ])}
+                    </p>
+                    <p className="m-[3px] font-medium text-[#8c8c8c]">
+                      {pickProfileText(feeLedgerStudent, [
+                        "student_mobile",
+                        "studentMobile",
+                      ])}
+                    </p>
+                    {pickProfileText(feeLedgerStudent, [
+                      "student_quota",
+                      "studentQuota",
+                    ]) ? (
+                      <span className="font-medium text-blue-600">
+                        {pickProfileText(feeLedgerStudent, [
+                          "student_quota",
+                          "studentQuota",
+                        ])}
+                      </span>
+                    ) : null}
+                    {scholarshipTypeCode ? (
+                      <span className="font-medium text-blue-600">
+                        {scholarshipTypeCode}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1 overflow-x-auto py-2">
+                    <table className="w-full border-collapse border-spacing-px text-xs">
+                      <thead>
                         <tr>
-                          <td
-                            className="border px-2 py-1.5 text-center font-medium"
-                            colSpan={2}
+                          <th
+                            className={`${SUMMARY_TH} align-middle`}
+                            rowSpan={2}
                           >
-                            Total
-                          </td>
-                          {(
-                            [
-                              feeLedgerTotals.total,
-                              feeLedgerTotals.rtf,
-                              feeLedgerTotals.college,
-                              feeLedgerTotals.discount,
-                              feeLedgerTotals.net,
-                              feeLedgerTotals.paid,
-                              feeLedgerTotals.dueCollege,
-                              feeLedgerTotals.rtfReceived,
-                              feeLedgerTotals.dueRtf,
-                              feeLedgerTotals.totalDue,
-                            ] as number[]
-                          ).map((v, i) => (
-                            <td
-                              key={i}
-                              className="border px-2 py-1.5 text-right font-medium"
-                            >
-                              {formatIndianNumber(v)}
-                            </td>
+                            Year
+                          </th>
+                          <th
+                            className={`${SUMMARY_TH} align-middle`}
+                            rowSpan={2}
+                          >
+                            Particulars
+                          </th>
+                          <th className={SUMMARY_TH} colSpan={10}>
+                            Amount
+                          </th>
+                        </tr>
+                        <tr>
+                          {DRILL_AMOUNT_HEADERS.map((h) => (
+                            <th key={h} className={SUMMARY_TH}>
+                              {h}
+                            </th>
                           ))}
                         </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {loading ? (
+                          <tr>
+                            <td
+                              colSpan={12}
+                              className="border px-2 py-6 text-center text-muted-foreground"
+                            >
+                              Loading…
+                            </td>
+                          </tr>
+                        ) : null}
+                        {!loading &&
+                          feeLedgerGroups.flatMap((g) =>
+                            g.structures.map((name, i) => (
+                              <tr key={`${g.year}-${i}`}>
+                                {i === 0 ? (
+                                  <td
+                                    className="border px-2 py-2 text-center align-middle text-[13px] font-medium"
+                                    rowSpan={g.structures.length}
+                                  >
+                                    {g.year}
+                                  </td>
+                                ) : null}
+                                <td className="border px-2 py-2 text-left text-[13px] font-medium">
+                                  {name}
+                                </td>
+                                {particularAmountCols(g, i).map((v, col) => (
+                                  <td
+                                    key={col}
+                                    className="border px-2 py-2 text-right text-[13px] font-medium"
+                                  >
+                                    {ledgerAmt(v)}
+                                  </td>
+                                ))}
+                              </tr>
+                            )),
+                          )}
+                        {!loading && feeLedgerGroups.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={12}
+                              className="border px-2 py-6 text-center text-muted-foreground"
+                            >
+                              No records
+                            </td>
+                          </tr>
+                        ) : null}
+                        {!loading && feeLedgerGroups.length > 0 ? (
+                          <tr>
+                            <td
+                              className="border px-2 py-2 text-center text-[13px] font-medium"
+                              colSpan={2}
+                            >
+                              Total
+                            </td>
+                            {(
+                              [
+                                feeLedgerTotals.total,
+                                feeLedgerTotals.rtf,
+                                feeLedgerTotals.college,
+                                feeLedgerTotals.discount,
+                                feeLedgerTotals.net,
+                                feeLedgerTotals.paid,
+                                feeLedgerTotals.dueCollege,
+                                feeLedgerTotals.rtfReceived,
+                                feeLedgerTotals.dueRtf,
+                                feeLedgerTotals.totalDue,
+                              ] as number[]
+                            ).map((v, i) => (
+                              <td
+                                key={i}
+                                className="border px-2 py-2 text-right text-[13px] font-medium"
+                              >
+                                {formatIndianNumber(v)}
+                              </td>
+                            ))}
+                          </tr>
+                        ) : null}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </PageContainer>

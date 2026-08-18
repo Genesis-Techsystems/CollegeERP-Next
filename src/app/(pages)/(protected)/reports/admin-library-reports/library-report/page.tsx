@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
-import { PrinterIcon, RefreshCw } from "lucide-react";
+import { FileSpreadsheetIcon, PrinterIcon, RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { SearchInput } from "@/common/components/search";
 import { Select } from "@/common/components/select";
@@ -382,7 +382,7 @@ export default function LibraryReportPage() {
       getRowId={(p) => String(p.data?.__rowKey ?? "")}
       toolbar={{
         search: false,
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
         columnPicker: false,
         excelDocumentTitle: "Library Report",
@@ -399,17 +399,30 @@ export default function LibraryReportPage() {
       }
       onExportExcel={handleExportExcel}
       toolbarTrailing={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
-          onClick={handlePrint}
-          disabled={!resultsVisible}
-        >
-          <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
-          Print Report
-        </Button>
+        resultsVisible ? (
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
+              onClick={handleExportExcel}
+              disabled={!resultsVisible}
+            >
+              <FileSpreadsheetIcon className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
+              onClick={handlePrint}
+              disabled={!resultsVisible}
+            >
+              <PrinterIcon className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
+        ) : null
       }
     >
       {resultsVisible ? (

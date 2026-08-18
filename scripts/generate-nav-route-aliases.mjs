@@ -34,6 +34,13 @@ const ROUTE_ACTION_SUFFIXES = new Set([
   "profile-view",
 ]);
 
+// Drill-down pages are navigation targets, not sidebar entries. Deriving an
+// alias from their page title can overwrite the list page alias with a route
+// that requires query parameters (for example students-profile needs studentId).
+const NON_NAV_CANONICAL_ROUTES = new Set([
+  "admin-student-information-system/students-profile",
+]);
+
 /**
  * Sidebar labels that differ from the hardcoded page `title` prop.
  * Keys are route paths under (protected)/ without leading slash.
@@ -184,6 +191,7 @@ for (const fp of pages) {
   const rel = fp.split(path.sep).join("/").replace(`${root}/`, "");
   const routePath = path.dirname(rel).split(path.sep).join("/");
   if (routePath.includes("[") || routePath === ".") continue;
+  if (NON_NAV_CANONICAL_ROUTES.has(routePath)) continue;
 
   const lastSeg = routePath.split("/").pop();
   if (ROUTE_ACTION_SUFFIXES.has(lastSeg.toLowerCase())) continue;

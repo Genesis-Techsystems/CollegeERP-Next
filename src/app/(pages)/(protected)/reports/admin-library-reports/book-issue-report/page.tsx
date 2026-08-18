@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { format } from "date-fns";
-import { Printer } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import {
@@ -51,9 +51,7 @@ export default function BookIssueReportPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const collegeId = Number(
-    globalThis?.localStorage?.getItem("collegeId") ?? 0,
-  );
+  const collegeId = Number(globalThis?.localStorage?.getItem("collegeId") ?? 0);
 
   const [libraryId, setLibraryId] = useState<string | null>(null);
   const [departmentId, setDepartmentId] = useState<string>("0");
@@ -310,7 +308,7 @@ export default function BookIssueReportPage() {
           <Button
             type="button"
             variant="secondary"
-            className="h-9 w-fit px-4"
+            className="h-9 w-fit border-[#e0a800] !bg-[#ffc107] px-4 !text-[#212529] hover:!bg-[#e0a800]"
             onClick={goBack}
           >
             Back
@@ -327,22 +325,31 @@ export default function BookIssueReportPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
-        exportExcel: true,
+        exportExcel: false,
         exportPdf: false,
       }}
-      onExportExcel={handleExcelExport}
       toolbarTrailing={
         showTable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 text-[12px]"
-            onClick={() => void printReport()}
-          >
-            <Printer className="mr-1.5 h-3.5 w-3.5" />
-            Print Report
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
+              onClick={() => void printReport()}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </>
         ) : null
       }
     />

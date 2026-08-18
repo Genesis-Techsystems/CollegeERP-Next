@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
-import { FilteredListPage } from "@/components/layout";
+import { Monitor } from "lucide-react";
+import { DataTable } from "@/common/components/table";
+import { PageContainer } from "@/components/layout";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rowIndexGetter } from "@/lib/utils";
 import {
@@ -16,7 +18,7 @@ import { StudentExamResultsHeader } from "./StudentExamResultsHeader";
 type AnyRow = Record<string, unknown>;
 
 const SEM_TAB_CLASS =
-  "rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] whitespace-nowrap data-[state=active]:border-[#52a9ff75] data-[state=active]:bg-[#52a9ff38] data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none";
+  "h-9 min-w-[110px] flex-1 rounded-none border-0 border-r border-[#d7e1ed] px-4 text-[12px] font-normal text-[#666] shadow-none last:border-r-0 data-[state=active]:bg-[#ffcf46] data-[state=active]:font-medium data-[state=active]:text-[#111] data-[state=active]:shadow-none";
 
 function cellValue(row: AnyRow | undefined, keys: string[]): string {
   if (!row) return "—";
@@ -28,49 +30,49 @@ const COL_DEFS = {
   siNo: {
     headerName: "SI.No",
     valueGetter: rowIndexGetter,
-    width: 70,
+    width: 50,
     flex: 0,
   } as ColDef<AnyRow>,
   subjectCode: {
     headerName: "Subject Code",
-    minWidth: 130,
-    flex: 1,
+    width: 130,
+    flex: 0,
     valueGetter: (p) => cellValue(p.data, ["subjectCode", "subject_code"]),
   } as ColDef<AnyRow>,
   subjectName: {
     headerName: "Subject Name",
-    minWidth: 220,
-    flex: 1.5,
+    width: 280,
+    flex: 0,
     valueGetter: (p) =>
       cellValue(p.data, ["subjectName", "subject_name", "shortName"]),
   } as ColDef<AnyRow>,
   monthYear: {
     headerName: "Month Year",
-    minWidth: 130,
-    flex: 1,
+    width: 110,
+    flex: 0,
     cellClass: "text-center",
     valueGetter: (p) =>
       cellValue(p.data, ["examMonthYr", "exam_month_yr", "monthYear"]),
   } as ColDef<AnyRow>,
   finalGrade: {
     headerName: "Final Grade",
-    minWidth: 110,
-    flex: 0.8,
+    width: 90,
+    flex: 0,
     cellClass: "text-center",
     valueGetter: (p) =>
       cellValue(p.data, ["grade", "finalGrade", "final_grade"]),
   } as ColDef<AnyRow>,
   credits: {
     headerName: "Credits",
-    minWidth: 90,
-    flex: 0.7,
+    width: 70,
+    flex: 0,
     cellClass: "text-center",
     valueGetter: (p) => cellValue(p.data, ["credits", "credit"]),
   } as ColDef<AnyRow>,
   status: {
     headerName: "Status",
-    minWidth: 100,
-    flex: 0.8,
+    width: 80,
+    flex: 0,
     cellClass: "text-center",
     valueGetter: (p) =>
       cellValue(p.data, ["subjectResult", "subject_result", "resultStatus"]),
@@ -80,7 +82,7 @@ const COL_DEFS = {
 function ResultsSummary({ rows }: { readonly rows: AnyRow[] }) {
   const summary = rows[0] ?? {};
   return (
-    <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 px-2 py-2 text-sm font-semibold text-[#0c51a4]">
+    <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 border-t border-[#d7e1ed] px-3 py-2 text-xs font-semibold text-[#0c51a4]">
       <span>
         SGPA : {cellValue(summary, ["sgpa", "semesterGpa", "sem_gpa"])}
       </span>
@@ -170,71 +172,75 @@ export function StudentExamResultsTable({
     !tableLoading && (semesters.length === 0 || rows.length === 0);
 
   return (
-    <FilteredListPage
-      title="Exam Results"
-      filters={
-        <div className="space-y-3">
-          <StudentExamResultsHeader student={student} />
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">
-              Semwise Final Marks
-            </p>
-            {semesters.length > 0 ? (
-              <Tabs value={activeSem} onValueChange={setActiveSem}>
-                <div className="overflow-x-auto rounded-sm border border-border">
-                  <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
-                    {semesters.map((sem) => (
-                      <TabsTrigger
-                        key={sem.courseYearId}
-                        value={String(sem.courseYearId)}
-                        className={SEM_TAB_CLASS}
-                      >
-                        {sem.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </div>
-              </Tabs>
-            ) : null}
+    <PageContainer className="space-y-2 bg-white">
+      <div className="flex h-9 items-center gap-2 border-b-2 border-[#ffcf46] px-1 text-[15px] font-medium text-[#111]">
+        <Monitor className="h-5 w-5" strokeWidth={2} aria-hidden />
+        <h1>Exam Results</h1>
+      </div>
+
+      <StudentExamResultsHeader student={student} />
+
+      <section className="overflow-hidden rounded-[4px] border border-[#a9e4e7] bg-white p-2">
+        <div className="-mx-2 -mt-2 mb-2 border-b-2 border-[#ffcf46] bg-white">
+          <div className="inline-flex min-h-8 items-center bg-[#ffcf46] px-5 text-[12px] font-medium text-[#111]">
+            Semwise Final Marks
           </div>
         </div>
-      }
-      filtersCollapsible
-      filtersDefaultOpen
-      notice={
-        showEmptyMessage ? (
-          <p className="text-sm font-medium text-destructive">
+
+        {semesters.length > 0 ? (
+          <Tabs value={activeSem} onValueChange={setActiveSem}>
+            <div className="overflow-x-auto rounded-[3px] border border-[#d7e1ed]">
+              <TabsList className="flex h-9 min-w-max justify-start rounded-none bg-white p-0 sm:min-w-full">
+                {semesters.map((sem) => (
+                  <TabsTrigger
+                    key={sem.courseYearId}
+                    value={String(sem.courseYearId)}
+                    className={SEM_TAB_CLASS}
+                  >
+                    {sem.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </Tabs>
+        ) : null}
+
+        {showEmptyMessage ? (
+          <p className="px-2 py-6 text-sm font-medium text-destructive">
             No Results are found.
           </p>
-        ) : null
-      }
-      rowData={rows}
-      columnDefs={columnDefs}
-      loading={tableLoading}
-      pagination
-      height="auto"
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search subjects…",
-      }}
-      getRowId={(p) => {
-        const code = cellValue(p.data, ["subjectCode", "subject_code"]);
-        const name = cellValue(p.data, [
-          "subjectName",
-          "subject_name",
-          "shortName",
-        ]);
-        const month = cellValue(p.data, [
-          "examMonthYr",
-          "exam_month_yr",
-          "monthYear",
-        ]);
-        return `${code}|${name}|${month}|${p.data?.subjectId ?? ""}`;
-      }}
-    >
-      {!tableLoading && rows.length > 0 ? (
-        <ResultsSummary rows={rows} />
-      ) : null}
-    </FilteredListPage>
+        ) : (
+          <div className="mt-2 max-w-full overflow-x-auto [&_.ag-cell]:!text-[12px] [&_.ag-header-cell-text]:!text-[12px]">
+            <DataTable
+              bordered={false}
+              rowData={rows}
+              columnDefs={columnDefs}
+              loading={tableLoading}
+              pagination={false}
+              toolbar={false}
+              columnFilters={false}
+              fitColumnsToWidth={false}
+              autoHeight
+              rowHeight={28}
+              getRowId={(p) => {
+                const code = cellValue(p.data, ["subjectCode", "subject_code"]);
+                const name = cellValue(p.data, [
+                  "subjectName",
+                  "subject_name",
+                  "shortName",
+                ]);
+                const month = cellValue(p.data, [
+                  "examMonthYr",
+                  "exam_month_yr",
+                  "monthYear",
+                ]);
+                return `${code}|${name}|${month}|${p.data?.subjectId ?? ""}`;
+              }}
+              afterGrid={<ResultsSummary rows={rows} />}
+            />
+          </div>
+        )}
+      </section>
+    </PageContainer>
   );
 }

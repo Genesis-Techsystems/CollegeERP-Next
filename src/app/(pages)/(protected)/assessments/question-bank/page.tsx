@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { useQueryClient } from "@tanstack/react-query";
+import type { ColDef, GridApi, ICellRendererParams } from "ag-grid-community";
 import { PlusIcon, DownloadIcon } from "lucide-react";
 import { toast } from "sonner";
 import { ListPage } from "@/components/layout";
@@ -76,8 +77,8 @@ const COL_DEFS = {
 
 // ─── Pure renderers ───────────────────────────────────────────────────────────
 
-function statusRenderer(p: ICellRendererParams<Assessment>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />;
+function QuestionBankStatusRenderer(p: ICellRendererParams<Assessment>) {
+  return <StatusBadge status={Boolean(p.value ?? p.data?.isActive)} />;
 }
 
 /**
@@ -160,7 +161,9 @@ function makeAddQuestionsRenderer(
 
 export default function QuestionBankPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, isLoading: sessionLoading } = useSession();
+  const gridApiRef = useRef<GridApi<Assessment> | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<Assessment | null>(null);
@@ -170,8 +173,12 @@ export default function QuestionBankPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingImportBank = useRef<Assessment | null>(null);
 
-  // Angular list: Assessment?query=order(createdDt=desc)&size=99999 (no user filter)
+  // Angular question-bank-list: ADMIN → listAllDetails (all banks);
+  // everyone else (incl. QuestionPaperSetter) → preparedbyUser.userId
+  // (no isActive filter — InActive rows stay in the grid).
+  const isAdmin = Boolean(user?.isAdmin);
   const userId = user?.userId ?? 0;
+  const listUserId = isAdmin ? undefined : userId;
 
   const {
     data: banks,
@@ -179,11 +186,35 @@ export default function QuestionBankPage() {
     invalidate,
     refetch,
   } = useCrudList({
-    queryKey: QK.questionBanks.list(userId),
-    queryFn: () => listQuestionBanks(userId),
-    enabled: !sessionLoading,
+    queryKey: QK.questionBanks.list(listUserId),
+    queryFn: () => listQuestionBanks(listUserId),
+    enabled: !sessionLoading && (isAdmin || userId > 0),
     staleTime: 0,
   });
+
+  const listQueryKey = QK.questionBanks.list(listUserId);
+
+  const patchListCache = useCallback(
+    (saved: Partial<Assessment>) => {
+      queryClient.setQueryData<Assessment[]>(listQueryKey, (prev) => {
+        if (!prev) return prev;
+        const id = saved.assessmentId;
+        if (id == null) return prev;
+        const idx = prev.findIndex((row) => row.assessmentId === id);
+        if (idx === -1) {
+          return [{ ...(saved as Assessment) }, ...prev];
+        }
+        const next = prev.slice();
+        next[idx] = { ...prev[idx], ...saved };
+        return next;
+      });
+    },
+    [listQueryKey, queryClient],
+  );
+
+  useEffect(() => {
+    gridApiRef.current?.refreshCells({ force: true });
+  }, [banks]);
 
   const openEdit = (bank: Assessment) => {
     setEditingBank(bank);
@@ -248,7 +279,7 @@ export default function QuestionBankPage() {
       },
       COL_DEFS.description,
       COL_DEFS.createdDt,
-      { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
+      { ...COL_DEFS.isActive, cellRenderer: QuestionBankStatusRenderer },
       {
         ...COL_DEFS.addQuestions,
         cellRenderer: makeAddQuestionsRenderer(
@@ -268,6 +299,9 @@ export default function QuestionBankPage() {
       columnDefs={columnDefs}
       getRowId={(p) => String(p.data.assessmentId)}
       loading={loading || importingId !== null}
+      onGridApiReady={(api) => {
+        gridApiRef.current = api;
+      }}
       pagination
       toolbar={{
         search: true,
@@ -314,9 +348,25 @@ export default function QuestionBankPage() {
           setEditingBank(null);
         }}
         bank={editingBank}
-        onSaved={async () => {
-          // Force a network refetch so the new bank is in the sorted list immediately
-          await refetch();
+        onSaved={async (saved) => {
+          // Apply the saved Active/name/etc. immediately so the grid does not
+          // wait for a full page refresh (AG Grid cell renderers + stale GET).
+          patchListCache(saved);
+          gridApiRef.current?.refreshCells({ force: true });
+          const result = await refetch();
+          const rows = result.data;
+          const id = saved.assessmentId;
+          if (
+            id != null &&
+            saved.isActive !== undefined &&
+            rows?.some(
+              (row) =>
+                row.assessmentId === id && row.isActive !== saved.isActive,
+            )
+          ) {
+            patchListCache(saved);
+          }
+          gridApiRef.current?.refreshCells({ force: true });
         }}
         userId={user?.userId ?? 0}
       />

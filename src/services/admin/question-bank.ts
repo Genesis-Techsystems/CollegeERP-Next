@@ -2,7 +2,7 @@
  * Question Bank (Assessment) service — Angular `question-bank-list` parity.
  *
  * API endpoints (match Angular CONSTANTS + crudService):
- *   GET  /domain/list/Assessment?query=order(createdDt=desc)&size=99999 — listAllDetails
+ *   GET  /domain/list/Assessment?query=…     — ADMIN: listAllDetails; else preparedbyUser
  *   POST /assessment                                     — create question bank (assessmentUrl)
  *   PUT  /assessment                                     — update question bank (assessmentUrl)
  *   POST /assessment/addQuestion                         — add / update / soft-delete question
@@ -53,15 +53,36 @@ function filterQuestionBankRows(rows: Assessment[]): Assessment[] {
 }
 
 /**
- * List question banks — Angular `question-bank-list` / listAllDetails parity:
- *   GET /domain/list/Assessment?query=order(createdDt=desc)&size=99999
- * (no preparedbyUser / isActive filter — Active + InActive both returned).
- * Client filter: `isForQuestionbank`; client sort reinforces newest-first.
+ * Angular `listDetailsByTwoIdWithSort` → filter + sort on Assessment.
+ * Do **not** add `isActive==true` — Angular keeps InActive banks in the grid
+ * (status column only). A raw `&` would split the URL, so use `.and.`.
+ * → `preparedbyUser.userId==1739.order(createdDt=DESC)`
+ */
+function buildQuestionBankListQuery(userId: number): string {
+  return buildQuery(
+    { "preparedbyUser.userId": userId },
+    { field: "createdDt", direction: "DESC" },
+  );
+}
+
+/**
+ * List question banks — Angular `question-bank-list` parity:
+ *   ADMIN: GET /domain/list/Assessment?query=order(createdDt=desc)&size=99999
+ *   Non-ADMIN (QuestionPaperSetter and others):
+ *     preparedbyUser.userId=={userId}.order(createdDt=DESC)
+ * Active and InActive both returned; client filter: `isForQuestionbank`.
  */
 export async function listQuestionBanks(
-  _userId?: number,
+  userId?: number,
 ): Promise<Assessment[]> {
-  // Match Angular query key order + casing: query=order(createdDt=desc)&size=99999
+  if (userId != null && userId > 0) {
+    const rows = await domainList<Assessment>(
+      ENTITIES.ASSESSMENT.name,
+      buildQuestionBankListQuery(userId),
+    );
+    return filterQuestionBankRows(rows);
+  }
+  // Match Angular listAllDetails query key order: query=order(createdDt=desc)&size=99999
   const rows = await domainListRawQuery<Assessment>(
     ENTITIES.ASSESSMENT.name,
     "order(createdDt=desc)",

@@ -36,9 +36,9 @@ export function StudentExamResultsHeader({
     .join(" / ");
 
   return (
-    <div className="overflow-hidden rounded-md border-4 border-[#c3d9ff] bg-[#f8fbff] p-3 sm:p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="shrink-0">
+    <div className="overflow-hidden border-[3px] border-[#c3d9ff] bg-white">
+      <div className="flex flex-col sm:flex-row sm:items-stretch">
+        <div className="flex shrink-0 items-center justify-center bg-[#c3d9ff] p-1.5 sm:w-[110px]">
           <img
             src={studentPhotoSrc(
               String(
@@ -46,28 +46,28 @@ export function StudentExamResultsHeader({
               ),
             )}
             alt=""
-            className="h-28 w-28 rounded border-4 border-[#c3d9ff] bg-white object-cover sm:h-32 sm:w-32"
+            className="h-[88px] w-[88px] bg-white object-cover"
             onError={(e) => {
               const img = e.currentTarget;
-              if (!img.src.includes("default_Student.png")) {
-                img.src = "/assets/images/avatars/default_Student.png";
+              if (!img.src.includes("female_icon.png")) {
+                img.src = "/assets/images/avatars/female_icon.png";
               }
             }}
           />
         </div>
 
-        <div className="min-w-0 flex-1 space-y-1 text-sm">
-          <p className="font-medium text-foreground">
+        <div className="min-w-0 flex-1 space-y-1 px-5 py-3 text-[12px] leading-[1.35]">
+          <p className="text-[13px] font-medium text-[#222]">
             {studentFullName(student)}{" "}
-            <span className="font-semibold text-primary">
+            <span className="font-semibold text-[#00008b]">
               ({isLateral ? "LATERAL" : "REGULAR"})
             </span>
           </p>
-          <p className="text-[#8c8c8c]">
+          <p className="text-[#777]">
             {pickDisplay(student, ["hallticketNumber", "rollNumber"])}
           </p>
-          {pathLine ? <p className="text-[#8c8c8c]">{pathLine}</p> : null}
-          <p className="text-[#8c8c8c]">
+          {pathLine ? <p className="text-[#777]">{pathLine}</p> : null}
+          <p className="text-[#777]">
             {pickDisplay(student, [
               "mobile",
               "mobileNumber",
@@ -76,10 +76,10 @@ export function StudentExamResultsHeader({
           </p>
         </div>
 
-        <div className="space-y-1 text-sm lg:min-w-[220px]">
-          <p className="text-foreground">
+        <div className="space-y-1 px-5 py-3 text-[12px] leading-[1.35] sm:min-w-[235px]">
+          <p className="text-[#222]">
             <span>Admission Date : </span>
-            <span className="font-medium text-primary">
+            <span className="font-medium text-[#00008b]">
               {formatProfileDate(
                 student.adminssionDate ??
                   student.admissionDate ??
@@ -87,13 +87,13 @@ export function StudentExamResultsHeader({
               )}
             </span>
           </p>
-          <p className="text-foreground">
+          <p className="text-[#222]">
             <span>Quota : </span>
-            <span className="font-medium text-primary">
+            <span className="font-medium uppercase text-[#00008b]">
               {pickDisplay(student, ["quotaDisplayName", "quotaName"], "")}
             </span>
           </p>
-          <p className="text-foreground">
+          <p className="text-[#222]">
             <span>Student Status : </span>
             <span className={studentStatusClass(statusCode)}>
               {statusLabel}

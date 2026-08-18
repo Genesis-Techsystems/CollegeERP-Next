@@ -91,7 +91,7 @@
   "/admin-examination-management/re-evaluation/re-valuation-fee": "/admin-examination-management/re-evaluation/re-evaluation-fee",
   "/admin-student-information-system/generate-student-roll-no": "/admin-student-information-system/generate-student-rollno",
   "/admin-student-information-system/student-co-curriculum-activities": "/admin-student-information-system/student-cc-activities",
-  "/admin-student-information-system/student-details": "/admin-student-information-system/students-profile",
+  "/admin-student-information-system/student-details": "/admin-student-information-system/students-list",
   "/admission/counselling/admission-allotment-details": "/admission/counselling/admission-allotment-ndetails",
   "/admission/counselling/fee-paid-applications": "/admission/counselling/fee-paid-applications-list",
   "/affiliated-colleges/affiliated-college-bulk-uploads": "/affiliated-colleges/college-bulk-uploads",

@@ -184,19 +184,27 @@ function makeActionsRenderer(
     if (!row) return null;
     const acknowledged = Boolean(row.isAcknowledged);
     return (
-      <div className="flex items-center gap-1">
-        <Button size="sm" variant="ghost" onClick={() => onDetails(row)}>
+      <span className="space-x-1 text-sm">
+        <button
+          type="button"
+          className="cursor-pointer font-medium text-blue-600 hover:underline"
+          onClick={() => onDetails(row)}
+        >
           Grievance Details
-        </Button>
+        </button>
         {acknowledged ? (
           <>
-            <span>|</span>
-            <Button size="sm" variant="ghost" onClick={() => onWorkflow(row)}>
+            <span className="text-muted-foreground">|</span>
+            <button
+              type="button"
+              className="cursor-pointer font-medium text-blue-600 hover:underline"
+              onClick={() => onWorkflow(row)}
+            >
               Status
-            </Button>
+            </button>
           </>
         ) : null}
-      </div>
+      </span>
     );
   };
 }
@@ -275,7 +283,9 @@ export function StudentGrievancesPage() {
         setAddOpen(false);
         invalidate();
       } catch (err) {
-        toastError(err instanceof Error ? err.message : "Failed to create grievance");
+        toastError(
+          err instanceof Error ? err.message : "Failed to create grievance",
+        );
       } finally {
         setSaving(false);
       }
@@ -304,7 +314,9 @@ export function StudentGrievancesPage() {
         setCloseRow(null);
         invalidate();
       } catch (err) {
-        toastError(err instanceof Error ? err.message : "Failed to close grievance");
+        toastError(
+          err instanceof Error ? err.message : "Failed to close grievance",
+        );
       } finally {
         setSaving(false);
       }
@@ -321,7 +333,10 @@ export function StudentGrievancesPage() {
           complaintDetailList: [
             {
               message: payload.incidentDescription,
-              messageDate: payload.complaintDate ?? payload.complainDate ?? new Date().toISOString(),
+              messageDate:
+                payload.complaintDate ??
+                payload.complainDate ??
+                new Date().toISOString(),
               isActive: true,
               studentId: payload.studentId,
               workflowStageId: payload.workflowStageId,
@@ -333,7 +348,9 @@ export function StudentGrievancesPage() {
         setReopenRow(null);
         invalidate();
       } catch (err) {
-        toastError(err instanceof Error ? err.message : "Failed to reopen grievance");
+        toastError(
+          err instanceof Error ? err.message : "Failed to reopen grievance",
+        );
       } finally {
         setSaving(false);
       }

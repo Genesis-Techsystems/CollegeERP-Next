@@ -369,7 +369,7 @@
   },
   {
     "source": "/admin-student-information-system/student-details",
-    "destination": "/admin-student-information-system/students-profile"
+    "destination": "/admin-student-information-system/students-list"
   },
   {
     "source": "/admission/counselling/admission-allotment-details",

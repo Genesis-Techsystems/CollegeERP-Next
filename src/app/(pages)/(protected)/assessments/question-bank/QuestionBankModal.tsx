@@ -50,7 +50,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   bank: Assessment | null;
-  onSaved: () => void | Promise<void>;
+  /** Saved fields so the list can update immediately (no full page refresh). */
+  onSaved: (saved: Partial<Assessment>) => void | Promise<void>;
   userId: number;
 }
 
@@ -182,7 +183,7 @@ export default function QuestionBankModal({
     try {
       if (isEditing && bank) {
         // Angular editDialog → updateQuestionBank request shape
-        await updateQuestionBank({
+        const payload: Partial<Assessment> = {
           assessmentId: bank.assessmentId,
           assessmentDescription: data.assessmentDescription ?? "",
           assessmentName: data.assessmentName,
@@ -192,11 +193,14 @@ export default function QuestionBankModal({
           courseLessonId: data.courseLessonId,
           courseLessonTopicId: data.courseLessonTopicId,
           isForQuestionbank: bank.isForQuestionbank ?? true,
-        });
+        };
+        const updated = await updateQuestionBank(payload);
         toast.success("Question bank updated");
+        // Form values win — PUT body.data can omit or lag isActive.
+        await onSaved({ ...updated, ...payload });
       } else {
         // Angular openDialog → full form value + subjectId + preparedbyUserId
-        await createQuestionBank({
+        const created = await createQuestionBank({
           assessmentName: data.assessmentName,
           assessmentNo: data.assessmentNo,
           assessmentDescription: data.assessmentDescription ?? "",
@@ -212,8 +216,19 @@ export default function QuestionBankModal({
           subjectId,
         });
         toast.success("Question bank created");
+        await onSaved({
+          assessmentName: data.assessmentName,
+          assessmentNo: data.assessmentNo,
+          assessmentDescription: data.assessmentDescription ?? "",
+          isActive: data.isActive,
+          isOnlineCourse: data.isOnlineCourse,
+          isForQuestionbank: true,
+          onlineCourseId: data.onlineCourseId,
+          courseLessonId: data.courseLessonId,
+          courseLessonTopicId: data.courseLessonTopicId,
+          ...created,
+        });
       }
-      await onSaved();
       onClose();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to save");

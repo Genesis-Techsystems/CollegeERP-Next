@@ -814,8 +814,7 @@ tr { break-inside: avoid; }
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-9 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={handleExportExcel}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -824,7 +823,7 @@ tr { break-inside: avoid; }
             <Button
               type="button"
               size="sm"
-              className="h-9 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={handlePrint}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />

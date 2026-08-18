@@ -111,7 +111,7 @@ export function isHodFacultyDetailsHref(href?: string): boolean {
   return (
     hrefLower.includes("staff-faculty-details/faculty-details") ||
     (hrefLower.includes("staff-faculty-details") &&
-      hrefLower.includes("faculty-details") &&
+      hrefLower.includes("/faculty-details") &&
       !hrefLower.includes("leave-approvals") &&
       !hrefLower.includes("leave_approvals") &&
       !hrefLower.includes("performance") &&

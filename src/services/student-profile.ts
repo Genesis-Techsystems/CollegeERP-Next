@@ -337,6 +337,10 @@ function semesterLabel(cy: AnyRow): string {
 }
 
 function semesterSortOrder(cy: AnyRow): number {
+  const label = semesterLabel(cy);
+  const labelNum =
+    label.match(/sem(?:ester)?\s*[-:]?\s*(\d+)/i) ?? label.match(/^\D*(\d+)/);
+  if (labelNum) return Number(labelNum[1]);
   const year = num(cy, ["yearNo", "year_no", "courseYearOrder", "year_order"]);
   const sem = num(cy, ["semesterNo", "semester_no", "semNo", "sem_no"]);
   if (year || sem) return year * 10 + sem;

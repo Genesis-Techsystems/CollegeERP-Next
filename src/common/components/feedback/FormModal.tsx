@@ -135,7 +135,7 @@ export function FormModal({
 
           <DialogFooter
             className={cn(
-              "shrink-0 gap-2 pt-5 sm:justify-end",
+              "shrink-0 flex-row items-center justify-end gap-2 pt-5",
               // showFooterDivider && "border-t border-border/60",
             )}
           >
