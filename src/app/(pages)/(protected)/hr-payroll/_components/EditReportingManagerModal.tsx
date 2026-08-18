@@ -5,7 +5,6 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-// import { ActiveStatusField } from '@/common/components/forms'
 import { FormModal } from "@/common/components/feedback";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
@@ -13,14 +12,12 @@ import {
   assignEmployeeReportingManager,
   listActiveDesignationsForHr,
 } from "@/services";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 const schema = z.object({
   empDesignationId: z.number().min(1, "Designation is required"),
   fromDate: z.date({ message: "From date is required" }),
   toDate: z.date({ message: "To date is required" }),
-  // isActive: z.boolean(),
-  // reason: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -28,9 +25,18 @@ type FormValues = z.infer<typeof schema>;
 type ReportRow = Record<string, unknown>;
 
 function parseDate(value: unknown): Date {
-  if (value instanceof Date) return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
   const d = new Date(String(value ?? ""));
   return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+function txt(row: ReportRow | null, keys: string[]): string {
+  if (!row) return "—";
+  for (const key of keys) {
+    const v = row[key];
+    if (v != null && String(v).trim() !== "") return String(v);
+  }
+  return "—";
 }
 
 interface EditReportingManagerModalProps {
@@ -59,14 +65,10 @@ export function EditReportingManagerModal({
       empDesignationId: undefined,
       fromDate: new Date(),
       toDate: new Date(),
-      // isActive: true,
-      // reason: '',
     },
   });
 
   const fromDate = watch("fromDate");
-  // const isActive = watch('isActive')
-
   const [designationOptions, setDesignationOptions] = useState<SelectOption[]>(
     [],
   );
@@ -86,13 +88,12 @@ export function EditReportingManagerModal({
       empDesignationId: Number(row.empDesignationId ?? 0) || undefined,
       fromDate: parseDate(row.fromDate),
       toDate: parseDate(row.toDate),
-      // isActive: row.isActive !== false,
-      // reason: String(row.reason ?? ''),
     });
   }, [open, row, reset]);
 
   useEffect(() => {
     if (fromDate && watch("toDate") && fromDate > watch("toDate")) {
+      toastInfo("From date should be less then To date.");
       setValue("toDate", fromDate);
     }
   }, [fromDate, setValue, watch]);
@@ -102,15 +103,13 @@ export function EditReportingManagerModal({
     const payload = {
       ...row,
       empDesignationId: data.empDesignationId,
-      fromDate: format(data.fromDate, "yyyy-MM-dd"),
-      toDate: format(data.toDate, "yyyy-MM-dd"),
-      // Keep existing active status — edit form no longer exposes Is Active
+      // Angular parent: momentWithTime(details.fromDate / toDate)
+      fromDate: format(data.fromDate, "yyyy-MM-dd'T'00:00:00"),
+      toDate: format(data.toDate, "yyyy-MM-dd'T'00:00:00"),
       isActive: row.isActive !== false,
       reason: String(
         row.reason ?? (row.isActive !== false ? "active" : "inactive"),
       ),
-      // isActive: data.isActive,
-      // reason: data.isActive ? 'active' : (data.reason?.trim() || 'inactive'),
     };
     try {
       await assignEmployeeReportingManager(payload);
@@ -126,10 +125,11 @@ export function EditReportingManagerModal({
     <FormModal
       open={open}
       onClose={onClose}
-      title="Edit Reporting Manager"
+      title="Edit Reporting Manager Details"
       titleClassName="text-[15px] font-semibold leading-none text-primary"
       showHeaderDivider
-      size="lg"
+      size="xl"
+      cancelLabel="Close"
       onSubmit={(e) => {
         e.preventDefault();
         void handleSubmit(onSubmit)();
@@ -137,23 +137,68 @@ export function EditReportingManagerModal({
       isSubmitting={isSubmitting}
       submitLabel="Save"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Controller
-          name="empDesignationId"
-          control={control}
-          render={({ field }) => (
-            <Select
-              label="Employee Designation"
-              required
-              value={field.value ? String(field.value) : null}
-              onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-              options={designationOptions}
-              placeholder="Select designation"
-              searchable
-              error={errors.empDesignationId?.message}
-            />
-          )}
-        />
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 rounded-sm border border-[#89c5ff] bg-[#fbfbfb] px-3 py-3">
+        <div className="space-y-1 text-[15px] font-medium text-[#616161]">
+          <p className="text-[15px] font-medium tracking-tight text-[#9e9e9e]">
+            Employee Details
+          </p>
+          <p>
+            Employee :{" "}
+            <span className="font-medium text-blue-600">
+              {txt(row, ["empName", "employeeName", "firstName"])}
+            </span>
+          </p>
+          <p>
+            Employee No :{" "}
+            <span className="font-medium text-blue-600">
+              {txt(row, ["empNumber"])}
+            </span>
+          </p>
+          <p>
+            Designation :{" "}
+            <span className="font-medium text-blue-600">
+              {txt(row, ["desEmpName", "designationName"])}
+            </span>
+          </p>
+        </div>
+        <div className="space-y-1 text-[15px] font-medium text-[#616161]">
+          <p className="text-[15px] font-medium tracking-tight text-[#9e9e9e]">
+            Reporting Manager Details
+          </p>
+          <p>
+            Employee :{" "}
+            <span className="font-medium text-blue-600">
+              {txt(row, ["managerEmpName"])}
+            </span>
+          </p>
+          <p>
+            Employee No :{" "}
+            <span className="font-medium text-blue-600">
+              {txt(row, ["managerEmpNumber"])}
+            </span>
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-4">
+        <div className="sm:col-span-2">
+          <Controller
+            name="empDesignationId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Employee Designation"
+                required
+                value={field.value ? String(field.value) : null}
+                onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                options={designationOptions}
+                placeholder="Select designation"
+                searchable
+                error={errors.empDesignationId?.message}
+              />
+            )}
+          />
+        </div>
         <Controller
           name="fromDate"
           control={control}
@@ -162,7 +207,8 @@ export function EditReportingManagerModal({
               label="From Date"
               required
               value={field.value}
-              onChange={field.onChange}
+              onChange={(date) => date && field.onChange(date)}
+              displayFormat="dd/MM/yyyy"
               error={errors.fromDate?.message}
             />
           )}
@@ -175,29 +221,13 @@ export function EditReportingManagerModal({
               label="To Date"
               required
               value={field.value}
-              onChange={field.onChange}
+              onChange={(date) => date && field.onChange(date)}
               minDate={fromDate ?? undefined}
+              displayFormat="dd/MM/yyyy"
               error={errors.toDate?.message}
             />
           )}
         />
-        {/* Is Active — commented out for edit
-        <div className="sm:col-span-2">
-          <Controller
-            name="isActive"
-            control={control}
-            render={({ field }) => (
-              <ActiveStatusField
-                isActive={field.value}
-                reason={watch('reason') ?? ''}
-                onActiveChange={field.onChange}
-                onReasonChange={(v) => setValue('reason', String(v))}
-                reasonError={!isActive ? errors.reason?.message : undefined}
-              />
-            )}
-          />
-        </div>
-        */}
       </div>
     </FormModal>
   );

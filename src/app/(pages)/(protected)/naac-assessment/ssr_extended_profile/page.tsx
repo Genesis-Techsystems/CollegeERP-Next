@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { useSearchParams } from "next/navigation";
+import { PageContainer } from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toastSuccess } from "@/lib/toast";
 import type {
@@ -22,6 +23,10 @@ import { matDocKey } from "./_components/MatDocYear";
  * accordion Extended Profile / QIF. Demo: local toast only (no portal persist).
  */
 export default function NaacAssessmentSsrExtendedProfilePage() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState(
+    searchParams.get("tab") === "qif" ? "qif" : "extended",
+  );
   const [yearValues, setYearValues] = useState<
     Record<string, Record<string, string>>
   >({});
@@ -75,7 +80,7 @@ export default function NaacAssessmentSsrExtendedProfilePage() {
     <>
       <PageContainer className="pt-5">
         <div className="overflow-hidden rounded border border-[#ddd] bg-[#f5f5f5]">
-          <Tabs defaultValue="extended">
+          <Tabs value={tab} onValueChange={setTab}>
             <div className="overflow-x-auto border-b border-[#ddd] bg-white">
               <TabsList className={naacMatTabListClass}>
                 <TabsTrigger

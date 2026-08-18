@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { useRouter } from "next/navigation";
+import { PageContainer } from "@/components/layout";
 import { RichTextEditor } from "@/common/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select } from "@/common/components/select";
 import { toastSuccess } from "@/lib/toast";
-import { CopyTextButton } from "../../staff-naac/_components/NaacSection";
+import {
+  CopyTextButton,
+  NaacNativeFileInput,
+} from "../../staff-naac/_components/NaacSection";
 import { SsrAcademicInformationTab } from "../../staff-naac/ssr-profile/_components/SsrAcademicInformationTab";
 import {
   SSR_COLLEGE_ADDRESS,
@@ -43,6 +47,14 @@ const YES_NO = [
   { value: "2", label: "Yes" },
 ];
 
+const LOCATION_OPTIONS = [
+  { value: "1", label: "Urban" },
+  { value: "2", label: "Semi-urban" },
+  { value: "3", label: "Rural" },
+  { value: "4", label: "Tribal" },
+  { value: "5", label: "Hill" },
+];
+
 const UNIVERSITY_DOC =
   "https://assessmentonline.naac.gov.in/public/index.php/admin/get_file?file_path=eyJpdiI6ImptWDVnUWFmdVhrdUF6UzNBTWdtM1E9PSIsInZhbHVlIjoiRkU3eGtXV3lsWjZWbnRkclo4bk81RDFKdTZMbEdNdnloSHhIckk1ZlZPUjJvMWVUTG1reXFXY3lJbTY1Vjc2eWpOUVVjT2R2ZWxCSXdadXF2YU1xUUpFTHBvZmtNR2FXdllzQ0pzU005YW1MK2NDcUkxV0loejc2RVo5VVNLYk0iLCJtYWMiOiIwZjIxNzYyNTcxZDRiODY5NTc0N2JkZWZiM2RjYmNlMDFmY2ZiMjIzZDY0OWM3NDMxZmJhNTYwNjUwMzE3NWY4IiwidGFnIjoiIn0=";
 
@@ -51,6 +63,8 @@ const UNIVERSITY_DOC =
  * demo (yellow active tab, accordion Basic Information). Local toast only.
  */
 export default function NaacAssessmentSsrProfilePage() {
+  const router = useRouter();
+  const [tab, setTab] = useState("basic");
   const [byGender, setByGender] = useState("0");
   const [shiftRegular, setShiftRegular] = useState(false);
   const [shiftDay, setShiftDay] = useState(false);
@@ -64,9 +78,7 @@ export default function NaacAssessmentSsrProfilePage() {
   const [agencyRecognized, setAgencyRecognized] = useState("1");
   const [agencyName, setAgencyName] = useState("");
   const [agencyDate, setAgencyDate] = useState("");
-  const [locationType, setLocationType] = useState(
-    SSR_LOCATION[0]?.Location ?? "",
-  );
+  const [locationType, setLocationType] = useState("");
   const [campusArea, setCampusArea] = useState(
     SSR_LOCATION[0]?.CampusAreainAcres ?? "",
   );
@@ -92,6 +104,11 @@ export default function NaacAssessmentSsrProfilePage() {
       "Saved locally. This naac-assessment demo module does not persist to a backend.",
     );
 
+  const saveAndNext = () => {
+    saveLocal();
+    setTab("academic");
+  };
+
   const updateStatutory = (
     index: number,
     patch: Partial<StatutoryApprovalRow>,
@@ -104,7 +121,7 @@ export default function NaacAssessmentSsrProfilePage() {
     <>
       <PageContainer className="pt-5">
         <div className="overflow-hidden rounded border border-[#ddd] bg-[#f5f5f5]">
-          <Tabs defaultValue="basic">
+          <Tabs value={tab} onValueChange={setTab}>
             <div className="overflow-x-auto border-b border-[#ddd] bg-white">
               <TabsList className={naacMatTabListClass}>
                 <TabsTrigger value="basic" className={naacMatTabTriggerClass}>
@@ -266,7 +283,7 @@ export default function NaacAssessmentSsrProfilePage() {
                         If it is a recognized minority institution
                       </NaacMatTd>
                       <NaacMatTd>
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-start gap-3">
                           <div className="w-40">
                             <Select
                               value={minority}
@@ -274,8 +291,13 @@ export default function NaacAssessmentSsrProfilePage() {
                               options={YES_NO}
                               searchable={false}
                             />
+                            <div className="mt-2">
+                              <NaacNativeFileInput
+                                id="minority_upload"
+                                name="minority_upload"
+                              />
+                            </div>
                           </div>
-                          <input type="file" className="text-xs" />
                           <CopyTextButton
                             text={minority === "2" ? "Yes" : "No"}
                           />
@@ -471,7 +493,7 @@ export default function NaacAssessmentSsrProfilePage() {
                         its affiliated colleges?
                       </NaacMatTd>
                       <NaacMatTd>
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-start gap-3">
                           <div className="w-40">
                             <Select
                               value={autonomyConferment}
@@ -479,8 +501,13 @@ export default function NaacAssessmentSsrProfilePage() {
                               options={YES_NO}
                               searchable={false}
                             />
+                            <div className="mt-2">
+                              <NaacNativeFileInput
+                                id="autonomy_upload"
+                                name="autonomy_upload"
+                              />
+                            </div>
                           </div>
-                          <input type="file" className="text-xs" />
                           <CopyTextButton text={autonomyYes ? "Yes" : "No"} />
                         </div>
                       </NaacMatTd>
@@ -571,23 +598,26 @@ export default function NaacAssessmentSsrProfilePage() {
                     <tr>
                       <NaacYellowTh>Campus Type</NaacYellowTh>
                       <NaacYellowTh>Address</NaacYellowTh>
-                      <NaacYellowTh>Location</NaacYellowTh>
+                      <NaacYellowTh>Location *</NaacYellowTh>
                       <NaacYellowTh>Campus Area in Acres</NaacYellowTh>
-                      <NaacYellowTh>Built up Area in sq.mts</NaacYellowTh>
+                      <NaacYellowTh>Built up Area in sq.mts.</NaacYellowTh>
                     </tr>
                     <tr>
                       <NaacMatTd>{SSR_LOCATION[0]?.CampusType}</NaacMatTd>
                       <NaacMatTd>{SSR_LOCATION[0]?.Address}</NaacMatTd>
                       <NaacMatTd>
-                        <Input
-                          className="h-9"
-                          value={locationType}
-                          onChange={(e) => setLocationType(e.target.value)}
+                        <Select
+                          value={locationType || null}
+                          onChange={(v) => setLocationType(v ?? "")}
+                          options={LOCATION_OPTIONS}
+                          placeholder="--Select--"
+                          searchable={false}
                         />
                       </NaacMatTd>
                       <NaacMatTd>
                         <Input
                           className="h-9"
+                          maxLength={8}
                           value={campusArea}
                           onChange={(e) => setCampusArea(e.target.value)}
                         />
@@ -595,6 +625,7 @@ export default function NaacAssessmentSsrProfilePage() {
                       <NaacMatTd>
                         <Input
                           className="h-9"
+                          maxLength={8}
                           value={builtUp}
                           onChange={(e) => setBuiltUp(e.target.value)}
                         />
@@ -604,16 +635,9 @@ export default function NaacAssessmentSsrProfilePage() {
                 </NaacMatTable>
               </NaacMatAccordion>
 
-              <div className="flex justify-end gap-3 pt-2">
-                <Button
-                  type="button"
-                  className="w-[150px] bg-[#f0ad4e] text-white hover:bg-[#ec971f]"
-                  onClick={saveLocal}
-                >
-                  Save
-                </Button>
-                <Button type="button" className="w-[150px]" onClick={saveLocal}>
-                  Submit and Next
+              <div className="flex justify-end pt-2">
+                <Button type="button" onClick={saveAndNext}>
+                  Save and Next
                 </Button>
               </div>
             </TabsContent>
@@ -692,6 +716,16 @@ export default function NaacAssessmentSsrProfilePage() {
               </div>
             </TabsContent>
           </Tabs>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button
+            type="button"
+            onClick={() =>
+              router.push("/naac-assessment/ssr_extended_profile?tab=qif")
+            }
+          >
+            Proceed to QIF
+          </Button>
         </div>
       </PageContainer>
     </>

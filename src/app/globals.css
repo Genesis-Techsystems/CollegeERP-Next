@@ -1757,9 +1757,9 @@
 .app-data-table-toolbar-wrap button[data-table-primary-action],
 button.app-control[data-app-add],
 a.app-control[data-app-add] {
-  height: 30px;
+  height: 35px;
   min-height: 30px;
-  border-radius: 9999px !important;
+  border-radius: 0.5rem !important;
   padding-inline: 1rem;
   font-size: 13px;
   font-weight: 500;

@@ -247,7 +247,12 @@ export function resolveStaffIsHod(
 }
 
 export function resolveStaffDeptId(ctx?: EmployeeLoginContext | null): number {
-  return positiveId(ctx?.empDeptId, readStorageId("empDeptId"));
+  return positiveId(
+    ctx?.empDeptId,
+    readStorageId("empDeptId"),
+    // Angular pages commonly read `departmentId` directly from localStorage.
+    readStorageId("departmentId"),
+  );
 }
 
 /** Match EmpDeptHeads row to login employee (Angular department-head → isHOD). */

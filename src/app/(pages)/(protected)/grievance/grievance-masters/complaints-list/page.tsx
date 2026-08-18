@@ -114,6 +114,8 @@ export default function GrievantTypesPage() {
         search: true,
         searchPlaceholder: "Search",
         pdfDocumentTitle: "Grievant Types",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

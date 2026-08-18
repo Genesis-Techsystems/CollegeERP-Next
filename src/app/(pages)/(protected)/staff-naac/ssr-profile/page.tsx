@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   NaacBorderedTable,
   NaacDefaultPanel,
   NaacLabelValueRow,
+  NaacNativeFileInput,
   NaacPrimaryPanel,
   NaacSimpleTable,
   NaacTd,
@@ -58,6 +60,7 @@ const nativeSelectClass =
  * mirroring the old jQuery `$.ajax` calls (`ssrprof_nepsave`,
  * `ssrprof_literacysave`, `basic_info_colg_save`, academic tab `ssr_clg_sav1`). */
 export default function SsrProfilePage() {
+  const router = useRouter();
   const [status, setStatus] = useState(SSR_INSTITUTION_STATUS_DEFAULTS);
   const [location, setLocation] = useState(SSR_LOCATION_FORM_DEFAULTS);
   const [yearsCompleted, setYearsCompleted] = useState(
@@ -66,8 +69,6 @@ export default function SsrProfilePage() {
   const [statutoryRows, setStatutoryRows] = useState<StatutoryApprovalRow[]>(
     SSR_STATUTORY_APPROVAL_DEFAULTS,
   );
-  const [minorityFile, setMinorityFile] = useState<File | null>(null);
-  const [autonomyFile, setAutonomyFile] = useState<File | null>(null);
 
   const [nepText, setNepText] = useState<Record<string, string>>(
     Object.fromEntries(SSR_NEP_ITEMS.map((n) => [n.id, n.defaultText])),
@@ -156,7 +157,6 @@ export default function SsrProfilePage() {
 
   const handleMinorityFileChange = async (file: File | undefined) => {
     if (!file) return;
-    setMinorityFile(file);
     try {
       await uploadSsrProfileFile(file, "minority_file");
       toastSuccess("Minority institution document uploaded.");
@@ -167,7 +167,6 @@ export default function SsrProfilePage() {
 
   const handleAutonomyFileChange = async (file: File | undefined) => {
     if (!file) return;
-    setAutonomyFile(file);
     try {
       await uploadSsrProfileFile(file, "autonomy_file");
       toastSuccess("Autonomy document uploaded.");
@@ -354,18 +353,11 @@ export default function SsrProfilePage() {
                             <option value="yes">Yes</option>
                           </select>
                           <div className="mt-2">
-                            <input
-                              type="file"
-                              className="text-sm"
-                              onChange={(e) =>
-                                handleMinorityFileChange(e.target.files?.[0])
-                              }
+                            <NaacNativeFileInput
+                              id="minority_upload"
+                              name="minority_upload"
+                              onChange={handleMinorityFileChange}
                             />
-                            {minorityFile && (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Uploaded: {minorityFile.name}
-                              </p>
-                            )}
                           </div>
                         </NaacTd>
                       </tr>
@@ -606,18 +598,11 @@ export default function SsrProfilePage() {
                             <option value="yes">Yes</option>
                           </select>
                           <div className="mt-2">
-                            <input
-                              type="file"
-                              className="text-sm"
-                              onChange={(e) =>
-                                handleAutonomyFileChange(e.target.files?.[0])
-                              }
+                            <NaacNativeFileInput
+                              id="autonomy_upload"
+                              name="autonomy_upload"
+                              onChange={handleAutonomyFileChange}
                             />
-                            {autonomyFile && (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Uploaded: {autonomyFile.name}
-                              </p>
-                            )}
                           </div>
                         </NaacTd>
                       </tr>
@@ -877,6 +862,16 @@ export default function SsrProfilePage() {
               </NaacPrimaryPanel>
             </TabsContent>
           </Tabs>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button
+            type="button"
+            onClick={() =>
+              router.push("/staff-naac/ssr-extended-profile?tab=qif")
+            }
+          >
+            Proceed to QIF
+          </Button>
         </div>
       </PageContainer>
     </>

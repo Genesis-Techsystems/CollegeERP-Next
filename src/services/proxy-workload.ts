@@ -141,6 +141,8 @@ export async function listStaffProxies(
  *
  * HOD / staff:  `staffproxiesbyempdept?departmentId=&proxyDate=`
  * Principal:    `staffproxiesbyempdept?collegeId=&proxyDate=`
+ *
+ * Angular formats `proxyDate` with `momentFormatYMD` => `YYYY/MM/DD`.
  */
 export async function listStaffProxiesByEmpDept(params: {
   isPrincipal: boolean;
@@ -149,11 +151,12 @@ export async function listStaffProxiesByEmpDept(params: {
   proxyDate: string;
 }): Promise<AnyRow[]> {
   const { isPrincipal, departmentId = 0, collegeId = 0, proxyDate } = params;
+  const dept = Number.isFinite(Number(departmentId)) ? Number(departmentId) : 0;
+  const college = Number.isFinite(Number(collegeId)) ? Number(collegeId) : 0;
   if (!proxyDate) return [];
   const query: Record<string, string | number> = isPrincipal
-    ? { collegeId, proxyDate }
-    : { departmentId, proxyDate };
-  if (isPrincipal ? collegeId <= 0 : departmentId <= 0) return [];
+    ? { collegeId: college, proxyDate }
+    : { departmentId: dept, proxyDate };
   try {
     const data = await fetchDetails<unknown>(
       EMPLOYEE_API.STAFF_PROXIESBY_EMP_DEPT,
@@ -163,6 +166,54 @@ export async function listStaffProxiesByEmpDept(params: {
   } catch {
     return [];
   }
+}
+
+/**
+ * Angular Faculty Leaves `staff-faculty-leaves/staff-proxy-list`.
+ *
+ * HOD (not principal): `staffproxiesbyempdept?departmentId=&proxyDate=`
+ * Principal: domain list `StaffProxy` with `college.collegeId` + `proxyDate`
+ */
+export async function listStaffProxiesForFacultyLeaves(params: {
+  isHod: boolean;
+  isPrincipal: boolean;
+  departmentId?: number;
+  collegeId?: number;
+  proxyDate: string;
+}): Promise<AnyRow[]> {
+  const {
+    isHod,
+    isPrincipal,
+    departmentId = 0,
+    collegeId = 0,
+    proxyDate,
+  } = params;
+  if (!proxyDate) return [];
+
+  if (isHod && !isPrincipal && departmentId > 0) {
+    return listStaffProxiesByEmpDept({
+      isPrincipal: false,
+      departmentId,
+      proxyDate,
+    });
+  }
+
+  if (isPrincipal && collegeId > 0) {
+    try {
+      const rows = await domainList<AnyRow>(
+        EMPLOYEE_API.STAFF_PROXY,
+        buildQuery({
+          "college.collegeId": collegeId,
+          proxyDate,
+        }),
+      );
+      return Array.isArray(rows) ? rows : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 }
 
 /** Angular POST `staffproxieslist` (array payload). */

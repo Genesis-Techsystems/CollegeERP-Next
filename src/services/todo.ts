@@ -2,8 +2,8 @@
  * To-Do module — Angular `app/main/apps/to-do/*`.
  *
  * Entities: EmpTodoListTags, EmpActivityList (lookup only), EmpTodoList.
- * Employee typeahead reuses `searchEmployeesForManagerAssign` (Angular
- * `listByIds(employeeSearchUrl, q, 'q')` — no collegeId, no empStatus filter).
+ * Employee typeahead: Angular `listByIds(employeeSearchUrl, q, 'q')`
+ * → GET `employeesearch?q=` (no collegeId, no empStatus).
  */
 
 import { TODO_API } from "@/config/constants/api";
@@ -14,10 +14,41 @@ import type {
   EmpTodoListItem,
   EmpTodoListTag,
 } from "@/types/todo";
-import { buildQuery, domainCreate, domainList, domainUpdate } from "./crud";
+import {
+  buildQuery,
+  domainCreate,
+  domainList,
+  domainUpdate,
+  fetchDetails,
+} from "./crud";
+
+type AnyRow = Record<string, unknown>;
 
 const TAG_PK = "empTodoListTagId";
 const TODO_PK = "empTodoListId";
+
+function employeeSearchRows(data: unknown): AnyRow[] {
+  if (Array.isArray(data)) return data as AnyRow[];
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.resultList)) return obj.resultList as AnyRow[];
+    if (Array.isArray(obj.data)) return obj.data as AnyRow[];
+    if (Array.isArray(obj.content)) return obj.content as AnyRow[];
+    if (Array.isArray(obj.result)) return obj.result as AnyRow[];
+  }
+  return [];
+}
+
+/**
+ * Angular `enteredEmployee` → `listByIds('employeesearch', value, 'q')`
+ * when `event.target.value.length > 4`. Browser: GET `/api/proxy/employeesearch?q=`.
+ */
+export async function searchEmployeesForTodo(term: string): Promise<AnyRow[]> {
+  const q = term.trim();
+  if (q.length <= 4) return [];
+  const data = await fetchDetails<unknown>("employeesearch", { q });
+  return employeeSearchRows(data);
+}
 
 // ─── Colleges (Angular `listDetailsById(collegeCrudUrl, 'true', 'isActive')`) ──
 

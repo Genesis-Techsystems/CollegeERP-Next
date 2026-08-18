@@ -351,7 +351,12 @@ export default function AccountsPreceedingsPage() {
       columnDefs={columnDefs}
       loading={loadingList || isFetching}
       pagination
-      toolbar={{ search: true, searchPlaceholder: "Search" }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
       toolbarTrailing={
         collegeNum > 0 ? (
           <Button type="button" onClick={openCreate}>

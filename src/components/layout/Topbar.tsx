@@ -41,10 +41,11 @@ function readLs(key: string): string {
   return v;
 }
 
-function isStudentToolbarUser(userTypeCode?: string, userRole?: string): boolean {
-  const type = String(
-    userTypeCode ?? readLs("userTypeCode"),
-  ).toUpperCase();
+function isStudentToolbarUser(
+  userTypeCode?: string,
+  userRole?: string,
+): boolean {
+  const type = String(userTypeCode ?? readLs("userTypeCode")).toUpperCase();
   const role = String(userRole ?? readLs("userRole")).toUpperCase();
   return (
     type === "STUDENT" ||
@@ -86,10 +87,12 @@ function toolbarUserSubLabel(opts: {
   return label;
 }
 
-function toolbarFullName(user: {
-  firstName?: string;
-  lastName?: string;
-} | null): string {
+function toolbarFullName(
+  user: {
+    firstName?: string;
+    lastName?: string;
+  } | null,
+): string {
   return [user?.firstName, user?.lastName]
     .map((p) => String(p ?? "").trim())
     .filter(Boolean)
@@ -118,11 +121,16 @@ export function Topbar() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
+  const [mounted, setMounted] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const pagesLoading = navItems.length === 0;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
@@ -254,11 +262,13 @@ export function Topbar() {
   const avatarStyle =
     roleAvatarStyle[user?.userRole ?? ""] ?? "bg-cyan-100 text-cyan-700";
 
-  const empLabel = toolbarUserSubLabel({
-    userTypeCode: user?.userTypeCode,
-    userRole: user?.userRole,
-    empNumber: employeeLogin?.empNumber,
-  });
+  const empLabel = mounted
+    ? toolbarUserSubLabel({
+        userTypeCode: user?.userTypeCode,
+        userRole: user?.userRole,
+        empNumber: employeeLogin?.empNumber,
+      })
+    : null;
   const fullName = toolbarFullName(user);
 
   async function handleLogout() {

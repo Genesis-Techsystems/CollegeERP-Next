@@ -1,55 +1,81 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { FilteredListPage } from '@/components/layout'
-import { Select } from '@/common/components/select'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { formatDate } from '@/common/generic-functions'
-import { listScheduledMeetings } from '@/services'
-import type { UnivCommitteeMeeting } from '@/types/committees'
-import { rowIndexGetter } from '@/lib/utils'
-import { useCommitteeMemberFilters } from '../_lib/use-committee-member-filters'
-import { AddMeetingModal } from './AddMeetingModal'
+import { useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { FilteredListPage } from "@/components/layout";
+import { Select } from "@/common/components/select";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { formatDate } from "@/common/generic-functions";
+import { listScheduledMeetings } from "@/services";
+import type { UnivCommitteeMeeting } from "@/types/committees";
+import { rowIndexGetter } from "@/lib/utils";
+import { useCommitteeMemberFilters } from "../_lib/use-committee-member-filters";
+import { AddMeetingModal } from "./AddMeetingModal";
 
 function meetingZoomUrl(row: UnivCommitteeMeeting): string | undefined {
   return (
-    row.zoomLink
-    ?? row.univZoomMeetingDetailsDTO?.zoomStartUrl
-    ?? row.univZoomMeetingDetailsDTO?.zoomJoinUrl
-  )
+    row.zoomLink ??
+    row.univZoomMeetingDetailsDTO?.zoomStartUrl ??
+    row.univZoomMeetingDetailsDTO?.zoomJoinUrl
+  );
 }
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<UnivCommitteeMeeting>,
-  meetingTitle: { field: 'meetingTitle', headerName: 'Meeting Title', minWidth: 180, flex: 1.5 } as ColDef<UnivCommitteeMeeting>,
-  meetingDate: { headerName: 'Meeting Date', minWidth: 120, flex: 1 } as ColDef<UnivCommitteeMeeting>,
-  startTime: { headerName: 'Start Time', minWidth: 100, flex: 0.8 } as ColDef<UnivCommitteeMeeting>,
-  endTime: { headerName: 'End Time', minWidth: 100, flex: 0.8 } as ColDef<UnivCommitteeMeeting>,
-  zoomLink: { headerName: 'Zoom Link', minWidth: 140, flex: 1 } as ColDef<UnivCommitteeMeeting>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<UnivCommitteeMeeting>,
+  meetingTitle: {
+    field: "meetingTitle",
+    headerName: "Meeting Title",
+    minWidth: 180,
+    flex: 1.5,
+  } as ColDef<UnivCommitteeMeeting>,
+  meetingDate: {
+    headerName: "Meeting Date",
+    minWidth: 120,
+    flex: 1,
+  } as ColDef<UnivCommitteeMeeting>,
+  startTime: {
+    headerName: "Start Time",
+    minWidth: 100,
+    flex: 0.8,
+  } as ColDef<UnivCommitteeMeeting>,
+  endTime: {
+    headerName: "End Time",
+    minWidth: 100,
+    flex: 0.8,
+  } as ColDef<UnivCommitteeMeeting>,
+  zoomLink: {
+    headerName: "Zoom Link",
+    minWidth: 140,
+    flex: 1,
+  } as ColDef<UnivCommitteeMeeting>,
+};
 
 function meetingDateRenderer(p: ICellRendererParams<UnivCommitteeMeeting>) {
-  const raw = p.data?.scheduledDate ?? p.data?.meetingDate
-  return <span className="text-xs">{formatDate(raw)}</span>
+  const raw = p.data?.scheduledDate ?? p.data?.meetingDate;
+  return <span className="text-xs">{formatDate(raw)}</span>;
 }
 
 function startTimeRenderer(p: ICellRendererParams<UnivCommitteeMeeting>) {
-  const value = p.data?.meetingFromTime ?? p.data?.startTime
-  return <span className="text-xs">{value ?? '—'}</span>
+  const value = p.data?.meetingFromTime ?? p.data?.startTime;
+  return <span className="text-xs">{value ?? "—"}</span>;
 }
 
 function endTimeRenderer(p: ICellRendererParams<UnivCommitteeMeeting>) {
-  const value = p.data?.meetingToTime ?? p.data?.endTime
-  return <span className="text-xs">{value ?? '—'}</span>
+  const value = p.data?.meetingToTime ?? p.data?.endTime;
+  return <span className="text-xs">{value ?? "—"}</span>;
 }
 
 function zoomLinkRenderer(p: ICellRendererParams<UnivCommitteeMeeting>) {
-  const url = p.data ? meetingZoomUrl(p.data) : undefined
-  if (!url) return <span className="text-xs text-muted-foreground">—</span>
+  const url = p.data ? meetingZoomUrl(p.data) : undefined;
+  if (!url) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <a
       href={url}
@@ -59,13 +85,13 @@ function zoomLinkRenderer(p: ICellRendererParams<UnivCommitteeMeeting>) {
     >
       Join
     </a>
-  )
+  );
 }
 
 export default function ScheduleCommitteeMeetingPage() {
-  const filters = useCommitteeMemberFilters()
-  const [showTable, setShowTable] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
+  const filters = useCommitteeMemberFilters();
+  const [showTable, setShowTable] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const { data, isLoading, invalidate } = useCrudList<UnivCommitteeMeeting>({
     queryKey: QK.committeeMeetings.scheduled(
@@ -79,8 +105,8 @@ export default function ScheduleCommitteeMeetingPage() {
         academicYear: filters.academicYear,
         universityExamId: Number(filters.examId),
       }),
-    enabled: showTable && filters.filtersReady && Boolean(filters.academicYear),
-  })
+    enabled: showTable && filters.filtersReady,
+  });
 
   const columnDefs = useMemo<ColDef<UnivCommitteeMeeting>[]>(
     () => [
@@ -92,7 +118,7 @@ export default function ScheduleCommitteeMeetingPage() {
       { ...COL_DEFS.zoomLink, cellRenderer: zoomLinkRenderer },
     ],
     [],
-  )
+  );
 
   const meetingContext = filters.filtersReady
     ? {
@@ -101,25 +127,42 @@ export default function ScheduleCommitteeMeetingPage() {
         academicYear: filters.academicYear,
         subjectCode: filters.subjectCode!,
       }
-    : null
+    : null;
 
   function handleGetList() {
-    if (!filters.filtersReady) return
-    setShowTable(true)
+    if (!filters.filtersReady) return;
+    setShowTable(true);
+  }
+
+  function handleCommitteeChange(value: string | null) {
+    filters.setCommitteeId(value);
+    setShowTable(false);
+  }
+
+  function handleExamChange(value: string | null) {
+    filters.setExamId(value);
+    setShowTable(false);
+  }
+
+  function handleSubjectChange(value: string | null) {
+    filters.setSubjectCode(value);
+    setShowTable(false);
   }
 
   return (
     <FilteredListPage
       title="Schedule Committee Meeting"
-      subtitle={showTable && filters.filtersReady ? filters.tableHeading : undefined}
-      filters={(
+      subtitle={
+        showTable && filters.filtersReady ? filters.tableHeading : undefined
+      }
+      filters={
         <>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="space-y-0.5">
               <Label className="text-xs">Committee *</Label>
               <Select
                 value={filters.committeeId}
-                onChange={filters.setCommitteeId}
+                onChange={handleCommitteeChange}
                 options={filters.committeeOptions}
                 placeholder="Select committee"
                 searchable
@@ -131,7 +174,7 @@ export default function ScheduleCommitteeMeetingPage() {
               <Label className="text-xs">Exam *</Label>
               <Select
                 value={filters.examId}
-                onChange={filters.setExamId}
+                onChange={handleExamChange}
                 options={filters.examOptions}
                 placeholder="Select exam"
                 searchable
@@ -143,7 +186,7 @@ export default function ScheduleCommitteeMeetingPage() {
               <Label className="text-xs">Subject *</Label>
               <Select
                 value={filters.subjectCode}
-                onChange={filters.setSubjectCode}
+                onChange={handleSubjectChange}
                 options={filters.subjectOptions}
                 placeholder="Select subject"
                 searchable
@@ -162,17 +205,19 @@ export default function ScheduleCommitteeMeetingPage() {
             </Button>
           </div>
         </>
-      )}
+      }
       rowData={showTable && filters.filtersReady ? data : []}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search meetings…',
-        pdfDocumentTitle: 'Scheduled Committee Meetings',
+        searchPlaceholder: "Search meetings…",
+        pdfDocumentTitle: "Scheduled Committee Meetings",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <Button
           size="sm"
           disabled={!showTable || !filters.filtersReady}
@@ -180,7 +225,7 @@ export default function ScheduleCommitteeMeetingPage() {
         >
           + Add Meeting
         </Button>
-      )}
+      }
     >
       <AddMeetingModal
         open={modalOpen}
@@ -189,5 +234,5 @@ export default function ScheduleCommitteeMeetingPage() {
         onSaved={invalidate}
       />
     </FilteredListPage>
-  )
+  );
 }

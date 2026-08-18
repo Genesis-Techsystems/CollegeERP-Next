@@ -463,6 +463,8 @@ export default function RemunerationPaymentPage() {
       height="480px"
       getRowId={(p) => rowKey(p.data)}
       toolbar={false}
+      showTable={showTable}
+      resultsVisible={showTable}
     >
       <PaymentModal
         open={paymentOpen}

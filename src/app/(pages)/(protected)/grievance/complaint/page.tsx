@@ -192,6 +192,8 @@ export default function AdminGrievanceListPage() {
         search: true,
         searchPlaceholder: "Search",
         pdfDocumentTitle: "Grievances List",
+        exportExcel: false,
+        exportPdf: false,
       }}
     >
       <GrievanceTransferModal

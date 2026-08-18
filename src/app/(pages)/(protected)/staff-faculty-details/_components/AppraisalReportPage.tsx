@@ -171,7 +171,12 @@ export function AppraisalReportPage() {
       columnDefs={columnDefs}
       loading={sessionLoading || isResolving || query.isFetching}
       pagination
-      toolbar={{ search: true, searchPlaceholder: "Search" }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
       toolbarTrailing={
         !isPrincipal ? (
           <Button

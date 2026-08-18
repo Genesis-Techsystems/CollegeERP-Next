@@ -292,6 +292,7 @@ export {
   listSubjectResourceSchedulesForStaff,
   listStaffProxies,
   listStaffProxiesByEmpDept,
+  listStaffProxiesForFacultyLeaves,
   saveStaffProxiesList,
   createStaffProxy,
   updateStaffProxy,

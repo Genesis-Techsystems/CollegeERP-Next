@@ -120,7 +120,7 @@ function ContributionsTable({
 }>) {
   return (
     <>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" data-no-page-name="">
         <table className="w-full min-w-[980px] text-[12px]">
           <thead>
             <tr>
@@ -286,29 +286,31 @@ export function ReviewAppraisalPage() {
   );
 
   async function submit() {
-    if (!form) return;
+    const activeForm: AnyRow = form ?? {};
     const previousDetails = rows(appraisal?.empSelfappraisalDetailDTOS);
-    const details = formDetails.map((detail) => {
-      const previous = previousDetails.find(
-        (item) =>
-          Number(item.selfappraisalFormDetId) ===
-          Number(detail.selfappraisalFormDetId),
-      );
-      return {
-        collegeId: form.collegeId,
-        selfappraisalFormDetId: detail.selfappraisalFormDetId,
-        isActive: true,
-        empSelfappraisalDetId: previous?.empSelfappraisalDetId ?? null,
-        createdDt: previous?.createdDt ?? null,
-        updatedDt: previous?.updatedDt ?? null,
-        createdUser: previous?.createdUser ?? null,
-        updatedUser: previous?.updatedUser ?? null,
-      };
-    });
+    const details = rows(activeForm.empSelfappraisalFormDetailDTOS).map(
+      (detail) => {
+        const previous = previousDetails.find(
+          (item) =>
+            Number(item.selfappraisalFormDetId) ===
+            Number(detail.selfappraisalFormDetId),
+        );
+        return {
+          collegeId: activeForm.collegeId,
+          selfappraisalFormDetId: detail.selfappraisalFormDetId,
+          isActive: true,
+          empSelfappraisalDetId: previous?.empSelfappraisalDetId ?? null,
+          createdDt: previous?.createdDt ?? null,
+          updatedDt: previous?.updatedDt ?? null,
+          createdUser: previous?.createdUser ?? null,
+          updatedUser: previous?.updatedUser ?? null,
+        };
+      },
+    );
     const payload: AnyRow = {
-      collegeId: form.collegeId,
-      startDate: form.startDate,
-      endDate: form.endDate,
+      collegeId: activeForm.collegeId,
+      startDate: activeForm.startDate,
+      endDate: activeForm.endDate,
       createdDt: appraisal?.createdDt ?? null,
       updatedDt: appraisal?.updatedDt ?? null,
       createdUser: appraisal?.createdUser ?? null,
@@ -324,7 +326,7 @@ export function ReviewAppraisalPage() {
       managementReviewDate: isPrincipal ? presentDateIso() : null,
       reason: reason.trim() ? reason : null,
       academicYearId,
-      selfappraisalFormId: form.selfAppraisalFormId,
+      selfappraisalFormId: activeForm.selfAppraisalFormId,
       isActive: true,
       empSelfappraisalDetailDTOS: details,
     };
@@ -358,8 +360,12 @@ export function ReviewAppraisalPage() {
   }
 
   return (
-    <PageContainer className="space-y-4 pb-10">
-      <div className="app-card space-y-5 p-4" data-page-first-card="">
+    <PageContainer className="space-y-4 pb-10" data-no-page-name>
+      <div
+        className="app-card space-y-5 p-4"
+        data-page-first-card=""
+        data-no-page-name=""
+      >
         {query.isPending ? (
           <div className="flex min-h-48 items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -562,12 +568,11 @@ export function ReviewAppraisalPage() {
               );
             })}
 
-            <div className="flex flex-col items-end gap-3 border-t border-border pt-4">
+            <div className="flex flex-row items-end justify-end gap-3 border-t border-border pt-4">
               <Button
                 type="button"
                 className="min-w-40"
                 onClick={() => void submit()}
-                disabled={saving || !form}
               >
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save

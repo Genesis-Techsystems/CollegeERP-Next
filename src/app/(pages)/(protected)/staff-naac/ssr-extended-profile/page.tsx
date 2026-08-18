@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PageContainer, PageHeader } from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
@@ -38,6 +39,10 @@ const tabTriggerClass = cn(
  * `#dynamicQuestionnaire` (Extended Profile) + `#preparessr` (QIF).
  */
 export default function SsrExtendedProfilePage() {
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState(
+    searchParams.get("tab") === "qif" ? "qif" : "extended",
+  );
   const [yearValues, setYearValues] = useState<
     Record<string, Record<string, string>>
   >({});
@@ -188,12 +193,9 @@ export default function SsrExtendedProfilePage() {
 
   return (
     <>
-      <PageContainer>
-        <PageHeader title="SSR Extended Profile" subtitle="NAAC" />
-      </PageContainer>
-      <PageContainer className="pt-0">
+      <PageContainer className="pt-5">
         <div className="overflow-hidden rounded border border-border bg-white">
-          <Tabs defaultValue="extended">
+          <Tabs value={tab} onValueChange={setTab}>
             <div className="overflow-x-auto border-b border-border bg-[#f0f0f0]">
               <TabsList className={naacTabListClass}>
                 <TabsTrigger value="extended" className={tabTriggerClass}>

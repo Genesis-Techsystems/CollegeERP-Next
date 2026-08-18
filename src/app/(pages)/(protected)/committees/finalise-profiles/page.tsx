@@ -1,53 +1,77 @@
-'use client'
+"use client";
 
-import { useCallback, useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { FilteredListPage } from '@/components/layout'
-import { Select } from '@/common/components/select'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
+import { useCallback, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PencilIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { FilteredListPage } from "@/components/layout";
+import { Select } from "@/common/components/select";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
 import {
   addMultipleProfileRecruitments,
   getEvaluatorProfilesForRecruitment,
   listCommitteeMeetingsForFinalise,
   listProfileRecruitments,
-} from '@/services'
-import type { EvaluatorProfileRow, UnivProfileRecruitment } from '@/types/committees'
-import { rowIndexGetter } from '@/lib/utils'
-import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
-import { useCommitteeMemberFilters } from '../_lib/use-committee-member-filters'
-import { EditFinaliseProfileModal } from './EditFinaliseProfileModal'
+} from "@/services";
+import type {
+  EvaluatorProfileRow,
+  UnivProfileRecruitment,
+} from "@/types/committees";
+import { rowIndexGetter } from "@/lib/utils";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { useCommitteeMemberFilters } from "../_lib/use-committee-member-filters";
+import { EditFinaliseProfileModal } from "./EditFinaliseProfileModal";
 
 const EVALUATOR_ROLES = {
   EVALUATOR: 64,
   MODERATOR: 67,
   QP_SETTER: 70,
-} as const
+} as const;
 
-type RoleKey = keyof typeof EVALUATOR_ROLES
+type RoleKey = keyof typeof EVALUATOR_ROLES;
 
 const ROLE_SECTIONS: { key: RoleKey; label: string }[] = [
-  { key: 'EVALUATOR', label: 'Evaluator' },
-  { key: 'MODERATOR', label: 'Moderator' },
-  { key: 'QP_SETTER', label: 'Question Paper Setter' },
-]
+  { key: "EVALUATOR", label: "Evaluator" },
+  { key: "MODERATOR", label: "Moderator" },
+  { key: "QP_SETTER", label: "Question Paper Setter" },
+];
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<UnivProfileRecruitment>,
-  role: { field: 'evaluatorRoleName', headerName: 'Role', minWidth: 140 } as ColDef<UnivProfileRecruitment>,
-  profileName: { field: 'profileEmployeeName', headerName: 'Profile Name', minWidth: 180, flex: 1.5 } as ColDef<UnivProfileRecruitment>,
-  meetingTitle: { field: 'meetingTitle', headerName: 'Meeting Title', minWidth: 160, flex: 1.2 } as ColDef<UnivProfileRecruitment>,
-  actions: { headerName: 'Edit', width: 80, flex: 0 } as ColDef<UnivProfileRecruitment>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<UnivProfileRecruitment>,
+  role: {
+    field: "evaluatorRoleName",
+    headerName: "Role",
+    minWidth: 140,
+  } as ColDef<UnivProfileRecruitment>,
+  profileName: {
+    field: "profileEmployeeName",
+    headerName: "Profile Name",
+    minWidth: 180,
+    flex: 1.5,
+  } as ColDef<UnivProfileRecruitment>,
+  meetingTitle: {
+    field: "meetingTitle",
+    headerName: "Meeting Title",
+    minWidth: 160,
+    flex: 1.2,
+  } as ColDef<UnivProfileRecruitment>,
+  actions: {
+    headerName: "Edit",
+    width: 80,
+    flex: 0,
+  } as ColDef<UnivProfileRecruitment>,
+};
 
-function makeActionsRenderer(
-  onEdit: (row: UnivProfileRecruitment) => void,
-) {
+function makeActionsRenderer(onEdit: (row: UnivProfileRecruitment) => void) {
   return (p: ICellRendererParams<UnivProfileRecruitment>) => (
     <Button
       size="sm"
@@ -57,50 +81,62 @@ function makeActionsRenderer(
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
-function profilesForRole(rows: EvaluatorProfileRow[], roleId: number, configuredOnly = false) {
+function profilesForRole(
+  rows: EvaluatorProfileRow[],
+  roleId: number,
+  configuredOnly = false,
+) {
   return rows.filter((r) => {
-    if (Number(r.fk_evaluatorrole_id) !== roleId) return false
-    const configured = Number(r.is_confiured) === 1
-    return configuredOnly ? configured : !configured
-  })
+    if (Number(r.fk_evaluatorrole_id) !== roleId) return false;
+    const configured = Number(r.is_confiured) === 1;
+    return configuredOnly ? configured : !configured;
+  });
 }
 
 export default function FinaliseProfilesPage() {
-  const filters = useCommitteeMemberFilters()
-  const [showTable, setShowTable] = useState(false)
-  const [meetingId, setMeetingId] = useState<string | null>(null)
-  const [editRow, setEditRow] = useState<UnivProfileRecruitment | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const filters = useCommitteeMemberFilters();
+  const [showTable, setShowTable] = useState(false);
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const [editRow, setEditRow] = useState<UnivProfileRecruitment | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [selectedByRole, setSelectedByRole] = useState<Record<RoleKey, Set<number>>>({
+  const [selectedByRole, setSelectedByRole] = useState<
+    Record<RoleKey, Set<number>>
+  >({
     EVALUATOR: new Set(),
     MODERATOR: new Set(),
     QP_SETTER: new Set(),
-  })
+  });
 
-  const committeeNum = Number(filters.committeeId)
-  const examNum = Number(filters.examId)
+  const committeeNum = Number(filters.committeeId);
+  const examNum = Number(filters.examId);
 
   const { data: meetings = [] } = useQuery({
     queryKey: QK.committeeMeetings.forFinalise(committeeNum, examNum),
     queryFn: () => listCommitteeMeetingsForFinalise(committeeNum, examNum),
     enabled: showTable && filters.cascadeReady,
-  })
+  });
 
   const meetingOptions = useMemo(
     () =>
-      meetings.map((m) => ({
-        value: String(m.univCommitteeMeetingId ?? m.committeeMeetingId ?? ''),
-        label: m.meetingTitle ?? 'Meeting',
-      })).filter((o) => o.value),
+      meetings
+        .map((m) => ({
+          value: String(m.univCommitteeMeetingId ?? m.committeeMeetingId ?? ""),
+          label: m.meetingTitle ?? "Meeting",
+        }))
+        .filter((o) => o.value),
     [meetings],
-  )
+  );
 
-  const { data: rows, isLoading, invalidate } = useCrudList<UnivProfileRecruitment>({
+  const {
+    data: rows,
+    isLoading,
+    invalidate,
+  } = useCrudList<UnivProfileRecruitment>({
     queryKey: QK.profileRecruitments.list(filters.orgId, committeeNum, examNum),
     queryFn: () =>
       listProfileRecruitments({
@@ -109,17 +145,20 @@ export default function FinaliseProfilesPage() {
         universityExamId: examNum,
       }),
     enabled: showTable && filters.filtersReady && filters.orgId > 0,
-  })
+  });
 
   const { data: evaluatorProfiles = [] } = useQuery({
-    queryKey: QK.profileRecruitments.evaluatorProfiles(examNum, filters.subjectCode ?? ''),
+    queryKey: QK.profileRecruitments.evaluatorProfiles(
+      examNum,
+      filters.subjectCode ?? "",
+    ),
     queryFn: () =>
       getEvaluatorProfilesForRecruitment({
         universityExamId: examNum,
-        subjectCode: filters.subjectCode ?? '',
+        subjectCode: filters.subjectCode ?? "",
       }),
     enabled: showTable && filters.filtersReady && examNum > 0,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<UnivProfileRecruitment>[]>(
     () => [
@@ -130,43 +169,61 @@ export default function FinaliseProfilesPage() {
       {
         ...COL_DEFS.actions,
         cellRenderer: makeActionsRenderer((row) => {
-          setEditRow(row)
-          setEditOpen(true)
+          setEditRow(row);
+          setEditOpen(true);
         }),
       },
     ],
     [],
-  )
+  );
 
-  const toggleProfile = useCallback((roleKey: RoleKey, profileId: number, checked: boolean) => {
-    setSelectedByRole((prev) => {
-      const next = new Set(prev[roleKey])
-      if (checked) next.add(profileId)
-      else next.delete(profileId)
-      return { ...prev, [roleKey]: next }
-    })
-  }, [])
+  const toggleProfile = useCallback(
+    (roleKey: RoleKey, profileId: number, checked: boolean) => {
+      setSelectedByRole((prev) => {
+        const next = new Set(prev[roleKey]);
+        if (checked) next.add(profileId);
+        else next.delete(profileId);
+        return { ...prev, [roleKey]: next };
+      });
+    },
+    [],
+  );
 
   function handleGetList() {
-    if (!filters.filtersReady) return
-    setShowTable(true)
-    setMeetingId(null)
+    if (!filters.filtersReady) return;
+    setShowTable(true);
+    setMeetingId(null);
     setSelectedByRole({
       EVALUATOR: new Set(),
       MODERATOR: new Set(),
       QP_SETTER: new Set(),
-    })
+    });
+  }
+
+  function handleCommitteeChange(value: string | null) {
+    filters.setCommitteeId(value);
+    setShowTable(false);
+  }
+
+  function handleExamChange(value: string | null) {
+    filters.setExamId(value);
+    setShowTable(false);
+  }
+
+  function handleSubjectChange(value: string | null) {
+    filters.setSubjectCode(value);
+    setShowTable(false);
   }
 
   async function handleSaveProfiles() {
     if (!filters.filtersReady || !meetingId) {
-      toastInfo('Select a committee meeting before saving profiles.')
-      return
+      toastInfo("Select a committee meeting before saving profiles.");
+      return;
     }
 
-    const payloads: Record<string, unknown>[] = []
+    const payloads: Record<string, unknown>[] = [];
     for (const section of ROLE_SECTIONS) {
-      const roleId = EVALUATOR_ROLES[section.key]
+      const roleId = EVALUATOR_ROLES[section.key];
       for (const profileId of selectedByRole[section.key]) {
         payloads.push({
           organizationId: filters.orgId,
@@ -177,42 +234,42 @@ export default function FinaliseProfilesPage() {
           committeeMeetingId: Number(meetingId),
           subjectCode: filters.subjectCode,
           isActive: true,
-        })
+        });
       }
     }
 
     if (payloads.length === 0) {
-      toastInfo('Select at least one evaluator profile to save.')
-      return
+      toastInfo("Select at least one evaluator profile to save.");
+      return;
     }
 
-    setSaving(true)
+    setSaving(true);
     try {
-      await addMultipleProfileRecruitments(payloads)
-      toastSuccess('Profiles saved successfully.')
+      await addMultipleProfileRecruitments(payloads);
+      toastSuccess("Profiles saved successfully.");
       setSelectedByRole({
         EVALUATOR: new Set(),
         MODERATOR: new Set(),
         QP_SETTER: new Set(),
-      })
-      invalidate()
+      });
+      invalidate();
     } catch (e) {
-      toastError(e, 'Failed to save profiles')
+      toastError(e, "Failed to save profiles");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   return (
     <FilteredListPage
       title="Finalise Profiles"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-0.5">
             <Label className="text-xs">Committee *</Label>
             <Select
               value={filters.committeeId}
-              onChange={filters.setCommitteeId}
+              onChange={handleCommitteeChange}
               options={filters.committeeOptions}
               placeholder="Select committee"
               searchable
@@ -224,7 +281,7 @@ export default function FinaliseProfilesPage() {
             <Label className="text-xs">Exam *</Label>
             <Select
               value={filters.examId}
-              onChange={filters.setExamId}
+              onChange={handleExamChange}
               options={filters.examOptions}
               placeholder="Select exam"
               searchable
@@ -236,7 +293,7 @@ export default function FinaliseProfilesPage() {
             <Label className="text-xs">Subject *</Label>
             <Select
               value={filters.subjectCode}
-              onChange={filters.setSubjectCode}
+              onChange={handleSubjectChange}
               options={filters.subjectOptions}
               placeholder="Select subject"
               searchable
@@ -255,20 +312,24 @@ export default function FinaliseProfilesPage() {
             </Button>
           </div>
         </div>
-      )}
+      }
       rowData={showTable && filters.filtersReady ? rows : []}
       columnDefs={columnDefs}
       loading={isLoading}
       pagination
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search profiles…',
-        pdfDocumentTitle: 'Finalise Profiles',
+        searchPlaceholder: "Search profiles…",
+        pdfDocumentTitle: "Finalise Profiles",
       }}
     >
       {showTable && filters.filtersReady && (
         <div className="app-card p-4 space-y-4">
-          <h3 className="text-sm font-semibold">Add Evaluator / Moderator / Question Paper Setter</h3>
+          <h3 className="text-sm font-semibold">
+            Add Evaluator / Moderator / Question Paper Setter
+          </h3>
           <div className="max-w-md space-y-0.5">
             <Label className="text-xs">Committee Meeting *</Label>
             <Select
@@ -283,9 +344,13 @@ export default function FinaliseProfilesPage() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {ROLE_SECTIONS.map((section) => {
-              const roleId = EVALUATOR_ROLES[section.key]
-              const available = profilesForRole(evaluatorProfiles, roleId, false)
-              const selected = selectedByRole[section.key]
+              const roleId = EVALUATOR_ROLES[section.key];
+              const available = profilesForRole(
+                evaluatorProfiles,
+                roleId,
+                false,
+              );
+              const selected = selectedByRole[section.key];
               return (
                 <div
                   key={section.key}
@@ -293,27 +358,37 @@ export default function FinaliseProfilesPage() {
                 >
                   <p className="text-xs font-medium">{section.label}</p>
                   {available.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No profiles available.</p>
+                    <p className="text-xs text-muted-foreground">
+                      No profiles available.
+                    </p>
                   ) : (
                     available.map((profile) => {
-                      const id = Number(profile.pk_exam_evaluator_profile_id)
-                      const checkboxId = `${section.key}-${id}`
+                      const id = Number(profile.pk_exam_evaluator_profile_id);
+                      const checkboxId = `${section.key}-${id}`;
                       return (
-                        <div key={checkboxId} className="flex items-center gap-2">
+                        <div
+                          key={checkboxId}
+                          className="flex items-center gap-2"
+                        >
                           <Checkbox
                             id={checkboxId}
                             checked={selected.has(id)}
-                            onCheckedChange={(v) => toggleProfile(section.key, id, v === true)}
+                            onCheckedChange={(v) =>
+                              toggleProfile(section.key, id, v === true)
+                            }
                           />
-                          <label htmlFor={checkboxId} className="text-xs cursor-pointer">
-                            {profile.evaluator_name ?? '—'}
+                          <label
+                            htmlFor={checkboxId}
+                            className="text-xs cursor-pointer"
+                          >
+                            {profile.evaluator_name ?? "—"}
                           </label>
                         </div>
-                      )
+                      );
                     })
                   )}
                 </div>
-              )
+              );
             })}
           </div>
 
@@ -331,8 +406,12 @@ export default function FinaliseProfilesPage() {
             >
               Clear Selection
             </Button>
-            <Button size="sm" disabled={saving} onClick={() => void handleSaveProfiles()}>
-              {saving ? 'Saving…' : 'Save Profiles'}
+            <Button
+              size="sm"
+              disabled={saving}
+              onClick={() => void handleSaveProfiles()}
+            >
+              {saving ? "Saving…" : "Save Profiles"}
             </Button>
           </div>
         </div>
@@ -346,5 +425,5 @@ export default function FinaliseProfilesPage() {
         onSaved={invalidate}
       />
     </FilteredListPage>
-  )
+  );
 }

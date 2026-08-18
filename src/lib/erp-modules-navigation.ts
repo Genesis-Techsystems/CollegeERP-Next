@@ -67,6 +67,9 @@ export const STAFF_WORKLOAD_ADJUSTMENT_ROUTE =
 /** Angular `staff-faculty-leaves/set-proxy` (StaffWorkloadComponent). */
 export const SET_PROXY_ROUTE = "/staff-faculty-leaves/set-proxy";
 
+/** Angular `staff-faculty-leaves/staff-proxy-list` (StaffProxyListComponent). */
+export const STAFF_PROXY_LIST_ROUTE = "/staff-faculty-leaves/staff-proxy-list";
+
 /** Angular `staff-faculty-details/salary-slips` (SalarySlipsComponent). */
 export const SALARY_SLIPS_ROUTE = "/staff-faculty-details/salary-slips";
 
@@ -121,6 +124,27 @@ export function isSetProxyNav(href?: string, label?: string): boolean {
 }
 
 /**
+ * True for Faculty Leaves "Staff Proxy List".
+ * Must not be treated as Faculty Details "Staff Workload Adjustment"
+ * (`staff-faculty-details/staff-workload-adjustment`).
+ */
+export function isStaffProxyListNav(href?: string, label?: string): boolean {
+  const hrefLower = (href ?? "").toLowerCase();
+  if (hrefLower.includes("staff-proxy-report")) return false;
+  if (
+    hrefLower.includes("staff-faculty-leaves/staff-proxy-list") ||
+    hrefLower.includes("staff-proxy-list")
+  ) {
+    return true;
+  }
+  const labelLower = (label ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ");
+  return labelLower === "staff proxy list";
+}
+
+/**
  * True for the Faculty Details "Staff Workload Adjustment" menu item — must not
  * fall through to the Faculty Leaves "Workload Adjustment" page.
  */
@@ -130,14 +154,31 @@ export function isStaffWorkloadAdjustmentNav(
 ): boolean {
   const hrefLower = (href ?? "").toLowerCase();
   const key = normalizeLabelKey(label ?? "");
+  const labelLower = (label ?? "").trim().toLowerCase();
+
+  // Angular Faculty Details used StaffProxyListComponent under the
+  // `staff-faculty-details/staff-workload-adjustment` route, and some legacy
+  // menu rows still carry the older `staff-faculty-details/staff-proxy-list`
+  // href. Treat that alias as Faculty Details workload adjustment, not the
+  // Faculty Leaves "Staff Proxy List" page.
   if (
-    hrefLower.includes("staff-workload-adjustment") ||
-    hrefLower.includes("staff-proxy-list")
+    hrefLower.includes("staff-faculty-details/staff-proxy-list") ||
+    (hrefLower.includes("staff-faculty-details") &&
+      hrefLower.includes("staff-proxy-list"))
   ) {
     return true;
   }
+
+  if (isStaffProxyListNav(href, label)) return false;
+  if (hrefLower.includes("staff-workload-adjustment")) {
+    return true;
+  }
   return (
-    key.includes("staff") && key.includes("workload") && key.includes("adjust")
+    (key.includes("staff") &&
+      key.includes("workload") &&
+      key.includes("adjust")) ||
+    (labelLower === "workload adjustment" &&
+      hrefLower.includes("staff-faculty-details"))
   );
 }
 
@@ -207,8 +248,10 @@ export function mapAttendanceNavRoute(
   const hrefRaw = (href ?? "").trim();
   const hrefLower = hrefRaw.toLowerCase();
 
-  // Faculty Details "Staff Workload Adjustment" — separate page from Faculty
-  // Leaves "Workload Adjustment".
+  // Faculty Leaves "Staff Proxy List" vs Faculty Details "Staff Workload Adjustment".
+  if (isStaffProxyListNav(hrefRaw, label)) {
+    return STAFF_PROXY_LIST_ROUTE;
+  }
   if (isStaffWorkloadAdjustmentNav(hrefRaw, label)) {
     return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
   }
@@ -1109,6 +1152,10 @@ export function mapErpModuleNavRoute(
   const institutional = mapAdminInstitutionalRoomRoute(href, label);
   if (institutional) return institutional;
 
+  if (isStaffProxyListNav(href, label)) {
+    return STAFF_PROXY_LIST_ROUTE;
+  }
+
   if (isStaffWorkloadAdjustmentNav(href, label)) {
     return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
   }
@@ -1168,6 +1215,9 @@ export function mapErpModuleNavRoute(
 }
 
 export function mapErpModuleLabelToRoute(label?: string): string | null {
+  if (isStaffProxyListNav(undefined, label)) {
+    return STAFF_PROXY_LIST_ROUTE;
+  }
   if (isStaffWorkloadAdjustmentNav(undefined, label)) {
     return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
   }

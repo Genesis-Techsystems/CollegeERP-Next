@@ -22,7 +22,7 @@ import TodoListTagModal from "./TodoListTagModal";
 type AcademicYearRow = { academicYearId?: number; academicYear?: string };
 
 const BTN_NAVY =
-  "h-9 bg-[#001f3f] px-4 text-white hover:bg-[#002a54] disabled:opacity-60";
+  "h-9 bg-[#001f3f] px-2 text-white hover:bg-[#002a54] disabled:opacity-60";
 
 const COLS = {
   siNo: {
@@ -199,7 +199,8 @@ export default function TodoListTagsPage() {
           ? {
               search: true,
               searchPlaceholder: "Search",
-              pdfDocumentTitle: "TODO List Tags",
+              exportExcel: false,
+              exportPdf: false,
             }
           : undefined
       }

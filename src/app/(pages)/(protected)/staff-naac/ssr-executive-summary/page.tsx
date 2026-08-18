@@ -68,7 +68,9 @@ export default function SsrExecutiveSummaryPage() {
     Object.fromEntries(SSR_CRITERIA_SUMMARY.map((c) => [c.id, c.defaultText])),
   );
   const [assId] = useState(() => readStoredId("naacAssId", DEFAULT_ASS_ID));
-  const [profileId] = useState(() => readStoredId("naacProfileId", DEFAULT_PROFILE_ID));
+  const [profileId] = useState(() =>
+    readStoredId("naacProfileId", DEFAULT_PROFILE_ID),
+  );
   /** Angular tracks create vs update per-record after the first successful load/save. */
   const [loaded, setLoaded] = useState(false);
 
@@ -87,11 +89,15 @@ export default function SsrExecutiveSummaryPage() {
         setSwoc((prev) => ({
           strength: pickString(data, "Institutional_Strength") ?? prev.strength,
           weakness: pickString(data, "Institutional_Weakness") ?? prev.weakness,
-          opportunities: pickString(data, "Institutional_Opportunities") ?? prev.opportunities,
-          challenges: pickString(data, "Institutional_Challenges") ?? prev.challenges,
+          opportunities:
+            pickString(data, "Institutional_Opportunities") ??
+            prev.opportunities,
+          challenges:
+            pickString(data, "Institutional_Challenges") ?? prev.challenges,
         }));
         setConclusion((prev) => ({
-          additionalInfo: pickString(data, "additional_info") ?? prev.additionalInfo,
+          additionalInfo:
+            pickString(data, "additional_info") ?? prev.additionalInfo,
           conclusion: pickString(data, "conclusion") ?? prev.conclusion,
         }));
         setCriteria((prev) => {
@@ -142,11 +148,16 @@ export default function SsrExecutiveSummaryPage() {
     handleSave(
       "introsave",
       1,
-      { introduction: intro.introduction, vision: intro.vision, mission: intro.mission },
+      {
+        introduction: intro.introduction,
+        vision: intro.vision,
+        mission: intro.mission,
+      },
       "Introductory Note",
     );
 
-  const handleSaveCriteria = () => handleSave("criteriaSave", 4, { ...criteria }, "Criterion-wise Summary");
+  const handleSaveCriteria = () =>
+    handleSave("criteriaSave", 4, { ...criteria }, "Criterion-wise Summary");
 
   const handleSaveSwoc = () =>
     handleSave(
@@ -165,22 +176,26 @@ export default function SsrExecutiveSummaryPage() {
     handleSave(
       "conclusionsave",
       3,
-      { additional_info: conclusion.additionalInfo, conclusion: conclusion.conclusion },
+      {
+        additional_info: conclusion.additionalInfo,
+        conclusion: conclusion.conclusion,
+      },
       "Conclusion",
     );
 
   return (
     <>
-      <PageContainer>
-        <PageHeader title="SSR Executive Summary" subtitle="NAAC" />
-      </PageContainer>
-      <PageContainer className="pt-0">
+      <PageContainer className="pt-5">
         <div className="app-card overflow-hidden">
           <Tabs defaultValue="intro">
             <div className="overflow-x-auto border-b border-border bg-muted/20">
               <TabsList className={naacTabListClass}>
                 {TABS.map((t) => (
-                  <TabsTrigger key={t.id} value={t.id} className={naacTabTriggerClass}>
+                  <TabsTrigger
+                    key={t.id}
+                    value={t.id}
+                    className={naacTabTriggerClass}
+                  >
                     {t.label}
                   </TabsTrigger>
                 ))}
@@ -193,32 +208,50 @@ export default function SsrExecutiveSummaryPage() {
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Introduction</label>
                     <Textarea
+                      style={{ height: "auto" }}
                       rows={6}
                       maxLength={550}
                       value={intro.introduction}
-                      onChange={(e) => setIntro((s) => ({ ...s, introduction: e.target.value }))}
+                      onChange={(e) =>
+                        setIntro((s) => ({
+                          ...s,
+                          introduction: e.target.value,
+                        }))
+                      }
                     />
-                    <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                    <p className="text-xs text-red-600">
+                      *Maximum word limit 350
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Vision</label>
                     <Textarea
+                      style={{ height: "auto" }}
                       rows={6}
                       maxLength={550}
                       value={intro.vision}
-                      onChange={(e) => setIntro((s) => ({ ...s, vision: e.target.value }))}
+                      onChange={(e) =>
+                        setIntro((s) => ({ ...s, vision: e.target.value }))
+                      }
                     />
-                    <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                    <p className="text-xs text-red-600">
+                      *Maximum word limit 350
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Mission</label>
                     <Textarea
                       rows={6}
+                      style={{ height: "auto" }}
                       maxLength={550}
                       value={intro.mission}
-                      onChange={(e) => setIntro((s) => ({ ...s, mission: e.target.value }))}
+                      onChange={(e) =>
+                        setIntro((s) => ({ ...s, mission: e.target.value }))
+                      }
                     />
-                    <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                    <p className="text-xs text-red-600">
+                      *Maximum word limit 350
+                    </p>
                   </div>
                   <div className="flex justify-end">
                     <Button onClick={handleSaveIntro}>Save And Next</Button>
@@ -234,14 +267,20 @@ export default function SsrExecutiveSummaryPage() {
                     <div key={c.id} className="space-y-1.5">
                       <label className="text-sm font-medium">{c.title}</label>
                       <Textarea
+                        style={{ height: "auto" }}
                         rows={4}
                         maxLength={550}
                         value={criteria[c.id] ?? ""}
                         onChange={(e) =>
-                          setCriteria((prev) => ({ ...prev, [c.id]: e.target.value }))
+                          setCriteria((prev) => ({
+                            ...prev,
+                            [c.id]: e.target.value,
+                          }))
                         }
                       />
-                      <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                      <p className="text-xs text-red-600">
+                        *Maximum word limit 350
+                      </p>
                     </div>
                   ))}
                   <div className="flex justify-end">
@@ -265,12 +304,17 @@ export default function SsrExecutiveSummaryPage() {
                     <div key={key} className="space-y-1.5">
                       <label className="text-sm font-medium">{label}</label>
                       <Textarea
+                        style={{ height: "auto" }}
                         rows={4}
                         maxLength={550}
                         value={swoc[key]}
-                        onChange={(e) => setSwoc((s) => ({ ...s, [key]: e.target.value }))}
+                        onChange={(e) =>
+                          setSwoc((s) => ({ ...s, [key]: e.target.value }))
+                        }
                       />
-                      <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                      <p className="text-xs text-red-600">
+                        *Maximum word limit 350
+                      </p>
                     </div>
                   ))}
                   <div className="flex justify-end">
@@ -284,29 +328,47 @@ export default function SsrExecutiveSummaryPage() {
               <NaacSectionCard title="Conclusions">
                 <div className="space-y-5">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Additional Information</label>
+                    <label className="text-sm font-medium">
+                      Additional Information
+                    </label>
                     <Textarea
+                      style={{ height: "auto" }}
                       rows={8}
                       maxLength={550}
                       value={conclusion.additionalInfo}
                       onChange={(e) =>
-                        setConclusion((s) => ({ ...s, additionalInfo: e.target.value }))
+                        setConclusion((s) => ({
+                          ...s,
+                          additionalInfo: e.target.value,
+                        }))
                       }
                     />
-                    <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                    <p className="text-xs text-red-600">
+                      *Maximum word limit 350
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Conclusion</label>
                     <Textarea
+                      style={{ height: "auto" }}
                       rows={4}
                       maxLength={550}
                       value={conclusion.conclusion}
-                      onChange={(e) => setConclusion((s) => ({ ...s, conclusion: e.target.value }))}
+                      onChange={(e) =>
+                        setConclusion((s) => ({
+                          ...s,
+                          conclusion: e.target.value,
+                        }))
+                      }
                     />
-                    <p className="text-xs text-red-600">*Maximum word limit 350</p>
+                    <p className="text-xs text-red-600">
+                      *Maximum word limit 350
+                    </p>
                   </div>
                   <div className="flex justify-end">
-                    <Button onClick={handleSaveConclusion}>Save And Next</Button>
+                    <Button onClick={handleSaveConclusion}>
+                      Save And Next
+                    </Button>
                   </div>
                 </div>
               </NaacSectionCard>

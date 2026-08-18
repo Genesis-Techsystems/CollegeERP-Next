@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * Staff Workload Adjustment — Angular
- * `staff-faculty-details/staff-workload-adjustment` (StaffProxyListComponent).
+ * Staff Proxy List — Angular `staff-faculty-leaves/staff-proxy-list`
+ * (`StaffProxyListComponent`).
  *
- * Filter: Proxy Date. List: `staffproxiesbyempdept?departmentId=&proxyDate=`
- * (HOD / staff) or `?collegeId=&proxyDate=` (principal).
+ * Filter: Proxy Date. HOD → `staffproxiesbyempdept?departmentId=&proxyDate=`.
+ * Principal → domain list `StaffProxy` (`college.collegeId` + `proxyDate`).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,12 +15,11 @@ import { FilteredListPage } from "@/components/layout";
 import { useSessionContext } from "@/context/SessionContext";
 import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
 import { toastError } from "@/lib/toast";
-import { rowIndexGetter } from "@/lib/utils";
-import { listStaffProxiesByEmpDept, toLeaveSlashYmd } from "@/services";
+import { listStaffProxiesForFacultyLeaves, toLeaveYmd } from "@/services";
 
 type ProxyRow = Record<string, unknown>;
 
-const PAGE_TITLE = "Staff Workload Adjustment";
+const PAGE_TITLE = "Staff Proxy List";
 
 function readStorage(key: string): string {
   if (typeof window === "undefined") return "";
@@ -113,12 +112,6 @@ function courseRenderer(p: ICellRendererParams<ProxyRow>) {
 }
 
 const COL_DEFS = {
-  siNo: {
-    headerName: "No.",
-    valueGetter: rowIndexGetter,
-    width: 80,
-    flex: 0,
-  } as ColDef<ProxyRow>,
   subjectName: {
     field: "subjectName",
     headerName: "Proxy Subject",
@@ -152,9 +145,12 @@ const COL_DEFS = {
   } as ColDef<ProxyRow>,
 };
 
-export function StaffWorkloadAdjustmentPage() {
+export function StaffProxyListPage() {
   const { user, isLoading: sessionLoading } = useSessionContext();
-  const { deptId, isResolving } = useStaffLoginContext(user, sessionLoading);
+  const { deptId, isHod, isResolving } = useStaffLoginContext(
+    user,
+    sessionLoading,
+  );
 
   const [proxyDate, setProxyDate] = useState<Date | null>(() => new Date());
   const [rows, setRows] = useState<ProxyRow[]>([]);
@@ -165,12 +161,11 @@ export function StaffWorkloadAdjustmentPage() {
     readStorage("isPRINCIPAL") === "true" ||
     readStorage("isPrincipal") === "true";
   const collegeId = Number(user?.collegeId ?? readStorage("collegeId") ?? 0);
-  // Angular StaffProxyList reads `departmentId` from localStorage and can send 0.
-  const departmentId = Number(readStorage("departmentId") || deptId || 0);
+  const hodFlag =
+    isHod || readStorage("isHOD") === "true" || readStorage("isHod") === "true";
 
   const columnDefs = useMemo<ColDef<ProxyRow>[]>(
     () => [
-      COL_DEFS.siNo,
       { ...COL_DEFS.subjectName, cellRenderer: proxySubjectRenderer },
       { ...COL_DEFS.assignedFirstName, cellRenderer: assignEmployeeRenderer },
       { ...COL_DEFS.proxyFirstName, cellRenderer: proxyEmployeeRenderer },
@@ -185,7 +180,7 @@ export function StaffWorkloadAdjustmentPage() {
   );
 
   const loadStaffProxyList = useCallback(async () => {
-    const date = toLeaveSlashYmd(proxyDate);
+    const date = toLeaveYmd(proxyDate);
     if (!date) {
       setRows([]);
       return;
@@ -193,20 +188,21 @@ export function StaffWorkloadAdjustmentPage() {
     if (isResolving) return;
     setLoading(true);
     try {
-      const data = await listStaffProxiesByEmpDept({
+      const data = await listStaffProxiesForFacultyLeaves({
+        isHod: hodFlag,
         isPrincipal,
-        departmentId,
+        departmentId: 0,
         collegeId,
         proxyDate: date,
       });
       setRows(data);
     } catch (e) {
       setRows([]);
-      toastError(e, "Failed to load staff workload adjustments");
+      toastError(e, "Failed to load staff proxy list");
     } finally {
       setLoading(false);
     }
-  }, [collegeId, departmentId, isPrincipal, isResolving, proxyDate]);
+  }, [collegeId, deptId, hodFlag, isPrincipal, isResolving, proxyDate]);
 
   useEffect(() => {
     void loadStaffProxyList();
@@ -226,17 +222,23 @@ export function StaffWorkloadAdjustmentPage() {
           />
         </div>
       }
+      tableHeader={
+        <div className="table-context-header">
+          <span
+            className="material-icons table-context-header__icon"
+            aria-hidden
+          >
+            school
+          </span>
+          <strong className="table-context-header__title">{PAGE_TITLE}</strong>
+        </div>
+      }
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading || isResolving}
       pagination
       paginationPageSize={10}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        exportExcel: false,
-        exportPdf: false,
-      }}
+      toolbar={{ search: true, searchPlaceholder: "Search" }}
     />
   );
 }

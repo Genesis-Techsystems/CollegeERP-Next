@@ -17,6 +17,7 @@ import {
 import {
   isSalarySlipsNav,
   isSetProxyNav,
+  isStaffProxyListNav,
   isStaffSelfAppraisalNav,
   isStaffWorkloadAdjustmentNav,
   isStudentClassDiaryViewer,
@@ -25,6 +26,7 @@ import {
   mapErpModuleNavRoute,
   SALARY_SLIPS_ROUTE,
   SET_PROXY_ROUTE,
+  STAFF_PROXY_LIST_ROUTE,
   STAFF_WORKLOAD_ADJUSTMENT_ROUTE,
 } from "@/lib/erp-modules-navigation";
 import {
@@ -221,6 +223,22 @@ export function resolveForcedNavRoute(
     return EMPLOYEE_DETAIL_REPORT_ROUTE;
   }
 
+  // Faculty Details child pins must beat the generic Faculty Details / HR
+  // employee-list fallback, because some legacy child rows inherit the parent
+  // `employee-list` href from Angular menu data.
+  if (isStaffProxyListNav(href, label)) {
+    return STAFF_PROXY_LIST_ROUTE;
+  }
+  if (isStaffWorkloadAdjustmentNav(href, label)) {
+    return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
+  }
+  if (isSalarySlipsNav(href, label)) {
+    return SALARY_SLIPS_ROUTE;
+  }
+  if (isStaffSelfAppraisalNav(href, label)) {
+    return "/staff-faculty-details/appraisal-report";
+  }
+
   const facultyDetailsRoute = resolveFacultyDetailsNavRoute(href, label);
   if (facultyDetailsRoute) return facultyDetailsRoute;
 
@@ -263,13 +281,6 @@ export function resolveForcedNavRoute(
     ) {
       return sidebarPin;
     }
-  }
-
-  // Faculty Details "Staff Workload Adjustment" (Angular StaffProxyList) — pin
-  // before the faculty-details / workload-adjustment remaps below, otherwise it
-  // opens the Faculty Leaves "Workload Adjustment" page.
-  if (isStaffWorkloadAdjustmentNav(href, label)) {
-    return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
   }
 
   // Secretary / HR — Angular `#/hr-payroll/employee/employee-list`
@@ -895,22 +906,58 @@ export function resolveForcedNavRoute(
     }
   }
 
+  // Student filling surveys — Angular `#/student-student-feedback` only.
+  // Sidebar "Survey Form" is the admin list, not this student page.
+  if (
+    hrefLower.includes("student-student-feedback") ||
+    (labelKey === "student feedback" &&
+      !hrefLower.includes("survey-form") &&
+      !hrefLower.includes("survey-forms"))
+  ) {
+    return "/student-student-feedback";
+  }
+
+  // Admin Survey Forms list — Angular `#/feedback/survey-form-list`.
+  // Menu label "Survey Form" and href `feedback/survey-form` both open the list;
+  // add/edit stays on `/feedback/survey-form` via the page button, not the sidebar.
+  {
+    const isSurveyFormLabel =
+      labelKey === "survey form" ||
+      labelKey === "survey forms" ||
+      labelKey === "survey forms list";
+    const isSurveyFormListHref =
+      hrefLower.includes("survey-form-list") ||
+      hrefLower.includes("survey-forms-list") ||
+      hrefLower.includes("surveyforms-list");
+    const isAdminSurveyFormHref =
+      hrefLower.includes("survey-form") &&
+      !hrefLower.includes("student-student-feedback") &&
+      !hrefLower.includes("my-feedback") &&
+      !hrefLower.includes("suvey-form");
+    if (isSurveyFormLabel || isSurveyFormListHref || isAdminSurveyFormHref) {
+      return "/feedback/survey-form-list";
+    }
+  }
+
   // Student Grievances — pin early so missing route does not 404→dashboard
   if (
     (hrefLower.includes("student-grievances/grievance-details") ||
       hrefLower.includes("grievance-details")) &&
     !hrefLower.includes("staff-grievances") &&
-    !hrefLower.includes("staff-grevievances")
+    !hrefLower.includes("staff-grevievances") &&
+    !hrefLower.includes("student-student-feedback")
   ) {
     return "/student-grievances/grievance-details";
   }
   if (
-    hrefLower.includes("student-grievances") ||
-    hrefLower.includes("student-grevievances") ||
-    hrefLower.includes("new-grievance") ||
-    labelKey === "grievances" ||
-    labelKey === "new grievance" ||
-    labelKey === "student grievances"
+    !hrefLower.includes("student-student-feedback") &&
+    (hrefLower.includes("student-grievances") ||
+      (hrefLower.includes("student-grevievances") &&
+        !hrefLower.includes("student-student-feedback")) ||
+      hrefLower.includes("new-grievance") ||
+      labelKey === "grievances" ||
+      labelKey === "new grievance" ||
+      labelKey === "student grievances")
   ) {
     return "/student-grievances";
   }
@@ -962,14 +1009,6 @@ export function resolveForcedNavRoute(
   // Student Feedback List — Angular `feedback/student-feedback-list`
   if (hrefLower.includes("student-feedback-list")) {
     return "/feedback/student-feedback-list";
-  }
-
-  // Student Feedback — Angular `student-student-feedback`
-  if (
-    hrefLower.includes("student-student-feedback") ||
-    labelKey === "student feedback"
-  ) {
-    return "/student-student-feedback";
   }
 
   // Employee Feedback — Angular `my-feedback/suvey-form` (`EmployeeFeedbackComponent`)

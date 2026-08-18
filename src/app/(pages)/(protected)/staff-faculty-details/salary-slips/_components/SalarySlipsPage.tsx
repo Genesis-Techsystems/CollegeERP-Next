@@ -234,6 +234,8 @@ export function SalarySlipsPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
+        exportPdf: false,
+        exportExcel: false,
       }}
     />
   );

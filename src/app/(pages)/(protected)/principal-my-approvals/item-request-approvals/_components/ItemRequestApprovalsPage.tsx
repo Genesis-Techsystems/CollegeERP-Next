@@ -35,7 +35,9 @@ function formatIndentDate(value?: unknown): string {
   return isValid(fallback) ? format(fallback, "dd MMM, yyyy") : raw;
 }
 
-function indentDateFormatter(p: ValueFormatterParams<InvInternalIndentApprovalRow>) {
+function indentDateFormatter(
+  p: ValueFormatterParams<InvInternalIndentApprovalRow>,
+) {
   return formatIndentDate(p.value);
 }
 
@@ -139,7 +141,8 @@ function sortByIndentIdDesc(
   rows: InvInternalIndentApprovalRow[],
 ): InvInternalIndentApprovalRow[] {
   return [...rows].sort(
-    (a, b) => Number(b.pk_internal_ind_id ?? 0) - Number(a.pk_internal_ind_id ?? 0),
+    (a, b) =>
+      Number(b.pk_internal_ind_id ?? 0) - Number(a.pk_internal_ind_id ?? 0),
   );
 }
 
@@ -214,7 +217,9 @@ function makeViewDetailsRenderer(
         type="button"
         size="sm"
         className="app-table-view-details-btn action-btn add-btn"
-        onClick={() => openApprovalModal(router, row, "approvalDetails", workflowStages)}
+        onClick={() =>
+          openApprovalModal(router, row, "approvalDetails", workflowStages)
+        }
       >
         View Details
       </Button>
@@ -238,7 +243,9 @@ function makeIconActionsRenderer(
           variant="ghost"
           className="h-8 w-8 text-[#0e62c7]"
           title="View Details"
-          onClick={() => openApprovalModal(router, row, "viewDetails", workflowStages)}
+          onClick={() =>
+            openApprovalModal(router, row, "viewDetails", workflowStages)
+          }
         >
           <Eye className="h-4 w-4" />
         </Button>
@@ -249,7 +256,9 @@ function makeIconActionsRenderer(
             variant="ghost"
             className="h-8 w-8 text-[#0e62c7]"
             title="Edit"
-            onClick={() => openApprovalModal(router, row, "updateDetails", workflowStages)}
+            onClick={() =>
+              openApprovalModal(router, row, "updateDetails", workflowStages)
+            }
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -268,15 +277,15 @@ export function ItemRequestApprovalsPage() {
   const { employeeId, isResolving } = useLoginEmployeeId(user, sessionLoading);
 
   const [loading, setLoading] = useState(false);
-  const [requestRows, setRequestRows] = useState<InvInternalIndentApprovalRow[]>(
-    [],
-  );
+  const [requestRows, setRequestRows] = useState<
+    InvInternalIndentApprovalRow[]
+  >([]);
   const [approvedRows, setApprovedRows] = useState<
     InvInternalIndentApprovalRow[]
   >([]);
-  const [viewAllRows, setViewAllRows] = useState<InvInternalIndentApprovalRow[]>(
-    [],
-  );
+  const [viewAllRows, setViewAllRows] = useState<
+    InvInternalIndentApprovalRow[]
+  >([]);
   const [workflowStages, setWorkflowStages] = useState<
     InvInternalIndentApprovalRow[]
   >([]);
@@ -398,6 +407,8 @@ export function ItemRequestApprovalsPage() {
         toolbar={{
           search: true,
           searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
         }}
       />
       <ListPage<InvInternalIndentApprovalRow>
@@ -410,6 +421,8 @@ export function ItemRequestApprovalsPage() {
         toolbar={{
           search: true,
           searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
         }}
       />
       <ListPage<InvInternalIndentApprovalRow>
@@ -422,6 +435,8 @@ export function ItemRequestApprovalsPage() {
         toolbar={{
           search: true,
           searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
         }}
       />
     </>

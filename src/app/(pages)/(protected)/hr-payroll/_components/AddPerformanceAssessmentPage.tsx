@@ -834,16 +834,18 @@ export function AddPerformanceAssessmentPage() {
     studentsQuery.error;
 
   return (
-    <PageContainer className="space-y-5 pb-10">
-      <div className="app-card space-y-5 p-4">
-        <div className="text-left">
-          <h1 className="text-[18px] font-semibold text-[#042956]">
+    <PageContainer className="pb-10">
+      <div className="app-card p-4">
+        {/* Title — centered, bold, dark blue, no icon (matches Angular) */}
+        <div className="mb-3 text-center">
+          <h1 className="text-[17px] font-bold text-[#042956]">
             For faculty members Performance Based Assessment Scheme (PBAS) -
             360°
           </h1>
         </div>
 
-        <div className="grid grid-cols-1 gap-x-8 gap-y-2 border-b-2 border-[#9E9E9E] pb-2.5 text-[14px] sm:grid-cols-2 lg:grid-cols-3">
+        {/* Info rows with bottom border — matches Angular */}
+        <div className="grid grid-cols-1 gap-x-8 gap-y-1 border-b-2 border-[#9E9E9E] pb-3 text-[14px] sm:grid-cols-2 lg:grid-cols-3">
           <p className="lg:col-start-1 lg:row-start-1">
             <span className="font-semibold text-black">Academic Year : </span>
             <span className="font-medium text-blue-600">
@@ -1176,35 +1178,32 @@ export function AddPerformanceAssessmentPage() {
             })}
           </div>
         ) : null}
-
-        {!readOnly && questionRows.length > 0 ? (
-          <div className="flex justify-center pt-4">
-            <Button
-              type="button"
-              size="sm"
-              className="h-[35px] w-1/2 min-w-[220px] bg-[#4caf50] text-white hover:bg-[#43a047]"
-              disabled={saving || loading}
-              onClick={() => void handleSave()}
-            >
-              {saving ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              Save
-            </Button>
-          </div>
-        ) : null}
       </div>
 
-      <div className="mt-4 flex justify-end">
+      {/* Back + Save buttons outside the card, right-aligned — matches Angular */}
+      <div className="mt-4 flex items-center justify-end gap-3">
         <Button
           type="button"
-          variant="outline"
           size="sm"
-          className="h-[35px]"
+          className="h-[36px] min-w-[80px] bg-[#f5a623] px-5 text-[14px] font-medium text-white hover:bg-[#e09418]"
           onClick={() => router.push(listHref)}
         >
           Back
         </Button>
+        {!readOnly ? (
+          <Button
+            type="button"
+            size="sm"
+            className="h-[36px] min-w-[80px] bg-[#042956] px-5 text-[14px] font-medium text-white hover:bg-[#031e42]"
+            disabled={saving || loading}
+            onClick={() => void handleSave()}
+          >
+            {saving ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : null}
+            Save
+          </Button>
+        ) : null}
       </div>
     </PageContainer>
   );

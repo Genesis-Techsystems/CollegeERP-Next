@@ -1258,6 +1258,35 @@ function facultyLeavesSetProxyBreadcrumb(
   return [home, { label: "Faculty Leaves" }, { label: "Set Proxy" }];
 }
 
+/**
+ * Angular Faculty Leaves → Staff Proxy List:
+ *   Home → Faculty Leaves → Staff Proxy List
+ */
+function facultyLeavesStaffProxyListBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (path !== "/staff-faculty-leaves/staff-proxy-list") {
+    return items;
+  }
+
+  const labels = items.map((i) => i.label.toLowerCase());
+  if (
+    labels.some((l) => l.includes("faculty leaves")) &&
+    labels.some((l) => l.includes("staff proxy list"))
+  ) {
+    return items;
+  }
+
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+
+  return [home, { label: "Faculty Leaves" }, { label: "Staff Proxy List" }];
+}
+
 /** Angular Faculty Details module crumbs for implemented staff-faculty-details pages. */
 function facultyDetailsModuleBreadcrumb(
   pathname: string,
@@ -1407,6 +1436,7 @@ export function useBreadcrumb(
   items = principalCommunicationsNotificationsBreadcrumb(pathname, items);
   items = principalCommunicationsSendEmailBreadcrumb(pathname, items);
   items = facultyLeavesSetProxyBreadcrumb(pathname, items);
+  items = facultyLeavesStaffProxyListBreadcrumb(pathname, items);
   items = facultyDetailsModuleBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).

@@ -230,7 +230,11 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
       );
     }
     if (!collegeId) return [];
-    if (options.timetableFilters || options.examFirstCascade) {
+    if (
+      options.timetableFilters ||
+      options.examFirstCascade ||
+      options.examFilters
+    ) {
       return distinctBy(
         filtersData.filter((r) => rowMatches(r, COL, collegeId)),
         AY,
@@ -252,6 +256,7 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     courseId,
     options.timetableFilters,
     options.examFirstCascade,
+    options.examFilters,
     options.courseFirstCascade,
   ]);
 
@@ -263,7 +268,9 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     if (!collegeId) return [];
     let base = filtersData.filter((r) => rowMatches(r, COL, collegeId));
     if (
-      (options.scopeByAcademicYear || options.examFirstCascade) &&
+      (options.scopeByAcademicYear ||
+        options.examFirstCascade ||
+        options.examFilters) &&
       academicYearId
     ) {
       base = base.filter((r) => rowMatches(r, AY, academicYearId));
@@ -275,6 +282,7 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     academicYearId,
     options.scopeByAcademicYear,
     options.examFirstCascade,
+    options.examFilters,
     options.courseFirstCascade,
   ]);
 
@@ -311,15 +319,15 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
         EX,
       );
     }
-    if (courseGroupId == null || !courseYearId) return [];
+    if (courseGroupId == null || courseYearId == null) return [];
     return distinctBy(
       filtersData.filter(
         (r) =>
           rowMatches(r, COL, collegeId) &&
           rowMatches(r, AY, academicYearId) &&
           rowMatches(r, CRS, courseId) &&
-          rowMatches(r, GRP, courseGroupId) &&
-          rowMatches(r, CYR, courseYearId),
+          (courseGroupId === 0 || rowMatches(r, GRP, courseGroupId)) &&
+          (courseYearId === 0 || rowMatches(r, CYR, courseYearId)),
       ),
       EX,
     );
@@ -345,7 +353,8 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     if (
       (options.scopeByAcademicYear ||
         options.examFirstCascade ||
-        options.courseFirstCascade) &&
+        options.courseFirstCascade ||
+        options.examFilters) &&
       academicYearId
     ) {
       base = base.filter((r) => rowMatches(r, AY, academicYearId));
@@ -363,6 +372,7 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     options.scopeByAcademicYear,
     options.examFirstCascade,
     options.courseFirstCascade,
+    options.examFilters,
   ]);
 
   const courseYears = useMemo(() => {
@@ -378,7 +388,8 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     if (
       (options.scopeByAcademicYear ||
         options.examFirstCascade ||
-        options.courseFirstCascade) &&
+        options.courseFirstCascade ||
+        options.examFilters) &&
       academicYearId
     ) {
       base = base.filter((r) => rowMatches(r, AY, academicYearId));
@@ -399,6 +410,7 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     options.scopeByAcademicYear,
     options.examFirstCascade,
     options.courseFirstCascade,
+    options.examFilters,
   ]);
 
   const regulations = useMemo(() => {
@@ -503,17 +515,18 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     }
     if (courseGroups.length === 0) return;
     if (!options.autoSelectFirst) return;
-    setCourseGroupId(
+    // Angular exam-payments: auto-pick first group (All is only a manual option).
+    const defaultToAll =
       options.allowAllGroupYear &&
-        !options.examFirstCascade &&
-        !options.courseFirstCascade
-        ? 0
-        : pickNum(courseGroups[0], GRP),
-    );
+      !options.examFilters &&
+      !options.examFirstCascade &&
+      !options.courseFirstCascade;
+    setCourseGroupId(defaultToAll ? 0 : pickNum(courseGroups[0], GRP));
   }, [
     options.autoSelectFirst,
     options.initialSelection?.courseGroupId,
     options.allowAllGroupYear,
+    options.examFilters,
     options.examFirstCascade,
     options.courseFirstCascade,
     courseGroups,
@@ -529,22 +542,73 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
     }
     if (courseYears.length === 0) return;
     if (!options.autoSelectFirst) return;
-    setCourseYearId(
+    const defaultToAll =
       options.allowAllGroupYear &&
-        !options.examFirstCascade &&
-        !options.courseFirstCascade
-        ? 0
-        : pickNum(courseYears[0], CYR),
-    );
+      !options.examFilters &&
+      !options.examFirstCascade &&
+      !options.courseFirstCascade;
+    setCourseYearId(defaultToAll ? 0 : pickNum(courseYears[0], CYR));
   }, [
     options.autoSelectFirst,
     options.initialSelection?.courseYearId,
     options.allowAllGroupYear,
+    options.examFilters,
     options.examFirstCascade,
     options.courseFirstCascade,
     courseYears,
     courseYearId,
   ]);
+
+  // Drop stale downstream ids when parent lists change (SEM III leftover after SEM IV).
+  useEffect(() => {
+    if (academicYearId == null || academicYearId === 0) return;
+    if (academicYears.length === 0) return;
+    if (!academicYears.some((r) => pickNum(r, AY) === academicYearId)) {
+      setAcademicYearId(null);
+      setCourseId(null);
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setExamId(null);
+    }
+  }, [academicYears, academicYearId]);
+
+  useEffect(() => {
+    if (courseId == null || courseId === 0) return;
+    if (courses.length === 0) return;
+    if (!courses.some((r) => pickNum(r, CRS) === courseId)) {
+      setCourseId(null);
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setExamId(null);
+    }
+  }, [courses, courseId]);
+
+  useEffect(() => {
+    if (courseGroupId == null || courseGroupId === 0) return;
+    if (courseGroups.length === 0) return;
+    if (!courseGroups.some((r) => pickNum(r, GRP) === courseGroupId)) {
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setExamId(null);
+    }
+  }, [courseGroups, courseGroupId]);
+
+  useEffect(() => {
+    if (courseYearId == null || courseYearId === 0) return;
+    if (courseYears.length === 0) return;
+    if (!courseYears.some((r) => pickNum(r, CYR) === courseYearId)) {
+      setCourseYearId(null);
+      setExamId(null);
+    }
+  }, [courseYears, courseYearId]);
+
+  useEffect(() => {
+    if (examId == null || examId === 0) return;
+    if (exams.length === 0) return;
+    if (!exams.some((r) => pickNum(r, EX) === examId)) {
+      setExamId(null);
+    }
+  }, [exams, examId]);
 
   useEffect(() => {
     if (!options.trackRegulation) return;
@@ -809,36 +873,38 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
   const baseFiltersValid = allowAllCollegeYearCourse
     ? collegeId != null && academicYearId != null && courseId != null
     : requireGroupYear
-    ? collegeId != null &&
-      collegeId > 0 &&
-      academicYearId != null &&
-      academicYearId > 0 &&
-      courseId != null &&
-      courseId > 0 &&
-      courseGroupId != null &&
-      courseYearId != null
-    : requireCourse
       ? collegeId != null &&
         collegeId > 0 &&
         academicYearId != null &&
         academicYearId > 0 &&
         courseId != null &&
-        courseId > 0
-      : requireUniversity
-        ? universityId != null &&
-          universityId > 0 &&
-          collegeId != null &&
+        courseId > 0 &&
+        courseGroupId != null &&
+        courseYearId != null
+      : requireCourse
+        ? collegeId != null &&
           collegeId > 0 &&
           academicYearId != null &&
-          academicYearId > 0
-        : collegeId != null &&
-          collegeId > 0 &&
-          academicYearId != null &&
-          academicYearId > 0;
+          academicYearId > 0 &&
+          courseId != null &&
+          courseId > 0
+        : requireUniversity
+          ? universityId != null &&
+            universityId > 0 &&
+            collegeId != null &&
+            collegeId > 0 &&
+            academicYearId != null &&
+            academicYearId > 0
+          : collegeId != null &&
+            collegeId > 0 &&
+            academicYearId != null &&
+            academicYearId > 0;
 
   const filtersValid =
     baseFiltersValid &&
-    ((!options.examFirstCascade && !options.courseFirstCascade) ||
+    ((!options.examFirstCascade &&
+      !options.courseFirstCascade &&
+      !options.examFilters) ||
       (examId ?? 0) > 0) &&
     (!options.trackRegulation ||
       (options.requirePositiveRegulation

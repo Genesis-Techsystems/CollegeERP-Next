@@ -239,6 +239,30 @@ export function NaacSimpleTable({
   );
 }
 
+/** Browser-default Choose file / No file chosen (Angular staff-naac native `<input type="file">`). */
+export const naacNativeFileClass =
+  "h-auto w-auto max-w-full cursor-pointer border-0 bg-transparent p-0 text-[13px] font-normal text-black shadow-none [appearance:auto] file:me-2 file:inline-block file:h-auto file:cursor-pointer file:rounded-[2px] file:border file:border-solid file:border-[#767676] file:bg-[#efefef] file:px-2.5 file:py-[3px] file:text-[13px] file:font-normal file:text-black file:shadow-none";
+
+export function NaacNativeFileInput({
+  id,
+  name,
+  onChange,
+}: {
+  id?: string;
+  name?: string;
+  onChange?: (file: File | undefined) => void;
+}) {
+  return (
+    <input
+      id={id}
+      name={name}
+      type="file"
+      className={naacNativeFileClass}
+      onChange={(e) => onChange?.(e.target.files?.[0])}
+    />
+  );
+}
+
 /** Angular `naac-assessment` `copyToClipboard(textN)` — Material "Copy text" button. */
 export function CopyTextButton({ text }: { text: string }) {
   const handleCopy = async () => {

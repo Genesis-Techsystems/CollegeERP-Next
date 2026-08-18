@@ -198,7 +198,9 @@ export default function ScholarshipApplicationPage() {
   const universityId = useMemo(
     () =>
       pickNum(
-        filtersData.find((r) => pickNum(r, ["fk_college_id", "collegeId"]) === collegeNum),
+        filtersData.find(
+          (r) => pickNum(r, ["fk_college_id", "collegeId"]) === collegeNum,
+        ),
         ["fk_university_id", "universityId"],
       ),
     [filtersData, collegeNum],
@@ -206,24 +208,28 @@ export default function ScholarshipApplicationPage() {
 
   const collegeOptions = useMemo(
     () =>
-      colleges.map((c) => ({
-        value: String(pickNum(c, ["fk_college_id", "collegeId"])),
-        label:
-          pickText(c, ["college_code", "collegeCode"]) ||
-          pickText(c, ["college_name", "collegeName"]) ||
-          String(pickNum(c, ["fk_college_id", "collegeId"])),
-      })).filter((o) => o.value !== "0"),
+      colleges
+        .map((c) => ({
+          value: String(pickNum(c, ["fk_college_id", "collegeId"])),
+          label:
+            pickText(c, ["college_code", "collegeCode"]) ||
+            pickText(c, ["college_name", "collegeName"]) ||
+            String(pickNum(c, ["fk_college_id", "collegeId"])),
+        }))
+        .filter((o) => o.value !== "0"),
     [colleges],
   );
 
   const academicYearOptions = useMemo(
     () =>
-      academicYears.map((ay) => ({
-        value: String(pickNum(ay, ["fk_academic_year_id", "academicYearId"])),
-        label:
-          pickText(ay, ["academic_year", "academicYear"]) ||
-          String(pickNum(ay, ["fk_academic_year_id", "academicYearId"])),
-      })).filter((o) => o.value !== "0"),
+      academicYears
+        .map((ay) => ({
+          value: String(pickNum(ay, ["fk_academic_year_id", "academicYearId"])),
+          label:
+            pickText(ay, ["academic_year", "academicYear"]) ||
+            String(pickNum(ay, ["fk_academic_year_id", "academicYearId"])),
+        }))
+        .filter((o) => o.value !== "0"),
     [academicYears],
   );
 
@@ -330,7 +336,9 @@ export default function ScholarshipApplicationPage() {
           return;
         }
         try {
-          await createScholarshipApplication(payload as Record<string, unknown>);
+          await createScholarshipApplication(
+            payload as Record<string, unknown>,
+          );
           toastSuccess("Scholarship application saved.");
           setModalOpen(false);
           await queryClient.invalidateQueries({
@@ -418,8 +426,14 @@ export default function ScholarshipApplicationPage() {
       rowData={academicYearNum > 0 ? (applications as AppRow[]) : []}
       columnDefs={columnDefs}
       loading={loadingApps || isFetching}
+      fitColumnsToWidth={false}
       pagination
-      toolbar={{ search: true, searchPlaceholder: "Search" }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
       toolbarTrailing={
         academicYearNum > 0 ? (
           <Button type="button" onClick={openCreate}>

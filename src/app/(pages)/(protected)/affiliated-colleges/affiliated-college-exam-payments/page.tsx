@@ -1,62 +1,136 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon } from 'lucide-react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { StatusBadge } from '@/common/components/data-display'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { toastError, toastSuccess } from '@/lib/toast'
-import { getErrorMessage } from '@/lib/errors'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { StatusBadge } from "@/common/components/data-display";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { toastError, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   createUnivCollegeWisePayment,
   listUnivCollegeWisePayments,
   resolveAffiliatedEmployeeId,
   resolveAffiliatedUniversityId,
   updateUnivCollegeWisePayment,
-} from '@/services'
-import type { UnivCollegeWisePaymentRow } from '@/types/affiliated-colleges'
-import { useAffiliatedCascade } from '../_lib/use-affiliated-cascade'
-import { AffiliatedCollegeFilters } from '../_components/AffiliatedCollegeFilters'
-import { ExamPaymentModal } from './_components/ExamPaymentModal'
+} from "@/services";
+import type { UnivCollegeWisePaymentRow } from "@/types/affiliated-colleges";
+import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
+import { AffiliatedCollegeFilters } from "../_components/AffiliatedCollegeFilters";
+import { ExamPaymentModal } from "./_components/ExamPaymentModal";
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<UnivCollegeWisePaymentRow>,
-  college: { field: 'collegeCode', headerName: 'College Code', minWidth: 110 } as ColDef<UnivCollegeWisePaymentRow>,
-  ay: { field: 'academicYear', headerName: 'Academic Year', minWidth: 110 } as ColDef<UnivCollegeWisePaymentRow>,
-  fy: { field: 'financialYear', headerName: 'Financial Year', minWidth: 110 } as ColDef<UnivCollegeWisePaymentRow>,
-  students: { field: 'totalStudents', headerName: 'Total Students', minWidth: 110 } as ColDef<UnivCollegeWisePaymentRow>,
-  amount: { field: 'totalAmount', headerName: 'Total Amount', minWidth: 100 } as ColDef<UnivCollegeWisePaymentRow>,
-  date: { field: 'paymentDate', headerName: 'Payment Date', minWidth: 110 } as ColDef<UnivCollegeWisePaymentRow>,
-  paymentFor: { field: 'paymentFor', headerName: 'Payment For', minWidth: 120 } as ColDef<UnivCollegeWisePaymentRow>,
-  mode: { field: 'paymentMode', headerName: 'Payment Mode', minWidth: 110 } as ColDef<UnivCollegeWisePaymentRow>,
-  desc: { field: 'paymentDes', headerName: 'Description', minWidth: 140, flex: 1 } as ColDef<UnivCollegeWisePaymentRow>,
-  status: { field: 'isActive', headerName: 'Status', minWidth: 100, flex: 0 } as ColDef<UnivCollegeWisePaymentRow>,
-  actions: { headerName: 'Actions', minWidth: 86, flex: 0, width: 86 } as ColDef<UnivCollegeWisePaymentRow>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  college: {
+    field: "collegeCode",
+    headerName: "College Code",
+    minWidth: 110,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  ay: {
+    field: "academicYear",
+    headerName: "Academic Year",
+    minWidth: 110,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  fy: {
+    field: "financialYear",
+    headerName: "Financial Year",
+    minWidth: 110,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  students: {
+    field: "totalStudents",
+    headerName: "Total Students",
+    minWidth: 110,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  amount: {
+    field: "totalAmount",
+    headerName: "Total Amount",
+    minWidth: 100,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  date: {
+    field: "paymentDate",
+    headerName: "Payment Date",
+    minWidth: 110,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  paymentFor: {
+    field: "paymentFor",
+    headerName: "Payment For",
+    minWidth: 120,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  mode: {
+    field: "paymentMode",
+    headerName: "Payment Mode",
+    minWidth: 110,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  desc: {
+    field: "paymentDes",
+    headerName: "Description",
+    minWidth: 140,
+    flex: 1,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  status: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 100,
+    flex: 0,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    flex: 0,
+    width: 86,
+  } as ColDef<UnivCollegeWisePaymentRow>,
+};
 
 function statusRenderer(p: ICellRendererParams<UnivCollegeWisePaymentRow>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 export default function AffiliatedCollegeExamPaymentsPage() {
-  const qc = useQueryClient()
-  const cascade = useAffiliatedCascade({ examFilters: true, allowAllGroupYear: true, autoSelectFirst: true })
-  const [listEnabled, setListEnabled] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<UnivCollegeWisePaymentRow | null>(null)
+  const qc = useQueryClient();
+  const cascade = useAffiliatedCascade({
+    examFilters: true,
+    allowAllGroupYear: true,
+    autoSelectFirst: true,
+  });
+  const [listEnabled, setListEnabled] = useState(false);
+  const [appliedLabel, setAppliedLabel] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<UnivCollegeWisePaymentRow | null>(
+    null,
+  );
 
-  const collegeId = cascade.collegeId ?? 0
-  const examId = cascade.examId ?? 0
+  const collegeId = cascade.collegeId ?? 0;
+  const examId = cascade.examId ?? 0;
 
-  const { data: rows = [], isFetching, refetch } = useQuery({
+  useEffect(() => {
+    setListEnabled(false);
+  }, [
+    cascade.collegeId,
+    cascade.academicYearId,
+    cascade.courseId,
+    cascade.courseGroupId,
+    cascade.courseYearId,
+    cascade.examId,
+  ]);
+
+  const {
+    data: rows = [],
+    isFetching,
+    refetch,
+  } = useQuery({
     queryKey: QK.affiliatedColleges.examPayments(collegeId, examId),
     queryFn: () => listUnivCollegeWisePayments(collegeId, examId),
     enabled: listEnabled && collegeId > 0,
-  })
+  });
 
   const saveMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
@@ -67,21 +141,26 @@ export default function AffiliatedCollegeExamPaymentsPage() {
         examMasterId: cascade.examId ?? 0,
         universityId: resolveAffiliatedUniversityId(),
         paymentMadeByEmpId: resolveAffiliatedEmployeeId(),
-      }
+      };
       if (editing?.univCollegeWisePaymentId) {
-        return updateUnivCollegeWisePayment(editing.univCollegeWisePaymentId, base)
+        return updateUnivCollegeWisePayment(
+          editing.univCollegeWisePaymentId,
+          base,
+        );
       }
-      return createUnivCollegeWisePayment(base as Parameters<typeof createUnivCollegeWisePayment>[0])
+      return createUnivCollegeWisePayment(
+        base as Parameters<typeof createUnivCollegeWisePayment>[0],
+      );
     },
     onSuccess: async () => {
-      toastSuccess(editing ? 'Payment updated.' : 'Payment added.')
-      setModalOpen(false)
-      setEditing(null)
-      await qc.invalidateQueries({ queryKey: QK.affiliatedColleges.all })
-      await refetch()
+      toastSuccess(editing ? "Payment updated." : "Payment added.");
+      setModalOpen(false);
+      setEditing(null);
+      await qc.invalidateQueries({ queryKey: QK.affiliatedColleges.all });
+      await refetch();
     },
     onError: (e) => toastError(getErrorMessage(e)),
-  })
+  });
 
   const columnDefs = useMemo<ColDef<UnivCollegeWisePaymentRow>[]>(
     () => [
@@ -103,8 +182,8 @@ export default function AffiliatedCollegeExamPaymentsPage() {
             size="sm"
             variant="ghost"
             onClick={() => {
-              setEditing(p.data ?? null)
-              setModalOpen(true)
+              setEditing(p.data ?? null);
+              setModalOpen(true);
             }}
           >
             <PencilIcon className="h-3.5 w-3.5 mr-1" /> Edit
@@ -113,51 +192,66 @@ export default function AffiliatedCollegeExamPaymentsPage() {
       },
     ],
     [],
-  )
+  );
 
   return (
     <FilteredListPage
-      title="Affiliated College Exam Payments"
-      filters={(
+      title={
+        appliedLabel
+          ? `Affiliated College Exam Payments - ${appliedLabel}`
+          : "Affiliated College Exam Payments"
+      }
+      filters={
         <AffiliatedCollegeFilters
           title="Affiliated College Exam Payments"
           cascade={cascade}
-          onGetDetails={() => setListEnabled(true)}
+          onGetDetails={() => {
+            setAppliedLabel(cascade.contextLabel);
+            setListEnabled(true);
+          }}
           loadingDetails={isFetching}
           allowAllGroupYear
           showExam
           bare
         />
-      )}
+      }
       rowData={listEnabled ? rows : []}
       columnDefs={columnDefs}
       loading={isFetching}
       pagination
-      toolbar={{ search: true, searchPlaceholder: 'Search payments…', pdfDocumentTitle: 'Affiliated College Exam Payments' }}
-      toolbarTrailing={(
+      showTable={listEnabled}
+      resultsVisible={listEnabled}
+      toolbar={{
+        search: true,
+        exportExcel: false,
+        exportPdf: false,
+        searchPlaceholder: "Search payments…",
+        pdfDocumentTitle: "Affiliated College Exam Payments",
+      }}
+      toolbarTrailing={
         <Button
           size="sm"
           onClick={() => {
-            setEditing(null)
-            setModalOpen(true)
+            setEditing(null);
+            setModalOpen(true);
           }}
           disabled={!listEnabled || !cascade.collegeId}
         >
           <PlusIcon className="h-3.5 w-3.5 mr-1" />
           Exam Payments
         </Button>
-      )}
+      }
     >
       <ExamPaymentModal
         open={modalOpen}
         onClose={() => {
-          setModalOpen(false)
-          setEditing(null)
+          setModalOpen(false);
+          setEditing(null);
         }}
         editing={editing}
         onSave={(payload) => saveMutation.mutate(payload)}
         isSubmitting={saveMutation.isPending}
       />
     </FilteredListPage>
-  )
+  );
 }
