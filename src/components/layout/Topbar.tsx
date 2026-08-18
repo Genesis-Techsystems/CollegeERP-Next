@@ -78,6 +78,7 @@ function isStudentToolbarUser(
 /**
  * Toolbar subtitle: username / roll number only (no department).
  * Students also append groupCode / courseYearName when present.
+ * Angular: `({{uNumber}} / {{groupCode}}) / {{courseYearName}})`
  */
 function toolbarUserSubLabel(opts: {
   userTypeCode?: string;
@@ -86,17 +87,31 @@ function toolbarUserSubLabel(opts: {
   groupCode?: string;
   courseYearName?: string;
 }): string | null {
-  const uNumber = (opts.empNumber ?? "").trim();
+  const isStudent = isStudentToolbarUser(opts.userTypeCode, opts.userRole);
+  const empNumber = (opts.empNumber ?? "").trim() || readLs("empNumber");
+  const uNumber = isStudent
+    ? (() => {
+        const roll =
+          readLs("rollNumber") ||
+          readLs("hallticketNumber") ||
+          readLs("uNumber");
+        // Stale employee-code overwrite from employeedetailsbyid.
+        if (empNumber && roll === empNumber) {
+          return readLs("rollNumber") || readLs("hallticketNumber");
+        }
+        return roll;
+      })()
+    : empNumber || readLs("uNumber") || readLs("rollNumber");
   if (!uNumber) return null;
 
-  if (!isStudentToolbarUser(opts.userTypeCode, opts.userRole)) {
+  if (!isStudent) {
     return `(${uNumber})`;
   }
 
   // Angular extra spans each close the paren.
   let label = `(${uNumber}`;
-  const groupCode = (opts.groupCode ?? "").trim();
-  const courseYearName = (opts.courseYearName ?? "").trim();
+  const groupCode = readLs("groupCode");
+  const courseYearName = readLs("courseYearName") || readLs("courseYearCode");
   if (groupCode) label += ` / ${groupCode})`;
   if (courseYearName) label += ` / ${courseYearName})`;
   if (!label.endsWith(")")) label += ")";
@@ -106,10 +121,11 @@ function toolbarUserSubLabel(opts: {
 function toolbarFullName(
   user: {
     firstName?: string;
+    middleName?: string;
     lastName?: string;
   } | null,
 ): string {
-  return [user?.firstName, user?.lastName]
+  return [user?.firstName, user?.middleName, user?.lastName]
     .map((p) => String(p ?? "").trim())
     .filter(Boolean)
     .join(" ");
@@ -120,10 +136,15 @@ export function Topbar() {
   const { user, isLoading: sessionLoading } = useSessionContext();
   const { toggleSidebar, navItems } = useNavigationStore();
 
+  const isStudentToolbar = isStudentToolbarUser(
+    user?.userTypeCode,
+    user?.userRole,
+  );
+
   const { data: employeeLogin } = useQuery({
     queryKey: QK.staffLoginContext(user?.userId ?? 0),
     queryFn: () => getEmployeeLoginContextByUserId(user!.userId),
-    enabled: !sessionLoading && Boolean(user?.userId),
+    enabled: !sessionLoading && Boolean(user?.userId) && !isStudentToolbar,
     staleTime: Number.POSITIVE_INFINITY,
   });
 
@@ -137,7 +158,11 @@ export function Topbar() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
-  const [mounted, setMounted] = useState(false);
+  const [toolbarReady, setToolbarReady] = useState(false);
+
+  useEffect(() => {
+    setToolbarReady(true);
+  }, []);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -278,7 +303,7 @@ export function Topbar() {
   const avatarStyle =
     roleAvatarStyle[user?.userRole ?? ""] ?? "bg-cyan-100 text-cyan-700";
 
-  const empLabel = mounted
+  const empLabel = toolbarReady
     ? toolbarUserSubLabel({
         userTypeCode: user?.userTypeCode,
         userRole: user?.userRole,

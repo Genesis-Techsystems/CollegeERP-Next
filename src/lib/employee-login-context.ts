@@ -214,14 +214,27 @@ export function syncEmployeeLoginContextToStorage(
   storage.setItem("isHOD", ctx.isHod ? "true" : "false");
   storage.setItem("isHODDashboard", ctx.isHod ? "true" : "false");
   if (ctx.uName) storage.setItem("uName", ctx.uName);
+  const portalType = String(storage.getItem("userTypeCode") ?? "").toUpperCase();
+  const portalRole = String(storage.getItem("userRole") ?? "").toUpperCase();
+  const isStudentPortal =
+    portalType === "STUDENT" ||
+    portalType === "PARENT" ||
+    portalType === "MSTUDENT" ||
+    portalRole === "STUDENT" ||
+    portalRole === "PARENT" ||
+    portalRole === "MSTUDENT";
   if (ctx.empNumber) {
     storage.setItem("empNumber", ctx.empNumber);
-    storage.setItem("uNumber", ctx.empNumber);
+    // Angular student toolbar uses rollNumber as uNumber — do not replace it
+    // with employee code (e.g. EP002135).
+    if (!isStudentPortal) storage.setItem("uNumber", ctx.empNumber);
   }
   if (ctx.deptName) storage.setItem("deptName", ctx.deptName);
   // Staff login must not keep a previous student's group/year in the toolbar.
-  storage.setItem("groupCode", "null");
-  storage.removeItem("courseYearName");
+  if (!isStudentPortal) {
+    storage.setItem("groupCode", "null");
+    storage.removeItem("courseYearName");
+  }
   if (ctx.empStatusCode) storage.setItem("empStatusCode", ctx.empStatusCode);
   if (ctx.empCategoryName)
     storage.setItem("empCategoryName", ctx.empCategoryName);

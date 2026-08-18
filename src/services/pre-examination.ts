@@ -2573,17 +2573,13 @@ export function callBillDesk(
 }
 
 /**
- * Angular GenericFunctions.initiatePayment (student exam fee / fee-due):
+ * Angular GenericFunctions.initiatePayment:
  * encrypt { amount, collegeId, order_id, feeType } → FormData `data` →
- * POST `paymentGateway/initiatePayment` → open PhiCommerce / BillDesk gateway.
+ * POST `BillDesk/initiatePayment` (`CONSTANTS.initiatePaymentUrl`) →
+ * callBillDesk(actionurl, merchantid, bdorderid, rdata).
  *
- * Demo (`demo.skolo.in`) exposes `paymentGateway/initiatePayment` (Angular
- * `initaitePaymentUrl` / older `initiatePaymentUrl`). `BillDesk/initiatePayment`
- * returns 404 on that host.
- *
- * Response handling:
- * - object with `actionurl` → callBillDesk (form POST → PhiCommerce)
- * - string URL → window.open `_self` (Angular commented PayPhi fallback)
+ * Some tenants still expose the older `paymentGateway/initiatePayment` path;
+ * fall back only when BillDesk returns 404.
  */
 export async function initiatePayment(
   receiptAmount: number,
@@ -2601,10 +2597,25 @@ export async function initiatePayment(
   const formData = new FormData();
   formData.append("data", getEncryptedValue(request));
 
-  const body = (await uploadFile(
-    PAYMENT_GATEWAY_API.INITIATE_PAYMENT,
-    formData,
-  )) as ApiResponse<AnyRow | string>;
+  let body: ApiResponse<AnyRow | string>;
+  try {
+    body = (await uploadFile(
+      PAYMENT_GATEWAY_API.BILLDESK_INITIATE,
+      formData,
+    )) as ApiResponse<AnyRow | string>;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err ?? "");
+    const isMissing =
+      /404|not found/i.test(msg) ||
+      (err instanceof Error &&
+        "code" in err &&
+        String((err as { code?: unknown }).code) === "NOT_FOUND");
+    if (!isMissing) throw err;
+    body = (await uploadFile(
+      PAYMENT_GATEWAY_API.INITIATE_PAYMENT,
+      formData,
+    )) as ApiResponse<AnyRow | string>;
+  }
 
   if (body?.success === false) {
     throw new Error(body.message || "Payment initiation failed");

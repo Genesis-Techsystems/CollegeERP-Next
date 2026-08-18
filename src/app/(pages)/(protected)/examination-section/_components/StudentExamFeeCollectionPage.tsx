@@ -1,15 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Banknote, ClipboardList, Eye, Printer, Trash2 } from "lucide-react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ClipboardList, Eye, Printer, Trash2 } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { DataTable } from "@/common/components/table";
 import { rowIndexGetter } from "@/lib/utils";
 import { PageContainer } from "@/components/layout";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +41,7 @@ import {
   deleteExamFeeReceipt,
   downloadStudentExamFeeReceiptPdf,
   fetchStudentDetail,
+  fetchStudentDetailByUserId,
   getExamCourseYearSubjects,
   getExamMasterDetailsByGroup,
   getStudentAcademicBatches,
@@ -268,7 +275,7 @@ function StudentExamFeeProfileBanner({
             </span>
           </p>
           <p className="text-[#8c8c8c]">
-            {student.hallticketNumber ?? student.rollNumber}
+            {student.rollNumber ?? student.hallticketNumber}
           </p>
           {pathLine ? <p className="text-[#8c8c8c]">{pathLine}</p> : null}
           {student.mobile ? (
@@ -332,6 +339,22 @@ function normalizeStudentProfile(row: AnyRow): StudentExamProfile {
   };
 }
 
+function SubjectFeeLabel({ row }: { readonly row: AnyRow }) {
+  const name = txt(row, ["shortName", "subjectName"]);
+  const code = txt(row, ["subjectCode"]);
+  return (
+    <>
+      {name}
+      {code ? (
+        <>
+          {" - "}
+          <span className="subj-code">{code}</span>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function examOptionLabel(exam: AnyRow): string {
   const name = txt(exam, ["examName", "name"]);
   const from = fmtDate(examFromDate(exam));
@@ -377,6 +400,7 @@ function StudentExamFeeCollectionContent({
 
   const { user, isLoading: sessionLoading } = useSessionContext();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const mountedRef = useRef(false);
 
   const [loading, setLoading] = useState(false);
@@ -404,6 +428,7 @@ function StudentExamFeeCollectionContent({
   const [deleteTarget, setDeleteTarget] = useState<AnyRow | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const paymentReturnHandled = useRef(false);
 
   const selectedSubjects = useMemo(
     () => subjects.filter((s) => s.checked),
@@ -464,9 +489,22 @@ function StudentExamFeeCollectionContent({
     if (!user) return;
     setLoading(true);
     try {
+      // Angular enteredStudent(localStorage.rollNumber) → studentsearch?isActive=true&q=
       let row: AnyRow | null = null;
-      if (user.studentId) {
+      const roll = String(
+        (typeof globalThis.window !== "undefined"
+          ? globalThis.localStorage.getItem("rollNumber")
+          : "") ?? "",
+      ).trim();
+      if (roll.length > 4) {
+        const matches = await searchStudentsByKeyword(roll);
+        row = matches[0] ?? null;
+      }
+      if (!row && user.studentId) {
         row = await fetchStudentDetail(user.studentId);
+      }
+      if (!row && user.userId) {
+        row = await fetchStudentDetailByUserId(user.userId);
       }
       if (!row && user.userName.trim().length > 4) {
         const matches = await searchStudentsByKeyword(user.userName.trim());
@@ -512,6 +550,28 @@ function StudentExamFeeCollectionContent({
   useEffect(() => {
     if (!sessionLoading && user) void loadStudent();
   }, [sessionLoading, user, loadStudent]);
+
+  // Angular route.queryParams: orderId + examId + orderStatus SUC/REJ + paymentStatus
+  useEffect(() => {
+    const orderId = searchParams.get("orderId");
+    if (!orderId) return;
+    const paramExamId = searchParams.get("examId");
+    if (paramExamId) {
+      const parsed = Number.parseInt(paramExamId, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        setExamId(String(parsed));
+      }
+    }
+    if (paymentReturnHandled.current) return;
+    paymentReturnHandled.current = true;
+    const orderStatus = searchParams.get("orderStatus");
+    const paymentStatus = searchParams.get("paymentStatus") ?? "";
+    if (orderStatus === "SUC") {
+      toastSuccess(paymentStatus || "Payment successful");
+    } else if (orderStatus === "REJ") {
+      toastError(paymentStatus || "Payment failed");
+    }
+  }, [searchParams]);
 
   const resolveCourseYearsForExam = useCallback(
     (
@@ -1178,7 +1238,7 @@ function StudentExamFeeCollectionContent({
   /**
    * Angular saveExamFeeDetails() on dialog PAY:
    * 1) POST stgOnlineExamFeeReceipts
-   * 2) POST paymentGateway/initiatePayment (encrypted FormData) → PhiCommerce
+   * 2) POST BillDesk/initiatePayment (encrypted FormData) → callBillDesk
    */
   async function confirmPay() {
     if (!student || !selectedExam || courseYearFee.length === 0) return;
@@ -1233,7 +1293,10 @@ function StudentExamFeeCollectionContent({
 
       let collegeId = Number(result.data.collegeId ?? student.collegeId ?? 0);
       let feeType = "EXAMFEE";
-      if (String(student.courseCode ?? "").toUpperCase() === "PHD") {
+      const courseCode = String(
+        student.courseCode ?? searchParams.get("courseCode") ?? "",
+      ).toUpperCase();
+      if (courseCode === "PHD") {
         collegeId = 0;
         feeType = "PHD";
       }
@@ -1270,9 +1333,14 @@ function StudentExamFeeCollectionContent({
 
   return (
     <PageContainer>
-      <div className="student-exam-fee-page">
+      <div className="student-exam-fee-page" data-no-page-name>
         <div className="student-exam-fee-page__header">
-          <Banknote className="student-exam-fee-page__header-icon h-5 w-5" />
+          <span
+            className="material-icons student-exam-fee-page__header-icon"
+            aria-hidden
+          >
+            money
+          </span>
           <span className="student-exam-fee-page__header-text">
             {pageTitle}
           </span>
@@ -1320,11 +1388,14 @@ function StudentExamFeeCollectionContent({
               </label>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="subjects-row">
               {courseYears.length > 0 ? (
-                <div className="bordr w-full bg-white p-2 md:w-[20%]">
+                <div className="bordr col-year">
                   <Select
                     label="Course Year"
+                    required
+                    variant="standard"
+                    searchable={false}
                     value={courseYearId || null}
                     onChange={(v) => setCourseYearId(v ?? "")}
                     options={courseYearOptions}
@@ -1332,7 +1403,7 @@ function StudentExamFeeCollectionContent({
                     disabled={loading || courseYearOptions.length === 0}
                   />
                   {courseYearId && examType === 2 ? (
-                    <div className="mt-2 flex gap-4">
+                    <div className="supple-links">
                       <span
                         className="txt-all"
                         onClick={() => void loadAllSubjects()}
@@ -1351,30 +1422,35 @@ function StudentExamFeeCollectionContent({
               ) : null}
 
               {subjects.length > 0 ? (
-                <div className="bordr first-table w-full bg-white md:w-[25%]">
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <div className="search-box flex-1">
+                <div className="bordr first-table col-pick">
+                  <div className="pick-toolbar">
+                    <div className="search-box">
+                      <i className="fa fa-search" aria-hidden />
                       <input
                         value={subjectSearch}
                         onChange={(e) => setSubjectSearch(e.target.value)}
                         placeholder="Search..."
                       />
                     </div>
-                    <span className="whitespace-nowrap text-sm font-medium text-blue-600">
-                      Subjects: {selectedSubjects.length}
+                    <span className="roll-no">
+                      Subjects: <span>{selectedSubjects.length}</span>
                     </span>
                   </div>
-                  <table className="w-full text-sm">
+                  <table>
                     <thead>
                       <tr>
-                        <th className="w-[15%]">
-                          <Checkbox
-                            checked={selectAllSubjects}
-                            onCheckedChange={(v) =>
-                              toggleAllSubjects(Boolean(v))
-                            }
-                          />{" "}
-                          All
+                        <th className="col-check">
+                          <label>
+                            <input
+                              type="checkbox"
+                              className="subj-check"
+                              checked={selectAllSubjects}
+                              onChange={(e) =>
+                                toggleAllSubjects(e.target.checked)
+                              }
+                            />
+                            All
+                          </label>
                         </th>
                         <th>Subjects</th>
                       </tr>
@@ -1384,25 +1460,18 @@ function StudentExamFeeCollectionContent({
                         const id = num(sub, ["subjectId"]);
                         return (
                           <tr key={id}>
-                            <td>
-                              <Checkbox
+                            <td className="col-check">
+                              <input
+                                type="checkbox"
+                                className="subj-check"
                                 checked={Boolean(sub.checked)}
-                                onCheckedChange={(v) =>
-                                  toggleSubject(id, Boolean(v))
+                                onChange={(e) =>
+                                  toggleSubject(id, e.target.checked)
                                 }
                               />
                             </td>
                             <td>
-                              {sub.shortName}
-                              {sub.subjectCode ? (
-                                <span>
-                                  {" "}
-                                  -{" "}
-                                  <span className="text-blue-600">
-                                    {sub.subjectCode}
-                                  </span>
-                                </span>
-                              ) : null}
+                              <SubjectFeeLabel row={sub} />
                             </td>
                           </tr>
                         );
@@ -1413,29 +1482,18 @@ function StudentExamFeeCollectionContent({
               ) : null}
 
               {selectedSubjects.length > 0 ? (
-                <div className="bordr first-table first-table-sub w-full md:w-[20%]">
-                  <table className="w-full text-sm">
+                <div className="bordr first-table first-table-sub col-selected">
+                  <table>
                     <thead>
                       <tr>
-                        <th className="text-blue-600">
-                          Selected Subjects : {selectedSubjects.length}
-                        </th>
+                        <th>Selected Subjects : {selectedSubjects.length}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {selectedSubjects.map((sub) => (
                         <tr key={num(sub, ["subjectId"])}>
                           <td>
-                            {sub.shortName}
-                            {sub.subjectCode ? (
-                              <span>
-                                {" "}
-                                -{" "}
-                                <span className="text-blue-600">
-                                  {sub.subjectCode}
-                                </span>
-                              </span>
-                            ) : null}
+                            <SubjectFeeLabel row={sub} />
                           </td>
                         </tr>
                       ))}
@@ -1445,8 +1503,8 @@ function StudentExamFeeCollectionContent({
               ) : null}
 
               {additionalFees.length > 0 ? (
-                <div className="bordr first-table first-table-sub w-full md:w-[22%]">
-                  <table className="w-full text-sm">
+                <div className="bordr first-table first-table-sub col-addfee">
+                  <table>
                     <thead>
                       <tr>
                         <th>Additional Fee</th>
@@ -1483,13 +1541,16 @@ function StudentExamFeeCollectionContent({
               ) : null}
 
               {subjects.length > 0 ? (
-                <div className="relative w-full p-2 md:w-[10%]">
+                <div className="col-checkfee">
                   <button
                     type="button"
-                    className="add-btn-gold absolute bottom-[-4px]"
+                    className="add-btn"
                     onClick={handleCheckFee}
                     disabled={loading}
                   >
+                    <i className="material-icons" aria-hidden>
+                      add
+                    </i>
                     Check Fee
                   </button>
                 </div>
@@ -1869,5 +1930,15 @@ export function StudentExamFeeCollectionPage({
 }: {
   variant?: StudentExamFeeVariant;
 }) {
-  return <StudentExamFeeCollectionContent variant={variant} />;
+  return (
+    <Suspense
+      fallback={
+        <PageContainer>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </PageContainer>
+      }
+    >
+      <StudentExamFeeCollectionContent variant={variant} />
+    </Suspense>
+  );
 }

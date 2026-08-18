@@ -1013,6 +1013,15 @@ function overrideExaminationSectionHref(
 
 /** Resolve DB/sidebar/search href + label to the live Next.js route. */
 export function normalizePageHref(href: string, pageLabel: string): string {
+  // Sidebar builds hrefs with normalizePageHref (not resolveNavHref). Pin here
+  // so Exam Results → Student AnswerPaper View does not 404 → dashboard.
+  const answerPaperHref = mapExaminationSectionNavRoute(href, pageLabel);
+  if (
+    answerPaperHref === "/student-examination/student-answerpaper-view"
+  ) {
+    return answerPaperHref;
+  }
+
   // Label/href pins for Examination Reports — required for Search (404 → dashboard).
   const examReportHref = resolveExaminationReportHref(href, pageLabel);
   if (examReportHref) return examReportHref;

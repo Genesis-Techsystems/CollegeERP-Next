@@ -13,11 +13,13 @@ export const ADMIN_EXAMINATION_SECTION_BASE = "/admin-examination-section";
 /** Angular student-exam-section.module.ts child routes. */
 const EXAMINATION_SECTION_SLUGS: Record<string, string> = {
   "exam-fee-registration": "exam-fee-registration",
+  "student-exam-fee-collection": "exam-fee-registration",
   "student-exam-hallticket": "student-exam-hallticket",
   "student-exam-timetable": "student-exam-timetable",
   "exam-online-test": "exam-online-test",
   "revaluation-fee-registration": "revaluation-fee-registration",
   "student-reevaluation-registration": "student-reevaluation-registration",
+  "student-reevaluation-fee-collection": "student-reevaluation-registration",
   "student-photocopy-download": "student-photocopy-download",
 };
 
@@ -76,8 +78,7 @@ function isAdminExaminationContext(
     hrefLower.includes("admin-pre-examination") ||
     labelLower.includes("examination management") ||
     labelLower.includes("pre examination") ||
-    labelLower.includes("online exam fee regi") ||
-    labelLower.includes("student exam fee col")
+    labelLower.includes("online exam fee regi")
   );
 }
 
@@ -91,6 +92,19 @@ export function mapExaminationSectionNavRoute(
   const hrefLower = (href ?? "").toLowerCase();
   const labelLower = (label ?? "").toLowerCase();
   const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+
+  // Student AnswerPaper View — Angular `/student-examination/student-answerpaper-view`.
+  // Exam Results module URL is often `admin-examination-section`, so the built
+  // href 404s at `/admin-examination-section/student-answerpaper-view` → dashboard.
+  if (
+    hrefLower.includes("student-answerpaper-view") ||
+    hrefLower.includes("student-answer-paper-view") ||
+    hrefLower.includes("answerpaper-view") ||
+    labelKey === "student answerpaper view" ||
+    labelKey === "student answer paper view"
+  ) {
+    return "/student-examination/student-answerpaper-view";
+  }
 
   // Student Exam Results lives under admin-examination-section (not examination-section).
   // Pin before slug rewrite so sidebar does not 404 → dashboard.
@@ -110,19 +124,32 @@ export function mapExaminationSectionNavRoute(
   // Other admin-examination-section pages: do not rewrite to /examination-section.
   if (hrefLower.includes("admin-examination-section")) return null;
 
+  // Angular `student-exam-section/student-exam-fee-collection` — student login.
+  // Must run before admin "Student Exam Fee Collection" (pre-examination) remap.
+  const isAdminExamFeeCollection =
+    hrefLower.includes("admin-examination-management") ||
+    hrefLower.includes("pre-examination");
+  if (
+    !isAdminExamFeeCollection &&
+    (hrefLower.includes("student-exam-fee-collection") ||
+      hrefLower.includes("student-exam-section/exam-fee") ||
+      hrefLower.includes("examination-section/exam-fee-registration") ||
+      ((labelKey === "exam fee collection" ||
+        labelKey === "student exam fee collection") &&
+        (hrefLower.includes("student-exam") ||
+          hrefLower.includes("examination-section") ||
+          hrefLower.includes("exam-fee-collection") ||
+          hrefLower.includes("exam-fee-registration"))))
+  ) {
+    return `${EXAMINATION_SECTION_BASE}/exam-fee-registration`;
+  }
+
   if (isAdminExaminationContext(hrefLower, labelLower)) return null;
 
   const hrefSlug = slugFromHref(hrefLower);
   if (hrefSlug) {
     const mapped = EXAMINATION_SECTION_SLUGS[hrefSlug] ?? hrefSlug;
     return `${EXAMINATION_SECTION_BASE}/${mapped}`;
-  }
-
-  if (
-    labelLower.includes("exam fee registration") ||
-    labelLower.includes("exam fee regi")
-  ) {
-    return `${EXAMINATION_SECTION_BASE}/exam-fee-registration`;
   }
 
   if (
@@ -149,7 +176,12 @@ export function mapExaminationSectionNavRoute(
     return `${EXAMINATION_SECTION_BASE}/revaluation-fee-registration`;
   }
 
-  if (labelLower.includes("reevaluation registration")) {
+  if (
+    labelLower.includes("reevaluation registration") ||
+    labelLower.includes("re-valuation fee") ||
+    labelLower.includes("re-evaluation fee") ||
+    hrefLower.includes("student-reevaluation")
+  ) {
     return `${EXAMINATION_SECTION_BASE}/student-reevaluation-registration`;
   }
 

@@ -239,6 +239,40 @@ export function resolveForcedNavRoute(
     return "/staff-faculty-details/appraisal-report";
   }
 
+  if (
+    hrefLower.includes("student-reevaluation") ||
+    hrefLower.includes("student-reevaluation-fee") ||
+    ((labelLower.includes("re-valuation fee") ||
+      labelLower.includes("re-evaluation fee") ||
+      labelLower.includes("reevaluation fee")) &&
+      !labelLower.includes("setup") &&
+      (hrefLower.includes("student-exam") ||
+        hrefLower.includes("examination-section") ||
+        hrefLower.includes("student-reevaluation")))
+  ) {
+    if (
+      !hrefLower.includes("admin-examination-management") &&
+      !hrefLower.includes("/re-evaluation/")
+    ) {
+      return "/examination-section/student-reevaluation-registration";
+    }
+  }
+
+  // Student login Exam Fee Collection (Angular student-exam-section) vs admin
+  // Pre-Examination page — same menu label, different hrefs.
+  if (
+    labelLower.includes("student exam fee col") ||
+    hrefLower.includes("student-exam-fee-collection")
+  ) {
+    if (
+      hrefLower.includes("admin-examination-management") ||
+      hrefLower.includes("pre-examination")
+    ) {
+      return `${preExamBase}/student-exam-fee-registration`;
+    }
+    return "/examination-section/exam-fee-registration";
+  }
+
   const facultyDetailsRoute = resolveFacultyDetailsNavRoute(href, label);
   if (facultyDetailsRoute) return facultyDetailsRoute;
 
@@ -275,9 +309,19 @@ export function resolveForcedNavRoute(
       (hrefLower.includes("committee-members") ||
         hrefLower.includes("grievance-masters") ||
         hrefLower.includes("add-committee-members"));
+    const pinIsAdminExamFeeCollection =
+      sidebarPin ===
+      "/admin-examination-management/pre-examination/student-exam-fee-registration";
+    const hrefIsStudentExamFeeCollection =
+      !hrefLower.includes("admin-examination-management") &&
+      !hrefLower.includes("pre-examination") &&
+      (hrefLower.includes("student-exam-section") ||
+        hrefLower.includes("student-exam-fee-collection") ||
+        hrefLower.includes("examination-section"));
     if (
       !(pinIsSisStudentsList && hrefIsStudentsListReport) &&
-      !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers)
+      !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers) &&
+      !(pinIsAdminExamFeeCollection && hrefIsStudentExamFeeCollection)
     ) {
       return sidebarPin;
     }
@@ -761,6 +805,17 @@ export function resolveForcedNavRoute(
     return "/reports/admin-exam-reports/group-wise-failed-result-sheets";
   }
   const labelKey = labelLower.replace(/[^a-z0-9]+/g, " ").trim();
+
+  // Student AnswerPaper View — Angular `/student-examination/student-answerpaper-view`
+  if (
+    hrefLower.includes("student-answerpaper-view") ||
+    hrefLower.includes("student-answer-paper-view") ||
+    hrefLower.includes("answerpaper-view") ||
+    labelKey === "student answerpaper view" ||
+    labelKey === "student answer paper view"
+  ) {
+    return "/student-examination/student-answerpaper-view";
+  }
 
   // Student Exam Results (student login only) — Angular
   // `/admin-examination-section/student-exam-results`. Must run before admin
@@ -3481,6 +3536,15 @@ export function resolveForcedNavRoute(
     labelLower.includes("reevaluation fee") ||
     labelLower.includes("re-valuation fee")
   ) {
+    if (
+      !hrefLower.includes("admin-examination-management") &&
+      !hrefLower.includes("/re-evaluation/") &&
+      (hrefLower.includes("student-exam") ||
+        hrefLower.includes("student-reevaluation") ||
+        hrefLower.includes("examination-section"))
+    ) {
+      return "/examination-section/student-reevaluation-registration";
+    }
     return `${reEvalBase}/re-evaluation-fee`;
   }
   if (labelLower.includes("exam revised marks")) {
@@ -3495,8 +3559,15 @@ export function resolveForcedNavRoute(
   if (labelLower.includes("evaluation status tracking")) {
     return `${evalProcessBase}/update-evaluator-answer-papers-status`;
   }
-  if (labelLower.includes("student exam fee col"))
-    return `${preExamBase}/student-exam-fee-registration`;
+  if (labelLower.includes("student exam fee col")) {
+    if (
+      hrefLower.includes("admin-examination-management") ||
+      hrefLower.includes("pre-examination")
+    ) {
+      return `${preExamBase}/student-exam-fee-registration`;
+    }
+    return "/examination-section/exam-fee-registration";
+  }
   if (labelLower.includes("exam scheduling for"))
     return `${preExamBase}/exam-scheduling-forms`;
   if (
