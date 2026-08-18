@@ -200,14 +200,21 @@ function questionButtonClass(
     return cn(base, "bg-rose-500 hover:bg-rose-600");
   }
   if (q.marks !== null) {
+    // is_consider === 0 — gray only; do not use the marks-added teal.
     if (!isMarkConsidering(q.isConsider)) {
       return cn(base, "bg-slate-400 hover:bg-slate-500");
     }
     if (isValidator) {
-      return cn(base, "bg-sky-600 hover:bg-sky-700");
+      return cn(
+        base,
+        "border border-sky-600 bg-sky-600 shadow-[inset_0_0_0_1px_#fff,0_2px_3px_rgba(0,0,0,0.25)] hover:bg-sky-700",
+      );
     }
-    // Considering (marks added) — teal.
-    return cn(base, "bg-[#2a9d8f] hover:bg-[#21867a]");
+    // Marks added — teal + thin inset white ring.
+    return cn(
+      base,
+      "border border-[#45B39D] bg-[#45B39D] shadow-[inset_0_0_0_1px_#fff,0_2px_3px_rgba(0,0,0,0.25)] hover:border-[#3DA392] hover:bg-[#3DA392]",
+    );
   }
   return cn(base, "bg-[#2a9d8f] hover:bg-[#21867a]");
 }
@@ -737,6 +744,8 @@ export function EvaluationWorkbench({
   // Previously-saved marks, kept in a ref so the render loop can draw them onto
   // each page canvas without re-rendering the PDF on every data refetch.
   const savedMarksRef = useRef<SavedMark[]>([]);
+  const annotationsRef = useRef<Annotation[]>([]);
+  annotationsRef.current = annotations;
   const isValidatorRef = useRef(isValidator);
   isValidatorRef.current = isValidator;
   const savePdfWithMaskingRef = useRef(savePdfWithMasking);
@@ -1337,6 +1346,55 @@ export function EvaluationWorkbench({
   // Angular viewPages — thumbnail gallery of every answer-script page.
   // Main PDF pages are lazy; capture rendered canvases when available, otherwise
   // paint a small off-screen thumbnail from the PDF so every page is shown.
+  // On-screen marks are HTML overlays (not baked into the canvas), so they must
+  // be stamped onto each thumbnail or they disappear in View Pages.
+  const pageMarksForThumb = (page: number) => {
+    const saved = savedMarksRef.current.filter((m) => Number(m.page) === page);
+    const savedQids = new Set(saved.map((m) => String(m.qid)));
+    const extra = annotationsRef.current.filter(
+      (a) =>
+        Number(a.page) === page &&
+        a.canvasX != null &&
+        a.canvasY != null &&
+        !savedQids.has(a.qid),
+    );
+    return [
+      ...saved.map((m) => ({
+        x: Number(m.x) || 0,
+        y: Number(m.y) || 0,
+        qid: String(m.qid),
+        mark: String(m.mark),
+        isConsider: m.isConsider as unknown,
+      })),
+      ...extra.map((a) => ({
+        x: Number(a.canvasX) || 0,
+        y: Number(a.canvasY) || 0,
+        qid: a.qid,
+        mark: String(a.mark),
+        isConsider: a.isConsider as unknown,
+      })),
+    ];
+  };
+
+  const stampMarksOnContext = (
+    ctx: CanvasRenderingContext2D,
+    page: number,
+    scaleX: number,
+    scaleY: number,
+  ) => {
+    const validator = isValidatorRef.current;
+    for (const m of pageMarksForThumb(page)) {
+      drawMarkBadge(
+        ctx,
+        m.x * scaleX,
+        m.y * scaleY,
+        m.qid,
+        m.mark,
+        markColorsFor(m.isConsider, validator),
+      );
+    }
+  };
+
   const openViewPages = async () => {
     const container = canvasContainerRef.current;
     const doc = pdfDocRef.current;
@@ -1368,7 +1426,15 @@ export function EvaluationWorkbench({
 
         if (canvas.dataset.rendered === "1") {
           try {
-            src = canvas.toDataURL("image/jpeg", 0.55);
+            const off = document.createElement("canvas");
+            off.width = canvas.width;
+            off.height = canvas.height;
+            const ctx = off.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(canvas, 0, 0);
+              stampMarksOnContext(ctx, page, 1, 1);
+              src = off.toDataURL("image/jpeg", 0.55);
+            }
           } catch {
             src = null;
           }
@@ -1391,17 +1457,7 @@ export function EvaluationWorkbench({
               // Scale saved-mark coords (stored at workbench role scale) onto this thumb.
               const markScale =
                 0.45 / workbenchPdfScale(isValidatorRef.current);
-              for (const m of savedMarksRef.current) {
-                if (Number(m.page) !== page) continue;
-                drawMarkBadge(
-                  ctx,
-                  Number(m.x) * markScale,
-                  Number(m.y) * markScale,
-                  String(m.qid),
-                  String(m.mark),
-                  markColorsFor(m.isConsider, isValidatorRef.current),
-                );
-              }
+              stampMarksOnContext(ctx, page, markScale, markScale);
               src = off.toDataURL("image/jpeg", 0.55);
             }
           } catch {

@@ -59,6 +59,12 @@ export function roleLooksLikeViceChancellor(value: unknown): boolean {
   return token === "VICECHANCELLOR" || token === "VICECHANCELLER";
 }
 
+/** Angular vc-dashboard `userRole == 'ExamController'` / userTypeCode `EXAMCONTROLLER`. */
+export function roleLooksLikeExamController(value: unknown): boolean {
+  const token = normalizeRoleToken(value);
+  return token === "EXAMCONTROLLER";
+}
+
 /**
  * Angular login `showNewVCDashboard` — userTypeCode VICECHANCELLOR / REGISTRAR /
  * EXAMCONTROLLER navigates to `#/dashboard` (VcDashboardModule), not staff

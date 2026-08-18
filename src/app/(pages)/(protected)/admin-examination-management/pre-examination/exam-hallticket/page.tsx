@@ -102,13 +102,6 @@ const STUDENT_HALLTICKET_COL_DEFS: ColDef[] = [
   },
   { field: "subject_code", headerName: "Subject Code", minWidth: 130 },
   { field: "subject_name", headerName: "Subject Name", flex: 1, minWidth: 160 },
-  {
-    headerName: "Subject Type",
-    minWidth: 110,
-    flex: 0,
-    valueGetter: (p: any) =>
-      pick(p.data ?? {}, ["subjecttype", "subjectType", "subject_type"]) || "-",
-  },
 ];
 
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
@@ -912,8 +905,7 @@ export function ExamHallticketPage({
     // Single fixed-length dep — multi-value arrays change size under Fast Refresh.
   }, [studentPortalInitKey]);
 
-  const tableRows =
-    mode === "student" ? studentDisplayRows : sectionTableRows;
+  const tableRows = mode === "student" ? studentDisplayRows : sectionTableRows;
   const showTable = tableRows.length > 0;
 
   return (

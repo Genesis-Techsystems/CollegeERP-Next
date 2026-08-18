@@ -16,15 +16,21 @@ import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import {
   roleLooksLikeViceChancellor,
+  roleLooksLikeExamController,
   isNewVcDashboardUserType,
 } from "@/lib/user-context";
 import { getDigitalLiveClassEnv, readDashStorage } from "@/services";
 import type { SessionUser, UserRoleEntry } from "@/types/user";
 import { StaffDashboard } from "./_components/StaffDashboard";
+import { HodDashboard } from "./_components/HodDashboard";
+import { PrincipalDashboard } from "./_components/PrincipalDashboard";
+import { LibraryDashboard } from "./_components/LibraryDashboard";
+import { AdminDashboard } from "./_components/AdminDashboard";
 import {
   VcOverviewDashboard,
   ViceChancellorChartsTab,
 } from "./_components/vice-chancellor";
+import { ExamControllerDashboard } from "./_components/ExamControllerDashboard";
 
 // ─── Role tab visibility (Angular main-dashboard.component.ts) ───────────────
 
@@ -38,9 +44,12 @@ interface DashboardTabs {
   showEvaluator: boolean;
   showModerator: boolean;
   showManagement: boolean;
+  managementLabel: string;
+  showLibrarian: boolean;
   showVcCharts: boolean;
   showVcOverview: boolean;
   vcOverviewLabel: string;
+  showExamController: boolean;
   showVision: boolean;
 }
 
@@ -62,8 +71,14 @@ function readUserRolesFromStorage(): UserRoleEntry[] {
  * is only set when roleName === "ADMIN").
  */
 function resolveDashboardTabs(user: SessionUser): DashboardTabs {
-  const roles = readUserRolesFromStorage();
-  const roleNames = roles.map((r) => String(r.roleName ?? ""));
+  const storedRoles = readUserRolesFromStorage();
+  const sessionRoles = Array.isArray(user.userRoles) ? user.userRoles : [];
+  const roles = [...storedRoles, ...sessionRoles];
+  const roleNames = [
+    ...new Set(
+      roles.map((r) => String(r.roleName ?? "").trim()).filter(Boolean),
+    ),
+  ];
   const hasRole = (name: string) =>
     roleNames.some((r) => r.toUpperCase() === name.toUpperCase());
 
@@ -83,7 +98,23 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
   const showEvaluator = hasRole("Online Evaluator") || hasRole("Evaluator");
   const showModerator =
     hasRole("Moderator") || roles.some((r) => Number(r.roleId) === 116);
-  const showManagement = readDashStorage("isMgnt") === "true";
+  // Angular login: MANAGEMENT / CHAIRMAN / SECRETARY → `#/dashboard` then
+  // `mgmt-dashboard` (highchart-dashboard). CHAIRPERSON is HOD, not this tab.
+  const isSecretary =
+    readDashStorage("isSecretary") === "true" || hasRole("SECRETARY");
+  const isChairmanDash =
+    readDashStorage("isChairman") === "true" || hasRole("CHAIRMAN");
+  const isMgnt = readDashStorage("isMgnt") === "true";
+  const showManagement = isMgnt || isChairmanDash || isSecretary;
+  const managementLabel = isMgnt
+    ? "Management Dashboard"
+    : isChairmanDash
+      ? "Chairman Dashboard"
+      : "Secretary Dashboard";
+  const showLibrarian =
+    readDashStorage("isLibrarian") === "true" ||
+    hasRole("LIBRARY ASSISTANT") ||
+    hasRole("Library Head");
   const isCenterIncharge =
     hasRole("CENTER INCHARGE") ||
     readDashStorage("roleName") === "CENTER INCHARGE" ||
@@ -101,6 +132,15 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
     isNewVcDashboardUserType(user.userTypeCode) ||
     isNewVcDashboardUserType(readDashStorage("userTypeCode")) ||
     readDashStorage("showNewVCDashboard") === "true";
+  // Angular vc-dashboard: `*ngIf="userRole == 'ExamController'"` → app-ec-dashboard
+  const isExamController =
+    roleLooksLikeExamController(user.userRole) ||
+    roleLooksLikeExamController(user.roleName) ||
+    roleLooksLikeExamController(user.userTypeCode) ||
+    roleLooksLikeExamController(readDashStorage("userRole")) ||
+    roleLooksLikeExamController(readDashStorage("roleName")) ||
+    roleLooksLikeExamController(readDashStorage("userTypeCode")) ||
+    roleNames.some((r) => roleLooksLikeExamController(r));
 
   const hodLabel = hasRole("CHAIRPERSON")
     ? "Chairperson Dashboard"
@@ -109,69 +149,44 @@ function resolveDashboardTabs(user: SessionUser): DashboardTabs {
     ? "Dean Dashboard"
     : "Principal Dashboard";
 
-  // Angular login sends VICECHANCELLOR / CENTER INCHARGE to
-  // vicechancellor-dashboard (not main-dashboard / staff "My Dashboard").
-  let showMy = true;
-  if (showEvaluator && !roleNames.some((r) => r === "STAFF") && !showAdmin) {
-    const onlyEval =
-      roleNames.length > 0 &&
-      roleNames.every((r) => r === "Online Evaluator" || r === "Evaluator");
-    if (onlyEval) showMy = false;
-  }
-  if (showModerator && !roleNames.some((r) => r === "STAFF") && !showAdmin) {
-    const onlyMod =
-      roleNames.length > 0 && roleNames.every((r) => r === "Moderator");
-    if (onlyMod) showMy = false;
-  }
-  // Always show My Dashboard for typical login users (Angular default isStaff)
-  if (user.userTypeCode === "STAFF" || user.userRole === "STAFF" || showAdmin) {
-    showMy = true;
-  }
-  // SUPERADMIN / ACCOUNTS / etc. still get My Dashboard when isStaff default
-  if (!showEvaluator && !showModerator) showMy = true;
-  // Angular: VC / registrar / exam-controller never land on staff main-dashboard.
-  if (isViceChancellor || showNewVcHome) showMy = false;
+  // Staff Dashboard only when userRoles[] contains roleName STAFF.
+  // userTypeCode / userRole STAFF is the employee type — ACCOUNTANT, ADMIN,
+  // and other employee logins share that type and must not see this tab.
+  const showMy = hasRole("STAFF") && !isExamController;
 
   const showVision = getDigitalLiveClassEnv() === "TEAMS";
-  // VC role → old vicechancellor-dashboard charts. userTypeCode VC/REGISTRAR/
-  // EXAMCONTROLLER without that role → new `#/dashboard` overview.
+  // VC role → old vicechancellor-dashboard charts. userTypeCode VC/REGISTRAR
+  // without that role → new `#/dashboard` overview. Exam Controller gets
+  // Angular `app-ec-dashboard` instead of the VC overview charts.
   // Center Incharge keeps its own overview tab.
-  const showVcCharts = isViceChancellor && !isCenterIncharge;
+  const showVcCharts =
+    isViceChancellor && !isCenterIncharge && !isExamController;
   const showVcOverview =
-    (isCenterIncharge && !isViceChancellor) ||
-    (showNewVcHome && !isViceChancellor);
+    !isExamController &&
+    ((isCenterIncharge && !isViceChancellor) ||
+      (showNewVcHome && !isViceChancellor));
   const vcOverviewLabel = isCenterIncharge
     ? "Center Incharge Dashboard"
     : "Dashboard";
 
   return {
     showMy,
-    showAdmin,
-    showHod,
+    showAdmin: showAdmin && !isExamController,
+    showHod: showHod && !isExamController,
     hodLabel,
-    showPrincipal,
+    showPrincipal: showPrincipal && !isExamController,
     principalLabel,
-    showEvaluator,
-    showModerator,
-    showManagement,
+    showEvaluator: showEvaluator && !isExamController,
+    showModerator: showModerator && !isExamController,
+    showManagement: showManagement && !isExamController,
+    managementLabel,
+    showLibrarian: showLibrarian && !isExamController,
     showVcCharts,
     showVcOverview,
     vcOverviewLabel,
-    showVision,
+    showExamController: isExamController,
+    showVision: showVision && !isExamController,
   };
-}
-
-function RoleDashboardPlaceholder({ title }: { title: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-border bg-muted/30 p-8 text-center">
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground mt-2 max-w-md mx-auto">
-        This role dashboard lived in a separate Angular module and is not yet
-        migrated. Use My Dashboard for leave, biometric, sessions, and
-        notifications (Angular staff-dashboard parity).
-      </p>
-    </div>
-  );
 }
 
 function VisionMissionPanel({ deptName }: { deptName: string | null }) {
@@ -270,17 +285,33 @@ export default function DashboardPage() {
     readDashStorage("isHODDashboard") === "true" || Boolean(user.isHod);
   const deptName = readDashStorage("deptName");
 
-  const defaultTab = tabs.showVcCharts
-    ? "vc-charts"
-    : tabs.showVcOverview
-      ? "vc-overview"
-      : tabs.showMy
-        ? "my"
-        : tabs.showAdmin
-          ? "admin"
-          : tabs.showHod
-            ? "hod"
-            : "my";
+  const defaultTab = tabs.showManagement
+    ? "management"
+    : tabs.showLibrarian
+      ? "librarian"
+      : tabs.showExamController
+        ? "exam-controller"
+        : tabs.showVcCharts
+          ? "vc-charts"
+          : tabs.showVcOverview
+            ? "vc-overview"
+            : tabs.showMy
+              ? "my"
+              : tabs.showAdmin
+                ? "admin"
+                : tabs.showHod
+                  ? "hod"
+                  : tabs.showPrincipal
+                    ? "principal"
+                    : tabs.showEvaluator
+                      ? "examiner"
+                      : tabs.showModerator
+                        ? "moderator"
+                        : tabs.showVision
+                          ? "vision"
+                          : "";
+
+  const hasRoleDashboard = Boolean(defaultTab);
 
   return (
     <PageContainer className="app-dashboard-page space-y-3 bg-white">
@@ -319,137 +350,179 @@ export default function DashboardPage() {
         }
       />
 
-      <Tabs value={tab || defaultTab} onValueChange={setTab} className="w-full">
-        <TabsList className="app-dashboard-tabs h-9 w-full flex-wrap justify-start gap-0 rounded-none bg-white p-0">
+      {hasRoleDashboard ? (
+        <Tabs
+          value={tab || defaultTab}
+          onValueChange={setTab}
+          className="w-full"
+        >
+          <TabsList className="app-dashboard-tabs h-9 w-full flex-wrap justify-start gap-0 rounded-none bg-white p-0">
+            {tabs.showMy ? (
+              <TabsTrigger value="my" className="app-dashboard-tab">
+                Staff Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showAdmin ? (
+              <TabsTrigger value="admin" className="app-dashboard-tab">
+                Admin Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showHod ? (
+              <TabsTrigger value="hod" className="app-dashboard-tab">
+                {tabs.hodLabel}
+              </TabsTrigger>
+            ) : null}
+            {tabs.showPrincipal ? (
+              <TabsTrigger value="principal" className="app-dashboard-tab">
+                {tabs.principalLabel}
+              </TabsTrigger>
+            ) : null}
+            {tabs.showEvaluator ? (
+              <TabsTrigger value="examiner" className="app-dashboard-tab">
+                Examiner Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showModerator ? (
+              <TabsTrigger value="moderator" className="app-dashboard-tab">
+                Moderator Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showManagement ? (
+              <TabsTrigger value="management" className="app-dashboard-tab">
+                {tabs.managementLabel}
+              </TabsTrigger>
+            ) : null}
+            {tabs.showLibrarian ? (
+              <TabsTrigger value="librarian" className="app-dashboard-tab">
+                Librarian Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showExamController ? (
+              <TabsTrigger
+                value="exam-controller"
+                className="app-dashboard-tab"
+              >
+                Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showVcCharts ? (
+              <TabsTrigger value="vc-charts" className="app-dashboard-tab">
+                ViceChancellor Dashboard
+              </TabsTrigger>
+            ) : null}
+            {tabs.showVcOverview ? (
+              <TabsTrigger value="vc-overview" className="app-dashboard-tab">
+                {tabs.vcOverviewLabel}
+              </TabsTrigger>
+            ) : null}
+            {tabs.showVision ? (
+              <TabsTrigger value="vision" className="app-dashboard-tab">
+                Vision and Mission
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+
           {tabs.showMy ? (
-            <TabsTrigger value="my" className="app-dashboard-tab">
-              My Dashboard
-            </TabsTrigger>
+            <TabsContent value="my" className="mt-4">
+              <StaffDashboard user={user} employeeId={employeeId} />
+            </TabsContent>
           ) : null}
+
           {tabs.showAdmin ? (
-            <TabsTrigger value="admin" className="app-dashboard-tab">
-              Admin Dashboard
-            </TabsTrigger>
+            <TabsContent value="admin" className="mt-4">
+              <AdminDashboard />
+            </TabsContent>
           ) : null}
           {tabs.showHod ? (
-            <TabsTrigger value="hod" className="app-dashboard-tab">
-              {tabs.hodLabel}
-            </TabsTrigger>
+            <TabsContent value="hod" className="mt-4">
+              <HodDashboard user={user} employeeId={employeeId} />
+            </TabsContent>
           ) : null}
           {tabs.showPrincipal ? (
-            <TabsTrigger value="principal" className="app-dashboard-tab">
-              {tabs.principalLabel}
-            </TabsTrigger>
+            <TabsContent value="principal" className="mt-4">
+              <PrincipalDashboard user={user} employeeId={employeeId} />
+            </TabsContent>
           ) : null}
           {tabs.showEvaluator ? (
-            <TabsTrigger value="examiner" className="app-dashboard-tab">
-              Examiner Dashboard
-            </TabsTrigger>
+            <TabsContent value="examiner" className="mt-4">
+              <div className="rounded-md border border-border bg-card p-4 space-y-2">
+                <p className="text-sm">
+                  Examiner dashboard is available at{" "}
+                  <Link className="text-primary underline" href="/evaluator">
+                    Evaluator Subjects
+                  </Link>{" "}
+                  (Evaluator and Moderator tabs when both roles are assigned).
+                </p>
+              </div>
+            </TabsContent>
           ) : null}
           {tabs.showModerator ? (
-            <TabsTrigger value="moderator" className="app-dashboard-tab">
-              Moderator Dashboard
-            </TabsTrigger>
+            <TabsContent value="moderator" className="mt-4">
+              <div className="rounded-md border border-border bg-card p-4 space-y-2">
+                <p className="text-sm">
+                  Moderator subjects are available at{" "}
+                  <Link
+                    className="text-primary underline"
+                    href="/evaluator?isValidator=true"
+                  >
+                    Evaluator Subjects (Moderator)
+                  </Link>
+                  .
+                </p>
+              </div>
+            </TabsContent>
           ) : null}
           {tabs.showManagement ? (
-            <TabsTrigger value="management" className="app-dashboard-tab">
-              Management Dashboard
-            </TabsTrigger>
+            <TabsContent value="management" className="mt-4">
+              <ViceChancellorChartsTab
+                organizationId={
+                  user.organizationId ??
+                  Number(readDashStorage("organizationId") ?? 0)
+                }
+                employeeId={employeeId}
+              />
+            </TabsContent>
+          ) : null}
+          {tabs.showLibrarian ? (
+            <TabsContent value="librarian" className="mt-4">
+              <LibraryDashboard user={user} employeeId={employeeId} />
+            </TabsContent>
+          ) : null}
+          {tabs.showExamController ? (
+            <TabsContent value="exam-controller" className="mt-4">
+              <ExamControllerDashboard employeeId={employeeId} />
+            </TabsContent>
           ) : null}
           {tabs.showVcCharts ? (
-            <TabsTrigger value="vc-charts" className="app-dashboard-tab">
-              ViceChancellor Dashboard
-            </TabsTrigger>
+            <TabsContent value="vc-charts" className="mt-4">
+              <ViceChancellorChartsTab
+                organizationId={
+                  user.organizationId ??
+                  Number(readDashStorage("organizationId") ?? 0)
+                }
+                employeeId={employeeId}
+              />
+            </TabsContent>
           ) : null}
           {tabs.showVcOverview ? (
-            <TabsTrigger value="vc-overview" className="app-dashboard-tab">
-              {tabs.vcOverviewLabel}
-            </TabsTrigger>
+            <TabsContent value="vc-overview" className="mt-4">
+              <VcOverviewDashboard />
+            </TabsContent>
           ) : null}
           {tabs.showVision ? (
-            <TabsTrigger value="vision" className="app-dashboard-tab">
-              Vision and Mission
-            </TabsTrigger>
+            <TabsContent value="vision" className="mt-4">
+              <VisionMissionPanel deptName={deptName} />
+            </TabsContent>
           ) : null}
-        </TabsList>
-
-        {tabs.showMy ? (
-          <TabsContent value="my" className="mt-4">
-            <StaffDashboard user={user} employeeId={employeeId} />
-          </TabsContent>
-        ) : null}
-
-        {tabs.showAdmin ? (
-          <TabsContent value="admin" className="mt-4">
-            <RoleDashboardPlaceholder title="Admin Dashboard" />
-          </TabsContent>
-        ) : null}
-        {tabs.showHod ? (
-          <TabsContent value="hod" className="mt-4">
-            <RoleDashboardPlaceholder title={tabs.hodLabel} />
-          </TabsContent>
-        ) : null}
-        {tabs.showPrincipal ? (
-          <TabsContent value="principal" className="mt-4">
-            <RoleDashboardPlaceholder title={tabs.principalLabel} />
-          </TabsContent>
-        ) : null}
-        {tabs.showEvaluator ? (
-          <TabsContent value="examiner" className="mt-4">
-            <div className="rounded-md border border-border bg-card p-4 space-y-2">
-              <p className="text-sm">
-                Examiner dashboard is available at{" "}
-                <Link className="text-primary underline" href="/evaluator">
-                  Evaluator Subjects
-                </Link>{" "}
-                (Evaluator and Moderator tabs when both roles are assigned).
-              </p>
-            </div>
-          </TabsContent>
-        ) : null}
-        {tabs.showModerator ? (
-          <TabsContent value="moderator" className="mt-4">
-            <div className="rounded-md border border-border bg-card p-4 space-y-2">
-              <p className="text-sm">
-                Moderator subjects are available at{" "}
-                <Link
-                  className="text-primary underline"
-                  href="/evaluator?isValidator=true"
-                >
-                  Evaluator Subjects (Moderator)
-                </Link>
-                .
-              </p>
-            </div>
-          </TabsContent>
-        ) : null}
-        {tabs.showManagement ? (
-          <TabsContent value="management" className="mt-4">
-            <RoleDashboardPlaceholder title="Management Dashboard" />
-          </TabsContent>
-        ) : null}
-        {tabs.showVcCharts ? (
-          <TabsContent value="vc-charts" className="mt-4">
-            <ViceChancellorChartsTab
-              organizationId={
-                user.organizationId ??
-                Number(readDashStorage("organizationId") ?? 0)
-              }
-              employeeId={employeeId}
-            />
-          </TabsContent>
-        ) : null}
-        {tabs.showVcOverview ? (
-          <TabsContent value="vc-overview" className="mt-4">
-            <VcOverviewDashboard />
-          </TabsContent>
-        ) : null}
-        {tabs.showVision ? (
-          <TabsContent value="vision" className="mt-4">
-            <VisionMissionPanel deptName={deptName} />
-          </TabsContent>
-        ) : null}
-      </Tabs>
+        </Tabs>
+      ) : (
+        <div className="rounded-xl border border-[#e6eaf0] bg-white px-6 py-10 text-center shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <p className="text-sm font-medium text-[#042956]">Dashboard</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Use the menu to open your modules.
+          </p>
+        </div>
+      )}
     </PageContainer>
   );
 }

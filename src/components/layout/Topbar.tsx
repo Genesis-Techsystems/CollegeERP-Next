@@ -41,10 +41,11 @@ function readLs(key: string): string {
   return v;
 }
 
-function isStudentToolbarUser(userTypeCode?: string, userRole?: string): boolean {
-  const type = String(
-    userTypeCode ?? readLs("userTypeCode"),
-  ).toUpperCase();
+function isStudentToolbarUser(
+  userTypeCode?: string,
+  userRole?: string,
+): boolean {
+  const type = String(userTypeCode ?? readLs("userTypeCode")).toUpperCase();
   const role = String(userRole ?? readLs("userRole")).toUpperCase();
   return (
     type === "STUDENT" ||
@@ -59,38 +60,52 @@ function isStudentToolbarUser(userTypeCode?: string, userRole?: string): boolean
 /**
  * Toolbar subtitle: username / roll number only (no department).
  * Students also append groupCode / courseYearName when present.
+ * Angular: `({{uNumber}} / {{groupCode}}) / {{courseYearName}})`
  */
 function toolbarUserSubLabel(opts: {
   userTypeCode?: string;
   userRole?: string;
   empNumber?: string;
 }): string | null {
-  const uNumber =
-    (opts.empNumber ?? "").trim() ||
-    readLs("empNumber") ||
-    readLs("uNumber") ||
-    readLs("rollNumber");
+  const isStudent = isStudentToolbarUser(opts.userTypeCode, opts.userRole);
+  const empNumber = (opts.empNumber ?? "").trim() || readLs("empNumber");
+  const uNumber = isStudent
+    ? (() => {
+        const roll =
+          readLs("rollNumber") ||
+          readLs("hallticketNumber") ||
+          readLs("uNumber");
+        // Stale employee-code overwrite from employeedetailsbyid.
+        if (empNumber && roll === empNumber) {
+          return readLs("rollNumber") || readLs("hallticketNumber");
+        }
+        return roll;
+      })()
+    : empNumber || readLs("uNumber") || readLs("rollNumber");
   if (!uNumber) return null;
 
-  if (!isStudentToolbarUser(opts.userTypeCode, opts.userRole)) {
+  if (!isStudent) {
     return `(${uNumber})`;
   }
 
   // Angular extra spans each close the paren.
   let label = `(${uNumber}`;
   const groupCode = readLs("groupCode");
-  const courseYearName = readLs("courseYearName");
+  const courseYearName = readLs("courseYearName") || readLs("courseYearCode");
   if (groupCode) label += ` / ${groupCode})`;
   if (courseYearName) label += ` / ${courseYearName})`;
   if (!label.endsWith(")")) label += ")";
   return label;
 }
 
-function toolbarFullName(user: {
-  firstName?: string;
-  lastName?: string;
-} | null): string {
-  return [user?.firstName, user?.lastName]
+function toolbarFullName(
+  user: {
+    firstName?: string;
+    middleName?: string;
+    lastName?: string;
+  } | null,
+): string {
+  return [user?.firstName, user?.middleName, user?.lastName]
     .map((p) => String(p ?? "").trim())
     .filter(Boolean)
     .join(" ");
@@ -101,10 +116,15 @@ export function Topbar() {
   const { user, isLoading: sessionLoading } = useSessionContext();
   const { toggleSidebar, navItems } = useNavigationStore();
 
+  const isStudentToolbar = isStudentToolbarUser(
+    user?.userTypeCode,
+    user?.userRole,
+  );
+
   const { data: employeeLogin } = useQuery({
     queryKey: QK.staffLoginContext(user?.userId ?? 0),
     queryFn: () => getEmployeeLoginContextByUserId(user!.userId),
-    enabled: !sessionLoading && Boolean(user?.userId),
+    enabled: !sessionLoading && Boolean(user?.userId) && !isStudentToolbar,
     staleTime: Number.POSITIVE_INFINITY,
   });
 
@@ -118,6 +138,11 @@ export function Topbar() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [activeResultIndex, setActiveResultIndex] = useState(-1);
+  const [toolbarReady, setToolbarReady] = useState(false);
+
+  useEffect(() => {
+    setToolbarReady(true);
+  }, []);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -254,11 +279,13 @@ export function Topbar() {
   const avatarStyle =
     roleAvatarStyle[user?.userRole ?? ""] ?? "bg-cyan-100 text-cyan-700";
 
-  const empLabel = toolbarUserSubLabel({
-    userTypeCode: user?.userTypeCode,
-    userRole: user?.userRole,
-    empNumber: employeeLogin?.empNumber,
-  });
+  const empLabel = toolbarReady
+    ? toolbarUserSubLabel({
+        userTypeCode: user?.userTypeCode,
+        userRole: user?.userRole,
+        empNumber: employeeLogin?.empNumber,
+      })
+    : null;
   const fullName = toolbarFullName(user);
 
   async function handleLogout() {

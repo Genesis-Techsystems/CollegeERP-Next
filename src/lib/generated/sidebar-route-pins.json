@@ -621,7 +621,28 @@
   },
   {
     "label": "student exam fee collection",
-    "route": "/admin-examination-management/pre-examination/student-exam-fee-registration"
+    "route": "/admin-examination-management/pre-examination/student-exam-fee-registration",
+    "hrefIncludes": "admin-examination-management"
+  },
+  {
+    "label": "student exam fee collection",
+    "route": "/admin-examination-management/pre-examination/student-exam-fee-registration",
+    "hrefIncludes": "pre-examination"
+  },
+  {
+    "label": "student exam fee collection",
+    "route": "/examination-section/exam-fee-registration",
+    "hrefIncludes": "student-exam-section"
+  },
+  {
+    "label": "student exam fee collection",
+    "route": "/examination-section/exam-fee-registration",
+    "hrefIncludes": "student-exam-fee-collection"
+  },
+  {
+    "label": "student exam fee collection",
+    "route": "/examination-section/exam-fee-registration",
+    "hrefIncludes": "/examination-section/"
   },
   {
     "label": "subject wise result report",

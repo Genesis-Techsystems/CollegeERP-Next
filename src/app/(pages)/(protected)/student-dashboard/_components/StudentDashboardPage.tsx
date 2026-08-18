@@ -150,6 +150,7 @@ function syncStudentLocalStorage(profile: ProfileState): void {
     ["groupSectionId", profile.groupSectionId],
     ["photoPath", profile.photoPath],
     ["uNumber", profile.uNumber],
+    ["rollNumber", profile.uNumber],
     ["uName", profile.uName],
     ["courseName", profile.courseName],
     ["academicYear", profile.academicYear],

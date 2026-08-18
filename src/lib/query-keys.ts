@@ -1393,6 +1393,97 @@ export const QK = {
       ] as const,
   },
 
+  // ── Admin Dashboard (Angular `app-dashboard` / dashboardreport)
+  adminDashboard: {
+    all: ["AdminDashboard"] as const,
+    report: () => ["AdminDashboard", "report"] as const,
+  },
+
+  // ── Student AnswerPaper View (Angular student-answerpaper-view)
+  studentAnswerPaperView: {
+    all: ["StudentAnswerPaperView"] as const,
+    student: (studentId: number) =>
+      ["StudentAnswerPaperView", "student", studentId] as const,
+    evaluations: (studentId: number) =>
+      ["StudentAnswerPaperView", "evaluations", studentId] as const,
+  },
+
+  // ── HOD Dashboard (Angular hod-dashboard widgets)
+  hodDashboard: {
+    all: ["HodDashboard"] as const,
+    management: (collegeId: number, departmentId: number) =>
+      ["HodDashboard", "management", collegeId, departmentId] as const,
+    attendance: (collegeId: number, departmentId: number, dateKey: string) =>
+      ["HodDashboard", "attendance", collegeId, departmentId, dateKey] as const,
+    leaveSummary: (departmentId: number, leaveYear: string) =>
+      ["HodDashboard", "leaveSummary", departmentId, leaveYear] as const,
+    proxies: (departmentId: number, proxyDate: string) =>
+      ["HodDashboard", "proxies", departmentId, proxyDate] as const,
+    leaveRequests: (
+      collegeId: number,
+      employeeId: number,
+      leaveYear: string,
+    ) =>
+      [
+        "HodDashboard",
+        "leaveRequests",
+        collegeId,
+        employeeId,
+        leaveYear,
+      ] as const,
+    leaveStatuses: () => ["HodDashboard", "leaveStatuses"] as const,
+  },
+
+  // ── Principal Dashboard (Angular principal-dashboard widgets)
+  principalDashboard: {
+    all: ["PrincipalDashboard"] as const,
+    counts: () => ["PrincipalDashboard", "counts"] as const,
+    management: (collegeId: number) =>
+      ["PrincipalDashboard", "management", collegeId] as const,
+    leaveRequests: (collegeId: number, leaveYear: string) =>
+      [
+        "PrincipalDashboard",
+        "leaveRequests",
+        collegeId,
+        leaveYear,
+      ] as const,
+    leaveStatuses: () => ["PrincipalDashboard", "leaveStatuses"] as const,
+    discounts: (collegeId: number) =>
+      ["PrincipalDashboard", "discounts", collegeId] as const,
+  },
+
+  // ── Librarian Dashboard (Angular library-dashboard)
+  libraryDashboard: {
+    all: ["LibraryDashboard"] as const,
+    libraries: (organizationId: number, employeeId: number) =>
+      ["LibraryDashboard", "libraries", organizationId, employeeId] as const,
+    books: (libraryId: number) =>
+      ["LibraryDashboard", "books", libraryId] as const,
+    booksHistory: (libraryId: number) =>
+      ["LibraryDashboard", "booksHistory", libraryId] as const,
+    leaves: (collegeId: number, employeeId: number, leaveYear: number) =>
+      ["LibraryDashboard", "leaves", collegeId, employeeId, leaveYear] as const,
+  },
+
+  // ── Exam Controller Dashboard (Angular vc-dashboard/ec-dashboard)
+  examControllerDashboard: {
+    all: ["ExamControllerDashboard"] as const,
+    centers: (employeeId: number) =>
+      ["ExamControllerDashboard", "centers", employeeId] as const,
+    report: (
+      reportType: string,
+      evaluationCenterId: number,
+      employeeId: number,
+    ) =>
+      [
+        "ExamControllerDashboard",
+        "report",
+        reportType,
+        evaluationCenterId,
+        employeeId,
+      ] as const,
+  },
+
   // ── Vice Chancellor Dashboard (Angular vice-chancellor + highchart widgets)
   vcDashboard: {
     all: ["VcDashboard"] as const,

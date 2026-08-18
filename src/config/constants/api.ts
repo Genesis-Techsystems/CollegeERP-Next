@@ -589,6 +589,10 @@ export const EXAM_EVAL_API = {
   EXAM_EVALUATION_ASSIGNMENTS: "ExamEvaluationAssignments",
   /** Angular `ExamQuestionPaperCollegesUrl` */
   EXAM_QUESTION_PAPER_COLLEGES: "ExamQuestionPaperColleges",
+  /** Angular `getExamCenterFiltersUrl` — Exam Controller dashboard center picker */
+  GET_EXAM_CENTER_FILTERS: "getAllRecords/s_get_exam_center_filters",
+  /** Angular `getExamControllerReportsUrl` — Exam Controller dashboard tables */
+  GET_EXAM_CONTROLLER_REPORTS: "getAllRecords/s_exam_controller_reports",
 } as const;
 
 // ─── Invigilator Remuneration ─────────────────────────────────────────────────
@@ -1248,7 +1252,7 @@ export const PAYMENT_GATEWAY_API = {
   RAZORPAY_CHARGE: "RazorPay/charge",
   /** Demo / Angular `initaitePaymentUrl` — exam fee student portal (PayPhi) */
   INITIATE_PAYMENT: "paymentGateway/initiatePayment",
-  /** BillDesk path — 404 on demo.skolo.in; used on some other tenants */
+  /** Angular `CONSTANTS.initiatePaymentUrl` — `BillDesk/initiatePayment` */
   BILLDESK_INITIATE: "BillDesk/initiatePayment",
   /** Generic: encrypt form data */
   ENCRYPT_FORM_DATA: "paymentGateway/encryptFormData",
@@ -1490,6 +1494,9 @@ export const LEAVE_API = {
   EMP_ATTENDANCE_VALIDATION: "getAllRecords/s_rep_emp_attendance_validation",
   /** Angular `empAttendanceReportUrl` — biometric calendar */
   EMP_ATTENDANCE_DETAIL: "getAllRecords/s_rep_emp_attendanace_detail",
+  /** Angular `empAttendanceSummaryReportUrl` — HOD dept attendance (pie UI commented) */
+  EMP_ATTENDANCE_SUMMARY_DETAIL:
+    "getAllRecords/s_rep_emp_attendanace_summary",
   /** Angular staff-dashboard leave doughnut — `s_rep_emp_leave_totals` */
   EMP_LEAVE_TOTALS: "getAllRecords/s_rep_emp_leave_totals",
   /** Angular `employeeRunningLeaveCrudUrl` */

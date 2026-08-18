@@ -154,6 +154,8 @@ export function studentDashboardProfileFromDetail(
   ]);
   const uNumber = text(student, [
     "rollNumber",
+    "hallticketNumber",
+    "hallTicketNumber",
     "uNumber",
     "universityNumber",
     "studentNumber",
