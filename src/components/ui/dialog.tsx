@@ -63,6 +63,7 @@ const DialogContent = React.forwardRef<
       closeOnEscape = false,
       onInteractOutside,
       onEscapeKeyDown,
+      onFocusOutside,
       description,
       hasDescription = false,
       overlayClassName,
@@ -102,14 +103,38 @@ const DialogContent = React.forwardRef<
               e.preventDefault();
               return;
             }
+            // Portaled Select / Combobox panel (Invigilator Employee typeahead, etc.)
+            if (
+              target?.closest?.(
+                "[data-radix-popper-content-wrapper], .mat-select-panel",
+              )
+            ) {
+              e.preventDefault();
+              return;
+            }
             if (!closeOnOutsideClick) e.preventDefault();
             onInteractOutside?.(e);
           }}
           onPointerDownOutside={(e) => {
             const target = e.target as HTMLElement | null;
-            if (target?.closest?.("[data-student-search-listbox]")) {
+            if (
+              target?.closest?.(
+                "[data-student-search-listbox], [data-radix-popper-content-wrapper], .mat-select-panel",
+              )
+            ) {
               e.preventDefault();
             }
+          }}
+          onFocusOutside={(e) => {
+            const target = e.target as HTMLElement | null;
+            if (
+              target?.closest?.(
+                "[data-radix-popper-content-wrapper], .mat-select-panel",
+              )
+            ) {
+              e.preventDefault();
+            }
+            onFocusOutside?.(e);
           }}
           onEscapeKeyDown={(e) => {
             if (!closeOnEscape) e.preventDefault();

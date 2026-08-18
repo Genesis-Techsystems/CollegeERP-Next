@@ -9,16 +9,18 @@ import { ActiveStatusField } from "@/common/components/forms";
 import { FormModal } from "@/common/components/feedback";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   createDepartmentHead,
+  listActiveBlocksForFloors,
   listActiveCollegesForGeneralSettings,
   listActiveRoomTypes,
   listCourseGroupsByCourse,
-  listDepartmentsByCollege,
-  listRoomsByRoomType,
   listCoursesByUniversity,
+  listDepartmentsByCollege,
+  listFloorsByBlock,
+  listRoomsByRoomType,
   searchEmployeesForHr,
   updateDepartmentHead,
 } from "@/services";
@@ -36,6 +38,8 @@ const schema = z.object({
   departmentId: z.number().min(1, "Department is required"),
   courseId: optionalId,
   courseGroupId: optionalId,
+  blockId: optionalId,
+  floorId: optionalId,
   roomTypeId: optionalId,
   roomId: optionalId,
   fromDate: z.date({ message: "From date is required" }),
@@ -58,6 +62,18 @@ function employeeLabel(row: Record<string, unknown>): string {
 function orgIdFromStorage(): number {
   if (typeof globalThis.window === "undefined") return 0;
   return Number(globalThis.localStorage.getItem("organizationId") ?? 0);
+}
+
+function parseDate(value: unknown): Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (value == null || value === "") return new Date();
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+function numId(value: unknown): number | undefined {
+  const n = Number(value ?? 0);
+  return n > 0 ? n : undefined;
 }
 
 interface DepartmentHeadsModalProps {
@@ -83,6 +99,8 @@ export function DepartmentHeadsModal({
   const [courses, setCourses] = useState<SelectOption[]>([]);
   const [courseGroups, setCourseGroups] = useState<SelectOption[]>([]);
   const [departments, setDepartments] = useState<SelectOption[]>([]);
+  const [blocks, setBlocks] = useState<SelectOption[]>([]);
+  const [floors, setFloors] = useState<SelectOption[]>([]);
   const [roomTypes, setRoomTypes] = useState<SelectOption[]>([]);
   const [rooms, setRooms] = useState<SelectOption[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([]);
@@ -108,6 +126,8 @@ export function DepartmentHeadsModal({
       departmentId: undefined,
       courseId: undefined,
       courseGroupId: undefined,
+      blockId: undefined,
+      floorId: undefined,
       roomTypeId: undefined,
       roomId: undefined,
       fromDate: new Date(),
@@ -132,11 +152,20 @@ export function DepartmentHeadsModal({
           label: c.collegeCode ?? c.collegeName ?? String(c.collegeId),
         })),
       );
-      const rt = await listActiveRoomTypes();
+      const [rt, blockList] = await Promise.all([
+        listActiveRoomTypes(),
+        listActiveBlocksForFloors(),
+      ]);
       setRoomTypes(
         rt.map((r) => ({
           value: String(r.roomTypeId),
           label: r.roomType ?? String(r.roomTypeId),
+        })),
+      );
+      setBlocks(
+        blockList.map((b) => ({
+          value: String(b.blockId),
+          label: b.blockName ?? b.blockCode ?? String(b.blockId),
         })),
       );
     })();
@@ -144,23 +173,19 @@ export function DepartmentHeadsModal({
     if (isEditing && row) {
       const editCollegeId = Number(row.collegeId ?? 0);
       const editEmployeeId = Number(row.employeeId ?? 0);
-      const editFromDate = row.fromDate
-        ? new Date(String(row.fromDate))
-        : new Date();
-      const editToDate = row.toDate ? new Date(String(row.toDate)) : new Date();
 
       reset({
         collegeId: editCollegeId || undefined,
         employeeId: editEmployeeId || undefined,
-        departmentId: row.departmentId ? Number(row.departmentId) : undefined,
-        courseId: row.courseId ? Number(row.courseId) : undefined,
-        courseGroupId: row.courseGroupId
-          ? Number(row.courseGroupId)
-          : undefined,
-        roomTypeId: row.roomTypeId ? Number(row.roomTypeId) : undefined,
-        roomId: row.roomId ? Number(row.roomId) : undefined,
-        fromDate: editFromDate,
-        toDate: editToDate,
+        departmentId: numId(row.departmentId),
+        courseId: numId(row.courseId),
+        courseGroupId: numId(row.courseGroupId),
+        blockId: numId(row.blockId),
+        floorId: numId(row.floorId),
+        roomTypeId: numId(row.roomTypeId),
+        roomId: numId(row.roomId),
+        fromDate: parseDate(row.fromDate),
+        toDate: parseDate(row.toDate),
         comments: String(row.comments ?? ""),
         isActive: row.isActive !== false,
         reason: String(
@@ -193,6 +218,8 @@ export function DepartmentHeadsModal({
         departmentId: undefined,
         courseId: undefined,
         courseGroupId: undefined,
+        blockId: undefined,
+        floorId: undefined,
         roomTypeId: undefined,
         roomId: undefined,
         fromDate: new Date(),
@@ -203,12 +230,10 @@ export function DepartmentHeadsModal({
       });
       setEmployeeRows([]);
       setEmployeeOptions([]);
-    }
-
-    if (!isEditing) {
       setCourses([]);
       setCourseGroups([]);
       setDepartments([]);
+      setFloors([]);
       setRooms([]);
       setUniversityId(0);
     }
@@ -216,6 +241,7 @@ export function DepartmentHeadsModal({
 
   const formCollegeId = watch("collegeId");
   const courseId = watch("courseId");
+  const blockId = watch("blockId");
   const roomTypeId = watch("roomTypeId");
   const fromDate = watch("fromDate");
   const isActive = watch("isActive");
@@ -272,6 +298,21 @@ export function DepartmentHeadsModal({
   }, [courseId, isEditing]);
 
   useEffect(() => {
+    if (!blockId) {
+      setFloors([]);
+      return;
+    }
+    void listFloorsByBlock(blockId).then((rows) => {
+      setFloors(
+        rows.map((f) => ({
+          value: String(f.floorId),
+          label: String(f.floorName ?? f.floorId),
+        })),
+      );
+    });
+  }, [blockId]);
+
+  useEffect(() => {
     if (!roomTypeId) {
       if (!isEditing) {
         setRooms([]);
@@ -326,16 +367,22 @@ export function DepartmentHeadsModal({
     if (!employeeId) return employeeOptions;
     const id = String(employeeId);
     if (employeeOptions.some((o) => o.value === id)) return employeeOptions;
-    const row = employeeRows.find((e) => String(e.employeeId) === id);
-    if (!row) return employeeOptions;
-    return [{ value: id, label: employeeLabel(row) }, ...employeeOptions];
+    const emp = employeeRows.find((e) => String(e.employeeId) === id);
+    if (!emp) return employeeOptions;
+    return [{ value: id, label: employeeLabel(emp) }, ...employeeOptions];
   }, [employeeId, employeeOptions, employeeRows]);
 
+  const editHeaderInfo = useMemo(() => {
+    if (!isEditing || !row) return undefined;
+    const name = String(row.employeeName ?? "").trim();
+    const num = row.empNumber != null ? String(row.empNumber).trim() : "";
+    if (!name && !num) return undefined;
+    return num ? `${name} (${num})` : name;
+  }, [isEditing, row]);
+
   async function onSubmit(data: FormValues) {
-    // Angular behavior:
-    // - On ADD: block if any ACTIVE department head already exists for the department.
-    //   (It does not depend on the new record's isActive value.)
-    // - On EDIT: do NOT run this duplicate guard.
+    // Angular add: block if an ACTIVE head already exists for the department.
+    // Angular edit: skip this duplicate guard.
     if (!isEditing) {
       const duplicate = existingRows.some(
         (r) =>
@@ -355,6 +402,8 @@ export function DepartmentHeadsModal({
       departmentId: data.departmentId,
       courseId: data.courseId,
       courseGroupId: data.courseGroupId,
+      blockId: data.blockId,
+      floorId: data.floorId,
       roomTypeId: data.roomTypeId,
       roomId: data.roomId,
       fromDate: format(data.fromDate, "yyyy-MM-dd'T'00:00:00"),
@@ -366,8 +415,7 @@ export function DepartmentHeadsModal({
 
     try {
       if (isEditing && editingId) {
-        // Angular edit behavior: force collegeId + employeeId from the original row.
-        // Even though the React UI shows these fields, backend expects them to stay fixed.
+        // Angular edit: force collegeId + employeeId from the original row.
         if (row) {
           payload.collegeId = Number(row.collegeId ?? payload.collegeId);
           payload.employeeId = Number(row.employeeId ?? payload.employeeId);
@@ -399,9 +447,11 @@ export function DepartmentHeadsModal({
       open={open}
       onClose={onClose}
       title={isEditing ? "Edit Department Head" : "Add Department Head"}
+      headerInfo={editHeaderInfo}
       titleClassName="text-[15px] font-semibold leading-none text-[#5da394]"
       showHeaderDivider
       size="xl"
+      cancelLabel="Close"
       onSubmit={(e) => {
         e.preventDefault();
         void handleSubmit(onSubmit, () => {
@@ -412,43 +462,48 @@ export function DepartmentHeadsModal({
       submitLabel="Save"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Controller
-          name="collegeId"
-          control={control}
-          render={({ field }) => (
-            <Select
-              label="College"
-              required
-              value={field.value ? String(field.value) : null}
-              onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-              options={colleges}
-              placeholder="Select college"
-              searchable
-              error={errors.collegeId?.message}
+        {!isEditing ? (
+          <>
+            <Controller
+              name="collegeId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="College"
+                  required
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                  options={colleges}
+                  placeholder="Select college"
+                  searchable
+                  error={errors.collegeId?.message}
+                />
+              )}
             />
-          )}
-        />
-        <div className="sm:col-span-2">
-          <Controller
-            name="employeeId"
-            control={control}
-            render={({ field }) => (
-              <Select
-                label="Employee"
-                required
-                value={field.value ? String(field.value) : null}
-                onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                options={employeeSelectOptions}
-                placeholder="Search by name or employee id (min 4 chars)"
-                searchable
-                onSearch={onEmployeeSearch}
-                isLoading={employeeSearchLoading}
-                disabled={!formCollegeId}
-                error={errors.employeeId?.message}
+            <div className="sm:col-span-2">
+              <Controller
+                name="employeeId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Employee"
+                    required
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={employeeSelectOptions}
+                    placeholder="Search by name or employee id (min 4 chars)"
+                    searchable
+                    onSearch={onEmployeeSearch}
+                    isLoading={employeeSearchLoading}
+                    disabled={!formCollegeId}
+                    error={errors.employeeId?.message}
+                  />
+                )}
               />
-            )}
-          />
-        </div>
+            </div>
+          </>
+        ) : null}
+
         <Controller
           name="courseId"
           control={control}
@@ -501,6 +556,47 @@ export function DepartmentHeadsModal({
             />
           )}
         />
+
+        {isEditing ? (
+          <>
+            <Controller
+              name="blockId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Block"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => {
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("floorId", undefined);
+                    setFloors([]);
+                  }}
+                  options={blocks}
+                  placeholder="Select block"
+                  searchable
+                  clearable
+                />
+              )}
+            />
+            <Controller
+              name="floorId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Floor"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                  options={floors}
+                  placeholder="Select floor"
+                  searchable
+                  clearable
+                  disabled={!blockId}
+                />
+              )}
+            />
+          </>
+        ) : null}
+
         <Controller
           name="roomTypeId"
           control={control}
@@ -563,11 +659,14 @@ export function DepartmentHeadsModal({
             />
           )}
         />
-        <div className="space-y-1 sm:col-span-3">
+        <div className="space-y-1 sm:col-span-2">
           <Label className="text-[12px]">Comments</Label>
-          <Input className="h-9 text-[12px]" {...register("comments")} />
+          <Textarea
+            className="min-h-[72px] text-[12px]"
+            {...register("comments")}
+          />
         </div>
-        <div className="sm:col-span-3">
+        <div className="flex items-end pb-1">
           <Controller
             name="isActive"
             control={control}

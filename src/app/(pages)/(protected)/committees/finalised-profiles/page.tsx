@@ -187,9 +187,23 @@ export default function FinalisedProfilesPage() {
     setMeetingId(null);
   }
 
+  function handleCommitteeChange(value: string | null) {
+    filters.setCommitteeId(value);
+    setListRequested(false);
+  }
+
+  function handleExamChange(value: string | null) {
+    filters.setExamId(value);
+    setListRequested(false);
+  }
+
+  function handleSubjectChange(value: string | null) {
+    filters.setSubjectCode(value);
+    setListRequested(false);
+  }
+
   const tableRows =
     listRequested && filters.filtersReady ? (filteredRows ?? []) : [];
-  const hasRows = tableRows.length > 0;
 
   async function handleReleaseOffer() {
     if (!confirmRow) return;
@@ -246,7 +260,7 @@ export default function FinalisedProfilesPage() {
             <Label className="text-xs">Committee *</Label>
             <Select
               value={filters.committeeId}
-              onChange={filters.setCommitteeId}
+              onChange={handleCommitteeChange}
               options={filters.committeeOptions}
               placeholder="Select committee"
               searchable
@@ -258,7 +272,7 @@ export default function FinalisedProfilesPage() {
             <Label className="text-xs">Exam *</Label>
             <Select
               value={filters.examId}
-              onChange={filters.setExamId}
+              onChange={handleExamChange}
               options={filters.examOptions}
               placeholder="Select exam"
               searchable
@@ -270,7 +284,7 @@ export default function FinalisedProfilesPage() {
             <Label className="text-xs">Subject *</Label>
             <Select
               value={filters.subjectCode}
-              onChange={filters.setSubjectCode}
+              onChange={handleSubjectChange}
               options={filters.subjectOptions}
               placeholder="Select subject"
               searchable
@@ -305,8 +319,8 @@ export default function FinalisedProfilesPage() {
       rowData={tableRows}
       columnDefs={columnDefs}
       loading={isLoading}
-      showTable={hasRows}
-      resultsVisible={hasRows}
+      showTable={listRequested}
+      resultsVisible={listRequested}
       pagination
       toolbar={{
         search: true,

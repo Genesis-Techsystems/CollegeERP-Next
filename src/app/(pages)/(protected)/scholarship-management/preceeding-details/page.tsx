@@ -6,6 +6,11 @@ import { format, parseISO } from "date-fns";
 import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+  filterFieldIcon,
+} from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -21,19 +26,15 @@ import { DATE_FORMATS } from "@/config/constants/app";
 import { QK } from "@/lib/query-keys";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
-import {
-  filterAcademicYears,
-  filterColleges,
-  pickNum,
-  pickText,
-  type FilterRow,
-} from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
+import { pickText } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
   createSchPreceeding,
-  getScholarshipCollegeFilters,
+  listAcademicYearsByUniversity,
+  listActiveCollegesForGeneralSettings,
   listFinancialYearsByUniversity,
   listSchPreceedings,
 } from "@/services";
+import type { College } from "@/types/college";
 import type { SchPreceeding } from "@/types/scholarship";
 import { PreceedingModal, type PreceedingModalResult } from "./PreceedingModal";
 
@@ -70,6 +71,14 @@ function readStoredFilters(): StoredFilters {
       ? String(stored.financialYearId)
       : null,
   };
+}
+
+function pickAcademicYearId(row: Record<string, unknown>): number {
+  return Number(row.academicYearId ?? row.fk_academic_year_id ?? 0);
+}
+
+function pickFinancialYearId(row: Record<string, unknown>): number {
+  return Number(row.financialYearId ?? row.financial_year_id ?? 0);
 }
 
 const COL_DEFS = {
@@ -194,11 +203,8 @@ function makeActionsRenderer(
 export default function ScholarshipPreceedingDetailsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const employeeId = Number(
-    globalThis?.localStorage?.getItem("employeeId") ?? 0,
-  );
-  const orgId = Number(
-    globalThis?.localStorage?.getItem("organizationId") ?? 0,
+  const defaultAcademicYearId = Number(
+    globalThis?.localStorage?.getItem("academicYearId") ?? 0,
   );
 
   const [collegeId, setCollegeId] = useState<string | null>(null);
@@ -214,41 +220,26 @@ export default function ScholarshipPreceedingDetailsPage() {
   const [viewRow, setViewRow] = useState<PreceedingRow | null>(null);
   const [viewSearch, setViewSearch] = useState("");
 
-  const { data: filterBundle, isLoading: loadingFilters } = useQuery({
-    queryKey: ["SchPreceeding", "filters", orgId, employeeId],
-    queryFn: () => getScholarshipCollegeFilters(orgId, employeeId),
-    enabled: orgId > 0 && employeeId > 0,
+  const { data: colleges = [], isLoading: loadingColleges } = useQuery({
+    queryKey: ["SchPreceeding", "colleges"],
+    queryFn: listActiveCollegesForGeneralSettings,
   });
 
-  const filtersData = useMemo(
-    () => (filterBundle?.filtersData ?? []) as FilterRow[],
-    [filterBundle?.filtersData],
-  );
-  const academicData = useMemo(
-    () => (filterBundle?.academicData ?? []) as FilterRow[],
-    [filterBundle?.academicData],
+  const selectedCollege = useMemo(
+    () => colleges.find((c) => String(c.collegeId) === collegeId) ?? null,
+    [colleges, collegeId],
   );
 
-  const colleges = useMemo(() => filterColleges(filtersData), [filtersData]);
   const collegeNum = Number(collegeId ?? 0);
   const academicYearNum = Number(academicYearId ?? 0);
   const financialYearNum = Number(financialYearId ?? 0);
+  const universityId = Number(selectedCollege?.universityId ?? 0);
 
-  const academicYears = useMemo(
-    () => filterAcademicYears(academicData, collegeNum || null, filtersData),
-    [academicData, collegeNum, filtersData],
-  );
-
-  const universityId = useMemo(
-    () =>
-      pickNum(
-        filtersData.find(
-          (r) => pickNum(r, ["fk_college_id", "collegeId"]) === collegeNum,
-        ),
-        ["fk_university_id", "universityId"],
-      ),
-    [filtersData, collegeNum],
-  );
+  const { data: academicYears = [], isLoading: loadingAy } = useQuery({
+    queryKey: ["SchPreceeding", "academicYears", universityId],
+    queryFn: () => listAcademicYearsByUniversity(universityId),
+    enabled: universityId > 0,
+  });
 
   const { data: financialYears = [], isLoading: loadingFy } = useQuery({
     queryKey: ["FinancialYear", "byUniversity", universityId],
@@ -258,41 +249,42 @@ export default function ScholarshipPreceedingDetailsPage() {
 
   const collegeOptions = useMemo(
     () =>
-      colleges
-        .map((c) => ({
-          value: String(pickNum(c, ["fk_college_id", "collegeId"])),
-          label:
-            pickText(c, ["college_code", "collegeCode"]) ||
-            pickText(c, ["college_name", "collegeName"]) ||
-            String(pickNum(c, ["fk_college_id", "collegeId"])),
-        }))
-        .filter((o) => o.value !== "0"),
+      colleges.map((c: College) => ({
+        value: String(c.collegeId),
+        label: c.collegeCode || c.collegeName || String(c.collegeId),
+      })),
     [colleges],
   );
 
   const academicYearOptions = useMemo(
     () =>
-      academicYears
-        .map((ay) => ({
-          value: String(pickNum(ay, ["fk_academic_year_id", "academicYearId"])),
-          label:
-            pickText(ay, ["academic_year", "academicYear"]) ||
-            String(pickNum(ay, ["fk_academic_year_id", "academicYearId"])),
-        }))
-        .filter((o) => o.value !== "0"),
+      (academicYears as Record<string, unknown>[])
+        .map((ay) => {
+          const id = pickAcademicYearId(ay);
+          if (!id) return null;
+          return {
+            value: String(id),
+            label:
+              pickText(ay, ["academicYear", "academic_year"]) || String(id),
+          };
+        })
+        .filter((o): o is { value: string; label: string } => o != null),
     [academicYears],
   );
 
   const financialYearOptions = useMemo(
     () =>
-      financialYears
-        .map((fy) => ({
-          value: String(pickNum(fy, ["financialYearId", "financial_year_id"])),
-          label:
-            pickText(fy, ["financialYear", "financial_year"]) ||
-            String(pickNum(fy, ["financialYearId", "financial_year_id"])),
-        }))
-        .filter((o) => o.value !== "0"),
+      (financialYears as Record<string, unknown>[])
+        .map((fy) => {
+          const id = pickFinancialYearId(fy);
+          if (!id) return null;
+          return {
+            value: String(id),
+            label:
+              pickText(fy, ["financialYear", "financial_year"]) || String(id),
+          };
+        })
+        .filter((o): o is { value: string; label: string } => o != null),
     [financialYears],
   );
 
@@ -300,17 +292,11 @@ export default function ScholarshipPreceedingDetailsPage() {
     if (collegeId || colleges.length === 0) return;
     const stored = readStoredFilters();
     const storedCollegeId = Number(stored.collegeId ?? 0);
-    const match = colleges.find(
-      (c) => pickNum(c, ["fk_college_id", "collegeId"]) === storedCollegeId,
-    );
-    setCollegeId(
-      String(pickNum(match ?? colleges[0], ["fk_college_id", "collegeId"])),
-    );
-    if (match && stored.academicYearId) {
+    const match =
+      colleges.find((c) => c.collegeId === storedCollegeId) ?? colleges[0];
+    setCollegeId(String(match.collegeId));
+    if (match.collegeId === storedCollegeId && stored.academicYearId) {
       setAcademicYearId(stored.academicYearId);
-    }
-    if (match && stored.financialYearId) {
-      setFinancialYearId(stored.financialYearId);
     }
   }, [colleges, collegeId]);
 
@@ -322,65 +308,36 @@ export default function ScholarshipPreceedingDetailsPage() {
     }
     if (academicYears.length === 0) {
       setAcademicYearId(null);
+      setFinancialYearId(null);
       return;
     }
     if (
       academicYearId &&
-      academicYears.some(
-        (r) =>
-          pickNum(r, ["fk_academic_year_id", "academicYearId"]) ===
-          Number(academicYearId),
+      (academicYears as Record<string, unknown>[]).some(
+        (r) => pickAcademicYearId(r) === Number(academicYearId),
       )
     ) {
       return;
     }
     const stored = readStoredFilters();
     const storedAy = Number(stored.academicYearId ?? 0);
-    const storedMatch = academicYears.find(
-      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]) === storedAy,
+    const storedMatch = (academicYears as Record<string, unknown>[]).find(
+      (r) => pickAcademicYearId(r) === storedAy,
     );
-    setAcademicYearId(
-      String(
-        pickNum(storedMatch ?? academicYears[0], [
-          "fk_academic_year_id",
-          "academicYearId",
-        ]),
-      ),
-    );
-    if (storedMatch && stored.financialYearId) {
-      setFinancialYearId(stored.financialYearId);
-    } else if (!storedMatch) {
-      setFinancialYearId(null);
-    }
-  }, [collegeNum, academicYears, academicYearId]);
-
-  useEffect(() => {
-    if (!academicYearNum) {
-      setFinancialYearId(null);
-      return;
-    }
-    if (
-      financialYearId &&
-      financialYears.some(
-        (fy) =>
-          pickNum(fy, ["financialYearId", "financial_year_id"]) ===
-          Number(financialYearId),
-      )
-    ) {
-      return;
-    }
-    const stored = readStoredFilters();
-    const storedFy = Number(stored.financialYearId ?? 0);
-    const storedMatch = financialYears.find(
-      (fy) =>
-        pickNum(fy, ["financialYearId", "financial_year_id"]) === storedFy,
-    );
-    if (storedMatch) {
-      setFinancialYearId(
-        String(pickNum(storedMatch, ["financialYearId", "financial_year_id"])),
-      );
-    }
-  }, [academicYearNum, financialYears, financialYearId]);
+    const preferred =
+      storedMatch ??
+      (defaultAcademicYearId > 0
+        ? (academicYears as Record<string, unknown>[]).find(
+            (r) => pickAcademicYearId(r) === defaultAcademicYearId,
+          )
+        : undefined) ??
+      (academicYears as Record<string, unknown>[]).find(
+        (r) => Number(r.isCurrAy ?? r.is_curr_ay ?? 0) === 1,
+      ) ??
+      (academicYears[0] as Record<string, unknown> | undefined);
+    setAcademicYearId(preferred ? String(pickAcademicYearId(preferred)) : null);
+    setFinancialYearId(null);
+  }, [collegeNum, academicYears, academicYearId, defaultAcademicYearId]);
 
   useEffect(() => {
     if (!collegeId && !academicYearId && !financialYearId) return;
@@ -416,6 +373,8 @@ export default function ScholarshipPreceedingDetailsPage() {
 
   const rows = (listResult?.rows ?? []) as PreceedingRow[];
   const totalCount = listResult?.totalCount ?? 0;
+  const filtersReady =
+    collegeNum > 0 && academicYearNum > 0 && financialYearNum > 0;
 
   const collegeCode = useMemo(() => {
     const opt = collegeOptions.find((o) => o.value === collegeId);
@@ -537,63 +496,90 @@ export default function ScholarshipPreceedingDetailsPage() {
 
   return (
     <FilteredListPage
-      title="Scholarship Preceedings"
+      title="Scholarship Proceedings"
       filters={
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Select
+        <GlobalFilterBarRow>
+          <GlobalFilterField
             label="College"
-            value={collegeId}
-            onChange={(v) => {
-              setCollegeId(v);
-              setAcademicYearId(null);
-              setFinancialYearId(null);
-              setPage(0);
-            }}
-            options={collegeOptions}
-            placeholder="Select college"
-            isLoading={loadingFilters}
-            searchable
-          />
-          <Select
+            icon={filterFieldIcon("College")}
+            className="w-full sm:!flex-[0_0_16%] sm:!max-w-[16%] sm:!min-w-[9rem]"
+          >
+            <Select
+              required
+              value={collegeId}
+              onChange={(v) => {
+                setCollegeId(v);
+                setAcademicYearId(null);
+                setFinancialYearId(null);
+                setPage(0);
+              }}
+              options={collegeOptions}
+              placeholder="Select college"
+              isLoading={loadingColleges}
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField
             label="Academic Year"
-            value={academicYearId}
-            onChange={(v) => {
-              setAcademicYearId(v);
-              setFinancialYearId(null);
-              setPage(0);
-            }}
-            options={academicYearOptions}
-            placeholder="Select academic year"
-            disabled={!collegeNum}
-            searchable
-          />
-          <Select
+            icon={filterFieldIcon("Academic Year")}
+            className="w-full sm:!flex-[0_0_16%] sm:!max-w-[16%] sm:!min-w-[9rem]"
+          >
+            <Select
+              required
+              value={academicYearId}
+              onChange={(v) => {
+                setAcademicYearId(v);
+                setFinancialYearId(null);
+                setPage(0);
+              }}
+              options={academicYearOptions}
+              placeholder="Select academic year"
+              disabled={!collegeNum}
+              isLoading={loadingAy}
+              searchable
+            />
+          </GlobalFilterField>
+          <GlobalFilterField
             label="Financial Year"
-            value={financialYearId}
-            onChange={(v) => {
-              setFinancialYearId(v);
-              setPage(0);
-            }}
-            options={financialYearOptions}
-            placeholder="Select financial year"
-            disabled={!academicYearNum}
-            isLoading={loadingFy}
-            searchable
-          />
-        </div>
+            icon={filterFieldIcon("Financial Year")}
+            className="w-full sm:!flex-[0_0_16%] sm:!max-w-[16%] sm:!min-w-[9rem]"
+          >
+            <Select
+              required
+              value={financialYearId}
+              onChange={(v) => {
+                setFinancialYearId(v);
+                setPage(0);
+              }}
+              options={financialYearOptions}
+              placeholder="Select financial year"
+              disabled={!academicYearNum}
+              isLoading={loadingFy}
+              searchable
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
       }
-      rowData={financialYearNum > 0 ? rows : []}
+      showTable={filtersReady}
+      resultsVisible={filtersReady}
+      rowData={filtersReady ? rows : []}
       columnDefs={columnDefs}
       loading={loadingList || isFetching}
+      fitColumnsToWidth={false}
       serverSide
       totalCount={totalCount}
       currentPage={page}
       onPageChange={(nextPage) => setPage(nextPage)}
       pagination={false}
       paginationPageSize={PAGE_SIZE}
-      toolbar={{ search: true, searchPlaceholder: "Search" }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        exportExcel: false,
+        exportPdf: false,
+      }}
       toolbarTrailing={
-        financialYearNum > 0 ? (
+        filtersReady ? (
           <Button type="button" onClick={openCreate}>
             Add Preceedings
           </Button>

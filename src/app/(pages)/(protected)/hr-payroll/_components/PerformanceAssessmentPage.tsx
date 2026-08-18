@@ -349,7 +349,7 @@ export function PerformanceAssessmentPage() {
             <Button
               type="button"
               size="sm"
-              className="h-[30px] rounded-full bg-[#00b9f5] px-3 text-[12px] text-white hover:bg-[#00a6dc]"
+              className="h-[30px] p-[0.5rem] bg-[#1e88e5] w-24 text-[12px] text-white hover:bg-[#00a6dc]"
               onClick={() => openAssessment(id || undefined)}
             >
               {viewOnly ? "View" : "Edit"}
@@ -428,13 +428,14 @@ export function PerformanceAssessmentPage() {
       toolbar={{
         search: false,
         exportPdf: false,
+        exportExcel: false,
       }}
       toolbarTrailing={
         !sessionLoading && !isPrincipal ? (
           <Button
             type="button"
             size="sm"
-            className="h-[30px] rounded-full bg-[#00b9f5] px-3 text-[12px] text-white hover:bg-[#00a6dc]"
+            className="h-[30px] rounded-full px-3 text-[12px] text-white"
             onClick={() => openAssessment()}
           >
             <PlusIcon className="mr-1.5 h-3.5 w-3.5" />

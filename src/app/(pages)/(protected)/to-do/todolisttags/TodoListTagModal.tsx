@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import {
   createTodoListTag,
   listActiveCollegesForTodo,
-  searchEmployeesForManagerAssign,
+  searchEmployeesForTodo,
   updateTodoListTag,
 } from "@/services";
 import type { College } from "@/types/college";
@@ -146,15 +146,13 @@ export default function TodoListTagModal({
     [colleges],
   );
 
-  async function onEmployeeSearch(term: string) {
+  const onEmployeeSearch = useCallback(async (term: string) => {
     const q = term.trim();
-    if (q.length < 5) {
-      setEmployeeOptions([]);
-      return;
-    }
+    // Angular `enteredEmployee`: only hits employeesearch when length > 4.
+    if (q.length <= 4) return;
     setEmployeeSearchLoading(true);
     try {
-      const rows = await searchEmployeesForManagerAssign(q);
+      const rows = await searchEmployeesForTodo(q);
       setEmployeeOptions(
         rows.map((r) => ({
           value: String((r as AnyRow).employeeId),
@@ -166,7 +164,7 @@ export default function TodoListTagModal({
     } finally {
       setEmployeeSearchLoading(false);
     }
-  }
+  }, []);
 
   async function onSubmit(data: FormValues) {
     setSubmitError(null);

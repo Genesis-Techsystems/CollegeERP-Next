@@ -170,7 +170,7 @@ export function AffiliatedCollegeFilters({
           ? !courseId || !academicYearId
           : examFirst
             ? !courseId
-            : courseYearId == null || !courseYearId)
+            : courseYearId == null)
       }
       searchable
     />

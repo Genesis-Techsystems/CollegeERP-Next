@@ -34,6 +34,15 @@ function positiveId(...candidates: unknown[]): number {
   return 0;
 }
 
+function readStorage(key: string): string {
+  if (typeof globalThis.window === "undefined") return "";
+  return globalThis.localStorage.getItem(key) ?? "";
+}
+
+function isLecturerFeedback(code: string): boolean {
+  return code.trim().toLowerCase() === "lecturer";
+}
+
 function txt(row: AnyRow | null | undefined, keys: string[]): string {
   if (!row) return "";
   for (const key of keys) {
@@ -137,31 +146,45 @@ export function StudentFeedbackPage() {
   useEffect(() => {
     let cancelled = false;
     async function resolveCtx() {
-      let studentId = positiveId(user?.studentId);
+      // Angular: localStorage studentId / collegeId / academicYearId / groupSectionId
+      let studentId =
+        positiveId(user?.studentId) || positiveId(readStorage("studentId"));
       let detail: AnyRow | null = null;
       if (studentId) {
         detail = await fetchStudentDetail(studentId);
-      } else if (positiveId(user?.userId)) {
-        detail = await fetchStudentDetailByUserId(user!.userId);
-        studentId = positiveId(detail?.studentId, detail?.studentDetailId);
       }
+      if (!detail && positiveId(user?.userId)) {
+        detail = await fetchStudentDetailByUserId(user!.userId);
+      }
+      studentId = positiveId(
+        studentId,
+        detail?.studentId,
+        detail?.studentDetailId,
+        detail?.fk_student_id,
+        detail?.student_id,
+      );
       if (cancelled) return;
       setStudentCtx({
         studentId,
         collegeId: positiveId(
           detail?.collegeId,
           user?.collegeId,
+          readStorage("collegeId"),
           detail?.["College.collegeId"],
         ),
         academicYearId: positiveId(
           detail?.academicYearId,
           user?.academicYearId,
+          readStorage("academicYearId"),
+          detail?.fk_academic_year_id,
         ),
         groupSectionId: positiveId(
           detail?.groupSectionId,
+          readStorage("groupSectionId"),
           detail?.["GroupSection.groupSectionId"],
           detail?.["groupSection.groupSectionId"],
           detail?.fk_groupSectionId,
+          detail?.fk_group_section_id,
         ),
       });
     }
@@ -187,10 +210,14 @@ export function StudentFeedbackPage() {
   );
 
   const employeesQuery = useQuery({
-    queryKey: QK.studentSurveyFeedback.employees(
-      Number(surveyFormId || 0),
-      studentCtx.studentId,
-    ),
+    queryKey: [
+      ...QK.studentSurveyFeedback.employees(
+        Number(surveyFormId || 0),
+        studentCtx.studentId,
+      ),
+      studentCtx.academicYearId,
+      studentCtx.groupSectionId,
+    ],
     queryFn: () =>
       listSurveyStatusEmployees({
         surveyFormId: Number(surveyFormId),
@@ -200,7 +227,7 @@ export function StudentFeedbackPage() {
       }),
     enabled:
       !!surveyFormId &&
-      fbForCode === "Lecturer" &&
+      isLecturerFeedback(fbForCode) &&
       studentCtx.studentId > 0 &&
       studentCtx.groupSectionId > 0,
   });
@@ -217,6 +244,8 @@ export function StudentFeedbackPage() {
   );
 
   const rows = employeesQuery.data ?? [];
+  // Angular `*ngIf="employeesList.length>0"` — table card only after a survey is selected
+  const showTable = Boolean(surveyFormId);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -247,7 +276,9 @@ export function StudentFeedbackPage() {
           ),
         });
       } catch (err) {
-        toastError(err instanceof Error ? err.message : "Failed to save feedback");
+        toastError(
+          err instanceof Error ? err.message : "Failed to save feedback",
+        );
       } finally {
         setSaving(false);
       }
@@ -269,7 +300,7 @@ export function StudentFeedbackPage() {
     if (
       employeesQuery.isSuccess &&
       rows.length === 0 &&
-      fbForCode === "Lecturer" &&
+      isLecturerFeedback(fbForCode) &&
       surveyFormId
     ) {
       toastInfo("No pending feedback records");
@@ -291,9 +322,11 @@ export function StudentFeedbackPage() {
           />
         </div>
       }
-      rowData={fbForCode === "Lecturer" ? rows : []}
+      rowData={isLecturerFeedback(fbForCode) ? rows : []}
       columnDefs={columnDefs}
       loading={employeesQuery.isLoading}
+      showTable={showTable}
+      resultsVisible={showTable}
       pagination
       toolbar={{
         search: true,

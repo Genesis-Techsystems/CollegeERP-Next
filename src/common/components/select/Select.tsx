@@ -138,6 +138,8 @@ function scrollListOnWheel(e: React.WheelEvent, list: HTMLDivElement | null) {
 
 function useDebouncedCallback(fn: (v: string) => void, delay: number) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
   const cancel = useCallback(() => {
     if (timer.current !== null) {
       clearTimeout(timer.current);
@@ -149,10 +151,10 @@ function useDebouncedCallback(fn: (v: string) => void, delay: number) {
       cancel();
       timer.current = setTimeout(() => {
         timer.current = null;
-        fn(v);
+        fnRef.current(v);
       }, delay);
     },
-    [fn, delay, cancel],
+    [delay, cancel],
   );
   return { run, cancel };
 }
@@ -224,7 +226,11 @@ export function Select({
       ? uniqueOptions.filter((o) => {
           const l = o.label.toLowerCase();
           const v = String(o.value).toLowerCase();
-          const d = (o.description ?? "").toLowerCase();
+          const d =
+            typeof o.description === "string" ||
+            typeof o.description === "number"
+              ? String(o.description).toLowerCase()
+              : "";
           return l.includes(needle) || v.includes(needle) || d.includes(needle);
         })
       : uniqueOptions;

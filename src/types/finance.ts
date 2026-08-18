@@ -234,6 +234,7 @@ export type LibrarySummaryRow = Record<string, unknown> & {
 /** Row from `s_get_transport_summary` (management Transport Report). */
 export type TransportSummaryRow = Record<string, unknown> & {
   college_code?: string;
+  college_shortname?: string;
   district_name?: string;
   Type?: string;
   Count?: number | null;

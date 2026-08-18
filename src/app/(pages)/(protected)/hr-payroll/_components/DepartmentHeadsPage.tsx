@@ -39,7 +39,7 @@ const COL_DEFS = {
   } as ColDef<DeptHeadRow>,
   group: {
     field: "groupCode",
-    headerName: "Group",
+    headerName: "Course Group",
     minWidth: 90,
   } as ColDef<DeptHeadRow>,
   room: {
@@ -68,6 +68,13 @@ const COL_DEFS = {
 
 function statusRenderer(p: ICellRendererParams<DeptHeadRow>) {
   return <StatusBadge status={p.data?.isActive !== false} />;
+}
+
+function employeeRenderer(p: ICellRendererParams<DeptHeadRow>) {
+  const name = String(p.data?.employeeName ?? "");
+  const num = p.data?.empNumber != null ? String(p.data.empNumber) : "";
+  if (!name && !num) return "—";
+  return num ? `${name} (${num})` : name;
 }
 
 function makeActionsRenderer(onEdit: (row: DeptHeadRow) => void) {
@@ -121,7 +128,7 @@ export function DepartmentHeadsPage() {
       COL_DEFS.course,
       COL_DEFS.group,
       COL_DEFS.room,
-      COL_DEFS.employee,
+      { ...COL_DEFS.employee, cellRenderer: employeeRenderer },
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
       { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(onEdit) },
     ],
@@ -152,6 +159,8 @@ export function DepartmentHeadsPage() {
         search: true,
         searchPlaceholder: "Search department heads…",
         pdfDocumentTitle: "Department Heads",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

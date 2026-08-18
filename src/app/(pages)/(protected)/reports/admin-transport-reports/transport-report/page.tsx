@@ -55,11 +55,17 @@ const COL_DEFS = {
     filter: false,
   } as ColDef<TransportSummaryRow>,
   college: {
-    field: "college_code",
     headerName: "College Code",
     minWidth: 120,
     flex: 1,
     cellClass: "text-left",
+    valueGetter: (p) =>
+      String(
+        p.data?.college_shortname ??
+          p.data?.collegeShortname ??
+          p.data?.college_code ??
+          "",
+      ),
   } as ColDef<TransportSummaryRow>,
   district: {
     field: "district_name",
@@ -297,7 +303,13 @@ export default function TransportReportPage() {
   }
 
   const columnDefs = useMemo(
-    () => [COL_DEFS.siNo, COL_DEFS.district, COL_DEFS.type, COL_DEFS.count],
+    () => [
+      COL_DEFS.siNo,
+      COL_DEFS.college,
+      COL_DEFS.district,
+      COL_DEFS.type,
+      COL_DEFS.count,
+    ],
     [],
   );
 
@@ -377,7 +389,6 @@ export default function TransportReportPage() {
       toolbarTrailing={
         <Button
           type="button"
-          variant="outline"
           size="sm"
           className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
           onClick={handlePrint}
@@ -405,7 +416,14 @@ export default function TransportReportPage() {
               {filteredRows.map((row, i) => (
                 <tr key={`excel-${i}`}>
                   <td style={TD}>{i + 1}</td>
-                  <td style={TD}>{String(row.college_code ?? "")}</td>
+                  <td style={TD}>
+                    {String(
+                      row.college_shortname ??
+                        row.collegeShortname ??
+                        row.college_code ??
+                        "",
+                    )}
+                  </td>
                   <td style={TD}>{String(row.district_name ?? "")}</td>
                   <td style={TD}>{String(row.Type ?? "")}</td>
                   <td style={TD}>{String(row.Count ?? "")}</td>
@@ -473,7 +491,14 @@ export default function TransportReportPage() {
                 {rows.map((row, i) => (
                   <tr key={`print-${i}`}>
                     <td>{i + 1}</td>
-                    <td>{String(row.college_code ?? "")}</td>
+                    <td>
+                      {String(
+                        row.college_shortname ??
+                          row.collegeShortname ??
+                          row.college_code ??
+                          "",
+                      )}
+                    </td>
                     <td>{String(row.district_name ?? "")}</td>
                     <td>{String(row.Type ?? "")}</td>
                     <td>{String(row.Count ?? "")}</td>

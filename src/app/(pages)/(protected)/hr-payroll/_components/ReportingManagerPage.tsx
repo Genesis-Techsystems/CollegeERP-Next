@@ -306,6 +306,8 @@ export function ReportingManagerPage() {
               search: true,
               searchPlaceholder: "Search",
               pdfDocumentTitle: "Reporting Manager",
+              exportExcel: false,
+              exportPdf: false,
             }
           : undefined
       }

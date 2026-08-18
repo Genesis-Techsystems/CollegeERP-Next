@@ -162,6 +162,8 @@ export function LeaveTypesPage() {
           search: true,
           searchPlaceholder: "Search leave types…",
           pdfDocumentTitle: "Leave Types",
+          exportExcel: false,
+          exportPdf: false,
         }}
         toolbarTrailing={
           <Button

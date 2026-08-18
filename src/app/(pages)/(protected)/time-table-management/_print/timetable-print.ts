@@ -1,6 +1,7 @@
 /**
- * Angular parity: view-timetable printPage() — iframe print.
- * Layout: centered filterNames line + day columns (stacked periods), portrait.
+ * Angular parity: view-timetable printPage() — iframe print of #table2.
+ * Portrait A4, full-width black-border grid, no cell/header fills
+ * (Angular relies on Chrome "Background graphics" off).
  */
 
 import type {
@@ -44,58 +45,53 @@ function esc(v: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-// ─── CSS (mirrors Angular view-timetable.component.scss print) ───────────────
+function titleCaseDay(name: string): string {
+  const s = name.trim();
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+// ─── CSS (mirrors Angular #table2 print, without forced background colors) ───
 
 const PRINT_CSS = `
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
     background: #fff;
     color: #000;
     font-family: arial, sans-serif;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
   .filter-names {
-    margin: 5px;
+    margin: 5px 0 8px 0;
     font-size: large;
     font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
-    text-align: center;
-    display: flex;
-    justify-content: center;
+    font-weight: 600;
+    text-align: left;
   }
-  .days {
-    display: flex;
-    justify-content: center;
-    flex-wrap: nowrap;
+  #table2 {
     width: 100%;
-    margin-top: 8px;
-  }
-  .day-col {
-    display: inline-table;
     border-collapse: collapse;
+    table-layout: fixed;
+    font-family: arial, sans-serif;
     font-size: 12px;
   }
-  .day-col th,
-  .day-col td {
-    border: 1px solid #c5bec0;
+  #table2 th,
+  #table2 td {
+    border: 1px solid #000;
     text-align: center;
     vertical-align: middle;
-    font-family: arial, sans-serif;
+    background: #fff;
   }
-  .day-col th {
-    background: #c3d9ff;
+  #table2 th {
     font-weight: 500;
     font-size: 19px;
-    text-transform: uppercase;
-    padding: 15px 5px;
+    padding: 8px 5px;
+    text-transform: none;
   }
-  .day-col td {
-    padding: 0;
-  }
-  .break {
-    background: #efefef !important;
+  #table2 td {
+    padding: 8px 4px;
   }
   .sub-jct {
     font-weight: 500;
@@ -111,24 +107,19 @@ const PRINT_CSS = `
   .p-1 {
     display: grid;
     margin: 0;
-    padding: 4px 2px;
+    padding: 4px 2px 0;
     font-size: smaller;
   }
   p { margin: 0; padding: 0; }
   @page {
     size: A4 portrait;
-    margin: 1cm;
-  }
-  @media print {
-    html, body { background: #fff !important; }
-    .day-col { page-break-inside: avoid; }
+    margin: 12mm;
   }
 `;
 
 // ─── HTML builder ────────────────────────────────────────────────────────────
 
 function subBatchHtml(batch: TimetableSubBatch): string {
-  // Angular print uses subjectCode (shortName commented out).
   const subject = batch.subjectCode || batch.shortName;
   const batchPrefix =
     batch.studentBatchId && batch.studentBatchName
@@ -144,12 +135,6 @@ function subBatchHtml(batch: TimetableSubBatch): string {
 
 function timingCellHtml(timing: TimetableDayTiming): string {
   const h = printHeight(timing.startTime, timing.endTime);
-  // Angular print uses timing.color; React model stores colorCode
-  const bg = timing.isBreak
-    ? "#efefef"
-    : timing.colorCode
-      ? esc(timing.colorCode)
-      : "";
   const timeStr = `(${tConvert(timing.startTime)} - ${tConvert(timing.endTime)})`;
   const breakLabel =
     timing.isBreak && timing.classTimingName
@@ -160,38 +145,51 @@ function timingCellHtml(timing: TimetableDayTiming): string {
     : (timing.subBatches ?? []).map(subBatchHtml).join("");
 
   return `
-    <tr>
-      <td class="${timing.isBreak ? "break" : ""}"
-          style="height:${h}px;${bg ? `background-color:${bg};` : ""}"
-          ${timing.colspan > 1 ? `colspan="${timing.colspan}"` : ""}>
-        ${subBatches}
-        <p class="p-1">${breakLabel}${breakLabel ? " " : ""}${esc(timeStr)}</p>
-      </td>
-    </tr>`;
+    <td style="height:${h}px">
+      ${subBatches}
+      <p class="p-1">${breakLabel}${breakLabel ? " " : ""}${esc(timeStr)}</p>
+    </td>`;
 }
 
-function weekdayColHtml(weekday: TimetableDayColumn): string {
-  const name = weekday.timings[0]?.weekdayName || weekday.weekdayName || "";
-  const rows = (weekday.timings ?? []).map(timingCellHtml).join("");
-  return `
-    <table class="day-col">
-      <thead>
-        <tr><th>${esc(name)}</th></tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>`;
+function weekdayHeaders(weekdays: TimetableDayColumn[]): string {
+  return weekdays
+    .map((day) => {
+      const name = day.timings[0]?.weekdayName || day.weekdayName || "";
+      return `<th>${esc(titleCaseDay(name))}</th>`;
+    })
+    .join("");
+}
+
+function gridRows(weekdays: TimetableDayColumn[]): string {
+  const rowCount = Math.max(0, ...weekdays.map((d) => d.timings?.length ?? 0));
+  const rows: string[] = [];
+  for (let i = 0; i < rowCount; i++) {
+    const cells = weekdays
+      .map((day) => {
+        const timing = day.timings?.[i];
+        return timing ? timingCellHtml(timing) : "<td></td>";
+      })
+      .join("");
+    rows.push(`<tr>${cells}</tr>`);
+  }
+  return rows.join("");
 }
 
 export function buildTimetablePrintHtml(
   timetable: AngularStudentTimetable,
   headerLine: string,
 ): string {
-  const cols = (timetable.weekdays ?? []).map(weekdayColHtml).join("");
+  const weekdays = timetable.weekdays ?? [];
   const body = `
     <p class="filter-names">${esc(headerLine)}</p>
-    <div class="days">${cols}</div>`;
+    <table id="table2">
+      <thead>
+        <tr>${weekdayHeaders(weekdays)}</tr>
+      </thead>
+      <tbody>
+        ${gridRows(weekdays)}
+      </tbody>
+    </table>`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>View Class Timetable</title><style>${PRINT_CSS}</style></head><body>${body}</body></html>`;
 }
 
@@ -205,8 +203,9 @@ export function printClassTimetable(
 
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
+  // Size to A4 so the table lays out at page width (0×0 iframes shrink-wrap).
   frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    "position:fixed;left:0;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;";
   document.body.appendChild(frame);
 
   const fdoc = frame.contentDocument;
@@ -220,7 +219,9 @@ export function printClassTimetable(
   fdoc.write(html);
   fdoc.close();
 
-  const cleanup = () => frame.remove();
+  const cleanup = () => {
+    if (frame.parentNode) frame.remove();
+  };
   win.addEventListener("afterprint", cleanup);
 
   setTimeout(() => {

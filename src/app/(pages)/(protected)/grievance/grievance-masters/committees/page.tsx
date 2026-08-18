@@ -135,6 +135,8 @@ export default function GrievanceCommitteesPage() {
         search: true,
         searchPlaceholder: "Search",
         pdfDocumentTitle: "Committees",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button
