@@ -268,15 +268,25 @@ export default function LibraryReportPage() {
         @page { margin: 1cm; }
         html, body { background: #fff !important; }
         .library-print { width: 100%; color: #000; }
+        .library-print .header-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 8px;
+        }
+        .library-print .header-text {
+          flex: 1;
+          text-align: left;
+        }
         .library-print .collegeName {
-          text-align: center !important;
+          text-align: left !important;
           font-size: 22px !important;
           font-weight: 550 !important;
-          margin: 20px 0 -6px !important;
+          margin: 0 0 4px !important;
           color: #000 !important;
         }
         .library-print .title {
-          text-align: center !important;
+          text-align: left !important;
           font-size: 19px !important;
           font-weight: 550 !important;
           margin: 0 !important;
@@ -303,10 +313,12 @@ export default function LibraryReportPage() {
           font-weight: 400;
         }
         .library-print img {
-          width: 100%;
-          max-width: 120px;
+          width: 90px;
+          max-width: 90px;
           height: auto;
           object-fit: contain;
+          display: block;
+          flex-shrink: 0;
         }
       `,
     });
@@ -460,20 +472,23 @@ export default function LibraryReportPage() {
       {resultsVisible ? (
         <div className="pointer-events-none absolute -left-[9999px] top-0 w-[900px] bg-white text-black">
           <div ref={printRef} className="library-print bg-white p-4 text-black">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoUrl || DEFAULT_COLLEGE_LOGO}
-              alt=""
-              className="mb-2"
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (!img.src.endsWith("default_logo.png")) {
-                  img.src = DEFAULT_COLLEGE_LOGO;
-                }
-              }}
-            />
-            <p className="collegeName">{collegeName}</p>
-            <p className="title">Library Report</p>
+            <div className="header-row">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={logoUrl || DEFAULT_COLLEGE_LOGO}
+                alt=""
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (!img.src.endsWith("default_logo.png")) {
+                    img.src = DEFAULT_COLLEGE_LOGO;
+                  }
+                }}
+              />
+              <div className="header-text">
+                <p className="collegeName">{collegeName}</p>
+                <p className="title">Library Report</p>
+              </div>
+            </div>
             <table>
               <thead>
                 <tr>

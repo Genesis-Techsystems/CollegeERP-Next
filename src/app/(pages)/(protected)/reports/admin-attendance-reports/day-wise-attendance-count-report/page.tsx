@@ -188,6 +188,22 @@ export default function DayWiseAttendanceCountReportPage() {
   const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
+  const isManagementLogin = useMemo(() => {
+    if (typeof globalThis.window === "undefined") return false;
+    try {
+      const storage = globalThis.localStorage;
+      if (storage.getItem("isMgnt") === "true") return true;
+      const roleName = String(storage.getItem("roleName") ?? "").toUpperCase();
+      const userRole = String(storage.getItem("userRole") ?? "").toUpperCase();
+      return (
+        roleName.includes("MANAGEMENT") ||
+        userRole.includes("MANAGEMENT") ||
+        userRole.includes("MGNT")
+      );
+    } catch {
+      return false;
+    }
+  }, []);
 
   const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
@@ -372,8 +388,9 @@ export default function DayWiseAttendanceCountReportPage() {
       "";
     const ay = ayOptions.find((o) => o.value === academicYearId)?.label || "";
     const course = courseOptions.find((o) => o.value === courseId)?.label || "";
-    const group =
-      groupOptions.find((o) => o.value === courseGroupId)?.label || "";
+    const group = isManagementLogin
+      ? ""
+      : groupOptions.find((o) => o.value === courseGroupId)?.label || "";
     const dateStr = classDate ? format(classDate, "yyyy-MMM-dd") : "";
     return `${collegeCode}/${ay}/${course}${group}( ${dateStr} )`;
   };
@@ -392,7 +409,7 @@ export default function DayWiseAttendanceCountReportPage() {
       toastInfo("Course is required");
       return;
     }
-    if (!Number(courseGroupId || 0)) {
+    if (!isManagementLogin && !Number(courseGroupId || 0)) {
       toastInfo("Course Group is required");
       return;
     }
@@ -533,20 +550,22 @@ export default function DayWiseAttendanceCountReportPage() {
               disabled={!collegeId || !Number(academicYearId || 0)}
             />
           </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
-            <Select
-              label="Course Group"
-              required
-              value={courseGroupId === "0" ? null : courseGroupId}
-              onChange={(v) => {
-                setCourseGroupId(v ?? "0");
-                clearResults();
-              }}
-              options={groupOptions}
-              placeholder="Course Group"
-              disabled={!Number(courseId || 0)}
-            />
-          </div>
+          {!isManagementLogin ? (
+            <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
+              <Select
+                label="Course Group"
+                required
+                value={courseGroupId === "0" ? null : courseGroupId}
+                onChange={(v) => {
+                  setCourseGroupId(v ?? "0");
+                  clearResults();
+                }}
+                options={groupOptions}
+                placeholder="Course Group"
+                disabled={!Number(courseId || 0)}
+              />
+            </div>
+          ) : null}
           <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <DatePicker
               label="From Date"

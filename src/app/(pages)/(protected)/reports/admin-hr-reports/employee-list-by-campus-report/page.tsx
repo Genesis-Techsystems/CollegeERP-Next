@@ -46,7 +46,7 @@ import {
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import type { AnyRow } from "@/app/(pages)/(protected)/reports/admin-library-reports/_lib/library-report-columns";
 
-const PRINT_REPORT_TITLE = "Employee List By Department Report";
+const PRINT_REPORT_TITLE = "Employee List By Campus";
 
 type EmpRow = {
   empName: string;
@@ -129,9 +129,7 @@ function mapRow(row: AnyRow): EmpRow {
     category: String(row.Emp_Category ?? row.empCategoryName ?? ""),
     email: String(row.email ?? row.Email ?? ""),
     mobile: String(row.mobile ?? ""),
-    officialMobile: String(
-      row.official_mobile ?? row.officialMobile ?? "",
-    ),
+    officialMobile: String(row.official_mobile ?? row.officialMobile ?? ""),
   };
 }
 

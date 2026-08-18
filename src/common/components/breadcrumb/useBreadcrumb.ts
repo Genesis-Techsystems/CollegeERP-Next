@@ -74,9 +74,14 @@ function examReportsModuleBreadcrumb(
   pathname: string,
   items: BreadcrumbItem[],
 ): BreadcrumbItem[] {
-  const match = pathname.match(
-    /^\/admin-examination-management\/exam-reports\/([^/]+)\/?$/i,
-  );
+  const path = pathname.replace(/\/$/, "") || "/";
+  const match =
+    pathname.match(
+      /^\/admin-examination-management\/exam-reports\/([^/]+)\/?$/i,
+    ) ||
+    pathname.match(
+      /\/(?:reports\/admin-exam-reports|admin-examination-management\/admin-exam-reports)\/consolidated-marks-report(?:\/print-consolidated-memo)?\/?$/i,
+    );
   if (!match) return items;
 
   const labels = items.map((i) => i.label.toLowerCase());
@@ -88,9 +93,22 @@ function examReportsModuleBreadcrumb(
         l === "exam reports" ||
         l.includes("exam report"),
     );
-  if (alreadyUnderReports) return items;
+  if (alreadyUnderReports) {
+    const last = items[items.length - 1];
+    if (
+      /consolidated-marks-report(?:\/print-consolidated-memo)?$/i.test(path) &&
+      last &&
+      last.label.toLowerCase() !== "consolidated marks report"
+    ) {
+      return [...items.slice(0, -1), { label: "Consolidated Marks Report" }];
+    }
+    return items;
+  }
 
-  const pageLabel = items[items.length - 1]?.label ?? segmentToLabel(match[1]);
+  const pageLabel =
+    /consolidated-marks-report(?:\/print-consolidated-memo)?$/i.test(path)
+      ? "Consolidated Marks Report"
+      : (items[items.length - 1]?.label ?? segmentToLabel(match[1] ?? ""));
 
   return [
     { label: "Home", href: "/dashboard" },
@@ -157,11 +175,11 @@ function feeReportsMenuBreadcrumb(
               : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/library-fee-collections$/i.test(
                     path,
                   )
-                ? "Library Fee Report"
+                ? "Library Students Fee Collection Report"
                 : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/scholarship-due-list$/i.test(
                       path,
                     )
-                  ? "Scholarship Report"
+                  ? "Scholarship Due List"
                   : /\/(?:accounts-and-fees\/fee-reports|reports\/admin-fee-reports)\/scholarship-detailed-report$/i.test(
                         path,
                       )

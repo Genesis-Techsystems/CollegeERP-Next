@@ -8,7 +8,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { CellStyle, ColDef, ICellRendererParams } from "ag-grid-community";
+import type {
+  CellClassParams,
+  CellStyle,
+  ColDef,
+  ICellRendererParams,
+} from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { FormModal } from "@/common/components/feedback";
 import { SearchInput } from "@/common/components/search";
@@ -303,11 +308,42 @@ export default function StudentAttendancePercentageReportPage() {
 
   const collegeNum = Number(filters.collegeId || 0) || null;
   const collegeLogo = useCollegeLogo(collegeNum);
+  const isManagementLogin = useMemo(() => {
+    if (typeof globalThis.window === "undefined") return false;
+    try {
+      const storage = globalThis.localStorage;
+      if (storage.getItem("isMgnt") === "true") return true;
+      const roleName = String(storage.getItem("roleName") ?? "").toUpperCase();
+      const userRole = String(storage.getItem("userRole") ?? "").toUpperCase();
+      return (
+        roleName.includes("MANAGEMENT") ||
+        userRole.includes("MANAGEMENT") ||
+        userRole.includes("MGNT")
+      );
+    } catch {
+      return false;
+    }
+  }, []);
 
   const noteRows = useMemo(
     () => (showTable ? buildNoteRows(keys) : []),
     [showTable, keys],
   );
+
+  /** Pinned top row: "No. of Classes" per subject (Angular parity). */
+  const pinnedTopRowData = useMemo<AnyRow[]>(() => {
+    if (!showTable || keys.length === 0) return [];
+    const row: AnyRow = {
+      rollNumber: "",
+      studentDisplay: "No. of Classes",
+      present: keys.reduce((sum, k) => sum + num(k.Total_classes), 0),
+      totalPercenteage: "",
+    };
+    for (const k of keys) {
+      row[subjectFieldKey(k.subject)] = num(k.Total_classes);
+    }
+    return [row];
+  }, [showTable, keys]);
 
   const columnDefs = useMemo((): ColDef<AnyRow>[] => {
     const subjectCols = keys.map((key): ColDef<AnyRow> => {
@@ -319,7 +355,13 @@ export default function StudentAttendancePercentageReportPage() {
         headerTooltip: str(key.Subject_name),
         minWidth: 110,
         flex: 0,
-        cellStyle: { textAlign: "center" } satisfies CellStyle,
+        cellStyle: (p) =>
+          ({
+            textAlign: "center",
+            ...(p.node.rowPinned === "top"
+              ? { fontWeight: 700, background: "#e8f0fe", color: "#0c51a4" }
+              : {}),
+          }) satisfies CellStyle,
         valueGetter: (p) => {
           const v = p.data?.[field];
           return v == null || v === "" ? "-" : String(v);
@@ -327,22 +369,38 @@ export default function StudentAttendancePercentageReportPage() {
       };
     });
 
+    const pinnedCellStyle = (p: CellClassParams<AnyRow>): CellStyle | null =>
+      p.node.rowPinned === "top"
+        ? { fontWeight: 700, background: "#e8f0fe", color: "#0c51a4" }
+        : null;
+
     return [
       {
         headerName: "S.No",
-        valueGetter: rowIndexGetter,
+        valueGetter: (p) =>
+          p.node?.rowPinned === "top" ? "" : rowIndexGetter(p),
         width: 70,
         flex: 0,
+        cellStyle: pinnedCellStyle,
       },
       {
         field: "rollNumber",
         headerName: "Roll No.",
         minWidth: 110,
+        cellStyle: pinnedCellStyle,
       },
       {
         field: "studentDisplay",
         headerName: "Student",
         minWidth: 180,
+        cellStyle: (p) =>
+          p.node?.rowPinned === "top"
+            ? ({
+                fontWeight: 700,
+                background: "#e8f0fe",
+                color: "#0c51a4",
+              } satisfies CellStyle)
+            : null,
       },
       ...subjectCols,
       {
@@ -350,15 +408,28 @@ export default function StudentAttendancePercentageReportPage() {
         headerName: "Total",
         minWidth: 90,
         flex: 0,
-        cellStyle: { textAlign: "center" } satisfies CellStyle,
+        cellStyle: (p) =>
+          ({
+            textAlign: "center",
+            ...(p.node?.rowPinned === "top"
+              ? { fontWeight: 700, background: "#e8f0fe", color: "#0c51a4" }
+              : {}),
+          }) satisfies CellStyle,
       },
       {
         field: "totalPercenteage",
         headerName: "Percentage(%)",
         minWidth: 120,
         flex: 0,
-        cellStyle: { textAlign: "center" } satisfies CellStyle,
+        cellStyle: (p) =>
+          ({
+            textAlign: "center",
+            ...(p.node?.rowPinned === "top"
+              ? { fontWeight: 700, background: "#e8f0fe", color: "#0c51a4" }
+              : {}),
+          }) satisfies CellStyle,
         valueGetter: (p) => {
+          if (p.node?.rowPinned === "top") return "";
           const v = p.data?.totalPercenteage;
           return v == null || v === "" ? "" : String(v);
         },
@@ -591,6 +662,7 @@ ${tableHtml}</body></html>`);
   }, [smsRows, smsSearch]);
 
   const openSmsModal = () => {
+    if (isManagementLogin) return;
     if (gridRows.length === 0) {
       toastInfo("No students to send SMS.");
       return;
@@ -771,6 +843,7 @@ ${tableHtml}</body></html>`);
       showTable={showTable}
       resultsVisible={showTable}
       hideEmptyGrid
+      pinnedTopRowData={pinnedTopRowData}
       getRowId={(p) => str(p.data?.rollNumber)}
       toolbar={{
         search: true,
@@ -799,7 +872,7 @@ ${tableHtml}</body></html>`);
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report
             </Button>
-            {gridRows.length > 0 ? (
+            {gridRows.length > 0 && !isManagementLogin ? (
               <Button
                 type="button"
                 size="sm"

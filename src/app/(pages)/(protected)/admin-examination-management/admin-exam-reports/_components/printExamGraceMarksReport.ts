@@ -51,9 +51,16 @@ const PRINT_CSS = `
   }
   .meta { display: flex; justify-content: space-between; width: 100%; margin: 0 0 8px; font-size: 13px; color: #000; }
   .meta p { margin: 0; }
-  table.mar { width: 100%; border-collapse: separate; border-spacing: 1px; }
+  table.mar {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #333;
+  }
+  th.table-th, td.table-td {
+    border: 1px solid #333;
+  }
   th.table-th {
-    padding: 8px 5px; background: #c3d9ff; font-weight: 550; text-align: left; border: none;
+    padding: 8px 5px; background: #c3d9ff; font-weight: 550; text-align: left;
   }
   td.table-td {
     padding: 5px 8px; text-align: left; font-weight: 400;

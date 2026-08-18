@@ -33,8 +33,8 @@ import {
   toPrintLogoUrl,
 } from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 
-const REPORT_TITLE = "Institutional Scholarship List";
-const PRINT_REPORT_TITLE = "Institutional Scholarship List";
+const REPORT_TITLE = "Concessions List";
+const PRINT_REPORT_TITLE = "Concessions List";
 
 const EXCEL_COLUMNS = [
   { key: "siNo", header: "SI.No" },
@@ -219,8 +219,7 @@ export default function ConcessionListPage() {
   );
 
   const collegeName = useMemo(
-    () =>
-      collegeOptions.find((o) => o.value === collegeId)?.label ?? "College",
+    () => collegeOptions.find((o) => o.value === collegeId)?.label ?? "College",
     [collegeOptions, collegeId],
   );
 
@@ -345,8 +344,7 @@ export default function ConcessionListPage() {
     );
   };
 
-  const pageTitle =
-    rows.length > 0 && dataDetails ? dataDetails : REPORT_TITLE;
+  const pageTitle = rows.length > 0 && dataDetails ? dataDetails : REPORT_TITLE;
 
   return (
     <FilteredListPage<FeeConcessionRow>

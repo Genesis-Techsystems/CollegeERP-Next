@@ -423,11 +423,23 @@ export function resolveExaminationReportHref(
   }
 
   if (
+    hrefLower.includes("consolidated-marks-report") ||
+    labelLower.includes("consolidated marks report") ||
+    (labelLower.includes("consolidated") &&
+      labelLower.includes("marks") &&
+      labelLower.includes("report") &&
+      !labelLower.includes("exam report"))
+  ) {
+    return `${REPORTS_ADMIN_EXAM_REPORTS}/consolidated-marks-report`;
+  }
+
+  if (
     hrefLower.includes("consolidated-exam-report") ||
     labelLower.includes("consolidated exam report") ||
     (labelLower.includes("consolidated") &&
       labelLower.includes("exam") &&
-      labelLower.includes("report"))
+      labelLower.includes("report") &&
+      !labelLower.includes("marks"))
   ) {
     return `${ADMIN_EXAM_REPORTS}/consolidated-exam-report`;
   }

@@ -651,6 +651,11 @@ export default function ExamInvigilatorAllotmentReportPage() {
   return (
     <FilteredListPage
       title="Invigilator Allotment Report"
+      tableTitle={
+        hasFetched && filterSummary
+          ? `Invigilator Allotment Report - ${filterSummary}`
+          : "Invigilator Allotment Report"
+      }
       resultsVisible={hasFetched}
       filters={
         <>
@@ -834,11 +839,6 @@ export default function ExamInvigilatorAllotmentReportPage() {
               </Button>
             </div>
           </div>
-          {hasFetched && filterSummary ? (
-            <p className="mt-2 text-[12px] font-medium text-blue-700">
-              {filterSummary}
-            </p>
-          ) : null}
         </>
       }
       rowData={hasFetched ? rows : []}

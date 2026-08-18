@@ -30,6 +30,8 @@
   "/admin-examination-management/admin-exam-masters/exam-setup-master": "/admin-examination-management/admin-exam-masters/setup-master",
   "/admin-examination-management/admin-exam-reports/assignment-pending-list": "/admin-examination-management/admin-exam-reports/assignment-pending-list-report",
   "/admin-examination-management/admin-exam-reports/batch-wise-sgpa-report": "/admin-examination-management/admin-exam-reports/batchwise-sgpa-report",
+  "/admin-examination-management/admin-exam-reports/consolidated-marks-report": "/reports/admin-exam-reports/consolidated-marks-report",
+  "/admin-examination-management/exam-reports/consolidated-marks-report": "/reports/admin-exam-reports/consolidated-marks-report",
   "/admin-examination-management/admin-exam-reports/invigilator-allotment-report": "/admin-examination-management/admin-exam-reports/exam-invigilator-allotment-report",
   "/admin-examination-management/admin-exam-reports/final-marks-pre-moderation-report": "/admin-examination-management/admin-exam-reports/final-marks-premoderation",
   "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-data": "/admin-examination-management/admin-exam-reports/grace-marks-benefited-students-report",
