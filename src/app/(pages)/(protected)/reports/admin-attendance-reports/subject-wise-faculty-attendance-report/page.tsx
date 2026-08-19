@@ -44,7 +44,7 @@ import {
   toPrintLogoUrl,
 } from "../_lib/attendance-report-print";
 
-const PRINT_REPORT_TITLE = "Subject Wise Faculty Attendance Report";
+const PRINT_REPORT_TITLE = "Subject Wise College Attendance Report";
 const ALL0 = { value: "0", label: "All" };
 
 type FacultyAttRow = {

@@ -21,7 +21,7 @@ import {
   getExamStudentResultsReport,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
-  listStudents,
+  searchStudentsForExamResultsSummary,
   type AnyRow,
 } from "@/services";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
@@ -604,13 +604,13 @@ export function ExamStudentResultsReportPage({
 
   async function onSearchStudent(term: string) {
     const q = term.trim();
-    if (q.length < 4) {
+    if (q.length <= 4) {
       setStudentOptions([]);
       return;
     }
     setSearchingStudent(true);
     try {
-      const list = await listStudents(q);
+      const list = await searchStudentsForExamResultsSummary(q);
       setStudentOptions(
         (Array.isArray(list) ? list : [])
           .map((r) => {

@@ -15,12 +15,18 @@ import { num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
 import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   buildHtmlTable,
   escapeHtml,
   exportHtmlTableAsExcel,
 } from "../../_lib/export-html-table";
 import {
+  getCollegeById,
   getExamStudentRegistrationReportRows,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
@@ -88,13 +94,17 @@ function yesNo(v: unknown): string {
   return "No"; // false, 0, null, undefined → No (matches Angular)
 }
 
-/** Format ISO date string → dd/MM/yyyy like Angular */
+/** Format date → dd/MM/yyyy like Angular `date:'dd/MM/yyyy'` */
 function formatRegDate(v: unknown): string {
   const s = txt(v);
   if (!s) return "";
-  // already dd/MM/yyyy
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-  // ISO yyyy-MM-dd...
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   return s;
@@ -132,6 +142,42 @@ function examFormRenderer(p: ICellRendererParams<Row>) {
   return <span>{v}</span>;
 }
 
+/** Angular: `CODE-Name^CODE-Name` → `Name (CODE), Name (CODE)` */
+function formatSubjects(raw: unknown): string {
+  const s = txt(raw);
+  if (!s) return "";
+  return s
+    .split("^")
+    .map((part) => {
+      const bits = part.split("-");
+      if (bits.length < 2) return part.trim();
+      const code = bits[0]?.trim() ?? "";
+      const name = bits.slice(1).join("-").trim();
+      return name && code ? `${name} (${code})` : part.trim();
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+/** Angular print subjects: name + blue `(code)` */
+function formatSubjectsHtml(raw: unknown): string {
+  const s = txt(raw);
+  if (!s) return "";
+  return s
+    .split("^")
+    .filter(Boolean)
+    .map((part, i) => {
+      const bits = part.split("-");
+      const code = bits[0]?.trim() ?? "";
+      const name = bits.slice(1).join("-").trim() || part.trim();
+      const piece = code
+        ? `${escapeHtml(name)} <span style="color:blue">(${escapeHtml(code)})</span>`
+        : escapeHtml(part.trim());
+      return i === 0 ? piece : `, ${piece}`;
+    })
+    .join("");
+}
+
 function toExportRows(rows: Row[]): Record<string, unknown>[] {
   return rows.map((row, i) => ({
     si: i + 1,
@@ -147,8 +193,10 @@ function toExportRows(rows: Row[]): Record<string, unknown>[] {
     })(),
     exam: txt(row.exam_name ?? row.examName),
     examType: txt(row.exam_type ?? row.examType),
-    registrationDate: txt(row.registration_date ?? row.registrationDate),
-    subjects: txt(row.subject_name ?? row.subjects),
+    registrationDate: formatRegDate(
+      row.registration_date ?? row.registrationDate,
+    ),
+    subjects: formatSubjects(row.subject_name ?? row.subjects),
     feePaid: yesNo(row.is_fee_paid ?? row.isFeePaid),
     hallTicketIssued: yesNo(row.is_hallticket_issued ?? row.isHallticketIssued),
   }));
@@ -172,23 +220,92 @@ function buildDataDetails(parts: {
     .join(" / ");
 }
 
-function printReport(rows: Row[], dataDetails: string) {
-  if (!rows.length) return;
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
+function printReport(args: {
+  collegeName: string;
+  collegeLogo: string;
+  fallbackLogo: string;
+  examName: string;
+  courseGroupCode: string;
+  courseYearCode: string;
+  rows: Row[];
+}) {
+  if (!args.rows.length) return;
+  const bodyRows = args.rows
+    .map((r, i) => {
+      const college = txt(r.college_code ?? r.collegeCode);
+      const year = txt(r.course_year ?? r.courseYear);
+      const courseDetails =
+        college && year ? `${college} / ${year}` : college || year;
+      return `<tr>
+        <td class="table-td" style="text-align:center">${i + 1}</td>
+        <td class="table-td">${escapeHtml(txt(r.hallticket_no ?? r.hallticketNo ?? r.hallticket_number))}</td>
+        <td class="table-td">${escapeHtml(txt(r.student_name ?? r.studentName))}</td>
+        <td class="table-td">${escapeHtml(courseDetails)}</td>
+        <td class="table-td">${escapeHtml(txt(r.exam_name ?? r.examName))}</td>
+        <td class="table-td">${escapeHtml(txt(r.exam_type ?? r.examType))}</td>
+        <td class="table-td">${escapeHtml(formatRegDate(r.registration_date ?? r.registrationDate))}</td>
+        <td class="table-td">${formatSubjectsHtml(r.subject_name ?? r.subjects)}</td>
+        <td class="table-td">${escapeHtml(yesNo(r.is_fee_paid ?? r.isFeePaid))}</td>
+        <td class="table-td">${escapeHtml(yesNo(r.is_hallticket_issued ?? r.isHallticketIssued))}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const courseMeta = args.courseGroupCode
+    ? `<p style="text-align:left;width:50%;margin:0;">Course : ${escapeHtml(args.courseGroupCode)}</p>`
+    : "";
+  const semesterMeta = args.courseYearCode
+    ? `<p style="text-align:right;width:50%;margin:0;">Semester : ${escapeHtml(args.courseYearCode)}</p>`
+    : "";
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Exam Student Registration</title>
 <style>
-@page { size: A4 portrait; margin: 12mm; }
-body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; }
-.collegeName { text-align: center; font-size: 23px; font-weight: 550; color: #000; margin: 20px 0 -10px; }
-.title { text-align: center; font-size: 19px; font-weight: 550; color: #000; margin: 5px 0 8px; }
-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
-th, td { border: 1px solid #000; padding: 8px 5px; text-align: left; vertical-align: top; }
-th { background: #c3d9ff; font-weight: 550; }
-tr { break-inside: avoid; }
-</style></head>
-<body>
-  <p class="collegeName">${escapeHtml(REPORT_TITLE)}</p>
-  ${dataDetails.trim() ? `<p class="title">${escapeHtml(dataDetails)}</p>` : ""}
-  ${buildHtmlTable([...EXPORT_COLS], toExportRows(rows))}
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body { font-family: Arial, Helvetica, sans-serif; color: #000; margin: 0; padding: 8px 12px; }
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 4px; }
+.logo-col { width: 15%; flex: 0 0 15%; padding-right: 8px; }
+.logo-col img { max-width: 100%; width: 90px; height: auto; display: block; object-fit: contain; }
+.title-col { width: 85%; flex: 1 1 85%; text-align: center; }
+.collegeName { text-align: center; font-size: 22px; font-weight: 550; margin: 16px 0 0; color: #000; }
+.title { text-align: center; font-size: 20px; font-weight: 550; margin: 2px 0 4px; color: #000; }
+.details { text-align: left; font-size: 16px; margin: 0 0 4px; color: #000; }
+.meta { display: flex; justify-content: space-between; width: 100%; margin: 4px 0 8px; font-size: 14px; color: #000; }
+table.mar { width: 100%; border-collapse: collapse; }
+th.table-th, td.table-td { border: 1px solid #333; padding: 6px 5px; text-align: left; vertical-align: top; word-break: break-word; }
+th.table-th { background: #c3d9ff; font-weight: 550; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+thead { display: table-header-group; }
+</style></head><body>
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
+    </div>
+    <div class="title-col">
+      ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
+      <p class="title">Exam Student Registration</p>
+      ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
+    </div>
+  </div>
+  ${courseMeta || semesterMeta ? `<div class="meta">${courseMeta}${semesterMeta}</div>` : ""}
+  <table class="mar">
+    <thead>
+      <tr>
+        <th class="table-th">S.No</th>
+        <th class="table-th">HallTicket No.</th>
+        <th class="table-th">Student Name</th>
+        <th class="table-th">Course Details</th>
+        <th class="table-th">Exam</th>
+        <th class="table-th">Exam Type</th>
+        <th class="table-th">Registration Date</th>
+        <th class="table-th">Subjects</th>
+        <th class="table-th">Fee Paid</th>
+        <th class="table-th">HallTicket Issued</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
 </body></html>`;
   printHtmlInIframe(html);
 }
@@ -216,6 +333,8 @@ export default function ExamRegistrationStudentReportPage() {
   const [regulationId, setRegulationId] = useState("0");
   const [roomId, setRoomId] = useState("0");
   const [studentId, setStudentId] = useState("");
+
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   const employeeId = Number(
     globalThis?.localStorage?.getItem("employeeId") ?? 0,
@@ -491,6 +610,52 @@ export default function ExamRegistrationStudentReportPage() {
       buildHtmlTable([...EXPORT_COLS], toExportRows(rows)),
       `<strong>${escapeHtml(REPORT_TITLE)}${dataDetails ? ` - ${escapeHtml(dataDetails)}` : ""}</strong>`,
     );
+  }
+
+  async function handlePrintReport() {
+    if (!rows.length) {
+      toastInfo("No data to print");
+      return;
+    }
+    const college = colleges.find(
+      (r) => num(r.fk_college_id) === Number(collegeId),
+    );
+    const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
+    const group = courseGroups.find(
+      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+    );
+    const year = courseYears.find(
+      (r) => num(r.fk_course_year_id) === Number(courseYearId),
+    );
+    const logoSrc = await resolveReportPrintLogo(
+      null,
+      Number(collegeId || 0),
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fromFilter = txt(
+      college?.college_name ?? college?.collegeName ?? college?.college_code,
+    );
+    let collegeName = fromFilter;
+    try {
+      const clg = await getCollegeById(Number(collegeId || 0));
+      const name = String(clg?.collegeName ?? "").trim();
+      if (name) collegeName = name;
+    } catch {
+      /* keep filter name */
+    }
+    printReport({
+      collegeName,
+      collegeLogo: logoSrc,
+      fallbackLogo: toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+      examName: examMasterLabel(exam ?? {}),
+      courseGroupCode: Number(courseGroupId)
+        ? txt(group?.group_code ?? group?.groupCode)
+        : "",
+      courseYearCode: Number(courseYearId)
+        ? txt(year?.course_year_code ?? year?.courseYearCode)
+        : "",
+      rows,
+    });
   }
 
   const columnDefs = useMemo<ColDef<Row>[]>(
@@ -792,6 +957,7 @@ export default function ExamRegistrationStudentReportPage() {
       filters={filters}
       rowData={rows}
       columnDefs={columnDefs}
+      fitColumnsToWidth={false}
       loading={loadingList}
       resultsVisible={hasFetched}
       pagination
@@ -809,7 +975,7 @@ export default function ExamRegistrationStudentReportPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={() => printReport(rows, dataDetails)}
+              onClick={() => void handlePrintReport()}
             >
               Print Report
             </Button>

@@ -438,7 +438,6 @@ export default function EmployeeListByCampusReportPage() {
         showTable ? (
           <Button
             type="button"
-            variant="outline"
             size="sm"
             className="h-9 px-3 text-[12px]"
             onClick={() => void printReport()}

@@ -178,7 +178,6 @@ export default function DayWiseAttendanceCountReportPage() {
   const [collegeId, setCollegeId] = useState<string | null>(null);
   const [academicYearId, setAcademicYearId] = useState<string>("0");
   const [courseId, setCourseId] = useState<string>("0");
-  const [courseGroupId, setCourseGroupId] = useState<string>("0");
   // Angular: fDate defaults to today (`genericFunctions.moment()`)
   const [classDate, setClassDate] = useState<Date | null>(null);
   const [maxDate, setMaxDate] = useState<Date | undefined>(undefined);
@@ -188,22 +187,6 @@ export default function DayWiseAttendanceCountReportPage() {
   const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
-  const isManagementLogin = useMemo(() => {
-    if (typeof globalThis.window === "undefined") return false;
-    try {
-      const storage = globalThis.localStorage;
-      if (storage.getItem("isMgnt") === "true") return true;
-      const roleName = String(storage.getItem("roleName") ?? "").toUpperCase();
-      const userRole = String(storage.getItem("userRole") ?? "").toUpperCase();
-      return (
-        roleName.includes("MANAGEMENT") ||
-        userRole.includes("MANAGEMENT") ||
-        userRole.includes("MGNT")
-      );
-    } catch {
-      return false;
-    }
-  }, []);
 
   const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
@@ -289,26 +272,6 @@ export default function DayWiseAttendanceCountReportPage() {
     }));
   }, [filtersData, collegeId, academicYearId]);
 
-  // Angular Course Group after Course
-  const groupOptions = useMemo(() => {
-    const cid = Number(collegeId ?? 0);
-    const ay = Number(academicYearId || 0);
-    const crs = Number(courseId || 0);
-    if (!cid || !ay || !crs) return [];
-    return dedupeBy(
-      filtersData.filter(
-        (r) =>
-          pickNum(r, ["fk_college_id", "collegeId"]) === cid &&
-          pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ay &&
-          pickNum(r, ["fk_course_id", "courseId"]) === crs,
-      ),
-      (r) => pickNum(r, ["fk_course_group_id", "courseGroupId"]),
-    ).map((r) => ({
-      value: String(pickNum(r, ["fk_course_group_id", "courseGroupId"])),
-      label: pickText(r, ["group_code", "groupCode"]) || "—",
-    }));
-  }, [filtersData, collegeId, academicYearId, courseId]);
-
   useEffect(() => {
     if (collegeId || collegeOptions.length === 0) return;
     setCollegeId(collegeOptions[0].value);
@@ -319,42 +282,27 @@ export default function DayWiseAttendanceCountReportPage() {
     if (ayOptions.length === 0) {
       setAcademicYearId("0");
       setCourseId("0");
-      setCourseGroupId("0");
       return;
     }
     const stillValid = ayOptions.some((o) => o.value === academicYearId);
     if (!stillValid) setAcademicYearId(ayOptions[0].value);
   }, [collegeId, ayOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Angular `selectedAcademicYear`: clear course; do not auto-select first course.
   useEffect(() => {
-    if (!collegeId || !Number(academicYearId || 0)) return;
-    if (courseOptions.length === 0) {
+    if (!collegeId || !Number(academicYearId || 0)) {
       setCourseId("0");
-      setCourseGroupId("0");
       return;
     }
-    const stillValid = courseOptions.some((o) => o.value === courseId);
-    if (!stillValid) setCourseId(courseOptions[0].value);
-  }, [collegeId, academicYearId, courseOptions]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!Number(courseId || 0)) {
-      setCourseGroupId("0");
-      return;
+    if (courseId !== "0" && !courseOptions.some((o) => o.value === courseId)) {
+      setCourseId("0");
     }
-    if (groupOptions.length === 0) {
-      setCourseGroupId("0");
-      return;
-    }
-    const stillValid = groupOptions.some((o) => o.value === courseGroupId);
-    if (!stillValid) setCourseGroupId(groupOptions[0].value);
-  }, [courseId, groupOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [collegeId, academicYearId, courseOptions, courseId]);
 
   const onCollegeChange = (v: string | null) => {
     setCollegeId(v);
     setAcademicYearId("0");
     setCourseId("0");
-    setCourseGroupId("0");
     clearResults();
   };
 
@@ -380,7 +328,7 @@ export default function DayWiseAttendanceCountReportPage() {
     [],
   );
 
-  // Angular: `${collegeCode}/${ay}/${course}${group}( ${date} )`
+  // Angular: `${collegeCode}/${ay}/${courseCode}( ${date} )`
   const buildDataDetails = () => {
     const collegeCode =
       pickText(selectedCollegeRow, ["college_code", "collegeCode"]) ||
@@ -388,11 +336,8 @@ export default function DayWiseAttendanceCountReportPage() {
       "";
     const ay = ayOptions.find((o) => o.value === academicYearId)?.label || "";
     const course = courseOptions.find((o) => o.value === courseId)?.label || "";
-    const group = isManagementLogin
-      ? ""
-      : groupOptions.find((o) => o.value === courseGroupId)?.label || "";
     const dateStr = classDate ? format(classDate, "yyyy-MMM-dd") : "";
-    return `${collegeCode}/${ay}/${course}${group}( ${dateStr} )`;
+    return `${collegeCode}/${ay}/${course}( ${dateStr} )`;
   };
 
   const handleGetList = async () => {
@@ -407,10 +352,6 @@ export default function DayWiseAttendanceCountReportPage() {
     }
     if (!Number(courseId || 0)) {
       toastInfo("Course is required");
-      return;
-    }
-    if (!isManagementLogin && !Number(courseGroupId || 0)) {
-      toastInfo("Course Group is required");
       return;
     }
     if (!classDate) {
@@ -434,7 +375,7 @@ export default function DayWiseAttendanceCountReportPage() {
         courseYearId: 0,
         courseId: Number(courseId || 0),
         academicYearId: Number(academicYearId || 0),
-        courseGroupId: Number(courseGroupId || 0),
+        courseGroupId: 0,
       });
       if (raw.length === 0) {
         toastInfo("No records found.");
@@ -526,7 +467,6 @@ export default function DayWiseAttendanceCountReportPage() {
               onChange={(v) => {
                 setAcademicYearId(v ?? "0");
                 setCourseId("0");
-                setCourseGroupId("0");
                 clearResults();
               }}
               options={ayOptions}
@@ -542,7 +482,6 @@ export default function DayWiseAttendanceCountReportPage() {
               value={courseId === "0" ? null : courseId}
               onChange={(v) => {
                 setCourseId(v ?? "0");
-                setCourseGroupId("0");
                 clearResults();
               }}
               options={courseOptions}
@@ -550,22 +489,6 @@ export default function DayWiseAttendanceCountReportPage() {
               disabled={!collegeId || !Number(academicYearId || 0)}
             />
           </div>
-          {!isManagementLogin ? (
-            <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
-              <Select
-                label="Course Group"
-                required
-                value={courseGroupId === "0" ? null : courseGroupId}
-                onChange={(v) => {
-                  setCourseGroupId(v ?? "0");
-                  clearResults();
-                }}
-                options={groupOptions}
-                placeholder="Course Group"
-                disabled={!Number(courseId || 0)}
-              />
-            </div>
-          ) : null}
           <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <DatePicker
               label="From Date"

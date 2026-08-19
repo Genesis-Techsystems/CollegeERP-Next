@@ -5346,10 +5346,22 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/workflow-stages";
     }
     if (
-      labelLower.includes("holiday") ||
-      labelLower.includes("holidays") ||
-      labelLower.includes("calendar") ||
-      labelLower.includes("calender")
+      (labelLower.includes("holiday") || labelLower.includes("holidays")) &&
+      !labelLower.includes("college calendar") &&
+      !hrefLower.includes("college-calendar") &&
+      !hrefLower.includes("school-calendar")
+    ) {
+      return "/admin/holidays-calendar";
+    }
+    if (
+      (labelLower.includes("calendar") || labelLower.includes("calender")) &&
+      !labelLower.includes("college") &&
+      !labelLower.includes("school") &&
+      !labelLower.includes("event") &&
+      !labelLower.includes("faculty") &&
+      !hrefLower.includes("college-calendar") &&
+      !hrefLower.includes("school-calendar") &&
+      !hrefLower.includes("/events/")
     ) {
       return "/admin/holidays-calendar";
     }
@@ -5737,11 +5749,25 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     ) {
       return normPathname.startsWith("/mentorship/");
     }
-    if (
-      label.trim() === "events" ||
-      (label.includes("event") && label.includes("calendar"))
-    ) {
-      return normPathname.startsWith("/events/");
+    if (label.trim() === "events") {
+      // Events (add-event / college-calendar / event-type) — not Events Calendar.
+      const onEventsCalendarModule =
+        normPathname === "/events/events-calendar" ||
+        normPathname.startsWith("/events/events-calendar/") ||
+        normPathname === "/events/staff-events" ||
+        normPathname.startsWith("/events/staff-events/");
+      return (
+        (normPathname === "/events" || normPathname.startsWith("/events/")) &&
+        !onEventsCalendarModule
+      );
+    }
+    if (label.includes("event") && label.includes("calendar")) {
+      return (
+        normPathname === "/events/events-calendar" ||
+        normPathname.startsWith("/events/events-calendar/") ||
+        normPathname === "/events/staff-events" ||
+        normPathname.startsWith("/events/staff-events/")
+      );
     }
     if (
       label.includes("notification") &&
@@ -5926,6 +5952,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+  // Events vs Events Calendar share `/events/...` — do not gold both.
+  const onCollegeCalendar =
+    normPathname === "/events/college-calendar" ||
+    normPathname.startsWith("/events/college-calendar/");
+  const onEventsCalendar =
+    normPathname === "/events/events-calendar" ||
+    normPathname.startsWith("/events/events-calendar/") ||
+    normPathname === "/events/staff-events" ||
+    normPathname.startsWith("/events/staff-events/");
+  if (!hasChildren && diaryLabelKey === "college calendar") {
+    isSelfActive = onCollegeCalendar;
+  } else if (
+    !hasChildren &&
+    (diaryLabelKey === "events calendar" || diaryLabelKey === "event calendar")
+  ) {
+    isSelfActive = onEventsCalendar;
+  }
   // Fee Reports → Due List only — do not highlight Exam/Scholarship/Fee Due List Report.
   if (
     !hasChildren &&

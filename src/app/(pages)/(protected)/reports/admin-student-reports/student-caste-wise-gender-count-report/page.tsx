@@ -6,22 +6,22 @@
  * Get List: `getAllRecords/s_get_student_reports?in_flag=caste_wise_gender_count_report&…`
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { ColDef, ColGroupDef } from "ag-grid-community";
 import { FileSpreadsheet } from "lucide-react";
 import { Select } from "@/common/components/select";
+import {
+  buildHtmlTable,
+  escapeHtml,
+  exportHtmlTableAsExcel,
+} from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError, toastInfo } from "@/lib/toast";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   filterAcademicYears,
   filterColleges,
@@ -184,11 +184,31 @@ function buildCasteGenderMatrix(raw: AnyRow[]): {
   };
 }
 
+function flattenCasteRows(
+  keys: { Caste: string }[],
+  casteCount: BranchRow[],
+): AnyRow[] {
+  return casteCount.map((branch) => {
+    const row: AnyRow = { Branch: branch.Branch };
+    keys.forEach((k, ci) => {
+      const male = branch.studentCasteCount.find(
+        (c) => c.caste === k.Caste && c.gender === "Male",
+      );
+      const female = branch.studentCasteCount.find(
+        (c) => c.caste === k.Caste && c.gender === "Female",
+      );
+      row[`c${ci}_m`] = male?.count ?? 0;
+      row[`c${ci}_f`] = female?.count ?? 0;
+    });
+    return row;
+  });
+}
+
+const REPORT_TITLE = "Student Caste Wise Gender Count Report";
+
 export default function StudentCasteWiseGenderCountPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const excelTableRef = useRef<HTMLDivElement>(null);
-
   const [filtersData, setFiltersData] = useState<FilterRow[]>([]);
   const [academicData, setAcademicData] = useState<FilterRow[]>([]);
   const [gmRows, setGmRows] = useState<FilterRow[]>([]);
@@ -203,18 +223,16 @@ export default function StudentCasteWiseGenderCountPage() {
   const [studentStatusId, setStudentStatusId] = useState<string>("0");
 
   const [casteKeys, setCasteKeys] = useState<{ Caste: string }[]>([]);
-  const [casteCount, setCasteCount] = useState<BranchRow[]>([]);
+  const [rows, setRows] = useState<AnyRow[]>([]);
   const [dataDetails, setDataDetails] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
-  const [searchText, setSearchText] = useState("");
 
   const clearResults = useCallback(() => {
     setCasteKeys([]);
-    setCasteCount([]);
+    setRows([]);
     setShowTable(false);
     setDataDetails("");
-    setSearchText("");
   }, []);
 
   useEffect(() => {
@@ -453,7 +471,7 @@ export default function StudentCasteWiseGenderCountPage() {
       const shaped = buildCasteGenderMatrix(raw);
 
       setCasteKeys(shaped.keys);
-      setCasteCount(shaped.casteCount);
+      setRows(flattenCasteRows(shaped.keys, shaped.casteCount));
       setShowTable(true);
     } catch (err) {
       toastError(getErrorMessage(err));
@@ -462,240 +480,263 @@ export default function StudentCasteWiseGenderCountPage() {
     }
   };
 
-  const filteredRows = useMemo(() => {
-    const q = searchText.trim().toLowerCase();
-    if (!q) return casteCount;
-    return casteCount.filter((r) => r.Branch.toLowerCase().includes(q));
-  }, [casteCount, searchText]);
+  const columnDefs = useMemo<(ColDef<AnyRow> | ColGroupDef<AnyRow>)[]>(() => {
+    const spannedLeaf: Partial<ColDef<AnyRow>> = {
+      autoHeaderHeight: false,
+      wrapHeaderText: false,
+      suppressSpanHeaderHeight: false,
+      suppressHeaderMenuButton: true,
+    };
+    const defs: (ColDef<AnyRow> | ColGroupDef<AnyRow>)[] = [
+      {
+        headerName: "S.No",
+        valueGetter: rowIndexGetter,
+        width: 80,
+        flex: 0,
+        ...spannedLeaf,
+        headerClass: "quota-span-header quota-span-header--center",
+        cellClass: "text-center",
+      },
+      {
+        field: "Branch",
+        headerName: "Branch",
+        minWidth: 160,
+        ...spannedLeaf,
+        headerClass: "quota-span-header",
+      },
+    ];
+    casteKeys.forEach((k, ci) => {
+      defs.push({
+        headerName: k.Caste,
+        headerClass: "app-table-header-group",
+        marryChildren: true,
+        children: [
+          {
+            field: `c${ci}_m`,
+            headerName: "M",
+            width: 80,
+            minWidth: 70,
+            flex: 0,
+            cellClass: "text-center",
+            suppressHeaderMenuButton: true,
+          },
+          {
+            field: `c${ci}_f`,
+            headerName: "F",
+            width: 80,
+            minWidth: 70,
+            flex: 0,
+            cellClass: "text-center",
+            suppressHeaderMenuButton: true,
+          },
+        ],
+      });
+    });
+    return defs;
+  }, [casteKeys]);
 
-  const exportAsExcel = () => {
-    if (!excelTableRef.current) return;
-    const uri = "data:application/vnd.ms-excel;base64,";
-    const template = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>`;
-    const base64 = (s: string) => window.btoa(unescape(encodeURIComponent(s)));
-    const formatTpl = (s: string, c: Record<string, string>) =>
-      s.replace(/{(\w+)}/g, (_, p: string) => c[p] ?? "");
-    const link = document.createElement("a");
-    link.download = "Student Caste Wise Gender Count Report.xls";
-    link.href =
-      uri +
-      base64(
-        formatTpl(template, {
-          worksheet: "Worksheet",
-          table: excelTableRef.current.innerHTML,
-        }),
-      );
-    link.click();
-  };
+  const excelColumns = useMemo(() => {
+    const cols: { key: string; header: string }[] = [
+      { key: "siNo", header: "S.No" },
+      { key: "Branch", header: "Branch" },
+    ];
+    casteKeys.forEach((k, ci) => {
+      cols.push({ key: `c${ci}_m`, header: `${k.Caste} M` });
+      cols.push({ key: `c${ci}_f`, header: `${k.Caste} F` });
+    });
+    return cols;
+  }, [casteKeys]);
+
+  const exportFlatRows = useMemo(
+    () =>
+      rows.map((row, i) => {
+        const flat: Record<string, unknown> = {
+          siNo: i + 1,
+          Branch: String(row.Branch ?? ""),
+        };
+        casteKeys.forEach((_, ci) => {
+          flat[`c${ci}_m`] = row[`c${ci}_m`] ?? 0;
+          flat[`c${ci}_f`] = row[`c${ci}_f`] ?? 0;
+        });
+        return flat;
+      }),
+    [casteKeys, rows],
+  );
+
+  const handleExcelExport = useCallback(() => {
+    if (exportFlatRows.length === 0) {
+      toastError("No records to export.");
+      return;
+    }
+    const headerHtml = `<div style="text-align:center;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:bold;">${escapeHtml(REPORT_TITLE)}${dataDetails ? ` - ${escapeHtml(dataDetails)}` : ""}</div>
+    </div>`;
+    const tableHtml = buildHtmlTable(excelColumns, exportFlatRows);
+    exportHtmlTableAsExcel(`${REPORT_TITLE}.xls`, tableHtml, headerHtml);
+  }, [dataDetails, excelColumns, exportFlatRows]);
 
   const goBack = () => {
     router.push(resolveReportCatalogHref(searchParams.get("path")));
   };
 
   const pageTitle = showTable
-    ? `Student Caste Wise Gender Count Report — ${dataDetails}`
-    : "Student Caste Wise Gender Count Report";
+    ? dataDetails
+      ? `${REPORT_TITLE} — ${dataDetails}`
+      : REPORT_TITLE
+    : REPORT_TITLE;
 
   return (
-    <FilteredListPage
-      title={pageTitle}
-      filters={
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <Select
-              label="College"
-              required
-              value={collegeId}
-              onChange={onCollegeChange}
-              options={collegeOptions}
-              placeholder="College"
-              isLoading={loadingFilters}
-            />
-            <Select
-              label="Academic Year"
-              value={academicYearId}
-              onChange={(v) => {
-                setAcademicYearId(v ?? "0");
-                clearResults();
-              }}
-              options={ayOptions}
-              placeholder="Academic Year"
-            />
-            <Select
-              label="Course"
-              value={courseId}
-              onChange={(v) => {
-                setCourseId(v ?? "0");
-                clearResults();
-              }}
-              options={courseOptions}
-              placeholder="Course"
-              disabled={!collegeId}
-            />
-            <Select
-              label="CourseGroup"
-              value={courseGroupId}
-              onChange={(v) => {
-                setCourseGroupId(v ?? "0");
-                clearResults();
-              }}
-              options={groupOptions}
-              placeholder="CourseGroup"
-            />
-            <Select
-              label="Course Year"
-              value={courseYearId}
-              onChange={(v) => {
-                setCourseYearId(v ?? "0");
-                clearResults();
-              }}
-              options={yearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-full min-w-[10rem] sm:w-[12rem]">
+    <>
+      <style>{`
+        .app-data-table .ag-theme-quartz .ag-header-cell.quota-span-header {
+          align-items: center;
+        }
+        .app-data-table .ag-theme-quartz .ag-header-cell.quota-span-header .ag-header-cell-comp-wrapper {
+          height: 100%;
+          display: flex;
+          align-items: center;
+        }
+        .app-data-table .ag-theme-quartz .ag-header-cell.quota-span-header .ag-header-cell-label {
+          height: 100%;
+          display: flex;
+          align-items: center;
+        }
+        .app-data-table .ag-theme-quartz .ag-header-cell.quota-span-header--center .ag-header-cell-label {
+          justify-content: center;
+        }
+      `}</style>
+      <FilteredListPage
+        title={pageTitle}
+        filters={
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <Select
-                label="Quota"
-                value={quotaId}
-                onChange={(v) => {
-                  setQuotaId(v ?? "0");
-                  clearResults();
-                }}
-                options={quotaOptions}
-                placeholder="Quota"
-              />
-            </div>
-            <div className="w-full min-w-[10rem] sm:w-[14rem]">
-              <Select
-                label="Student Status"
+                label="College"
                 required
-                value={studentStatusId}
+                value={collegeId}
+                onChange={onCollegeChange}
+                options={collegeOptions}
+                placeholder="College"
+                isLoading={loadingFilters}
+              />
+              <Select
+                label="Academic Year"
+                value={academicYearId}
                 onChange={(v) => {
-                  setStudentStatusId(v ?? "0");
+                  setAcademicYearId(v ?? "0");
                   clearResults();
                 }}
-                options={statusOptions}
-                placeholder="Student Status"
+                options={ayOptions}
+                placeholder="Academic Year"
+              />
+              <Select
+                label="Course"
+                value={courseId}
+                onChange={(v) => {
+                  setCourseId(v ?? "0");
+                  clearResults();
+                }}
+                options={courseOptions}
+                placeholder="Course"
+                disabled={!collegeId}
+              />
+              <Select
+                label="CourseGroup"
+                value={courseGroupId}
+                onChange={(v) => {
+                  setCourseGroupId(v ?? "0");
+                  clearResults();
+                }}
+                options={groupOptions}
+                placeholder="CourseGroup"
+              />
+              <Select
+                label="Course Year"
+                value={courseYearId}
+                onChange={(v) => {
+                  setCourseYearId(v ?? "0");
+                  clearResults();
+                }}
+                options={yearOptions}
+                placeholder="Course Year"
               />
             </div>
-            <div className="flex shrink-0 items-center gap-2 pb-0.5">
-              <Button
-                type="button"
-                className="h-9 w-fit px-4"
-                disabled={loadingList}
-                onClick={() => void handleGetList()}
-              >
-                {loadingList ? "Loading…" : "Get Student List"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
-                onClick={goBack}
-              >
-                Back
-              </Button>
-            </div>
-          </div>
-        </div>
-      }
-      body={
-        showTable ? (
-          <>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Search</Label>
-                <input
-                  className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  placeholder="Search"
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-full min-w-[10rem] sm:w-[12rem]">
+                <Select
+                  label="Quota"
+                  value={quotaId}
+                  onChange={(v) => {
+                    setQuotaId(v ?? "0");
+                    clearResults();
+                  }}
+                  options={quotaOptions}
+                  placeholder="Quota"
                 />
               </div>
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 px-3 text-[12px]"
-                onClick={exportAsExcel}
-              >
-                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-                Export Excel
-              </Button>
+              <div className="w-full min-w-[10rem] sm:w-[14rem]">
+                <Select
+                  label="Student Status"
+                  required
+                  value={studentStatusId}
+                  onChange={(v) => {
+                    setStudentStatusId(v ?? "0");
+                    clearResults();
+                  }}
+                  options={statusOptions}
+                  placeholder="Student Status"
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-2 pb-0.5">
+                <Button
+                  type="button"
+                  className="h-9 w-fit px-4"
+                  disabled={loadingList}
+                  onClick={() => void handleGetList()}
+                >
+                  {loadingList ? "Loading…" : "Get Student List"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 w-fit px-4"
+                  onClick={goBack}
+                >
+                  Back
+                </Button>
+              </div>
             </div>
-            <div ref={excelTableRef} className="overflow-x-auto">
-              <strong className="hidden">
-                Student Caste Wise Gender Count Report - {dataDetails}
-              </strong>
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="bg-sky-50">
-                    <th className="border px-1 py-1 text-center font-semibold">
-                      S.No
-                    </th>
-
-                    <th className="border px-1 py-1 text-center font-semibold">
-                      Branch
-                    </th>
-
-                    {casteKeys.map((k, index) => (
-                      <th
-                        key={`${k.Caste || "NO_CASTE"}-${index}`}
-                        colSpan={2}
-                        className="border px-1 py-1 text-center font-semibold"
-                      >
-                        {k.Caste || ""}
-
-                        <p className="m-0 text-[10px] font-medium text-blue-600">
-                          M | F
-                        </p>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredRows.map((row, i) => (
-                    <tr key={`${row.Branch}-${i}`}>
-                      <td className="border px-1 py-1 text-center">{i + 1}</td>
-
-                      <td className="border px-1 py-1">{row.Branch}</td>
-
-                      {casteKeys.map((key, keyIndex) => {
-                        const maleCell = row.studentCasteCount.find(
-                          (cell) =>
-                            cell.caste === key.Caste && cell.gender === "Male",
-                        );
-
-                        const femaleCell = row.studentCasteCount.find(
-                          (cell) =>
-                            cell.caste === key.Caste &&
-                            cell.gender === "Female",
-                        );
-
-                        return (
-                          <React.Fragment
-                            key={`${key.Caste || "NO_CASTE"}-${keyIndex}`}
-                          >
-                            <td className="border px-1 py-1 text-center">
-                              {maleCell?.count ?? 0}
-                            </td>
-
-                            <td className="border px-1 py-1 text-center">
-                              {femaleCell?.count ?? 0}
-                            </td>
-                          </React.Fragment>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : null
-      }
-      bodyClassName={showTable ? undefined : "hidden border-0 p-0"}
-    />
+          </div>
+        }
+        rowData={showTable ? rows : []}
+        columnDefs={columnDefs}
+        pagination
+        loading={loadingList || loadingFilters}
+        resultsVisible={showTable}
+        hideEmptyGrid
+        columnFilters={false}
+        fitColumnsToWidth={false}
+        toolbar={{
+          search: true,
+          searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
+          columnFilters: false,
+        }}
+        toolbarTrailing={
+          showTable ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 px-3 text-[12px]"
+              onClick={handleExcelExport}
+            >
+              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+              Export Excel
+            </Button>
+          ) : null
+        }
+      />
+    </>
   );
 }

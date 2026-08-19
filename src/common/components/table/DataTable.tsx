@@ -280,14 +280,27 @@ function resolveWideColumnDef(def: ColDef | ColGroupDef): ColDef | ColGroupDef {
     } as ColGroupDef;
   }
   const leaf = def as ColDef;
-  if (leaf.flex == null) return leaf;
   const { flex: _flex, ...rest } = leaf;
   const width = rest.width ?? rest.minWidth ?? 120;
   return {
     ...rest,
     width,
     minWidth: rest.minWidth ?? width,
+    suppressSizeToFit: true,
   };
+}
+
+function sumColumnTreeWidth(defs: (ColDef | ColGroupDef)[]): number {
+  let total = 0;
+  for (const def of defs) {
+    if ("children" in def && Array.isArray(def.children)) {
+      total += sumColumnTreeWidth(def.children as (ColDef | ColGroupDef)[]);
+      continue;
+    }
+    const leaf = def as ColDef;
+    total += Number(leaf.width ?? leaf.minWidth ?? 120);
+  }
+  return total;
 }
 
 function computeWideGridHeight(
@@ -673,17 +686,18 @@ export function DataTable<T>({
     },
   );
 
+  const isWideTable = !fitColumnsToWidth;
+
   const defaultColDef = useMemo<ColDef>(
     () => ({
       ...DEFAULT_COL_DEF,
       ...(enableColumnFilters
         ? { filter: "agTextColumnFilter", floatingFilter: false }
         : {}),
+      ...(isWideTable ? { suppressSizeToFit: true } : {}),
     }),
-    [enableColumnFilters],
+    [enableColumnFilters, isWideTable],
   );
-
-  const isWideTable = !fitColumnsToWidth;
 
   const resolvedColumnDefs = useMemo(
     () =>
@@ -703,6 +717,11 @@ export function DataTable<T>({
         return withCellClass(shaped, "app-cell-ellipsis");
       }),
     [columnDefs, isWideTable],
+  );
+
+  const wideTableMinWidth = useMemo(
+    () => (isWideTable ? sumColumnTreeWidth(resolvedColumnDefs) : 0),
+    [isWideTable, resolvedColumnDefs],
   );
 
   const resolvedSubtitle =
@@ -973,7 +992,7 @@ export function DataTable<T>({
           className={cn(
             "min-h-0",
             isWideTable
-              ? "overflow-x-auto overflow-y-visible"
+              ? "overflow-x-hidden overflow-y-visible"
               : "overflow-hidden",
           )}
         >
@@ -1051,47 +1070,53 @@ export function DataTable<T>({
           >
             <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
               {!suppressGrid ? (
-                <div
-                  className={cn(
-                    "ag-theme-quartz",
-                    isGridEmpty && "app-data-table-grid-empty",
-                    isWideTable && "app-data-table-grid-wide",
-                  )}
-                  style={
-                    isAutoHeight
-                      ? undefined
-                      : { height: resolvedGridHeight ?? height }
-                  }
-                >
-                  <AgGridReact<T>
-                    ref={gridRef}
-                    context={{ __rowNumberOffset: rowNumberOffset }}
-                    rowData={pagedRowData}
-                    pinnedTopRowData={pinnedTopRowData}
-                    pinnedBottomRowData={pinnedBottomRowData}
-                    getRowStyle={getRowStyle}
-                    columnDefs={resolvedColumnDefs}
-                    defaultColDef={defaultColDef}
-                    domLayout={isAutoHeight ? "autoHeight" : undefined}
-                    rowHeight={rowHeight}
-                    loading={loading}
-                    suppressCellFocus
-                    overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
-                    onGridReady={handleGridReady}
-                    onFirstDataRendered={(e) => fitColumns(e.api)}
-                    onRowDataUpdated={(e) => fitColumns(e.api)}
-                    onGridSizeChanged={(e) => fitColumns(e.api)}
-                    alwaysShowHorizontalScroll={!fitColumnsToWidth}
-                    enableCellTextSelection
-                    ensureDomOrder
-                    getRowId={getRowId}
-                    onCellClicked={onCellClicked}
-                    onRowClicked={onRowClick ? handleRowClicked : undefined}
-                    popupParent={popupParent}
-                    animateRows
-                    tooltipShowMode="whenTruncated"
-                    tooltipShowDelay={400}
-                  />
+                <div className={cn(isWideTable && "app-data-table-hscroll")}>
+                  <div
+                    className={cn(
+                      "ag-theme-quartz",
+                      isGridEmpty && "app-data-table-grid-empty",
+                      isWideTable && "app-data-table-grid-wide",
+                    )}
+                    style={{
+                      ...(isAutoHeight
+                        ? undefined
+                        : { height: resolvedGridHeight ?? height }),
+                      ...(isWideTable && wideTableMinWidth > 0
+                        ? { minWidth: wideTableMinWidth }
+                        : undefined),
+                    }}
+                  >
+                    <AgGridReact<T>
+                      ref={gridRef}
+                      context={{ __rowNumberOffset: rowNumberOffset }}
+                      rowData={pagedRowData}
+                      pinnedTopRowData={pinnedTopRowData}
+                      pinnedBottomRowData={pinnedBottomRowData}
+                      getRowStyle={getRowStyle}
+                      columnDefs={resolvedColumnDefs}
+                      defaultColDef={defaultColDef}
+                      domLayout={isAutoHeight ? "autoHeight" : undefined}
+                      rowHeight={rowHeight}
+                      loading={loading}
+                      suppressCellFocus
+                      overlayNoRowsTemplate='<span class="app-data-table-no-rows-msg">No rows to show</span>'
+                      onGridReady={handleGridReady}
+                      onFirstDataRendered={(e) => fitColumns(e.api)}
+                      onRowDataUpdated={(e) => fitColumns(e.api)}
+                      onGridSizeChanged={(e) => fitColumns(e.api)}
+                      alwaysShowHorizontalScroll={false}
+                      suppressHorizontalScroll={isWideTable}
+                      enableCellTextSelection
+                      ensureDomOrder
+                      getRowId={getRowId}
+                      onCellClicked={onCellClicked}
+                      onRowClicked={onRowClick ? handleRowClicked : undefined}
+                      popupParent={popupParent}
+                      animateRows
+                      tooltipShowMode="whenTruncated"
+                      tooltipShowDelay={400}
+                    />
+                  </div>
                 </div>
               ) : null}
             </div>

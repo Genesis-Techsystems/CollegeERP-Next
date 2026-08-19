@@ -410,7 +410,7 @@ export async function getDayWiseStdAttendanceSummary(params: {
   collegeId: number;
   courseId: number;
   academicYearId: number;
-  /** From selected college/AY/course filter row; Angular always sends this. */
+  /** Angular `listByFiveIds` does not send this; default 0. */
   courseGroupId?: number;
   courseYearId?: number;
 }): Promise<AnyRow[]> {

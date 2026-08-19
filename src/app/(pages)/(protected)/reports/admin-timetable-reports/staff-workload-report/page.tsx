@@ -477,6 +477,7 @@ export default function StaffWorkloadReportPage() {
       resultsVisible={showTable}
       hideEmptyGrid
       pagination
+      fitColumnsToWidth={false}
       paginationPageSize={25}
       getRowId={(p) =>
         p.data?.isTotal ? "__total__" : String(p.data?.employee ?? "")

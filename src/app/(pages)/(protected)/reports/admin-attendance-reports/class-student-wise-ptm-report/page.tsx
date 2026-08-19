@@ -404,6 +404,7 @@ export default function ClassStudentWisePtmReportPage() {
         columnDefs={columnDefs}
         loading={loadingList}
         resultsVisible={showTable}
+        fitColumnsToWidth={false}
         hideEmptyGrid={false}
         pagination
         paginationPageSize={10}
