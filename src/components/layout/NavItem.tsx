@@ -5713,7 +5713,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith("/time-table-management/");
     }
     if (label.includes("attendance") && label.includes("management")) {
-      return normPathname.startsWith("/attendance-management/");
+      if (!normPathname.startsWith("/attendance-management/")) return false;
+      const onMarkAttendance = normPathname.startsWith(
+        "/attendance-management/mark-attendance",
+      );
+      const childLabels = (item.children ?? []).map((c) =>
+        (c.label ?? "").toLowerCase(),
+      );
+      const hasAttUpdateChild = childLabels.some(
+        (l) => l.includes("attendance") && l.includes("update"),
+      );
+      if (onMarkAttendance) return hasAttUpdateChild;
+      const onlyAttUpdate =
+        childLabels.length > 0 &&
+        childLabels.every(
+          (l) => l.includes("attendance") && l.includes("update"),
+        );
+      return !onlyAttUpdate;
     }
     if (
       label.includes("mentorship") ||
@@ -6107,6 +6123,49 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       isActive = false;
     }
   }
+  // When on /attendance-management/mark-attendance (Attendance Update), two
+  // depth-0 "Attendance Management" modules may both match via descendant hrefs.
+  // Only keep the one whose children include "Attendance Update" (the Angular
+  // Academics → Attendance Update leaf); suppress the other module.
+  if (
+    normPathname.startsWith("/attendance-management/mark-attendance") &&
+    depth === 0 &&
+    labelForActive.includes("attendance") &&
+    labelForActive.includes("management") &&
+    hasChildren
+  ) {
+    const childLabels = (item.children ?? []).map((c) =>
+      (c.label ?? "").toLowerCase(),
+    );
+    const hasAttendanceUpdateChild = childLabels.some(
+      (l) => l.includes("attendance") && l.includes("update"),
+    );
+    if (!hasAttendanceUpdateChild) {
+      isActive = false;
+    }
+  }
+  // Converse: on /attendance-management/* paths that are NOT mark-attendance,
+  // suppress the "Attendance Management" module that only has "Attendance Update".
+  if (
+    normPathname.startsWith("/attendance-management/") &&
+    !normPathname.startsWith("/attendance-management/mark-attendance") &&
+    depth === 0 &&
+    labelForActive.includes("attendance") &&
+    labelForActive.includes("management") &&
+    hasChildren
+  ) {
+    const childLabels = (item.children ?? []).map((c) =>
+      (c.label ?? "").toLowerCase(),
+    );
+    const onlyAttendanceUpdate =
+      childLabels.length > 0 &&
+      childLabels.every(
+        (l) => l.includes("attendance") && l.includes("update"),
+      );
+    if (onlyAttendanceUpdate) {
+      isActive = false;
+    }
+  }
   // Angular Fuse: collapsable Faculty Details module (staff-faculty-details) has no
   // routerLinkActive on the parent — only the flat pages[] HR leaf highlights on employee-list.
   const onHrEmployeeListPath =
@@ -6121,7 +6180,11 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     isActive = false;
   }
 
-  const isOpen = !isItemCollapsed;
+  // Force-collapse depth-0 modules whose isActive was suppressed by dedup rules
+  // above, so a duplicate "Attendance Management" module doesn't stay expanded.
+  const suppressedModule =
+    depth === 0 && hasChildren && !isActive && (isChildActive || modulePathActive);
+  const isOpen = suppressedModule ? false : !isItemCollapsed;
 
   const examMasters = usesExamMastersDesign(item);
 

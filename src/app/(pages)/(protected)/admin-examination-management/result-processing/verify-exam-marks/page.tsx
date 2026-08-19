@@ -23,11 +23,19 @@ import { rowIndexGetter } from "@/lib/utils";
 import { dedupeBy, num, txt } from "@/common/utils/data-helpers";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { toast } from "sonner";
+import { printHtmlInIframe } from "@/lib/print";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  isDefaultLogoUrl,
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   buildHtmlTable,
   exportHtmlTableAsExcel,
 } from "../../_lib/export-html-table";
 import {
+  getCollegeById,
   getVerifyExamMarksFilters,
   getVerifyExamMarksReport,
   type VerifyExamMarksMode,
@@ -181,12 +189,52 @@ function cellByKey(row: AnyRow, key: string): string {
   return "";
 }
 
-function printReport(
-  title: string,
-  subtitle: string,
-  columns: { key: string; header: string }[],
-  rows: Record<string, unknown>[],
-) {
+/** Angular getColleges(): selected college logo, else default_logo.png. */
+async function resolveVerifyMarksPrintLogo(
+  collegeId: number,
+): Promise<{ logoSrc: string; collegeName: string }> {
+  let collegeName = "";
+  if (collegeId > 0) {
+    try {
+      const college = await getCollegeById(collegeId);
+      collegeName = String(college?.collegeName ?? "").trim();
+      const raw = college?.logo ? String(college.logo).trim() : "";
+      if (raw) {
+        const url = toPrintLogoUrl(raw);
+        if (!isDefaultLogoUrl(url)) {
+          return { logoSrc: await logoToDataUrl(url), collegeName };
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return {
+    logoSrc: await logoToDataUrl(toPrintLogoUrl(DEFAULT_COLLEGE_LOGO)),
+    collegeName,
+  };
+}
+
+function printReport(args: {
+  panelTitle: string;
+  subtitle: string;
+  collegeName: string;
+  orgCode: string;
+  logoSrc: string;
+  fallbackLogo: string;
+  columns: { key: string; header: string }[];
+  rows: Record<string, unknown>[];
+}) {
+  const {
+    panelTitle,
+    subtitle,
+    collegeName,
+    orgCode,
+    logoSrc,
+    fallbackLogo,
+    columns,
+    rows,
+  } = args;
   if (!rows.length || !columns.length) return;
 
   const colCount = columns.length;
@@ -206,7 +254,31 @@ function printReport(
     )
     .join("");
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+  const logoImg = `<img src="${escapeHtml(logoSrc)}" alt=""
+    onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" `;
+
+  const header =
+    orgCode.toUpperCase() === "SUK"
+      ? `<div class="suk-logo-row">
+  ${logoImg} class="suk-logo" />
+</div>
+<div>
+  <p class="collegeName suk">${escapeHtml(collegeName)}</p>
+  <p class="title suk">${escapeHtml(subtitle)}</p>
+  <p class="title-2 suk">${escapeHtml(panelTitle)}</p>
+</div>`
+      : `<div class="banner-row">
+  <div class="logo-col">
+    ${logoImg} class="portraitLogo" />
+  </div>
+  <div class="banner-text">
+    <p class="collegeName">${escapeHtml(collegeName)}</p>
+    <p class="title">${escapeHtml(subtitle)}</p>
+    <p class="title-2">${escapeHtml(panelTitle)}</p>
+  </div>
+</div>`;
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(panelTitle)}</title>
 <style>
 @page { size: A4 landscape; margin: 5mm; }
 * { box-sizing: border-box; }
@@ -217,9 +289,20 @@ html, body {
   color: #000;
   font-family: Arial, sans-serif;
 }
-.title, .sub { text-align: center; margin: 2px 0 4px; }
-.title { font-size: 13px; font-weight: 700; }
-.sub { font-size: 10px; }
+.banner-row { display: flex; flex-direction: row; align-items: flex-start; width: 100%; }
+.logo-col { width: 15%; flex-shrink: 0; }
+.banner-text { width: 85%; }
+.portraitLogo { width: 80%; height: auto; max-height: 90px; object-fit: contain; }
+.suk-logo-row { width: 100%; text-align: center; }
+.suk-logo { width: 100%; max-width: 1200px; height: auto; object-fit: contain; }
+.collegeName, .title, .title-2 {
+  text-align: left;
+  color: #000;
+  margin: 2px 0;
+}
+.collegeName.suk, .title.suk, .title-2.suk { text-align: center; }
+.collegeName { font-size: 20px; font-weight: 550; }
+.title, .title-2 { font-size: 16px; font-weight: 500; }
 table.report {
   width: 100%;
   border-collapse: collapse;
@@ -250,32 +333,11 @@ thead { display: table-header-group; }
 tr { page-break-inside: avoid; }
 </style></head>
 <body>
-  <p class="title">${escapeHtml(title)}</p>
-  <p class="sub">${escapeHtml(subtitle)}</p>
-  <table class="report"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+${header}
+<table class="report"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
 </body></html>`;
 
-  const frame = document.createElement("iframe");
-  frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText =
-    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-  document.body.appendChild(frame);
-  const fdoc = frame.contentDocument;
-  const fwin = frame.contentWindow;
-  if (!fdoc || !fwin) {
-    frame.remove();
-    return;
-  }
-  fdoc.open();
-  fdoc.write(html);
-  fdoc.close();
-  const cleanup = () => frame.remove();
-  fwin.addEventListener("afterprint", cleanup);
-  setTimeout(() => {
-    fwin.focus();
-    fwin.print();
-    setTimeout(cleanup, 60_000);
-  }, 50);
+  printHtmlInIframe(html);
 }
 
 export default function VerifyExamMarksPage() {
@@ -543,17 +605,33 @@ export default function VerifyExamMarksPage() {
     );
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     if (!rows.length) {
       toastInfo("No data to print");
       return;
     }
-    printReport(
-      REPORT_TITLE[mode],
-      reportSubtitle,
-      exportColumns,
-      exportDataRows(),
+    const cid = Number(collegeId || 0);
+    const selected = colleges.find((c) => num(c.fk_college_id) === cid);
+    const { logoSrc, collegeName: fromCollege } =
+      await resolveVerifyMarksPrintLogo(cid);
+    const collegeName =
+      fromCollege ||
+      txt(selected?.college_name) ||
+      txt(selected?.collegeName) ||
+      (globalThis?.localStorage?.getItem("collegeName") ?? "");
+    const fallbackLogo = await logoToDataUrl(
+      toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
     );
+    printReport({
+      panelTitle: PANEL_TITLE[mode],
+      subtitle: reportSubtitle,
+      collegeName,
+      orgCode: globalThis?.localStorage?.getItem("orgCode") ?? "",
+      logoSrc,
+      fallbackLogo,
+      columns: exportColumns,
+      rows: exportDataRows(),
+    });
   }
 
   const columnDefs = useMemo((): ColDef<AnyRow>[] => {
@@ -746,7 +824,7 @@ export default function VerifyExamMarksPage() {
             <Button
               type="button"
               className="h-[30px] px-3 text-[12px]"
-              onClick={handlePrint}
+              onClick={() => void handlePrint()}
             >
               Print Report
             </Button>
