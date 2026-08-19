@@ -924,14 +924,42 @@ export function ExamFinalAnalysisReportPage({
     colleges.find((r) => num(r.fk_college_id) === Number(collegeId))
       ?.college_code,
   );
+  const selectedCourseCode = txt(
+    courses.find((r) => num(r.fk_course_id) === Number(courseId))?.course_code,
+  );
+  const selectedCourseGroupCode = txt(
+    courseGroups.find(
+      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+    )?.group_code,
+  );
   const selectedExamName = txt(
     exams.find((r) => num(r.fk_exam_id) === Number(examId))?.exam_name,
   );
-  /** Angular header: `({{collegeCode}} / {{exam}})` on the results card. */
-  const gradewiseTableTitle =
-    kind === "gradewise" && rows.length > 0
-      ? `${title} - (${selectedCollegeCode} / ${selectedExamName})`
-      : title;
+  /** Table card: page name plus selected filters, e.g. `Report - (college / course / group)`. */
+  const tableCardTitle = useMemo(() => {
+    if (rows.length === 0) return title;
+    if (kind === "final-analysis") {
+      const parts = [
+        selectedCollegeCode,
+        selectedCourseCode,
+        selectedCourseGroupCode,
+      ].filter(Boolean);
+      return parts.length ? `${title} - (${parts.join(" / ")})` : title;
+    }
+    if (kind === "gradewise") {
+      const parts = [selectedCollegeCode, selectedExamName].filter(Boolean);
+      return parts.length ? `${title} - (${parts.join(" / ")})` : title;
+    }
+    return title;
+  }, [
+    kind,
+    rows.length,
+    title,
+    selectedCollegeCode,
+    selectedCourseCode,
+    selectedCourseGroupCode,
+    selectedExamName,
+  ]);
 
   useEffect(() => {
     if (!courseId || !academicYears.length) return;
@@ -1273,7 +1301,7 @@ export function ExamFinalAnalysisReportPage({
   return (
     <FilteredListPage
       title={title}
-      tableTitle={gradewiseTableTitle}
+      tableTitle={tableCardTitle}
       filters={filterFields}
       showTable={rows.length > 0}
       resultsVisible={rows.length > 0}

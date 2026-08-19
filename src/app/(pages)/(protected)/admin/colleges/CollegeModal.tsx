@@ -6,7 +6,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import noImgLogo from "@/assets/images/no-img-logo.png";
 import { Select, type SelectOption } from "@/common/components/select";
-import { ActiveStatusField } from "@/common/components/forms";
+import { ActiveStatusField, FormField } from "@/common/components/forms";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   createCollege,
   listActiveCampuses,
@@ -88,43 +87,8 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const FIELD_INPUT =
-  "h-9 min-w-0 w-full rounded-lg border border-[#d7dce5] bg-white px-3 text-[13px] font-medium text-foreground shadow-none transition-[border-color,box-shadow] duration-150 placeholder:text-slate-500 placeholder:font-normal focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/12 disabled:bg-muted/40";
-const FIELD_LABEL =
-  "text-[12px] font-semibold leading-tight tracking-wide text-[hsl(218_32%_22%)]";
 const FORM_ROW =
   "grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4";
-const SELECT_FIELD =
-  "gap-0 [&>button]:h-9 [&>button]:rounded-lg [&>button]:border-[#d7dce5] [&>button]:bg-white [&>button]:px-3 [&>button]:text-[13px] [&>button]:font-medium [&>button]:shadow-none [&>button]:focus-visible:border-primary/45 [&>button]:focus-visible:ring-2 [&>button]:focus-visible:ring-primary/12";
-
-function Field({
-  label,
-  required,
-  error,
-  htmlFor,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  htmlFor?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className ?? "min-w-0 space-y-1"}>
-      <Label htmlFor={htmlFor} className={FIELD_LABEL}>
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </Label>
-      {children}
-      {error ? (
-        <p className="text-xs font-medium text-destructive">{error}</p>
-      ) : null}
-    </div>
-  );
-}
 
 interface CollegeModalProps {
   open: boolean;
@@ -446,9 +410,13 @@ export default function CollegeModal({
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-2"
+        >
           <div className={FORM_ROW}>
-            <Field
+            <FormField
               label="Organization"
               required
               error={errors.organizationId?.message}
@@ -464,12 +432,11 @@ export default function CollegeModal({
                     options={organizationOptions}
                     placeholder="Select organization"
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="University"
               required
               error={errors.universityId?.message}
@@ -485,12 +452,11 @@ export default function CollegeModal({
                     options={universityOptions}
                     placeholder="Select university"
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Campus"
               required
               error={errors.campusId?.message}
@@ -506,12 +472,11 @@ export default function CollegeModal({
                     options={campusOptions}
                     placeholder="Select campus"
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="College Name"
               required
               error={errors.collegeName?.message}
@@ -520,15 +485,14 @@ export default function CollegeModal({
             >
               <Input
                 id="collegeName"
-                className={FIELD_INPUT}
                 placeholder="College name"
                 {...register("collegeName")}
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={`${FORM_ROW} lg:grid-cols-12`}>
-            <Field
+            <FormField
               label="College Code"
               required
               error={errors.collegeCode?.message}
@@ -537,24 +501,22 @@ export default function CollegeModal({
             >
               <Input
                 id="collegeCode"
-                className={FIELD_INPUT}
                 placeholder="e.g. COE01"
                 {...register("collegeCode")}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Short Name"
               htmlFor="collegeShortName"
               className="min-w-0 space-y-1 lg:col-span-3"
             >
               <Input
                 id="collegeShortName"
-                className={FIELD_INPUT}
                 placeholder="Short name"
                 {...register("collegeShortName")}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Affiliated To"
               required
               error={errors.affiliatedTo?.message}
@@ -570,12 +532,11 @@ export default function CollegeModal({
                     options={affiliations}
                     placeholder="Select affiliation"
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Sort Order"
               required
               error={errors.sortOrder?.message}
@@ -585,15 +546,14 @@ export default function CollegeModal({
               <Input
                 id="sortOrder"
                 type="number"
-                className={FIELD_INPUT}
                 placeholder="1"
                 {...register("sortOrder", { valueAsNumber: true })}
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={`${FORM_ROW} lg:grid-cols-12`}>
-            <Field
+            <FormField
               label="Logo (.png, .jpg, .jpeg)"
               className="min-w-0 space-y-1 lg:col-span-5"
             >
@@ -611,11 +571,11 @@ export default function CollegeModal({
                   accept=".png,.jpg,.jpeg"
                   ref={fileRef}
                   onChange={handleLogoChange}
-                  className={`${FIELD_INPUT} min-w-0 flex-1 cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600`}
+                  className="min-w-0 flex-1 cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600"
                 />
               </div>
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Address"
               required
               error={errors.address?.message}
@@ -624,15 +584,14 @@ export default function CollegeModal({
             >
               <Input
                 id="address"
-                className={FIELD_INPUT}
                 placeholder="Street, area, city"
                 {...register("address")}
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={FORM_ROW}>
-            <Field label="Country" className="min-w-0 space-y-1">
+            <FormField label="Country" className="min-w-0 space-y-1">
               <Controller
                 name="countryId"
                 control={control}
@@ -648,12 +607,11 @@ export default function CollegeModal({
                     options={countryOptions}
                     placeholder="Select country"
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field label="State" className="min-w-0 space-y-1">
+            </FormField>
+            <FormField label="State" className="min-w-0 space-y-1">
               <Controller
                 name="stateId"
                 control={control}
@@ -669,12 +627,11 @@ export default function CollegeModal({
                     placeholder="Select state"
                     disabled={!countryId || stateOptions.length === 0}
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="District"
               required
               error={errors.districtId?.message}
@@ -694,12 +651,11 @@ export default function CollegeModal({
                     placeholder="Select district"
                     disabled={!stateId || districtOptions.length === 0}
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="City"
               required
               error={errors.cityId?.message}
@@ -716,29 +672,23 @@ export default function CollegeModal({
                     placeholder="Select city"
                     disabled={!districtId || cityOptions.length === 0}
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={FORM_ROW}>
-            <Field
+            <FormField
               label="Mandal"
               required
               error={errors.mandal?.message}
               htmlFor="mandal"
               className="min-w-0 space-y-1"
             >
-              <Input
-                id="mandal"
-                className={FIELD_INPUT}
-                placeholder="Mandal"
-                {...register("mandal")}
-              />
-            </Field>
-            <Field
+              <Input id="mandal" placeholder="Mandal" {...register("mandal")} />
+            </FormField>
+            <FormField
               label="Pincode"
               required
               error={errors.pincode?.message}
@@ -747,12 +697,11 @@ export default function CollegeModal({
             >
               <Input
                 id="pincode"
-                className={FIELD_INPUT}
                 placeholder="6-digit pincode"
                 {...register("pincode")}
               />
-            </Field>
-            <Field label="College Type" className="min-w-0 space-y-1">
+            </FormField>
+            <FormField label="College Type" className="min-w-0 space-y-1">
               <Controller
                 name="collegeType"
                 control={control}
@@ -763,27 +712,25 @@ export default function CollegeModal({
                     options={collegeTypes}
                     placeholder="Select type"
                     searchable
-                    className={SELECT_FIELD}
                   />
                 )}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Approved By"
               htmlFor="approvedBy"
               className="min-w-0 space-y-1"
             >
               <Input
                 id="approvedBy"
-                className={FIELD_INPUT}
                 placeholder="Approving body"
                 {...register("approvedBy")}
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={FORM_ROW}>
-            <Field
+            <FormField
               label="Mobile No"
               error={errors.mobileNumber?.message}
               htmlFor="mobileNumber"
@@ -791,24 +738,22 @@ export default function CollegeModal({
             >
               <Input
                 id="mobileNumber"
-                className={FIELD_INPUT}
                 placeholder="10-digit mobile"
                 {...register("mobileNumber")}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Landline No"
               htmlFor="landlineNumber"
               className="min-w-0 space-y-1"
             >
               <Input
                 id="landlineNumber"
-                className={FIELD_INPUT}
                 placeholder="Landline number"
                 {...register("landlineNumber")}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Email"
               error={errors.email?.message}
               htmlFor="email"
@@ -816,19 +761,13 @@ export default function CollegeModal({
             >
               <Input
                 id="email"
-                className={FIELD_INPUT}
                 placeholder="email@college.edu"
                 {...register("email")}
               />
-            </Field>
-            <Field label="Fax" htmlFor="fax" className="min-w-0 space-y-1">
-              <Input
-                id="fax"
-                className={FIELD_INPUT}
-                placeholder="Fax number"
-                {...register("fax")}
-              />
-            </Field>
+            </FormField>
+            <FormField label="Fax" htmlFor="fax" className="min-w-0 space-y-1">
+              <Input id="fax" placeholder="Fax number" {...register("fax")} />
+            </FormField>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start border-t border-border/60 pt-3">
@@ -843,12 +782,12 @@ export default function CollegeModal({
                     checked={field.value ?? false}
                     onCheckedChange={field.onChange}
                   />
-                  <Label
+                  <label
                     htmlFor="isUniversity"
-                    className="cursor-pointer text-[12px] font-semibold leading-tight tracking-wide text-[hsl(218_32%_22%)]"
+                    className="cursor-pointer text-[12px] font-medium leading-none text-black/54"
                   >
                     Is University
-                  </Label>
+                  </label>
                 </div>
               )}
             />
