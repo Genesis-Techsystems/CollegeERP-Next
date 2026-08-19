@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, LogOut, User, Search, ChevronDown, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,17 +33,6 @@ const roleAvatarStyle: Record<string, string> = {
 };
 
 const MAX_SEARCH_RESULTS = 8;
-
-const emptySubscribe = () => () => {};
-
-/** False on the server and during hydration; true only after the client commits. */
-function useIsClient(): boolean {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  );
-}
 
 function readLs(key: string): string {
   if (typeof window === "undefined") return "";
@@ -168,10 +150,6 @@ export function Topbar() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const pagesLoading = navItems.length === 0;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
