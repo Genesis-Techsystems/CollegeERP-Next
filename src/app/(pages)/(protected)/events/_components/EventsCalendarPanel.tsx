@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   addMonths,
   eachDayOfInterval,
@@ -36,11 +37,18 @@ function groupEventsByDay(
 ): Map<string, CollegeEventRow[]> {
   const map = new Map<string, CollegeEventRow[]>();
   for (const ev of events) {
-    const key = eventDayKey(ev);
-    if (!key) continue;
-    const list = map.get(key) ?? [];
-    list.push(ev);
-    map.set(key, list);
+    const start = eventStartDate(ev);
+    if (!start) continue;
+    const endRaw = ev.endDate ?? ev.startDate ?? ev.eventDate;
+    const end = endRaw ? new Date(String(endRaw)) : start;
+    const rangeEnd =
+      end && !Number.isNaN(end.getTime()) && end >= start ? end : start;
+    for (const d of eachDayOfInterval({ start, end: rangeEnd })) {
+      const key = format(d, "yyyy-MM-dd");
+      const list = map.get(key) ?? [];
+      list.push(ev);
+      map.set(key, list);
+    }
   }
   return map;
 }
@@ -156,6 +164,53 @@ function EventListCard({
   );
 }
 
+/** Angular `mwl-calendar-open-day-events` — shown when a calendar day is clicked. */
+function OpenDayEvents({
+  events,
+  onEventClick,
+}: Readonly<{
+  events: CollegeEventRow[];
+  onEventClick?: (event: CollegeEventRow) => void;
+}>) {
+  return (
+    <div className="space-y-2 bg-[#555] px-4 py-4 shadow-[inset_0_0_12px_0_rgba(0,0,0,0.54)]">
+      {events.map((ev, idx) => {
+        const title = ev.eventName ?? "Event";
+        const inner = (
+          <>
+            <span
+              className="ml-4 h-2.5 w-2.5 shrink-0 rounded-full bg-[#1e90ff]"
+              aria-hidden
+            />
+            <span className="block min-w-0 flex-1 px-4 py-[15px] text-[15px] leading-none text-black">
+              {title}
+            </span>
+          </>
+        );
+        const className =
+          "flex w-full items-center bg-white text-left shadow-[0_3px_1px_-2px_rgba(0,0,0,0.2),0_2px_2px_0_rgba(0,0,0,0.14),0_1px_5px_0_rgba(0,0,0,0.12)]";
+        return onEventClick ? (
+          <button
+            key={String(ev.eventId ?? `${title}-${idx}`)}
+            type="button"
+            className={cn(className, "hover:shadow-md")}
+            onClick={() => onEventClick(ev)}
+          >
+            {inner}
+          </button>
+        ) : (
+          <div
+            key={String(ev.eventId ?? `${title}-${idx}`)}
+            className={className}
+          >
+            {inner}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function EventsCalendarPanel({
   viewMonth,
   onViewMonthChange,
@@ -170,13 +225,22 @@ export function EventsCalendarPanel({
   variant = "default",
   splitCards = false,
 }: Readonly<EventsCalendarPanelProps>) {
+  const [openDay, setOpenDay] = useState<Date | null>(null);
   const isStaffVariant = variant === "staff";
   const monthStart = startOfMonth(viewMonth);
   const monthEnd = endOfMonth(viewMonth);
   const gridStart = startOfWeek(monthStart);
   const gridEnd = endOfWeek(monthEnd);
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
+  const weeks: Date[][] = [];
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push(days.slice(i, i + 7));
+  }
   const byDay = groupEventsByDay(events);
+
+  useEffect(() => {
+    setOpenDay(null);
+  }, [viewMonth]);
 
   const monthEvents = sortEventsByDate(
     events.filter((ev) => {
@@ -189,7 +253,16 @@ export function EventsCalendarPanel({
   const sidebarEvents =
     sidebarEmptyMessage != null ? sortEventsByDate(events) : monthEvents;
 
-  const isDaySelectable = Boolean(onSelectDate);
+  function handleDayClick(day: Date, dayEvents: CollegeEventRow[]) {
+    onSelectDate?.(day);
+    if (!isSameMonth(day, viewMonth)) return;
+    // Angular `dayClicked`: toggle closed when clicking the open day or an empty day.
+    if ((openDay && isSameDay(openDay, day)) || dayEvents.length === 0) {
+      setOpenDay(null);
+      return;
+    }
+    setOpenDay(day);
+  }
 
   return (
     <div
@@ -205,7 +278,7 @@ export function EventsCalendarPanel({
           !splitCards &&
             (isStaffVariant
               ? "mx-4 mt-3 rounded-md border border-border/60 bg-background shadow-sm"
-              : "border-b border-border bg-background"),
+              : "border-b border-border bg-[#c3d9ff]"),
         )}
       >
         <div className="flex items-center gap-2">
@@ -282,8 +355,8 @@ export function EventsCalendarPanel({
             className={cn(
               "grid grid-cols-7 border-b text-center text-[11px] font-semibold",
               isStaffVariant
-                ? "border-[hsl(var(--primary))]/30 bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))]"
-                : "border-[hsl(var(--primary))]/20 bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]",
+                ? "border-[hsl(var(--primary))]/30 bg-[#c3d9ff] text-[hsl(var(--primary))]"
+                : "border-[hsl(var(--primary))]/20 bg-[#c3d9ff] text-[hsl(var(--primary))]",
             )}
           >
             {WEEKDAYS.map((d) => (
@@ -296,86 +369,100 @@ export function EventsCalendarPanel({
             ))}
           </div>
 
-          <div className="grid grid-cols-7">
-            {days.map((day) => {
-              const key = format(day, "yyyy-MM-dd");
-              const dayEvents = byDay.get(key) ?? [];
-              const inMonth = isSameMonth(day, viewMonth);
-              const isSelected = selectedDate
-                ? isSameDay(day, selectedDate)
-                : false;
+          <div>
+            {weeks.map((week) => {
+              const weekHasOpen =
+                openDay != null && week.some((d) => isSameDay(d, openDay));
+              const openEvents =
+                openDay != null
+                  ? (byDay.get(format(openDay, "yyyy-MM-dd")) ?? [])
+                  : [];
 
               return (
-                <div
-                  key={key}
-                  role={isDaySelectable ? "button" : undefined}
-                  tabIndex={isDaySelectable ? 0 : undefined}
-                  onClick={
-                    isDaySelectable ? () => onSelectDate?.(day) : undefined
-                  }
-                  onKeyDown={
-                    isDaySelectable
-                      ? (e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            onSelectDate?.(day);
-                          }
-                        }
-                      : undefined
-                  }
-                  className={cn(
-                    "relative border-b border-r border-border/70 p-1.5 text-left transition-colors last:border-r-0",
-                    isStaffVariant ? "min-h-[96px]" : "min-h-[88px]",
-                    !inMonth && "bg-muted/20 text-muted-foreground",
-                    inMonth && "bg-background",
-                    isSelected &&
-                      (isStaffVariant
-                        ? "bg-[hsl(var(--primary))]/20 ring-1 ring-inset ring-[hsl(var(--primary))]/40"
-                        : "bg-[hsl(var(--primary))]/10"),
-                    isDaySelectable &&
-                      inMonth &&
-                      "cursor-pointer hover:bg-muted/30",
-                    !isDaySelectable && "cursor-default",
-                  )}
-                >
-                  {isStaffVariant ? (
-                    <>
-                      <span className="float-right text-[12px] font-medium">
-                        {format(day, "d")}
-                      </span>
-                      <div className="clear-both mt-0.5 space-y-0.5">
-                        {dayEvents.slice(0, 3).map((ev) => (
-                          <span
-                            key={String(ev.eventId ?? ev.eventName)}
-                            className="block truncate rounded bg-[hsl(var(--primary))]/15 px-1 py-0.5 text-[10px] leading-tight text-[hsl(var(--primary))]"
-                          >
-                            {ev.eventName ?? "Event"}
-                          </span>
-                        ))}
-                        {dayEvents.length > 3 ? (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{dayEvents.length - 3} more
-                          </span>
-                        ) : null}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-start justify-between gap-1">
-                      {dayEvents.length > 0 ? (
-                        <div className="flex flex-col items-center gap-0.5 pt-0.5">
-                          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
-                            {dayEvents.length}
-                          </span>
-                          <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                <div key={format(week[0]!, "yyyy-MM-dd")}>
+                  <div className="grid grid-cols-7">
+                    {week.map((day) => {
+                      const key = format(day, "yyyy-MM-dd");
+                      const dayEvents = byDay.get(key) ?? [];
+                      const inMonth = isSameMonth(day, viewMonth);
+                      const isOpen =
+                        openDay != null ? isSameDay(day, openDay) : false;
+                      const isSelected = selectedDate
+                        ? isSameDay(day, selectedDate)
+                        : isOpen;
+
+                      return (
+                        <div
+                          key={key}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleDayClick(day, dayEvents)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleDayClick(day, dayEvents);
+                            }
+                          }}
+                          className={cn(
+                            "relative border-b border-r border-border/70 p-1.5 text-left transition-colors last:border-r-0",
+                            isStaffVariant ? "min-h-[96px]" : "min-h-[88px]",
+                            !inMonth && "bg-muted/20 text-muted-foreground",
+                            inMonth && "bg-background",
+                            (isOpen || isSelected) &&
+                              (isStaffVariant
+                                ? "bg-[#c3d9ff] ring-1 ring-inset ring-[hsl(var(--primary))]/40"
+                                : "bg-muted shadow-md"),
+                            inMonth && "cursor-pointer hover:bg-muted/30",
+                          )}
+                        >
+                          {isStaffVariant ? (
+                            <>
+                              <span className="float-right text-[12px] font-medium">
+                                {format(day, "d")}
+                              </span>
+                              <div className="clear-both mt-0.5 space-y-0.5">
+                                {dayEvents.slice(0, 3).map((ev) => (
+                                  <span
+                                    key={String(ev.eventId ?? ev.eventName)}
+                                    className="block truncate rounded bg-[hsl(var(--primary))]/15 px-1 py-0.5 text-[10px] leading-tight text-[hsl(var(--primary))]"
+                                  >
+                                    {ev.eventName ?? "Event"}
+                                  </span>
+                                ))}
+                                {dayEvents.length > 3 ? (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    +{dayEvents.length - 3} more
+                                  </span>
+                                ) : null}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex items-start justify-between gap-1">
+                              {dayEvents.length > 0 ? (
+                                <div className="flex flex-col items-center gap-0.5 pt-0.5">
+                                  <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-semibold text-white">
+                                    {dayEvents.length}
+                                  </span>
+                                  <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--primary))]" />
+                                </div>
+                              ) : (
+                                <span className="w-4 shrink-0" aria-hidden />
+                              )}
+                              <span className="text-[12px] font-medium">
+                                {format(day, "d")}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <span className="w-4 shrink-0" aria-hidden />
-                      )}
-                      <span className="text-[12px] font-medium">
-                        {format(day, "d")}
-                      </span>
-                    </div>
-                  )}
+                      );
+                    })}
+                  </div>
+                  {weekHasOpen && openEvents.length > 0 ? (
+                    <OpenDayEvents
+                      events={openEvents}
+                      onEventClick={onEventClick}
+                    />
+                  ) : null}
                 </div>
               );
             })}

@@ -80,17 +80,17 @@ const COL_DEFS = {
   } as ColDef<AnyRow>,
   fatherName: {
     field: "father_name",
-    headerName: "Father's Name",
+    headerName: "Father Name",
     minWidth: 140,
   } as ColDef<AnyRow>,
   fatherMobile: {
     field: "father_mobile_no",
-    headerName: "Father's Mobile",
+    headerName: "Father Mobile",
     minWidth: 120,
   } as ColDef<AnyRow>,
   fatherEmail: {
     field: "father_email_id",
-    headerName: "Father's EmailId",
+    headerName: "Father Email id",
     minWidth: 160,
   } as ColDef<AnyRow>,
   studentStatus: {

@@ -2022,36 +2022,32 @@ a.app-control[data-app-add]:hover {
   overflow: hidden !important;
 }
 
-/* Wide tables (fitColumnsToWidth=false) — scroll every column, not just the viewport */
+/* Wide tables (fitColumnsToWidth=false) — scroll inside the grid area */
 .app-data-table-wide.app-data-table-card {
+  overflow: hidden;
+}
+
+.app-data-table-wide .app-data-table-hscroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
-.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll,
-.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll-viewport {
-  display: block !important;
-  min-height: 16px !important;
-  height: 16px !important;
-  visibility: visible !important;
+.app-data-table-wide .app-data-table-hscroll::-webkit-scrollbar {
+  height: 12px;
 }
 
-.app-data-table-wide .ag-theme-quartz .ag-center-cols-viewport {
-  overflow-x: auto !important;
+.app-data-table-wide .app-data-table-hscroll::-webkit-scrollbar-thumb {
+  background: #9e9e9e;
+  border-radius: 6px;
 }
 
 .app-data-table-wide .ag-theme-quartz .ag-header-cell-text,
 .app-data-table-wide .ag-theme-quartz .ag-header-group-text {
   text-transform: none;
   letter-spacing: 0.02em;
-}
-
-.app-data-table-wide .ag-theme-quartz .ag-horizontal-left-spacer,
-.app-data-table-wide .ag-theme-quartz .ag-horizontal-right-spacer {
-  display: block !important;
-  width: auto !important;
-  min-width: unset !important;
-  overflow: visible !important;
 }
 
 /* Hide horizontal-scroll track under pinned SI.No / Actions columns —

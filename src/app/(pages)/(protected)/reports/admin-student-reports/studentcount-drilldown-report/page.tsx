@@ -129,6 +129,7 @@ const STUDENT_EXCEL_COLUMNS: { key: string; header: string }[] = [
   { key: "father_name", header: "Father Name" },
   { key: "date_of_birth", header: "Date Of Birth" },
   { key: "student_quota", header: "Quota" },
+  { key: "scholarship_type", header: "Category" },
 ];
 
 const STUDENT_PRINT_COLUMNS: { key: string; header: string }[] = [
@@ -138,6 +139,7 @@ const STUDENT_PRINT_COLUMNS: { key: string; header: string }[] = [
   { key: "father_name", header: "Father Name" },
   { key: "date_of_birth", header: "Date Of Birth" },
   { key: "student_quota", header: "Quota" },
+  { key: "scholarship_type", header: "Category" },
 ];
 
 function txt(v: unknown): string {
@@ -503,7 +505,12 @@ export default function StudentCountDrilldownReportPage() {
         father_name: txt(row.father_name),
         date_of_birth: formatDob(row.date_of_birth),
         student_quota: txt(row.student_quota),
-        scholarship_type: txt(row.scholarship_type),
+        scholarship_type: txt(
+          row.scholarship_type ??
+            row.Scholarship_Type ??
+            row.student_category ??
+            row.Student_Category,
+        ),
       })),
     [position, rows],
   );
@@ -567,6 +574,11 @@ export default function StudentCountDrilldownReportPage() {
           field: "student_quota",
           headerName: "Quota",
           minWidth: 110,
+        },
+        {
+          field: "scholarship_type",
+          headerName: "Category",
+          minWidth: 140,
         },
       ];
     }
@@ -816,6 +828,7 @@ ${tableHtml}
             ) : null}
           </div>
         }
+        // fitColumnsToWidth={false}
         rowData={showResults ? displayRows : []}
         columnDefs={columnDefs}
         pinnedBottomRowData={

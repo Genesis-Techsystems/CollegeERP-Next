@@ -29,6 +29,10 @@ import {
 } from "@/common/generic-functions";
 import type { ApiResponse } from "@/types/api";
 import {
+  courseGroupIdFromDeptHead,
+  listDepartmentHeadsByDepartment,
+} from "@/services/attendance-management";
+import {
   fetchStudentDetail,
   fetchStudentDetailByUserId,
   searchStudentsByKeyword,
@@ -526,6 +530,57 @@ export async function listStudents(q: string): Promise<AnyRow[]> {
     isActive: "true",
     q: term,
   });
+  return studentSearchRows(envelope);
+}
+
+function lsBool(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  const raw = window.localStorage.getItem(key);
+  if (raw == null || raw === "") return false;
+  try {
+    return JSON.parse(raw) === true;
+  } catch {
+    return String(raw).toLowerCase() === "true";
+  }
+}
+
+function lsNum(key: string): number {
+  if (typeof window === "undefined") return 0;
+  const raw = window.localStorage.getItem(key);
+  if (raw == null || raw === "" || raw === "null") return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Angular login `getDepartmentHeadForAll` (non-admin):
+ * EmpDeptHeads where department.departmentId == empDeptId → courseGroupId.
+ */
+async function resolveStaffCourseGroupId(): Promise<number> {
+  const fromLs = lsNum("courseGroupId");
+  if (fromLs > 0) return fromLs;
+  const empDeptId = lsNum("empDeptId") || lsNum("departmentId");
+  if (empDeptId <= 0) return 0;
+  try {
+    const heads = await listDepartmentHeadsByDepartment(empDeptId);
+    const first = heads[0];
+    const gid = courseGroupIdFromDeptHead(first);
+    if (gid > 0 && typeof window !== "undefined") {
+      window.localStorage.setItem("courseGroupId", String(gid));
+      const courseId = Number(
+        first?.courseId ?? first?.course_id ?? first?.fk_course_id ?? 0,
+      );
+      if (Number.isFinite(courseId) && courseId > 0) {
+        window.localStorage.setItem("courseId", String(courseId));
+      }
+    }
+    return gid > 0 ? gid : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function studentSearchRows(envelope: unknown): AnyRow[] {
   const status = Number(
     (envelope as { statusCode?: number } | null)?.statusCode ?? 0,
   );
@@ -541,6 +596,36 @@ export async function listStudents(q: string): Promise<AnyRow[]> {
     if (Array.isArray(nested.result)) return nested.result as AnyRow[];
   }
   return [];
+}
+
+/**
+ * Angular `exam-student-summary-report.enteredStudent` (length > 4).
+ * Staff: `studentsearch?collegeId=&courseGroupId=&q=`
+ * Principal/college-locked: `studentsearch?collegeId=&q=`
+ * Admin: `studentsearch?q=`
+ */
+export async function searchStudentsForExamResultsSummary(
+  q: string,
+): Promise<AnyRow[]> {
+  const term = String(q ?? "").trim();
+  if (term.length <= 4) return [];
+
+  const isAdmin = lsBool("isAdmin");
+  const isPrincipal = lsBool("isPRINCIPAL");
+  const dataSecStaff = !isAdmin && !isPrincipal;
+  const dataSECPrincipal = !isAdmin;
+  const collegeId = lsNum("collegeId");
+  const courseGroupId = await resolveStaffCourseGroupId();
+
+  let params: Record<string, string | number> = { q: term };
+  if (!dataSECPrincipal && !isAdmin) {
+    params = { collegeId, q: term };
+  } else if (dataSecStaff && !isAdmin) {
+    params = { collegeId, courseGroupId, q: term };
+  }
+
+  const envelope = await fetchDetailsEnvelope<unknown>("studentsearch", params);
+  return studentSearchRows(envelope);
 }
 
 export async function getStudentExamHallticketDetail(
@@ -2298,7 +2383,9 @@ export async function deleteExamFeeReceipt(
     ),
     { method: "DELETE", credentials: "include" },
   );
-  const body = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+  const body = (await res
+    .json()
+    .catch(() => null)) as ApiResponse<unknown> | null;
   if (!res.ok || !body?.success) {
     throw new Error(body?.message ?? "Failed to delete exam fee receipt");
   }

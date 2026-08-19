@@ -408,6 +408,7 @@ export default function TotalBooksReportPage() {
       hideEmptyGrid
       pagination
       paginationPageSize={25}
+      fitColumnsToWidth={false}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",

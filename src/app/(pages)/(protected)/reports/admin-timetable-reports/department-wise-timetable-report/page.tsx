@@ -424,7 +424,7 @@ export default function DepartmentWiseTimetableReportPage() {
               isLoading={deptFiltersQuery.isLoading}
             />
           </div>
-          {!hideDateBackCheckbox ? (
+          {/* {!hideDateBackCheckbox ? (
             <>
               <div className="min-w-[9rem] flex-1 basis-[9rem] sm:min-w-[10rem]">
                 <DatePicker
@@ -456,7 +456,7 @@ export default function DepartmentWiseTimetableReportPage() {
                 </Label>
               </div>
             </>
-          ) : null}
+          ) : null} */}
           <Button
             type="button"
             className="h-9 w-fit px-4"

@@ -4412,10 +4412,22 @@ export function resolveForcedNavRoute(
     return "/admin/workflow-stages";
   }
   if (
-    labelLower.includes("holiday") ||
-    labelLower.includes("holidays") ||
-    labelLower.includes("calendar") ||
-    labelLower.includes("calender")
+    (labelLower.includes("holiday") || labelLower.includes("holidays")) &&
+    !labelLower.includes("college calendar") &&
+    !hrefLower.includes("college-calendar") &&
+    !hrefLower.includes("school-calendar")
+  ) {
+    return "/admin/holidays-calendar";
+  }
+  if (
+    (labelLower.includes("calendar") || labelLower.includes("calender")) &&
+    !labelLower.includes("college") &&
+    !labelLower.includes("school") &&
+    !labelLower.includes("event") &&
+    !labelLower.includes("faculty") &&
+    !hrefLower.includes("college-calendar") &&
+    !hrefLower.includes("school-calendar") &&
+    !hrefLower.includes("/events/")
   ) {
     return "/admin/holidays-calendar";
   }

@@ -35,6 +35,11 @@ export const EVENTS_HUB_SECTIONS: {
         description: "Department-level events",
       },
       {
+        label: "College Calendar",
+        href: "/events/college-calendar",
+        description: "College events calendar",
+      },
+      {
         label: "Faculty Calendar",
         href: "/events/school-calendar",
         description: "Holidays and events calendar",

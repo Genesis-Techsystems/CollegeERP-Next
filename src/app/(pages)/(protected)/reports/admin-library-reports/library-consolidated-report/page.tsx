@@ -411,6 +411,8 @@ export default function LibraryConsolidatedReportPage() {
         </div>
       }
       rowData={showTable ? rows : []}
+      paginationPageSize={10}
+      fitColumnsToWidth={false}
       columnDefs={columnDefs}
       getRowStyle={(p) =>
         p.data?.__isTotal
@@ -420,7 +422,7 @@ export default function LibraryConsolidatedReportPage() {
       loading={loadingList}
       resultsVisible={showTable}
       hideEmptyGrid
-      pagination={false}
+      pagination={true}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",

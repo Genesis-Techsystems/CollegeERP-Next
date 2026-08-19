@@ -872,7 +872,7 @@ ${tableHtml}</body></html>`);
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report
             </Button>
-            {gridRows.length > 0 && !isManagementLogin ? (
+            {/* {gridRows.length > 0 && !isManagementLogin ? (
               <Button
                 type="button"
                 size="sm"
@@ -881,7 +881,7 @@ ${tableHtml}</body></html>`);
               >
                 Send SMS
               </Button>
-            ) : null}
+            ) : null} */}
           </div>
         ) : undefined
       }

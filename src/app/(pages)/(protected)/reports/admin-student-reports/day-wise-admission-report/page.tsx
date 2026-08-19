@@ -50,9 +50,6 @@ const EXCEL_COLUMNS = [
   { key: "siNo", header: "SI.No" },
   { key: "Application_Number", header: "Application Number" },
   { key: "Academic_Details", header: "Academic Details" },
-  { key: "Admission_Number", header: "Quota" },
-  { key: "Admission_Date", header: "Course" },
-  { key: "RollNo", header: "Route" },
   { key: "Student_Quota", header: "Student Quota" },
   { key: "Regulation", header: "Regulation" },
   { key: "Lateral", header: "Lateral" },
@@ -60,7 +57,6 @@ const EXCEL_COLUMNS = [
   { key: "Gender", header: "Gender" },
   { key: "Student_Mobile", header: "Student Mobile" },
   { key: "Father_Name", header: "Father Name" },
-  { key: "WorkFlow_Name", header: "WorkFlow Name" },
   { key: "Student_Status", header: "Student Status" },
 ] as const;
 
@@ -90,74 +86,63 @@ const COL_DEFS = {
   applicationNumber: {
     field: "Application_Number",
     headerName: "Application Number",
-    minWidth: 140,
+    minWidth: 160,
+    width: 160,
   } as ColDef<AnyRow>,
   academicDetails: {
     field: "Academic_Details",
     headerName: "Academic Details",
-    minWidth: 200,
+    minWidth: 260,
+    width: 260,
   } as ColDef<AnyRow>,
-  quota: {
-    field: "Admission_Number",
-    headerName: "Quota",
-    minWidth: 130,
-  } as ColDef<AnyRow>,
-  course: {
-    field: "Admission_Date",
-    headerName: "Course",
-    minWidth: 110,
-    valueFormatter: (p: ValueFormatterParams<AnyRow>) =>
-      formatAdmissionDate(p.value),
-  } as ColDef<AnyRow>,
-  route: {
-    field: "RollNo",
-    headerName: "Route",
-    minWidth: 90,
-  } as ColDef<AnyRow>,
+
   studentQuota: {
     field: "Student_Quota",
     headerName: "Student Quota",
-    minWidth: 120,
+    minWidth: 140,
+    width: 140,
   } as ColDef<AnyRow>,
   regulation: {
     field: "Regulation",
     headerName: "Regulation",
-    minWidth: 100,
+    minWidth: 110,
+    width: 110,
   } as ColDef<AnyRow>,
   lateral: {
     field: "Lateral",
     headerName: "Lateral",
     minWidth: 90,
+    width: 90,
   } as ColDef<AnyRow>,
   studentName: {
     field: "Student_Name",
     headerName: "Student Name",
-    minWidth: 160,
+    minWidth: 200,
+    width: 200,
   } as ColDef<AnyRow>,
   gender: {
     field: "Gender",
     headerName: "Gender",
     minWidth: 90,
+    width: 90,
   } as ColDef<AnyRow>,
   studentMobile: {
     field: "Student_Mobile",
     headerName: "Student Mobile",
-    minWidth: 120,
+    minWidth: 130,
+    width: 130,
   } as ColDef<AnyRow>,
   fatherName: {
     field: "Father_Name",
     headerName: "Father Name",
-    minWidth: 140,
-  } as ColDef<AnyRow>,
-  workflowName: {
-    field: "WorkFlow_Name",
-    headerName: "WorkFlow Name",
-    minWidth: 130,
+    minWidth: 180,
+    width: 180,
   } as ColDef<AnyRow>,
   studentStatus: {
     field: "Student_Status",
     headerName: "Student Status",
-    minWidth: 120,
+    minWidth: 140,
+    width: 140,
   } as ColDef<AnyRow>,
 };
 
@@ -494,7 +479,6 @@ export default function DayWiseAdmissionReportPage() {
         Gender: rowText(row, "Gender"),
         Student_Mobile: rowText(row, "Student_Mobile"),
         Father_Name: rowText(row, "Father_Name"),
-        WorkFlow_Name: rowText(row, "WorkFlow_Name"),
         Student_Status: rowText(row, "Student_Status"),
       })),
     [rows],
@@ -549,9 +533,9 @@ ${tableHtml}
       COL_DEFS.siNo,
       COL_DEFS.applicationNumber,
       COL_DEFS.academicDetails,
-      COL_DEFS.quota,
-      COL_DEFS.course,
-      COL_DEFS.route,
+      // COL_DEFS.quota,
+      // COL_DEFS.course,
+      // COL_DEFS.route,
       COL_DEFS.studentQuota,
       COL_DEFS.regulation,
       COL_DEFS.lateral,
@@ -559,7 +543,7 @@ ${tableHtml}
       COL_DEFS.gender,
       COL_DEFS.studentMobile,
       COL_DEFS.fatherName,
-      COL_DEFS.workflowName,
+      // COL_DEFS.workflowName,
       COL_DEFS.studentStatus,
     ],
     [],
@@ -673,6 +657,7 @@ ${tableHtml}
       showTable={showTable}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
+      fitColumnsToWidth={false}
       pagination
       loading={loadingList || loadingFilters}
       resultsVisible={showTable}

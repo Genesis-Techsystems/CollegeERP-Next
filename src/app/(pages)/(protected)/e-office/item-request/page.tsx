@@ -144,6 +144,8 @@ export default function ItemRequestPage() {
         search: true,
         searchPlaceholder: "Search indents…",
         pdfDocumentTitle: "Internal Requisitions",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

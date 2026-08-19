@@ -24,6 +24,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
   filterAcademicYears,
   filterColleges,
@@ -35,9 +36,17 @@ import {
   type FilterRow,
 } from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
 import {
+  getCollegeById,
   getFeeMasterCollegeFilters,
   getStdAcademicHistoryReport,
 } from "@/services";
+import {
+  attendancePrintShell,
+  resolveAttendancePrintLogo,
+  toPrintLogoUrl,
+} from "../../admin-attendance-reports/_lib/attendance-report-print";
+
+const PRINT_REPORT_TITLE = "Student Academic History Report";
 
 type AnyRow = Record<string, unknown>;
 
@@ -64,8 +73,9 @@ function subjectDisplay(row: AnyRow | undefined): string {
   if (!row) return "";
   const name = String(row.subject_name ?? "");
   const code = String(row.subject_code ?? "").trim();
+  // Angular: subject_name + ' ( ' + subject_code + ' ) '
   if (!code) return name;
-  return name ? `${name} (${code})` : code;
+  return name ? `${name} ( ${code} )` : code;
 }
 
 const COL_DEFS = {
@@ -122,8 +132,11 @@ export default function StudentAcademicHistoryReportPage() {
 
   const [rows, setRows] = useState<AcademicHistoryRow[]>([]);
   const [dataDetails, setDataDetails] = useState("");
+  const [collegeName, setCollegeName] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
+
+  const collegeLogo = useCollegeLogo(collegeId ? Number(collegeId) : null);
 
   const clearResults = useCallback(() => {
     setRows([]);
@@ -154,6 +167,44 @@ export default function StudentAcademicHistoryReportPage() {
       })),
     [filtersData],
   );
+
+  const selectedCollegeRow = useMemo(
+    () =>
+      filterColleges(filtersData).find(
+        (r) =>
+          String(pickNum(r, ["fk_college_id", "collegeId"])) ===
+          String(collegeId ?? ""),
+      ) ?? null,
+    [filtersData, collegeId],
+  );
+
+  useEffect(() => {
+    const cid = Number(collegeId ?? 0);
+    if (!cid) {
+      setCollegeName("");
+      return;
+    }
+    const fromFilter = pickText(selectedCollegeRow, [
+      "college_name",
+      "collegeName",
+    ]);
+    if (fromFilter) {
+      setCollegeName(fromFilter);
+      return;
+    }
+    let cancelled = false;
+    void getCollegeById(cid)
+      .then((college) => {
+        if (cancelled) return;
+        setCollegeName(String(college?.collegeName ?? "").trim());
+      })
+      .catch(() => {
+        if (!cancelled) setCollegeName("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [collegeId, selectedCollegeRow]);
 
   const ayOptions = useMemo(() => {
     const cid = Number(collegeId ?? 0);
@@ -356,7 +407,11 @@ export default function StudentAcademicHistoryReportPage() {
       toastInfo("No records to export.");
       return;
     }
-    const headerHtml = `<div style="font-weight:600;margin-bottom:8px;">Student Academic History Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</div>`;
+    const headerHtml = `<div style="margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:600;">${escapeHtml(collegeName || "College")}</div>
+      ${dataDetails ? `<div style="font-size:14px;font-weight:550;margin-top:4px;">${escapeHtml(dataDetails)}</div>` : ""}
+      <div style="font-size:16px;font-weight:550;margin-top:4px;">${escapeHtml(PRINT_REPORT_TITLE)}</div>
+    </div>`;
     const tableHtml = buildHtmlTable(EXCEL_COLUMNS, exportRows);
     exportHtmlTableAsExcel(
       "Student Academic History Report.xls",
@@ -365,23 +420,30 @@ export default function StudentAcademicHistoryReportPage() {
     );
   };
 
-  const printReport = () => {
+  const printReport = async () => {
     if (exportRows.length === 0) {
       toastInfo("No records to print.");
       return;
     }
+    const cid = Number(collegeId ?? 0);
+    const logoSrc = await resolveAttendancePrintLogo(
+      selectedCollegeRow,
+      cid,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
     const tableHtml = buildHtmlTable(EXCEL_COLUMNS, exportRows);
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Student Academic History Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px}
-th{background:#e8f0fe}
-</style></head><body>
-<p style="font-weight:600">Student Academic History Report${dataDetails ? ` — ${escapeHtml(dataDetails)}` : ""}</p>
-${tableHtml}
-</body></html>`);
+    printHtmlInIframe(
+      attendancePrintShell({
+        title: escapeHtml(PRINT_REPORT_TITLE),
+        logoSrc: escapeHtml(logoSrc),
+        fallbackLogo: escapeHtml(fallbackLogo),
+        collegeName: escapeHtml(collegeName || "College"),
+        dataDetails: dataDetails ? escapeHtml(dataDetails) : undefined,
+        tableHtml,
+        textAlign: "center",
+      }),
+    );
   };
 
   const goBack = () => {
@@ -492,10 +554,9 @@ ${tableHtml}
         showTable ? (
           <Button
             type="button"
-            variant="outline"
             size="sm"
             className="h-9 px-3 text-[12px]"
-            onClick={printReport}
+            onClick={() => void printReport()}
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />
             Print Report

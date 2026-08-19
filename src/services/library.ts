@@ -801,7 +801,7 @@ export async function listLibrariesByCollege(
   if (!collegeId) return [];
   return domainListOrEmpty<LibraryDetail>(
     ENTITIES.LIBRARY_DETAIL.name,
-    buildQuery({ "College.collegeId": collegeId, isActive: true }),
+    buildQuery({ isActive: true }),
   );
 }
 
