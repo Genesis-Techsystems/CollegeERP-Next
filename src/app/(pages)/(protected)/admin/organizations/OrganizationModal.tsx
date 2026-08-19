@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useForm, Controller, type Resolver, type UseFormRegister } from "react-hook-form";
+import {
+  useForm,
+  Controller,
+  type Resolver,
+  type UseFormRegister,
+} from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -118,7 +123,8 @@ const LOGO_INVALID_MESSAGE = "Logo must be a .png, .jpg, or .jpeg file only.";
 function isAllowedLogoFile(file: File): boolean {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (LOGO_ALLOWED_EXTENSIONS.has(extension)) return true;
-  if (file.type && LOGO_ALLOWED_MIME_TYPES.has(file.type.toLowerCase())) return true;
+  if (file.type && LOGO_ALLOWED_MIME_TYPES.has(file.type.toLowerCase()))
+    return true;
   return false;
 }
 
@@ -129,7 +135,12 @@ function toDigitsOnly(value: string, maxLength?: number): string {
 
 function bindDigitsField(
   register: UseFormRegister<FormValues>,
-  name: "pincode" | "mobileNumber" | "landlineNumber" | "fax" | "noIssuedLicenses",
+  name:
+    | "pincode"
+    | "mobileNumber"
+    | "landlineNumber"
+    | "fax"
+    | "noIssuedLicenses",
   maxLength?: number,
 ) {
   const { onChange, ...rest } = register(name);
@@ -377,7 +388,11 @@ export default function OrganizationModal({
     try {
       let savedOrg: Organization;
       if (isEditing) {
-        savedOrg = await updateOrganization(organization!.organizationId, data, organization!);
+        savedOrg = await updateOrganization(
+          organization!.organizationId,
+          data,
+          organization!,
+        );
       } else {
         savedOrg = await createOrganization(
           data as Omit<Organization, "organizationId">,
@@ -636,6 +651,8 @@ export default function OrganizationModal({
               <Input
                 id="licenseFdate"
                 type="date"
+                min="1900-01-01"
+                max="2099-12-31"
                 className={FIELD_DATE}
                 {...register("licenseFdate")}
               />
@@ -648,9 +665,10 @@ export default function OrganizationModal({
               <Input
                 id="licenseTdate"
                 type="date"
+                min={licenseFdate || "1900-01-01"}
+                max="2099-12-31"
                 className={FIELD_DATE}
                 {...register("licenseTdate")}
-                min={licenseFdate || undefined}
               />
             </Field>
           </div>

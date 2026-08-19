@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
+import { exportHtmlTableAsExcel } from "@/common/export-html-table";
 import {
   getTabulationRegisterRows,
   getUnivExamFiltersRegSup,
@@ -175,23 +176,78 @@ function groupByHallticket(rows: Row[]): Row[][] {
   return order.map((ht) => map.get(ht)!);
 }
 
-function exportTableAsExcel(
-  tableEl: HTMLTableElement | null,
-  filename: string,
-) {
-  if (!tableEl) return;
-  const html = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head><meta charset="UTF-8" /></head>
-<body>${tableEl.outerHTML}</body>
-</html>`;
-  const blob = new Blob([html], { type: "application/vnd.ms-excel" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.xls`;
-  a.click();
-  URL.revokeObjectURL(url);
+function excelCell(v: unknown): string {
+  const s = txt(v).trim();
+  if (!s || s === "null" || s === "undefined" || s === "—") return "-";
+  return s;
+}
+
+function buildTabulationExcelHtml(args: {
+  dataDetails: string;
+  subjectCodes: string[];
+  mainList: Row[][];
+}): string {
+  const th =
+    'style="border:1px solid #000;background:#fff;font-weight:700;text-align:center;vertical-align:middle;padding:4px;white-space:nowrap;"';
+  const td =
+    'style="border:1px solid #000;text-align:center;vertical-align:middle;padding:4px;white-space:nowrap;"';
+  const tdLeft =
+    'style="border:1px solid #000;text-align:left;vertical-align:middle;padding:4px;white-space:nowrap;"';
+
+  const subjectHeads = args.subjectCodes
+    .map((code) => `<th ${th} colspan="9">${escapeHtml(code)}</th>`)
+    .join("");
+  const markHeads = args.subjectCodes
+    .map(() =>
+      MARK_HEADERS.map((h) => `<th ${th}>${escapeHtml(h)}</th>`).join(""),
+    )
+    .join("");
+
+  const body = args.mainList
+    .map((list) => {
+      const ht = excelCell(
+        list[0]?.hallticket_number ?? list[0]?.hallticket_no,
+      );
+      const markCells = args.subjectCodes
+        .map((code) =>
+          MARK_KEYS.map(
+            (key) =>
+              `<td ${td}>${escapeHtml(excelCell(findMarks(list, code, key)))}</td>`,
+          ).join(""),
+        )
+        .join("");
+      return `<tr>
+        <td ${tdLeft}>${escapeHtml(ht)}</td>
+        ${markCells}
+        <td ${td}>${escapeHtml(excelCell(list[0]?.final_sem_total_marks))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.total_credits))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.final_sem_percentage))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.final_sem_result))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.sgpa))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.cgpa))}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `
+<strong>Tabulation Register Report -${escapeHtml(args.dataDetails)}</strong>
+<br/>
+<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th ${th} rowspan="2">Hall Ticket No.</th>
+      ${subjectHeads}
+      <th ${th} rowspan="2">Total Marks</th>
+      <th ${th} rowspan="2">Total Credits</th>
+      <th ${th} rowspan="2">Perc.%</th>
+      <th ${th} rowspan="2">Result</th>
+      <th ${th} rowspan="2">SGPA</th>
+      <th ${th} rowspan="2">CGPA</th>
+    </tr>
+    <tr>${markHeads}</tr>
+  </thead>
+  <tbody>${body}</tbody>
+</table>`;
 }
 
 function escapeHtml(value: string): string {
@@ -438,6 +494,16 @@ export default function TabulationRegisterPage() {
       selectedCourseYear?.course_year_name ||
         selectedCourseYear?.course_year_code,
     ),
+    txt(selectedExam?.exam_name),
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  /** Angular `selectedData()` — Excel title: college / course / group / year / exam */
+  const excelDetailsLabel = [
+    txt(selectedCollege?.college_code),
+    txt(selectedCourse?.course_code),
+    txt(selectedCourseGroup?.group_code),
+    txt(selectedCourseYear?.course_year_code),
     txt(selectedExam?.exam_name),
   ]
     .filter(Boolean)
@@ -808,9 +874,17 @@ export default function TabulationRegisterPage() {
           type="button"
           size="sm"
           className="h-9 text-[12px]"
-          onClick={() =>
-            exportTableAsExcel(tableRef.current, "Tabulation Register Report")
-          }
+          onClick={() => {
+            if (!showMatrix) return;
+            exportHtmlTableAsExcel(
+              "Tabulation Register Report.xls",
+              buildTabulationExcelHtml({
+                dataDetails: excelDetailsLabel,
+                subjectCodes,
+                mainList,
+              }),
+            );
+          }}
         >
           <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
           Export Excel

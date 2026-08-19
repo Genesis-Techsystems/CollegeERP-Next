@@ -2119,6 +2119,19 @@ input[type="reset"]:disabled,
   padding-right: 1.5rem;
 }
 
+/* Reusable DatePicker — hide native locale text so overlay can show dd/MM/yyyy */
+.date-picker-hide-native-value {
+  color: transparent;
+}
+.date-picker-hide-native-value::-webkit-datetime-edit,
+.date-picker-hide-native-value::-webkit-datetime-edit-fields-wrapper,
+.date-picker-hide-native-value::-webkit-datetime-edit-text,
+.date-picker-hide-native-value::-webkit-datetime-edit-month-field,
+.date-picker-hide-native-value::-webkit-datetime-edit-day-field,
+.date-picker-hide-native-value::-webkit-datetime-edit-year-field {
+  color: transparent;
+}
+
 .app-table-head-cell {
   font-size: var(--app-table-header-font-size);
 }

@@ -920,6 +920,19 @@ export function ExamFinalAnalysisReportPage({
     [examFeeTypes],
   );
 
+  const selectedCollegeCode = txt(
+    colleges.find((r) => num(r.fk_college_id) === Number(collegeId))
+      ?.college_code,
+  );
+  const selectedExamName = txt(
+    exams.find((r) => num(r.fk_exam_id) === Number(examId))?.exam_name,
+  );
+  /** Angular header: `({{collegeCode}} / {{exam}})` on the results card. */
+  const gradewiseTableTitle =
+    kind === "gradewise" && rows.length > 0
+      ? `${title} - (${selectedCollegeCode} / ${selectedExamName})`
+      : title;
+
   useEffect(() => {
     if (!courseId || !academicYears.length) return;
     if (
@@ -1260,6 +1273,7 @@ export function ExamFinalAnalysisReportPage({
   return (
     <FilteredListPage
       title={title}
+      tableTitle={gradewiseTableTitle}
       filters={filterFields}
       showTable={rows.length > 0}
       resultsVisible={rows.length > 0}
