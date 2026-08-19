@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Select } from "@/common/components/select";
-import type { SelectOption } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import {
+  Select,
+  toEmployeeSearchSelectOptions,
+} from "@/common/components/select";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
-  getDigitalOnlineSyncFilters,
   listEmployeeMappedSubjects,
   saveStaffSubjectMappings,
   searchActiveEmployeesByCollege,
@@ -46,16 +47,6 @@ function toInputDate(value: unknown): string {
   return "";
 }
 
-const uniq = (rows: AnyRow[], key: string) => {
-  const seen = new Set<number>();
-  return rows.filter((r) => {
-    const id = n(r[key]);
-    if (!id || seen.has(id)) return false;
-    seen.add(id);
-    return true;
-  });
-};
-
 function makeActionsRenderer(onUnmap: (row: AnyRow) => void) {
   return (p: ICellRendererParams<AnyRow>) => (
     <button
@@ -69,33 +60,12 @@ function makeActionsRenderer(onUnmap: (row: AnyRow) => void) {
   );
 }
 
-function employeeOptionLabel(x: AnyRow): string {
-  const name = [x.firstName, x.middleName, x.lastName]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  const empNo = s(x.empNumber);
-  return empNo ? `${name} (${empNo})` : name || s(x.employeeId);
-}
-
-function toEmployeeOptions(list: AnyRow[]): SelectOption[] {
-  return list
-    .map((x) => {
-      const id = n(x.employeeId);
-      if (!id) return null;
-      return { value: String(id), label: employeeOptionLabel(x) };
-    })
-    .filter((o): o is SelectOption => o != null);
-}
-
 export default function StaffSubjectUnmappingPage() {
-  const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [employeeLoading, setEmployeeLoading] = useState(false);
 
-  const [collegeId, setCollegeId] = useState<number | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [employeeOptions, setEmployeeOptions] = useState<SelectOption[]>([]);
+  const [employees, setEmployees] = useState<AnyRow[]>([]);
 
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [unmapOpen, setUnmapOpen] = useState(false);
@@ -103,57 +73,47 @@ export default function StaffSubjectUnmappingPage() {
   const [editToDate, setEditToDate] = useState("");
   const [editIsActive, setEditIsActive] = useState(true);
 
-  useEffect(() => {
-    const orgId = Number(localStorage.getItem("organizationId") ?? 0);
-    const empId = Number(localStorage.getItem("employeeId") ?? 0);
-    getDigitalOnlineSyncFilters(orgId, empId)
-      .then((d) => {
-        setFiltersData(d.filtersData as AnyRow[]);
-      })
-      .catch(() => {
-        setFiltersData([]);
-      });
+  const employeeOptions = useMemo(
+    () => toEmployeeSearchSelectOptions(employees),
+    [employees],
+  );
+
+  const selectedEmployee = useMemo(
+    () => employees.find((e) => n(e.employeeId) === (employeeId ?? 0)) ?? null,
+    [employees, employeeId],
+  );
+
+  const selectedEmployeeLabel = useMemo(() => {
+    if (!employeeId) return "";
+    return (
+      employeeOptions.find((o) => o.value === String(employeeId))?.label ?? ""
+    );
+  }, [employeeId, employeeOptions]);
+
+  const collegeId = n(
+    selectedEmployee?.collegeId ??
+      selectedEmployee?.College?.collegeId ??
+      selectedEmployee?.college?.collegeId,
+  );
+
+  const onEmployeeSearch = useCallback((term: string) => {
+    const q = term.trim();
+    if (q.length < 4) {
+      if (!q) setEmployees([]);
+      return;
+    }
+    setEmployeeLoading(true);
+    void searchActiveEmployeesByCollege(0, q)
+      .then((list) => setEmployees(Array.isArray(list) ? list : []))
+      .catch(() => setEmployees([]))
+      .finally(() => setEmployeeLoading(false));
   }, []);
 
-  const colleges = useMemo(
-    () =>
-      uniq(filtersData, "fk_college_id").sort(
-        (a, b) => n(a.clg_sort_order) - n(b.clg_sort_order),
-      ),
-    [filtersData],
-  );
-
   useEffect(() => {
-    if (!collegeId && colleges.length)
-      setCollegeId(n(colleges[0].fk_college_id));
-  }, [colleges, collegeId]);
-
-  // Reset employee whenever college changes — all colleges use the same search UX
-  useEffect(() => {
-    setEmployeeId(null);
-    setEmployeeOptions([]);
-    setRows([]);
-  }, [collegeId]);
-
-  const onEmployeeSearch = useCallback(
-    (term: string) => {
-      if (!collegeId) return;
-      const q = term.trim();
-      if (q.length < 4) {
-        if (!q) setEmployeeOptions([]);
-        return;
-      }
-      setEmployeeLoading(true);
-      void searchActiveEmployeesByCollege(collegeId, q)
-        .then((list) => setEmployeeOptions(toEmployeeOptions(list)))
-        .catch(() => setEmployeeOptions([]))
-        .finally(() => setEmployeeLoading(false));
-    },
-    [collegeId],
-  );
-
-  useEffect(() => {
-    if (!collegeId || !employeeId) return setRows([]);
+    if (!employeeId) {
+      setRows([]);
+      return;
+    }
     setLoading(true);
     listEmployeeMappedSubjects({ collegeId, employeeId })
       .then(setRows)
@@ -171,7 +131,7 @@ export default function StaffSubjectUnmappingPage() {
   }
 
   async function saveUnmapping() {
-    if (!selectedRow || !employeeId || !collegeId) return;
+    if (!selectedRow || !employeeId) return;
     const payload = [
       {
         ...selectedRow,
@@ -209,7 +169,7 @@ export default function StaffSubjectUnmappingPage() {
     );
   }
 
-  const filtersComplete = Boolean(collegeId && employeeId);
+  const filtersComplete = Boolean(employeeId);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -278,40 +238,42 @@ export default function StaffSubjectUnmappingPage() {
       <FilteredListPage
         title="Staff Subject Unmapping"
         filters={
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Select
-              label="College"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : null)}
-              options={colleges.map((x) => ({
-                value: String(n(x.fk_college_id)),
-                label: s(x.college_code),
-              }))}
-              searchable
-            />
-            <Select
-              label="Employee"
-              value={employeeId ? String(employeeId) : null}
-              onChange={(v) => setEmployeeId(v ? Number(v) : null)}
-              options={employeeOptions}
-              searchable
-              onSearch={onEmployeeSearch}
-              placeholder={
-                collegeId
-                  ? "Type at least 4 characters…"
-                  : "Select college first"
-              }
-              disabled={!collegeId}
-              isLoading={employeeLoading}
-            />
-          </div>
+          <Select
+            label="Employee"
+            value={employeeId ? String(employeeId) : null}
+            onChange={(v) => {
+              setEmployeeId(v ? Number(v) : null);
+              if (!v) setRows([]);
+            }}
+            options={employeeOptions}
+            searchable
+            clearable
+            onSearch={onEmployeeSearch}
+            placeholder="Type at least 4 characters…"
+            isLoading={employeeLoading}
+            wrapOptionLabels
+            listClassName="max-h-64"
+            className="w-full max-w-xl"
+          />
         }
-        rowData={rows}
-        columnDefs={columnDefs}
+        rowData={filtersComplete ? rows : []}
+        columnDefs={filtersComplete ? columnDefs : undefined}
         loading={loading}
         showTable={filtersComplete}
         resultsVisible={filtersComplete}
-        toolbar={{ search: true, searchPlaceholder: "Search" }}
+        tableHeader={
+          filtersComplete && selectedEmployeeLabel ? (
+            <TableContextHeader
+              title="Staff Subject Unmapping"
+              info={<span>{selectedEmployeeLabel}</span>}
+            />
+          ) : null
+        }
+        toolbar={
+          filtersComplete
+            ? { search: true, searchPlaceholder: "Search" }
+            : undefined
+        }
         // Angular has mat-paginator commented out — show the full mapped list
         pagination={false}
         height="auto"

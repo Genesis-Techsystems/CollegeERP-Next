@@ -633,17 +633,24 @@ export function CounselorMeetingsPage({
           </div>
         </div>
       }
-      rowData={rows}
-      columnDefs={columnDefs}
+      showTable={listReady}
+      resultsVisible={listReady}
+      hideEmptyGrid
+      rowData={listReady ? rows : []}
+      columnDefs={listReady ? columnDefs : undefined}
       loading={loading}
       pagination
       height="auto"
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search meetings…",
-        exportPdf: true,
-        pdfDocumentTitle: title,
-      }}
+      toolbar={
+        listReady
+          ? {
+              search: true,
+              searchPlaceholder: "Search meetings…",
+              exportPdf: true,
+              pdfDocumentTitle: title,
+            }
+          : undefined
+      }
       toolbarTrailing={
         listReady ? (
           <Button

@@ -93,16 +93,16 @@ export function toEmployeeSearchSelectOption(
   const labelNode =
     layout === "number-first" ? (
       <>
-        <span className="text-[rgba(0,0,0,0.87)]">{number || label}</span>
+        <span className="font-medium text-[#042956]">{number || label}</span>
         {name ? (
-          <span className="font-medium text-blue-600"> ( {name})</span>
+          <span className="font-medium text-[#042956]"> ( {name} )</span>
         ) : null}
       </>
     ) : (
       <>
-        <span className="text-[rgba(0,0,0,0.87)]">{name || label}</span>
+        <span className="font-medium text-[#042956]">{name || label}</span>
         {number ? (
-          <span className="font-medium text-blue-600"> ( {number})</span>
+          <span className="font-medium text-[#042956]"> ( {number} )</span>
         ) : null}
       </>
     );

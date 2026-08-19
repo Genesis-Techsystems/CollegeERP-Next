@@ -8,7 +8,7 @@ import type {
 } from "ag-grid-community";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -330,14 +330,36 @@ export default function ModifyStudentBatchesPage() {
     setSelectedIds(new Set());
   }, [groupSectionId]);
 
+  const studentListKey = [
+    collegeId ?? 0,
+    courseId ?? 0,
+    courseGroupId ?? 0,
+    courseYearId ?? 0,
+    academicYearId ?? 0,
+    groupSectionId ?? 0,
+    sourceBatchId ?? 0,
+  ].join(":");
+
   useEffect(() => {
     async function loadStudents() {
       setSelectedIds(new Set());
+      const [
+        nextCollegeId,
+        nextCourseId,
+        nextCourseGroupId,
+        nextCourseYearId,
+        nextAcademicYearId,
+        nextGroupSectionId,
+        nextSourceBatchId,
+      ] = studentListKey.split(":").map(Number);
       if (
-        !collegeId ||
-        !courseGroupId ||
-        !groupSectionId ||
-        !sourceBatchId
+        !nextCollegeId ||
+        !nextCourseId ||
+        !nextCourseGroupId ||
+        !nextCourseYearId ||
+        !nextAcademicYearId ||
+        !nextGroupSectionId ||
+        !nextSourceBatchId
       ) {
         setRows([]);
         setTableEnabled(false);
@@ -345,21 +367,21 @@ export default function ModifyStudentBatchesPage() {
       }
       setLoading(true);
       const list = await listLabBatchStudentsForModify({
-        collegeId,
-        courseGroupId,
-        groupSectionId,
-        studentbatchId: sourceBatchId,
+        collegeId: nextCollegeId,
+        courseGroupId: nextCourseGroupId,
+        groupSectionId: nextGroupSectionId,
+        studentbatchId: nextSourceBatchId,
       }).catch(() => []);
       const mapped = list.map((row, i) => ({
         ...row,
         __rowKey: `${n(row.batchwiseStudentId) || n(row.studentId)}-${i}`,
       }));
       setRows(mapped);
-      setTableEnabled(mapped.length > 0);
+      setTableEnabled(true);
       setLoading(false);
     }
     void loadStudents();
-  }, [collegeId, courseGroupId, groupSectionId, sourceBatchId]);
+  }, [studentListKey]);
 
   function toggleRow(key: string, checked: boolean) {
     setSelectedIds((prev) => {
@@ -409,9 +431,7 @@ export default function ModifyStudentBatchesPage() {
         headerName: "Roll No.",
         minWidth: 150,
         valueGetter: (p) =>
-          s(p.data?.rollNumber) ||
-          s(p.data?.hallticketNumber) ||
-          "-",
+          s(p.data?.rollNumber) || s(p.data?.hallticketNumber) || "-",
       },
       {
         headerName: "Student Name",
@@ -448,9 +468,7 @@ export default function ModifyStudentBatchesPage() {
             <input
               type="checkbox"
               checked={selectedIds.has(s(p.data?.__rowKey))}
-              onChange={(e) =>
-                toggleRow(s(p.data?.__rowKey), e.target.checked)
-              }
+              onChange={(e) => toggleRow(s(p.data?.__rowKey), e.target.checked)}
             />
           </div>
         ),
@@ -458,6 +476,56 @@ export default function ModifyStudentBatchesPage() {
     ],
     [selectedIds, allSelected],
   );
+
+  const filterSummaryLine = useMemo(() => {
+    if (!tableEnabled) return "";
+    const college = colleges.find(
+      (x) => n(x.fk_college_id) === (collegeId ?? 0),
+    );
+    const course = courses.find((x) => n(x.fk_course_id) === (courseId ?? 0));
+    const group = courseGroups.find(
+      (x) => n(x.fk_course_group_id) === (courseGroupId ?? 0),
+    );
+    const year = courseYears.find(
+      (x) => n(x.fk_course_year_id) === (courseYearId ?? 0),
+    );
+    const ay = academicYears.find(
+      (x) => n(x.fk_academic_year_id) === (academicYearId ?? 0),
+    );
+    const section = sectionOptions.find(
+      (x) => x.value === String(groupSectionId ?? 0),
+    );
+    const batch = batchOptions.find(
+      (x) => x.value === String(sourceBatchId ?? 0),
+    );
+    return [
+      s(college?.college_code),
+      s(course?.course_code),
+      s(group?.group_code) || s(group?.group_name),
+      s(year?.course_year_code) || s(year?.course_year_name),
+      s(ay?.academic_year),
+      section?.label ?? "",
+      batch?.label ?? "",
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }, [
+    tableEnabled,
+    colleges,
+    collegeId,
+    courses,
+    courseId,
+    courseGroups,
+    courseGroupId,
+    courseYears,
+    courseYearId,
+    academicYears,
+    academicYearId,
+    sectionOptions,
+    groupSectionId,
+    batchOptions,
+    sourceBatchId,
+  ]);
 
   async function reloadStudents() {
     if (!collegeId || !courseGroupId || !groupSectionId || !sourceBatchId) {
@@ -645,11 +713,26 @@ export default function ModifyStudentBatchesPage() {
             />
           </div>
         }
+        showTable={tableEnabled}
+        resultsVisible={tableEnabled}
+        hideEmptyGrid
+        tableHeader={
+          tableEnabled && filterSummaryLine ? (
+            <TableContextHeader
+              title="Modify Student Batches"
+              info={<span>{filterSummaryLine}</span>}
+            />
+          ) : null
+        }
         rowData={tableEnabled ? rows : []}
-        columnDefs={studentColumnDefs}
+        columnDefs={tableEnabled ? studentColumnDefs : undefined}
         loading={loading}
         pagination
-        toolbar={{ search: true, searchPlaceholder: "Search" }}
+        toolbar={
+          tableEnabled
+            ? { search: true, searchPlaceholder: "Search" }
+            : undefined
+        }
         rightRail={
           tableEnabled && selectedIds.size > 0 ? (
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">

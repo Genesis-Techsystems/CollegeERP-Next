@@ -2119,9 +2119,12 @@ input[type="reset"]:disabled,
   padding-right: 1.5rem;
 }
 
-/* Reusable DatePicker — hide native locale text so overlay can show dd/MM/yyyy */
+/* Reusable DatePicker — hide native locale text so overlay can show dd/MM/yyyy.
+   Chrome uses -webkit-text-fill-color; Tailwind text-foreground otherwise wins. */
 .date-picker-hide-native-value {
-  color: transparent;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent;
 }
 .date-picker-hide-native-value::-webkit-datetime-edit,
 .date-picker-hide-native-value::-webkit-datetime-edit-fields-wrapper,
@@ -2129,7 +2132,9 @@ input[type="reset"]:disabled,
 .date-picker-hide-native-value::-webkit-datetime-edit-month-field,
 .date-picker-hide-native-value::-webkit-datetime-edit-day-field,
 .date-picker-hide-native-value::-webkit-datetime-edit-year-field {
-  color: transparent;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  opacity: 0;
 }
 
 .app-table-head-cell {
@@ -2890,24 +2895,26 @@ h4,
   width: 20px;
   height: 20px;
   line-height: 20px !important;
-  color: #0c51a4;
+  color: #042956;
 }
 
 .table-context-header__title {
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.015em;
-  color: #0c51a4;
+  color: #042956;
 }
 
-.table-context-header__info {
+.table-context-header__info,
+.table-context-header__info span {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(0, 0, 0, 0.62);
+  font-size: 14px;
+  font-weight: 500;
+  color: #042956;
+  cursor: pointer;
 }
 
 .table-context-header__info::before {

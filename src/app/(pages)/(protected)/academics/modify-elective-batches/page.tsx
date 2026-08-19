@@ -8,9 +8,10 @@ import type {
 } from "ag-grid-community";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   getDigitalOnlineSyncFilters,
   listStaffMappingSections,
@@ -270,57 +271,118 @@ export default function ModifyElectiveBatchesPage() {
     void loadSections();
   }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId]);
 
+  const electiveGroupsKey = [
+    collegeId ?? 0,
+    courseId ?? 0,
+    courseGroupId ?? 0,
+    courseYearId ?? 0,
+    academicYearId ?? 0,
+    groupSectionId ?? 0,
+  ].join(":");
+
   useEffect(() => {
     async function loadElectiveGroups() {
       setSourceElectiveId(null);
       setTargetElectiveId(null);
       setRows([]);
       setTableEnabled(false);
-      if (!collegeId || !academicYearId || !groupSectionId) {
+      const [
+        nextCollegeId,
+        nextCourseId,
+        nextCourseGroupId,
+        nextCourseYearId,
+        nextAcademicYearId,
+        nextGroupSectionId,
+      ] = electiveGroupsKey.split(":").map(Number);
+      if (
+        !nextCollegeId ||
+        !nextCourseId ||
+        !nextCourseGroupId ||
+        !nextCourseYearId ||
+        !nextAcademicYearId ||
+        !nextGroupSectionId
+      ) {
         setElectiveGroups([]);
         return;
       }
-      const list = await listSectionElectiveGroups({
-        collegeId,
-        academicYearId,
-        groupSectionId,
-      }).catch(() => []);
-      setElectiveGroups(Array.isArray(list) ? list : []);
+      try {
+        const list = await listSectionElectiveGroups({
+          collegeId: nextCollegeId,
+          academicYearId: nextAcademicYearId,
+          groupSectionId: nextGroupSectionId,
+        });
+        const arr = Array.isArray(list) ? list : [];
+        setElectiveGroups(arr);
+      } catch (e) {
+        setElectiveGroups([]);
+        const msg = getErrorMessage(e);
+        if (!/no\s+record/i.test(msg) && !/no\s+data/i.test(msg)) toastError(e);
+      }
     }
     void loadElectiveGroups();
-  }, [collegeId, academicYearId, groupSectionId]);
+  }, [electiveGroupsKey]);
+
+  const studentListKey = [
+    collegeId ?? 0,
+    courseId ?? 0,
+    courseGroupId ?? 0,
+    courseYearId ?? 0,
+    academicYearId ?? 0,
+    groupSectionId ?? 0,
+    sourceElectiveId ?? 0,
+  ].join(":");
 
   useEffect(() => {
     async function loadStudents() {
       setSelectedIds(new Set());
+      const [
+        nextCollegeId,
+        nextCourseId,
+        nextCourseGroupId,
+        nextCourseYearId,
+        nextAcademicYearId,
+        nextGroupSectionId,
+        nextSourceElectiveId,
+      ] = studentListKey.split(":").map(Number);
       if (
-        !collegeId ||
-        !courseGroupId ||
-        !groupSectionId ||
-        !sourceElectiveId
+        !nextCollegeId ||
+        !nextCourseId ||
+        !nextCourseGroupId ||
+        !nextCourseYearId ||
+        !nextAcademicYearId ||
+        !nextGroupSectionId ||
+        !nextSourceElectiveId
       ) {
         setRows([]);
         setTableEnabled(false);
         return;
       }
       setLoading(true);
-      const list = await listElectiveBatchStudents({
-        collegeId,
-        courseGroupId,
-        groupSectionId,
-        electiveGroupyrMappingId: sourceElectiveId,
-      }).catch(() => []);
-      const mapped = list.map((row, i) => ({
-        ...row,
-        __rowKey: `${n(row.batchwiseStudentId) || n(row.studentId)}-${i}`,
-      }));
-      setRows(mapped);
-      setTableEnabled(mapped.length > 0);
-      setTargetElectiveId((prev) => prev ?? sourceElectiveId);
-      setLoading(false);
+      try {
+        const list = await listElectiveBatchStudents({
+          collegeId: nextCollegeId,
+          courseGroupId: nextCourseGroupId,
+          groupSectionId: nextGroupSectionId,
+          electiveGroupyrMappingId: nextSourceElectiveId,
+        });
+        const mapped = list.map((row, i) => ({
+          ...row,
+          __rowKey: `${n(row.batchwiseStudentId) || n(row.studentId)}-${i}`,
+        }));
+        setRows(mapped);
+        setTableEnabled(true);
+        setTargetElectiveId((prev) => prev ?? nextSourceElectiveId);
+      } catch (e) {
+        setRows([]);
+        setTableEnabled(false);
+        const msg = getErrorMessage(e);
+        if (!/no\s+record/i.test(msg) && !/no\s+data/i.test(msg)) toastError(e);
+      } finally {
+        setLoading(false);
+      }
     }
     void loadStudents();
-  }, [collegeId, courseGroupId, groupSectionId, sourceElectiveId]);
+  }, [studentListKey]);
 
   function toggleRow(key: string, checked: boolean) {
     setSelectedIds((prev) => {
@@ -390,6 +452,56 @@ export default function ModifyElectiveBatchesPage() {
     ],
     [selectedIds, allSelected],
   );
+
+  const filterSummaryLine = useMemo(() => {
+    if (!tableEnabled) return "";
+    const college = colleges.find(
+      (x) => n(x.fk_college_id) === (collegeId ?? 0),
+    );
+    const course = courses.find((x) => n(x.fk_course_id) === (courseId ?? 0));
+    const group = courseGroups.find(
+      (x) => n(x.fk_course_group_id) === (courseGroupId ?? 0),
+    );
+    const year = courseYears.find(
+      (x) => n(x.fk_course_year_id) === (courseYearId ?? 0),
+    );
+    const ay = academicYears.find(
+      (x) => n(x.fk_academic_year_id) === (academicYearId ?? 0),
+    );
+    const section = sectionOptions.find(
+      (x) => x.value === String(groupSectionId ?? 0),
+    );
+    const elective = electiveOptions.find(
+      (x) => x.value === String(sourceElectiveId ?? 0),
+    );
+    return [
+      s(college?.college_code),
+      s(course?.course_code),
+      s(group?.group_code) || s(group?.group_name),
+      s(year?.course_year_code) || s(year?.course_year_name),
+      s(ay?.academic_year),
+      section?.label ?? "",
+      elective?.label ?? "",
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }, [
+    tableEnabled,
+    colleges,
+    collegeId,
+    courses,
+    courseId,
+    courseGroups,
+    courseGroupId,
+    courseYears,
+    courseYearId,
+    academicYears,
+    academicYearId,
+    sectionOptions,
+    groupSectionId,
+    electiveOptions,
+    sourceElectiveId,
+  ]);
 
   async function onModify() {
     if (!targetElectiveId) {
@@ -532,11 +644,25 @@ export default function ModifyElectiveBatchesPage() {
           />
         </div>
       }
+      showTable={tableEnabled}
+      resultsVisible={tableEnabled}
+      tableHeader={
+        tableEnabled && filterSummaryLine ? (
+          <TableContextHeader
+            title="Modify Elective Batches"
+            info={<span>{filterSummaryLine}</span>}
+          />
+        ) : null
+      }
       rowData={tableEnabled ? rows : []}
-      columnDefs={studentColumnDefs}
+      columnDefs={tableEnabled ? studentColumnDefs : undefined}
       loading={loading}
       pagination
-      toolbar={{ search: true, searchPlaceholder: "Search students" }}
+      toolbar={
+        tableEnabled
+          ? { search: true, searchPlaceholder: "Search students" }
+          : undefined
+      }
       rightRail={
         tableEnabled && selectedIds.size > 0 ? (
           <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">

@@ -100,7 +100,7 @@ export function DatePicker({
           aria-required={required || undefined}
           aria-label={label || placeholder}
           className={cn(
-            "org-modal-date-input date-picker-hide-native-value pr-10",
+            "org-modal-date-input date-picker-hide-native-value pr-10 text-transparent",
             error &&
               (isStandard
                 ? "border-b-2 border-destructive"

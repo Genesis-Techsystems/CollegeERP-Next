@@ -275,10 +275,9 @@ export function academicYearOption(row: FilterRow) {
 export function universityOption(row: FilterRow) {
   const id = pickNum(row, UNI);
   const code = pickText(row, ["university_code", "universityCode"]);
-  const name = pickText(row, ["university_name", "universityName"]);
   return {
     value: String(id),
-    label: name ? `${code} — ${name}` : code || String(id),
+    label: code || String(id),
   };
 }
 

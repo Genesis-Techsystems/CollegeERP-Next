@@ -366,28 +366,35 @@ export default function CollegeCounsellingPage() {
           />
         </div>
       }
+      showTable={listReady}
+      resultsVisible={listReady}
       rowData={listReady ? rows : []}
-      columnDefs={columnDefs}
+      columnDefs={listReady ? columnDefs : undefined}
       loading={isLoading || filtersLoading}
       pagination
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search counselling…",
-        pdfDocumentTitle: "College Counselling",
-      }}
+      toolbar={
+        listReady
+          ? {
+              search: true,
+              searchPlaceholder: "Search counselling…",
+              pdfDocumentTitle: "College Counselling",
+            }
+          : undefined
+      }
       toolbarTrailing={
-        <Button
-          size="sm"
-          className="h-[30px] px-3 text-[12px]"
-          disabled={!listReady}
-          onClick={() => {
-            setEditing(null);
-            setModalOpen(true);
-          }}
-        >
-          <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
-          Add College Counselling
-        </Button>
+        listReady ? (
+          <Button
+            size="sm"
+            className="h-[30px] px-3 text-[12px]"
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+          >
+            <PlusIcon className="h-3.5 w-3.5 mr-1.5" />
+            Add College Counselling
+          </Button>
+        ) : null
       }
     >
       <CollegeCounsellingModal
