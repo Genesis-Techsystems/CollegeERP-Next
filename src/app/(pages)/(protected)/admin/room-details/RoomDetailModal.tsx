@@ -1,14 +1,20 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm, type Resolver } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { Select, type SelectOption } from '@/common/components/select'
-import { DataTable } from '@/common/components/table'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm, type Resolver } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActiveStatusField } from "@/common/components/forms";
+import { Select, type SelectOption } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   addRoomDetailsList,
   listActiveBlocksByBuilding,
@@ -18,51 +24,59 @@ import {
   listActiveFloorsByBlock,
   listRooms,
   updateRoomDetails,
-} from '@/services'
-import type { ColDef } from 'ag-grid-community'
-import type { Block } from '@/types/block'
-import type { Building } from '@/types/building'
-import type { Campus } from '@/types/campus'
-import type { Room } from '@/types/room'
-import type { RoomDetail } from '@/types/room-detail'
-import type { EttlDevice } from '@/services/admin/room-detail'
-import { requiredNumber } from '@/lib/zod-fields'
+} from "@/services";
+import type { ColDef } from "ag-grid-community";
+import type { Block } from "@/types/block";
+import type { Building } from "@/types/building";
+import type { Campus } from "@/types/campus";
+import type { Room } from "@/types/room";
+import type { RoomDetail } from "@/types/room-detail";
+import type { EttlDevice } from "@/services/admin/room-detail";
+import { requiredNumber } from "@/lib/zod-fields";
 
 function num(value: unknown): number {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : 0
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function pickText(row: Record<string, unknown>, keys: string[]): string {
   for (const key of keys) {
-    const value = row[key]
-    if (typeof value === 'string' && value.trim()) return value
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "number" && Number.isFinite(value))
+      return String(value);
   }
-  return ''
+  return "";
 }
 
-function pickBool(row: Record<string, unknown>, keys: string[], fallback = true): boolean {
+function pickBool(
+  row: Record<string, unknown>,
+  keys: string[],
+  fallback = true,
+): boolean {
   for (const key of keys) {
-    const value = row[key]
-    if (typeof value === 'boolean') return value
-    if (value === 'true' || value === '1' || value === 1) return true
-    if (value === 'false' || value === '0' || value === 0) return false
+    const value = row[key];
+    if (typeof value === "boolean") return value;
+    if (value === "true" || value === "1" || value === 1) return true;
+    if (value === "false" || value === "0" || value === 0) return false;
   }
-  return fallback
+  return fallback;
 }
 
-function pickId(row: Record<string, unknown>, keys: string[]): number | undefined {
+function pickId(
+  row: Record<string, unknown>,
+  keys: string[],
+): number | undefined {
   for (const key of keys) {
-    const n = num(row[key])
-    if (n > 0) return n
+    const n = num(row[key]);
+    if (n > 0) return n;
   }
-  return undefined
+  return undefined;
 }
 
 function pickRoomIdFromRow(row: RoomDetail): number {
-  const raw = row as unknown as Record<string, unknown>
-  const room = (raw.room ?? raw.Room) as Record<string, unknown> | undefined
+  const raw = row as unknown as Record<string, unknown>;
+  const room = (raw.room ?? raw.Room) as Record<string, unknown> | undefined;
   return num(
     row.roomId ??
       raw.roomId ??
@@ -72,67 +86,91 @@ function pickRoomIdFromRow(row: RoomDetail): number {
       raw.pk_roomid ??
       room?.roomId ??
       room?.room_id,
-  )
+  );
 }
 
 const schema = z.object({
-  campusId: z.number().optional(),
-  buildingId: z.number().optional(),
-  blockId: z.number().optional(),
-  floorId: z.number().optional(),
-  roomId: requiredNumber('Room is required'),
-  ettlDeviceId: requiredNumber('Device is required'),
+  campusId: requiredNumber("Campus is required"),
+  buildingId: requiredNumber("Building is required"),
+  blockId: requiredNumber("Block is required"),
+  floorId: requiredNumber("Floor is required"),
+  roomId: requiredNumber("Room is required"),
+  ettlDeviceId: requiredNumber("Device is required"),
   roomDetailId: z.number().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface RoomDetailModalProps {
-  open: boolean
-  onClose: () => void
-  room: RoomDetail | null
-  initialCampusId?: number | null
-  initialBuildingId?: number | null
-  initialBlockId?: number | null
-  initialFloorId?: number | null
-  initialRoomId?: number | null
-  roomDeviceRows?: RoomDetail[]
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  room: RoomDetail | null;
+  initialCampusId?: number | null;
+  initialBuildingId?: number | null;
+  initialBlockId?: number | null;
+  initialFloorId?: number | null;
+  initialRoomId?: number | null;
+  roomDeviceRows?: RoomDetail[];
+  onSaved: () => void;
 }
 
-function asOptions<T>(rows: T[], getValue: (row: T) => number, getLabel: (row: T) => string): SelectOption[] {
-  return rows.map((row) => ({ value: String(getValue(row)), label: getLabel(row) }))
+function asOptions<T>(
+  rows: T[],
+  getValue: (row: T) => number,
+  getLabel: (row: T) => string,
+): SelectOption[] {
+  return rows.map((row) => ({
+    value: String(getValue(row)),
+    label: getLabel(row),
+  }));
 }
 
 type Floor = {
-  floorId: number
-  floorName?: string
-  floorNo?: number
-}
+  floorId: number;
+  floorName?: string;
+  floorNo?: number;
+};
 
 const DEVICE_COL_DEFS: ColDef<RoomDetail>[] = [
-  { headerName: 'No.', valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1, width: 70, flex: 0 },
   {
-    headerName: 'Room Name',
+    headerName: "No.",
+    valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+    width: 70,
+    flex: 0,
+  },
+  {
+    headerName: "Room Name",
     minWidth: 180,
     flex: 1,
     valueGetter: (p) => {
-      const raw = (p.data ?? {}) as Record<string, unknown>
-      return pickText(raw, ['room_name', 'roomName', 'roomNumber', 'room_number', 'roomCode'])
+      const raw = (p.data ?? {}) as Record<string, unknown>;
+      return pickText(raw, [
+        "room_name",
+        "roomName",
+        "roomNumber",
+        "room_number",
+        "roomCode",
+      ]);
     },
   },
   {
-    headerName: 'Room Device Name',
+    headerName: "Room Device Name",
     minWidth: 220,
     flex: 1,
     valueGetter: (p) => {
-      const raw = (p.data ?? {}) as Record<string, unknown>
-      return pickText(raw, ['devicefname', 'deviceFName', 'devicesname', 'devicesName', 'deviceName'])
+      const raw = (p.data ?? {}) as Record<string, unknown>;
+      return pickText(raw, [
+        "devicefname",
+        "deviceFName",
+        "devicesname",
+        "devicesName",
+        "deviceName",
+      ]);
     },
   },
-]
+];
 
 export default function RoomDetailModal({
   open,
@@ -146,14 +184,14 @@ export default function RoomDetailModal({
   roomDeviceRows = [],
   onSaved,
 }: Readonly<RoomDetailModalProps>) {
-  const isEditing = room != null
-  const [campuses, setCampuses] = useState<Campus[]>([])
-  const [buildings, setBuildings] = useState<Building[]>([])
-  const [blocks, setBlocks] = useState<Block[]>([])
-  const [floors, setFloors] = useState<Floor[]>([])
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [devices, setDevices] = useState<EttlDevice[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const isEditing = room != null;
+  const [campuses, setCampuses] = useState<Campus[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [devices, setDevices] = useState<EttlDevice[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     handleSubmit,
@@ -173,116 +211,161 @@ export default function RoomDetailModal({
       ettlDeviceId: undefined,
       roomDetailId: undefined,
       isActive: true,
-      reason: '',
+      reason: "",
     },
-  })
-  const selectedCampusId = watch('campusId')
-  const selectedBuildingId = watch('buildingId')
-  const selectedBlockId = watch('blockId')
-  const selectedFloorId = watch('floorId')
-  const selectedRoomId = watch('roomId')
+  });
+  const selectedCampusId = watch("campusId");
+  const selectedBuildingId = watch("buildingId");
+  const selectedBlockId = watch("blockId");
+  const selectedFloorId = watch("floorId");
+  const selectedRoomId = watch("roomId");
 
-  const roomOptions = useMemo(
-    () => {
-      const blockId = selectedBlockId ?? 0
-      const floorId = selectedFloorId ?? 0
-      const filtered = rooms.filter((r) => {
-        if (r.isActive === false) return false
-        if (blockId && r.blockId !== blockId) return false
-        if (floorId && r.floorId !== floorId) return false
-        return true
-      })
-      return asOptions(filtered, (r) => r.roomId, (r) => r.roomCode ?? '')
-    },
-    [rooms, selectedBlockId, selectedFloorId],
-  )
+  const roomOptions = useMemo(() => {
+    const blockId = selectedBlockId ?? 0;
+    const floorId = selectedFloorId ?? 0;
+    const filtered = rooms.filter((r) => {
+      if (r.isActive === false) return false;
+      if (blockId && r.blockId !== blockId) return false;
+      if (floorId && r.floorId !== floorId) return false;
+      return true;
+    });
+    return asOptions(
+      filtered,
+      (r) => r.roomId,
+      (r) => r.roomCode ?? "",
+    );
+  }, [rooms, selectedBlockId, selectedFloorId]);
   const deviceOptions = useMemo(
-    () => asOptions(
-      devices,
-      (r) => r.ettlDeviceId,
-      (r) => {
-        const serialText = r.serialNumber ? ` (${String(r.serialNumber)})` : ''
-        return `${r.deviceFName ?? r.devicesName ?? ''}${serialText}`.trim()
-      },
-    ),
+    () =>
+      asOptions(
+        devices,
+        (r) => r.ettlDeviceId,
+        (r) => {
+          const serialText = r.serialNumber
+            ? ` (${String(r.serialNumber)})`
+            : "";
+          return `${r.deviceFName ?? r.devicesName ?? ""}${serialText}`.trim();
+        },
+      ),
     [devices],
-  )
+  );
 
   useEffect(() => {
-    if (!open) return
-    Promise.all([listActiveCampuses(), listActiveBuildingsForRooms(), listRooms(), listActiveEttlDevices()])
+    if (!open) return;
+    Promise.all([
+      listActiveCampuses(),
+      listActiveBuildingsForRooms(),
+      listRooms(),
+      listActiveEttlDevices(),
+    ])
       .then(([campusRows, buildingRows, roomRows, deviceRows]) => {
-        setCampuses(campusRows)
-        setBuildings(buildingRows)
-        setRooms(roomRows)
-        setDevices(deviceRows)
+        setCampuses(campusRows);
+        setBuildings(buildingRows);
+        setRooms(roomRows);
+        setDevices(deviceRows);
       })
-      .catch(console.error)
-  }, [open])
+      .catch(console.error);
+  }, [open]);
 
   useEffect(() => {
     // If hierarchy changes, clear downstream selection.
     if (!selectedFloorId) {
-      setValue('roomId', undefined as unknown as number)
+      setValue("roomId", undefined as unknown as number);
     }
-  }, [selectedFloorId, setValue])
+  }, [selectedFloorId, setValue]);
 
   useEffect(() => {
     if (!selectedBuildingId) {
-      setBlocks([])
-      return
+      setBlocks([]);
+      return;
     }
-    listActiveBlocksByBuilding(selectedBuildingId).then(setBlocks).catch(console.error)
-  }, [selectedBuildingId])
+    listActiveBlocksByBuilding(selectedBuildingId)
+      .then(setBlocks)
+      .catch(console.error);
+  }, [selectedBuildingId]);
 
   useEffect(() => {
     if (!selectedBlockId) {
-      setFloors([])
-      return
+      setFloors([]);
+      return;
     }
-    listActiveFloorsByBlock(selectedBlockId).then(setFloors).catch(console.error)
-  }, [selectedBlockId])
+    listActiveFloorsByBlock(selectedBlockId)
+      .then(setFloors)
+      .catch(console.error);
+  }, [selectedBlockId]);
 
   const campusOptions = useMemo(
-    () => asOptions(campuses, (r) => r.campusId, (r) => r.campusName),
+    () =>
+      asOptions(
+        campuses,
+        (r) => r.campusId,
+        (r) => r.campusName,
+      ),
     [campuses],
-  )
+  );
   const buildingOptions = useMemo(() => {
     const filtered = selectedCampusId
       ? buildings.filter((building) => building.campusId === selectedCampusId)
-      : buildings
-    return asOptions(filtered, (r) => r.buildingId, (r) => r.buildingCode ?? r.buildingName ?? '')
-  }, [buildings, selectedCampusId])
+      : buildings;
+    return asOptions(
+      filtered,
+      (r) => r.buildingId,
+      (r) => r.buildingCode ?? r.buildingName ?? "",
+    );
+  }, [buildings, selectedCampusId]);
   const blockOptions = useMemo(
-    () => asOptions(blocks, (r) => r.blockId, (r) => r.blockName ?? r.blockCode ?? ''),
+    () =>
+      asOptions(
+        blocks,
+        (r) => r.blockId,
+        (r) => r.blockName ?? r.blockCode ?? "",
+      ),
     [blocks],
-  )
+  );
   const floorOptions = useMemo(
-    () => asOptions(floors, (r) => r.floorId, (r) => r.floorName ?? String(r.floorNo ?? '')),
+    () =>
+      asOptions(
+        floors,
+        (r) => r.floorId,
+        (r) => r.floorName ?? String(r.floorNo ?? ""),
+      ),
     [floors],
-  )
+  );
 
   const selectedRoomDeviceRows = useMemo(() => {
-    if (roomDeviceRows.length === 0) return []
-    const roomId = num(selectedRoomId ?? 0)
-    if (!roomId) return roomDeviceRows
-    return roomDeviceRows.filter((row) => pickRoomIdFromRow(row) === roomId)
-  }, [roomDeviceRows, selectedRoomId])
+    if (roomDeviceRows.length === 0) return [];
+    const roomId = num(selectedRoomId ?? 0);
+    if (!roomId) return roomDeviceRows;
+    return roomDeviceRows.filter((row) => pickRoomIdFromRow(row) === roomId);
+  }, [roomDeviceRows, selectedRoomId]);
 
   useEffect(() => {
     if (room) {
-      const raw = room as unknown as Record<string, unknown>
+      const raw = room as unknown as Record<string, unknown>;
       reset({
-        campusId: pickId(raw, ['campusId', 'campus_id', 'fk_campus_id']),
-        buildingId: pickId(raw, ['buildingId', 'building_id', 'fk_building_id']),
-        blockId: pickId(raw, ['blockId', 'block_id', 'fk_block_id']),
-        floorId: pickId(raw, ['floorId', 'floor_id', 'fk_floor_id']),
-        roomId: pickId(raw, ['roomId', 'room_id', 'pk_room_id']),
-        ettlDeviceId: pickId(raw, ['ettlDeviceId', 'ettl_device_id', 'deviceid', 'deviceId']),
-        roomDetailId: pickId(raw, ['roomDetailId', 'room_detail_id', 'pk_room_detail_id']),
-        isActive: pickBool(raw, ['isActive', 'is_active']),
-        reason: pickText(raw, ['reason']),
-      })
+        campusId: pickId(raw, ["campusId", "campus_id", "fk_campus_id"]),
+        buildingId: pickId(raw, [
+          "buildingId",
+          "building_id",
+          "fk_building_id",
+        ]),
+        blockId: pickId(raw, ["blockId", "block_id", "fk_block_id"]),
+        floorId: pickId(raw, ["floorId", "floor_id", "fk_floor_id"]),
+        roomId: pickId(raw, ["roomId", "room_id", "pk_room_id"]),
+        ettlDeviceId: pickId(raw, [
+          "ettlDeviceId",
+          "ettl_device_id",
+          "deviceid",
+          "deviceId",
+        ]),
+        roomDetailId: pickId(raw, [
+          "roomDetailId",
+          "room_detail_id",
+          "pk_room_detail_id",
+        ]),
+        isActive: pickBool(raw, ["isActive", "is_active"]),
+        reason: pickText(raw, ["reason"]),
+      });
     } else {
       reset({
         campusId: initialCampusId ?? undefined,
@@ -293,30 +376,42 @@ export default function RoomDetailModal({
         ettlDeviceId: undefined,
         roomDetailId: undefined,
         isActive: true,
-        reason: '',
-      })
+        reason: "",
+      });
     }
-    setSubmitError(null)
-  }, [room, open, reset, initialCampusId, initialBuildingId, initialBlockId, initialFloorId, initialRoomId])
+    setSubmitError(null);
+  }, [
+    room,
+    open,
+    reset,
+    initialCampusId,
+    initialBuildingId,
+    initialBlockId,
+    initialFloorId,
+    initialRoomId,
+  ]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null)
+    setSubmitError(null);
     try {
       if (isEditing) {
-        const roomDetailId = data.roomDetailId ?? pickId(
-          room as unknown as Record<string, unknown>,
-          ['roomDetailId', 'room_detail_id', 'pk_room_detail_id'],
-        )
+        const roomDetailId =
+          data.roomDetailId ??
+          pickId(room as unknown as Record<string, unknown>, [
+            "roomDetailId",
+            "room_detail_id",
+            "pk_room_detail_id",
+          ]);
         if (!roomDetailId) {
-          setSubmitError('Unable to identify room detail for update')
-          return
+          setSubmitError("Unable to identify room detail for update");
+          return;
         }
         await updateRoomDetails({
           roomDetailId,
           roomId: data.roomId,
           ettlDeviceId: data.ettlDeviceId,
           isActive: data.isActive,
-        })
+        });
       } else {
         await addRoomDetailsList([
           {
@@ -324,30 +419,41 @@ export default function RoomDetailModal({
             ettlDeviceId: data.ettlDeviceId,
             isActive: data.isActive,
           },
-        ])
+        ]);
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save room')
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to save room",
+      );
     }
   }
 
-  let submitLabel = 'Save'
-  if (isSubmitting) submitLabel = 'Saving...'
-  else if (isEditing) submitLabel = 'Update'
+  let submitLabel = "Save";
+  if (isSubmitting) submitLabel = "Saving...";
+  else if (isEditing) submitLabel = "Update";
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
-            {isEditing ? 'Edit Room Details' : 'Add Room Details'}
+            {isEditing ? "Edit Room Details" : "Add Room Details"}
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2 py-1">
-          <div className="grid grid-cols-5 gap-2 [&>*]:min-w-0">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4 py-1"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
             <Controller
               name="campusId"
               control={control}
@@ -357,14 +463,16 @@ export default function RoomDetailModal({
                   required
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('buildingId', undefined)
-                    setValue('blockId', undefined)
-                    setValue('floorId', undefined)
-                    setValue('roomId', undefined as unknown as number)
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("buildingId", undefined as unknown as number);
+                    setValue("blockId", undefined as unknown as number);
+                    setValue("floorId", undefined as unknown as number);
+                    setValue("roomId", undefined as unknown as number);
                   }}
                   options={campusOptions}
                   placeholder="Select campus"
+                  searchable
+                  error={errors.campusId?.message}
                 />
               )}
             />
@@ -377,14 +485,16 @@ export default function RoomDetailModal({
                   required
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('blockId', undefined)
-                    setValue('floorId', undefined)
-                    setValue('roomId', undefined as unknown as number)
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("blockId", undefined as unknown as number);
+                    setValue("floorId", undefined as unknown as number);
+                    setValue("roomId", undefined as unknown as number);
                   }}
                   options={buildingOptions}
                   placeholder="Select building"
+                  searchable
                   disabled={!selectedCampusId}
+                  error={errors.buildingId?.message}
                 />
               )}
             />
@@ -397,13 +507,15 @@ export default function RoomDetailModal({
                   required
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('floorId', undefined)
-                    setValue('roomId', undefined as unknown as number)
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("floorId", undefined as unknown as number);
+                    setValue("roomId", undefined as unknown as number);
                   }}
                   options={blockOptions}
                   placeholder="Select block"
+                  searchable
                   disabled={!selectedBuildingId}
+                  error={errors.blockId?.message}
                 />
               )}
             />
@@ -416,12 +528,14 @@ export default function RoomDetailModal({
                   required
                   value={field.value ? String(field.value) : null}
                   onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined)
-                    setValue('roomId', undefined as unknown as number)
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("roomId", undefined as unknown as number);
                   }}
                   options={floorOptions}
                   placeholder="Select floor"
+                  searchable
                   disabled={!selectedBlockId}
+                  error={errors.floorId?.message}
                 />
               )}
             />
@@ -442,9 +556,6 @@ export default function RoomDetailModal({
                 />
               )}
             />
-          </div>
-
-          <div className="grid grid-cols-5 gap-2 [&>*]:min-w-0">
             <Controller
               name="ettlDeviceId"
               control={control}
@@ -480,9 +591,9 @@ export default function RoomDetailModal({
               render={({ field }) => (
                 <ActiveStatusField
                   isActive={field.value}
-                  reason={watch('reason') ?? ''}
+                  reason={watch("reason") ?? ""}
                   onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue('reason', value)}
+                  onReasonChange={(value) => setValue("reason", value)}
                   reasonError={errors.reason?.message}
                 />
               )}
@@ -490,11 +601,18 @@ export default function RoomDetailModal({
           )}
 
           {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
+              {submitError}
+            </p>
           )}
 
           <DialogFooter className="pt-1">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -504,5 +622,5 @@ export default function RoomDetailModal({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

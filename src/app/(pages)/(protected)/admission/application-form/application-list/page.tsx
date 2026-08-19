@@ -302,6 +302,8 @@ export default function ApplicationListPage() {
           />
         </div>
       }
+      showTable={listReady}
+      resultsVisible={listReady}
       rowData={listReady ? rows : []}
       columnDefs={columnDefs}
       loading={isLoading || filtersLoading}

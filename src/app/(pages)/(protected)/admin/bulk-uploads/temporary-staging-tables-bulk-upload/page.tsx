@@ -62,7 +62,7 @@ export default function TemporaryStagingTablesBulkUploadPage() {
       title="Temporary Staging Tables Bulk Upload"
       filtersCollapsible={false}
       filters={
-        <div className="border border-border rounded-lg p-4 space-y-4">
+        <div className="space-y-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6 py-2 px-1">
             <div className="flex items-center shrink-0 gap-3">
               <label
@@ -104,7 +104,7 @@ export default function TemporaryStagingTablesBulkUploadPage() {
               </Button>
               <Button
                 type="button"
-                className="bg-[#ffb300] hover:bg-[#ffa000] text-black font-semibold border-0 px-4 shrink-0"
+                className="bg-[#ffcf46] hover:bg-[#ffa000] text-black font-semibold border-0 px-4 shrink-0"
                 onClick={onDownload}
               >
                 Download Sample XLSX
@@ -113,7 +113,8 @@ export default function TemporaryStagingTablesBulkUploadPage() {
           </div>
         </div>
       }
-      body={<div />}
+      showTable={false}
+      resultsVisible={false}
     />
   );
 }

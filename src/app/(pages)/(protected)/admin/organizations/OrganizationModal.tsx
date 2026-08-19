@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useForm,
   Controller,
@@ -16,17 +16,11 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ActiveStatusField } from "@/common/components/forms";
+import { ActiveStatusField, FormField } from "@/common/components/forms";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select } from "@/common/components/select";
 import { toDateStr } from "@/common/generic-functions";
 import type {
   Organization,
@@ -106,14 +100,14 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const FIELD_INPUT =
-  "h-9 min-w-0 w-full rounded-lg border border-[#d7dce5] bg-white px-3 text-[13px] font-medium text-foreground shadow-none transition-[border-color,box-shadow] duration-150 placeholder:text-slate-500 placeholder:font-normal focus-visible:border-primary/45 focus-visible:ring-2 focus-visible:ring-primary/12 disabled:bg-muted/40";
-const FIELD_SELECT = `${FIELD_INPUT} [&>span]:text-left [&>span[data-placeholder]]:font-normal [&>span[data-placeholder]]:text-slate-500`;
-const FIELD_DATE = `${FIELD_INPUT} org-modal-date-input pr-10`;
-const FIELD_LABEL =
-  "text-[12px] font-semibold leading-tight tracking-wide text-[hsl(218_32%_22%)]";
 const FORM_ROW =
   "grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4";
+
+function parseYmd(value: string | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 const LOGO_ACCEPT = ".png,.jpg,.jpeg,image/png,image/jpeg";
 const LOGO_ALLOWED_EXTENSIONS = new Set(["png", "jpg", "jpeg"]);
@@ -153,35 +147,6 @@ function bindDigitsField(
       onChange(e);
     },
   };
-}
-
-function Field({
-  label,
-  required,
-  error,
-  htmlFor,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  htmlFor?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className ?? "min-w-0 space-y-1.5"}>
-      <Label htmlFor={htmlFor} className={FIELD_LABEL}>
-        {label}
-        {required ? <span className="ml-0.5 text-destructive">*</span> : null}
-      </Label>
-      {children}
-      {error ? (
-        <p className="text-xs font-medium text-destructive">{error}</p>
-      ) : null}
-    </div>
-  );
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -249,6 +214,31 @@ export default function OrganizationModal({
   const countryId = watch("countryId");
   const stateId = watch("stateId");
   const districtId = watch("districtId");
+
+  const countryOptions = useMemo(
+    () =>
+      countries.map((c) => ({
+        value: String(c.countryId),
+        label: c.countryName,
+      })),
+    [countries],
+  );
+  const stateOptions = useMemo(
+    () => states.map((s) => ({ value: String(s.stateId), label: s.stateName })),
+    [states],
+  );
+  const districtOptions = useMemo(
+    () =>
+      districts.map((d) => ({
+        value: String(d.districtId),
+        label: d.districtName,
+      })),
+    [districts],
+  );
+  const cityOptions = useMemo(
+    () => cities.map((c) => ({ value: String(c.cityId), label: c.cityName })),
+    [cities],
+  );
 
   // Load countries when modal opens
   useEffect(() => {
@@ -436,38 +426,36 @@ export default function OrganizationModal({
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           <div className={`${FORM_ROW} lg:grid-cols-12`}>
-            <Field
+            <FormField
               label="Organization Name"
               required
               error={errors.orgName?.message}
               htmlFor="orgName"
-              className="min-w-0 space-y-1.5 lg:col-span-5"
+              className="min-w-0 lg:col-span-5"
             >
               <Input
                 id="orgName"
-                className={FIELD_INPUT}
                 {...register("orgName")}
                 placeholder="e.g. ABC University"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Organization Code"
               required
               error={errors.orgCode?.message}
               htmlFor="orgCode"
-              className="min-w-0 space-y-1.5 lg:col-span-3"
+              className="min-w-0 lg:col-span-3"
             >
               <Input
                 id="orgCode"
-                className={FIELD_INPUT}
                 {...register("orgCode")}
                 placeholder="e.g. ABCU"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Logo (.png, .jpg, .jpeg)"
               error={logoError ?? undefined}
-              className="min-w-0 space-y-1.5 lg:col-span-4"
+              className="min-w-0 lg:col-span-4"
             >
               <Input
                 type="file"
@@ -486,328 +474,238 @@ export default function OrganizationModal({
                   }
                   setLogoError(null);
                 }}
-                className={`${FIELD_INPUT} cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600`}
+                className="cursor-pointer py-1.5 file:mr-2 file:rounded-md file:border-0 file:bg-[#eef2f7] file:px-2.5 file:py-1 file:text-[11px] file:font-semibold file:text-slate-600"
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={FORM_ROW}>
-            <Field label="Country" className="min-w-0 space-y-1.5">
-              <Controller
-                name="countryId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => {
-                      field.onChange(v ? Number(v) : undefined);
-                      setValue("stateId", undefined);
-                      setValue("districtId", undefined as unknown as number);
-                      setValue("cityId", undefined);
-                    }}
-                  >
-                    <SelectTrigger className={FIELD_SELECT}>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem
-                          key={c.countryId}
-                          value={String(c.countryId)}
-                        >
-                          {c.countryName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-
-            <Field label="State" className="min-w-0 space-y-1.5">
-              <Controller
-                name="stateId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => {
-                      field.onChange(v ? Number(v) : undefined);
-                      setValue("districtId", undefined as unknown as number);
-                      setValue("cityId", undefined);
-                    }}
-                  >
-                    <SelectTrigger className={FIELD_SELECT}>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((s) => (
-                        <SelectItem key={s.stateId} value={String(s.stateId)}>
-                          {s.stateName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-
-            <Field
-              label="District"
-              required
-              error={errors.districtId?.message}
-              className="min-w-0 space-y-1.5"
-            >
-              <Controller
-                name="districtId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => {
-                      field.onChange(v ? Number(v) : undefined);
-                      setValue("cityId", undefined);
-                    }}
-                  >
-                    <SelectTrigger className={FIELD_SELECT}>
-                      <SelectValue placeholder="Select district" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {districts.map((d) => (
-                        <SelectItem
-                          key={d.districtId}
-                          value={String(d.districtId)}
-                        >
-                          {d.districtName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-
-            <Field label="City" className="min-w-0 space-y-1.5">
-              <Controller
-                name="cityId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) =>
-                      field.onChange(v ? Number(v) : undefined)
-                    }
-                  >
-                    <SelectTrigger className={FIELD_SELECT}>
-                      <SelectValue placeholder="Select city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((c) => (
-                        <SelectItem key={c.cityId} value={String(c.cityId)}>
-                          {c.cityName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
+            <Controller
+              name="countryId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Country"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => {
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("stateId", undefined);
+                    setValue("districtId", undefined as unknown as number);
+                    setValue("cityId", undefined);
+                  }}
+                  options={countryOptions}
+                  placeholder="Select country"
+                  searchable
+                />
+              )}
+            />
+            <Controller
+              name="stateId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="State"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => {
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("districtId", undefined as unknown as number);
+                    setValue("cityId", undefined);
+                  }}
+                  options={stateOptions}
+                  placeholder="Select state"
+                  searchable
+                  disabled={!countryId}
+                />
+              )}
+            />
+            <Controller
+              name="districtId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="District"
+                  required
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => {
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("cityId", undefined);
+                  }}
+                  options={districtOptions}
+                  placeholder="Select district"
+                  searchable
+                  disabled={!stateId}
+                  error={errors.districtId?.message}
+                />
+              )}
+            />
+            <Controller
+              name="cityId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="City"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                  options={cityOptions}
+                  placeholder="Select city"
+                  searchable
+                  disabled={!districtId}
+                />
+              )}
+            />
           </div>
 
           <div className={FORM_ROW}>
-            <Field
+            <FormField
               label="Mandal"
               required
               error={errors.mandal?.message}
               htmlFor="mandal"
-              className="min-w-0 space-y-1.5"
             >
               <Input
                 id="mandal"
-                className={FIELD_INPUT}
                 {...register("mandal")}
                 placeholder="e.g. Kukatpally"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Pincode"
               required
               error={errors.pincode?.message}
               htmlFor="pincode"
-              className="min-w-0 space-y-1.5"
             >
               <Input
                 id="pincode"
-                className={FIELD_INPUT}
                 {...bindDigitsField(register, "pincode", 6)}
                 placeholder="6-digit pincode"
               />
-            </Field>
-            <Field
-              label="License From Date"
-              htmlFor="licenseFdate"
-              className="min-w-0 space-y-1.5"
-            >
-              <Input
-                id="licenseFdate"
-                type="date"
-                min="1900-01-01"
-                max="2099-12-31"
-                className={FIELD_DATE}
-                {...register("licenseFdate")}
-              />
-            </Field>
-            <Field
-              label="License To Date"
-              htmlFor="licenseTdate"
-              className="min-w-0 space-y-1.5"
-            >
-              <Input
-                id="licenseTdate"
-                type="date"
-                min={licenseFdate || "1900-01-01"}
-                max="2099-12-31"
-                className={FIELD_DATE}
-                {...register("licenseTdate")}
-              />
-            </Field>
+            </FormField>
+            <Controller
+              name="licenseFdate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="License From Date"
+                  value={parseYmd(field.value)}
+                  onChange={(d) => field.onChange(d ? toDateStr(d) : "")}
+                />
+              )}
+            />
+            <Controller
+              name="licenseTdate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="License To Date"
+                  value={parseYmd(field.value)}
+                  onChange={(d) => field.onChange(d ? toDateStr(d) : "")}
+                  minDate={parseYmd(licenseFdate) ?? undefined}
+                />
+              )}
+            />
           </div>
 
           <div className={FORM_ROW}>
-            <Field
+            <FormField
               label="Mobile No"
               error={errors.mobileNumber?.message}
               htmlFor="mobileNumber"
-              className="min-w-0 space-y-1.5"
             >
               <Input
                 id="mobileNumber"
-                className={FIELD_INPUT}
                 {...bindDigitsField(register, "mobileNumber", 10)}
                 placeholder="10-digit number"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Landline No"
               error={errors.landlineNumber?.message}
               htmlFor="landlineNumber"
-              className="min-w-0 space-y-1.5"
             >
               <Input
                 id="landlineNumber"
-                className={FIELD_INPUT}
                 {...bindDigitsField(register, "landlineNumber", 15)}
                 placeholder="Landline number"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Email"
               error={errors.email?.message}
               htmlFor="email"
-              className="min-w-0 space-y-1.5"
             >
               <Input
                 id="email"
                 type="email"
-                className={FIELD_INPUT}
                 {...register("email")}
                 placeholder="org@example.com"
               />
-            </Field>
-            <Field
-              label="Fax"
-              error={errors.fax?.message}
-              htmlFor="fax"
-              className="min-w-0 space-y-1.5"
-            >
+            </FormField>
+            <FormField label="Fax" error={errors.fax?.message} htmlFor="fax">
               <Input
                 id="fax"
-                className={FIELD_INPUT}
                 {...bindDigitsField(register, "fax", 15)}
                 placeholder="Fax number"
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={FORM_ROW}>
-            <Field
-              label="Google URL"
-              htmlFor="googleUrl"
-              className="min-w-0 space-y-1.5"
-            >
+            <FormField label="Google URL" htmlFor="googleUrl">
               <Input
                 id="googleUrl"
-                className={FIELD_INPUT}
                 {...register("googleUrl")}
                 placeholder="https://maps.google.com/..."
               />
-            </Field>
-            <Field
-              label="Facebook URL"
-              htmlFor="facebookUrl"
-              className="min-w-0 space-y-1.5"
-            >
+            </FormField>
+            <FormField label="Facebook URL" htmlFor="facebookUrl">
               <Input
                 id="facebookUrl"
-                className={FIELD_INPUT}
                 {...register("facebookUrl")}
                 placeholder="https://facebook.com/..."
               />
-            </Field>
-            <Field
-              label="LinkedIn URL"
-              htmlFor="linkedinUrl"
-              className="min-w-0 space-y-1.5"
-            >
+            </FormField>
+            <FormField label="LinkedIn URL" htmlFor="linkedinUrl">
               <Input
                 id="linkedinUrl"
-                className={FIELD_INPUT}
                 {...register("linkedinUrl")}
                 placeholder="https://linkedin.com/..."
               />
-            </Field>
-            <Field
-              label="Website URL"
-              htmlFor="url"
-              className="min-w-0 space-y-1.5"
-            >
+            </FormField>
+            <FormField label="Website URL" htmlFor="url">
               <Input
                 id="url"
-                className={FIELD_INPUT}
                 {...register("url")}
                 placeholder="https://www.example.com"
               />
-            </Field>
+            </FormField>
           </div>
 
           <div className={`${FORM_ROW} lg:grid-cols-12`}>
-            <Field
+            <FormField
               label="No. of Licenses"
               error={errors.noIssuedLicenses?.message}
               htmlFor="noIssuedLicenses"
-              className="min-w-0 space-y-1.5 lg:col-span-3"
+              className="min-w-0 lg:col-span-3"
             >
               <Input
                 id="noIssuedLicenses"
-                className={FIELD_INPUT}
                 {...bindDigitsField(register, "noIssuedLicenses", 6)}
                 placeholder="e.g. 100"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label="Address"
               required
               error={errors.address?.message}
               htmlFor="address"
-              className="min-w-0 space-y-1.5 lg:col-span-9"
+              className="min-w-0 lg:col-span-9"
             >
               <Input
                 id="address"
-                className={FIELD_INPUT}
                 {...register("address")}
                 placeholder="Street, area, city"
               />
-            </Field>
+            </FormField>
           </div>
 
           {isEditing && (

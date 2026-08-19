@@ -84,8 +84,8 @@ export default function StudentDostUploadPage() {
       title="Dost Upload"
       filtersCollapsible={false}
       filters={
-        <div className="border border-border rounded-lg p-6 bg-slate-50/50">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mx-auto">
+        <div className="">
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
             {/* Left Card: Download */}
             <div className="flex flex-col items-center p-4 border border-border bg-white rounded-lg shadow-sm">
               <h3 className="text-sm font-semibold text-slate-700 mb-4 text-center">

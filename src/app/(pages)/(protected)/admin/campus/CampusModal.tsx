@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,17 +11,10 @@ import {
   DialogFooter,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ActiveStatusField } from "@/common/components/forms";
+import { ActiveStatusField, FormField } from "@/common/components/forms";
+import { Select } from "@/common/components/select";
 import type { Campus } from "@/types/campus";
 import type {
   Organization,
@@ -101,6 +94,35 @@ export default function CampusModal({
 
   const countryId = watch("countryId");
   const stateId = watch("stateId");
+
+  const organizationOptions = useMemo(
+    () =>
+      organizations.map((o) => ({
+        value: String(o.organizationId),
+        label: o.orgName,
+      })),
+    [organizations],
+  );
+  const countryOptions = useMemo(
+    () =>
+      countries.map((c) => ({
+        value: String(c.countryId),
+        label: c.countryName,
+      })),
+    [countries],
+  );
+  const stateOptions = useMemo(
+    () => states.map((s) => ({ value: String(s.stateId), label: s.stateName })),
+    [states],
+  );
+  const districtOptions = useMemo(
+    () =>
+      districts.map((d) => ({
+        value: String(d.districtId),
+        label: d.districtName,
+      })),
+    [districts],
+  );
 
   // Load static data when modal opens
   useEffect(() => {
@@ -207,172 +229,105 @@ export default function CampusModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
-          {/* ── Organization ───────────────────────────────────────────── */}
-          <div className="space-y-1">
-            <Label>Organization *</Label>
-            <Controller
-              name="organizationId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : ""}
-                  onValueChange={(v) =>
-                    field.onChange(v ? Number(v) : undefined)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select organization" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((o) => (
-                      <SelectItem
-                        key={o.organizationId}
-                        value={String(o.organizationId)}
-                      >
-                        {o.orgName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.organizationId && (
-              <p className="text-xs text-red-500">
-                {errors.organizationId.message}
-              </p>
+          <Controller
+            name="organizationId"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label="Organization"
+                required
+                value={field.value ? String(field.value) : null}
+                onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                options={organizationOptions}
+                placeholder="Select organization"
+                searchable
+                error={errors.organizationId?.message}
+              />
             )}
-          </div>
+          />
 
-          {/* ── Campus Name & Code ─────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="campusName">Campus Name *</Label>
+            <FormField
+              label="Campus Name"
+              required
+              htmlFor="campusName"
+              error={errors.campusName?.message}
+            >
               <Input
                 id="campusName"
                 {...register("campusName")}
                 placeholder="e.g. Main Campus"
               />
-              {errors.campusName && (
-                <p className="text-xs text-red-500">
-                  {errors.campusName.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="campusCode">Campus Code *</Label>
+            </FormField>
+            <FormField
+              label="Campus Code"
+              required
+              htmlFor="campusCode"
+              error={errors.campusCode?.message}
+            >
               <Input
                 id="campusCode"
                 {...register("campusCode")}
                 placeholder="e.g. MC01"
               />
-              {errors.campusCode && (
-                <p className="text-xs text-red-500">
-                  {errors.campusCode.message}
-                </p>
-              )}
-            </div>
+            </FormField>
           </div>
 
-          {/* ── Location ───────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Country */}
-            <div className="space-y-1">
-              <Label>Country</Label>
-              <Controller
-                name="countryId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => {
-                      field.onChange(v ? Number(v) : null);
-                      setValue("stateId", undefined);
-                      setValue("districtId", undefined as unknown as number);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem
-                          key={c.countryId}
-                          value={String(c.countryId)}
-                        >
-                          {c.countryName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            {/* State */}
-            <div className="space-y-1">
-              <Label>State</Label>
-              <Controller
-                name="stateId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) => {
-                      field.onChange(v ? Number(v) : undefined);
-                      setValue("districtId", undefined as unknown as number);
-                    }}
-                    disabled={!countryId || states.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((s) => (
-                        <SelectItem key={s.stateId} value={String(s.stateId)}>
-                          {s.stateName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-
-            {/* District */}
-            <div className="col-span-2 space-y-1">
-              <Label>District *</Label>
+            <Controller
+              name="countryId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Country"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => {
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("stateId", undefined);
+                    setValue("districtId", undefined as unknown as number);
+                  }}
+                  options={countryOptions}
+                  placeholder="Select country"
+                  searchable
+                />
+              )}
+            />
+            <Controller
+              name="stateId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="State"
+                  value={field.value ? String(field.value) : null}
+                  onChange={(v) => {
+                    field.onChange(v ? Number(v) : undefined);
+                    setValue("districtId", undefined as unknown as number);
+                  }}
+                  options={stateOptions}
+                  placeholder="Select state"
+                  searchable
+                  disabled={!countryId}
+                />
+              )}
+            />
+            <div className="col-span-2">
               <Controller
                 name="districtId"
                 control={control}
                 render={({ field }) => (
                   <Select
-                    value={field.value ? String(field.value) : ""}
-                    onValueChange={(v) =>
-                      field.onChange(v ? Number(v) : undefined)
-                    }
-                    disabled={!stateId || districts.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select district" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {districts.map((d) => (
-                        <SelectItem
-                          key={d.districtId}
-                          value={String(d.districtId)}
-                        >
-                          {d.districtName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    label="District"
+                    required
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={districtOptions}
+                    placeholder="Select district"
+                    searchable
+                    disabled={!stateId}
+                    error={errors.districtId?.message}
+                  />
                 )}
               />
-              {errors.districtId && (
-                <p className="text-xs text-red-500">
-                  {errors.districtId.message}
-                </p>
-              )}
             </div>
           </div>
 
