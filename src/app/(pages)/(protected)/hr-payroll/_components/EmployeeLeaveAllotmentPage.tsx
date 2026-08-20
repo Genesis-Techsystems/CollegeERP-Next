@@ -280,7 +280,11 @@ export function EmployeeLeaveAllotmentPage() {
       notice={collegeNotice}
       filters={
         <GlobalFilterBarRow>
-          <GlobalFilterField label="College">
+          <GlobalFilterField
+            label="College"
+            className="global-filter-field--shrink"
+            style={{ width: "8rem" }}
+          >
             <Select
               value={collegeId != null ? String(collegeId) : null}
               onChange={handleCollegeChange}
@@ -291,7 +295,11 @@ export function EmployeeLeaveAllotmentPage() {
               disabled={collegeLocked}
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Leave Year">
+          <GlobalFilterField
+            label="Leave Year"
+            className="global-filter-field--shrink"
+            style={{ width: "8rem" }}
+          >
             <Select
               value={leaveYear}
               onChange={handleLeaveYearChange}

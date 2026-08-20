@@ -9,6 +9,7 @@ import {
   FILTER_CARD_SELECT_CLASS,
 } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
+import { StudentSearchSelect } from "@/common/components/student-search";
 import { FilteredListPage, PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -140,6 +141,8 @@ export function StudentCategoryFeeList({
   layout = "compact",
   /** Use FilteredListPage shell (bus fee payment only). */
   filteredShell = false,
+  /** Angular-style photo search dropdown (Bus Fee Payment only). */
+  richStudentSearch = false,
 }: {
   title: string;
   payPage: string;
@@ -147,6 +150,7 @@ export function StudentCategoryFeeList({
   backHref?: string;
   layout?: "compact" | "fee-payment";
   filteredShell?: boolean;
+  richStudentSearch?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -249,6 +253,14 @@ export function StudentCategoryFeeList({
       (selectedStudent && String(selectedStudent.studentId) === v
         ? selectedStudent
         : null);
+    setSelectedStudent(row);
+  }
+
+  function handleRichStudentChange(
+    id: number | null,
+    row: StudentFeeSearchRow | null,
+  ) {
+    setStudentId(id != null ? String(id) : null);
     setSelectedStudent(row);
   }
 
@@ -372,19 +384,38 @@ export function StudentCategoryFeeList({
 
   const studentFilter = (
     <div className="grid max-w-xl grid-cols-1 gap-4">
-      <Select
-        className={FILTER_CARD_SELECT_CLASS}
-        label="Student"
-        required
-        value={studentId}
-        onChange={handleStudentChange}
-        options={studentOptions}
-        placeholder="Search by student name or roll no."
-        searchable
-        onSearch={(t) => void onStudentSearch(t)}
-        isLoading={studentSearchLoading}
-        clearable
-      />
+      {richStudentSearch ? (
+        <StudentSearchSelect
+          label="Student"
+          placeholder="Search by student name or roll no."
+          value={studentNum > 0 ? studentNum : null}
+          students={studentRows}
+          selectedStudent={selectedStudent}
+          isLoading={studentSearchLoading}
+          onSearch={(t) => void onStudentSearch(t)}
+          onChange={(id, row) =>
+            handleRichStudentChange(
+              id,
+              (row as StudentFeeSearchRow | null) ?? null,
+            )
+          }
+          className="max-w-xl"
+        />
+      ) : (
+        <Select
+          className={FILTER_CARD_SELECT_CLASS}
+          label="Student"
+          required
+          value={studentId}
+          onChange={handleStudentChange}
+          options={studentOptions}
+          placeholder="Search by student name or roll no."
+          searchable
+          onSearch={(t) => void onStudentSearch(t)}
+          isLoading={studentSearchLoading}
+          clearable
+        />
+      )}
     </div>
   );
 

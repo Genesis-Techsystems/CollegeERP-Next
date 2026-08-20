@@ -45,6 +45,14 @@ type DrillStep = {
   detailValue: string;
 };
 
+/** Angular `.table-th` — same as Student Fee Report. */
+const SUMMARY_TH =
+  "border border-white bg-[#C3D9FF] px-1.5 py-1.5 text-center align-middle text-[13px] font-medium whitespace-nowrap";
+
+/** Empty header cells still need width (Angular blank Type / Value columns). */
+const SUMMARY_TH_BLANK =
+  "border border-white bg-[#C3D9FF] px-1.5 py-1.5 text-center align-middle min-w-[7rem] w-[12%]";
+
 function formatIndianNumber(input: unknown): string {
   if (input == null || input === "") return "0";
   const num = Number(input);
@@ -207,7 +215,9 @@ export default function ScholarshipDetailedReportPage() {
         );
         setSummaryList(annotated);
         setScholarShipTypeCode(annotated[0]?.scholarship_type ?? null);
-        setCurrentPosition(args.detailValue === "college_code" ? "" : args.detailValue);
+        setCurrentPosition(
+          args.detailValue === "college_code" ? "" : args.detailValue,
+        );
         if (annotated.length === 0) toastInfo("No records found.");
       } catch (err) {
         toastError(getErrorMessage(err));
@@ -243,12 +253,7 @@ export default function ScholarshipDetailedReportPage() {
       detailName: "College",
       detailValue: "college_code",
     });
-  }, [
-    academicYear,
-    academicData.length,
-    filtersQuery.isLoading,
-    loadSummary,
-  ]);
+  }, [academicYear, academicData.length, filtersQuery.isLoading, loadSummary]);
 
   const onAcademicYearChange = (v: string | null) => {
     const next = v ?? "";
@@ -455,7 +460,7 @@ export default function ScholarshipDetailedReportPage() {
 body{font-family:Arial,sans-serif;padding:16px;color:#111}
 table{width:100%;border-collapse:collapse;font-size:11px}
 th,td{border:1px solid #333;padding:3px 5px;text-align:center}
-th{background:#e8f0fe}
+th{background:#C3D9FF}
 </style></head><body>
 <p style="font-weight:600">Scholarship Detailed Report${academicYear ? ` — ${escapeHtml(academicYear)}` : ""}</p>
 ${excelTableRef.current.outerHTML}
@@ -509,11 +514,11 @@ ${excelTableRef.current.outerHTML}
           </div>
         </div>
       }
-      body={
-        <div className="space-y-3">
+      filtersFooter={
+        <div className="mt-3 space-y-3">
           {(steps.length > 0 || loading) && (
             <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-              <div className="text-sm text-muted-foreground">
+              <div className="text-[16px] font-medium text-[#0c51a4]">
                 {steps.map((s, i) => (
                   <span key={s.id}>
                     {s.name}
@@ -541,30 +546,24 @@ ${excelTableRef.current.outerHTML}
           <div className="overflow-x-auto">
             <table
               ref={excelTableRef}
-              className="w-full border-collapse text-sm"
+              className="w-full table-fixed border-collapse text-sm"
             >
               <thead>
-                <tr className="bg-muted/50">
-                  <th className="border px-2 py-1.5 text-center">Expand</th>
-                  <th className="border px-2 py-1.5" />
-                  <th className="border px-2 py-1.5" />
-                  {showCategory && (
-                    <th className="border px-2 py-1.5 text-center">Category</th>
-                  )}
+                <tr>
+                  <th className={`${SUMMARY_TH} w-[6%]`}>Expand</th>
+                  <th className={SUMMARY_TH_BLANK} aria-label="Type">
+                    &nbsp;
+                  </th>
+                  <th className={SUMMARY_TH_BLANK} aria-label="Value">
+                    &nbsp;
+                  </th>
+                  {showCategory && <th className={SUMMARY_TH}>Category</th>}
                   {showCount && (
-                    <th className="border px-2 py-1.5 text-center">
-                      ScholarShip Students Count
-                    </th>
+                    <th className={SUMMARY_TH}>ScholarShip Students Count</th>
                   )}
-                  <th className="border px-2 py-1.5 text-center">
-                    Total Scholarship Applied
-                  </th>
-                  <th className="border px-2 py-1.5 text-center">
-                    Total Scholarship Received
-                  </th>
-                  <th className="border px-2 py-1.5 text-center">
-                    Total Scholarship Due
-                  </th>
+                  <th className={SUMMARY_TH}>Total Scholarship Applied</th>
+                  <th className={SUMMARY_TH}>Total Scholarship Received</th>
+                  <th className={SUMMARY_TH}>Total Scholarship Due</th>
                 </tr>
               </thead>
               <tbody>
@@ -648,10 +647,7 @@ ${excelTableRef.current.outerHTML}
                   ))}
                 {!loading && summaryList.length > 0 && (
                   <tr className="font-medium">
-                    <td
-                      className="border px-2 py-1.5 text-center"
-                      colSpan={4}
-                    >
+                    <td className="border px-2 py-1.5 text-center" colSpan={4}>
                       Grand Total
                     </td>
                     <td className="border px-2 py-1.5 text-center">

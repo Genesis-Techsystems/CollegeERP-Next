@@ -7,6 +7,10 @@ import { BookOpen, Printer, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Select } from "@/common/components/select";
 import { ConfirmDialog } from "@/common/components/feedback";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,46 +290,68 @@ export default function FeeReceiptUpdatePage() {
       <FilteredListPage<FeeReceiptRow>
         title="Fee Receipts Delete"
         filters={
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Select
-              label="College"
-              required
-              value={collegeId}
-              onChange={(v) => {
-                setCollegeId(v);
-                setAcademicYearId(null);
-                setStudentId(null);
-                setSelectedStudent(null);
+          <GlobalFilterBarRow className="flex-nowrap items-end">
+            <GlobalFilterField
+              label="College *"
+              className="global-filter-field--shrink"
+              style={{ width: "8rem" }}
+            >
+              <Select
+                required
+                value={collegeId}
+                onChange={(v) => {
+                  setCollegeId(v);
+                  setAcademicYearId(null);
+                  setStudentId(null);
+                  setSelectedStudent(null);
+                }}
+                options={collegeOptions}
+                placeholder="Select college"
+                searchable
+                isLoading={loadingColleges}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Academic Year *"
+              className="global-filter-field--shrink"
+              style={{ width: "8.5rem" }}
+            >
+              <Select
+                required
+                value={academicYearId}
+                onChange={(v) => {
+                  setAcademicYearId(v);
+                  setStudentId(null);
+                  setSelectedStudent(null);
+                }}
+                options={ayOptions}
+                placeholder="Select academic year"
+                searchable
+                disabled={!collegeId}
+                isLoading={loadingAy}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Student"
+              style={{
+                flex: "1 1 14rem",
+                minWidth: "14rem",
+                maxWidth: "22rem",
               }}
-              options={collegeOptions}
-              placeholder="Select college"
-              searchable
-              isLoading={loadingColleges}
-            />
-            <Select
-              label="Academic Year"
-              required
-              value={academicYearId}
-              onChange={(v) => {
-                setAcademicYearId(v);
-                setStudentId(null);
-                setSelectedStudent(null);
-              }}
-              options={ayOptions}
-              placeholder="Select academic year"
-              searchable
-              disabled={!collegeId}
-              isLoading={loadingAy}
-            />
-            <FeeStudentSearchSelect
-              value={studentId}
-              selectedStudent={selectedStudent}
-              onChange={handleStudentChange}
-              collegeId={collegeNum > 0 ? collegeNum : null}
-              disabled={!collegeId || !academicYearId}
-              placeholder="Search by student name or roll no."
-            />
-          </div>
+            >
+              <FeeStudentSearchSelect
+                label=""
+                value={studentId}
+                selectedStudent={selectedStudent}
+                onChange={handleStudentChange}
+                collegeId={collegeNum > 0 ? collegeNum : null}
+                disabled={!collegeId || !academicYearId}
+                placeholder="Search by student name or roll no."
+                richStudentSearch
+                fullWidth
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
         }
         rowData={studentNum > 0 && ayNum > 0 && collegeNum > 0 ? rows : []}
         columnDefs={

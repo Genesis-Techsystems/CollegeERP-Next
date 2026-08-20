@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Select } from "@/common/components/select";
+import { StudentSearchSelect } from "@/common/components/student-search";
 import { toastError } from "@/lib/toast";
 import {
   searchStudentsForFeeCollection,
@@ -36,6 +37,10 @@ export type FeeStudentSearchSelectProps = {
   required?: boolean;
   clearable?: boolean;
   disabled?: boolean;
+  /** Angular-style photo search dropdown (Bus / Library Fee Payment parity). */
+  richStudentSearch?: boolean;
+  /** Stretch search input to filter field width. */
+  fullWidth?: boolean;
 };
 
 /**
@@ -56,6 +61,8 @@ export function FeeStudentSearchSelect({
   required = true,
   clearable = true,
   disabled = false,
+  richStudentSearch = false,
+  fullWidth = false,
 }: FeeStudentSearchSelectProps) {
   const appliedQueryKey = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -154,6 +161,29 @@ export function FeeStudentSearchSelect({
         ? selectedStudent
         : null);
     onChange(v, row);
+  }
+
+  if (richStudentSearch) {
+    return (
+      <StudentSearchSelect
+        className={className}
+        label={label}
+        placeholder={placeholder}
+        value={value ? Number(value) : null}
+        students={rows}
+        selectedStudent={selectedStudent}
+        isLoading={loading}
+        onSearch={(t) => void onSearch(t)}
+        onChange={(id, row) =>
+          onChange(
+            id != null ? String(id) : null,
+            (row as StudentFeeSearchRow | null) ?? null,
+          )
+        }
+        disabled={disabled}
+        fullWidth={fullWidth}
+      />
+    );
   }
 
   return (

@@ -478,16 +478,30 @@ export function mapMentorshipNavRoute(
   if (!hrefRaw || hrefRaw === "#") return null;
   const hrefLower = hrefRaw.toLowerCase();
 
-  for (const seg of ["staff-mentorship", "admin-counseling"] as const) {
-    const mapped = mapModuleTail(
-      hrefRaw,
-      seg,
-      MENTORSHIP_BASE,
-      MENTORSHIP_SLUGS,
-      "counseling-dashboard",
-    );
-    if (mapped) return mapped;
+  const staffMapped = mapModuleTail(
+    hrefRaw,
+    "staff-mentorship",
+    MENTORSHIP_BASE,
+    MENTORSHIP_SLUGS,
+    "schedule-ptm",
+  );
+  if (staffMapped) {
+    // Staff Teacher Meeting lives under Schedule PTM — never collide with
+    // admin-counseling `/mentorship/teacher-meeting`.
+    if (staffMapped === `${MENTORSHIP_BASE}/teacher-meeting`) {
+      return `${MENTORSHIP_BASE}/schedule-ptm/teacher-meeting`;
+    }
+    return staffMapped;
   }
+
+  const adminMapped = mapModuleTail(
+    hrefRaw,
+    "admin-counseling",
+    MENTORSHIP_BASE,
+    MENTORSHIP_SLUGS,
+    "counseling-dashboard",
+  );
+  if (adminMapped) return adminMapped;
 
   if (hrefLower.includes("mentorship")) {
     const idx = hrefLower.indexOf("mentorship");
@@ -506,6 +520,14 @@ export function mapMentorshipNavRoute(
       hrefLower.includes("mentor") ||
       hrefLower.includes("ptm"))
   ) {
+    if (
+      slug === "teacher-meeting" &&
+      (hrefLower.includes("schedule-ptm") ||
+        hrefLower.includes("staff-mentorship") ||
+        (hrefLower.includes("mentor") && !hrefLower.includes("counsel")))
+    ) {
+      return `${MENTORSHIP_BASE}/schedule-ptm/teacher-meeting`;
+    }
     return `${MENTORSHIP_BASE}/${slug}`;
   }
 

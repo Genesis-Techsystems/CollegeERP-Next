@@ -993,6 +993,109 @@
   max-width: 12% !important;
 }
 
+/* Group Wise Failed/Passed Result Sheets — Angular fxFlex (15/15/52/15, 15/15/15/15/5) */
+.global-filter-bar__row--gwfrs-r1,
+.global-filter-bar__row--gwfrs-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--gwfrs-r1 > .global-filter-field,
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx15,
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx52 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
+/* Get Report + optional checkbox — Angular savebtn fxFlex 15, content-sized */
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field--action.global-filter-field--fx15 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
+/* Moderation Benefited Students — Angular fxFlex (20/20/60/15, 20/20/20/15/5) */
+.global-filter-bar__row--mbs-r1,
+.global-filter-bar__row--mbs-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field,
+.global-filter-bar__row--mbs-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field--fx20,
+.global-filter-bar__row--mbs-r2 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field--fx60 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field--fx15,
+.global-filter-bar__row--mbs-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--mbs-r2 > .global-filter-field--action.global-filter-field--fx15 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
+.global-filter-bar__row--mbs-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
 /* Academic Year Curriculum Report — Angular fxFlex (25/25/25/25, 20/25/15/5) */
 .global-filter-bar__row--aycr-r1,
 .global-filter-bar__row--aycr-r2 {
@@ -1085,7 +1188,17 @@
   .global-filter-bar__row--aycr-r1 > .global-filter-field--fx25,
   .global-filter-bar__row--aycr-r2 > .global-filter-field--fx20,
   .global-filter-bar__row--aycr-r2 > .global-filter-field--fx25,
-  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx10 {
+  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx15,
+  .global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx52,
+  .global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--mbs-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--mbs-r1 > .global-filter-field--fx60,
+  .global-filter-bar__row--mbs-r1 > .global-filter-field--fx15,
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx20,
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx10 {
     flex: 1 1 100% !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -1099,7 +1212,11 @@
   .global-filter-bar__row--aesr-r1,
   .global-filter-bar__row--aesr-r2,
   .global-filter-bar__row--aycr-r1,
-  .global-filter-bar__row--aycr-r2 {
+  .global-filter-bar__row--aycr-r2,
+  .global-filter-bar__row--gwfrs-r1,
+  .global-filter-bar__row--gwfrs-r2,
+  .global-filter-bar__row--mbs-r1,
+  .global-filter-bar__row--mbs-r2 {
     flex-wrap: wrap !important;
   }
 }

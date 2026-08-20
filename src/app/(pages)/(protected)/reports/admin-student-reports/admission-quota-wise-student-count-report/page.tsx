@@ -282,10 +282,7 @@ export default function AdmissionQuotaWiseStudentCountReportPage() {
     ];
   }, [filtersData, collegeId, courseId, courseGroupId]);
 
-  const quotaOptions = useMemo(
-    () => [ALL0, ...gmOptions(gmRows, 8)],
-    [gmRows],
-  );
+  const quotaOptions = useMemo(() => [ALL0, ...gmOptions(gmRows, 8)], [gmRows]);
   const statusOptions = useMemo(
     () => [ALL0, ...gmOptions(gmRows, 51)],
     [gmRows],
@@ -631,149 +628,148 @@ ${tableHtml}
           justify-content: center;
         }
       `}</style>
-    <FilteredListPage
-      title={pageTitle}
-      filters={
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <Select
-              label="College"
-              required
-              value={collegeId}
-              onChange={onCollegeChange}
-              options={collegeOptions}
-              placeholder="College"
-              isLoading={loadingFilters}
-            />
-            <Select
-              label="Academic Year"
-              value={academicYearId}
-              onChange={(v) => {
-                setAcademicYearId(v ?? "0");
-                clearResults();
-              }}
-              options={ayOptions}
-              placeholder="Academic Year"
-            />
-            <Select
-              label="Course"
-              value={courseId}
-              onChange={(v) => {
-                setCourseId(v ?? "0");
-                clearResults();
-              }}
-              options={courseOptions}
-              placeholder="Course"
-              disabled={!collegeId}
-            />
-            <Select
-              label="Course Group"
-              required
-              value={courseGroupId}
-              onChange={(v) => {
-                setCourseGroupId(v ?? "0");
-                clearResults();
-              }}
-              options={groupOptions}
-              placeholder="Course Group"
-            />
-            <Select
-              label="Course Year"
-              value={courseYearId}
-              onChange={(v) => {
-                setCourseYearId(v ?? "0");
-                clearResults();
-              }}
-              options={yearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-full min-w-[10rem] sm:w-[12rem]">
+      <FilteredListPage
+        title={pageTitle}
+        filters={
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <Select
-                label="Quota"
-                value={quotaId}
-                onChange={(v) => {
-                  setQuotaId(v ?? "0");
-                  clearResults();
-                }}
-                options={quotaOptions}
-                placeholder="Quota"
-              />
-            </div>
-            <div className="w-full min-w-[10rem] sm:w-[14rem]">
-              <Select
-                label="Student Status"
+                label="College"
                 required
-                value={studentStatusId}
+                value={collegeId}
+                onChange={onCollegeChange}
+                options={collegeOptions}
+                placeholder="College"
+                isLoading={loadingFilters}
+              />
+              <Select
+                label="Academic Year"
+                value={academicYearId}
                 onChange={(v) => {
-                  setStudentStatusId(v ?? "0");
+                  setAcademicYearId(v ?? "0");
                   clearResults();
                 }}
-                options={statusOptions}
-                placeholder="Student Status"
+                options={ayOptions}
+                placeholder="Academic Year"
+              />
+              <Select
+                label="Course"
+                value={courseId}
+                onChange={(v) => {
+                  setCourseId(v ?? "0");
+                  clearResults();
+                }}
+                options={courseOptions}
+                placeholder="Course"
+                disabled={!collegeId}
+              />
+              <Select
+                label="Course Group"
+                required
+                value={courseGroupId}
+                onChange={(v) => {
+                  setCourseGroupId(v ?? "0");
+                  clearResults();
+                }}
+                options={groupOptions}
+                placeholder="Course Group"
+              />
+              <Select
+                label="Course Year"
+                value={courseYearId}
+                onChange={(v) => {
+                  setCourseYearId(v ?? "0");
+                  clearResults();
+                }}
+                options={yearOptions}
+                placeholder="Course Year"
               />
             </div>
-            <div className="flex shrink-0 items-center gap-2 pb-0.5">
-              <Button
-                type="button"
-                className="h-9 w-fit px-4"
-                disabled={loadingList}
-                onClick={() => void handleGetList()}
-              >
-                {loadingList ? "Loading…" : "Get Students Count List"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
-                onClick={goBack}
-              >
-                Back
-              </Button>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-full min-w-[10rem] sm:w-[12rem]">
+                <Select
+                  label="Quota"
+                  value={quotaId}
+                  onChange={(v) => {
+                    setQuotaId(v ?? "0");
+                    clearResults();
+                  }}
+                  options={quotaOptions}
+                  placeholder="Quota"
+                />
+              </div>
+              <div className="w-full min-w-[10rem] sm:w-[14rem]">
+                <Select
+                  label="Student Status"
+                  required
+                  value={studentStatusId}
+                  onChange={(v) => {
+                    setStudentStatusId(v ?? "0");
+                    clearResults();
+                  }}
+                  options={statusOptions}
+                  placeholder="Student Status"
+                />
+              </div>
+              <div className="flex shrink-0 items-center gap-2 pb-0.5">
+                <Button
+                  type="button"
+                  className="h-9 w-fit px-4"
+                  disabled={loadingList}
+                  onClick={() => void handleGetList()}
+                >
+                  {loadingList ? "Loading…" : "Get Students Count List"}
+                </Button>
+                <Button
+                  type="button"
+                  className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
+                  onClick={goBack}
+                >
+                  Back
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      }
-      rowData={showTable ? rows : []}
-      columnDefs={columnDefs}
-      pagination
-      loading={loadingList || loadingFilters}
-      resultsVisible={showTable}
-      hideEmptyGrid
-      columnFilters={false}
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-        exportExcel: false,
-        exportPdf: false,
-        columnFilters: false,
-      }}
-      toolbarTrailing={
-        showTable ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 px-3 text-[12px]"
-              onClick={handleExcelExport}
-            >
-              <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-              Export Excel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-9 px-3 text-[12px]"
-              onClick={handlePrintReport}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
-            </Button>
-          </>
-        ) : null
-      }
-    />
+        }
+        rowData={showTable ? rows : []}
+        columnDefs={columnDefs}
+        pagination
+        loading={loadingList || loadingFilters}
+        resultsVisible={showTable}
+        hideEmptyGrid
+        columnFilters={false}
+        toolbar={{
+          search: true,
+          searchPlaceholder: "Search",
+          exportExcel: false,
+          exportPdf: false,
+          columnFilters: false,
+        }}
+        toolbarTrailing={
+          showTable ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={handleExcelExport}
+              >
+                <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+                Export Excel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 px-3 text-[12px]"
+                onClick={handlePrintReport}
+              >
+                <Printer className="mr-1.5 h-3.5 w-3.5" />
+                Print Report
+              </Button>
+            </>
+          ) : null
+        }
+      />
     </>
   );
 }

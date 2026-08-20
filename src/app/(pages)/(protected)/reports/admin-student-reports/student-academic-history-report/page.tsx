@@ -458,8 +458,8 @@ export default function StudentAcademicHistoryReportPage() {
     <FilteredListPage<AcademicHistoryRow>
       title={pageTitle}
       filters={
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[9rem] flex-1 sm:min-w-[10rem]">
             <Select
               label="College"
               required
@@ -469,6 +469,8 @@ export default function StudentAcademicHistoryReportPage() {
               placeholder="College"
               isLoading={filtersQuery.isLoading}
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:min-w-[10rem]">
             <Select
               label="Academic Year"
               required
@@ -480,6 +482,8 @@ export default function StudentAcademicHistoryReportPage() {
               options={ayOptions}
               placeholder="Academic Year"
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:min-w-[10rem]">
             <Select
               label="Course"
               required
@@ -492,6 +496,8 @@ export default function StudentAcademicHistoryReportPage() {
               placeholder="Course"
               disabled={!collegeId}
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:min-w-[10rem]">
             <Select
               label="Course Group"
               required
@@ -504,6 +510,8 @@ export default function StudentAcademicHistoryReportPage() {
               placeholder="Course Group"
               disabled={!courseId || courseId === "0"}
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:min-w-[10rem]">
             <Select
               label="Course Year"
               required
@@ -516,7 +524,7 @@ export default function StudentAcademicHistoryReportPage() {
               placeholder="Course Year"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 pb-0.5">
             <Button
               type="button"
               className="h-9 w-fit px-4"
@@ -527,8 +535,7 @@ export default function StudentAcademicHistoryReportPage() {
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
               onClick={goBack}
             >
               Back
