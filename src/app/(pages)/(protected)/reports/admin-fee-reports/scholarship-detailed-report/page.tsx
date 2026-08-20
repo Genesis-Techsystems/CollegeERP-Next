@@ -17,6 +17,12 @@ import { escapeHtml } from "@/common/export-html-table";
 import { getErrorMessage } from "@/lib/errors";
 import { QK } from "@/lib/query-keys";
 import { toastError, toastInfo } from "@/lib/toast";
+import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
+import {
+  isDefaultLogoUrl,
+  logoToDataUrl,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   pickNum,
   pickText,
@@ -25,6 +31,7 @@ import {
 import {
   fetchScholarshipDetailedSummary,
   getFeeMasterCollegeFilters,
+  listOrganizations,
 } from "@/services";
 
 type AnyRow = Record<string, unknown>;
@@ -113,6 +120,30 @@ export default function ScholarshipDetailedReportPage() {
     queryFn: () => getFeeMasterCollegeFilters(orgId, employeeId),
     enabled: orgId > 0 && employeeId > 0,
   });
+
+  // Angular print: Logo = organization.logoPath, name = organization.orgName
+  const orgsQuery = useQuery({
+    queryKey: ["organizations", "scholarship-detailed-print"],
+    queryFn: listOrganizations,
+    enabled: orgId > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  const orgPrintMeta = useMemo(() => {
+    const org =
+      (orgsQuery.data ?? []).find((o) => Number(o.organizationId) === orgId) ??
+      null;
+    const fromLs =
+      typeof globalThis.localStorage !== "undefined"
+        ? String(
+            globalThis.localStorage.getItem("organizationName") ?? "",
+          ).trim()
+        : "";
+    return {
+      orgName: org?.orgName?.trim() || fromLs || "",
+      logoPath: org?.logoPath?.trim() || "",
+    };
+  }, [orgsQuery.data, orgId]);
 
   const academicData = useMemo(
     () => (filtersQuery.data?.academicData ?? []) as FilterRow[],
@@ -207,7 +238,9 @@ export default function ScholarshipDetailedReportPage() {
         );
         setSummaryList(annotated);
         setScholarShipTypeCode(annotated[0]?.scholarship_type ?? null);
-        setCurrentPosition(args.detailValue === "college_code" ? "" : args.detailValue);
+        setCurrentPosition(
+          args.detailValue === "college_code" ? "" : args.detailValue,
+        );
         if (annotated.length === 0) toastInfo("No records found.");
       } catch (err) {
         toastError(getErrorMessage(err));
@@ -243,12 +276,7 @@ export default function ScholarshipDetailedReportPage() {
       detailName: "College",
       detailValue: "college_code",
     });
-  }, [
-    academicYear,
-    academicData.length,
-    filtersQuery.isLoading,
-    loadSummary,
-  ]);
+  }, [academicYear, academicData.length, filtersQuery.isLoading, loadSummary]);
 
   const onAcademicYearChange = (v: string | null) => {
     const next = v ?? "";
@@ -447,21 +475,6 @@ export default function ScholarshipDetailedReportPage() {
     link.click();
   };
 
-  const printReport = () => {
-    if (!excelTableRef.current) return;
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Scholarship Detailed Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px;text-align:center}
-th{background:#e8f0fe}
-</style></head><body>
-<p style="font-weight:600">Scholarship Detailed Report${academicYear ? ` — ${escapeHtml(academicYear)}` : ""}</p>
-${excelTableRef.current.outerHTML}
-</body></html>`);
-  };
-
   const showCount =
     currentPosition !== "student_name" &&
     currentPosition !== "student_particular";
@@ -469,6 +482,129 @@ ${excelTableRef.current.outerHTML}
     currentPosition === "student_name" ||
     currentPosition === "student_particular";
   const canExpand = currentPosition !== "student_particular";
+
+  const buildPrintTableHtml = () => {
+    if (summaryList.length === 0) return "";
+
+    const heads = [
+      `<th class="table-th"></th>`,
+      `<th class="table-th"></th>`,
+      showCategory ? `<th class="table-th">Category</th>` : "",
+      showCount ? `<th class="table-th">Scholarship Students Count</th>` : "",
+      `<th class="table-th">Total Scholarship Applied</th>`,
+      `<th class="table-th">Total Scholarship Received</th>`,
+      `<th class="table-th">Total Scholarship Due</th>`,
+    ]
+      .filter(Boolean)
+      .join("");
+
+    const body = summaryList
+      .map((row) => {
+        const label =
+          currentPosition === "student_particular"
+            ? String(row.student_name ?? "")
+            : String(row.varaiableValue ?? "");
+        const category =
+          currentPosition === "student_name"
+            ? String(row.scholarship_type ?? "")
+            : currentPosition === "student_particular"
+              ? String(row.fee_category_name ?? "")
+              : "";
+        return `<tr>
+          <td class="table-td">${escapeHtml(String(row.varaiableName ?? ""))}</td>
+          <td class="table-td${currentPosition === "student_particular" ? " left" : ""}">${escapeHtml(label)}</td>
+          ${showCategory ? `<td class="table-td left">${escapeHtml(category)}</td>` : ""}
+          ${
+            showCount
+              ? `<td class="table-td">${
+                  row.scholarship_student_count != null
+                    ? escapeHtml(String(row.scholarship_student_count))
+                    : ""
+                }</td>`
+              : ""
+          }
+          <td class="table-td">${escapeHtml(formatIndianNumber(row.total_scholarship_applied))}</td>
+          <td class="table-td">${escapeHtml(formatIndianNumber(row.total_scholarship_received))}</td>
+          <td class="table-td">${escapeHtml(formatIndianNumber(row.total_scholarship_due))}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const grandLabelColSpan = 2;
+    const grand = `<tr class="grand">
+      <td class="table-td" colspan="${grandLabelColSpan}">Grand Total</td>
+      ${showCategory ? `<td class="table-td"></td>` : ""}
+      ${showCount ? `<td class="table-td"></td>` : ""}
+      <td class="table-td">${escapeHtml(formatIndianNumber(totals.applied))}</td>
+      <td class="table-td">${escapeHtml(formatIndianNumber(totals.received))}</td>
+      <td class="table-td">${escapeHtml(formatIndianNumber(totals.due))}</td>
+    </tr>`;
+
+    return `<table class="mar"><thead><tr>${heads}</tr></thead><tbody>${body}${grand}</tbody></table>`;
+  };
+
+  const printReport = async () => {
+    const tableHtml = buildPrintTableHtml();
+    if (!tableHtml) {
+      toastInfo("No records to print.");
+      return;
+    }
+
+    const logoCandidate = orgPrintMeta.logoPath;
+    const logoUrl = toPrintLogoUrl(logoCandidate || DEFAULT_COLLEGE_LOGO);
+    const logoSrc = isDefaultLogoUrl(logoUrl)
+      ? await logoToDataUrl(DEFAULT_COLLEGE_LOGO)
+      : await logoToDataUrl(logoUrl);
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+    const orgLabel = orgPrintMeta.orgName || "Organization";
+    const titleLine = academicYear
+      ? `Scholarship Detailed Report - (${academicYear})`
+      : "Scholarship Detailed Report";
+    const drillPath =
+      steps.length > 0
+        ? `<div class="drilldown">${steps
+            .map(
+              (s, i) =>
+                `${escapeHtml(s.name)}${i < steps.length - 1 ? " &gt; " : ""}`,
+            )
+            .join("")}${
+            currentPosition === "student_particular" &&
+            scholarShipTypeCode != null
+              ? ` &nbsp; - &nbsp; ${escapeHtml(String(scholarShipTypeCode))}`
+              : ""
+          }</div>`
+        : "";
+
+    printHtmlInIframe(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><title>Scholarship Detailed Report</title>
+<style>
+@page{size:A4 portrait;margin:12mm}
+body{font-family:Arial,sans-serif;padding:12px;color:#000;margin:0;background:#fff}
+.header{display:flex;align-items:flex-start;width:100%;margin-bottom:8px}
+.header img{width:100px;height:96px;object-fit:contain;flex-shrink:0}
+.header-text{flex:1;text-align:left;padding-left:8px}
+.collegeName{font-size:24px;font-weight:700;margin-bottom:8px;color:#000;text-align:left}
+.title{font-size:20px;font-weight:700;margin:0 0 8px;color:#000;text-align:left}
+.drilldown{color:#0c51a4;font-size:16px;font-weight:500;padding:5px 10px}
+table.mar{width:100%;border-collapse:collapse}
+.table-th,.table-td{border:1px solid #cacaca;padding:6px 8px;text-align:center}
+.table-th{padding:9px 5px;background:#C3D9FF;font-weight:500}
+.table-td{font-weight:400}
+.table-td.left{text-align:left}
+tr.grand .table-td{font-weight:700}
+</style></head><body>
+<div class="header">
+  <img src="${escapeHtml(logoSrc)}" alt=""
+    onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'" />
+  <div class="header-text">
+    <p class="collegeName">${escapeHtml(orgLabel)}</p>
+    <p class="title">${escapeHtml(titleLine)}</p>
+  </div>
+</div>
+${drillPath}
+${tableHtml}
+</body></html>`);
+  };
 
   return (
     <FilteredListPage
@@ -501,7 +637,7 @@ ${excelTableRef.current.outerHTML}
               size="sm"
               className="h-9 px-3 text-[12px]"
               disabled={summaryList.length === 0}
-              onClick={printReport}
+              onClick={() => void printReport()}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report
@@ -648,10 +784,7 @@ ${excelTableRef.current.outerHTML}
                   ))}
                 {!loading && summaryList.length > 0 && (
                   <tr className="font-medium">
-                    <td
-                      className="border px-2 py-1.5 text-center"
-                      colSpan={4}
-                    >
+                    <td className="border px-2 py-1.5 text-center" colSpan={4}>
                       Grand Total
                     </td>
                     <td className="border px-2 py-1.5 text-center">

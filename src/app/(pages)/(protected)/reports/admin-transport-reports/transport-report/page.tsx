@@ -325,7 +325,7 @@ export default function TransportReportPage() {
       className="relative"
       filters={
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[180px] flex-1">
+          <div className="max-w-[15rem] flex-1">
             <Select
               label="College"
               required

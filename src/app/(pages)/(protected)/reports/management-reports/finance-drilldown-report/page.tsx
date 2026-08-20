@@ -16,7 +16,11 @@ import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError } from "@/lib/toast";
-import { fetchTimetableFilterRows, getAllRecords } from "@/services";
+import {
+  pickText,
+  type FilterRow,
+} from "@/app/(pages)/(protected)/accounts-and-fees/fee-masters/_lib/fee-master-filters";
+import { getAllRecords, getFeeMasterCollegeFilters } from "@/services";
 
 const REPORT_TITLE = "Finance Report";
 
@@ -65,38 +69,58 @@ function formatAmount(input: number | string | undefined | null): string {
 }
 
 export default function FinanceDrilldownReportPage() {
+  const orgId = Number(
+    globalThis?.localStorage?.getItem("organizationId") ?? 0,
+  );
+  const employeeId = Number(
+    globalThis?.localStorage?.getItem("employeeId") ?? 0,
+  );
+
+  // Angular default: Academic Year = All
   const [academicYear, setAcademicYear] = useState("");
   const [summaryList, setSummaryList] = useState<SummaryRow[]>([]);
   const [steps, setSteps] = useState<StepItem[]>([]);
   const [currentPosition, setCurrentPosition] = useState("");
   const [loadingReport, setLoadingReport] = useState(false);
+  const autoLoadedAy = useRef<string | null>(null);
 
   const excelTableRef = useRef<HTMLDivElement>(null);
 
-  // Fetch filter rows for Academic Year options
+  // Angular: Academic Year from `s_get_collegewisedetails_bycode` (`clg_filters_ay`)
   const filtersQuery = useQuery({
-    queryKey: QK.timetableReports.clsFilters(),
-    queryFn: () => fetchTimetableFilterRows("cls_timtable_filters", 0),
+    queryKey: QK.managementReports.collegeFilters(orgId, employeeId),
+    queryFn: () => getFeeMasterCollegeFilters(orgId, employeeId),
+    enabled: orgId > 0 && employeeId > 0,
   });
 
-  const filterRows = useMemo(
-    () => (Array.isArray(filtersQuery.data) ? filtersQuery.data : []),
-    [filtersQuery.data],
+  const academicData = useMemo(
+    () => (filtersQuery.data?.academicData ?? []) as FilterRow[],
+    [filtersQuery.data?.academicData],
   );
 
   const ayOptions = useMemo(() => {
-    if (!filterRows.length) return [];
-    const aySet = new Set<string>();
-    for (const r of filterRows) {
-      const ay = String(r.academic_year ?? r.academicYear ?? "");
-      if (ay) aySet.add(ay);
+    const seen = new Set<string>();
+    const distinct: FilterRow[] = [];
+    for (const row of academicData) {
+      const ay = pickText(row, ["academic_year", "academicYear"]);
+      if (!ay || seen.has(ay)) continue;
+      seen.add(ay);
+      distinct.push(row);
     }
-    const list = Array.from(aySet).sort((a, b) => b.localeCompare(a));
+    // Angular: descending (2025-2026, 2024-2025, …)
+    distinct.sort(
+      (a, b) =>
+        parseInt(pickText(b, ["academic_year", "academicYear"]) || "0", 10) -
+        parseInt(pickText(a, ["academic_year", "academicYear"]) || "0", 10),
+    );
     return [
       { value: "", label: "All" },
-      ...list.map((ay) => ({ value: ay, label: ay })),
+      ...distinct.map((a) => {
+        const label = pickText(a, ["academic_year", "academicYear"]);
+        return { value: label, label: label || "—" };
+      }),
     ];
-  }, [filterRows]);
+  }, [academicData]);
 
   // Angular parity API call: getAllRecords("s_rep_finance", { in_flag, in_college_id, in_academic_year, in_head_id, in_account_id })
   const fetchSummaryData = useCallback(
@@ -149,22 +173,30 @@ export default function FinanceDrilldownReportPage() {
     [],
   );
 
-  // Initial load with default academic year
+  // Angular: open with All, then reload when Academic Year changes
   useEffect(() => {
-    if (ayOptions.length > 1 && !academicYear) {
-      const firstAy = ayOptions[1].value;
-      setAcademicYear(firstAy);
-      void fetchSummaryData(
-        "finance_Summary_ay",
-        0,
-        firstAy,
-        0,
-        0,
-        "College",
-        "college_code",
-      );
-    }
-  }, [ayOptions, academicYear, fetchSummaryData]);
+    if (filtersQuery.isLoading) return;
+    if (orgId <= 0 || employeeId <= 0) return;
+    if (autoLoadedAy.current === academicYear) return;
+    autoLoadedAy.current = academicYear;
+    setSteps([]);
+    setCurrentPosition("");
+    void fetchSummaryData(
+      "finance_Summary_ay",
+      0,
+      academicYear,
+      0,
+      0,
+      "College",
+      "college_code",
+    );
+  }, [
+    academicYear,
+    employeeId,
+    fetchSummaryData,
+    filtersQuery.isLoading,
+    orgId,
+  ]);
 
   // Handle drilldown navigation (click '>')
   const handleStepClick = useCallback(
@@ -261,18 +293,9 @@ export default function FinanceDrilldownReportPage() {
             value={academicYear}
             onChange={(val) => {
               const v = val ?? "";
+              // Reset so useEffect reloads for the selected year (incl. All)
+              autoLoadedAy.current = null;
               setAcademicYear(v);
-              setSteps([]);
-              setCurrentPosition("");
-              void fetchSummaryData(
-                "finance_Summary_ay",
-                0,
-                v,
-                0,
-                0,
-                "College",
-                "college_code",
-              );
             }}
             options={ayOptions}
             placeholder="All"
@@ -281,7 +304,7 @@ export default function FinanceDrilldownReportPage() {
           <div className="flex flex-wrap items-center gap-2 lg:col-span-3 lg:justify-end">
             <Button
               type="button"
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="gap-1.5 hover:bg-emerald-700 text-white"
               onClick={handleExportExcel}
               disabled={summaryList.length === 0}
             >
@@ -290,7 +313,6 @@ export default function FinanceDrilldownReportPage() {
             </Button>
             <Button
               type="button"
-              variant="outline"
               className="gap-1.5"
               disabled={summaryList.length === 0}
               onClick={() => window.print()}

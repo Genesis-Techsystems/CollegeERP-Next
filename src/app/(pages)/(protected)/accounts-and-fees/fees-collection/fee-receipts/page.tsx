@@ -364,6 +364,8 @@ export default function FeeReceiptsPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",
+        exportExcel: false,
+        exportPdf: false,
       }}
     />
   );

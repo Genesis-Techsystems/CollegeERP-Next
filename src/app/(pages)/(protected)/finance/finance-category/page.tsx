@@ -145,6 +145,8 @@ export default function FinanceCategoryPage() {
         search: true,
         searchPlaceholder: "Search",
         pdfDocumentTitle: "Finance Category",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

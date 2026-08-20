@@ -347,7 +347,7 @@ export function FeeDetailsModal({
               loading={isLoading}
               height="auto"
               toolbar={false}
-              pagination={false}
+              pagination={true}
             />
           ) : null}
 

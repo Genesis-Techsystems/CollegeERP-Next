@@ -6226,7 +6226,10 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   // Force-collapse depth-0 modules whose isActive was suppressed by dedup rules
   // above, so a duplicate "Attendance Management" module doesn't stay expanded.
   const suppressedModule =
-    depth === 0 && hasChildren && !isActive && (isChildActive || modulePathActive);
+    depth === 0 &&
+    hasChildren &&
+    !isActive &&
+    (isChildActive || modulePathActive);
   const isOpen = suppressedModule ? false : !isItemCollapsed;
 
   const examMasters = usesExamMastersDesign(item);

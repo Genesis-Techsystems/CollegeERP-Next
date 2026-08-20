@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ValueGetterParams } from "ag-grid-community";
 import { format, parseISO } from "date-fns";
 import { Printer, RefreshCw } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
@@ -92,7 +92,7 @@ function subjectLabel(r: Row): string {
 
 /** Angular: Object.keys then splice(0,1), splice(1,1), splice(2,1). */
 function angularDisplayKeys(firstRow: Row): string[] {
-  const keys = Object.keys(firstRow);
+  const keys = Object.keys(firstRow).filter((k) => k !== "__rid");
   keys.splice(0, 1);
   keys.splice(1, 1);
   keys.splice(2, 1);
@@ -131,6 +131,23 @@ function buildPreModerationCols(firstRow: Row): ColDef<Row>[] {
       }),
     ),
   ];
+}
+
+function getPrintCellValue(
+  col: ColDef<Row>,
+  row: Row,
+  rowIndex: number,
+): unknown {
+  if (typeof col.valueGetter === "function") {
+    return col.valueGetter({
+      data: row,
+      node: { rowIndex },
+    } as ValueGetterParams<Row>);
+  }
+  if (typeof col.field === "string") {
+    return row[col.field];
+  }
+  return "";
 }
 
 export default function FinalMarksPremoderationReportPage() {
@@ -432,7 +449,9 @@ export default function FinalMarksPremoderationReportPage() {
         regulationId: Number(regulationId),
         subjectId: Number(subjectId),
       });
-      setRows(Array.isArray(list) ? list : []);
+      setRows(
+        Array.isArray(list) ? list.map((r, i) => ({ ...r, __rid: i })) : [],
+      );
       if (!list?.length) toast.info("No Records Found.");
     } catch (e) {
       toastError(e, "Failed to load report");
@@ -505,8 +524,7 @@ export default function FinalMarksPremoderationReportPage() {
   }, [rows]);
 
   const getRowId = useCallback(
-    (p: { data?: Row; node?: { rowIndex?: number | null } }) =>
-      `row-${p.node?.rowIndex ?? 0}-${txt(p.data?.hallticket_number ?? p.data?.Hall_Ticket)}-${txt(p.data?.Course_code)}`,
+    (p: { data?: Row }) => String(p.data?.__rid ?? ""),
     [],
   );
 
@@ -562,12 +580,7 @@ export default function FinalMarksPremoderationReportPage() {
       .map((r, i) => {
         const tds = columnDefs
           .map((c) => {
-            // @ts-expect-error ignoring ag-grid specific type requirement
-            const val = c.valueGetter
-              ? c.valueGetter({ data: r, node: { rowIndex: i } })
-              : c.field
-                ? r[c.field]
-                : "";
+            const val = getPrintCellValue(c, r, i);
             return `<td>${escapeHtml(dash(val))}</td>`;
           })
           .join("");
@@ -777,6 +790,7 @@ tr { break-inside: avoid; }
       }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
+      fitColumnsToWidth={true}
       loading={loading}
       pagination
       getRowId={getRowId}
