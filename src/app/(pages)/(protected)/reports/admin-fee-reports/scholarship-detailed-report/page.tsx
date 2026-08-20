@@ -483,21 +483,6 @@ export default function ScholarshipDetailedReportPage() {
     link.click();
   };
 
-  const printReport = () => {
-    if (!excelTableRef.current) return;
-    printHtmlInIframe(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><title>Scholarship Detailed Report</title>
-<style>
-body{font-family:Arial,sans-serif;padding:16px;color:#111}
-table{width:100%;border-collapse:collapse;font-size:11px}
-th,td{border:1px solid #333;padding:3px 5px;text-align:center}
-th{background:#C3D9FF}
-</style></head><body>
-<p style="font-weight:600">Scholarship Detailed Report${academicYear ? ` — ${escapeHtml(academicYear)}` : ""}</p>
-${excelTableRef.current.outerHTML}
-</body></html>`);
-  };
-
   const showCount =
     currentPosition !== "student_name" &&
     currentPosition !== "student_particular";
