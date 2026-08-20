@@ -18,6 +18,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { getCollegeUploadsApprovalSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { formatAffiliatedDateTime } from "../_lib/format-affiliated-datetime";
 import {
   setApprovalUploadContext,
@@ -138,6 +139,7 @@ export function CollegeUploadsApprovalPage() {
       return getCollegeUploadsApprovalSummary(f);
     },
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const errorMessage = error ? getErrorMessage(error) : "";
@@ -201,7 +203,7 @@ export function CollegeUploadsApprovalPage() {
     [],
   );
 
-  const showTable = loadKey != null;
+  const showTable = loadKey != null && rows.length > 0;
 
   return (
     <FilteredListPage
@@ -219,7 +221,6 @@ export function CollegeUploadsApprovalPage() {
           allowAllGroupYear
           allowAllCollegeYearCourse
           onGetDetails={() => {
-            if (!cascade.filtersValid) return;
             setLoadKey(
               JSON.stringify({
                 collegeId: cascade.collegeId ?? 0,
@@ -229,10 +230,7 @@ export function CollegeUploadsApprovalPage() {
             );
           }}
           loadingDetails={isFetching}
-          showBack
-          onBack={() =>
-            router.push("/affiliated-colleges/college-bulk-uploads")
-          }
+          getDetailsAlwaysEnabled
           bare
         />
       }
@@ -240,6 +238,8 @@ export function CollegeUploadsApprovalPage() {
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

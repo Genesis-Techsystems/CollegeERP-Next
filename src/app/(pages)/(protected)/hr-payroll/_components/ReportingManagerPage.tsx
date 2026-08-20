@@ -11,6 +11,7 @@ import { Select, type SelectOption } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import {
   listActiveCollegesForGeneralSettings,
@@ -166,6 +167,7 @@ export function ReportingManagerPage() {
     queryKey: QK.hrPayroll.employeeReporting(employeeId ?? undefined),
     queryFn: () => listEmployeeReportingByEmployee(employeeId!),
     enabled: employeeId != null && employeeId > 0,
+    ...HR_QUERY,
   });
 
   const onEmployeeSearch = useCallback(
@@ -296,8 +298,8 @@ export function ReportingManagerPage() {
       }
       rowData={employeeId ? rows : []}
       columnDefs={employeeId ? columnDefs : undefined}
-      body={employeeId ? undefined : null}
-      bodyClassName="border-t-0"
+      showTable={Boolean(employeeId)}
+      resultsVisible={Boolean(employeeId)}
       loading={isFetching}
       pagination={Boolean(employeeId)}
       toolbar={

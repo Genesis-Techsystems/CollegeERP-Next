@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   ColDef,
@@ -9,7 +9,6 @@ import type {
 } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
@@ -17,6 +16,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedUploadSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { getAffiliatedConfig } from "../_lib/route-config";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import {
   enrichAffiliatedSummaryRows,
   pickAffiliatedText,
@@ -29,8 +29,10 @@ import {
 } from "../_lib/affiliated-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
-
-type AnyRow = Record<string, unknown>;
+import {
+  AFFILIATED_ACTION_COL,
+  AffiliatedUploadCell,
+} from "./AffiliatedUploadCell";
 
 function summaryText(
   p: ValueGetterParams<AffiliatedSummaryRow>,
@@ -86,31 +88,26 @@ const COL_DEFS = {
   } as ColDef<AffiliatedSummaryRow>,
   actions: {
     headerName: "Action",
-    minWidth: 100,
-    flex: 0,
-    width: 100,
+    ...AFFILIATED_ACTION_COL,
   } as ColDef<AffiliatedSummaryRow>,
 };
 
 function makeUploadRenderer(
   uploadPath: string | undefined,
   router: ReturnType<typeof useRouter>,
-  collegeId: number | null,
-  academicYearId: number | null,
-  regulationData: AnyRow[],
-  filtersData: AnyRow[],
-  selectedRegulationId: number | null,
+  getCascade: () => ReturnType<typeof useAffiliatedCascade>,
 ) {
   return (p: ICellRendererParams<AffiliatedSummaryRow>) => {
     if (!uploadPath) return null;
     const row = p.data;
     return (
-      <Button
-        size="sm"
-        variant="default"
+      <AffiliatedUploadCell
         onClick={() => {
+          const cascade = getCascade();
+          const collegeId = cascade.collegeId;
+          const academicYearId = cascade.academicYearId;
           if (!row || !collegeId || !academicYearId) return;
-          const collegeRow = filtersData.find(
+          const collegeRow = cascade.filtersData.find(
             (c) => Number(c.fk_college_id ?? c.collegeId ?? 0) === collegeId,
           );
           const universityId = Number(
@@ -121,10 +118,10 @@ function makeUploadRenderer(
             collegeId,
             academicYearId,
             {
-              regulationData,
-              filtersData,
+              regulationData: cascade.regulationData,
+              filtersData: cascade.filtersData,
               universityId,
-              selectedRegulationId: selectedRegulationId ?? undefined,
+              selectedRegulationId: cascade.regulationId ?? undefined,
             },
           );
           saveAffiliatedSummaryContext(ctx);
@@ -140,9 +137,7 @@ function makeUploadRenderer(
           }
           router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`);
         }}
-      >
-        Upload
-      </Button>
+      />
     );
   };
 }
@@ -162,6 +157,8 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
       ? contextToInitialSelection(summaryContext)
       : undefined,
   });
+  const cascadeRef = useRef(cascade);
+  cascadeRef.current = cascade;
   const [loadKey, setLoadKey] = useState<string | null>(null);
 
   const {
@@ -180,6 +177,7 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
         trackRegulation ? { subjectsSummary: true } : undefined,
       ),
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const errorMessage = error ? getErrorMessage(error) : "";
@@ -217,23 +215,11 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
         cellRenderer: makeUploadRenderer(
           config.uploadPath,
           router,
-          cascade.collegeId,
-          cascade.academicYearId,
-          cascade.regulationData,
-          cascade.filtersData,
-          cascade.regulationId,
+          () => cascadeRef.current,
         ),
       },
     ],
-    [
-      config.uploadPath,
-      router,
-      cascade.collegeId,
-      cascade.academicYearId,
-      cascade.regulationData,
-      cascade.filtersData,
-      cascade.regulationId,
-    ],
+    [config.uploadPath, router],
   );
 
   function handleGetDetails() {
@@ -277,6 +263,8 @@ export function AffiliatedSummaryPage({ slug }: AffiliatedSummaryPageProps) {
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

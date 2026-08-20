@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Eye, MessageSquare, Pencil, PlusIcon, Printer } from "lucide-react";
+import { Eye, Pencil, PlusIcon, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
@@ -68,13 +68,17 @@ const COL_DEFS = {
   status: {
     field: "activityStatusCode",
     headerName: "Status",
-    minWidth: 110,
+    minWidth: 120,
+    cellClass: "text-center",
+    headerClass: "ag-header-cell-center",
   } as ColDef<MeetingRow>,
   actions: {
     headerName: "Actions",
-    minWidth: 200,
-    width: 200,
+    minWidth: 180,
+    width: 180,
     flex: 0,
+    cellClass: "text-center",
+    headerClass: "ag-header-cell-center",
   } as ColDef<MeetingRow>,
 };
 
@@ -118,41 +122,58 @@ function makeActionsRenderer(
     const row = p.data;
     if (!row) return null;
     const scheduled = activityStatus(row) === "SCHEDULED";
+
+    const viewBtn = (
+      <button
+        type="button"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-[#9e9e9e] hover:bg-black/5"
+        aria-label="View meeting details"
+        title="View"
+        onClick={() => onOverview(row)}
+      >
+        <Eye className="h-4 w-4" strokeWidth={2} />
+      </button>
+    );
+
+    if (!scheduled) {
+      return (
+        <div className="flex h-full w-full items-center justify-center">
+          {viewBtn}
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center gap-1">
-        {scheduled ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              aria-label="Edit scheduled meeting"
-              onClick={() => onEdit(row)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="link"
-              className="h-auto px-1 text-primary"
-              onClick={() => onMeeting(row)}
-            >
-              Meeting
-            </Button>
-          </>
-        ) : null}
-        <Button
+      <div className="flex h-full w-full items-center justify-center gap-1.5">
+        <button
           type="button"
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0"
-          aria-label="View meeting details"
-          onClick={() => onOverview(row)}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-sm text-[#0c51a4] hover:bg-[#0c51a4]/10"
+          aria-label="Edit scheduled meeting"
+          title="Edit"
+          onClick={() => onEdit(row)}
         >
-          <Eye className="h-3.5 w-3.5" />
-        </Button>
+          <Pencil className="h-4 w-4" strokeWidth={2} />
+        </button>
+        <span
+          className="select-none text-[13px] leading-none text-black/35"
+          aria-hidden
+        >
+          |
+        </span>
+        <button
+          type="button"
+          className="px-0.5 text-[13px] font-medium text-[#0c51a4] hover:underline"
+          onClick={() => onMeeting(row)}
+        >
+          Meeting
+        </button>
+        <span
+          className="select-none text-[13px] leading-none text-black/35"
+          aria-hidden
+        >
+          |
+        </span>
+        {viewBtn}
       </div>
     );
   };
@@ -161,15 +182,21 @@ function makeActionsRenderer(
 function statusCellRenderer(p: ICellRendererParams<MeetingRow>) {
   const code = activityStatus(p.data);
   if (!code) return "—";
-  const cls =
-    code === "COMPLETED"
-      ? "text-emerald-600 font-medium"
-      : code === "CANCELLED"
-        ? "text-destructive font-medium"
-        : code === "SCHEDULED"
-          ? "text-amber-600 font-medium"
-          : "";
-  return <span className={cls}>{code}</span>;
+  if (code === "SCHEDULED") {
+    return (
+      <span className="inline-flex rounded-[3px] bg-[#ffcf46] px-2 py-0.5 text-[11px] font-semibold uppercase text-black">
+        {code}
+      </span>
+    );
+  }
+  if (code === "CANCELLED") {
+    return (
+      <span className="inline-flex rounded-[3px] bg-[#ff7043] px-2 py-0.5 text-[11px] font-semibold uppercase text-black">
+        {code}
+      </span>
+    );
+  }
+  return <span className="text-[13px] font-medium text-black">{code}</span>;
 }
 
 function attendeesRenderer(p: ICellRendererParams<MeetingRow>) {
@@ -638,7 +665,8 @@ export function SchedulePtmPage() {
             <Button
               type="button"
               size="sm"
-              className="h-[30px] px-3 text-[12px]"
+              variant="add"
+              className="h-[30px] px-4 text-[12px]"
               onClick={openSchedule}
             >
               <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
@@ -647,11 +675,11 @@ export function SchedulePtmPage() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-[30px] px-3 text-[12px]"
+              variant="add"
+              className="h-[30px] px-4 text-[12px]"
               onClick={() => setSmsOpen(true)}
             >
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
               Send SMS
             </Button>
             <Button

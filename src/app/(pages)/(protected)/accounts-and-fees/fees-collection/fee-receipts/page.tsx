@@ -6,6 +6,7 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { Select } from "@/common/components/select";
+import { StudentSearchSelect } from "@/common/components/student-search";
 import { FilteredListPage } from "@/components/layout";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
@@ -20,6 +21,7 @@ import type {
   FeeReceiptRow,
   StudentFeeSearchRow,
 } from "@/types/fees-collection";
+import { FEE_COLLECTION_LIST_QUERY } from "../_lib/fee-collection-query";
 import {
   FEE_RECEIPTS_LIST_PATH,
   FEE_RECEIPTS_PRINT_PATH,
@@ -36,12 +38,6 @@ function pick(
     if (v != null && String(v).trim() !== "") return String(v);
   }
   return "";
-}
-
-function studentOptionLabel(s: StudentFeeSearchRow): string {
-  const name = s.firstName ?? "Student";
-  const id = s.hallticketNumber ?? s.rollNumber ?? s.studentId;
-  return id ? `${name} (${id})` : name;
 }
 
 function formatReceiptDate(value?: string): string {
@@ -91,6 +87,7 @@ export default function FeeReceiptsPage() {
   const { data: colleges = [], isLoading: loadingColleges } = useQuery({
     queryKey: ["FeesCollection", "feeReceipts", "colleges"],
     queryFn: listActiveCollegesForGeneralSettings,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const { data: academicYears = [], isLoading: loadingYears } = useQuery({
@@ -100,6 +97,7 @@ export default function FeeReceiptsPage() {
     }),
     queryFn: () => listAcademicYearsForCollege(collegeNum),
     enabled: collegeNum > 0,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const {
@@ -119,6 +117,7 @@ export default function FeeReceiptsPage() {
         studentId: studentNum,
       }),
     enabled: collegeNum > 0 && yearNum > 0 && studentNum > 0,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   useEffect(() => {
@@ -155,24 +154,6 @@ export default function FeeReceiptsPage() {
     [academicYears],
   );
 
-  const studentOptions = useMemo(() => {
-    const base = studentRows.map((s) => ({
-      value: String(s.studentId),
-      label: studentOptionLabel(s),
-    }));
-    if (
-      studentId &&
-      selectedStudent &&
-      !base.some((o) => o.value === studentId)
-    ) {
-      return [
-        { value: studentId, label: studentOptionLabel(selectedStudent) },
-        ...base,
-      ];
-    }
-    return base;
-  }, [studentRows, studentId, selectedStudent]);
-
   const onStudentSearch = useCallback(
     async (term: string) => {
       const q = term.trim();
@@ -207,20 +188,6 @@ export default function FeeReceiptsPage() {
     setStudentId(null);
     setSelectedStudent(null);
     setStudentRows([]);
-  }
-
-  function handleStudentChange(v: string | null) {
-    setStudentId(v);
-    if (!v) {
-      setSelectedStudent(null);
-      return;
-    }
-    const row =
-      studentRows.find((s) => String(s.studentId) === v) ??
-      (selectedStudent && String(selectedStudent.studentId) === v
-        ? selectedStudent
-        : null);
-    setSelectedStudent(row);
   }
 
   const onPrint = useCallback(
@@ -319,7 +286,7 @@ export default function FeeReceiptsPage() {
     <FilteredListPage
       title="Fee Receipts"
       filters={
-        <div className="grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid max-w-5xl grid-cols-1 items-end gap-4 md:grid-cols-3">
           <Select
             label="College"
             required
@@ -341,17 +308,20 @@ export default function FeeReceiptsPage() {
             disabled={!collegeId}
             isLoading={loadingYears}
           />
-          <Select
+          <StudentSearchSelect
             label="Student"
-            required
-            value={studentId}
-            onChange={handleStudentChange}
-            options={studentOptions}
             placeholder="Search by student name or rollno."
-            searchable
-            onSearch={onStudentSearch}
+            value={studentNum > 0 ? studentNum : null}
+            students={studentRows}
+            selectedStudent={selectedStudent}
             isLoading={studentSearchLoading}
+            onSearch={(t) => void onStudentSearch(t)}
+            onChange={(id, row) => {
+              setStudentId(id ? String(id) : null);
+              setSelectedStudent((row as StudentFeeSearchRow | null) ?? null);
+            }}
             disabled={!collegeId || !academicYearId}
+            fullWidth
           />
         </div>
       }
@@ -364,6 +334,8 @@ export default function FeeReceiptsPage() {
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",
+        exportExcel: false,
+        exportPdf: false,
       }}
     />
   );

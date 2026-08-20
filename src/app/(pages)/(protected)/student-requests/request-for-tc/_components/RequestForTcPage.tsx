@@ -10,7 +10,8 @@ import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Info } from "lucide-react";
-import { FilteredListPage } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
+import { DataTable } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/hooks/useSession";
 import { QK } from "@/lib/query-keys";
@@ -343,17 +344,37 @@ export function RequestForTcPage() {
     loadingIssues;
 
   return (
-    <FilteredListPage
-      title="Request For Transfer Certificate"
-      notice={
-        !loading && !student ? (
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            Student profile not found for this session.
+    <PageContainer className="space-y-4">
+      <div
+        className="app-card angular-filter-card overflow-hidden"
+        data-page-first-card=""
+      >
+        <div className="angular-filter-card__header">
+          <div className="angular-filter-card__title-row">
+            <span className="app-card-title">
+              <span
+                className="material-icons app-card-title__icon"
+                aria-hidden
+              >
+                computer
+              </span>
+              <span className="app-card-title__text">
+                Request For Transfer Certificate
+              </span>
+            </span>
           </div>
-        ) : null
-      }
-      filters={
-        <div className="space-y-3">
+        </div>
+
+        <div className="angular-filter-card__body space-y-4">
+          {loading && !student ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : null}
+          {!loading && !student ? (
+            <p className="text-sm text-muted-foreground">
+              Student profile not found for this session.
+            </p>
+          ) : null}
+
           {student ? (
             <>
               <StudentProfileHeader student={student} />
@@ -402,30 +423,32 @@ export function RequestForTcPage() {
               {showApply ? (
                 <div className="flex justify-end">
                   <Button type="button" onClick={() => setConfirmOpen(true)}>
-                    Apply Certificate
+                    Apply
                   </Button>
                 </div>
               ) : null}
             </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {loading ? "Loading…" : "No student profile loaded."}
-            </p>
-          )}
+          ) : null}
         </div>
-      }
-      filtersCollapsible
-      filtersDefaultOpen
-      rowData={feeCertificateIssues}
-      columnDefs={columnDefs}
-      loading={loading}
-      pagination
-      height="auto"
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search",
-      }}
-    >
+      </div>
+
+      {feeCertificateIssues.length > 0 ? (
+        <DataTable
+          title="Transfer Certificate History"
+          subtitle=""
+          bordered
+          rowData={feeCertificateIssues}
+          columnDefs={columnDefs}
+          loading={loadingIssues}
+          height="auto"
+          pagination={false}
+          toolbar={{
+            search: true,
+            searchPlaceholder: "Search history",
+          }}
+        />
+      ) : null}
+
       <ConfirmTcDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -434,6 +457,6 @@ export function RequestForTcPage() {
         onConfirm={() => void handleApply()}
         loading={applying}
       />
-    </FilteredListPage>
+    </PageContainer>
   );
 }

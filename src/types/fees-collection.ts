@@ -264,6 +264,7 @@ export type FeeReceiptRow = {
 };
 
 export type FeeStudentWiseDiscountPayload = {
+  feeStdDataParticularsId?: number;
   feeCategoryId: number;
   feeParticularsId?: number;
   value: number;

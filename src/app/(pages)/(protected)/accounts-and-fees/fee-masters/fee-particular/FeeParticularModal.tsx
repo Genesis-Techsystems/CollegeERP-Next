@@ -22,6 +22,7 @@ import {
   listActiveCollegesForGeneralSettings,
   updateFeeParticular,
 } from "@/services";
+import { toastSuccess } from "@/lib/toast";
 import type { College } from "@/types/college";
 import type { FeeParticular } from "@/types/fee-particular";
 
@@ -120,11 +121,10 @@ export function FeeParticularModal({
         description: data.description || null,
         reason: data.isActive ? "active" : data.reason || "",
       };
-      if (isEditing) {
-        await updateFeeParticular(row!.feeParticularsId, payload);
-      } else {
-        await createFeeParticular(payload);
-      }
+      const message = isEditing
+        ? await updateFeeParticular(row!.feeParticularsId, payload)
+        : await createFeeParticular(payload);
+      toastSuccess(message);
       onSaved();
       onClose();
     } catch (error: unknown) {

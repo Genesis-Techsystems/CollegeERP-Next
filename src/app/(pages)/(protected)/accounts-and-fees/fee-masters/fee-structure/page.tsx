@@ -8,12 +8,11 @@ import { StatusBadge } from "@/common/components/data-display";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
+  SearchModeRadioStrip,
 } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSession } from "@/hooks/useSession";
 import { toastError, toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -469,29 +468,22 @@ export default function FeeStructurePage() {
   return (
     <FilteredListPage
       title="Fee Structure"
+      notice={
+        isAdmin ? (
+          <SearchModeRadioStrip
+            name="fee-structure-mode"
+            ariaLabel="Fee structure mode"
+            value={mode}
+            onChange={(value) => onModeChange(value)}
+            options={[
+              { value: "batch", label: "Batch Wise Fee Structure" },
+              { value: "academic", label: "Academic Wise Fee Structure" },
+            ]}
+          />
+        ) : null
+      }
       filters={
         <div className="space-y-4">
-          {isAdmin ? (
-            <RadioGroup
-              value={mode}
-              onValueChange={(value) => onModeChange(value as StructureMode)}
-              className="flex flex-wrap gap-6"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="batch" id="fee-structure-batch" />
-                <Label htmlFor="fee-structure-batch" className="font-normal">
-                  Batch-Wise Fee Structure
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="academic" id="fee-structure-academic" />
-                <Label htmlFor="fee-structure-academic" className="font-normal">
-                  Academic-Wise Fee Structure
-                </Label>
-              </div>
-            </RadioGroup>
-          ) : null}
-
           <GlobalFilterBarRow>
             <GlobalFilterField label="College">
               <Select

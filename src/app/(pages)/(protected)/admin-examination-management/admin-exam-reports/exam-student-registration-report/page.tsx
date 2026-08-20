@@ -960,6 +960,7 @@ export default function ExamStudentRegistrationReportPage() {
       }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
+      fitColumnsToWidth={false}
       loading={loading}
       pagination
       paginationPageSize={10}

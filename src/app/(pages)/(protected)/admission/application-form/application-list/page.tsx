@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DownloadIcon, PencilIcon, PlusIcon, PrinterIcon } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
 import { FilteredListPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
@@ -268,40 +272,57 @@ export default function ApplicationListPage() {
     <FilteredListPage
       title="Application List"
       filters={
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Select
+        <GlobalFilterBarRow>
+          <GlobalFilterField
             label="College"
-            value={collegeId}
-            onChange={(v) => {
-              setCollegeId(v);
-              setAcademicYearId(null);
-              setCourseId(null);
-            }}
-            options={collegeOptions}
-            isLoading={filtersLoading}
-            searchable
-            placeholder="Select college"
-          />
-          <Select
+            className="global-filter-field--shrink"
+            style={{ width: "8rem" }}
+          >
+            <Select
+              value={collegeId}
+              onChange={(v) => {
+                setCollegeId(v);
+                setAcademicYearId(null);
+                setCourseId(null);
+              }}
+              options={collegeOptions}
+              isLoading={filtersLoading}
+              searchable
+              placeholder="Select college"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField
             label="Academic Year"
-            value={academicYearId}
-            onChange={setAcademicYearId}
-            options={academicYearOptions}
-            disabled={!collegeId}
-            searchable
-            placeholder="Select academic year"
-          />
-          <Select
+            className="global-filter-field--shrink"
+            style={{ width: "8.5rem" }}
+          >
+            <Select
+              value={academicYearId}
+              onChange={setAcademicYearId}
+              options={academicYearOptions}
+              disabled={!collegeId}
+              searchable
+              placeholder="Select academic year"
+            />
+          </GlobalFilterField>
+          <GlobalFilterField
             label="Course"
-            value={courseId}
-            onChange={setCourseId}
-            options={courseOptions}
-            disabled={!collegeId}
-            searchable
-            placeholder="Select course"
-          />
-        </div>
+            className="global-filter-field--shrink"
+            style={{ width: "8rem" }}
+          >
+            <Select
+              value={courseId}
+              onChange={setCourseId}
+              options={courseOptions}
+              disabled={!collegeId}
+              searchable
+              placeholder="Select course"
+            />
+          </GlobalFilterField>
+        </GlobalFilterBarRow>
       }
+      showTable={listReady}
+      resultsVisible={listReady}
       rowData={listReady ? rows : []}
       columnDefs={columnDefs}
       loading={isLoading || filtersLoading}

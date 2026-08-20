@@ -302,7 +302,7 @@ export default function CounselorActivityReportPage() {
               disabled={loadingList}
               onClick={() => void handleGetList()}
             >
-              {loadingList ? "Loading…" : "Get"}
+              {loadingList ? "Loading…" : "Get Counselor Activities"}
             </Button>
             <Button
               type="button"

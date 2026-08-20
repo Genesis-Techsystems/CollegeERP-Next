@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { GM_CODES } from "@/config/constants/ui";
 import { rowIndexGetter } from "@/lib/utils";
 import {
+  getCollegeById,
   getExamResultProcessingReport,
   getGeneralDetails,
   getUnivExamFiltersRegSup,
@@ -25,7 +26,13 @@ import {
   type AnyRow,
 } from "@/services";
 import { printHtmlInIframe } from "@/lib/print";
-import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
+
+const REPORT_TITLE = "Moderation Report";
 
 type Row = AnyRow;
 
@@ -97,6 +104,159 @@ function exportHtmlTable(filename: string, bodyHtml: string) {
   link.click();
 }
 
+function schemeValue(r: Row): string {
+  return dash(r.academic_year ?? r.regulation_code ?? r.scheme);
+}
+
+function above55MarksBefore(r: Row): string {
+  return dash(
+    r.Count_of_above_55_percent ?? r.Above_55_marks ?? r.above_55_marks_before,
+  );
+}
+
+function above55PercentBefore(r: Row): string {
+  return dash(
+    r.Percent_of_above_55_percent ??
+      r.Above_55_percent ??
+      r.above_55_percent_before,
+  );
+}
+
+function above55MarksAfter(r: Row): string {
+  return dash(
+    r.Count_of_above_55_percent_after_moderation ??
+      r.Above_55_marks_after ??
+      r.above_55_marks_after,
+  );
+}
+
+function above55PercentAfter(r: Row): string {
+  return dash(
+    r.Percent_of_above_55_percent_after_moderation ??
+      r.Above_55_percent_after ??
+      r.above_55_percent_after,
+  );
+}
+
+function printModerationReport(args: {
+  collegeName: string;
+  collegeLogo: string;
+  fallbackLogo: string;
+  examName: string;
+  courseGroupCode: string;
+  courseYearCode: string;
+  rows: Row[];
+}): void {
+  const bodyRows = args.rows
+    .map(
+      (r, i) =>
+        `<tr>
+        <td class="table-td" style="text-align:center">${i + 1}</td>
+        <td class="table-td" style="text-align:left">${escapeHtml(dash(r.subject_name ?? r.subject))}</td>
+        <td class="table-td" style="text-align:left">${escapeHtml(schemeValue(r))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.ext_maxmarks ?? r.subject_maximum))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.Appeared ?? r.appeared))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.passed ?? r.before_passed))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.Passed_percent ?? r.before_pass_percent))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(above55MarksBefore(r))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(above55PercentBefore(r))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.Passed_after_moderation ?? r.after_passed))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.Passed_after_moderation_percent ?? r.after_pass_percent))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(above55MarksAfter(r))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(above55PercentAfter(r))}</td>
+        <td class="table-td" style="text-align:center">${escapeHtml(dash(r.Moderation_marks_awarded ?? r.moderation_marks))}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const courseMeta = args.courseGroupCode
+    ? `<p style="text-align:left;width:50%;margin:0;">Course : ${escapeHtml(args.courseGroupCode)}</p>`
+    : "";
+  const semesterMeta = args.courseYearCode
+    ? `<p style="text-align:right;width:50%;margin:0;">Semester : ${escapeHtml(args.courseYearCode)}</p>`
+    : "";
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(REPORT_TITLE)}</title><style>
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000; margin: 0; padding: 8px 12px;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 4px; }
+.logo-col { width: 12%; flex: 0 0 12%; padding-right: 8px; }
+.logo-col img { max-width: 100%; width: 90px; height: auto; display: block; object-fit: contain; }
+.title-col { width: 88%; flex: 1 1 88%; text-align: center; }
+.collegeName { text-align: center; font-size: 22px; font-weight: 550; margin: 16px 0 0; color: #000; }
+.title { text-align: center; font-size: 20px; font-weight: 550; margin: 2px 0 4px; color: #000; }
+.details { text-align: center; font-size: 16px; margin: 0 0 4px; color: #000; }
+.meta { display: flex; justify-content: space-between; width: 100%; margin: 4px 0 8px; font-size: 14px; color: #000; }
+table.mar { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+th.table-th, td.table-td { border: 1px solid #333; padding: 6px 5px; vertical-align: top; word-break: break-word; }
+th.table-th { background: #c3d9ff; font-weight: 550; text-align: center; }
+tr { break-inside: avoid; page-break-inside: avoid; }
+thead { display: table-header-group; }
+.instructtable { width: 100%; margin-top: 8px; font-size: 12px; }
+.instructtable strong { color: #0014ff; }
+.instructtable ol { margin: 4px 0 0; padding-left: 20px; }
+</style></head><body>
+  <div class="header-row">
+    <div class="logo-col">
+      <img src="${escapeHtml(args.collegeLogo)}" alt="College Logo"
+        onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
+    </div>
+    <div class="title-col">
+      ${args.collegeName ? `<p class="collegeName">${escapeHtml(args.collegeName)}</p>` : ""}
+      <p class="title">${escapeHtml(REPORT_TITLE)}</p>
+      ${args.examName ? `<p class="details">${escapeHtml(args.examName)}</p>` : ""}
+    </div>
+  </div>
+  ${courseMeta || semesterMeta ? `<div class="meta">${courseMeta}${semesterMeta}</div>` : ""}
+  <table class="mar">
+    <thead>
+      <tr>
+        <th class="table-th" colspan="5"></th>
+        <th class="table-th" colspan="4">Before Moderation</th>
+        <th class="table-th" colspan="4">After Moderation</th>
+        <th class="table-th"></th>
+      </tr>
+      <tr>
+        <th class="table-th">S.No</th>
+        <th class="table-th">Subject Name</th>
+        <th class="table-th">Scheme</th>
+        <th class="table-th">Subject Maximum</th>
+        <th class="table-th">Appeared</th>
+        <th class="table-th">Passed</th>
+        <th class="table-th">Pass %Age</th>
+        <th class="table-th">&gt;=55% Marks</th>
+        <th class="table-th">&gt;=55 %Age</th>
+        <th class="table-th">Passed</th>
+        <th class="table-th">Pass %Age</th>
+        <th class="table-th">&gt;=55% Marks</th>
+        <th class="table-th">&gt;=55%Age</th>
+        <th class="table-th">Moderation Marks</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+  <table class="instructtable">
+    <tr>
+      <td colspan="100%">
+        <strong>Moderation Marks :</strong>
+        <ol>
+          <li>If the pass in a subject is &lt; 30% then 4 is added.</li>
+          <li>If the percentage of students getting 55% of marks in a subject is &lt; 70%, then 4 is added.</li>
+          <li>If the both the above conditions are met then 2 moderations are added in a subject.</li>
+        </ol>
+      </td>
+    </tr>
+  </table>
+</body></html>`;
+
+  printHtmlInIframe(html);
+}
+
 const moderationCols: (ColDef<Row> | ColGroupDef<Row>)[] = [
   {
     headerName: "S.No",
@@ -115,7 +275,7 @@ const moderationCols: (ColDef<Row> | ColGroupDef<Row>)[] = [
     headerName: "Scheme",
     minWidth: 90,
     flex: 0,
-    valueGetter: (p) => dash(p.data?.regulation_code ?? p.data?.scheme),
+    valueGetter: (p) => schemeValue(p.data ?? {}),
   },
   {
     headerName: "Subject Maximum",
@@ -149,15 +309,13 @@ const moderationCols: (ColDef<Row> | ColGroupDef<Row>)[] = [
         headerName: ">=55% Marks",
         minWidth: 110,
         flex: 0,
-        valueGetter: (p) =>
-          dash(p.data?.Above_55_marks ?? p.data?.above_55_marks_before),
+        valueGetter: (p) => above55MarksBefore(p.data ?? {}),
       },
       {
         headerName: ">=55 %Age",
         minWidth: 110,
         flex: 0,
-        valueGetter: (p) =>
-          dash(p.data?.Above_55_percent ?? p.data?.above_55_percent_before),
+        valueGetter: (p) => above55PercentBefore(p.data ?? {}),
       },
     ],
   },
@@ -185,17 +343,13 @@ const moderationCols: (ColDef<Row> | ColGroupDef<Row>)[] = [
         headerName: ">=55% Marks",
         minWidth: 110,
         flex: 0,
-        valueGetter: (p) =>
-          dash(p.data?.Above_55_marks_after ?? p.data?.above_55_marks_after),
+        valueGetter: (p) => above55MarksAfter(p.data ?? {}),
       },
       {
         headerName: ">=55 %Age",
         minWidth: 110,
         flex: 0,
-        valueGetter: (p) =>
-          dash(
-            p.data?.Above_55_percent_after ?? p.data?.above_55_percent_after,
-          ),
+        valueGetter: (p) => above55PercentAfter(p.data ?? {}),
       },
     ],
   },
@@ -539,71 +693,86 @@ function ModerationReportsPage() {
 
   function handleExportExcel() {
     if (!rows.length) return;
-    const head =
-      "<tr><th>S.No</th><th>Subject Name</th><th>Scheme</th><th>Subject Maximum</th><th>Appeared</th><th>Passed (Before)</th><th>Pass % (Before)</th><th>Passed (After)</th><th>Pass % (After)</th><th>Moderation Marks</th></tr>";
+    const head = `<tr>
+      <th colspan="5"></th>
+      <th colspan="4">Before Moderation</th>
+      <th colspan="4">After Moderation</th>
+      <th></th>
+    </tr>
+    <tr>
+      <th>S.No</th><th>Subject Name</th><th>Scheme</th><th>Subject Maximum</th><th>Appeared</th>
+      <th>Passed</th><th>Pass %Age</th><th>&gt;=55% Marks</th><th>&gt;=55 %Age</th>
+      <th>Passed</th><th>Pass %Age</th><th>&gt;=55% Marks</th><th>&gt;=55%Age</th>
+      <th>Moderation Marks</th>
+    </tr>`;
     const body = rows
       .map(
         (r, i) =>
-          `<tr><td>${i + 1}</td><td>${txt(r.subject_name)}</td><td>${txt(r.regulation_code)}</td><td>${txt(r.ext_maxmarks)}</td><td>${txt(r.Appeared)}</td><td>${txt(r.passed)}</td><td>${txt(r.Passed_percent)}</td><td>${txt(r.Passed_after_moderation)}</td><td>${txt(r.Passed_after_moderation_percent)}</td><td>${txt(r.Moderation_marks_awarded)}</td></tr>`,
+          `<tr>
+            <td>${i + 1}</td>
+            <td>${escapeHtml(txt(r.subject_name))}</td>
+            <td>${escapeHtml(schemeValue(r))}</td>
+            <td>${escapeHtml(txt(r.ext_maxmarks))}</td>
+            <td>${escapeHtml(txt(r.Appeared))}</td>
+            <td>${escapeHtml(txt(r.passed))}</td>
+            <td>${escapeHtml(txt(r.Passed_percent))}</td>
+            <td>${escapeHtml(above55MarksBefore(r))}</td>
+            <td>${escapeHtml(above55PercentBefore(r))}</td>
+            <td>${escapeHtml(txt(r.Passed_after_moderation))}</td>
+            <td>${escapeHtml(txt(r.Passed_after_moderation_percent))}</td>
+            <td>${escapeHtml(above55MarksAfter(r))}</td>
+            <td>${escapeHtml(above55PercentAfter(r))}</td>
+            <td>${escapeHtml(txt(r.Moderation_marks_awarded))}</td>
+          </tr>`,
       )
       .join("");
     exportHtmlTable("Moderation Report.xls", `${head}${body}`);
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     if (!rows.length) {
       toast.info("No Records Found.");
       return;
     }
 
-    const th =
-      "<tr><th rowspan='2'>S.No</th><th rowspan='2'>Subject Name</th><th rowspan='2'>Scheme</th><th rowspan='2'>Subject Maximum</th><th rowspan='2'>Appeared</th><th colspan='4'>Before Moderation</th><th colspan='4'>After Moderation</th><th rowspan='2'>Moderation Marks</th></tr><tr><th>Passed</th><th>Pass %Age</th><th>&gt;=55% Marks</th><th>&gt;=55 %Age</th><th>Passed</th><th>Pass %Age</th><th>&gt;=55% Marks</th><th>&gt;=55 %Age</th></tr>";
-    const bodyRows = rows
-      .map(
-        (r, i) =>
-          `<tr><td style="text-align:center">${i + 1}</td><td>${escapeHtml(dash(r.subject_name ?? r.subject))}</td><td>${escapeHtml(dash(r.regulation_code ?? r.scheme))}</td><td style="text-align:center">${escapeHtml(dash(r.ext_maxmarks ?? r.subject_maximum))}</td><td style="text-align:center">${escapeHtml(dash(r.Appeared ?? r.appeared))}</td><td style="text-align:center">${escapeHtml(dash(r.passed ?? r.before_passed))}</td><td style="text-align:center">${escapeHtml(dash(r.Passed_percent ?? r.before_pass_percent))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_marks ?? r.above_55_marks_before))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_percent ?? r.above_55_percent_before))}</td><td style="text-align:center">${escapeHtml(dash(r.Passed_after_moderation ?? r.after_passed))}</td><td style="text-align:center">${escapeHtml(dash(r.Passed_after_moderation_percent ?? r.after_pass_percent))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_marks_after ?? r.above_55_marks_after))}</td><td style="text-align:center">${escapeHtml(dash(r.Above_55_percent_after ?? r.above_55_percent_after))}</td><td style="text-align:center">${escapeHtml(dash(r.Moderation_marks_awarded ?? r.moderation_marks))}</td></tr>`,
-      )
-      .join("");
+    const college =
+      colleges.find((r) => num(r.fk_college_id) === Number(collegeId)) ?? null;
+    const collegeRecord = await getCollegeById(Number(collegeId)).catch(
+      () => null,
+    );
+    const exam = exams.find((r) => num(r.fk_exam_id) === Number(examId));
+    const group = courseGroups.find(
+      (r) => num(r.fk_course_group_id) === Number(courseGroupId),
+    );
+    const year = courseYears.find(
+      (r) => num(r.fk_course_year_id) === Number(courseYearId),
+    );
+    const logoSrc = await resolveReportPrintLogo(
+      null,
+      Number(collegeId || 0),
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
 
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Moderation Analysis</title><style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif; color: #111; margin: 0; }
-.header-row { display: flex; align-items: flex-start; width: 100%; margin-bottom: 15px; }
-.logo-col { width: 80px; flex: 0 0 80px; }
-.logo-col img { max-width: 100%; height: auto; display: block; }
-.title-col { flex: 1 1 auto; text-align: center; padding-right: 80px; }
-.collegeName { font-size: 18px; font-weight: bold; margin: 0 0 4px; color: #000; }
-.reportTitle { font-size: 14px; font-weight: bold; margin: 0 0 6px; color: #000; }
-.reportDetails { font-size: 12px; font-weight: 500; margin: 0; color: #000; }
-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-th, td { border: 1px solid #94a3b8; padding: 4px 6px; text-align: left; vertical-align: top; word-break: break-word; }
-th { background: #c3d9ff; font-weight: 600; text-align: center; }
-tr { break-inside: avoid; }
-.footer { font-size: 12px; }
-.footer h4 { margin: 0 0 4px; font-size: 13px; color: #000; }
-.footer ol { margin: 0; padding-left: 20px; }
-</style></head><body>
-  <div class="header-row">
-    <div class="logo-col">
-      <img src="${collegeLogo || "/assets/images/logo.jpg"}" alt="College ERP" />
-    </div>
-    <div class="title-col">
-      <div class="collegeName">Gondwana Institute of Technology</div>
-      <div class="reportTitle">Moderation Analysis</div>
-      <div class="reportDetails">${escapeHtml(filterSummary)}</div>
-    </div>
-  </div>
-  <table><thead>${th}</thead><tbody>${bodyRows}</tbody></table>
-  <div class="footer">
-    <h4>Moderation Marks :</h4>
-    <ol>
-      <li>If the pass in a subject is &lt; 30% then 4 is added.</li>
-      <li>If the percentage of students getting 55% of marks in a subject is &lt; 70%, then 4 is added.</li>
-      <li>If the both the above conditions are met then 2 moderations are added in a subject.</li>
-    </ol>
-  </div>
-</body></html>`;
-    printHtmlInIframe(html);
+    printModerationReport({
+      collegeName: txt(
+        collegeRecord?.collegeName ??
+          college?.college_name ??
+          college?.collegeName ??
+          college?.college_code,
+      ),
+      collegeLogo: logoSrc,
+      fallbackLogo: toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+      examName: txt(exam?.exam_name ?? exam?.examName),
+      courseGroupCode:
+        Number(courseGroupId) > 0
+          ? txt(group?.group_code ?? group?.groupCode)
+          : "",
+      courseYearCode:
+        Number(courseYearId) > 0
+          ? txt(year?.course_year_code ?? year?.courseYearCode)
+          : "",
+      rows,
+    });
   }
 
   const getRowId = useCallback(
@@ -798,6 +967,7 @@ tr { break-inside: avoid; }
       }
       rowData={hasFetched ? rows : []}
       columnDefs={moderationCols}
+      fitColumnsToWidth={false}
       loading={loading}
       pagination
       paginationPageSize={25}
@@ -824,7 +994,7 @@ tr { break-inside: avoid; }
               type="button"
               size="sm"
               className="h-9 rounded-[5px] px-3 text-[12px]"
-              onClick={handlePrint}
+              onClick={() => void handlePrint()}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print Report

@@ -1,21 +1,15 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
-const currentYear = new Date().getFullYear();
-const DEFAULT_START_MONTH = new Date(currentYear - 100, 0, 1);
-const DEFAULT_END_MONTH = new Date(currentYear + 100, 11, 31);
+const UI_DATE_FORMAT = "dd/MM/yyyy";
+/** Native Chrome year list uses min/max. Max must be in the future or years stop at 2026. */
+const NATIVE_MIN = "1900-01-01";
+const NATIVE_MAX = "2099-12-31";
 
 export interface DatePickerProps {
   value: Date | null;
@@ -28,7 +22,7 @@ export interface DatePickerProps {
   minDate?: Date;
   maxDate?: Date;
   clearable?: boolean;
-  /** date-fns format string for the trigger label. Defaults to long text (`PPP`). */
+  /** Kept for caller compatibility. UI always shows dd/MM/yyyy. */
   displayFormat?: string;
   /**
    * `outlined` — bordered box.
@@ -38,128 +32,95 @@ export interface DatePickerProps {
   className?: string;
 }
 
+function toDateInputValue(date: Date | null | undefined): string {
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return format(date, "yyyy-MM-dd");
+}
+
+function fromDateInputValue(raw: string): Date | null {
+  if (!raw) return null;
+  const [year, month, day] = raw.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const next = new Date(year, month - 1, day);
+  return Number.isNaN(next.getTime()) ? null : next;
+}
+
 export function DatePicker({
   value,
   onChange,
-  placeholder = "Pick a date",
+  placeholder = "dd/mm/yyyy",
   label,
   required = false,
   error,
   disabled = false,
   minDate,
-  maxDate,
   clearable = true,
-  displayFormat = "PPP",
   variant: variantProp,
   className,
 }: Readonly<DatePickerProps>) {
   const id = useId();
-  const [open, setOpen] = useState(false);
   const variant = useFormFieldVariant(variantProp);
   const isStandard = variant === "standard";
+  const displayValue = value ? format(value, UI_DATE_FORMAT) : "";
+  const nativeMin = toDateInputValue(minDate) || NATIVE_MIN;
 
-  function handleSelect(date: Date | undefined) {
-    onChange(date ?? null);
-    setOpen(false);
-  }
-
-  function handleClear(e: React.MouseEvent) {
-    e.stopPropagation();
-    onChange(null);
-    setOpen(false);
-  }
-
-  function isDisabled(date: Date): boolean {
-    if (minDate && date < minDate) return true;
-    if (maxDate && date > maxDate) return true;
-    return false;
+  function handleChange(raw: string) {
+    const next = fromDateInputValue(raw);
+    if (!next) {
+      if (clearable) onChange(null);
+      return;
+    }
+    if (minDate) {
+      const min = new Date(minDate);
+      min.setHours(0, 0, 0, 0);
+      if (next < min) return;
+    }
+    onChange(next);
   }
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
+    <div className={cn("flex flex-col gap-1", className)}>
       {label && (
-        <label htmlFor={id} className="text-[12px] font-medium text-black/54">
+        <label
+          htmlFor={id}
+          className="text-[12px] font-medium leading-none text-black/54"
+        >
           {label}
-          {required && <span className="text-destructive ml-0.5">*</span>}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
         </label>
       )}
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            id={id}
-            variant="outline"
-            disabled={disabled}
-            aria-required={required || undefined}
-            className={cn(
-              "h-9 w-full justify-start text-left text-[length:var(--app-control-font-size)] font-medium shadow-none",
-              !value && "text-[rgba(0,0,0,0.54)]",
-              isStandard
-                ? cn(
-                    "rounded-none border-0 border-b border-black/12 bg-transparent px-0 hover:bg-transparent",
-                    open && "border-b-2 border-[#0c51a4]",
-                    error
-                      ? "border-b-2 border-destructive"
-                      : "focus-visible:border-b-2 focus-visible:border-[#0c51a4] focus-visible:ring-0",
-                  )
-                : cn(
-                    "rounded-md",
-                    error &&
-                      "border-destructive focus-visible:ring-destructive",
-                  ),
-            )}
-          >
-            <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 truncate">
-              {value ? format(value, displayFormat) : placeholder}
-            </span>
-            {clearable && value && (
-              <X
-                className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60 hover:opacity-100"
-                onClick={handleClear}
-              />
-            )}
-          </Button>
-        </PopoverTrigger>
-
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={value ?? undefined}
-            onSelect={handleSelect}
-            disabled={isDisabled}
-            startMonth={minDate ?? DEFAULT_START_MONTH}
-            endMonth={maxDate ?? DEFAULT_END_MONTH}
-            // Angular Material-style: month + year dropdowns in the caption
-            captionLayout="dropdown"
-            className="p-2"
-            classNames={{
-              month_caption:
-                "rdp-month_caption flex justify-center pt-1 relative items-center gap-1 text-xs font-medium",
-              // Visible native month/year selects (RDP default hides selects via opacity:0)
-              dropdowns:
-                "rdp-dropdowns flex items-center justify-center gap-1.5",
-              dropdown_root:
-                "rdp-dropdown_root relative inline-flex items-center",
-              dropdown:
-                "h-7 max-w-[8rem] cursor-pointer appearance-auto rounded-md border border-input bg-background px-1.5 text-[11px] font-medium opacity-100 relative z-[2]",
-              caption_label: "hidden",
-              months_dropdown: "rdp-months_dropdown",
-              years_dropdown: "rdp-years_dropdown",
-              button_previous:
-                "absolute left-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100",
-              button_next:
-                "absolute right-1 h-6 w-6 bg-transparent p-0 opacity-60 hover:opacity-100",
-              weekday:
-                "text-muted-foreground rounded-md w-7 font-normal text-[10px]",
-              day: "relative p-0 text-center text-xs focus-within:relative focus-within:z-20",
-              day_button:
-                "h-7 w-7 p-0 text-[11px] font-normal aria-selected:opacity-100",
-            }}
-            autoFocus
-          />
-        </PopoverContent>
-      </Popover>
+      <div className="relative">
+        <Input
+          id={id}
+          type="date"
+          variant={variant}
+          value={toDateInputValue(value)}
+          min={nativeMin}
+          max={NATIVE_MAX}
+          disabled={disabled}
+          required={required}
+          aria-required={required || undefined}
+          aria-label={label || placeholder}
+          className={cn(
+            "org-modal-date-input date-picker-hide-native-value pr-10 text-transparent",
+            error &&
+              (isStandard
+                ? "border-b-2 border-destructive"
+                : "border-destructive"),
+          )}
+          onChange={(e) => handleChange(e.target.value)}
+        />
+        <span
+          className={cn(
+            "pointer-events-none absolute inset-y-0 left-0 flex items-center text-[length:var(--app-control-font-size)] font-medium",
+            isStandard ? "px-0" : "px-3",
+            displayValue ? "text-foreground" : "text-[rgba(0,0,0,0.54)]",
+          )}
+        >
+          {displayValue || placeholder}
+        </span>
+      </div>
 
       {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
     </div>

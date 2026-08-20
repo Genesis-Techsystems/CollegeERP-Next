@@ -993,6 +993,109 @@
   max-width: 12% !important;
 }
 
+/* Group Wise Failed/Passed Result Sheets — Angular fxFlex (15/15/52/15, 15/15/15/15/5) */
+.global-filter-bar__row--gwfrs-r1,
+.global-filter-bar__row--gwfrs-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--gwfrs-r1 > .global-filter-field,
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx15,
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx52 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
+/* Get Report + optional checkbox — Angular savebtn fxFlex 15, content-sized */
+.global-filter-bar__row--gwfrs-r2 > .global-filter-field--action.global-filter-field--fx15 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
+/* Moderation Benefited Students — Angular fxFlex (20/20/60/15, 20/20/20/15/5) */
+.global-filter-bar__row--mbs-r1,
+.global-filter-bar__row--mbs-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field,
+.global-filter-bar__row--mbs-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field--fx20,
+.global-filter-bar__row--mbs-r2 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field--fx60 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--mbs-r1 > .global-filter-field--fx15,
+.global-filter-bar__row--mbs-r2 > .global-filter-field--fx15 {
+  flex: 0 0 15% !important;
+  width: 15% !important;
+  max-width: 15% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--mbs-r2 > .global-filter-field--action.global-filter-field--fx15 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
+.global-filter-bar__row--mbs-r2 > .global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
 /* Academic Year Curriculum Report — Angular fxFlex (25/25/25/25, 20/25/15/5) */
 .global-filter-bar__row--aycr-r1,
 .global-filter-bar__row--aycr-r2 {
@@ -1085,7 +1188,17 @@
   .global-filter-bar__row--aycr-r1 > .global-filter-field--fx25,
   .global-filter-bar__row--aycr-r2 > .global-filter-field--fx20,
   .global-filter-bar__row--aycr-r2 > .global-filter-field--fx25,
-  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx10 {
+  .global-filter-bar__row--aycr-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx15,
+  .global-filter-bar__row--gwfrs-r1 > .global-filter-field--fx52,
+  .global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--gwfrs-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--mbs-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--mbs-r1 > .global-filter-field--fx60,
+  .global-filter-bar__row--mbs-r1 > .global-filter-field--fx15,
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx20,
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx15,
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx10 {
     flex: 1 1 100% !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -1099,7 +1212,11 @@
   .global-filter-bar__row--aesr-r1,
   .global-filter-bar__row--aesr-r2,
   .global-filter-bar__row--aycr-r1,
-  .global-filter-bar__row--aycr-r2 {
+  .global-filter-bar__row--aycr-r2,
+  .global-filter-bar__row--gwfrs-r1,
+  .global-filter-bar__row--gwfrs-r2,
+  .global-filter-bar__row--mbs-r1,
+  .global-filter-bar__row--mbs-r2 {
     flex-wrap: wrap !important;
   }
 }
@@ -2022,36 +2139,32 @@ a.app-control[data-app-add]:hover {
   overflow: hidden !important;
 }
 
-/* Wide tables (fitColumnsToWidth=false) — scroll every column, not just the viewport */
+/* Wide tables (fitColumnsToWidth=false) — scroll inside the grid area */
 .app-data-table-wide.app-data-table-card {
+  overflow: hidden;
+}
+
+.app-data-table-wide .app-data-table-hscroll {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
-.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll,
-.app-data-table-wide .ag-theme-quartz .ag-body-horizontal-scroll-viewport {
-  display: block !important;
-  min-height: 16px !important;
-  height: 16px !important;
-  visibility: visible !important;
+.app-data-table-wide .app-data-table-hscroll::-webkit-scrollbar {
+  height: 12px;
 }
 
-.app-data-table-wide .ag-theme-quartz .ag-center-cols-viewport {
-  overflow-x: auto !important;
+.app-data-table-wide .app-data-table-hscroll::-webkit-scrollbar-thumb {
+  background: #9e9e9e;
+  border-radius: 6px;
 }
 
 .app-data-table-wide .ag-theme-quartz .ag-header-cell-text,
 .app-data-table-wide .ag-theme-quartz .ag-header-group-text {
   text-transform: none;
   letter-spacing: 0.02em;
-}
-
-.app-data-table-wide .ag-theme-quartz .ag-horizontal-left-spacer,
-.app-data-table-wide .ag-theme-quartz .ag-horizontal-right-spacer {
-  display: block !important;
-  width: auto !important;
-  min-width: unset !important;
-  overflow: visible !important;
 }
 
 /* Hide horizontal-scroll track under pinned SI.No / Actions columns —
@@ -2117,6 +2230,24 @@ input[type="reset"]:disabled,
 }
 .org-modal-date-input::-webkit-datetime-edit {
   padding-right: 1.5rem;
+}
+
+/* Reusable DatePicker — hide native locale text so overlay can show dd/MM/yyyy.
+   Chrome uses -webkit-text-fill-color; Tailwind text-foreground otherwise wins. */
+.date-picker-hide-native-value {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: transparent;
+}
+.date-picker-hide-native-value::-webkit-datetime-edit,
+.date-picker-hide-native-value::-webkit-datetime-edit-fields-wrapper,
+.date-picker-hide-native-value::-webkit-datetime-edit-text,
+.date-picker-hide-native-value::-webkit-datetime-edit-month-field,
+.date-picker-hide-native-value::-webkit-datetime-edit-day-field,
+.date-picker-hide-native-value::-webkit-datetime-edit-year-field {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  opacity: 0;
 }
 
 .app-table-head-cell {
@@ -2877,24 +3008,26 @@ h4,
   width: 20px;
   height: 20px;
   line-height: 20px !important;
-  color: #0c51a4;
+  color: #042956;
 }
 
 .table-context-header__title {
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.015em;
-  color: #0c51a4;
+  color: #042956;
 }
 
-.table-context-header__info {
+.table-context-header__info,
+.table-context-header__info span {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem;
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(0, 0, 0, 0.62);
+  font-size: 14px;
+  font-weight: 500;
+  color: #042956;
+  cursor: pointer;
 }
 
 .table-context-header__info::before {
@@ -3686,6 +3819,30 @@ a.app-control.back-btn:hover {
   background: #e5b535 !important;
   background-color: #e5b535 !important;
   color: #000 !important;
+}
+
+/* Angular fee-payment Back (`black-btn`) — navy, beats data-app-back white/yellow */
+button.app-control.black-btn[data-app-back],
+a.app-control.black-btn[data-app-back],
+button.app-control.black-btn,
+a.app-control.black-btn,
+button.black-btn,
+a.black-btn {
+  background: #042956 !important;
+  background-color: #042956 !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+
+button.app-control.black-btn[data-app-back]:hover,
+a.app-control.black-btn[data-app-back]:hover,
+button.app-control.black-btn:hover,
+a.app-control.black-btn:hover,
+button.black-btn:hover,
+a.black-btn:hover {
+  background: #031f42 !important;
+  background-color: #031f42 !important;
+  color: #fff !important;
 }
 
 /* Angular dialog title icon */

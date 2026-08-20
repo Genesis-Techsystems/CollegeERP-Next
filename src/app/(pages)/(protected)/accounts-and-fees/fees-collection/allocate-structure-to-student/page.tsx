@@ -680,6 +680,7 @@ export default function AllocateStructureToStudentPage() {
                 courseId={courseNum > 0 ? courseNum : null}
                 courseGroupId={courseGroupNum > 0 ? courseGroupNum : null}
                 disabled={!collegeId}
+                richStudentSearch
               />
             </div>
             {selectedStudent ? (
@@ -737,14 +738,16 @@ export default function AllocateStructureToStudentPage() {
                   />
                   <Button
                     type="button"
-                    className="h-9 bg-[#f0c040] text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+                    size="sm"
+                    className="h-[30px] w-fit bg-[#f0c040] px-4 text-[12px] font-medium text-slate-900 hover:bg-[#e5b535]"
                     onClick={onAdd}
                   >
                     Add
                   </Button>
                   <Button
                     type="button"
-                    className="h-9 bg-[#f0c040] text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+                    size="sm"
+                    className="h-[30px] w-fit bg-[#f0c040] px-4 text-[12px] font-medium text-slate-900 hover:bg-[#e5b535]"
                     disabled={saving || pending.length === 0}
                     onClick={() => void onSave()}
                   >

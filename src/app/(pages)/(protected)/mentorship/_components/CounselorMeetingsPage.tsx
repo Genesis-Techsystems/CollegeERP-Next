@@ -4,14 +4,26 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Eye, Pencil, PlusIcon } from "lucide-react";
+import { Eye, Pencil, PlusIcon, Printer } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
-import { Select } from "@/common/components/select";
+import {
+  Select,
+  toEmployeeSearchSelectOptions,
+} from "@/common/components/select";
+import { StudentSearchSelect } from "@/common/components/student-search";
+import { escapeHtml } from "@/common/export-html-table";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { rowIndexGetter } from "@/lib/utils";
+import { printHtmlInIframe } from "@/lib/print";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
+import {
+  attendancePrintShell,
+  resolveAttendancePrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import {
   createCounselorActivities,
   listActiveCollegesForDepartments,
@@ -33,7 +45,7 @@ export type CounselorMeetingsMode = "staff" | "admin";
 
 const COL_DEFS = {
   siNo: {
-    headerName: "SI.No",
+    headerName: "Sl.No",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
@@ -45,12 +57,12 @@ const COL_DEFS = {
   } as ColDef<MeetingRow>,
   nextDate: {
     field: "nextScheduledActivityDate",
-    headerName: "Next Scheduled",
+    headerName: "Schedule Date",
     minWidth: 130,
   } as ColDef<MeetingRow>,
   attendees: {
     field: "attendeesName",
-    headerName: "Attendees",
+    headerName: "Attendees Name",
     minWidth: 140,
   } as ColDef<MeetingRow>,
   discussion: {
@@ -96,26 +108,112 @@ function toYmd(d: Date | null): string {
   return format(d, "yyyy/MM/dd");
 }
 
-function employeeLabel(row: MentorshipRow): string {
-  const name = String(row.firstName ?? "");
-  const num = row.empNumber != null ? ` (${String(row.empNumber)})` : "";
-  return `${name}${num}`.trim() || String(row.employeeId ?? "");
-}
-
-function studentOptionLabel(row: MentorshipRow): string {
-  const name = String(row.studentName ?? row.firstName ?? "");
-  const roll = row.rollNumber != null ? ` (${String(row.rollNumber)})` : "";
-  return `${name}${roll}`.trim() || String(row.studentId ?? "");
-}
-
 function activityStatus(row: MeetingRow | undefined): string {
   return String(row?.activityStatusCode ?? "").toUpperCase();
+}
+
+function meetingStatusBadgeClass(code: string): string {
+  switch (code) {
+    case "SCHEDULED":
+      return "inline-block rounded px-2 py-0.5 text-xs font-semibold text-black bg-[#ffff00]";
+    case "CANCELLED":
+      return "inline-block rounded px-2 py-0.5 text-xs font-semibold text-white bg-[#ff7f7f] line-through";
+    case "COMPLETED":
+      return "inline-block rounded px-2 py-0.5 text-xs font-semibold text-black bg-[#4caf50]";
+    default:
+      return "text-sm";
+  }
+}
+
+function statusCellRenderer(p: ICellRendererParams<MeetingRow>) {
+  const code = activityStatus(p.data);
+  if (!code) return "—";
+  return <span className={meetingStatusBadgeClass(code)}>{code}</span>;
+}
+
+function emptyDashRenderer(
+  p: ICellRendererParams<MeetingRow>,
+  field: keyof MeetingRow,
+) {
+  const v = p.data?.[field];
+  return v == null || String(v).trim() === "" ? "—" : String(v);
+}
+
+function attendeesRenderer(p: ICellRendererParams<MeetingRow>) {
+  return emptyDashRenderer(p, "attendeesName");
+}
+
+function discussionRenderer(p: ICellRendererParams<MeetingRow>) {
+  return emptyDashRenderer(p, "discussionPoints");
+}
+
+function summaryRenderer(p: ICellRendererParams<MeetingRow>) {
+  return emptyDashRenderer(p, "summary");
+}
+
+function formatScheduleDateValue(v: unknown): string {
+  if (v == null || String(v).trim() === "") return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return format(d, "MMM d, yyyy");
+}
+
+function formatActivityDateValue(v: unknown): string {
+  if (v == null || String(v).trim() === "") return "—";
+  const d = new Date(String(v));
+  if (Number.isNaN(d.getTime())) return String(v);
+  return format(d, "MMM d, yyyy");
+}
+
+function scheduleDateRenderer(p: ICellRendererParams<MeetingRow>) {
+  return formatScheduleDateValue(p.data?.nextScheduledActivityDate);
+}
+
+function activityDateRenderer(p: ICellRendererParams<MeetingRow>) {
+  return formatActivityDateValue(p.data?.activityDate);
+}
+
+function printStatusHtml(code: string): string {
+  const normalized = code.toUpperCase();
+  const label = escapeHtml(normalized || "—");
+  if (normalized === "SCHEDULED") {
+    return `<span style="background:#ffff00;color:#000;padding:2px 8px;font-weight:600;display:inline-block;">${label}</span>`;
+  }
+  if (normalized === "CANCELLED") {
+    return `<span style="background:#ff7f7f;color:#fff;padding:2px 8px;font-weight:600;text-decoration:line-through;display:inline-block;">${label}</span>`;
+  }
+  if (normalized === "COMPLETED") {
+    return `<span style="background:#4caf50;color:#000;padding:2px 8px;font-weight:600;display:inline-block;">${label}</span>`;
+  }
+  return label;
+}
+
+function cellText(v: unknown): string {
+  return v == null || String(v).trim() === "" ? "—" : String(v);
 }
 
 type CounselorMeetingsPageProps = {
   mode: CounselorMeetingsMode;
   title: string;
+  filterTitle?: string;
 };
+
+const DATE_FILTER_COL = "md:col-span-3";
+const COLLEGE_FILTER_COL = "md:col-span-2";
+const EMPLOYEE_FILTER_COL = "md:col-span-4";
+const STUDENT_FILTER_COL = "md:col-span-4";
+const GET_LIST_COL = "md:col-span-2";
+
+function meetingActionDivider() {
+  return (
+    <span
+      className="select-none px-0.5 text-[13px] font-normal leading-none text-[#0c51a4]"
+      aria-hidden
+    >
+      |
+    </span>
+  );
+}
 
 function makeActionsRenderer(
   onEdit: (row: MeetingRow) => void,
@@ -126,41 +224,57 @@ function makeActionsRenderer(
     const row = p.data;
     if (!row) return null;
     const scheduled = activityStatus(row) === "SCHEDULED";
+
+    const viewButton = (
+      <button
+        type="button"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-sm border-0 bg-transparent text-black/45 hover:bg-black/5"
+        aria-label="View meeting details"
+        title="View meeting details"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOverview(row);
+        }}
+      >
+        <Eye className="h-4 w-4" strokeWidth={2} />
+      </button>
+    );
+
+    if (!scheduled) {
+      return (
+        <div className="flex h-full w-full items-center justify-center">
+          {viewButton}
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center gap-1">
-        {scheduled ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              aria-label="Edit scheduled meeting"
-              onClick={() => onEdit(row)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="link"
-              className="h-auto px-1 text-primary"
-              onClick={() => onMeeting(row)}
-            >
-              Meeting
-            </Button>
-          </>
-        ) : null}
-        <Button
+      <div className="app-table-row-actions inline-flex items-center gap-0">
+        <button
           type="button"
-          size="sm"
-          variant="ghost"
-          className="h-8 w-8 p-0"
-          aria-label="View meeting details"
-          onClick={() => onOverview(row)}
+          className="app-table-action-edit inline-flex h-7 w-7 items-center justify-center rounded-sm text-[#0c51a4] hover:bg-[#0c51a4]/10"
+          aria-label="Edit scheduled meeting"
+          title="Edit scheduled meeting"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(row);
+          }}
         >
-          <Eye className="h-3.5 w-3.5" />
-        </Button>
+          <Pencil className="h-4 w-4" strokeWidth={2} />
+        </button>
+        {meetingActionDivider()}
+        <button
+          type="button"
+          className="inline-flex h-7 items-center border-0 bg-transparent px-0.5 text-[13px] font-bold leading-none text-[#0c51a4] hover:underline"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMeeting(row);
+          }}
+        >
+          Meeting
+        </button>
+        {meetingActionDivider()}
+        {viewButton}
       </div>
     );
   };
@@ -169,6 +283,7 @@ function makeActionsRenderer(
 export function CounselorMeetingsPage({
   mode,
   title,
+  filterTitle,
 }: Readonly<CounselorMeetingsPageProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -187,12 +302,10 @@ export function CounselorMeetingsPage({
   const [employeeId, setEmployeeId] = useState<number | null>(
     mode === "staff" ? staffEmployeeId || null : queryEmployeeId,
   );
-  const [employeeOptions, setEmployeeOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
   const [employees, setEmployees] = useState<MentorshipRow[]>([]);
   const [employeeSearching, setEmployeeSearching] = useState(false);
-  const [students, setStudents] = useState<MentorshipRow[]>([]);
+  const [allStudents, setAllStudents] = useState<MentorshipRow[]>([]);
+  const [displayStudents, setDisplayStudents] = useState<MentorshipRow[]>([]);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [fromDate, setFromDate] = useState<Date | null>(() => new Date());
   const [toDate, setToDate] = useState<Date | null>(() => new Date());
@@ -223,35 +336,61 @@ export function CounselorMeetingsPage({
     [colleges],
   );
 
-  const studentOptions = useMemo(
-    () =>
-      students.map((s) => ({
-        value: String(s.studentId),
-        label: studentOptionLabel(s),
-      })),
-    [students],
+  const employeeSelectOptions = useMemo(
+    () => toEmployeeSearchSelectOptions(employees),
+    [employees],
+  );
+
+  function setStudentList(list: MentorshipRow[]) {
+    setAllStudents(list);
+    setDisplayStudents(list);
+  }
+
+  const onStudentSearch = useCallback(
+    (term: string) => {
+      const q = term.trim().toLowerCase();
+      if (!q) {
+        setDisplayStudents(allStudents);
+        return;
+      }
+      setDisplayStudents(
+        allStudents.filter((s) => {
+          const name = String(s.studentName ?? s.firstName ?? "").toLowerCase();
+          const roll = String(
+            s.rollNumber ?? s.hallticketNumber ?? "",
+          ).toLowerCase();
+          return name.includes(q) || roll.includes(q);
+        }),
+      );
+    },
+    [allStudents],
+  );
+
+  const selectedStudent = useMemo(
+    () => allStudents.find((s) => Number(s.studentId) === studentId) ?? null,
+    [allStudents, studentId],
   );
 
   const resolveCounselorId = useCallback(
     (sid: number | null, activities: MeetingRow[]): number | null => {
       if (!sid) return null;
       const fromStudent = Number(
-        students.find((s) => Number(s.studentId) === sid)?.counselorId ?? 0,
+        allStudents.find((s) => Number(s.studentId) === sid)?.counselorId ?? 0,
       );
       if (fromStudent) return fromStudent;
       const fromActivity = Number(activities[0]?.counselorId ?? 0);
       return fromActivity || null;
     },
-    [students],
+    [allStudents],
   );
 
   const loadStudentsForStaff = useCallback(async (cid: number, eid: number) => {
     try {
       const list = await listCounselorStudentsForEmployee(cid, eid);
-      setStudents(list);
+      setStudentList(list);
     } catch (e) {
       toastError(getErrorMessage(e));
-      setStudents([]);
+      setStudentList([]);
     }
   }, []);
 
@@ -333,7 +472,7 @@ export function CounselorMeetingsPage({
             queryCollegeId,
             queryEmployeeId,
           );
-          setStudents(list);
+          setStudentList(list);
           setEmployeeId(queryEmployeeId);
           if (queryStudentId) {
             setStudentId(queryStudentId);
@@ -347,12 +486,6 @@ export function CounselorMeetingsPage({
             queryEmpN,
           );
           setEmployees(found);
-          setEmployeeOptions(
-            found.map((e) => ({
-              value: String(e.employeeId),
-              label: employeeLabel(e),
-            })),
-          );
           const first = found[0];
           if (first?.employeeId) {
             const eid = Number(first.employeeId);
@@ -366,7 +499,7 @@ export function CounselorMeetingsPage({
                 fromDate: from,
                 toDate: to,
               });
-              setStudents(list);
+              setStudentList(list);
               if (queryStudentId) {
                 setStudentId(queryStudentId);
                 await loadMeetings({ sid: queryStudentId, silentEmpty: true });
@@ -385,22 +518,16 @@ export function CounselorMeetingsPage({
   async function onEmployeeSearch(term: string) {
     const q = term.trim();
     if (!collegeId || q.length < 4) {
-      setEmployeeOptions([]);
+      setEmployees([]);
       return;
     }
     setEmployeeSearching(true);
     try {
       const found = await searchEmployeesForMentorship(collegeId, q);
       setEmployees(found);
-      setEmployeeOptions(
-        found.map((e) => ({
-          value: String(e.employeeId),
-          label: employeeLabel(e),
-        })),
-      );
     } catch (e) {
       toastError(getErrorMessage(e));
-      setEmployeeOptions([]);
+      setEmployees([]);
     } finally {
       setEmployeeSearching(false);
     }
@@ -409,7 +536,7 @@ export function CounselorMeetingsPage({
   async function onEmployeeSelected(eid: number | null) {
     setEmployeeId(eid);
     setStudentId(null);
-    setStudents([]);
+    setStudentList([]);
     setRows([]);
     setListReady(false);
     setCounselorId(null);
@@ -425,7 +552,7 @@ export function CounselorMeetingsPage({
           fromDate: from,
           toDate: to,
         });
-        setStudents(list);
+        setStudentList(list);
       } catch (e) {
         toastError(getErrorMessage(e));
       }
@@ -437,8 +564,8 @@ export function CounselorMeetingsPage({
     const mappedCounselorId =
       counselorId ||
       Number(
-        students.find((s) => Number(s.studentId) === studentId)?.counselorId ??
-          0,
+        allStudents.find((s) => Number(s.studentId) === studentId)
+          ?.counselorId ?? 0,
       ) ||
       Number(rows[0]?.counselorId ?? 0) ||
       null;
@@ -469,7 +596,7 @@ export function CounselorMeetingsPage({
     const cid = mode === "staff" ? staffCollegeId : collegeId;
     const eid = mode === "staff" ? staffEmployeeId : employeeId;
     const sid = studentId ?? (Number(row.studentId ?? 0) || null);
-    const student = students.find((s) => Number(s.studentId) === sid);
+    const student = allStudents.find((s) => Number(s.studentId) === sid);
     const emp =
       employees.find((e) => Number(e.employeeId) === eid) ??
       (mode === "staff"
@@ -494,7 +621,7 @@ export function CounselorMeetingsPage({
     if (sid) params.set("studentId", String(sid));
     if (cid) params.set("collegeId", String(cid));
     if (emp?.empNumber != null) params.set("empN", String(emp.empNumber));
-    router.push(`/mentorship/teacher-meeting?${params.toString()}`);
+    router.push(`/mentorship/meeting?${params.toString()}`);
   }
 
   async function onScheduleSaved(payload: MentorshipRow) {
@@ -517,11 +644,108 @@ export function CounselorMeetingsPage({
 
   const effectiveCollegeId =
     (mode === "staff" ? staffCollegeId : collegeId) || 0;
+  const collegeLogo = useCollegeLogo(
+    effectiveCollegeId > 0 ? effectiveCollegeId : null,
+  );
+  const collegeName = useMemo(() => {
+    if (mode === "staff") {
+      return (
+        readStorage("collegeName") || readStorage("collegeCode") || "College"
+      );
+    }
+    const college = colleges.find((c) => c.collegeId === collegeId);
+    return college?.collegeName ?? college?.collegeCode ?? "College";
+  }, [mode, colleges, collegeId]);
+
+  const printDataDetails = useMemo(() => {
+    const parts: string[] = [];
+    if (selectedStudent) {
+      const name = String(
+        selectedStudent.studentName ?? selectedStudent.firstName ?? "",
+      );
+      const roll = String(
+        selectedStudent.rollNumber ?? selectedStudent.hallticketNumber ?? "",
+      );
+      if (name || roll) {
+        parts.push(`Student : ${name}${roll ? ` (${roll})` : ""}`.trim());
+      }
+    }
+    if (mode === "admin" && employeeId) {
+      const emp = employees.find((e) => Number(e.employeeId) === employeeId);
+      if (emp) {
+        const name = String(emp.firstName ?? "");
+        const num = emp.empNumber != null ? ` (${String(emp.empNumber)})` : "";
+        parts.push(`Employee : ${name}${num}`.trim());
+      }
+    }
+    if (mode === "admin" && fromDate && toDate) {
+      parts.push(
+        `From ${format(fromDate, "MMM d, yyyy")} To ${format(toDate, "MMM d, yyyy")}`,
+      );
+    }
+    return parts.join(" | ");
+  }, [mode, selectedStudent, employeeId, employees, fromDate, toDate]);
+
+  const printReport = useCallback(async () => {
+    if (rows.length === 0) {
+      toastError("No meetings to print");
+      return;
+    }
+    const logoSrc = await resolveAttendancePrintLogo(
+      null,
+      effectiveCollegeId,
+      collegeLogo || DEFAULT_COLLEGE_LOGO,
+    );
+    const fallbackLogo = toPrintLogoUrl(DEFAULT_COLLEGE_LOGO);
+    const bodyRows = rows
+      .map((row, index) => {
+        const sched = formatScheduleDateValue(row.nextScheduledActivityDate);
+        const act = formatActivityDateValue(row.activityDate);
+        const status = printStatusHtml(activityStatus(row));
+        return `<tr>
+          <td style="text-align:center">${index + 1}</td>
+          <td>${escapeHtml(cellText(row.activityTypeCode))}</td>
+          <td>${escapeHtml(String(sched))}</td>
+          <td>${escapeHtml(cellText(row.attendeesName))}</td>
+          <td>${escapeHtml(cellText(row.discussionPoints))}</td>
+          <td>${escapeHtml(cellText(row.summary))}</td>
+          <td>${escapeHtml(String(act))}</td>
+          <td>${status}</td>
+        </tr>`;
+      })
+      .join("");
+    const tableHtml = `<table><thead><tr>
+      <th>Sl.No</th><th>Activity Type</th><th>Schedule Date</th>
+      <th>Attendees Name</th><th>Discussion Points</th><th>Summary</th>
+      <th>Activity Date</th><th>Status</th>
+    </tr></thead><tbody>${bodyRows}</tbody></table>`;
+    printHtmlInIframe(
+      attendancePrintShell({
+        title: escapeHtml(title),
+        logoSrc: escapeHtml(logoSrc),
+        fallbackLogo: escapeHtml(fallbackLogo),
+        collegeName: escapeHtml(collegeName),
+        dataDetails: printDataDetails
+          ? escapeHtml(printDataDetails)
+          : undefined,
+        tableHtml,
+      }),
+    );
+  }, [
+    rows,
+    effectiveCollegeId,
+    collegeLogo,
+    collegeName,
+    printDataDetails,
+    title,
+  ]);
+
   const effectiveCounselorId =
     counselorId ||
     Number(editingRow?.counselorId ?? 0) ||
     Number(
-      students.find((s) => Number(s.studentId) === studentId)?.counselorId ?? 0,
+      allStudents.find((s) => Number(s.studentId) === studentId)?.counselorId ??
+        0,
     ) ||
     Number(rows[0]?.counselorId ?? 0) ||
     0;
@@ -530,131 +754,190 @@ export function CounselorMeetingsPage({
     () => [
       COL_DEFS.siNo,
       COL_DEFS.activityType,
-      COL_DEFS.nextDate,
-      COL_DEFS.attendees,
-      COL_DEFS.discussion,
-      COL_DEFS.summary,
-      COL_DEFS.activityDate,
-      COL_DEFS.status,
+      { ...COL_DEFS.nextDate, cellRenderer: scheduleDateRenderer },
+      { ...COL_DEFS.attendees, cellRenderer: attendeesRenderer },
+      { ...COL_DEFS.discussion, cellRenderer: discussionRenderer },
+      { ...COL_DEFS.summary, cellRenderer: summaryRenderer },
+      { ...COL_DEFS.activityDate, cellRenderer: activityDateRenderer },
+      { ...COL_DEFS.status, cellRenderer: statusCellRenderer },
       {
         ...COL_DEFS.actions,
         cellRenderer: makeActionsRenderer(openEdit, goToMeeting, openOverview),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- renderers close over latest handlers
-    [students, employees, collegeId, employeeId, studentId, mode],
+    [allStudents, employees, collegeId, employeeId, studentId, mode],
   );
 
   return (
     <FilteredListPage
       title={title}
+      filterTitle={filterTitle}
       filters={
         <div className="space-y-3">
           {mode === "admin" ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <DatePicker
+                  label="From Date *"
+                  value={fromDate}
+                  onChange={(d) => {
+                    setFromDate(d);
+                    setRows([]);
+                    setListReady(false);
+                    if (d && toDate && d.getTime() > toDate.getTime())
+                      setToDate(d);
+                  }}
+                  className={DATE_FILTER_COL}
+                  clearable={false}
+                />
+                <DatePicker
+                  label="To Date *"
+                  value={toDate}
+                  onChange={(d) => {
+                    setToDate(d);
+                    setRows([]);
+                    setListReady(false);
+                  }}
+                  className={DATE_FILTER_COL}
+                  clearable={false}
+                  minDate={fromDate ?? undefined}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <Select
+                  label="College *"
+                  value={collegeId ? String(collegeId) : null}
+                  onChange={(v) => {
+                    setCollegeId(v ? Number(v) : null);
+                    setEmployeeId(null);
+                    setStudentList([]);
+                    setStudentId(null);
+                    setRows([]);
+                    setListReady(false);
+                    setCounselorId(null);
+                    setEmployees([]);
+                  }}
+                  options={collegeOptions}
+                  searchable
+                  className={COLLEGE_FILTER_COL}
+                />
+                <Select
+                  label="Employee *"
+                  value={employeeId ? String(employeeId) : null}
+                  onChange={(v) =>
+                    void onEmployeeSelected(v ? Number(v) : null)
+                  }
+                  options={employeeSelectOptions}
+                  searchable
+                  isLoading={employeeSearching}
+                  disabled={!collegeId}
+                  onSearch={(term) => void onEmployeeSearch(term)}
+                  placeholder="Search by employee name or number."
+                  className={EMPLOYEE_FILTER_COL}
+                />
+                <StudentSearchSelect
+                  label="Student *"
+                  value={studentId}
+                  students={displayStudents}
+                  selectedStudent={selectedStudent}
+                  onSearch={onStudentSearch}
+                  onChange={(id) => {
+                    setStudentId(id);
+                    setRows([]);
+                    setListReady(false);
+                    setCounselorId(null);
+                  }}
+                  disabled={!employeeId}
+                  minChars={1}
+                  fullWidth
+                  className={STUDENT_FILTER_COL}
+                />
+                <div className={GET_LIST_COL}>
+                  <Button
+                    type="button"
+                    className="h-8 w-fit shrink-0 px-3 text-[12px]"
+                    onClick={() => void loadMeetings()}
+                    disabled={loading}
+                  >
+                    {loading ? "Loading…" : "Get List"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-              <Select
-                label="College *"
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setCollegeId(v ? Number(v) : null);
-                  setEmployeeId(null);
-                  setStudents([]);
-                  setStudentId(null);
+              <StudentSearchSelect
+                label="Student *"
+                value={studentId}
+                students={displayStudents}
+                selectedStudent={selectedStudent}
+                onSearch={onStudentSearch}
+                onChange={(id) => {
+                  setStudentId(id);
                   setRows([]);
                   setListReady(false);
                   setCounselorId(null);
-                  setEmployeeOptions([]);
                 }}
-                options={collegeOptions}
-                searchable
-                className="md:col-span-3"
-              />
-              <Select
-                label="Counselor / Employee *"
-                value={employeeId ? String(employeeId) : null}
-                onChange={(v) => void onEmployeeSelected(v ? Number(v) : null)}
-                options={employeeOptions}
-                searchable
-                isLoading={employeeSearching}
-                disabled={!collegeId}
-                onSearch={(term) => void onEmployeeSearch(term)}
+                minChars={1}
+                fullWidth
                 className="md:col-span-4"
               />
-              <DatePicker
-                label="From Date *"
-                value={fromDate}
-                onChange={(d) => {
-                  setFromDate(d);
-                  setRows([]);
-                  setListReady(false);
-                  if (d && toDate && d.getTime() > toDate.getTime())
-                    setToDate(d);
-                }}
-                className="md:col-span-2"
-                clearable={false}
-              />
-              <DatePicker
-                label="To Date *"
-                value={toDate}
-                onChange={(d) => {
-                  setToDate(d);
-                  setRows([]);
-                  setListReady(false);
-                }}
-                className="md:col-span-2"
-                clearable={false}
-              />
+              <div className="md:col-span-2">
+                <Button
+                  type="button"
+                  className="h-8 w-fit shrink-0 px-3 text-[12px]"
+                  onClick={() => void loadMeetings()}
+                  disabled={loading}
+                >
+                  {loading ? "Loading…" : "Get List"}
+                </Button>
+              </div>
             </div>
-          ) : null}
-
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <Select
-              label="Student *"
-              value={studentId ? String(studentId) : null}
-              onChange={(v) => {
-                setStudentId(v ? Number(v) : null);
-                setRows([]);
-                setListReady(false);
-                setCounselorId(null);
-              }}
-              options={studentOptions}
-              searchable
-              className="md:col-span-4"
-            />
-            <div className="md:col-span-2">
-              <Button
-                type="button"
-                onClick={() => void loadMeetings()}
-                disabled={loading}
-              >
-                {loading ? "Loading…" : "Get Meetings"}
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
       }
-      rowData={rows}
-      columnDefs={columnDefs}
+      showTable={listReady}
+      resultsVisible={listReady}
+      hideEmptyGrid
+      rowData={listReady ? rows : []}
+      columnDefs={listReady ? columnDefs : undefined}
       loading={loading}
       pagination
       height="auto"
-      toolbar={{
-        search: true,
-        searchPlaceholder: "Search meetings…",
-        exportPdf: true,
-        pdfDocumentTitle: title,
-      }}
+      toolbar={
+        listReady
+          ? {
+              search: true,
+              searchPlaceholder: "Search",
+              exportPdf: false,
+            }
+          : undefined
+      }
       toolbarTrailing={
         listReady ? (
-          <Button
-            type="button"
-            size="sm"
-            className="h-[30px] px-3 text-[12px]"
-            onClick={openSchedule}
-          >
-            <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
-            Schedule Meeting
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={openSchedule}
+            >
+              <PlusIcon className="mr-1.5 h-3.5 w-3.5" />
+              Schedule Meeting
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => void printReport()}
+              disabled={rows.length === 0}
+            >
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print Report
+            </Button>
+          </div>
         ) : null
       }
     >

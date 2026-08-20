@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { FilteredListPage } from "@/components/layout";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
 import { QK } from "@/lib/query-keys";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import { resolveOrganizationId } from "@/lib/user-context";
 import { rowIndexGetter } from "@/lib/utils";
 import { getAdmissionUnivFilters, listFeePaidApplications } from "@/services";
@@ -33,6 +33,8 @@ import {
 const UNI = ["fk_university_id", "universityId", "Universities.universityId"];
 const CRS = ["fk_course_id", "courseId"];
 const ALL_APP = "All";
+const EMPTY_ROWS: FeePaidApplicationRow[] = [];
+const EMPTY_FILTERS: FilterRow[] = [];
 
 /** Angular filter dropdowns show codes only (e.g. GUG, BCOM) — not names. */
 function universityCodeOption(row: FilterRow) {
@@ -131,6 +133,7 @@ export default function FeePaidApplicationsListPage() {
   const [applicationNo, setApplicationNo] = useState(ALL_APP);
   const [applied, setApplied] = useState<ListParams | null>(null);
   const [appNoChoices, setAppNoChoices] = useState<string[]>([]);
+  const emptyToastFor = useRef<ListParams | null>(null);
 
   const filtersEnabled =
     !sessionLoading && !empResolving && orgId > 0 && empId > 0;
@@ -141,7 +144,7 @@ export default function FeePaidApplicationsListPage() {
     enabled: filtersEnabled,
   });
 
-  const filtersData = filterBundle?.filtersData ?? [];
+  const filtersData = filterBundle?.filtersData ?? EMPTY_FILTERS;
 
   const universityOptions = useMemo(
     () => filterUniversities(filtersData).map(universityCodeOption),
@@ -214,25 +217,43 @@ export default function FeePaidApplicationsListPage() {
     setCourseGroupId(courseGroupOptions[0]?.value ?? null);
   }, [courseId, courseGroupId, courseGroupOptions]);
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: QK.admission.feePaidApplications(applied ?? {}),
     queryFn: () => listFeePaidApplications(applied!),
     enabled: Boolean(applied),
   });
+  const rows = data ?? EMPTY_ROWS;
+  const listSettled =
+    Boolean(applied) && data != null && !isLoading && !isFetching;
 
   // After Get List (All), seed ApplicationNo options from result codes.
   useEffect(() => {
-    if (!applied || isLoading || applied.applicationNo) return;
+    if (!applied || data == null || isLoading || applied.applicationNo) return;
     const unique = Array.from(
       new Set(
         rows.map((r) => String(r.application_no ?? "").trim()).filter(Boolean),
       ),
     ).sort();
-    setAppNoChoices(unique);
-  }, [applied, isLoading, rows]);
+    setAppNoChoices((prev) =>
+      prev.length === unique.length && prev.every((v, i) => v === unique[i])
+        ? prev
+        : unique,
+    );
+  }, [applied, data, isLoading, rows]);
+
+  useEffect(() => {
+    if (!listSettled) return;
+    if (rows.length > 0) {
+      emptyToastFor.current = null;
+      return;
+    }
+    if (!applied || emptyToastFor.current === applied) return;
+    emptyToastFor.current = applied;
+    toastInfo("No records found");
+  }, [applied, listSettled, rows.length]);
 
   const columnDefs = useMemo(() => Object.values(COL_DEFS), []);
-  const showTable = Boolean(applied);
+  const showTable = listSettled && rows.length > 0;
 
   function clearAppliedList() {
     setApplied(null);
@@ -337,10 +358,11 @@ export default function FeePaidApplicationsListPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
-      rowData={showTable ? rows : []}
-      columnDefs={showTable ? columnDefs : undefined}
-      body={!showTable ? null : undefined}
-      loading={showTable && isLoading}
+      rowData={rows}
+      columnDefs={columnDefs}
+      showTable={showTable}
+      resultsVisible={showTable}
+      loading={Boolean(applied) && (isLoading || isFetching)}
       pagination={showTable}
       toolbar={
         showTable

@@ -888,6 +888,114 @@ function academicsModulePathActive(
   return false;
 }
 
+/** Staff Mentorship / Mentor — Schedule PTM, Assign Mentor, staff Teacher Meeting. */
+function isStaffMentorshipPath(pathname: string): boolean {
+  return (
+    pathname === "/mentorship/schedule-ptm" ||
+    pathname.startsWith("/mentorship/schedule-ptm/") ||
+    pathname === "/mentorship/assign-mentor-to-students" ||
+    pathname.startsWith("/mentorship/assign-mentor-to-students/")
+  );
+}
+
+/** Admin Counseling — Teacher Meeting, Student Meetings, Assign Counselor, … */
+function isAdminCounselingPath(pathname: string): boolean {
+  if (!pathname.startsWith("/mentorship/")) return false;
+  return !isStaffMentorshipPath(pathname);
+}
+
+function isStaffMentorshipModule(item: NavItemType): boolean {
+  const label = (item.label ?? "").toLowerCase().trim();
+  const key = label.replace(/[^a-z0-9]+/g, "");
+  if (
+    key === "mentor" ||
+    key === "staffmentorship" ||
+    label.includes("staff mentorship")
+  ) {
+    return true;
+  }
+  if (label.includes("counseling") && !label.includes("mentor")) {
+    return false;
+  }
+  const hints = collectNavTreeHints(item);
+  const hasStaff =
+    hints.includes("staff-mentorship") ||
+    hints.includes("schedule-ptm") ||
+    hints.includes("schedule ptm") ||
+    hints.includes("assign-mentor") ||
+    hints.includes("assign mentor");
+  const hasAdmin =
+    hints.includes("admin-counseling") ||
+    hints.includes("assign-counselor") ||
+    hints.includes("assign counselor") ||
+    hints.includes("counseling-dashboard") ||
+    hints.includes("counseling dashboard") ||
+    hints.includes("student-meetings") ||
+    hints.includes("student meetings") ||
+    hints.includes("meeting-history") ||
+    hints.includes("meeting history") ||
+    hints.includes("activity-type") ||
+    hints.includes("activity type");
+  if (hasStaff && !hasAdmin) return true;
+  if (hasStaff && hasAdmin) return true;
+  return hasStaff;
+}
+
+function isAdminCounselingModule(item: NavItemType): boolean {
+  const label = (item.label ?? "").toLowerCase().trim();
+  const key = label.replace(/[^a-z0-9]+/g, "");
+  if (key === "mentor" || label.includes("staff mentorship")) return false;
+  if (label.includes("counseling") && !label.includes("meeting")) return true;
+  const hints = collectNavTreeHints(item);
+  const hasAdmin =
+    hints.includes("admin-counseling") ||
+    hints.includes("assign-counselor") ||
+    hints.includes("assign counselor") ||
+    hints.includes("counseling-dashboard") ||
+    hints.includes("counseling dashboard") ||
+    hints.includes("student-meetings") ||
+    hints.includes("student meetings") ||
+    hints.includes("meeting-history") ||
+    hints.includes("meeting history") ||
+    hints.includes("activity-type") ||
+    hints.includes("activity type") ||
+    // Admin Teacher Meeting is a direct child (not under schedule-ptm).
+    (hints.includes("teacher-meeting") &&
+      !hints.includes("schedule-ptm") &&
+      !hints.includes("staff-mentorship"));
+  const hasStaff =
+    hints.includes("staff-mentorship") ||
+    hints.includes("schedule-ptm") ||
+    hints.includes("assign-mentor") ||
+    hints.includes("assign mentor");
+  if (hasAdmin && !hasStaff) return true;
+  if (hasAdmin && hasStaff) return true;
+  if (label.includes("mentorship") && !hasStaff) return true;
+  return hasAdmin;
+}
+
+/**
+ * Mentor (staff-mentorship) and Counseling (admin-counseling) both live under
+ * `/mentorship/` — scope highlight so Teacher Meeting does not gold Mentor.
+ */
+function mentorshipModulePathActive(
+  item: NavItemType,
+  pathname: string,
+): boolean {
+  const norm = normalizeHref(pathname);
+  if (norm !== "/mentorship" && !norm.startsWith("/mentorship/")) return false;
+
+  const staffModule = isStaffMentorshipModule(item);
+  const adminModule = isAdminCounselingModule(item);
+  const onStaff = isStaffMentorshipPath(norm);
+  const onAdmin = isAdminCounselingPath(norm);
+
+  if (staffModule && adminModule) return onStaff || onAdmin;
+  if (staffModule) return onStaff;
+  if (adminModule) return onAdmin;
+  return onStaff || onAdmin;
+}
+
 /** Recursively checks if any descendant has an href matching the current pathname. */
 function hasActiveDescendant(
   item: NavItemType,
@@ -2860,6 +2968,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         (labelLower.includes("detain request") && labelLower.includes("approv"))
       ) {
         return "/principal-my-approvals/detain-request-approvals";
+      }
+
+      // eOffice Item Approval — URL stays `/e-office/item-approval`.
+      // Do not steal principal "Item Request Approvals".
+      if (
+        !hrefLower.includes("principal-my-approvals") &&
+        !hrefLower.includes("item-request-approvals") &&
+        (hrefLower.includes("item-approval") ||
+          hrefLower.includes("item_approval") ||
+          /(?:^|\/)itemapprovals?(?:\/|$)/.test(hrefLower) ||
+          labelKey === "item approval" ||
+          labelKey === "item approvals")
+      ) {
+        return "/e-office/item-approval";
       }
 
       // Principal My Approvals — Item Request Approvals (must beat e-office/item-request)
@@ -5346,10 +5468,22 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/workflow-stages";
     }
     if (
-      labelLower.includes("holiday") ||
-      labelLower.includes("holidays") ||
-      labelLower.includes("calendar") ||
-      labelLower.includes("calender")
+      (labelLower.includes("holiday") || labelLower.includes("holidays")) &&
+      !labelLower.includes("college calendar") &&
+      !hrefLower.includes("college-calendar") &&
+      !hrefLower.includes("school-calendar")
+    ) {
+      return "/admin/holidays-calendar";
+    }
+    if (
+      (labelLower.includes("calendar") || labelLower.includes("calender")) &&
+      !labelLower.includes("college") &&
+      !labelLower.includes("school") &&
+      !labelLower.includes("event") &&
+      !labelLower.includes("faculty") &&
+      !hrefLower.includes("college-calendar") &&
+      !hrefLower.includes("school-calendar") &&
+      !hrefLower.includes("/events/")
     ) {
       return "/admin/holidays-calendar";
     }
@@ -5713,19 +5847,50 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return normPathname.startsWith("/time-table-management/");
     }
     if (label.includes("attendance") && label.includes("management")) {
-      return normPathname.startsWith("/attendance-management/");
+      if (!normPathname.startsWith("/attendance-management/")) return false;
+      const onMarkAttendance = normPathname.startsWith(
+        "/attendance-management/mark-attendance",
+      );
+      const childLabels = (item.children ?? []).map((c) =>
+        (c.label ?? "").toLowerCase(),
+      );
+      const hasAttUpdateChild = childLabels.some(
+        (l) => l.includes("attendance") && l.includes("update"),
+      );
+      if (onMarkAttendance) return hasAttUpdateChild;
+      const onlyAttUpdate =
+        childLabels.length > 0 &&
+        childLabels.every(
+          (l) => l.includes("attendance") && l.includes("update"),
+        );
+      return !onlyAttUpdate;
     }
     if (
       label.includes("mentorship") ||
+      label.trim() === "mentor" ||
       (label.includes("counseling") && !label.includes("meeting"))
     ) {
-      return normPathname.startsWith("/mentorship/");
+      return mentorshipModulePathActive(item, normPathname);
     }
-    if (
-      label.trim() === "events" ||
-      (label.includes("event") && label.includes("calendar"))
-    ) {
-      return normPathname.startsWith("/events/");
+    if (label.trim() === "events") {
+      // Events (add-event / college-calendar / event-type) — not Events Calendar.
+      const onEventsCalendarModule =
+        normPathname === "/events/events-calendar" ||
+        normPathname.startsWith("/events/events-calendar/") ||
+        normPathname === "/events/staff-events" ||
+        normPathname.startsWith("/events/staff-events/");
+      return (
+        (normPathname === "/events" || normPathname.startsWith("/events/")) &&
+        !onEventsCalendarModule
+      );
+    }
+    if (label.includes("event") && label.includes("calendar")) {
+      return (
+        normPathname === "/events/events-calendar" ||
+        normPathname.startsWith("/events/events-calendar/") ||
+        normPathname === "/events/staff-events" ||
+        normPathname.startsWith("/events/staff-events/")
+      );
     }
     if (
       label.includes("notification") &&
@@ -5910,6 +6075,23 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+  // Events vs Events Calendar share `/events/...` — do not gold both.
+  const onCollegeCalendar =
+    normPathname === "/events/college-calendar" ||
+    normPathname.startsWith("/events/college-calendar/");
+  const onEventsCalendar =
+    normPathname === "/events/events-calendar" ||
+    normPathname.startsWith("/events/events-calendar/") ||
+    normPathname === "/events/staff-events" ||
+    normPathname.startsWith("/events/staff-events/");
+  if (!hasChildren && diaryLabelKey === "college calendar") {
+    isSelfActive = onCollegeCalendar;
+  } else if (
+    !hasChildren &&
+    (diaryLabelKey === "events calendar" || diaryLabelKey === "event calendar")
+  ) {
+    isSelfActive = onEventsCalendar;
+  }
   // Fee Reports → Due List only — do not highlight Exam/Scholarship/Fee Due List Report.
   if (
     !hasChildren &&
@@ -6004,6 +6186,29 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     diaryLabelKey.includes("attendance")
   ) {
     isSelfActive = onSpecialActivityAttendance;
+  }
+  // Admin Teacher Meeting vs Staff Schedule-PTM Teacher Meeting — exact leaf.
+  if (!hasChildren && diaryLabelKey === "teacher meeting") {
+    const onAdminTeacherMeeting =
+      normPathname === "/mentorship/teacher-meeting" ||
+      normPathname.startsWith("/mentorship/teacher-meeting/");
+    const onStaffTeacherMeeting =
+      normPathname === "/mentorship/schedule-ptm/teacher-meeting" ||
+      normPathname.startsWith("/mentorship/schedule-ptm/teacher-meeting/");
+    const hrefHint = `${canonicalHref} ${(item.href ?? "").toLowerCase()}`;
+    if (
+      hrefHint.includes("schedule-ptm") ||
+      hrefHint.includes("staff-mentorship")
+    ) {
+      isSelfActive = onStaffTeacherMeeting;
+    } else if (
+      hrefHint.includes("admin-counseling") ||
+      hrefHint.includes("/mentorship/teacher-meeting")
+    ) {
+      isSelfActive = onAdminTeacherMeeting;
+    } else {
+      isSelfActive = onAdminTeacherMeeting || onStaffTeacherMeeting;
+    }
   }
   // Live Class Schedule vs Live Class Schedules List (Digital Class Room)
   const onLiveClassScheduleList =
@@ -6107,6 +6312,60 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       isActive = false;
     }
   }
+  // Mentor (staff-mentorship) vs Counseling (admin-counseling) share `/mentorship/`.
+  // Keep only the matching family active (Teacher Meeting must not gold Mentor).
+  if (depth === 0 && normPathname.startsWith("/mentorship/")) {
+    const staffMod = isStaffMentorshipModule(item);
+    const adminMod = isAdminCounselingModule(item);
+    if (isAdminCounselingPath(normPathname) && staffMod && !adminMod) {
+      isActive = false;
+    } else if (isStaffMentorshipPath(normPathname) && adminMod && !staffMod) {
+      isActive = false;
+    }
+  }
+  // When on /attendance-management/mark-attendance (Attendance Update), two
+  // depth-0 "Attendance Management" modules may both match via descendant hrefs.
+  // Only keep the one whose children include "Attendance Update" (the Angular
+  // Academics → Attendance Update leaf); suppress the other module.
+  if (
+    normPathname.startsWith("/attendance-management/mark-attendance") &&
+    depth === 0 &&
+    labelForActive.includes("attendance") &&
+    labelForActive.includes("management") &&
+    hasChildren
+  ) {
+    const childLabels = (item.children ?? []).map((c) =>
+      (c.label ?? "").toLowerCase(),
+    );
+    const hasAttendanceUpdateChild = childLabels.some(
+      (l) => l.includes("attendance") && l.includes("update"),
+    );
+    if (!hasAttendanceUpdateChild) {
+      isActive = false;
+    }
+  }
+  // Converse: on /attendance-management/* paths that are NOT mark-attendance,
+  // suppress the "Attendance Management" module that only has "Attendance Update".
+  if (
+    normPathname.startsWith("/attendance-management/") &&
+    !normPathname.startsWith("/attendance-management/mark-attendance") &&
+    depth === 0 &&
+    labelForActive.includes("attendance") &&
+    labelForActive.includes("management") &&
+    hasChildren
+  ) {
+    const childLabels = (item.children ?? []).map((c) =>
+      (c.label ?? "").toLowerCase(),
+    );
+    const onlyAttendanceUpdate =
+      childLabels.length > 0 &&
+      childLabels.every(
+        (l) => l.includes("attendance") && l.includes("update"),
+      );
+    if (onlyAttendanceUpdate) {
+      isActive = false;
+    }
+  }
   // Angular Fuse: collapsable Faculty Details module (staff-faculty-details) has no
   // routerLinkActive on the parent — only the flat pages[] HR leaf highlights on employee-list.
   const onHrEmployeeListPath =
@@ -6121,7 +6380,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
     isActive = false;
   }
 
-  const isOpen = !isItemCollapsed;
+  // Force-collapse depth-0 modules whose isActive was suppressed by dedup rules
+  // above, so a duplicate "Attendance Management" module doesn't stay expanded.
+  const suppressedModule =
+    depth === 0 &&
+    hasChildren &&
+    !isActive &&
+    (isChildActive || modulePathActive);
+  const isOpen = suppressedModule ? false : !isItemCollapsed;
 
   const examMasters = usesExamMastersDesign(item);
 

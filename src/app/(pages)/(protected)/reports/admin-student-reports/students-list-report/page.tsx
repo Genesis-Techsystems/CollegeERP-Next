@@ -666,6 +666,7 @@ ${tableHtml}
       pagination
       loading={loadingList || loadingFilters}
       resultsVisible={showTable}
+      fitColumnsToWidth={false}
       hideEmptyGrid
       toolbar={{
         search: true,

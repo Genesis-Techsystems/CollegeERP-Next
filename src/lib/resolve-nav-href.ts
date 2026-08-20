@@ -1703,6 +1703,20 @@ export function resolveForcedNavRoute(
       return "/principal-my-approvals/detain-request-approvals";
     }
 
+    // eOffice Item Approval — URL stays `/e-office/item-approval`.
+    // Do not steal principal "Item Request Approvals".
+    if (
+      !hrefLower.includes("principal-my-approvals") &&
+      !hrefLower.includes("item-request-approvals") &&
+      (hrefLower.includes("item-approval") ||
+        hrefLower.includes("item_approval") ||
+        /(?:^|\/)itemapprovals?(?:\/|$)/.test(hrefLower) ||
+        labelKey === "item approval" ||
+        labelKey === "item approvals")
+    ) {
+      return "/e-office/item-approval";
+    }
+
     // Principal My Approvals — Item Request Approvals (must beat e-office/item-request)
     if (
       hrefLower.includes("item-request-approvals") ||
@@ -4412,10 +4426,22 @@ export function resolveForcedNavRoute(
     return "/admin/workflow-stages";
   }
   if (
-    labelLower.includes("holiday") ||
-    labelLower.includes("holidays") ||
-    labelLower.includes("calendar") ||
-    labelLower.includes("calender")
+    (labelLower.includes("holiday") || labelLower.includes("holidays")) &&
+    !labelLower.includes("college calendar") &&
+    !hrefLower.includes("college-calendar") &&
+    !hrefLower.includes("school-calendar")
+  ) {
+    return "/admin/holidays-calendar";
+  }
+  if (
+    (labelLower.includes("calendar") || labelLower.includes("calender")) &&
+    !labelLower.includes("college") &&
+    !labelLower.includes("school") &&
+    !labelLower.includes("event") &&
+    !labelLower.includes("faculty") &&
+    !hrefLower.includes("college-calendar") &&
+    !hrefLower.includes("school-calendar") &&
+    !hrefLower.includes("/events/")
   ) {
     return "/admin/holidays-calendar";
   }

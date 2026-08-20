@@ -12,7 +12,11 @@ import {
   CardHeadingTitle,
   StatusBadge,
 } from "@/common/components/data-display";
-import { FilteredListPage, PageContainer } from "@/components/layout";
+import {
+  AngularFilterCard,
+  FilteredListPage,
+  PageContainer,
+} from "@/components/layout";
 import { usePageNavLabel } from "@/common/components/breadcrumb";
 import { useSessionContext } from "@/context/SessionContext";
 import { useStaffLoginContext } from "@/hooks/useStaffLoginContext";
@@ -943,84 +947,113 @@ export function CollegeEventsPage({
     );
   }
 
-  if (isManage || isCalendarView) {
-    const pageFilters = isCalendarView ? (
-      <div className="space-y-3">
-        {filterFields}
+  if (isCalendarView) {
+    return (
+      <PageContainer className="space-y-3">
+        <AngularFilterCard title="Events" pageFirstCard>
+          {filterFields}
+        </AngularFilterCard>
+
         {calendarLoaded ? (
           <RadioGroup
             value={calendarViewMode}
             onValueChange={(v) =>
               onCalendarViewModeChange(v as "month" | "list")
             }
-            className="flex flex-wrap gap-4"
+            className="flex flex-wrap items-center gap-6 px-1 py-1"
           >
             <div className="flex items-center gap-2">
-              <RadioGroupItem value="month" id="college-calendar-month" />
-              <Label htmlFor="college-calendar-month">Month Wise View</Label>
+              <RadioGroupItem
+                value="month"
+                id="college-calendar-month"
+                className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+              />
+              <Label
+                htmlFor="college-calendar-month"
+                className="cursor-pointer text-[15px] font-normal text-foreground"
+              >
+                Month Wise View
+              </Label>
             </div>
             <div className="flex items-center gap-2">
-              <RadioGroupItem value="list" id="college-calendar-list" />
-              <Label htmlFor="college-calendar-list">All Events List</Label>
+              <RadioGroupItem
+                value="list"
+                id="college-calendar-list"
+                className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+              />
+              <Label
+                htmlFor="college-calendar-list"
+                className="cursor-pointer text-[15px] font-normal text-foreground"
+              >
+                All Events List
+              </Label>
             </div>
           </RadioGroup>
         ) : null}
-      </div>
-    ) : (
-      filterFields
-    );
 
+        {calendarLoaded && calendarViewMode === "list" ? (
+          <DataTable
+            title="All Events List"
+            titleIcon="ballot"
+            rowData={rows}
+            columnDefs={calendarListColumnDefs}
+            loading={loading}
+            pagination
+            paginationPageSize={10}
+            toolbar={{
+              search: true,
+              searchPlaceholder: "Search",
+              exportExcel: false,
+              exportPdf: false,
+            }}
+          />
+        ) : null}
+
+        {calendarLoaded && calendarViewMode === "month" ? (
+          <EventsCalendarPanel
+            viewMonth={viewMonth}
+            onViewMonthChange={setViewMonth}
+            events={rows}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            readOnly
+          />
+        ) : null}
+
+        {eventModals}
+      </PageContainer>
+    );
+  }
+
+  if (isManage) {
     return (
       <FilteredListPage
-        title={title}
-        filters={pageFilters}
+        title={pageTitle}
+        filters={filterFields}
         body={
           calendarLoaded ? (
-            isCalendarView && calendarViewMode === "list" ? (
-              <DataTable
-                rowData={rows}
-                columnDefs={calendarListColumnDefs}
-                loading={loading}
-                pagination
-                paginationPageSize={10}
-                bordered={false}
-                toolbar={{
-                  search: true,
-                  searchPlaceholder: "Search",
-                  pdfDocumentTitle: title,
-                }}
-              />
-            ) : (
-              <EventsCalendarPanel
-                viewMonth={viewMonth}
-                onViewMonthChange={setViewMonth}
-                events={rows}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-                readOnly={!isManage}
-                onAddEvent={
-                  isManage
-                    ? () => {
-                        setEditing(null);
-                        setModalDefaultDate(selectedDate);
-                        setModalOpen(true);
-                      }
-                    : undefined
-                }
-                onEventClick={
-                  isManage
-                    ? (ev) => {
-                        setEditing(ev);
-                        setModalDefaultDate(undefined);
-                        setModalOpen(true);
-                      }
-                    : undefined
-                }
-              />
-            )
+            <EventsCalendarPanel
+              viewMonth={viewMonth}
+              onViewMonthChange={setViewMonth}
+              events={rows}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              readOnly={false}
+              onAddEvent={() => {
+                setEditing(null);
+                setModalDefaultDate(selectedDate);
+                setModalOpen(true);
+              }}
+              onEventClick={(ev) => {
+                setEditing(ev);
+                setModalDefaultDate(undefined);
+                setModalOpen(true);
+              }}
+            />
           ) : null
         }
         bodyClassName="!px-0 !py-0 border-t-0"
+        tableHeader={null}
       >
         {eventModals}
       </FilteredListPage>
@@ -1064,6 +1097,8 @@ export function CollegeEventsPage({
               search: true,
               searchPlaceholder: "Search events…",
               pdfDocumentTitle: title,
+              exportExcel: false,
+              exportPdf: false,
             }}
           />
         </TableCard>

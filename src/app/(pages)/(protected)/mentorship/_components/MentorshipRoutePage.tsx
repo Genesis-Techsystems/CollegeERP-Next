@@ -25,7 +25,14 @@ const PAGE_MAP: Record<string, () => ReactElement> = {
   ),
   "schedule-ptm": () => <SchedulePtmPage />,
   "schedule-ptm/teacher-meeting": () => <TeacherMeetingPage />,
-  "teacher-meeting": () => <TeacherMeetingPage />,
+  "teacher-meeting": () => (
+    <CounselorMeetingsPage
+      mode="admin"
+      title="Teacher Meeting"
+      filterTitle="Meetings Filter"
+    />
+  ),
+  meeting: () => <TeacherMeetingPage />,
   "assign-counselor": () => <AssignCounselorPage title="Assign Counselor" />,
   "assign-mentor-to-students": () => (
     <AssignCounselorPage title="Assign Mentor to Students" />

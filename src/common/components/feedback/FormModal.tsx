@@ -118,6 +118,7 @@ export function FormModal({
         </DialogHeader>
 
         <form
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
             onSubmit(e);

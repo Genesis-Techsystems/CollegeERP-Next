@@ -9,7 +9,6 @@ import type {
 } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
@@ -17,6 +16,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedExamRegistrationSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { getAffiliatedConfig } from "../_lib/route-config";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { pickAffiliatedText } from "../_lib/enrich-affiliated-summary-rows";
 import {
   buildAffiliatedExamRegSummaryContext,
@@ -26,6 +26,10 @@ import {
 } from "../_lib/affiliated-exam-reg-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
+import {
+  AFFILIATED_ACTION_COL,
+  AffiliatedUploadCell,
+} from "./AffiliatedUploadCell";
 
 function summaryText(
   p: ValueGetterParams<AffiliatedSummaryRow>,
@@ -97,9 +101,7 @@ const COL_DEFS = {
   } as ColDef<AffiliatedSummaryRow>,
   actions: {
     headerName: "Status",
-    minWidth: 100,
-    flex: 0,
-    width: 110,
+    ...AFFILIATED_ACTION_COL,
   } as ColDef<AffiliatedSummaryRow>,
 };
 
@@ -114,9 +116,7 @@ function makeUploadRenderer(
     if (!uploadPath) return null;
     const row = p.data;
     return (
-      <Button
-        size="sm"
-        variant="default"
+      <AffiliatedUploadCell
         onClick={() => {
           if (!row || !collegeId || !academicYearId || !examId) return;
           const ctx = buildAffiliatedExamRegSummaryContext(
@@ -136,9 +136,7 @@ function makeUploadRenderer(
           });
           router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`);
         }}
-      >
-        Upload
-      </Button>
+      />
     );
   };
 }
@@ -182,6 +180,7 @@ export function StudentExamRegistrationSummaryPage() {
       return getAffiliatedExamRegistrationSummary(parsed);
     },
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const errorMessage = error ? getErrorMessage(error) : "";
@@ -264,6 +263,8 @@ export function StudentExamRegistrationSummaryPage() {
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

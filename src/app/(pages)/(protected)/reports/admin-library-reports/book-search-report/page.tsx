@@ -5,9 +5,14 @@
  * Angular `reports/admin-library-reports/book-search-report` parity.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import type {
+  ColDef,
+  GridApi,
+  ICellRendererParams,
+  ValueGetterParams,
+} from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
 import { StatusBadge } from "@/common/components/data-display";
 import { Select } from "@/common/components/select";
@@ -23,7 +28,6 @@ import { Label } from "@/components/ui/label";
 import { printHtmlInIframe } from "@/lib/print";
 import { getErrorMessage } from "@/lib/errors";
 import { resolveReportCatalogHref } from "@/lib/report-catalog";
-import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
 import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import { getBookDetailSearchReport, getCollegeById } from "@/services";
@@ -48,6 +52,8 @@ const SEARCH_TYPE_OPTIONS = [
 ];
 
 type SearchRow = {
+  /** Original API index — Angular `booksList.indexOf(row)` SI.No parity. */
+  __ord: number;
   accessionNo: string;
   title: string;
   author: string;
@@ -67,10 +73,16 @@ function statusRenderer(p: ICellRendererParams<SearchRow>) {
   );
 }
 
-function mapStandardRow(row: AnyRow): SearchRow {
+/** Angular SI.No uses original list index, not post-sort display index. */
+function apiIndexSiNo(p: ValueGetterParams<SearchRow>) {
+  return (p.data?.__ord ?? p.node?.rowIndex ?? 0) + 1;
+}
+
+function mapStandardRow(row: AnyRow, ord: number): SearchRow {
   const copies = String(row.availableCopies ?? "");
   const available = copies !== "0";
   return {
+    __ord: ord,
     accessionNo: String(row.accessionno ?? row.accessionNo ?? ""),
     title: String(row.title ?? ""),
     author: String(row.authorShortName ?? row.author ?? ""),
@@ -81,8 +93,9 @@ function mapStandardRow(row: AnyRow): SearchRow {
   };
 }
 
-function mapPeriodicalRow(row: AnyRow): SearchRow {
+function mapPeriodicalRow(row: AnyRow, ord: number): SearchRow {
   return {
+    __ord: ord,
     accessionNo: "",
     title: String(row.periodicalName ?? row.title ?? ""),
     author: "",
@@ -93,10 +106,11 @@ function mapPeriodicalRow(row: AnyRow): SearchRow {
   };
 }
 
-function mapAccessionRow(row: AnyRow): SearchRow {
+function mapAccessionRow(row: AnyRow, ord: number): SearchRow {
   const status = String(row.availabilityStatus ?? "");
   const available = status === "1";
   return {
+    __ord: ord,
     accessionNo: String(row.accessionno ?? row.accessionNo ?? ""),
     title: String(row.bookTitle ?? row.title ?? ""),
     author: String(row.authors ?? row.author ?? ""),
@@ -112,6 +126,7 @@ export default function BookSearchReportPage() {
   const searchParams = useSearchParams();
   const collegeId = Number(globalThis?.localStorage?.getItem("collegeId") ?? 0);
   const collegeLogo = useCollegeLogo(collegeId > 0 ? collegeId : null);
+  const gridApiRef = useRef<GridApi<SearchRow> | null>(null);
 
   const [searchText, setSearchText] = useState("");
   const [searchType, setSearchType] = useState<string | null>("TITLE");
@@ -121,6 +136,12 @@ export default function BookSearchReportPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [showTable, setShowTable] = useState(false);
   const [activeType, setActiveType] = useState("TITLE");
+
+  const clearGridSort = useCallback(() => {
+    // Angular loads `result.data` as-is; clear any leftover AG Grid sort so
+    // row order stays API order (same as MatTable with no active matSort).
+    gridApiRef.current?.applyColumnState({ defaultState: { sort: null } });
+  }, []);
 
   const clearResults = useCallback(() => {
     setRows([]);
@@ -136,9 +157,10 @@ export default function BookSearchReportPage() {
       return [
         {
           headerName: "SI.No",
-          valueGetter: rowIndexGetter,
+          valueGetter: apiIndexSiNo,
           width: 70,
           flex: 0,
+          sortable: false,
         },
         { field: "title", headerName: "Book Title", minWidth: 200 },
         { field: "publisher", headerName: "Publisher", minWidth: 160 },
@@ -147,9 +169,10 @@ export default function BookSearchReportPage() {
     return [
       {
         headerName: "SI.No",
-        valueGetter: rowIndexGetter,
+        valueGetter: apiIndexSiNo,
         width: 70,
         flex: 0,
+        sortable: false,
       },
       { field: "accessionNo", headerName: "Accession No", minWidth: 120 },
       { field: "title", headerName: "Book Title", minWidth: 180 },
@@ -186,8 +209,8 @@ export default function BookSearchReportPage() {
 
   const exportRows = useMemo(
     () =>
-      rows.map((row, i) => ({
-        siNo: i + 1,
+      rows.map((row) => ({
+        siNo: row.__ord + 1,
         accessionNo: row.accessionNo,
         title: row.title,
         author: row.author,
@@ -235,6 +258,7 @@ export default function BookSearchReportPage() {
         toastInfo("No records found.");
         return;
       }
+      // Keep Spring response order — Angular assigns `result.data` with no .sort().
       const mapped =
         filter === "PERIODICAL"
           ? raw.map(mapPeriodicalRow)
@@ -243,6 +267,7 @@ export default function BookSearchReportPage() {
             : raw.map(mapStandardRow);
       setRows(mapped);
       setShowTable(true);
+      queueMicrotask(clearGridSort);
     } catch (err) {
       toastError(getErrorMessage(err));
     } finally {
@@ -352,11 +377,17 @@ export default function BookSearchReportPage() {
       }
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
+      getRowId={(p) => String(p.data?.__ord ?? "")}
+      onGridApiReady={(api) => {
+        gridApiRef.current = api;
+        clearGridSort();
+      }}
       loading={loadingList}
       resultsVisible={showTable}
       hideEmptyGrid
       pagination
       paginationPageSize={25}
+      columnFilters={false}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",

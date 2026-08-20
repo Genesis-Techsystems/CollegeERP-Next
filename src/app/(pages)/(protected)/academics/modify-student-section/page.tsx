@@ -8,7 +8,7 @@ import type {
 } from "ag-grid-community";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { getErrorMessage } from "@/lib/errors";
 import {
   buildModifyStudentSectionPayload,
   getDigitalOnlineSyncFilters,
@@ -307,27 +308,59 @@ export default function ModifyStudentSectionPage() {
     void loadSections();
   }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId]);
 
+  const studentListKey = [
+    collegeId ?? 0,
+    courseId ?? 0,
+    courseGroupId ?? 0,
+    courseYearId ?? 0,
+    academicYearId ?? 0,
+    groupSectionId ?? 0,
+  ].join(":");
+
   const reloadStudents = useCallback(async () => {
-    if (!collegeId || !courseGroupId || !groupSectionId) {
+    const [
+      nextCollegeId,
+      nextCourseId,
+      nextCourseGroupId,
+      nextCourseYearId,
+      nextAcademicYearId,
+      nextGroupSectionId,
+    ] = studentListKey.split(":").map(Number);
+    if (
+      !nextCollegeId ||
+      !nextCourseId ||
+      !nextCourseGroupId ||
+      !nextCourseYearId ||
+      !nextAcademicYearId ||
+      !nextGroupSectionId
+    ) {
       setRows([]);
       setTableEnabled(false);
       return;
     }
     setLoading(true);
-    const list = await listStudentsForModifyStudentBatches({
-      collegeId,
-      courseGroupId,
-      groupSectionId,
-    }).catch(() => []);
-    const mapped = (Array.isArray(list) ? list : []).map((row, idx) => ({
-      ...row,
-      __rowKey: `${n(row.studentId ?? row.fk_student_id) || idx + 1}`,
-    }));
-    setRows(mapped);
-    setTableEnabled(mapped.length > 0);
-    setSelectedIds(new Set());
-    setLoading(false);
-  }, [collegeId, courseGroupId, groupSectionId]);
+    try {
+      const list = await listStudentsForModifyStudentBatches({
+        collegeId: nextCollegeId,
+        courseGroupId: nextCourseGroupId,
+        groupSectionId: nextGroupSectionId,
+      });
+      const mapped = (Array.isArray(list) ? list : []).map((row, idx) => ({
+        ...row,
+        __rowKey: `${n(row.studentId ?? row.fk_student_id) || idx + 1}`,
+      }));
+      setRows(mapped);
+      setTableEnabled(mapped.length > 0);
+      setSelectedIds(new Set());
+    } catch (e) {
+      setRows([]);
+      setTableEnabled(false);
+      const msg = getErrorMessage(e);
+      if (!/no\s+record/i.test(msg) && !/no\s+data/i.test(msg)) toastError(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [studentListKey]);
 
   useEffect(() => {
     void reloadStudents();
@@ -410,6 +443,50 @@ export default function ModifyStudentSectionPage() {
     ],
     [selectedIds, allSelected],
   );
+
+  const filterSummaryLine = useMemo(() => {
+    if (!tableEnabled) return "";
+    const college = colleges.find(
+      (x) => n(x.fk_college_id) === (collegeId ?? 0),
+    );
+    const course = courses.find((x) => n(x.fk_course_id) === (courseId ?? 0));
+    const group = courseGroups.find(
+      (x) => n(x.fk_course_group_id) === (courseGroupId ?? 0),
+    );
+    const year = courseYears.find(
+      (x) => n(x.fk_course_year_id) === (courseYearId ?? 0),
+    );
+    const ay = academicYears.find(
+      (x) => n(x.fk_academic_year_id) === (academicYearId ?? 0),
+    );
+    const section = sectionOptions.find(
+      (x) => x.value === String(groupSectionId ?? 0),
+    );
+    return [
+      s(college?.college_code),
+      s(course?.course_code),
+      s(group?.group_code) || s(group?.group_name),
+      s(year?.course_year_code) || s(year?.course_year_name),
+      s(ay?.academic_year),
+      section?.label ?? "",
+    ]
+      .filter(Boolean)
+      .join(" / ");
+  }, [
+    tableEnabled,
+    colleges,
+    collegeId,
+    courses,
+    courseId,
+    courseGroups,
+    courseGroupId,
+    courseYears,
+    courseYearId,
+    academicYears,
+    academicYearId,
+    sectionOptions,
+    groupSectionId,
+  ]);
 
   async function onSave() {
     if (!fromDate || !toDate) {
@@ -546,11 +623,25 @@ export default function ModifyStudentSectionPage() {
             />
           </div>
         }
+        showTable={tableEnabled}
+        resultsVisible={tableEnabled}
+        tableHeader={
+          tableEnabled && filterSummaryLine ? (
+            <TableContextHeader
+              title="Modify Student Section"
+              info={<span>{filterSummaryLine}</span>}
+            />
+          ) : null
+        }
         rowData={tableEnabled ? rows : []}
-        columnDefs={studentColumnDefs}
+        columnDefs={tableEnabled ? studentColumnDefs : undefined}
         loading={loading}
         pagination
-        toolbar={{ search: true, searchPlaceholder: "Search students" }}
+        toolbar={
+          tableEnabled
+            ? { search: true, searchPlaceholder: "Search students" }
+            : undefined
+        }
         rightRail={
           tableEnabled && selectedIds.size > 0 ? (
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">

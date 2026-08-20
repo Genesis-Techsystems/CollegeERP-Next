@@ -1,16 +1,24 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Select } from "@/common/components/select";
+import {
+  Select,
+  toEmployeeSearchSelectOptions,
+} from "@/common/components/select";
 import { FilteredPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { toastError } from "@/lib/toast";
-import {
-  formatTransportTime,
-} from "../_lib/pay-fees-mode";
+import { formatTransportTime } from "../_lib/pay-fees-mode";
 import {
   getEmployeeDetailsForTransport,
   listTransportAllocationsByEmployee,
@@ -26,12 +34,6 @@ const DEFAULT_PHOTO = "/assets/images/avatars/default_Student.png";
 
 function isEmptyObject(obj: object | null | undefined): boolean {
   return !obj || Object.keys(obj).length === 0;
-}
-
-function employeeLabel(emp: EmployeeSearchRow): string {
-  const name = emp.firstName ?? "Employee";
-  const num = emp.empNumber;
-  return num ? `${num} (${name})` : name;
 }
 
 function FacultyTransportPaymentContent() {
@@ -87,8 +89,7 @@ function FacultyTransportPaymentContent() {
         setEmployees(list);
         if (empId) {
           setEmployeeId(empId);
-          const hit =
-            list.find((r) => String(r.employeeId) === empId) ?? null;
+          const hit = list.find((r) => String(r.employeeId) === empId) ?? null;
           setSelectedHit(hit);
         }
       })
@@ -104,8 +105,7 @@ function FacultyTransportPaymentContent() {
     enabled: selectedEmployeeId > 0,
   });
 
-  const employeeDetails: EmployeeProfileRow | null =
-    detailsQuery.data ?? null;
+  const employeeDetails: EmployeeProfileRow | null = detailsQuery.data ?? null;
 
   const allocationsQuery = useQuery({
     queryKey: QK.feesCollection.transportAllocations(selectedEmployeeId),
@@ -138,13 +138,9 @@ function FacultyTransportPaymentContent() {
     if (selectedHit?.employeeId) {
       byId.set(String(selectedHit.employeeId), selectedHit);
     }
-    return Array.from(byId.values()).map((emp) => ({
-      value: String(emp.employeeId),
-      label: employeeLabel(emp),
-      description: [emp.collegeCode, emp.empDeptName, emp.designation]
-        .filter(Boolean)
-        .join(" / "),
-    }));
+    return toEmployeeSearchSelectOptions(Array.from(byId.values()), {
+      layout: "number-first",
+    });
   }, [employees, selectedHit]);
 
   function onSelectEmployee(id: string | null) {
@@ -154,9 +150,7 @@ function FacultyTransportPaymentContent() {
       return;
     }
     const hit =
-      employees.find((e) => String(e.employeeId) === id) ??
-      selectedHit ??
-      null;
+      employees.find((e) => String(e.employeeId) === id) ?? selectedHit ?? null;
     setSelectedHit(hit);
   }
 
@@ -185,8 +179,7 @@ function FacultyTransportPaymentContent() {
     );
   }
 
-  const showProfile =
-    !!employeeDetails && !isEmptyObject(employeeDetails);
+  const showProfile = !!employeeDetails && !isEmptyObject(employeeDetails);
 
   return (
     <FilteredPage
@@ -266,8 +259,7 @@ function FacultyTransportPaymentContent() {
                     {transportRows.map((row, i) => (
                       <tr
                         key={String(
-                          row.transportAllocationId ??
-                            `${row.routeCode}-${i}`,
+                          row.transportAllocationId ?? `${row.routeCode}-${i}`,
                         )}
                         className="border-b"
                       >
@@ -306,7 +298,8 @@ function FacultyTransportPaymentContent() {
                         </td>
                       </tr>
                     ))}
-                    {transportRows.length === 0 && !allocationsQuery.isLoading ? (
+                    {transportRows.length === 0 &&
+                    !allocationsQuery.isLoading ? (
                       <tr>
                         <td
                           colSpan={6}

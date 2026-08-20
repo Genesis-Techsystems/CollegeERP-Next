@@ -1,17 +1,17 @@
-'use client'
+"use client";
 
-import { FileSpreadsheet, Printer } from 'lucide-react'
-import { SearchInput } from '@/common/components/search'
-import { Button } from '@/components/ui/button'
+import { FileSpreadsheet, Printer } from "lucide-react";
+import { SearchInput } from "@/common/components/search";
+import { Button } from "@/components/ui/button";
 
 type AffiliatedReportToolbarProps = {
-  search: string
-  onSearchChange: (value: string) => void
-  onExport: () => void
-  onPrint: () => void
-  onBack?: () => void
-  showBack?: boolean
-}
+  search: string;
+  onSearchChange: (value: string) => void;
+  onExport: () => void;
+  onPrint: () => void;
+  onBack?: () => void;
+  showBack?: boolean;
+};
 
 export function AffiliatedReportToolbar({
   search,
@@ -39,11 +39,16 @@ export function AffiliatedReportToolbar({
           Print Report
         </Button>
         {showBack && onBack ? (
-          <Button type="button" variant="outline" onClick={onBack}>
+          <Button
+            type="button"
+            variant="outline"
+            className="back-btn"
+            onClick={onBack}
+          >
             Back
           </Button>
         ) : null}
       </div>
     </div>
-  )
+  );
 }

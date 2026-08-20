@@ -565,6 +565,7 @@ export default function RoomDetailsPage() {
                 setBlockId("0");
                 setFloorId("0");
                 setRoomId("0");
+                setShowResults(false);
               }}
               options={campusOptions}
               searchable
@@ -578,6 +579,7 @@ export default function RoomDetailsPage() {
                 setBlockId("0");
                 setFloorId("0");
                 setRoomId("0");
+                setShowResults(false);
               }}
               options={buildingOptions}
               searchable
@@ -590,6 +592,7 @@ export default function RoomDetailsPage() {
                 setBlockId(v ?? "0");
                 setFloorId("0");
                 setRoomId("0");
+                setShowResults(false);
               }}
               options={blockOptions}
               searchable
@@ -602,6 +605,7 @@ export default function RoomDetailsPage() {
               onChange={(v) => {
                 setFloorId(v ?? "0");
                 setRoomId("0");
+                setShowResults(false);
               }}
               options={floorOptions}
               searchable
@@ -611,7 +615,10 @@ export default function RoomDetailsPage() {
           <GlobalFilterField label="Room">
             <Select
               value={roomId}
-              onChange={(v) => setRoomId(v ?? "0")}
+              onChange={(v) => {
+                setRoomId(v ?? "0");
+                setShowResults(false);
+              }}
               options={roomOptions}
               searchable
             />
@@ -633,6 +640,8 @@ export default function RoomDetailsPage() {
       rowData={showResults ? filteredData : []}
       columnDefs={columnDefs}
       loading={detailsLoading}
+      showTable={showResults}
+      resultsVisible={showResults}
       pagination
       toolbar={{
         search: true,

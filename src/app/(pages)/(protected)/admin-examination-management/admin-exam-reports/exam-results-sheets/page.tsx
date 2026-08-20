@@ -8,11 +8,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Loader2, Printer, RefreshCw } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { SearchInput } from "@/common/components/search";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
@@ -417,217 +421,237 @@ ${groupsHtml}
   }
 
   const showResults = hasFetched && rows.length > 0;
+  const showResultsCard = hasFetched && (loading || rows.length > 0);
+
+  const filters = (
+    <>
+      <GlobalFilterBarRow>
+        <GlobalFilterField label="Course *">
+          <Select
+            value={courseId || null}
+            onChange={(v) => {
+              setCourseId(v ?? "");
+              setAcademicYearId("");
+              setExamId("");
+            }}
+            options={courses.map((r) => ({
+              value: String(num(r.fk_course_id)),
+              label: txt(r.course_code) || String(num(r.fk_course_id)),
+            }))}
+            isLoading={loadingFilters}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam Year *">
+          <Select
+            value={academicYearId || null}
+            onChange={(v) => {
+              setAcademicYearId(v ?? "");
+              setExamId("");
+            }}
+            options={academicYears.map((r) => ({
+              value: String(num(r.fk_academic_year_id)),
+              label: txt(r.academic_year) || String(num(r.fk_academic_year_id)),
+            }))}
+            disabled={!courseId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam *" className="min-w-[280px] flex-[2]">
+          <Select
+            value={examId || null}
+            onChange={(v) => setExamId(v ?? "")}
+            options={exams.map((r) => ({
+              value: String(num(r.fk_exam_id)),
+              label: examMasterLabel(r),
+            }))}
+            searchable
+            wrapOptionLabels
+            disabled={!academicYearId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Exam Type *">
+          <Select
+            value={examTypeId}
+            onChange={(v) => setExamTypeId(v ?? "0")}
+            options={examTypeOptions}
+          />
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
+
+      <GlobalFilterBarRow>
+        <GlobalFilterField label="College *">
+          <Select
+            value={collegeId || null}
+            onChange={(v) => {
+              setCollegeId(v ?? "");
+              setCourseGroupId("");
+              setCourseYearId("");
+            }}
+            options={colleges.map((r) => ({
+              value: String(num(r.fk_college_id)),
+              label: txt(r.college_code) || String(num(r.fk_college_id)),
+            }))}
+            disabled={!examId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Course Group *">
+          <Select
+            value={courseGroupId || null}
+            onChange={(v) => {
+              setCourseGroupId(v ?? "");
+              setCourseYearId("");
+            }}
+            options={courseGroups.map((r) => ({
+              value: String(num(r.fk_course_group_id)),
+              label: txt(r.group_code) || String(num(r.fk_course_group_id)),
+            }))}
+            disabled={!collegeId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField label="Course Year *">
+          <Select
+            value={courseYearId || null}
+            onChange={(v) => setCourseYearId(v ?? "")}
+            options={courseYears.map((r) => ({
+              value: String(num(r.fk_course_year_id)),
+              label:
+                txt(r.course_year_code) || String(num(r.fk_course_year_id)),
+            }))}
+            disabled={!courseGroupId}
+          />
+        </GlobalFilterField>
+        <GlobalFilterField
+          label="Is Re-Evaluation"
+          className="global-filter-field--shrink"
+        >
+          <div className="flex h-[30px] items-center gap-2">
+            <Checkbox
+              id="result-sheets-reeval"
+              checked={isReevaluation}
+              onCheckedChange={(v) => setIsReevaluation(v === true)}
+            />
+            <Label
+              htmlFor="result-sheets-reeval"
+              className="cursor-pointer text-[12px] font-normal"
+            >
+              Is Re-Evaluation
+            </Label>
+          </div>
+        </GlobalFilterField>
+        <GlobalFilterField
+          label=""
+          className="global-filter-field--shrink global-filter-field--action"
+        >
+          <div className="flex items-end gap-2">
+            <Button
+              type="button"
+              className="h-[30px] px-3 text-[12px]"
+              onClick={() => void onGetReport()}
+              disabled={loading}
+            >
+              Get Report
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-[30px] w-[30px]"
+              title="Reset"
+              onClick={() => {
+                setRows([]);
+                setHasFetched(false);
+                setSearchText("");
+                setIsReevaluation(false);
+              }}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </GlobalFilterField>
+      </GlobalFilterBarRow>
+    </>
+  );
+
+  const tableHeader = (
+    <div className="table-context-header flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <div className="flex items-center gap-2">
+        <span className="material-icons table-context-header__icon" aria-hidden>
+          ballot
+        </span>
+        <strong className="table-context-header__title">
+          Exam Result Sheets
+        </strong>
+      </div>
+      {filterSummary ? (
+        <span className="text-[12px] font-medium text-blue-700">
+          {filterSummary}
+        </span>
+      ) : null}
+    </div>
+  );
+
+  const body = showResults ? (
+    <div className="-mx-4 -mb-4 bg-white px-4 pb-4">
+      <div className="app-data-table-toolbar flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-3">
+        <Button
+          type="button"
+          size="sm"
+          className="h-[30px] rounded-[5px] px-3 text-[12px]"
+          onClick={() => void printReport()}
+        >
+          <Printer className="mr-1.5 h-3.5 w-3.5" />
+          Print Report
+        </Button>
+        <SearchInput
+          value={searchText}
+          onChange={setSearchText}
+          placeholder="Search"
+          className="w-full max-w-[260px]"
+        />
+      </div>
+
+      <div className="mat-elevation-z8 overflow-hidden">
+        {statusGroups.map((group) => (
+          <section key={group.status}>
+            <div className="bg-[#c3d9ff] px-3 py-2 text-center text-[15px] font-medium text-foreground">
+              {group.status} ({group.items.length})
+            </div>
+            <div className="grid grid-cols-4 bg-white px-1 py-2">
+              {group.items.map((r, idx) => (
+                <div
+                  key={`${group.status}-${txt(r.hallticket_number)}-${idx}`}
+                  className="px-2 py-1.5 text-center text-[13px] tabular-nums text-foreground"
+                >
+                  {txt(r.hallticket_number) || "—"}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+        {statusGroups.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No matching hall tickets
+          </p>
+        ) : null}
+      </div>
+    </div>
+  ) : loading ? (
+    <div className="flex min-h-[120px] items-center justify-center py-8 text-sm text-muted-foreground">
+      <span className="inline-flex items-center gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Loading…
+      </span>
+    </div>
+  ) : undefined;
 
   return (
-    <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
-        <div className="border-b border-border px-4 py-3">
-          <h1 className="text-base font-semibold text-foreground">
-            Exam Result Sheets
-          </h1>
-        </div>
-        <div className="space-y-2 border-b border-border p-4">
-          <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course *</Label>
-              <Select
-                value={courseId || null}
-                onChange={(v) => {
-                  setCourseId(v ?? "");
-                  setAcademicYearId("");
-                  setExamId("");
-                }}
-                options={courses.map((r) => ({
-                  value: String(num(r.fk_course_id)),
-                  label: txt(r.course_code) || String(num(r.fk_course_id)),
-                }))}
-                isLoading={loadingFilters}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Year *</Label>
-              <Select
-                value={academicYearId || null}
-                onChange={(v) => {
-                  setAcademicYearId(v ?? "");
-                  setExamId("");
-                }}
-                options={academicYears.map((r) => ({
-                  value: String(num(r.fk_academic_year_id)),
-                  label:
-                    txt(r.academic_year) || String(num(r.fk_academic_year_id)),
-                }))}
-                disabled={!courseId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-4">
-              <Label>Exam *</Label>
-              <Select
-                value={examId || null}
-                onChange={(v) => setExamId(v ?? "")}
-                options={exams.map((r) => ({
-                  value: String(num(r.fk_exam_id)),
-                  label: examMasterLabel(r),
-                }))}
-                searchable
-                wrapOptionLabels
-                disabled={!academicYearId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Exam Type *</Label>
-              <Select
-                value={examTypeId}
-                onChange={(v) => setExamTypeId(v ?? "0")}
-                options={examTypeOptions}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>College *</Label>
-              <Select
-                value={collegeId || null}
-                onChange={(v) => {
-                  setCollegeId(v ?? "");
-                  setCourseGroupId("");
-                  setCourseYearId("");
-                }}
-                options={colleges.map((r) => ({
-                  value: String(num(r.fk_college_id)),
-                  label: txt(r.college_code) || String(num(r.fk_college_id)),
-                }))}
-                disabled={!examId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Group *</Label>
-              <Select
-                value={courseGroupId || null}
-                onChange={(v) => {
-                  setCourseGroupId(v ?? "");
-                  setCourseYearId("");
-                }}
-                options={courseGroups.map((r) => ({
-                  value: String(num(r.fk_course_group_id)),
-                  label: txt(r.group_code) || String(num(r.fk_course_group_id)),
-                }))}
-                disabled={!collegeId}
-              />
-            </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label>Course Year *</Label>
-              <Select
-                value={courseYearId || null}
-                onChange={(v) => setCourseYearId(v ?? "")}
-                options={courseYears.map((r) => ({
-                  value: String(num(r.fk_course_year_id)),
-                  label:
-                    txt(r.course_year_code) || String(num(r.fk_course_year_id)),
-                }))}
-                disabled={!courseGroupId}
-              />
-            </div>
-            <div className="flex h-8 items-center gap-2 md:col-span-2">
-              <Checkbox
-                id="result-sheets-reeval"
-                checked={isReevaluation}
-                onCheckedChange={(v) => setIsReevaluation(v === true)}
-              />
-              <Label
-                htmlFor="result-sheets-reeval"
-                className="cursor-pointer font-normal"
-              >
-                Is Re-Evaluation
-              </Label>
-            </div>
-            <div className="flex items-end gap-2 md:col-span-2">
-              <Button
-                type="button"
-                className="h-8 text-[12px]"
-                onClick={() => void onGetReport()}
-                disabled={loading}
-              >
-                Get Report
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Reset"
-                onClick={() => {
-                  setRows([]);
-                  setHasFetched(false);
-                  setSearchText("");
-                  setIsReevaluation(false);
-                }}
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {showResults ? (
-          <>
-            <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">
-                  Exam Result Sheets
-                </p>
-                {filterSummary ? (
-                  <p className="text-xs font-medium text-primary">
-                    {filterSummary}
-                  </p>
-                ) : null}
-              </div>
-              <Input
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                placeholder="Search"
-                className="h-9 w-full max-w-[220px] text-[12px]"
-              />
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 text-[12px]"
-                onClick={() => void printReport()}
-              >
-                <Printer className="mr-1.5 h-3.5 w-3.5" />
-                Print Report
-              </Button>
-            </div>
-            <div className="space-y-4 p-4">
-              {statusGroups.map((group) => (
-                <section
-                  key={group.status}
-                  className="overflow-hidden rounded-md border border-border"
-                >
-                  <div className="bg-sky-100 px-3 py-2 text-center text-sm font-semibold text-slate-800">
-                    {group.status} ({group.items.length})
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 bg-white px-3 py-3 sm:grid-cols-3 md:grid-cols-4">
-                    {group.items.map((r, idx) => (
-                      <div
-                        key={`${group.status}-${txt(r.hallticket_number)}-${idx}`}
-                        className="text-center text-[12px] tabular-nums text-slate-800"
-                      >
-                        {txt(r.hallticket_number) || "—"}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-              {statusGroups.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No matching hall tickets
-                </p>
-              ) : null}
-            </div>
-          </>
-        ) : (
-          <div className=""></div>
-        )}
-      </div>
-    </PageContainer>
+    <FilteredListPage
+      title="Exam Result Sheets"
+      filters={filters}
+      showTable={showResultsCard}
+      resultsVisible={showResultsCard}
+      tableHeader={showResults ? tableHeader : null}
+      body={body}
+      bodyClassName="app-data-table app-data-table-card flex flex-col !border !border-border !bg-white !shadow-md"
+    />
   );
 }

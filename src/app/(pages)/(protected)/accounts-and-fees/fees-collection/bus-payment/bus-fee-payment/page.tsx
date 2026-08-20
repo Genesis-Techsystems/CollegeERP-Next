@@ -14,6 +14,7 @@ function BusFeePaymentContent() {
       payPage="bus-fee"
       payColumnHeader="Pay Details"
       filteredShell
+      richStudentSearch
     />
   );
 }

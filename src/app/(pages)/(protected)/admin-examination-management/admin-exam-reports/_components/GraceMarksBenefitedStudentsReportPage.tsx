@@ -605,8 +605,13 @@ export function GraceMarksBenefitedStudentsReportPage() {
       }
       filters={
         <div className="space-y-3">
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="Course" icon={GraduationCap}>
+          {/* Angular fxFlex: Course 20 / Exam Year 20 / Exam Master 60 / Exam Type 15 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r1">
+            <GlobalFilterField
+              label="Course"
+              icon={GraduationCap}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={courseId ? String(courseId) : null}
                 onChange={(v) => {
@@ -627,7 +632,11 @@ export function GraceMarksBenefitedStudentsReportPage() {
                 isLoading={loading && baseRows.length === 0}
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Exam Year" icon={CalendarDays}>
+            <GlobalFilterField
+              label="Exam Year"
+              icon={CalendarDays}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={academicYearId ? String(academicYearId) : null}
                 onChange={(v) => {
@@ -648,7 +657,7 @@ export function GraceMarksBenefitedStudentsReportPage() {
             <GlobalFilterField
               label="Exam Master"
               icon={ClipboardList}
-              className="md:col-span-2"
+              className="global-filter-field--fx60"
             >
               <Select
                 value={examId ? String(examId) : null}
@@ -675,7 +684,11 @@ export function GraceMarksBenefitedStudentsReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Exam Type" icon={BookOpen}>
+            <GlobalFilterField
+              label="Exam Type"
+              icon={BookOpen}
+              className="global-filter-field--fx15"
+            >
               <Select
                 value={String(examTypeCatdetId)}
                 onChange={(v) => {
@@ -699,8 +712,13 @@ export function GraceMarksBenefitedStudentsReportPage() {
             </GlobalFilterField>
           </GlobalFilterBarRow>
 
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="College" icon={Building2}>
+          {/* Angular fxFlex: College 20 / Course Group 20 / Course Years 20 / Get Report 15 / Reset 5 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r2">
+            <GlobalFilterField
+              label="College"
+              icon={Building2}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={collegeId ? String(collegeId) : null}
                 onChange={(v) => {
@@ -720,7 +738,11 @@ export function GraceMarksBenefitedStudentsReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Course Group" icon={Layers}>
+            <GlobalFilterField
+              label="Course Group"
+              icon={Layers}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={String(courseGroupId)}
                 onChange={(v) => {
@@ -744,7 +766,11 @@ export function GraceMarksBenefitedStudentsReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Course Years" icon={School}>
+            <GlobalFilterField
+              label="Course Years"
+              icon={School}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={String(courseYearId)}
                 onChange={(v) => {
@@ -764,7 +790,7 @@ export function GraceMarksBenefitedStudentsReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+            <div className="global-filter-field global-filter-field--action global-filter-field--fx15 flex items-center self-end pb-0.5">
               <Button
                 type="button"
                 className="h-8 text-[12px]"
@@ -773,15 +799,17 @@ export function GraceMarksBenefitedStudentsReportPage() {
               >
                 {loading ? "Loading..." : "Get Report"}
               </Button>
+            </div>
+            <div className="global-filter-field global-filter-field--action global-filter-field--fx10 flex items-center self-end pb-0.5">
               <Button
                 type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 onClick={handleReset}
                 title="Reset"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
+                <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
           </GlobalFilterBarRow>

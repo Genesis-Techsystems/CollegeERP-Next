@@ -29,7 +29,6 @@ import {
   filterUniversities,
   pickNum,
   pickText,
-  universityOption,
   type FilterRow,
 } from "../../_lib/admission-filters";
 import {
@@ -87,7 +86,15 @@ export default function AdmissionAllotmentNdetailsPage() {
   const filtersData = filterBundle?.filtersData ?? [];
 
   const universityOptions = useMemo(
-    () => filterUniversities(filtersData).map(universityOption),
+    () =>
+      filterUniversities(filtersData).map((row) => {
+        const id = pickNum(row, UNI);
+        return {
+          value: String(id),
+          label:
+            pickText(row, ["university_code", "universityCode"]) || String(id),
+        };
+      }),
     [filtersData],
   );
 
@@ -293,9 +300,10 @@ export default function AdmissionAllotmentNdetailsPage() {
       <FilteredListPage
         title="Admission Allotment & Details"
         filters={
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-12">
             <Select
-              label="University"
+              label="University *"
+              required
               value={universityId}
               onChange={(v) => {
                 setUniversityId(v);
@@ -304,16 +312,19 @@ export default function AdmissionAllotmentNdetailsPage() {
               options={universityOptions}
               isLoading={filtersLoading}
               searchable
-              placeholder="Select university"
+              placeholder="University"
+              className="md:col-span-3"
             />
             <Select
-              label="College"
+              label="College *"
+              required
               value={collegeId}
               onChange={setCollegeId}
               options={collegeOptions}
               searchable
-              placeholder="Select college"
+              placeholder="College"
               disabled={!universityId}
+              className="md:col-span-3"
             />
           </div>
         }

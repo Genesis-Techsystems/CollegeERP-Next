@@ -14,6 +14,7 @@ function LibraryFeePaymentContent() {
       payPage="library-fee"
       payColumnHeader="Pay Details"
       filteredShell
+      richStudentSearch
     />
   );
 }

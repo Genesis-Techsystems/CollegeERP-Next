@@ -7,7 +7,7 @@ import { StatusBadge } from "@/common/components/data-display";
 import { FormModal } from "@/common/components/feedback";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Input } from "@/components/ui/input";
 import { GM_CODES } from "@/config/constants/ui";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -190,6 +190,22 @@ export default function AcademicBatchesPage() {
       ) ?? null,
     [searchRows, studentId],
   );
+
+  const selectedStudentLabel = useMemo(() => {
+    if (!studentId) return "";
+    const fromOptions = studentOptions.find(
+      (o) => o.value === String(studentId),
+    )?.label;
+    if (fromOptions) return fromOptions;
+    if (!selectedStudent) return "";
+    const roll = s(
+      selectedStudent.rollNumber ?? selectedStudent.hallticketNumber,
+    );
+    const name = s(selectedStudent.firstName ?? selectedStudent.studentName);
+    return [roll, name].filter(Boolean).join(" / ");
+  }, [studentId, studentOptions, selectedStudent]);
+
+  const tableVisible = Boolean(studentId);
 
   const modalStudentText = useMemo(() => {
     const name =
@@ -537,11 +553,25 @@ export default function AcademicBatchesPage() {
             listClassName="max-h-40"
           />
         }
-        rowData={studentId ? studentHistoryRows : []}
-        columnDefs={historyColumnDefs}
+        showTable={tableVisible}
+        resultsVisible={tableVisible}
+        tableHeader={
+          tableVisible && selectedStudentLabel ? (
+            <TableContextHeader
+              title="Academic Batches Of Student"
+              info={<span>{selectedStudentLabel}</span>}
+            />
+          ) : null
+        }
+        rowData={tableVisible ? studentHistoryRows : []}
+        columnDefs={tableVisible ? historyColumnDefs : undefined}
         loading={loadingHistory}
         pagination
-        toolbar={{ search: true, searchPlaceholder: "Search" }}
+        toolbar={
+          tableVisible
+            ? { search: true, searchPlaceholder: "Search" }
+            : undefined
+        }
       />
       <FormModal
         open={editOpen}

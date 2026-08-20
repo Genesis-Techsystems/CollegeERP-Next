@@ -22,6 +22,7 @@ import {
   listActiveCollegesForGeneralSettings,
   updateFeeCategory,
 } from "@/services";
+import { toastSuccess } from "@/lib/toast";
 import type { College } from "@/types/college";
 import type { FeeCategory } from "@/types/fee-category";
 
@@ -136,11 +137,10 @@ export function FeeCategoryModal({
         description: data.description || null,
         reason: data.isActive ? "active" : data.reason || "",
       };
-      if (isEditing) {
-        await updateFeeCategory(row!.feeCategoryId, payload);
-      } else {
-        await createFeeCategory(payload);
-      }
+      const message = isEditing
+        ? await updateFeeCategory(row!.feeCategoryId, payload)
+        : await createFeeCategory(payload);
+      toastSuccess(message);
       onSaved();
       onClose();
     } catch (error: unknown) {

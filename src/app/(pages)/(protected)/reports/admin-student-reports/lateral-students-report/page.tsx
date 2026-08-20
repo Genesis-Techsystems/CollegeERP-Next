@@ -240,10 +240,12 @@ export default function LateralStudentsReportPage() {
   const groupOptions = useMemo(() => {
     const cid = Number(collegeId ?? 0);
     const cr = Number(courseId || 0);
-    return filterCourseGroups(filtersData, cid || null, cr || null).map((r) => ({
-      value: String(pickNum(r, ["fk_course_group_id", "courseGroupId"])),
-      label: pickText(r, ["group_code", "groupCode", "courseGroupCode"]),
-    }));
+    return filterCourseGroups(filtersData, cid || null, cr || null).map(
+      (r) => ({
+        value: String(pickNum(r, ["fk_course_group_id", "courseGroupId"])),
+        label: pickText(r, ["group_code", "groupCode", "courseGroupCode"]),
+      }),
+    );
   }, [filtersData, collegeId, courseId]);
 
   const yearOptions = useMemo(() => {
@@ -580,8 +582,7 @@ ${tableHtml}
             </Button>
             <Button
               type="button"
-              variant="secondary"
-              className="h-9 w-fit px-4"
+              className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
               onClick={goBack}
             >
               Back
@@ -592,6 +593,7 @@ ${tableHtml}
       rowData={showTable ? rows : []}
       columnDefs={columnDefs}
       pagination
+      fitColumnsToWidth={false}
       loading={loadingList || loadingFilters}
       resultsVisible={showTable}
       hideEmptyGrid

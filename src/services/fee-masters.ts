@@ -1,5 +1,5 @@
 import { ENTITIES } from "@/config/constants/entities";
-import { FEE_API, NEXT_API } from "@/config/constants/api";
+import { DOMAIN, FEE_API, NEXT_API } from "@/config/constants/api";
 import type { FeeCategory, FeeCategoryPayload } from "@/types/fee-category";
 import type {
   FeeParticular,
@@ -24,7 +24,8 @@ import {
   domainUpdate,
   getAllRecords,
   getAllRecordsEnvelope,
-  postDetails,
+  postDetailsEnvelope,
+  putDetailsEnvelope,
 } from "./crud";
 import { getGeneralDetails } from "./exam-master";
 
@@ -156,6 +157,46 @@ export type PaginatedFeeStructures = {
 
 const UNIV_FEE_STRUCTURE_CONTEXT_KEY = "feeMasters:univFeeStructure";
 
+function apiSuccessMessage(
+  envelope: ApiResponse<unknown>,
+  fallback: string,
+): string {
+  const msg = envelope.message?.trim();
+  return msg || fallback;
+}
+
+async function createDomainWithMessage(
+  entity: string,
+  data: unknown,
+  fallback: string,
+): Promise<string> {
+  const envelope = await postDetailsEnvelope(
+    `${DOMAIN.CREATE}/${entity}`,
+    data,
+  );
+  if (!envelope.success) {
+    throw new AppError("API_ERROR", envelope.message?.trim() || fallback);
+  }
+  return apiSuccessMessage(envelope, fallback);
+}
+
+async function updateDomainWithMessage(
+  entity: string,
+  pkField: string,
+  pkValue: number,
+  data: unknown,
+  fallback: string,
+): Promise<string> {
+  const envelope = await putDetailsEnvelope(
+    `${DOMAIN.UPDATE}/${entity}?query=${pkField}==${pkValue}`,
+    data,
+  );
+  if (!envelope.success) {
+    throw new AppError("API_ERROR", envelope.message?.trim() || fallback);
+  }
+  return apiSuccessMessage(envelope, fallback);
+}
+
 // ── Fee Categories ────────────────────────────────────────────────────────────
 
 export async function listFeeCategories(): Promise<FeeCategory[]> {
@@ -167,20 +208,25 @@ export async function listFeeCategories(): Promise<FeeCategory[]> {
 
 export async function createFeeCategory(
   data: FeeCategoryPayload,
-): Promise<FeeCategory> {
-  return domainCreate<FeeCategory>(ENTITIES.FEE_CATEGORY.name, data);
+): Promise<string> {
+  return createDomainWithMessage(
+    ENTITIES.FEE_CATEGORY.name,
+    data,
+    "Fee category saved successfully",
+  );
 }
 
 export async function updateFeeCategory(
   feeCategoryId: number,
   data: Partial<FeeCategoryPayload>,
-): Promise<FeeCategory> {
+): Promise<string> {
   // Angular PUT body includes feeCategoryId alongside the form fields.
-  return domainUpdate<FeeCategory>(
+  return updateDomainWithMessage(
     ENTITIES.FEE_CATEGORY.name,
     ENTITIES.FEE_CATEGORY.pk,
     feeCategoryId,
     { ...data, feeCategoryId },
+    "Fee category updated successfully",
   );
 }
 
@@ -195,20 +241,25 @@ export async function listFeeParticulars(): Promise<FeeParticular[]> {
 
 export async function createFeeParticular(
   data: FeeParticularPayload,
-): Promise<FeeParticular> {
-  return domainCreate<FeeParticular>(ENTITIES.FEE_PARTICULAR.name, data);
+): Promise<string> {
+  return createDomainWithMessage(
+    ENTITIES.FEE_PARTICULAR.name,
+    data,
+    "Fee particular saved successfully",
+  );
 }
 
 export async function updateFeeParticular(
   feeParticularsId: number,
   data: Partial<FeeParticularPayload>,
-): Promise<FeeParticular> {
+): Promise<string> {
   // Angular PUT body includes feeParticularsId alongside the form fields.
-  return domainUpdate<FeeParticular>(
+  return updateDomainWithMessage(
     ENTITIES.FEE_PARTICULAR.name,
     ENTITIES.FEE_PARTICULAR.pk,
     feeParticularsId,
     { ...data, feeParticularsId },
+    "Fee particular updated successfully",
   );
 }
 
@@ -556,8 +607,18 @@ export async function listQuotaOptions() {
 
 export async function createCollegeFeeStructure(
   payload: CollegeFeeStructureCreatePayload & { feeStructureId?: number },
-): Promise<unknown> {
-  return postDetails<unknown>(FEE_API.FEE_STRUCTURES_LIST, payload);
+): Promise<string> {
+  const envelope = await postDetailsEnvelope(
+    FEE_API.FEE_STRUCTURES_LIST,
+    payload,
+  );
+  if (!envelope.success) {
+    throw new AppError(
+      "API_ERROR",
+      envelope.message?.trim() || "Failed to save fee structure",
+    );
+  }
+  return apiSuccessMessage(envelope, "Fee structure saved successfully");
 }
 
 /** Angular `listDetailsById(FeeStructureCrudUrl, id, FeeStructureByIdUrl)`. */

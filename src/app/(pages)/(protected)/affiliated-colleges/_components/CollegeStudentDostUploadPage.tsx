@@ -3,13 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
-import {
-  CheckCircle2,
-  Download,
-  FileSpreadsheet,
-  Upload,
-  X,
-} from "lucide-react";
+import { CheckCircle2, FileSpreadsheet } from "lucide-react";
 import { DataTable, TableCard } from "@/common/components/table";
 import { FormModal } from "@/common/components/feedback";
 import { FilteredPage } from "@/components/layout";
@@ -28,9 +22,11 @@ import {
   contextToDostInitialSelection,
   readAffiliatedDostSummaryContext,
   saveAffiliatedDostSummaryContext,
+  type AffiliatedDostSummaryContext,
 } from "../_lib/affiliated-dost-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
+import { AffiliatedExcelDownloadUpload } from "./AffiliatedExcelActionPanel";
 
 type AnyRow = Record<string, unknown>;
 
@@ -80,7 +76,8 @@ function pickUploadFileId(rows: AnyRow[]): number {
 /** Angular `college-student-dost-upload` — locked university/college/AY, sample download, verify/load. */
 export function CollegeStudentDostUploadPage() {
   const router = useRouter();
-  const dostContext = useMemo(() => readAffiliatedDostSummaryContext(), []);
+  const [dostContext, setDostContext] =
+    useState<AffiliatedDostSummaryContext | null>(null);
   const cascade = useAffiliatedCascade({
     requireGroupYear: false,
     requireCourse: false,
@@ -103,10 +100,13 @@ export function CollegeStudentDostUploadPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!dostContext) {
+    const ctx = readAffiliatedDostSummaryContext();
+    if (!ctx) {
       router.replace("/affiliated-colleges/student-dost-upload-summary");
+      return;
     }
-  }, [dostContext, router]);
+    setDostContext(ctx);
+  }, [router]);
 
   useEffect(() => {
     if (cascade.filtersValid) setShowUpload(true);
@@ -249,8 +249,6 @@ export function CollegeStudentDostUploadPage() {
     }
   }
 
-  if (!dostContext) return null;
-
   return (
     <FilteredPage
       title="College Student Dost Upload"
@@ -268,7 +266,7 @@ export function CollegeStudentDostUploadPage() {
           onBack={() => {
             saveAffiliatedDostSummaryContext({
               fk_university_id:
-                cascade.universityId ?? dostContext.fk_university_id,
+                cascade.universityId ?? dostContext?.fk_university_id ?? 0,
               fk_college_id: filterParams.collegeId,
               fk_academic_year_id: filterParams.academicYearId,
             });
@@ -284,59 +282,22 @@ export function CollegeStudentDostUploadPage() {
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-base">Dost Upload</h2>
           </div>
-          <div className="p-4 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" className="gap-2" asChild>
-                <a href="/assets/docs/DostUpload_bulk_upload.xlsx" download>
-                  <Download className="h-4 w-4" />
-                  Download Sample Excel
-                </a>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled={uploading || !cascade.filtersValid}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload Excel"}
-              </Button>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".xls,.xlsx"
-              className="hidden"
-              onChange={(e) => {
-                const selected = e.target.files?.[0];
-                if (selected) void onUploadFile(selected);
-                e.target.value = "";
-              }}
-            />
-            {file?.name ? (
-              <div className="inline-flex max-w-full items-center rounded-md border border-dashed border-emerald-300 bg-emerald-50 px-2.5 py-1.5">
-                <div className="min-w-0 inline-flex items-center gap-1.5">
-                  <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <p className="text-xs font-medium text-emerald-800 truncate">
-                    {file.name}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFile(null);
-                      setStagingRows([]);
-                      if (inputRef.current) inputRef.current.value = "";
-                    }}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100 shrink-0"
-                    aria-label="Remove uploaded file"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <AffiliatedExcelDownloadUpload
+            downloadTitle="1. Download Dost Sample"
+            uploadTitle="2. Upload Dost"
+            downloadHref="/assets/docs/DostUpload_bulk_upload.xlsx"
+            onUploadClick={() => inputRef.current?.click()}
+            uploadDisabled={!cascade.filtersValid}
+            uploading={uploading}
+            fileName={file?.name}
+            onClearFile={() => {
+              setFile(null);
+              setStagingRows([]);
+              if (inputRef.current) inputRef.current.value = "";
+            }}
+            inputRef={inputRef}
+            onFileSelected={(selected) => void onUploadFile(selected)}
+          />
         </div>
       ) : null}
 

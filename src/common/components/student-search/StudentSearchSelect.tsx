@@ -33,6 +33,8 @@ export interface StudentSearchSelectProps {
   className?: string;
   /** When true, input stretches to parent width (no max-w-md cap). */
   fullWidth?: boolean;
+  disabled?: boolean;
+  disabled?: boolean;
   /**
    * `outlined` — bordered box.
    * `standard` — Fuse / Angular Material underline-only field (app default).
@@ -75,19 +77,20 @@ function statusLabel(row: AnyRow): string {
 }
 
 function statusTone(code: string): string {
-  switch (code.toUpperCase()) {
+  const normalized = code.toUpperCase().replace(/\s+/g, "");
+  switch (normalized) {
     case "INCOLLEGE":
-      return "text-[#4CAF50] font-bold";
+      return "text-[green]";
     case "DTND":
-      return "text-red-600 font-semibold";
+      return "text-red-600 font-bold";
     case "PASSEDOUT":
-      return "text-blue-600 font-semibold";
+      return "text-blue-600 font-bold";
     case "DETAINRECOMMENDED":
-      return "text-amber-600 font-semibold";
+      return "text-amber-600 font-bold";
     case "DISCONTINUED":
-      return "text-slate-500 font-semibold";
+      return "text-slate-500 font-bold";
     default:
-      return "text-muted-foreground font-medium";
+      return "text-muted-foreground font-bold";
   }
 }
 
@@ -134,14 +137,16 @@ function StudentSearchOption({
 }) {
   const active = isStudentActive(row);
   const name = pickText(row, ["firstName", "studentName"]);
-  const hallticket = pickText(row, [
+  const studentIdLine = pickText(row, [
     "hallticketNumber",
     "rollNumber",
     "admissionNumber",
+    "studentId",
   ]);
   const status = statusLabel(row);
   const statusCode = pickText(row, ["studentStatusCode"]);
 
+  // Angular student typeahead: ID on top, then NAME (blue) + status (green).
   return (
     <button
       type="button"
@@ -155,11 +160,12 @@ function StudentSearchOption({
         onSelect();
       }}
       className={cn(
-        "flex w-full items-start gap-3 border-b border-black/10 px-3 py-2.5 text-left transition-colors last:border-b-0",
+        "flex w-full items-center gap-3 border-b border-[#9e9e9e52] px-3 py-2 text-left transition-colors last:border-b-0",
         "hover:bg-slate-100 focus:bg-slate-100 focus:outline-none",
         selected && "bg-slate-100",
       )}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photoSrc(row.studentPhotoPath ?? row.student_photo_path)}
         alt=""
@@ -173,22 +179,17 @@ function StudentSearchOption({
             img.src = DEFAULT_STUDENT_PHOTO;
         }}
       />
-      <div className="min-w-0 flex-1 pt-0.5">
-        <p
-          className={cn(
-            "text-sm font-medium leading-snug",
-            selected ? "text-blue-600" : "text-foreground",
-          )}
-        >
-          {name || "—"}
-        </p>
-        <p className="mt-0.5 text-xs leading-relaxed">
-          {hallticket ? (
-            <span className="text-[#828282] font-medium">{hallticket}</span>
+      <div className="min-w-0 flex-1 leading-snug">
+        {hallticket ? (
+          <p className="text-[13px] font-normal text-[rgba(0,0,0,0.87)]">
+            {hallticket}
+          </p>
+        ) : null}
+        <p className="mt-0.5 text-[13px]">
+          {name ? (
+            <span className="font-bold text-[#0c51a4]">{name}</span>
           ) : null}
-          {hallticket && status ? (
-            <span className="text-[#828282]"> </span>
-          ) : null}
+          {name && status ? <span> </span> : null}
           {status ? (
             <span className={statusTone(statusCode || status)}>{status}</span>
           ) : null}
@@ -210,6 +211,7 @@ export function StudentSearchSelect({
   onChange,
   className,
   fullWidth = false,
+  disabled = false,
   variant: variantProp,
 }: StudentSearchSelectProps) {
   const variant = useFormFieldVariant(variantProp);
@@ -260,7 +262,7 @@ export function StudentSearchSelect({
     setListPos({
       top: rect.bottom + 2,
       left: rect.left,
-      width: Math.max(rect.width, 280),
+      width: Math.max(rect.width, 360),
     });
   }, []);
 
@@ -301,6 +303,7 @@ export function StudentSearchSelect({
   }, []);
 
   function handleInputChange(term: string) {
+    if (disabled) return;
     setSearchTerm(term);
     setDisplayValue(term);
     setOpen(true);
@@ -314,6 +317,7 @@ export function StudentSearchSelect({
   }
 
   function handleFocus() {
+    if (disabled) return;
     setFocused(true);
     setOpen(true);
     queueMicrotask(() => updateListPosition());
@@ -405,7 +409,7 @@ export function StudentSearchSelect({
         <label
           htmlFor={inputId}
           className={cn(
-            "text-[12px] font-medium transition-colors",
+            "text-[12px] font-medium leading-none transition-colors",
             active ? "text-[#0c51a4]" : "text-black/54",
           )}
         >
@@ -418,12 +422,16 @@ export function StudentSearchSelect({
         className={cn(
           "app-control relative flex w-full min-w-0 items-center",
           !fullWidth && "max-w-md",
+          disabled && "cursor-not-allowed opacity-50",
           isStandard
             ? cn(
                 "h-9 rounded-none border-0 border-b border-black/12 bg-transparent px-0 py-1.5 shadow-none",
-                active && "border-b-2 border-[#0c51a4]",
+                active && !disabled && "border-b-2 border-[#0c51a4]",
               )
-            : "rounded-md border border-slate-300 bg-white shadow-sm",
+            : cn(
+                "rounded-md border border-slate-300 bg-white shadow-sm",
+                disabled && "opacity-50",
+              ),
         )}
       >
         <input
@@ -434,6 +442,8 @@ export function StudentSearchSelect({
           aria-expanded={open}
           aria-autocomplete="list"
           autoComplete="off"
+          disabled={disabled}
+          disabled={disabled}
           value={displayValue}
           placeholder={placeholder}
           onChange={(e) => handleInputChange(e.target.value)}
@@ -450,7 +460,7 @@ export function StudentSearchSelect({
             isStandard ? "right-0" : "right-2",
           )}
         >
-          {showClear ? (
+          {showClear && !disabled ? (
             <button
               type="button"
               aria-label="Clear student"

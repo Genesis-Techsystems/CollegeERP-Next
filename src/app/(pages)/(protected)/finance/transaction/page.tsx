@@ -181,6 +181,8 @@ export default function TransactionPage() {
         search: true,
         searchPlaceholder: "Search transactions…",
         pdfDocumentTitle: "Transactions",
+        exportExcel: false,
+        exportPdf: false,
       }}
       toolbarTrailing={
         <Button

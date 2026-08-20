@@ -13,6 +13,7 @@ import { UNIV_BULK_UPLOAD_TYPES } from "@/common/affiliated-colleges-constants";
 import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { rowIndexGetter } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedCollegeSummaryReport } from "@/services";
@@ -238,6 +239,7 @@ export function ViewUploadedFilesPage() {
         filetypeCatdetId: summaryParams!.filetypeCatdetId,
       }),
     enabled: summaryParams != null && summaryParams.collegeId > 0,
+    ...AFFILIATED_QUERY,
   });
 
   const fileType = rows[0]
@@ -375,7 +377,7 @@ export function ViewUploadedFilesPage() {
             type="button"
             variant="outline"
             size="sm"
-            className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
+            className="app-data-table-toolbar-btn back-btn h-9 px-3 text-[12px]"
             onClick={goBack}
           >
             Back

@@ -270,14 +270,13 @@ export function Select({
         <label
           htmlFor={triggerId}
           className={cn(
-            "text-[12px] font-medium transition-colors",
+            "text-[12px] font-medium leading-none transition-colors",
             open ? "text-[#0c51a4]" : "text-black/54",
           )}
         >
           {label}
           {required && (
             <span className="ml-0.5 text-destructive" aria-hidden="true">
-              {" "}
               *
             </span>
           )}

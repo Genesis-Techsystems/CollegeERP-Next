@@ -43,7 +43,7 @@ import {
 type AnyRow = Record<string, unknown>;
 
 const ALL0 = { value: "0", label: "All" };
-const REPORT_TITLE = "Semister wise Students Report";
+const REPORT_TITLE = "Semester wise Students Report";
 
 const EXCEL_COLUMNS = [
   { key: "siNo", header: "SI.No" },
@@ -563,18 +563,6 @@ ${tableHtml}
                 placeholder="Quota"
               />
             </div>
-            <div className="w-full min-w-[10rem] sm:w-[14rem]">
-              <Select
-                label="Student Status"
-                value={studentStatusId}
-                onChange={(v) => {
-                  setStudentStatusId(v ?? "0");
-                  clearResults();
-                }}
-                options={statusOptions}
-                placeholder="Student Status"
-              />
-            </div>
             <div className="flex shrink-0 items-center gap-2 pb-0.5">
               <Button
                 type="button"
@@ -586,8 +574,7 @@ ${tableHtml}
               </Button>
               <Button
                 type="button"
-                variant="secondary"
-                className="h-9 w-fit px-4"
+                className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
                 onClick={goBack}
               >
                 Back

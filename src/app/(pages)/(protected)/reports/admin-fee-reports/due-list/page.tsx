@@ -571,24 +571,22 @@ export default function FeeDueListPage() {
     }
   }, [collegeId, courseOptions, courseId]);
 
-  // When course changes, pick first group (Angular selectedCourse).
+  // When course changes, pick first group if the current value is not in the new list.
+  // Angular `selectedCourse` auto-picks the first group, but the user can then choose All (0).
   useEffect(() => {
     if (!courseId || groupOptions.length <= 1) return;
-    const stillValid = groupOptions.some((o) => o.value === courseGroupId);
-    if (!stillValid || courseGroupId === "0") {
-      const first = groupOptions.find((o) => o.value !== "0");
-      if (first) setCourseGroupId(first.value);
-    }
+    if (groupOptions.some((o) => o.value === courseGroupId)) return;
+    const first = groupOptions.find((o) => o.value !== "0");
+    setCourseGroupId(first?.value ?? "0");
   }, [courseId, groupOptions, courseGroupId]);
 
-  // When group changes, pick first year (Angular selectedGroup).
+  // When group changes, pick first year only if the current year is not in the new list.
+  // Do not overwrite All (0) — Angular lets the user select All after the default.
   useEffect(() => {
     if (yearOptions.length <= 1) return;
-    const stillValid = yearOptions.some((o) => o.value === courseYearId);
-    if (!stillValid || courseYearId === "0") {
-      const first = yearOptions.find((o) => o.value !== "0");
-      if (first) setCourseYearId(first.value);
-    }
+    if (yearOptions.some((o) => o.value === courseYearId)) return;
+    const first = yearOptions.find((o) => o.value !== "0");
+    setCourseYearId(first?.value ?? "0");
   }, [courseGroupId, yearOptions, courseYearId]);
 
   const onCollegeChange = (v: string | null) => {
@@ -607,8 +605,10 @@ export default function FeeDueListPage() {
 
   const onCourseChange = (v: string | null) => {
     setCourseId(v);
-    setCourseGroupId("0");
-    setCourseYearId("0");
+    // Invalidate so the cascade effect picks the first group (Angular selectedCourse).
+    // Do not set "0" here — that is All, which must stay selectable afterwards.
+    setCourseGroupId("");
+    setCourseYearId("");
     setQuotaId("0");
     setBatchId("0");
     setStudentStatusId("0");
@@ -941,9 +941,18 @@ ${tableHtml}
             />
             <Select
               label="Course Group"
-              value={courseGroupId}
+              value={courseGroupId === "" ? null : courseGroupId}
               onChange={(v) => {
-                setCourseGroupId(v ?? "0");
+                const next = v ?? "0";
+                setCourseGroupId(next);
+                // Angular selectedGroup: All group → keep year All; real group → first year.
+                setCourseYearId(next === "0" ? "0" : "");
+                setQuotaId("0");
+                setBatchId("0");
+                setStudentStatusId("0");
+                setFeeCategoryId("0");
+                setFeeParticularId("0");
+                setIncludeScholarship(false);
                 clearResults();
               }}
               options={groupOptions}
@@ -952,7 +961,7 @@ ${tableHtml}
             />
             <Select
               label="Course Year"
-              value={courseYearId}
+              value={courseYearId === "" ? null : courseYearId}
               onChange={(v) => {
                 setCourseYearId(v ?? "0");
                 clearResults();
@@ -1054,6 +1063,7 @@ ${tableHtml}
       rowData={rowData}
       columnDefs={columnDefs}
       loading={loadingList}
+      fitColumnsToWidth={false}
       resultsVisible={showTable}
       hideEmptyGrid
       pagination

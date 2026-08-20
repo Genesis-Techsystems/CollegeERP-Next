@@ -40,9 +40,9 @@ export function OnlineCourseSubjectCards({
 
   return (
     <div className={cn(className)}>
-      <p className="m-0 bg-white px-3 py-2 text-[19px] font-semibold">
+      {/* <p className="m-0 bg-white px-3 py-2 text-[19px] font-semibold">
         <span className="text-blue-600"> Upload</span> Video Class
-      </p>
+      </p> */}
       <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         {subjects.map((row) => {
           const title =

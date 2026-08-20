@@ -383,13 +383,13 @@ export default function DetentionReportPage() {
         </Button>
         <Button
           type="button"
-          variant="outline"
-          className="h-8 gap-1.5 text-[12px]"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
           onClick={handleReset}
           title="Reset"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset
+          <RotateCcw className="h-4 w-4" />
         </Button>
       </div>
     </GlobalFilterBarRow>

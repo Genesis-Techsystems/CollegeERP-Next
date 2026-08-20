@@ -13,12 +13,14 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
+import { TableCard } from "@/common/components/table";
 import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
+import { exportHtmlTableAsExcel } from "@/common/export-html-table";
 import {
   getTabulationRegisterRows,
   getUnivExamFiltersRegSup,
@@ -175,23 +177,78 @@ function groupByHallticket(rows: Row[]): Row[][] {
   return order.map((ht) => map.get(ht)!);
 }
 
-function exportTableAsExcel(
-  tableEl: HTMLTableElement | null,
-  filename: string,
-) {
-  if (!tableEl) return;
-  const html = `
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
-<head><meta charset="UTF-8" /></head>
-<body>${tableEl.outerHTML}</body>
-</html>`;
-  const blob = new Blob([html], { type: "application/vnd.ms-excel" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${filename}.xls`;
-  a.click();
-  URL.revokeObjectURL(url);
+function excelCell(v: unknown): string {
+  const s = txt(v).trim();
+  if (!s || s === "null" || s === "undefined" || s === "—") return "-";
+  return s;
+}
+
+function buildTabulationExcelHtml(args: {
+  dataDetails: string;
+  subjectCodes: string[];
+  mainList: Row[][];
+}): string {
+  const th =
+    'style="border:1px solid #000;background:#fff;font-weight:700;text-align:center;vertical-align:middle;padding:4px;white-space:nowrap;"';
+  const td =
+    'style="border:1px solid #000;text-align:center;vertical-align:middle;padding:4px;white-space:nowrap;"';
+  const tdLeft =
+    'style="border:1px solid #000;text-align:left;vertical-align:middle;padding:4px;white-space:nowrap;"';
+
+  const subjectHeads = args.subjectCodes
+    .map((code) => `<th ${th} colspan="9">${escapeHtml(code)}</th>`)
+    .join("");
+  const markHeads = args.subjectCodes
+    .map(() =>
+      MARK_HEADERS.map((h) => `<th ${th}>${escapeHtml(h)}</th>`).join(""),
+    )
+    .join("");
+
+  const body = args.mainList
+    .map((list) => {
+      const ht = excelCell(
+        list[0]?.hallticket_number ?? list[0]?.hallticket_no,
+      );
+      const markCells = args.subjectCodes
+        .map((code) =>
+          MARK_KEYS.map(
+            (key) =>
+              `<td ${td}>${escapeHtml(excelCell(findMarks(list, code, key)))}</td>`,
+          ).join(""),
+        )
+        .join("");
+      return `<tr>
+        <td ${tdLeft}>${escapeHtml(ht)}</td>
+        ${markCells}
+        <td ${td}>${escapeHtml(excelCell(list[0]?.final_sem_total_marks))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.total_credits))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.final_sem_percentage))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.final_sem_result))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.sgpa))}</td>
+        <td ${td}>${escapeHtml(excelCell(list[0]?.cgpa))}</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `
+<strong>Tabulation Register Report -${escapeHtml(args.dataDetails)}</strong>
+<br/>
+<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;">
+  <thead>
+    <tr>
+      <th ${th} rowspan="2">Hall Ticket No.</th>
+      ${subjectHeads}
+      <th ${th} rowspan="2">Total Marks</th>
+      <th ${th} rowspan="2">Total Credits</th>
+      <th ${th} rowspan="2">Perc.%</th>
+      <th ${th} rowspan="2">Result</th>
+      <th ${th} rowspan="2">SGPA</th>
+      <th ${th} rowspan="2">CGPA</th>
+    </tr>
+    <tr>${markHeads}</tr>
+  </thead>
+  <tbody>${body}</tbody>
+</table>`;
 }
 
 function escapeHtml(value: string): string {
@@ -438,6 +495,16 @@ export default function TabulationRegisterPage() {
       selectedCourseYear?.course_year_name ||
         selectedCourseYear?.course_year_code,
     ),
+    txt(selectedExam?.exam_name),
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  /** Angular `selectedData()` — Excel title: college / course / group / year / exam */
+  const excelDetailsLabel = [
+    txt(selectedCollege?.college_code),
+    txt(selectedCourse?.course_code),
+    txt(selectedCourseGroup?.group_code),
+    txt(selectedCourseYear?.course_year_code),
     txt(selectedExam?.exam_name),
   ]
     .filter(Boolean)
@@ -802,50 +869,61 @@ export default function TabulationRegisterPage() {
 
   // Angular only renders the results card when there is data — no empty-state panel.
   const body = showMatrix ? (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 text-[12px]"
-          onClick={() =>
-            exportTableAsExcel(tableRef.current, "Tabulation Register Report")
-          }
-        >
-          <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
-          Export Excel
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          className="h-9 text-[12px]"
-          onClick={() =>
-            printTabulationRegister(
-              tableRef.current,
-              printBranchLabel,
-              printDetailsLabel,
-            )
-          }
-        >
-          <Printer className="mr-1.5 h-3.5 w-3.5" />
-          Print Report
-        </Button>
-        <span className="ml-auto text-xs text-muted-foreground">
+    <TableCard
+      headerLeft={
+        <span className="text-xs text-muted-foreground">
           {mainList.length} student{mainList.length === 1 ? "" : "s"} ·{" "}
-          {subjectCodes.length} subject
-          {subjectCodes.length === 1 ? "" : "s"}
+          {subjectCodes.length} subject{subjectCodes.length === 1 ? "" : "s"}
         </span>
-      </div>
-      <div className="max-h-[min(70vh,720px)] overflow-auto rounded-md border border-border">
+      }
+      headerRight={
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 rounded-[5px] px-3 text-[12px]"
+            onClick={() => {
+              exportHtmlTableAsExcel(
+                "Tabulation Register Report.xls",
+                buildTabulationExcelHtml({
+                  dataDetails: excelDetailsLabel,
+                  subjectCodes,
+                  mainList,
+                }),
+              );
+            }}
+          >
+            <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+            Export Excel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 rounded-[5px] px-3 text-[12px]"
+            onClick={() =>
+              printTabulationRegister(
+                tableRef.current,
+                printBranchLabel,
+                printDetailsLabel,
+              )
+            }
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        </div>
+      }
+    >
+      <div className="max-h-[min(70vh,720px)] overflow-auto">
         <table
           ref={tableRef}
-          className="w-full min-w-[1400px] text-left text-sm"
+          className="w-full min-w-[1400px] border-collapse text-left text-[13px]"
         >
-          <thead className="bg-muted/50">
+          <thead>
             <tr>
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="sticky left-0 z-20 whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-left font-semibold"
               >
                 Hall Ticket No.
               </th>
@@ -853,44 +931,44 @@ export default function TabulationRegisterPage() {
                 <th
                   key={`h-${code}`}
                   colSpan={9}
-                  className="px-3 py-2 text-center font-semibold whitespace-nowrap"
+                  className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
                 >
                   {code}
                 </th>
               ))}
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
               >
                 Total Marks
               </th>
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
               >
                 Total Credits
               </th>
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
               >
                 Perc.%
               </th>
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
               >
                 Result
               </th>
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
               >
                 SGPA
               </th>
               <th
                 rowSpan={2}
-                className="px-3 py-2 font-semibold whitespace-nowrap"
+                className="whitespace-nowrap border border-border bg-[#c3d9ff] px-3 py-2 text-center font-semibold"
               >
                 CGPA
               </th>
@@ -900,7 +978,7 @@ export default function TabulationRegisterPage() {
                 MARK_HEADERS.map((h) => (
                   <th
                     key={`${code}-${h}`}
-                    className="px-3 py-2 text-center font-semibold whitespace-nowrap"
+                    className="whitespace-nowrap border border-border bg-[#c3d9ff] px-2 py-1.5 text-center font-semibold"
                   >
                     {h}
                   </th>
@@ -909,39 +987,44 @@ export default function TabulationRegisterPage() {
             </tr>
           </thead>
           <tbody>
-            {mainList.map((list) => {
+            {mainList.map((list, rowIdx) => {
               const ht = txt(
                 list[0]?.hallticket_number ?? list[0]?.hallticket_no,
               );
               return (
-                <tr key={ht} className="border-t">
-                  <td className="px-3 py-1.5 whitespace-nowrap">{dash(ht)}</td>
+                <tr
+                  key={ht}
+                  className={rowIdx % 2 === 0 ? "bg-white" : "bg-muted/30"}
+                >
+                  <td className="sticky left-0 z-10 whitespace-nowrap border border-border bg-inherit px-3 py-1.5 font-medium">
+                    {dash(ht)}
+                  </td>
                   {subjectCodes.map((code) =>
                     MARK_KEYS.map((key) => (
                       <td
                         key={`${ht}-${code}-${key}`}
-                        className="px-3 py-1.5 text-center whitespace-nowrap"
+                        className="whitespace-nowrap border border-border px-2 py-1.5 text-center"
                       >
                         {findMarks(list, code, key)}
                       </td>
                     )),
                   )}
-                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                  <td className="whitespace-nowrap border border-border px-2 py-1.5 text-center">
                     {dash(list[0]?.final_sem_total_marks)}
                   </td>
-                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                  <td className="whitespace-nowrap border border-border px-2 py-1.5 text-center">
                     {dash(list[0]?.total_credits)}
                   </td>
-                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                  <td className="whitespace-nowrap border border-border px-2 py-1.5 text-center">
                     {dash(list[0]?.final_sem_percentage)}
                   </td>
-                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                  <td className="whitespace-nowrap border border-border px-2 py-1.5 text-center">
                     {dash(list[0]?.final_sem_result)}
                   </td>
-                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                  <td className="whitespace-nowrap border border-border px-2 py-1.5 text-center">
                     {dash(list[0]?.sgpa)}
                   </td>
-                  <td className="px-3 py-1.5 text-center whitespace-nowrap">
+                  <td className="whitespace-nowrap border border-border px-2 py-1.5 text-center">
                     {dash(list[0]?.cgpa)}
                   </td>
                 </tr>
@@ -950,7 +1033,7 @@ export default function TabulationRegisterPage() {
           </tbody>
         </table>
       </div>
-    </div>
+    </TableCard>
   ) : loading ? (
     <div className="flex min-h-[120px] items-center justify-center px-4 py-8 text-sm text-muted-foreground">
       <span className="inline-flex items-center gap-2">

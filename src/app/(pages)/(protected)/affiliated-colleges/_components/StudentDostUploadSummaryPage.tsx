@@ -27,7 +27,12 @@ import {
   saveAffiliatedDostSummaryContext,
 } from "../_lib/affiliated-dost-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
+import {
+  AFFILIATED_ACTION_COL,
+  AffiliatedUploadCell,
+} from "./AffiliatedUploadCell";
 
 const PRINT_COLS = [
   { key: "college_code", alt: "collegeCode", label: "College Code" },
@@ -90,9 +95,7 @@ const COL_DEFS = {
   } as ColDef<AffiliatedSummaryRow>,
   actions: {
     headerName: "Action",
-    minWidth: 100,
-    flex: 0,
-    width: 100,
+    ...AFFILIATED_ACTION_COL,
   } as ColDef<AffiliatedSummaryRow>,
 };
 
@@ -105,9 +108,7 @@ function makeUploadRenderer(
   return (p: ICellRendererParams<AffiliatedSummaryRow>) => {
     const row = p.data;
     return (
-      <Button
-        size="sm"
-        variant="default"
+      <AffiliatedUploadCell
         onClick={() => {
           if (!row || !universityId || !collegeId || !academicYearId) return;
           const summaryCtx = buildAffiliatedSummaryContext(
@@ -125,9 +126,7 @@ function makeUploadRenderer(
           });
           router.push("/affiliated-colleges/college-student-dost-upload");
         }}
-      >
-        Upload
-      </Button>
+      />
     );
   };
 }
@@ -180,6 +179,7 @@ export function StudentDostUploadSummaryPage() {
         JSON.parse(loadKey!) as { collegeId: number; academicYearId: number },
       ),
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const errorMessage = error ? getErrorMessage(error) : "";
@@ -389,6 +389,8 @@ export function StudentDostUploadSummaryPage() {
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

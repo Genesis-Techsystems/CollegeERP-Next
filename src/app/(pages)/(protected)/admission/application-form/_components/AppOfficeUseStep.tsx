@@ -1,47 +1,47 @@
-'use client'
+"use client";
 
-import { Monitor } from 'lucide-react'
-import { Select } from '@/common/components/select'
-import { DatePicker } from '@/common/components/date-picker'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Button } from '@/components/ui/button'
-import { FormSectionHeader } from '@/app/(pages)/(protected)/admin-student-information-system/edit-student/FormSectionHeader'
+import { Monitor } from "lucide-react";
+import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { FormSectionHeader } from "@/app/(pages)/(protected)/admin-student-information-system/edit-student/FormSectionHeader";
 import {
   entityOptions,
   gdOptions,
   parseDate,
   txt,
   type AnyRow,
-} from './application-form-utils'
+} from "./application-form-utils";
 
 const ADMISSION_TYPE_OPTIONS = [
-  { value: '1', label: 'New Admission' },
-  { value: '2', label: 'Admission From Counsilling' },
-]
+  { value: "1", label: "New Admission" },
+  { value: "2", label: "Admission From Counsilling" },
+];
 
 export interface AppOfficeUseStepProps {
-  data: AnyRow
-  onChange: (patch: Partial<AnyRow>) => void
-  colleges: AnyRow[]
-  academicYears: AnyRow[]
-  courses: AnyRow[]
-  courseGroups: AnyRow[]
-  courseYears: AnyRow[]
-  quotas: AnyRow[]
-  regulations: AnyRow[]
-  batches: AnyRow[]
-  studentTypes: AnyRow[]
-  onCollegeChange: (collegeId: number | null) => void
-  onAcademicYearChange: (academicYearId: number | null) => void
-  onCourseChange: (courseId: number | null) => void
-  onCourseGroupChange: (courseGroupId: number | null) => void
-  onGetDetails?: () => void
+  data: AnyRow;
+  onChange: (patch: Partial<AnyRow>) => void;
+  colleges: AnyRow[];
+  academicYears: AnyRow[];
+  courses: AnyRow[];
+  courseGroups: AnyRow[];
+  courseYears: AnyRow[];
+  quotas: AnyRow[];
+  regulations: AnyRow[];
+  batches: AnyRow[];
+  studentTypes: AnyRow[];
+  onCollegeChange: (collegeId: number | null) => void;
+  onAcademicYearChange: (academicYearId: number | null) => void;
+  onCourseChange: (courseId: number | null) => void;
+  onCourseGroupChange: (courseGroupId: number | null) => void;
+  onGetDetails?: () => void;
   /** Edit mode: hide counselling search; show Admission Date; lock college. */
-  isEdit?: boolean
+  isEdit?: boolean;
   /** Validation messages keyed by field — shown below each field. */
-  errors?: Record<string, string>
+  errors?: Record<string, string>;
 }
 
 /** Angular Office Use step — only the fields shown in add/edit application-form. */
@@ -71,27 +71,31 @@ export function AppOfficeUseStep({
 
       {!isEdit ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
-          <div className="lg:col-span-3">
+          <div className="min-w-0 lg:col-span-3">
             <Select
               label="Admission Type"
               required
-              value={data.admissionType ? String(data.admissionType) : '1'}
+              value={data.admissionType ? String(data.admissionType) : "1"}
               onChange={(v) => onChange({ admissionType: v ? Number(v) : 1 })}
               options={ADMISSION_TYPE_OPTIONS}
               searchable={false}
               clearable={false}
             />
           </div>
-          <div className="space-y-1 lg:col-span-6">
+          <div className="min-w-0 space-y-1 sm:col-span-2 lg:col-span-7">
             <Label className="text-xs">Search by Student Application No.</Label>
             <Input
               placeholder="Search by Student Application No."
-              value={txt(data, ['univAppId'])}
+              value={txt(data, ["univAppId"])}
               onChange={(e) => onChange({ univAppId: e.target.value })}
             />
           </div>
-          <div className="lg:col-span-3">
-            <Button type="button" className="h-9 w-full" onClick={() => onGetDetails?.()}>
+          <div className="flex lg:col-span-2 lg:justify-start">
+            <Button
+              type="button"
+              className="h-9 w-auto shrink-0 px-4"
+              onClick={() => onGetDetails?.()}
+            >
               Get Details
             </Button>
           </div>
@@ -102,13 +106,17 @@ export function AppOfficeUseStep({
         <h3 className="text-xs font-semibold text-foreground">
           Select Class Hierarchy <span className="text-destructive">*</span>
         </h3>
-        <div className="grid gap-3 rounded-lg border border-sky-200/80 bg-slate-50/80 p-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 items-end gap-3 rounded-lg border border-sky-200/80 bg-slate-50/80 p-3 sm:grid-cols-2 lg:grid-cols-5 [&>*]:min-w-0">
           <Select
             label="College"
             placeholder="College"
-            value={data.collegeId ? String(data.collegeId) : ''}
+            value={data.collegeId ? String(data.collegeId) : ""}
             onChange={(v) => onCollegeChange(v ? Number(v) : null)}
-            options={entityOptions(colleges, ['collegeId'], ['collegeCode', 'collegeName'])}
+            options={entityOptions(
+              colleges,
+              ["collegeId"],
+              ["collegeCode", "collegeName"],
+            )}
             searchable
             required
             disabled={isEdit}
@@ -117,9 +125,13 @@ export function AppOfficeUseStep({
           <Select
             label="Academic Year"
             placeholder="Academic Year"
-            value={data.academicYearId ? String(data.academicYearId) : ''}
+            value={data.academicYearId ? String(data.academicYearId) : ""}
             onChange={(v) => onAcademicYearChange(v ? Number(v) : null)}
-            options={entityOptions(academicYears, ['academicYearId'], ['academicYear', 'academic_year'])}
+            options={entityOptions(
+              academicYears,
+              ["academicYearId"],
+              ["academicYear", "academic_year"],
+            )}
             searchable
             required
             error={errors.academicYearId}
@@ -127,9 +139,13 @@ export function AppOfficeUseStep({
           <Select
             label="Course"
             placeholder="Course"
-            value={data.courseId ? String(data.courseId) : ''}
+            value={data.courseId ? String(data.courseId) : ""}
             onChange={(v) => onCourseChange(v ? Number(v) : null)}
-            options={entityOptions(courses, ['courseId'], ['courseCode', 'courseName'])}
+            options={entityOptions(
+              courses,
+              ["courseId"],
+              ["courseCode", "courseName"],
+            )}
             searchable
             required
             error={errors.courseId}
@@ -137,9 +153,13 @@ export function AppOfficeUseStep({
           <Select
             label="Course Group"
             placeholder="Course Group"
-            value={data.courseGroupId ? String(data.courseGroupId) : ''}
+            value={data.courseGroupId ? String(data.courseGroupId) : ""}
             onChange={(v) => onCourseGroupChange(v ? Number(v) : null)}
-            options={entityOptions(courseGroups, ['courseGroupId'], ['groupCode', 'courseGroupCode'])}
+            options={entityOptions(
+              courseGroups,
+              ["courseGroupId"],
+              ["groupCode", "courseGroupCode"],
+            )}
             searchable
             required
             error={errors.courseGroupId}
@@ -147,9 +167,13 @@ export function AppOfficeUseStep({
           <Select
             label="Course Year"
             placeholder="Course Year"
-            value={data.courseYearId ? String(data.courseYearId) : ''}
+            value={data.courseYearId ? String(data.courseYearId) : ""}
             onChange={(v) => onChange({ courseYearId: v ? Number(v) : null })}
-            options={entityOptions(courseYears, ['courseYearId'], ['courseYearName', 'courseYearCode'])}
+            options={entityOptions(
+              courseYears,
+              ["courseYearId"],
+              ["courseYearName", "courseYearCode"],
+            )}
             searchable
             required
             error={errors.courseYearId}
@@ -157,12 +181,12 @@ export function AppOfficeUseStep({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0">
         <Select
           label="Quota"
           placeholder="Quota"
           required
-          value={data.quotaId ? String(data.quotaId) : ''}
+          value={data.quotaId ? String(data.quotaId) : ""}
           onChange={(v) => onChange({ quotaId: v ? Number(v) : null })}
           options={gdOptions(quotas)}
           searchable
@@ -173,9 +197,13 @@ export function AppOfficeUseStep({
           label="Regulation"
           placeholder="Regulation"
           required
-          value={data.regulationId ? String(data.regulationId) : ''}
+          value={data.regulationId ? String(data.regulationId) : ""}
           onChange={(v) => onChange({ regulationId: v ? Number(v) : null })}
-          options={entityOptions(regulations, ['regulationId'], ['regulationName', 'regulationCode'])}
+          options={entityOptions(
+            regulations,
+            ["regulationId"],
+            ["regulationName", "regulationCode"],
+          )}
           searchable
           clearable
           error={errors.regulationId}
@@ -184,26 +212,36 @@ export function AppOfficeUseStep({
           label="Batch"
           placeholder="Batch"
           required
-          value={data.batchId ? String(data.batchId) : ''}
+          value={data.batchId ? String(data.batchId) : ""}
           onChange={(v) => onChange({ batchId: v ? Number(v) : null })}
-          options={entityOptions(batches, ['batchId'], ['batchName'])}
+          options={entityOptions(batches, ["batchId"], ["batchName"])}
           searchable
           clearable
           error={errors.batchId}
         />
         <div className="space-y-1">
           <Label className="text-xs">Application Number</Label>
-          <Input value={txt(data, ['applicationNumber'])} disabled readOnly className="bg-muted" />
+          <Input
+            placeholder="Application Number"
+            value={txt(data, ["applicationNumber"])}
+            disabled
+            readOnly
+            className="bg-muted"
+          />
         </div>
         <div className="space-y-1">
           <Label className="text-xs">
-            {isEdit ? 'Reference Application Number' : 'Reference Application No.(Offline)'}
+            {isEdit
+              ? "Reference Application Number"
+              : "Reference Application No.(Offline)"}
           </Label>
           <Input
             placeholder={
-              isEdit ? 'Reference Application Number' : 'Reference Application No.(Offline)'
+              isEdit
+                ? "Reference Application Number"
+                : "Reference Application No.(Offline)"
             }
-            value={txt(data, ['refApplicationNo'])}
+            value={txt(data, ["refApplicationNo"])}
             onChange={(e) => onChange({ refApplicationNo: e.target.value })}
           />
         </div>
@@ -229,14 +267,14 @@ export function AppOfficeUseStep({
           <Label className="text-xs">Receipt Number</Label>
           <Input
             placeholder="Receipt Number"
-            value={txt(data, ['receiptNo'])}
+            value={txt(data, ["receiptNo"])}
             onChange={(e) => onChange({ receiptNo: e.target.value })}
           />
         </div>
         <Select
-          label={isEdit ? 'Student Type' : 'Student Types'}
-          placeholder={isEdit ? 'Student Type' : 'Student Types'}
-          value={data.studentTypeId ? String(data.studentTypeId) : ''}
+          label={isEdit ? "Student Type" : "Student Types"}
+          placeholder={isEdit ? "Student Type" : "Student Types"}
+          value={data.studentTypeId ? String(data.studentTypeId) : ""}
           onChange={(v) => onChange({ studentTypeId: v ? Number(v) : null })}
           options={gdOptions(studentTypes)}
           searchable
@@ -251,5 +289,5 @@ export function AppOfficeUseStep({
         </label>
       </div>
     </div>
-  )
+  );
 }

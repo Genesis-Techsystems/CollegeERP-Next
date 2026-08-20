@@ -369,7 +369,7 @@ export default function AssignmentPendingListReportPage() {
   return (
     <FilteredListPage
       title="Assignment Pending List"
-      resultsVisible={hasFetched}
+      resultsVisible={hasFetched && rows.length > 0}
       filters={
         <div className="space-y-2">
           <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-12">

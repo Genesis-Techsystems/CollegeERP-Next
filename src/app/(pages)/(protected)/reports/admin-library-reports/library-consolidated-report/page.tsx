@@ -6,7 +6,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { CellStyle, ColDef, ICellRendererParams } from "ag-grid-community";
 import { FileSpreadsheet, Printer } from "lucide-react";
@@ -17,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
-import { resolveReportCatalogHref } from "@/lib/report-catalog";
 import { toastError, toastInfo } from "@/lib/toast";
 import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
 import {
@@ -54,17 +52,34 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Angular consolidated Indian amount formatting. */
+/** Angular consolidated amount — Indian grouping; whole numbers without decimals. */
 function formatIndianAmount(value: number): string {
   const neg = value < 0;
   const abs = Math.abs(value);
+  const hasFraction = Math.round(abs * 100) % 100 !== 0;
   const [intPart, decPart] = abs.toFixed(2).split(".");
   const last3 = intPart.slice(-3);
   const rest = intPart.slice(0, -3);
   const grouped = rest
     ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${last3}`
     : last3;
-  return `${neg ? "-" : ""}${grouped}.${decPart}`;
+  const body = hasFraction ? `${grouped}.${decPart}` : grouped;
+  return `${neg ? "-" : ""}${body}`;
+}
+
+function buildTotals(mapped: ConsolRow[]): ConsolRow {
+  return {
+    __rowId: "total",
+    __isTotal: true,
+    libraryCode: "",
+    category: "",
+    totalTitleCount: mapped.reduce((s, r) => s + r.totalTitleCount, 0),
+    totalBooks: mapped.reduce((s, r) => s + r.totalBooks, 0),
+    inLibrary: mapped.reduce((s, r) => s + r.inLibrary, 0),
+    issuedBooks: mapped.reduce((s, r) => s + r.issuedBooks, 0),
+    dueBooks: mapped.reduce((s, r) => s + r.dueBooks, 0),
+    totalBooksCost: mapped.reduce((s, r) => s + r.totalBooksCost, 0),
+  };
 }
 
 function mapRow(row: AnyRow, idx: number): ConsolRow {
@@ -156,8 +171,6 @@ const EXCEL_COLUMNS = [
 ];
 
 export default function LibraryConsolidatedReportPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const collegeId = Number(globalThis?.localStorage?.getItem("collegeId") ?? 0);
   const autoLoadKey = useRef<string | null>(null);
 
@@ -251,19 +264,7 @@ export default function LibraryConsolidatedReportPage() {
           return;
         }
         const mapped = raw.map(mapRow);
-        const totals: ConsolRow = {
-          __rowId: "total",
-          __isTotal: true,
-          libraryCode: "",
-          category: "",
-          totalTitleCount: mapped.reduce((s, r) => s + r.totalTitleCount, 0),
-          totalBooks: mapped.reduce((s, r) => s + r.totalBooks, 0),
-          inLibrary: mapped.reduce((s, r) => s + r.inLibrary, 0),
-          issuedBooks: mapped.reduce((s, r) => s + r.issuedBooks, 0),
-          dueBooks: mapped.reduce((s, r) => s + r.dueBooks, 0),
-          totalBooksCost: mapped.reduce((s, r) => s + r.totalBooksCost, 0),
-        };
-        setRows([...mapped, totals]);
+        setRows([...mapped, buildTotals(mapped)]);
         setShowTable(true);
       } catch (err) {
         toastError(getErrorMessage(err));
@@ -372,17 +373,9 @@ export default function LibraryConsolidatedReportPage() {
     );
   };
 
-  const goBack = () => {
-    router.push(resolveReportCatalogHref(searchParams.get("path")));
-  };
-
   return (
     <FilteredListPage<ConsolRow>
-      title={
-        showTable && dataDetails
-          ? `${REPORT_TITLE} - ( ${dataDetails} )`
-          : REPORT_TITLE
-      }
+      title={REPORT_TITLE}
       filters={
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[10rem] flex-1 basis-[10rem] sm:max-w-[16rem]">
@@ -400,17 +393,11 @@ export default function LibraryConsolidatedReportPage() {
               isLoading={librariesQuery.isLoading}
             />
           </div>
-          {/* <Button
-            type="button"
-            variant="secondary"
-            className="h-9 w-fit px-4"
-            onClick={goBack}
-          >
-            Back
-          </Button> */}
         </div>
       }
       rowData={showTable ? rows : []}
+      paginationPageSize={10}
+      fitColumnsToWidth
       columnDefs={columnDefs}
       getRowStyle={(p) =>
         p.data?.__isTotal
@@ -420,7 +407,7 @@ export default function LibraryConsolidatedReportPage() {
       loading={loadingList}
       resultsVisible={showTable}
       hideEmptyGrid
-      pagination={false}
+      pagination={true}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",
@@ -434,7 +421,7 @@ export default function LibraryConsolidatedReportPage() {
             <Button
               type="button"
               size="sm"
-              className="h-9 px-3 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={handleExcelExport}
             >
               <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
@@ -443,7 +430,7 @@ export default function LibraryConsolidatedReportPage() {
             <Button
               type="button"
               size="sm"
-              className="h-9 px-3 text-[12px]"
+              className="h-9 rounded-[5px] px-3 text-[12px]"
               onClick={() => void printReport()}
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" />

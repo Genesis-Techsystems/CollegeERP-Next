@@ -770,19 +770,28 @@ export default function ElectiveGroupMappingPage() {
             </div>
           </div>
         }
+        showTable={tableEnabled}
+        resultsVisible={tableEnabled}
+        hideEmptyGrid
         rowData={tableEnabled ? rows : []}
-        columnDefs={columnDefs}
+        columnDefs={tableEnabled ? columnDefs : undefined}
         loading={loading}
-        toolbar={{ search: true, searchPlaceholder: "Search" }}
+        toolbar={
+          tableEnabled
+            ? { search: true, searchPlaceholder: "Search" }
+            : undefined
+        }
         toolbarTrailing={
-          <Button
-            type="button"
-            size="sm"
-            className="h-[30px] bg-primary px-3 text-[12px] text-white hover:bg-[#123d79]"
-            onClick={() => setAddOpen(true)}
-          >
-            + Add Elective Group
-          </Button>
+          tableEnabled ? (
+            <Button
+              type="button"
+              size="sm"
+              className="h-[30px] bg-primary px-3 text-[12px] text-white hover:bg-[#123d79]"
+              onClick={() => setAddOpen(true)}
+            >
+              + Add Elective Group
+            </Button>
+          ) : null
         }
         pagination
         paginationPageSize={10}

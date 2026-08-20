@@ -1,53 +1,85 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { ActiveStatusField } from '@/common/components/forms'
-import { Select, type SelectOption } from '@/common/components/select'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { createAcademicYear, listActiveOrganizations, listActiveUniversities, updateAcademicYear } from '@/services'
-import type { AcademicYear } from '@/types/academic-year'
-import type { Organization } from '@/types/organization'
-import type { University } from '@/types/university'
+import { useEffect, useMemo, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ActiveStatusField, FormField } from "@/common/components/forms";
+import { DatePicker } from "@/common/components/date-picker";
+import { Select, type SelectOption } from "@/common/components/select";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  createAcademicYear,
+  listActiveOrganizations,
+  listActiveUniversities,
+  updateAcademicYear,
+} from "@/services";
+import type { AcademicYear } from "@/types/academic-year";
+import type { Organization } from "@/types/organization";
+import type { University } from "@/types/university";
 
-const schema = z.object({
-  organizationId: z.number().min(1, 'Organization is required'),
-  universityId: z.number().min(1, 'University is required'),
-  academicYear: z.string().min(1, 'Academic year is required'),
-  fromDate: z.string().min(1, 'From date is required'),
-  toDate: z.string().min(1, 'To date is required'),
-  isDefault: z.boolean(),
-  isActive: z.boolean(),
-  reason: z.string().optional(),
-}).refine((v) => new Date(v.fromDate).getTime() <= new Date(v.toDate).getTime(), {
-  path: ['toDate'],
-  message: 'To date must be after From date',
-})
+const schema = z
+  .object({
+    organizationId: z.number().min(1, "Organization is required"),
+    universityId: z.number().min(1, "University is required"),
+    academicYear: z.string().min(1, "Academic year is required"),
+    fromDate: z.string().min(1, "From date is required"),
+    toDate: z.string().min(1, "To date is required"),
+    isDefault: z.boolean(),
+    isActive: z.boolean(),
+    reason: z.string().optional(),
+  })
+  .refine(
+    (v) => new Date(v.fromDate).getTime() <= new Date(v.toDate).getTime(),
+    {
+      path: ["toDate"],
+      message: "To date must be after From date",
+    },
+  );
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 interface AcademicYearModalProps {
-  open: boolean
-  onClose: () => void
-  academicYear: AcademicYear | null
-  existingRows: AcademicYear[]
-  onSaved: () => void
+  open: boolean;
+  onClose: () => void;
+  academicYear: AcademicYear | null;
+  existingRows: AcademicYear[];
+  onSaved: () => void;
 }
 
-function asOptions<T>(rows: T[], getValue: (row: T) => number, getLabel: (row: T) => string): SelectOption[] {
-  return rows.map((row) => ({ value: String(getValue(row)), label: getLabel(row) }))
+function asOptions<T>(
+  rows: T[],
+  getValue: (row: T) => number,
+  getLabel: (row: T) => string,
+): SelectOption[] {
+  return rows.map((row) => ({
+    value: String(getValue(row)),
+    label: getLabel(row),
+  }));
 }
 
-function asDateInputValue(value: string | undefined): string {
-  if (!value) return ''
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
+function asDateInputValue(value: string | Date | undefined): string {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseYmd(value: string | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export default function AcademicYearModal({
@@ -57,10 +89,10 @@ export default function AcademicYearModal({
   existingRows,
   onSaved,
 }: Readonly<AcademicYearModalProps>) {
-  const isEditing = academicYear != null
-  const [organizations, setOrganizations] = useState<Organization[]>([])
-  const [universities, setUniversities] = useState<University[]>([])
-  const [submitError, setSubmitError] = useState<string | null>(null)
+  const isEditing = academicYear != null;
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -75,33 +107,43 @@ export default function AcademicYearModal({
     defaultValues: {
       organizationId: undefined,
       universityId: undefined,
-      academicYear: '',
+      academicYear: "",
       fromDate: asDateInputValue(new Date().toISOString()),
       toDate: asDateInputValue(new Date().toISOString()),
       isDefault: false,
       isActive: true,
-      reason: '',
+      reason: "",
     },
-  })
+  });
 
   const organizationOptions = useMemo(
-    () => asOptions(organizations, (r) => r.organizationId, (r) => r.orgCode ?? r.orgName),
+    () =>
+      asOptions(
+        organizations,
+        (r) => r.organizationId,
+        (r) => r.orgCode ?? r.orgName,
+      ),
     [organizations],
-  )
+  );
   const universityOptions = useMemo(
-    () => asOptions(universities, (r) => r.universityId, (r) => r.universityCode ?? r.universityName),
+    () =>
+      asOptions(
+        universities,
+        (r) => r.universityId,
+        (r) => r.universityCode ?? r.universityName,
+      ),
     [universities],
-  )
+  );
 
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     Promise.all([listActiveOrganizations(), listActiveUniversities()])
       .then(([orgRows, univRows]) => {
-        setOrganizations(orgRows)
-        setUniversities(univRows)
+        setOrganizations(orgRows);
+        setUniversities(univRows);
       })
-      .catch(console.error)
-  }, [open])
+      .catch(console.error);
+  }, [open]);
 
   useEffect(() => {
     if (academicYear) {
@@ -113,50 +155,60 @@ export default function AcademicYearModal({
         toDate: asDateInputValue(academicYear.toDate),
         isDefault: academicYear.isDefault ?? false,
         isActive: academicYear.isActive,
-        reason: academicYear.reason ?? '',
-      })
+        reason: academicYear.reason ?? "",
+      });
     } else {
-      reset()
+      reset();
     }
-    setSubmitError(null)
-  }, [academicYear, open, reset])
+    setSubmitError(null);
+  }, [academicYear, open, reset]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null)
+    setSubmitError(null);
     try {
-      const duplicate = existingRows.some((row) =>
-        row.academicYear.toLowerCase() === data.academicYear.toLowerCase()
-        && row.organizationId === data.organizationId
-        && row.universityId === data.universityId
-        && row.academicYearId !== (academicYear?.academicYearId ?? -1),
-      )
+      const duplicate = existingRows.some(
+        (row) =>
+          row.academicYear.toLowerCase() === data.academicYear.toLowerCase() &&
+          row.organizationId === data.organizationId &&
+          row.universityId === data.universityId &&
+          row.academicYearId !== (academicYear?.academicYearId ?? -1),
+      );
       if (duplicate) {
-        setSubmitError('Academic year already exists for the selected organization and university')
-        return
+        setSubmitError(
+          "Academic year already exists for the selected organization and university",
+        );
+        return;
       }
 
       if (isEditing) {
-        await updateAcademicYear(academicYear.academicYearId, data)
+        await updateAcademicYear(academicYear.academicYearId, data);
       } else {
-        await createAcademicYear(data)
+        await createAcademicYear(data);
       }
-      onSaved()
-      onClose()
+      onSaved();
+      onClose();
     } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to save academic year')
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to save academic year",
+      );
     }
   }
 
-  let submitLabel = 'Save'
-  if (isSubmitting) submitLabel = 'Saving...'
-  else if (isEditing) submitLabel = 'Update'
+  let submitLabel = "Save";
+  if (isSubmitting) submitLabel = "Saving...";
+  else if (isEditing) submitLabel = "Update";
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
-            {isEditing ? 'Edit Academic Year' : 'Add Academic Year'}
+            {isEditing ? "Edit Academic Year" : "Add Academic Year"}
           </DialogTitle>
         </DialogHeader>
 
@@ -197,32 +249,58 @@ export default function AcademicYearModal({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <div className="space-y-0.5 md:col-span-2">
-              <Label htmlFor="academicYear">Academic Year *</Label>
-              <Input id="academicYear" {...register('academicYear')} />
-              {errors.academicYear && <p className="text-xs text-red-500">{errors.academicYear.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="fromDate">From Date *</Label>
-              <Input id="fromDate" type="date" {...register('fromDate')} />
-              {errors.fromDate && <p className="text-xs text-red-500">{errors.fromDate.message}</p>}
-            </div>
-            <div className="space-y-0.5">
-              <Label htmlFor="toDate">To Date *</Label>
-              <Input id="toDate" type="date" min={watch('fromDate') || undefined} {...register('toDate')} />
-              {errors.toDate && <p className="text-xs text-red-500">{errors.toDate.message}</p>}
-            </div>
+            <FormField
+              label="Academic Year"
+              required
+              htmlFor="academicYear"
+              error={errors.academicYear?.message}
+              className="md:col-span-2"
+            >
+              <Input id="academicYear" {...register("academicYear")} />
+            </FormField>
+            <Controller
+              name="fromDate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="From Date"
+                  required
+                  value={parseYmd(field.value)}
+                  onChange={(d) => field.onChange(d ? asDateInputValue(d) : "")}
+                  error={errors.fromDate?.message}
+                />
+              )}
+            />
+            <Controller
+              name="toDate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="To Date"
+                  required
+                  value={parseYmd(field.value)}
+                  onChange={(d) => field.onChange(d ? asDateInputValue(d) : "")}
+                  minDate={parseYmd(watch("fromDate")) ?? undefined}
+                  error={errors.toDate?.message}
+                />
+              )}
+            />
           </div>
 
           <div className="flex items-center gap-2 py-1">
             <input
               id="isDefault"
               type="checkbox"
-              checked={watch('isDefault') ?? false}
-              onChange={(e) => setValue('isDefault', e.target.checked)}
+              checked={watch("isDefault") ?? false}
+              onChange={(e) => setValue("isDefault", e.target.checked)}
               className="h-4 w-4 rounded border-slate-300"
             />
-            <Label htmlFor="isDefault">Default</Label>
+            <label
+              htmlFor="isDefault"
+              className="text-[12px] font-medium leading-none text-black/54"
+            >
+              Default
+            </label>
           </div>
 
           {isEditing && (
@@ -232,9 +310,9 @@ export default function AcademicYearModal({
               render={({ field }) => (
                 <ActiveStatusField
                   isActive={field.value}
-                  reason={watch('reason') ?? ''}
+                  reason={watch("reason") ?? ""}
                   onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue('reason', value)}
+                  onReasonChange={(value) => setValue("reason", value)}
                   reasonError={errors.reason?.message}
                 />
               )}
@@ -242,11 +320,18 @@ export default function AcademicYearModal({
           )}
 
           {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">{submitError}</p>
+            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
+              {submitError}
+            </p>
           )}
 
           <DialogFooter className="pt-1">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -256,5 +341,5 @@ export default function AcademicYearModal({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

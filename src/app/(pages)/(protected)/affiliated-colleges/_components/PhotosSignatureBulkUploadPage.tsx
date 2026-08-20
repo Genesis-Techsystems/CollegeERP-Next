@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
-import { UploadIcon } from "lucide-react";
+import { Upload } from "lucide-react";
 import { FileDropzone } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
@@ -13,6 +13,7 @@ import { MINIO_URL } from "@/config/constants/api";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { QK } from "@/lib/query-keys";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import {
   listAffiliatedOrganizationsForUpload,
   uploadAffiliatedPhotosAndSignatures,
@@ -22,6 +23,10 @@ import {
   readAffiliatedMediaSummaryContext,
   saveAffiliatedMediaSummaryContext,
 } from "../_lib/affiliated-media-summary-context";
+import {
+  AffiliatedExcelActionPanel,
+  AffiliatedExcelActionTile,
+} from "./AffiliatedExcelActionPanel";
 
 type UploadRow = AffiliatedMediaUploadRow & {
   previewUrl?: string;
@@ -94,6 +99,7 @@ export function PhotosSignatureBulkUploadPage() {
   const { data: organizations = [], isLoading: loadingOrgs } = useQuery({
     queryKey: [...QK.affiliatedColleges.all, "organizations"] as const,
     queryFn: listAffiliatedOrganizationsForUpload,
+    ...AFFILIATED_QUERY,
   });
 
   useEffect(() => {
@@ -193,36 +199,45 @@ export function PhotosSignatureBulkUploadPage() {
               />
             </div>
             <div className="md:col-span-4 flex flex-wrap items-end gap-2">
-              <Button type="button" variant="outline" onClick={goBack}>
+              <Button
+                type="button"
+                variant="outline"
+                className="back-btn"
+                onClick={goBack}
+              >
                 Back
               </Button>
-              {selectedFiles.length > 0 ? (
-                <Button
-                  type="button"
-                  className="gap-2"
-                  disabled={uploading}
-                  onClick={() => void onUpload()}
-                >
-                  <UploadIcon className="h-4 w-4" />
-                  {uploading ? "Uploading…" : "Upload"}
-                </Button>
-              ) : null}
             </div>
           </div>
-          <FileDropzone
-            accept="image/*"
-            multiple
-            onFilesChange={(files) => void handleFilesChange(files)}
-          >
-            <p className="text-xs text-muted-foreground">
-              Drag and drop photo / signature images here, or click to select
-            </p>
-          </FileDropzone>
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+            <AffiliatedExcelActionPanel title="1. Select Photos">
+              <FileDropzone
+                accept="image/*"
+                multiple
+                onFilesChange={(files) => void handleFilesChange(files)}
+              >
+                <p className="text-xs text-muted-foreground">
+                  Drag and drop photo / signature images here, or click to
+                  select
+                </p>
+              </FileDropzone>
+            </AffiliatedExcelActionPanel>
+            <AffiliatedExcelActionPanel title="2. Upload Photos">
+              <AffiliatedExcelActionTile
+                label={uploading ? "Uploading…" : "Upload"}
+                disabled={uploading || selectedFiles.length === 0}
+                onClick={() => void onUpload()}
+                icon={<Upload className="h-10 w-10" strokeWidth={1.75} />}
+              />
+            </AffiliatedExcelActionPanel>
+          </div>
         </div>
       }
       rowData={uploadedRows}
       columnDefs={UPLOADED_COLS}
       pagination={uploadedRows.length > 0}
+      showTable={uploadedRows.length > 0}
+      resultsVisible={uploadedRows.length > 0}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

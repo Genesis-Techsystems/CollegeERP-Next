@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import { DATE_FORMATS } from "@/config/constants/app";
 import {
@@ -227,6 +228,7 @@ export function BiometricEmployeesPage() {
           unassignedOnly,
         }),
       enabled: fetchEnabled,
+      ...HR_QUERY,
     });
 
   const rows = data?.rows ?? [];
@@ -405,8 +407,8 @@ export function BiometricEmployeesPage() {
       }
       rowData={fetchEnabled && rows.length > 0 ? rows : []}
       columnDefs={fetchEnabled && rows.length > 0 ? columnDefs : undefined}
-      body={fetchEnabled && rows.length > 0 ? undefined : null}
-      bodyClassName="border-t-0"
+      showTable={fetchEnabled && rows.length > 0}
+      resultsVisible={fetchEnabled && rows.length > 0}
       loading={isFetching}
       serverSide={fetchEnabled && rows.length > 0}
       totalCount={totalCount}
