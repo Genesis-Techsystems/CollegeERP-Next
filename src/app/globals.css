@@ -4631,13 +4631,23 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
 
 /* Angular student-reevaluation-fee-collection */
 .student-reeval-fee-page {
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+}
+.student-reeval-fee-page__card {
   background: #fff;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-  padding-bottom: 16px;
+  overflow: hidden;
 }
-.student-reeval-fee-page__header,
-.student-reeval-fee-page__subheader {
+.student-reeval-fee-page__card--flush {
+  padding: 12px;
+}
+.student-reeval-fee-page__header {
   align-items: center;
   border-bottom: 2px solid #ffcf46;
   color: #042956;
@@ -4646,13 +4656,11 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   margin: 7px;
   padding: 5px 16px 12px;
 }
-.student-reeval-fee-page__header .material-icons,
-.student-reeval-fee-page__subheader .material-icons {
+.student-reeval-fee-page__header .material-icons {
   color: #042956;
   font-size: 20px;
 }
-.student-reeval-fee-page__header strong,
-.student-reeval-fee-page__subheader strong {
+.student-reeval-fee-page__header strong {
   font-size: 16px;
   font-weight: 500;
 }
@@ -4660,20 +4668,25 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  padding: 8px 24px 16px;
-}
-.student-reeval-fee-page__body {
-  margin: 0 24px 16px;
+  padding: 8px 24px 20px;
 }
 .student-reeval-fee-page__split {
+  align-items: flex-start;
   display: flex;
-  gap: 16px;
-  margin: 15px 0;
+  margin: 15px;
 }
 .student-reeval-fee-page .weeday-bordr {
+  align-self: flex-start;
+  background: #fff;
   border: 1px solid #c3d9ff;
+  box-shadow:
+    0 5px 5px -3px rgba(0, 0, 0, 0.2),
+    0 8px 10px 1px rgba(0, 0, 0, 0.14),
+    0 3px 14px 2px rgba(0, 0, 0, 0.12);
   flex: 0 0 15%;
-  max-width: 15%;
+  margin-right: 25px;
+  max-width: 160px;
+  min-width: 132px;
 }
 .student-reeval-fee-page .weeday-bordr h2 {
   background: #ffd869;
@@ -4687,52 +4700,91 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
 .student-reeval-fee-page .subj-table,
 .student-reeval-fee-page .fee {
   border-collapse: collapse;
+  border-spacing: 0;
   width: 100%;
 }
-.student-reeval-fee-page .sem-table th,
-.student-reeval-fee-page .subj-table th,
-.student-reeval-fee-page .fee th {
+.student-reeval-fee-page .sem-table th {
   background: #c3d9ff;
+  color: #0000ff;
+  font-weight: 700;
+  padding: 5px;
+  text-align: left;
+}
+.student-reeval-fee-page .sem-table td {
+  color: #0000ff;
   font-weight: 500;
   padding: 5px;
   text-align: left;
 }
-.student-reeval-fee-page .sem-table td,
-.student-reeval-fee-page .subj-table td,
-.student-reeval-fee-page .fee td {
-  padding: 5px 8px;
+.student-reeval-fee-page .sem-check {
+  text-align: center;
+  width: 32px;
 }
 .student-reeval-fee-page .all-label {
   color: #0000ee;
+  font-weight: 700;
 }
 .student-reeval-fee-page .subjects-card {
   flex: 1;
   min-width: 0;
+  padding: 0 8px 12px;
 }
 .student-reeval-fee-page .subjects-toolbar {
   align-items: center;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .student-reeval-fee-page .subject-search {
+  background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.42);
   font-size: 14px;
-  padding: 6px 0;
+  outline: none;
+  padding: 6px 0 4px;
   width: 35%;
+}
+.student-reeval-fee-page .subject-search:focus {
+  border-bottom: 2px solid #042956;
 }
 .student-reeval-fee-page .each-fee {
   color: #000;
   font-size: 13px;
+  font-weight: 400;
 }
 .student-reeval-fee-page .each-fee span {
   color: #0000ee;
   font-weight: 700;
 }
+.student-reeval-fee-page .subj-table th {
+  background: #c3d9ff;
+  color: #042956;
+  font-weight: 500;
+  padding: 8px 8px;
+  text-align: left;
+}
+.student-reeval-fee-page .subj-table td {
+  color: #042956;
+  padding: 8px 8px;
+}
+.student-reeval-fee-page .subj-table tbody tr:nth-child(even) {
+  background: #f1f6ff;
+}
+.student-reeval-fee-page .subj-table tbody tr:nth-child(odd) {
+  background: #fff;
+}
+.student-reeval-fee-page .subj-check-col {
+  width: 72px;
+}
+.student-reeval-fee-page .subj-check-col label {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 500;
+  gap: 8px;
+}
 .student-reeval-fee-page .save-btn-align {
-  text-align: right;
   margin: 8px 0 0;
+  text-align: right;
 }
 .student-reeval-fee-page .add-btn {
   background: #042956;
@@ -4752,7 +4804,7 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  margin: 0 24px 16px;
+  margin: 0;
 }
 .student-reeval-fee-page .pay-card__left {
   flex: 0 0 40%;
@@ -4773,24 +4825,67 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   gap: 12px;
   margin: 8px 0;
 }
-.student-reeval-fee-page .pay-extra {
-  border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  font-size: 14px;
-  padding: 8px 0;
+.student-reeval-fee-page .pay-row--top {
+  align-items: flex-start;
+}
+.student-reeval-fee-page .pay-extra-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
   width: 25%;
 }
+.student-reeval-fee-page .pay-extra-field--grow {
+  flex: 1 1 auto;
+  width: auto;
+}
+.student-reeval-fee-page .pay-extra-field label {
+  color: rgb(0 0 0 / 0.54);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+.student-reeval-fee-page .pay-extra {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: var(--app-control-font-size, 14px);
+  height: 36px;
+  outline: none;
+  padding: 6px 0;
+  width: 100%;
+}
+.student-reeval-fee-page .pay-extra:focus {
+  border-bottom: 2px solid #0c51a4;
+}
+.student-reeval-fee-page .pay-card__left .cart-table {
+  border: 1px solid #b9d3f0;
+}
+.student-reeval-fee-page .pay-card__left .cart-table th,
+.student-reeval-fee-page .pay-card__left .cart-table td {
+  border: 1px solid #b9d3f0;
+}
+.student-reeval-fee-page .pay-card__left .cart-table th {
+  background: #c3d9ff;
+}
+.student-reeval-fee-page .pay-date {
+  flex: 0 0 30%;
+  max-width: 30%;
+  min-width: 180px;
+}
 .student-reeval-fee-page .amount-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   margin-left: auto;
-  position: relative;
-  width: 35%;
+  width: 38%;
 }
 .student-reeval-fee-page .amount-wrap label {
   font-size: 15px;
   font-weight: 500;
-  position: absolute;
-  right: 2px;
-  top: -18px;
+  line-height: 1.2;
+  margin-bottom: 6px;
+  white-space: nowrap;
 }
 .student-reeval-fee-page .pay-box {
   border: 1px solid #cacaca;
@@ -4798,11 +4893,12 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   font-size: 20px;
   font-weight: 700;
   height: 45px;
+  padding: 0 10px;
   text-align: right;
   width: 100%;
 }
 .student-reeval-fee-page .receipts-block {
-  margin: 0 24px 16px;
+  margin: 0;
 }
 .student-reeval-fee-page .table-bac {
   background: #c3d9ff;
@@ -4814,8 +4910,20 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   margin: 0 5px;
   width: calc(100% - 10px);
 }
+.student-reeval-fee-page .fee th {
+  background: #fff;
+  font-weight: 500;
+  padding: 5px;
+  text-align: left;
+}
+.student-reeval-fee-page .fee td {
+  padding: 5px;
+}
 .student-reeval-fee-page .fee tbody tr:nth-child(even) {
   background: #f1f6ff;
+}
+.student-reeval-fee-page .fee tbody tr:nth-child(odd) {
+  background: #fff;
 }
 .student-reeval-fee-page .courses-btn {
   background: #ffcf46;
@@ -4836,12 +4944,18 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   accent-color: #0c51a4;
   cursor: pointer;
   height: 16px;
+  vertical-align: middle;
   width: 16px;
+}
+.student-reeval-fee-page .subj-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 @media (max-width: 900px) {
   .student-reeval-fee-page .weeday-bordr,
   .student-reeval-fee-page .pay-card__left {
     flex: 0 0 100%;
+    margin-right: 0;
     max-width: 100%;
   }
 }

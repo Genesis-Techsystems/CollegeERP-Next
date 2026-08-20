@@ -80,6 +80,35 @@ function presentDateYmd(): string {
   return todayYmd();
 }
 
+function PayUnderlineField({
+  label,
+  value,
+  onChange,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={["pay-extra-field", className].filter(Boolean).join(" ")}>
+      <label>{label}</label>
+      <input
+        className="pay-extra"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function selectedFeeSubjects(rows: AnyRow[]): AnyRow[] {
+  return rows.filter(
+    (row) => row.checked === true && Number(row.already_reg) !== 1,
+  );
+}
+
 function uniqueByCourseYear(rows: AnyRow[]): AnyRow[] {
   const seen = new Set<number>();
   const out: AnyRow[] = [];
@@ -135,6 +164,7 @@ function StudentReevaluationFeeContent() {
   const [checkSubject, setCheckSubject] = useState(false);
   const [subjectSearch, setSubjectSearch] = useState("");
   const [cart, setCart] = useState<AnyRow[]>([]);
+  const [paymentReady, setPaymentReady] = useState(false);
   const [paymentModes, setPaymentModes] = useState<AnyRow[]>([]);
   const [paymentModeCatId, setPaymentModeCatId] = useState("");
   const [receiptDate, setReceiptDate] = useState<Date | null>(new Date());
@@ -155,6 +185,11 @@ function StudentReevaluationFeeContent() {
   const eachFee = Number(courseYears[0]?.fee ?? 0) || 0;
   const amount = cart.length * eachFee;
   const paymentModeNum = Number(paymentModeCatId) || 0;
+
+  useEffect(() => {
+    if (!paymentReady) return;
+    setCart(selectedFeeSubjects(subjects));
+  }, [subjects, paymentReady]);
 
   const examOptions = useMemo<SelectOption[]>(
     () =>
@@ -292,6 +327,7 @@ function StudentReevaluationFeeContent() {
     setCourseYears([]);
     setSubjects([]);
     setCart([]);
+    setPaymentReady(false);
     setReceipts([]);
     void (async () => {
       try {
@@ -309,6 +345,7 @@ function StudentReevaluationFeeContent() {
   async function onSelectRevision(id: string) {
     setRevisionTypeId(id);
     setCart([]);
+    setPaymentReady(false);
     setCheckSubject(false);
     setSubjectSearch("");
     if (!id || !examId || !studentId) {
@@ -371,6 +408,7 @@ function StudentReevaluationFeeContent() {
     setSubjects(applyAlreadyReg(uniqueBySubject(fromYears)));
     setCheckCourse(allChecked);
     setCart([]);
+    setPaymentReady(false);
     setCheckSubject(false);
   }
 
@@ -406,37 +444,30 @@ function StudentReevaluationFeeContent() {
   }
 
   function toggleSubject(subjectId: number, checked: boolean) {
-    setSubjects((prev) =>
-      prev.map((item) => {
+    setSubjects((prev) => {
+      const next = prev.map((item) => {
         if (numFrom(item, ["fk_subject_id"]) !== subjectId) return item;
         if (Number(item.already_reg) === 1) {
           return { ...item, checked: true, disabled: true };
         }
         return { ...item, checked };
-      }),
-    );
-    if (!checked) {
-      setCart((prev) =>
-        prev.filter((d) => numFrom(d, ["fk_subject_id"]) !== subjectId),
+      });
+      const selectable = next.filter((item) => Number(item.already_reg) !== 1);
+      setCheckSubject(
+        selectable.length > 0 && selectable.every((item) => item.checked),
       );
-    }
+      return next;
+    });
   }
 
   function addData() {
-    const newly = subjects.filter(
-      (row) =>
-        row.checked === true &&
-        Number(row.already_reg) !== 1 &&
-        !cart.some(
-          (d) =>
-            numFrom(d, ["fk_subject_id"]) === numFrom(row, ["fk_subject_id"]),
-        ),
-    );
-    if (newly.length === 0) {
+    const selected = selectedFeeSubjects(subjects);
+    if (selected.length === 0) {
       toastInfo("Please Selcet Any Course");
       return;
     }
-    setCart((prev) => [...prev, ...newly]);
+    setPaymentReady(true);
+    setCart(selected);
     setChequeNo("");
     setDdno("");
     setReferenceNumber("");
@@ -625,6 +656,7 @@ function StudentReevaluationFeeContent() {
       }
       const orderId = result.data.orderId;
       setCart([]);
+      setPaymentReady(false);
       if (orderId == null || orderId === "") {
         toastError("Order id missing from fee receipt response.");
         return;
@@ -658,44 +690,46 @@ function StudentReevaluationFeeContent() {
   return (
     <PageContainer>
       <div className="student-reeval-fee-page" data-no-page-name>
-        <div className="student-reeval-fee-page__header">
-          <span className="material-icons" aria-hidden>
-            book
-          </span>
-          <strong>Re-Valuation Fee</strong>
-        </div>
+        <section className="student-reeval-fee-page__card">
+          <div className="student-reeval-fee-page__header">
+            <span className="material-icons" aria-hidden>
+              book
+            </span>
+            <strong>Re-Valuation Fee</strong>
+          </div>
 
-        <div className="student-reeval-fee-page__filters">
-          <div className="w-full md:w-[40%]">
-            <Select
-              label="Exam"
-              required
-              variant="standard"
-              searchable
-              value={examId || null}
-              onChange={(v) => setExamId(v ?? "")}
-              options={examOptions}
-              placeholder="Exam"
-              disabled={loading || exams.length === 0}
-            />
+          <div className="student-reeval-fee-page__filters">
+            <div className="w-full md:w-[40%]">
+              <Select
+                label="Exam"
+                required
+                variant="standard"
+                searchable
+                value={examId || null}
+                onChange={(v) => setExamId(v ?? "")}
+                options={examOptions}
+                placeholder="Exam"
+                disabled={loading || exams.length === 0}
+              />
+            </div>
+            <div className="w-full md:w-[20%]">
+              <Select
+                label="Exam Revision Type"
+                variant="standard"
+                searchable={false}
+                value={revisionTypeId || null}
+                onChange={(v) => void onSelectRevision(v ?? "")}
+                options={revisionOptions}
+                placeholder="Exam Revision Type"
+                disabled={loading || !examId}
+              />
+            </div>
           </div>
-          <div className="w-full md:w-[20%]">
-            <Select
-              label="Exam Revision Type"
-              variant="standard"
-              searchable={false}
-              value={revisionTypeId || null}
-              onChange={(v) => void onSelectRevision(v ?? "")}
-              options={revisionOptions}
-              placeholder="Exam Revision Type"
-              disabled={loading || !examId}
-            />
-          </div>
-        </div>
+        </section>
 
         {courseYears.length > 0 ? (
-          <div className="student-reeval-fee-page__body">
-            <div className="student-reeval-fee-page__subheader">
+          <section className="student-reeval-fee-page__card">
+            <div className="student-reeval-fee-page__header">
               <span className="material-icons" aria-hidden>
                 book
               </span>
@@ -708,7 +742,7 @@ function StudentReevaluationFeeContent() {
                 <table className="sem-table">
                   <thead>
                     <tr>
-                      <th className="w-[17%]">
+                      <th className="sem-check">
                         <input
                           type="checkbox"
                           className="subj-check"
@@ -728,7 +762,7 @@ function StudentReevaluationFeeContent() {
                       const id = numFrom(row, ["fk_course_year_id"]);
                       return (
                         <tr key={id}>
-                          <td>
+                          <td className="sem-check">
                             <input
                               type="checkbox"
                               className="subj-check"
@@ -761,7 +795,7 @@ function StudentReevaluationFeeContent() {
                 <table className="subj-table">
                   <thead>
                     <tr>
-                      <th>
+                      <th className="subj-check-col">
                         <label>
                           <input
                             type="checkbox"
@@ -782,7 +816,7 @@ function StudentReevaluationFeeContent() {
                       const id = numFrom(row, ["fk_subject_id"]);
                       return (
                         <tr key={id}>
-                          <td>
+                          <td className="subj-check-col">
                             <input
                               type="checkbox"
                               className="subj-check"
@@ -814,189 +848,190 @@ function StudentReevaluationFeeContent() {
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         ) : null}
 
         {cart.length > 0 ? (
-          <div className="pay-card">
-            <div className="pay-card__left">
-              <table className="subj-table">
-                <thead>
-                  <tr>
-                    <th>SI.No</th>
-                    <th>Subject</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.map((row, i) => (
-                    <tr key={numFrom(row, ["fk_subject_id"])}>
-                      <td>{i + 1}</td>
-                      <td>
-                        {strFrom(row, ["subject_code"])} -{" "}
-                        {strFrom(row, ["subject_name"])}
-                      </td>
+          <section className="student-reeval-fee-page__card student-reeval-fee-page__card--flush">
+            <div className="pay-card">
+              <div className="pay-card__left">
+                <table className="subj-table cart-table">
+                  <thead>
+                    <tr>
+                      <th>SI.No</th>
+                      <th>Subject</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="pay-card__right">
-              <div className="pay-row">
-                <div className="w-[25%]">
-                  <Select
-                    label="Pay Mode"
-                    required
-                    variant="standard"
-                    searchable={false}
-                    value={paymentModeCatId || null}
-                    onChange={(v) => setPaymentModeCatId(v ?? "")}
-                    options={paymentOptions}
-                    placeholder="Pay Mode"
-                  />
+                  </thead>
+                  <tbody>
+                    {cart.map((row, i) => (
+                      <tr key={numFrom(row, ["fk_subject_id"])}>
+                        <td>{i + 1}</td>
+                        <td>
+                          {strFrom(row, ["subject_code"])} -{" "}
+                          {strFrom(row, ["subject_name"])}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="pay-card__right">
+                <div className="pay-row pay-row--top">
+                  <div className="w-[25%]">
+                    <Select
+                      label="Pay Mode"
+                      required
+                      variant="standard"
+                      searchable={false}
+                      value={paymentModeCatId || null}
+                      onChange={(v) => setPaymentModeCatId(v ?? "")}
+                      options={paymentOptions}
+                      placeholder="Pay Mode"
+                    />
+                  </div>
+                  {paymentModeNum === 133 ? (
+                    <PayUnderlineField
+                      label="Cheque Number"
+                      value={chequeNo}
+                      onChange={setChequeNo}
+                    />
+                  ) : null}
+                  {paymentModeNum === 134 ? (
+                    <PayUnderlineField
+                      label="DD Number"
+                      value={ddno}
+                      onChange={setDdno}
+                    />
+                  ) : null}
+                  {paymentModeNum === 131 ? (
+                    <PayUnderlineField
+                      label="Reference Number"
+                      value={referenceNumber}
+                      onChange={setReferenceNumber}
+                    />
+                  ) : null}
+                  {paymentModeNum === 135 ? (
+                    <PayUnderlineField
+                      label="Other Payment Number"
+                      value={otherPaymentNumber}
+                      onChange={setOtherPaymentNumber}
+                    />
+                  ) : null}
+                  {paymentModeNum === 132 ? (
+                    <PayUnderlineField
+                      label="Transaction Number"
+                      value={transactionNo}
+                      onChange={setTransactionNo}
+                    />
+                  ) : null}
+                  <div className="amount-wrap">
+                    <label>Payment Amount</label>
+                    <input
+                      className="pay-box"
+                      type="number"
+                      disabled
+                      value={amount}
+                    />
+                  </div>
                 </div>
-                {paymentModeNum === 133 ? (
-                  <input
-                    className="pay-extra"
-                    placeholder="Cheque Number"
-                    value={chequeNo}
-                    onChange={(e) => setChequeNo(e.target.value)}
+                <div className="pay-row">
+                  <div className="pay-date">
+                    <DatePicker
+                      label="Payment Date"
+                      required
+                      variant="standard"
+                      value={receiptDate}
+                      onChange={setReceiptDate}
+                    />
+                  </div>
+                  <PayUnderlineField
+                    className="pay-extra-field--grow"
+                    label="Fee Comments"
+                    value={feeComments}
+                    onChange={setFeeComments}
                   />
-                ) : null}
-                {paymentModeNum === 134 ? (
-                  <input
-                    className="pay-extra"
-                    placeholder="DD Number"
-                    value={ddno}
-                    onChange={(e) => setDdno(e.target.value)}
-                  />
-                ) : null}
-                {paymentModeNum === 131 ? (
-                  <input
-                    className="pay-extra"
-                    placeholder="Reference Number"
-                    value={referenceNumber}
-                    onChange={(e) => setReferenceNumber(e.target.value)}
-                  />
-                ) : null}
-                {paymentModeNum === 135 ? (
-                  <input
-                    className="pay-extra"
-                    placeholder="Other Payment Number"
-                    value={otherPaymentNumber}
-                    onChange={(e) => setOtherPaymentNumber(e.target.value)}
-                  />
-                ) : null}
-                {paymentModeNum === 132 ? (
-                  <input
-                    className="pay-extra"
-                    placeholder="Transaction Number"
-                    value={transactionNo}
-                    onChange={(e) => setTransactionNo(e.target.value)}
-                  />
-                ) : null}
-                <div className="amount-wrap">
-                  <label>Payment Amount</label>
-                  <input
-                    className="pay-box"
-                    type="number"
-                    disabled
-                    value={amount}
-                  />
+                  <button
+                    type="button"
+                    className="add-btn"
+                    disabled={paying}
+                    onClick={() => void payFee()}
+                  >
+                    {paying ? "Paying…" : "Pay fees"}
+                  </button>
                 </div>
               </div>
-              <div className="pay-row">
-                <div className="w-[15%]">
-                  <DatePicker
-                    label="Payment Date"
-                    required
-                    variant="standard"
-                    value={receiptDate}
-                    onChange={setReceiptDate}
-                  />
-                </div>
-                <input
-                  className="pay-extra flex-1"
-                  placeholder="Fee Comments"
-                  value={feeComments}
-                  onChange={(e) => setFeeComments(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="add-btn"
-                  disabled={paying}
-                  onClick={() => void payFee()}
-                >
-                  {paying ? "Paying…" : "Pay fees"}
-                </button>
-              </div>
             </div>
-          </div>
+          </section>
         ) : null}
 
         {receipts.length > 0 ? (
-          <div className="receipts-block">
-            <div className="table-bac">
-              <table className="fee">
-                <thead>
-                  <tr>
-                    <th style={{ width: "5%" }}>SI No.</th>
-                    <th>Semester</th>
-                    <th>Receipt No.</th>
-                    <th>Payment Date</th>
-                    <th>Payment Mode</th>
-                    <th className="text-right">Exam Fee (₹)</th>
-                    <th className="text-right">Add. Fee (₹)</th>
-                    <th className="text-right">LateFee(₹)</th>
-                    <th className="text-right">Amount (₹)</th>
-                    <th>Subjects</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {receipts.map((obj, i) => (
-                    <tr key={obj.fk_exam_addt_fee_receipt_id}>
-                      <td>{i + 1}</td>
-                      <td>{obj.course_year_code}</td>
-                      <td>{obj.fee_receipt_no}</td>
-                      <td>{formatReceiptDate(obj.receipt_date)}</td>
-                      <td>{obj.payment_mode}</td>
-                      <td className="text-right">
-                        {obj.exam_fee_amount ?? "-"}
-                      </td>
-                      <td className="text-right">{obj.exam_addt_fee ?? "-"}</td>
-                      <td className="text-right">
-                        {obj.exam_fine_amount ?? "-"}
-                      </td>
-                      <td className="text-right">{obj.exam_total_amount}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="courses-btn"
-                          onClick={() => {
-                            setViewSubjects(obj.subjects ?? []);
-                            setViewSearch("");
-                            setViewOpen(true);
-                          }}
-                        >
-                          Courses
-                        </button>
-                      </td>
-                      <td className="text-center">
-                        <button
-                          type="button"
-                          className="print-icon"
-                          title="Print Receipt"
-                          onClick={() => printReceipt(obj)}
-                        >
-                          <span className="material-icons">print</span>
-                        </button>
-                      </td>
+          <section className="student-reeval-fee-page__card student-reeval-fee-page__card--flush">
+            <div className="receipts-block">
+              <div className="table-bac">
+                <table className="fee">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "5%" }}>SI No.</th>
+                      <th>Semester</th>
+                      <th>Receipt No.</th>
+                      <th>Payment Date</th>
+                      <th>Payment Mode</th>
+                      <th className="text-right">Exam Fee (₹)</th>
+                      <th className="text-right">Add. Fee (₹)</th>
+                      <th className="text-right">LateFee(₹)</th>
+                      <th className="text-right">Amount (₹)</th>
+                      <th>Subjects</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {receipts.map((obj, i) => (
+                      <tr key={obj.fk_exam_addt_fee_receipt_id}>
+                        <td>{i + 1}</td>
+                        <td>{obj.course_year_code}</td>
+                        <td>{obj.fee_receipt_no}</td>
+                        <td>{formatReceiptDate(obj.receipt_date)}</td>
+                        <td>{obj.payment_mode}</td>
+                        <td className="text-right">
+                          {obj.exam_fee_amount ?? "-"}
+                        </td>
+                        <td className="text-right">
+                          {obj.exam_addt_fee ?? "-"}
+                        </td>
+                        <td className="text-right">
+                          {obj.exam_fine_amount ?? "-"}
+                        </td>
+                        <td className="text-right">{obj.exam_total_amount}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="courses-btn"
+                            onClick={() => {
+                              setViewSubjects(obj.subjects ?? []);
+                              setViewSearch("");
+                              setViewOpen(true);
+                            }}
+                          >
+                            Courses
+                          </button>
+                        </td>
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            className="print-icon"
+                            title="Print Receipt"
+                            onClick={() => printReceipt(obj)}
+                          >
+                            <span className="material-icons">print</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </section>
         ) : null}
       </div>
 
