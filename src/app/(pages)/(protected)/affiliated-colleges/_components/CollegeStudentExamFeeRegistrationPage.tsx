@@ -2,13 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  CheckCircle2,
-  Download,
-  FileSpreadsheet,
-  Upload,
-  X,
-} from "lucide-react";
+import { CheckCircle2, FileSpreadsheet } from "lucide-react";
 import type { ColDef } from "ag-grid-community";
 import { DataTable, TableCard } from "@/common/components/table";
 import { FormModal } from "@/common/components/feedback";
@@ -42,6 +36,7 @@ import {
 } from "../_lib/affiliated-exam-reg-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
+import { AffiliatedExcelDownloadUpload } from "./AffiliatedExcelActionPanel";
 
 type AnyRow = Record<string, unknown>;
 
@@ -463,65 +458,25 @@ export function CollegeStudentExamFeeRegistrationPage() {
               Download &amp; Upload — Exam Registration
             </h2>
           </div>
-          <div className="p-4 space-y-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled={templateLoading}
-                onClick={() => void onDownloadTemplateExcel()}
-              >
-                <Download className="h-4 w-4" />
-                {templateLoading ? "Loading…" : "Download Excel"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled={uploading || templateLoading}
-                onClick={() => inputRef.current?.click()}
-              >
-                <Upload className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload Excel"}
-              </Button>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".xls,.xlsx"
-              className="hidden"
-              onChange={(e) => {
-                const selected = e.target.files?.[0];
-                if (selected) void onUploadFile(selected);
-                e.target.value = "";
-              }}
-            />
-            {file?.name ? (
-              <div className="inline-flex max-w-full items-center rounded-md border border-dashed border-emerald-300 bg-emerald-50 px-2.5 py-1.5">
-                <div className="min-w-0 inline-flex items-center gap-1.5">
-                  <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <p className="text-xs font-medium text-emerald-800 truncate">
-                    {file.name}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFile(null);
-                      setStagingRows([]);
-                      setPivotRows([]);
-                      setSubjectCodes([]);
-                      if (inputRef.current) inputRef.current.value = "";
-                    }}
-                    className="inline-flex h-5 w-5 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100 shrink-0"
-                    aria-label="Remove uploaded file"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <AffiliatedExcelDownloadUpload
+            downloadTitle="1. Download Exam Registration Sample"
+            uploadTitle="2. Upload Exam Registration"
+            onDownload={() => void onDownloadTemplateExcel()}
+            downloadDisabled={templateLoading}
+            onUploadClick={() => inputRef.current?.click()}
+            uploadDisabled={templateLoading}
+            uploading={uploading}
+            fileName={file?.name}
+            onClearFile={() => {
+              setFile(null);
+              setStagingRows([]);
+              setPivotRows([]);
+              setSubjectCodes([]);
+              if (inputRef.current) inputRef.current.value = "";
+            }}
+            inputRef={inputRef}
+            onFileSelected={(selected) => void onUploadFile(selected)}
+          />
         </div>
       ) : null}
 

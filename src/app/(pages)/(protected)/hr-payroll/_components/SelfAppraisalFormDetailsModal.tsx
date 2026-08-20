@@ -6,12 +6,13 @@ import { Trash2Icon } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ActiveStatusField } from "@/common/components/forms";
 import { FormModal } from "@/common/components/feedback";
+import { FormField } from "@/common/components/forms";
 import { StatusBadge } from "@/common/components/data-display";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   prepareSelfAppraisalFormDetailsPayload,
   saveSelfAppraisalFormDetails,
@@ -23,7 +24,6 @@ const detailSchema = z.object({
   serialNumber: z.string().optional(),
   subSerialNumber: z.string().optional(),
   isActive: z.boolean(),
-  reason: z.string().optional(),
 });
 
 type DetailFormValues = z.infer<typeof detailSchema>;
@@ -69,8 +69,6 @@ export function SelfAppraisalFormDetailsModal({
     register,
     handleSubmit,
     reset,
-    watch,
-    setValue,
     control,
     formState: { errors, isSubmitting },
   } = useForm<DetailFormValues>({
@@ -80,7 +78,6 @@ export function SelfAppraisalFormDetailsModal({
       serialNumber: "",
       subSerialNumber: "",
       isActive: true,
-      reason: "active",
     },
   });
 
@@ -92,7 +89,6 @@ export function SelfAppraisalFormDetailsModal({
       serialNumber: "",
       subSerialNumber: "",
       isActive: true,
-      reason: "active",
     });
   }, [open, formRow, reset]);
 
@@ -121,7 +117,6 @@ export function SelfAppraisalFormDetailsModal({
       serialNumber: "",
       subSerialNumber: "",
       isActive: true,
-      reason: "active",
     });
   }
 
@@ -168,92 +163,102 @@ export function SelfAppraisalFormDetailsModal({
       onClose={onClose}
       title="Edit Appraisal Form Details"
       titleClassName="text-[15px] font-semibold leading-none text-primary"
+      showHeaderDivider
+      size="xl"
+      cancelLabel="Close"
+      submitLabel="Save"
+      isSubmitting={isSubmitting}
       onSubmit={(e) => {
         e.preventDefault();
         void saveAll();
       }}
-      submitLabel="Save"
-      isSubmitting={isSubmitting}
-      size="xl"
     >
-      <div className="flex flex-col gap-3 text-[12px]">
+      <div className="flex flex-col gap-4 text-[12px]">
         {summary ? (
-          <div className="rounded border border-border/60 bg-muted/30 px-3 py-2 space-y-1">
-            <p>
-              <span className="text-muted-foreground">College: </span>
-              <span className="font-medium text-[hsl(var(--primary))]">
-                {summary.collegeCode}
+          <div className="rounded-sm border-2 border-[#89c5ff] bg-[#fbfbfb] px-3 py-2.5 text-[15px] font-medium text-black">
+            <div className="grid grid-cols-[145px_1fr] gap-y-2">
+              <span>College</span>
+              <span>
+                : <span className="text-blue-600">{summary.collegeCode}</span>
               </span>
-            </p>
-            <p>
-              <span className="text-muted-foreground">Appraisal Title: </span>
-              <span>{summary.title}</span>
-            </p>
-            <p>
-              <span className="text-muted-foreground">Start Date: </span>
-              <span>{summary.startDate}</span>
-            </p>
-            <p>
-              <span className="text-muted-foreground">End Date: </span>
-              <span>{summary.endDate}</span>
-            </p>
+
+              <span>Appraisal Title</span>
+              <span>
+                : <span className="text-blue-600">{summary.title}</span>
+              </span>
+
+              <span>Start Date</span>
+              <span>
+                : <span className="text-blue-600">{summary.startDate}</span>
+              </span>
+
+              <span>End Date</span>
+              <span>
+                : <span className="text-blue-600">{summary.endDate}</span>
+              </span>
+            </div>
           </div>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 items-end">
-          <div className="sm:col-span-3 space-y-1">
-            <Label className="text-[12px]">Serial Number</Label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField label="Serial Number">
             <Input
               placeholder="Enter serial number"
-              className="h-9 text-[12px]"
+              className="h-9"
               {...register("serialNumber")}
             />
-          </div>
-          <div className="sm:col-span-3 space-y-1">
-            <Label className="text-[12px]">Sub Serial Number</Label>
+          </FormField>
+          <FormField label="Sub Serial Number">
             <Input
               placeholder="Enter sub serial number"
-              className="h-9 text-[12px]"
+              className="h-9"
               {...register("subSerialNumber")}
             />
-          </div>
-          <div className="sm:col-span-4 space-y-1">
-            <Label className="text-[12px]">
-              Title <span className="text-destructive">*</span>
-            </Label>
+          </FormField>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <FormField
+            label="Title"
+            required
+            className="min-w-0 flex-1"
+            error={errors.title?.message}
+          >
             <Input
               placeholder="Enter appraisal detail title"
-              className="h-9 text-[12px]"
+              className="h-9"
               {...register("title")}
             />
-            {errors.title ? (
-              <p className="text-[11px] text-destructive">
-                {errors.title.message}
-              </p>
-            ) : null}
-          </div>
-          <div className="sm:col-span-2 flex flex-col gap-2">
+          </FormField>
+          <div className="flex h-9 shrink-0 items-center gap-4">
             <Controller
               name="isActive"
               control={control}
               render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch("reason") ?? ""}
-                  onActiveChange={(v) => field.onChange(v === true)}
-                  onReasonChange={(v) => setValue("reason", v)}
-                />
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="appraisal-detail-active"
+                    checked={field.value}
+                    onCheckedChange={(v) => field.onChange(v === true)}
+                  />
+                  <Label
+                    htmlFor="appraisal-detail-active"
+                    className="cursor-pointer text-[12px] font-medium text-black/54"
+                  >
+                    Active
+                  </Label>
+                </div>
               )}
             />
+            <Button
+              type="button"
+              size="sm"
+              className="h-9 min-w-[5.5rem] bg-[#042956] text-white hover:bg-[#031f42]"
+              onClick={() => void handleSubmit(addDetailLine)()}
+            >
+              Add
+            </Button>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="sm:col-span-12 w-fit"
-            onClick={() => void handleSubmit(addDetailLine)()}
-          >
-            Add
-          </Button>
         </div>
 
         {visibleDetails.length > 0 ? (

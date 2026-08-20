@@ -8,6 +8,7 @@ import { Eye, Printer } from "lucide-react";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastInfo } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -150,6 +151,7 @@ export function UnivAffiliatedCollegesPage() {
       });
     },
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const errorMessage = error ? getErrorMessage(error) : "";
@@ -162,7 +164,7 @@ export function UnivAffiliatedCollegesPage() {
   }, [errorMessage, isNoRecord]);
 
   const dataDetails = loadKey ? cascade.contextLabel : "";
-  const showTable = loadKey != null;
+  const showTable = loadKey != null && rows.length > 0;
 
   const openUploadedFiles = (row: AffiliatedSummaryRow) => {
     setUnivAffiliatedContext(
@@ -270,6 +272,8 @@ export function UnivAffiliatedCollegesPage() {
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

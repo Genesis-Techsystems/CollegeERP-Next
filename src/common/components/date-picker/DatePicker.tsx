@@ -79,11 +79,14 @@ export function DatePicker({
   }
 
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
+    <div className={cn("flex flex-col gap-1", className)}>
       {label && (
-        <label htmlFor={id} className="text-[12px] font-medium text-black/54">
+        <label
+          htmlFor={id}
+          className="text-[12px] font-medium leading-none text-black/54"
+        >
           {label}
-          {required && <span className="text-destructive ml-0.5">*</span>}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
         </label>
       )}
 

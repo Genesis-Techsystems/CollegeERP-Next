@@ -379,6 +379,36 @@
     "route": "/principal-my-approvals/item-request-approvals"
   },
   {
+    "label": "item approval",
+    "route": "/e-office/item-approval",
+    "hrefIncludes": "e-office"
+  },
+  {
+    "label": "item approval",
+    "route": "/e-office/item-approval",
+    "hrefIncludes": "/office/"
+  },
+  {
+    "label": "item approval",
+    "route": "/principal-my-approvals/item-request-approvals",
+    "hrefIncludes": "principal-my-approvals"
+  },
+  {
+    "label": "item approvals",
+    "route": "/e-office/item-approval",
+    "hrefIncludes": "e-office"
+  },
+  {
+    "label": "item approvals",
+    "route": "/e-office/item-approval",
+    "hrefIncludes": "/office/"
+  },
+  {
+    "label": "item approvals",
+    "route": "/principal-my-approvals/item-request-approvals",
+    "hrefIncludes": "principal-my-approvals"
+  },
+  {
     "label": "internal return",
     "route": "/inventory-management/internal-item-return"
   },

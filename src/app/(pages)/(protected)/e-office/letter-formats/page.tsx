@@ -247,9 +247,10 @@ export default function LetterFormatsPage() {
           </div>
         </div>
       }
-      rowData={listReady ? rows : []}
+      rowData={rows}
       columnDefs={columnDefs}
       loading={isLoading}
+      showTable={listReady}
       pagination
       toolbar={{
         search: true,

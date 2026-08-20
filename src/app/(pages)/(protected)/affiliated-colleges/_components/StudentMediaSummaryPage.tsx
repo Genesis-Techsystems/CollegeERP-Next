@@ -9,7 +9,6 @@ import type {
 } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastInfo } from "@/lib/toast";
@@ -17,6 +16,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedStdAdditionalDetailsSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { getAffiliatedConfig } from "../_lib/route-config";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { pickAffiliatedText } from "../_lib/enrich-affiliated-summary-rows";
 import {
   buildAffiliatedMediaSummaryContext,
@@ -27,6 +27,10 @@ import {
 } from "../_lib/affiliated-media-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
+import {
+  AFFILIATED_ACTION_COL,
+  AffiliatedUploadCell,
+} from "./AffiliatedUploadCell";
 
 function summaryText(
   p: ValueGetterParams<AffiliatedSummaryRow>,
@@ -110,6 +114,7 @@ export function StudentMediaSummaryPage({
       return rows;
     },
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const columnDefs = useMemo<ColDef<AffiliatedSummaryRow>[]>(() => {
@@ -126,9 +131,7 @@ export function StudentMediaSummaryPage({
         if (!config.uploadPath) return null;
         const row = p.data;
         return (
-          <Button
-            size="sm"
-            variant="default"
+          <AffiliatedUploadCell
             onClick={() => {
               if (!row || !cascade.collegeId || !cascade.academicYearId) return;
               const collegeRow = cascade.filtersData.find(
@@ -170,9 +173,7 @@ export function StudentMediaSummaryPage({
                 `/affiliated-colleges/${config.uploadPath}?${q.toString()}`,
               );
             }}
-          >
-            Upload
-          </Button>
+          />
         );
       };
     }
@@ -214,9 +215,7 @@ export function StudentMediaSummaryPage({
       uploadedCol,
       {
         headerName: "Action",
-        minWidth: 100,
-        flex: 0,
-        width: 110,
+        ...AFFILIATED_ACTION_COL,
         cellRenderer: makeUploadRenderer(),
       },
     ];
@@ -265,6 +264,8 @@ export function StudentMediaSummaryPage({
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

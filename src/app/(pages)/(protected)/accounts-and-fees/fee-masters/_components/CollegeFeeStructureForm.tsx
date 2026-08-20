@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2Icon } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Trash2Icon, ChevronDown } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { CardHeadingTitle } from "@/common/components/data-display";
 import { ConfirmDialog } from "@/common/components/feedback";
+import { FormField } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
+import { DataTable } from "@/common/components/table";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GM_CODES } from "@/config/constants/ui";
 import { useSession } from "@/hooks/useSession";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { rowIndexGetter } from "@/lib/utils";
 import { listCourseGroupsByCourse } from "@/services";
 import {
   createCollegeFeeStructure,
@@ -93,6 +97,64 @@ function emptyDraft(): ParticularDraft {
   };
 }
 
+const PARTICULAR_COLS = {
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 80,
+    flex: 0,
+  } as ColDef<FeeStructureParticularLine>,
+  category: {
+    field: "categoryName",
+    headerName: "Fee Category",
+    minWidth: 150,
+  } as ColDef<FeeStructureParticularLine>,
+  particular: {
+    headerName: "Fee Particular",
+    minWidth: 160,
+    valueGetter: (p) =>
+      String(p.data?.particularName ?? p.data?.particularsName ?? ""),
+  } as ColDef<FeeStructureParticularLine>,
+  amount: {
+    field: "feeAmount",
+    headerName: "Fee Amount",
+    minWidth: 120,
+  } as ColDef<FeeStructureParticularLine>,
+  lateral: {
+    field: "lateralFeeAmount",
+    headerName: "Lateral Fee Amount",
+    minWidth: 150,
+  } as ColDef<FeeStructureParticularLine>,
+  priority: {
+    field: "priority",
+    headerName: "Priority",
+    minWidth: 100,
+  } as ColDef<FeeStructureParticularLine>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 90,
+    width: 90,
+    flex: 0,
+  } as ColDef<FeeStructureParticularLine>,
+};
+
+function makeDeleteRenderer(onDelete: (index: number) => void) {
+  return (
+    p: ICellRendererParams<FeeStructureParticularLine & { lineIndex?: number }>,
+  ) => (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      className="h-8 w-8 p-0 text-destructive"
+      aria-label="Delete particular"
+      onClick={() => onDelete(p.data?.lineIndex ?? -1)}
+    >
+      <Trash2Icon className="h-3.5 w-3.5" />
+    </Button>
+  );
+}
+
 function buildListBackUrl(params: {
   collegeId: number | null;
   courseId: number | null;
@@ -130,6 +192,7 @@ export function CollegeFeeStructureForm({
 }>) {
   const router = useRouter();
   const { user } = useSession();
+  const isAdmin = Boolean(user?.isAdmin);
 
   const [loading, setLoading] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
@@ -176,6 +239,7 @@ export function CollegeFeeStructureForm({
     yearId: number;
     index: number;
   } | null>(null);
+  const [particularsPanelOpen, setParticularsPanelOpen] = useState(true);
 
   const collegeOptions = useMemo(
     () => filterColleges(filtersData).map(collegeOption),
@@ -618,7 +682,7 @@ export function CollegeFeeStructureForm({
       toastInfo("Batch is required");
       return;
     }
-    if (!activeFromDate || !activeToDate) {
+    if (!isAdmin && (!activeFromDate || !activeToDate)) {
       toastInfo("Active from and to dates are required");
       return;
     }
@@ -631,11 +695,12 @@ export function CollegeFeeStructureForm({
     if (!previewPayload) return;
     setSaving(true);
     try {
-      await createCollegeFeeStructure(previewPayload);
+      const message = await createCollegeFeeStructure(previewPayload);
       toastSuccess(
-        mode === "edit"
-          ? "Fee structure updated successfully"
-          : "Fee structure created successfully",
+        message ||
+          (mode === "edit"
+            ? "Fee structure updated successfully"
+            : "Fee structure created successfully"),
       );
       router.push(
         buildListBackUrl({
@@ -678,37 +743,38 @@ export function CollegeFeeStructureForm({
 
   return (
     <PageContainer className="space-y-4">
-      <div className="app-card overflow-hidden">
+      <div className="app-card app-card--mixed-content overflow-hidden">
         <div className="flex items-center justify-between gap-2">
           <CardHeadingTitle>{title}</CardHeadingTitle>
         </div>
 
         <div className="space-y-4 p-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div className="space-y-1.5 md:col-span-2">
-              <Label>Fee Structure Name *</Label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Fee Structure Name" required>
               <Input
                 value={classGroupName}
                 onChange={(e) => setClassGroupName(e.target.value)}
                 placeholder="Fee structure name"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Active From Date *</Label>
-              <DatePicker
-                value={activeFromDate}
-                onChange={setActiveFromDate}
-                displayFormat="dd-MM-yyyy"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Active To Date *</Label>
-              <DatePicker
-                value={activeToDate}
-                onChange={setActiveToDate}
-                displayFormat="dd-MM-yyyy"
-              />
-            </div>
+            </FormField>
+            {!isAdmin ? (
+              <>
+                <FormField label="Active From Date" required>
+                  <DatePicker
+                    value={activeFromDate}
+                    onChange={setActiveFromDate}
+                    displayFormat="dd-MM-yyyy"
+                  />
+                </FormField>
+                <FormField label="Active To Date" required>
+                  <DatePicker
+                    value={activeToDate}
+                    onChange={setActiveToDate}
+                    displayFormat="dd-MM-yyyy"
+                  />
+                </FormField>
+              </>
+            ) : null}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -780,16 +846,16 @@ export function CollegeFeeStructureForm({
             </div>
           </div>
 
-          {courseGroups.length > 0 ? (
-            <div className="space-y-2 rounded-md border p-4">
-              <h2 className="text-sm font-semibold">
-                Select Fee Structure course years
-              </h2>
-              <div className="flex flex-wrap gap-4">
+          <div className="space-y-3 rounded-md border p-4">
+            <h2 className="text-[15px] font-medium text-black">
+              Select Fee Structure course years
+            </h2>
+            {courseGroups.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-4 rounded-[2px] border border-[#e0e0e0] bg-white px-3 py-2.5">
                 {courseGroups.map((group) => (
                   <label
                     key={group.courseGroupId}
-                    className="inline-flex items-center gap-2 text-sm"
+                    className="inline-flex items-center gap-2 text-sm text-[#757575]"
                   >
                     <Checkbox
                       checked={Boolean(group.checked)}
@@ -807,207 +873,207 @@ export function CollegeFeeStructureForm({
                   </label>
                 ))}
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {courseYearsDataList.length > 0 ? (
-            <Tabs value={activeYearTab} onValueChange={setActiveYearTab}>
-              <TabsList className="flex h-auto flex-wrap justify-start">
+            {courseYearsDataList.length > 0 ? (
+              <Tabs value={activeYearTab} onValueChange={setActiveYearTab}>
+                <TabsList className="flex h-auto w-full justify-start rounded-none border-b-2 border-[#ffcf46] !bg-transparent p-0">
+                  {courseYearsDataList.map((tab) => (
+                    <TabsTrigger
+                      key={tab.courseYearId}
+                      value={String(tab.courseYearId)}
+                      className="rounded-none border-0 bg-transparent px-5 py-1.5 text-[13px] font-medium text-[#616161] shadow-none data-[state=active]:!bg-[#ffcf46] data-[state=active]:text-black data-[state=active]:shadow-none"
+                    >
+                      {tab.feeLabel}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+
                 {courseYearsDataList.map((tab) => (
-                  <TabsTrigger
+                  <TabsContent
                     key={tab.courseYearId}
                     value={String(tab.courseYearId)}
+                    className="mt-3 space-y-3"
                   >
-                    {tab.feeLabel}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+                    <div className="overflow-hidden rounded-md border border-[#e0e0e0] bg-white">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-2 border-b-2 border-[#ffcf46] px-6 py-3.5 text-left"
+                        onClick={() => setParticularsPanelOpen((open) => !open)}
+                        aria-expanded={particularsPanelOpen}
+                      >
+                        <CardHeadingTitle as="div" icon="add">
+                          Add Category &amp; Particulars
+                        </CardHeadingTitle>
+                        <ChevronDown
+                          className={`h-4 w-4 shrink-0 text-[#9e9e9e] transition-transform duration-300 ease-in-out ${
+                            particularsPanelOpen ? "rotate-180" : ""
+                          }`}
+                          aria-hidden
+                        />
+                      </button>
 
-              {courseYearsDataList.map((tab) => (
-                <TabsContent
-                  key={tab.courseYearId}
-                  value={String(tab.courseYearId)}
-                  className="space-y-4"
-                >
-                  <div className="rounded-md border p-4 space-y-3">
-                    <h3 className="text-sm font-semibold">
-                      Add Category &amp; Particulars
-                    </h3>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                      <div className="space-y-1.5 md:col-span-2">
-                        <Label>Fee Category *</Label>
-                        <Select
-                          value={
-                            particularDraft.feeCategoryId
-                              ? String(particularDraft.feeCategoryId)
-                              : null
-                          }
-                          onChange={(v) =>
-                            setParticularDraft((prev) => ({
-                              ...prev,
-                              feeCategoryId: v ? Number(v) : null,
-                            }))
-                          }
-                          options={feeCategoryOptions}
-                          placeholder="Select category"
-                          searchable
-                        />
-                      </div>
-                      <div className="space-y-1.5 md:col-span-2">
-                        <Label>Fee Particular *</Label>
-                        <Select
-                          value={
-                            particularDraft.feeParticularsId
-                              ? String(particularDraft.feeParticularsId)
-                              : null
-                          }
-                          onChange={onParticularChange}
-                          options={feeParticularOptions}
-                          placeholder="Select particular"
-                          searchable
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Fee Amount *</Label>
-                        <Input
-                          type="number"
-                          value={particularDraft.feeAmount}
-                          onChange={(e) =>
-                            setParticularDraft((prev) => ({
-                              ...prev,
-                              feeAmount: Number(e.target.value) || 0,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Priority</Label>
-                        <Input
-                          type="number"
-                          value={particularDraft.priority}
-                          onChange={(e) =>
-                            setParticularDraft((prev) => ({
-                              ...prev,
-                              priority: Number(e.target.value) || 0,
-                            }))
-                          }
-                        />
-                      </div>
-                      {showLateralAmount ? (
-                        <div className="space-y-1.5">
-                          <Label>Lateral Fee Amount</Label>
-                          <Input
-                            type="number"
-                            value={particularDraft.lateralFeeAmount}
-                            onChange={(e) =>
-                              setParticularDraft((prev) => ({
-                                ...prev,
-                                lateralFeeAmount: Number(e.target.value) || 0,
-                              }))
-                            }
-                          />
+                      <div
+                        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                          particularsPanelOpen
+                            ? "grid-rows-[1fr]"
+                            : "grid-rows-[0fr]"
+                        }`}
+                      >
+                        <div className="min-h-0 overflow-hidden">
+                          <div className="space-y-4 px-6 pb-4 pt-4">
+                            <div className="w-full md:w-[40%]">
+                              <Select
+                                label="Fee Category"
+                                required
+                                value={
+                                  particularDraft.feeCategoryId
+                                    ? String(particularDraft.feeCategoryId)
+                                    : null
+                                }
+                                onChange={(v) =>
+                                  setParticularDraft((prev) => ({
+                                    ...prev,
+                                    feeCategoryId: v ? Number(v) : null,
+                                  }))
+                                }
+                                options={feeCategoryOptions}
+                                placeholder="Select category"
+                                searchable
+                              />
+                            </div>
+                            <div className="flex flex-col gap-4 md:flex-row md:gap-6">
+                              <div className="w-full md:w-[40%]">
+                                <Select
+                                  label="Fee Particular"
+                                  required
+                                  value={
+                                    particularDraft.feeParticularsId
+                                      ? String(particularDraft.feeParticularsId)
+                                      : null
+                                  }
+                                  onChange={onParticularChange}
+                                  options={feeParticularOptions}
+                                  placeholder="Select particular"
+                                  searchable
+                                />
+                              </div>
+                              <div className="w-full md:w-[20%]">
+                                <FormField label="Fee Amount" required>
+                                  <Input
+                                    type="number"
+                                    value={particularDraft.feeAmount}
+                                    onChange={(e) =>
+                                      setParticularDraft((prev) => ({
+                                        ...prev,
+                                        feeAmount: Number(e.target.value) || 0,
+                                      }))
+                                    }
+                                  />
+                                </FormField>
+                              </div>
+                              <div className="w-full md:w-[20%]">
+                                <FormField label="Priority">
+                                  <Input
+                                    type="number"
+                                    value={particularDraft.priority}
+                                    onChange={(e) =>
+                                      setParticularDraft((prev) => ({
+                                        ...prev,
+                                        priority: Number(e.target.value) || 0,
+                                      }))
+                                    }
+                                  />
+                                </FormField>
+                              </div>
+                            </div>
+                            {showLateralAmount ? (
+                              <div className="w-full md:w-1/3">
+                                <FormField label="Lateral Fee Amount">
+                                  <Input
+                                    type="number"
+                                    value={particularDraft.lateralFeeAmount}
+                                    onChange={(e) =>
+                                      setParticularDraft((prev) => ({
+                                        ...prev,
+                                        lateralFeeAmount:
+                                          Number(e.target.value) || 0,
+                                      }))
+                                    }
+                                  />
+                                </FormField>
+                              </div>
+                            ) : null}
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setParticularDraft(emptyDraft());
+                                  setShowLateralAmount(false);
+                                }}
+                              >
+                                Clear
+                              </Button>
+                              <Button
+                                type="button"
+                                onClick={() =>
+                                  addParticularToYear(tab.courseYearId)
+                                }
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          </div>
                         </div>
-                      ) : null}
-                      <div className="flex items-end gap-2 md:col-span-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            setParticularDraft(emptyDraft());
-                            setShowLateralAmount(false);
-                          }}
-                        >
-                          Clear
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => addParticularToYear(tab.courseYearId)}
-                        >
-                          Add
-                        </Button>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="px-3 py-2 text-left">SI.No</th>
-                          <th className="px-3 py-2 text-left">Fee Category</th>
-                          <th className="px-3 py-2 text-left">
-                            Fee Particular
-                          </th>
-                          <th className="px-3 py-2 text-right">Fee Amount</th>
-                          <th className="px-3 py-2 text-right">
-                            Lateral Fee Amount
-                          </th>
-                          <th className="px-3 py-2 text-right">Priority</th>
-                          <th className="px-3 py-2 text-left">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tab.particulars.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="px-3 py-6 text-center text-muted-foreground"
-                            >
-                              No particulars added
-                            </td>
-                          </tr>
-                        ) : (
-                          tab.particulars.map((row, index) => (
-                            <tr
-                              key={`${row.feeParticularsId}-${index}`}
-                              className="border-t"
-                            >
-                              <td className="px-3 py-2">{index + 1}</td>
-                              <td className="px-3 py-2">
-                                {row.categoryName ?? "—"}
-                              </td>
-                              <td className="px-3 py-2">
-                                {row.particularName ?? "—"}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                {row.feeAmount ?? "—"}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                {row.lateralFeeAmount ?? "—"}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                {row.priority ?? "—"}
-                              </td>
-                              <td className="px-3 py-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0 text-destructive"
-                                  aria-label="Delete particular"
-                                  onClick={() =>
-                                    setDeleteTarget({
-                                      yearId: tab.courseYearId,
-                                      index,
-                                    })
-                                  }
-                                >
-                                  <Trash2Icon className="h-3.5 w-3.5" />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          ) : null}
-
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button type="button" variant="outline" onClick={goBack}>
+                    <div className="app-card overflow-hidden">
+                      <DataTable
+                        title=""
+                        subtitle=""
+                        rowData={tab.particulars.map((row, index) => ({
+                          ...row,
+                          lineIndex: index,
+                        }))}
+                        columnDefs={[
+                          PARTICULAR_COLS.siNo,
+                          PARTICULAR_COLS.category,
+                          PARTICULAR_COLS.particular,
+                          PARTICULAR_COLS.amount,
+                          PARTICULAR_COLS.lateral,
+                          PARTICULAR_COLS.priority,
+                          {
+                            ...PARTICULAR_COLS.actions,
+                            cellRenderer: makeDeleteRenderer((index) => {
+                              if (index < 0) return;
+                              setDeleteTarget({
+                                yearId: tab.courseYearId,
+                                index,
+                              });
+                            }),
+                          },
+                        ]}
+                        pagination={tab.particulars.length > 0}
+                        paginationPageSize={10}
+                        toolbar={false}
+                        columnFilters={false}
+                        height="auto"
+                      />
+                    </div>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            ) : null}
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="back-btn"
+              onClick={goBack}
+            >
               Back
             </Button>
             <Button type="button" onClick={handleSaveClick}>

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GM_CODES } from "@/config/constants";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { useSessionContext } from "@/context/SessionContext";
@@ -464,6 +465,7 @@ export function AddPerformanceAssessmentPage() {
   const questionsQuery = useQuery({
     queryKey: [...QK.hrPayroll.all, "perfQuestions"],
     queryFn: getPerformanceAssessmentQuestions,
+    ...HR_QUERY,
   });
 
   const generalDetailsQuery = useQuery({
@@ -476,12 +478,14 @@ export function AddPerformanceAssessmentPage() {
       ]);
       return { engagements, ratings, workLevels };
     },
+    ...HR_QUERY,
   });
 
   const feedbackQuery = useQuery({
     queryKey: [...QK.hrPayroll.all, "perfFeedback", assessmentFeedbackId],
     queryFn: () => getPerformanceAssessmentFeedback(assessmentFeedbackId),
     enabled: assessmentFeedbackId > 0,
+    ...HR_QUERY,
   });
 
   const effectiveDate = feedbackQuery.data?.feedbackDate
@@ -496,6 +500,7 @@ export function AddPerformanceAssessmentPage() {
     queryKey: [...QK.hrPayroll.all, "perfSubjects", empId, classDate],
     queryFn: () => listPerformanceAssessmentStaffSubjects(empId, classDate),
     enabled: empId > 0,
+    ...HR_QUERY,
   });
 
   const today = format(new Date(), "yyyy/MM/dd");
@@ -509,6 +514,7 @@ export function AddPerformanceAssessmentPage() {
         toDate: today,
       }),
     enabled: collegeId > 0 && empId > 0,
+    ...HR_QUERY,
   });
 
   const generalDetails = generalDetailsQuery.data ?? {

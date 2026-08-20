@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MINIO_URL } from "@/config/constants/api";
 import { QK } from "@/lib/query-keys";
+import { AFFILIATED_QUERY } from "../../_lib/affiliated-query";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
@@ -243,6 +244,7 @@ export function AssignStudentSubjectsPage() {
       academicYearId > 0 &&
       detailStudentId > 0 &&
       courseYearId > 0,
+    ...AFFILIATED_QUERY,
   });
 
   const filteredAvailable = useMemo(() => {

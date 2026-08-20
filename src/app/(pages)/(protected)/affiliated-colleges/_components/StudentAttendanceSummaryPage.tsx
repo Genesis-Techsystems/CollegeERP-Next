@@ -9,7 +9,6 @@ import type {
 } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
 import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/common/components/date-picker";
 import { toDateOnlyISO } from "@/common/generic-functions";
 import { QK } from "@/lib/query-keys";
@@ -19,6 +18,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { getAffiliatedAttendanceUploadSummary } from "@/services";
 import type { AffiliatedSummaryRow } from "@/types/affiliated-colleges";
 import { getAffiliatedConfig } from "../_lib/route-config";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { pickAffiliatedText } from "../_lib/enrich-affiliated-summary-rows";
 import {
   buildAffiliatedAttendanceSummaryContext,
@@ -29,6 +29,10 @@ import {
 } from "../_lib/affiliated-attendance-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
+import {
+  AFFILIATED_ACTION_COL,
+  AffiliatedUploadCell,
+} from "./AffiliatedUploadCell";
 
 function summaryText(
   p: ValueGetterParams<AffiliatedSummaryRow>,
@@ -82,9 +86,7 @@ const COL_DEFS = {
   } as ColDef<AffiliatedSummaryRow>,
   actions: {
     headerName: "Action",
-    minWidth: 100,
-    flex: 0,
-    width: 100,
+    ...AFFILIATED_ACTION_COL,
   } as ColDef<AffiliatedSummaryRow>,
 };
 
@@ -100,9 +102,7 @@ function makeUploadRenderer(
     if (!uploadPath) return null;
     const row = p.data;
     return (
-      <Button
-        size="sm"
-        variant="default"
+      <AffiliatedUploadCell
         onClick={() => {
           if (!row || !collegeId || !academicYearId) return;
           const ctx = buildAffiliatedAttendanceSummaryContext(
@@ -124,9 +124,7 @@ function makeUploadRenderer(
           });
           router.push(`/affiliated-colleges/${uploadPath}?${q.toString()}`);
         }}
-      >
-        Upload
-      </Button>
+      />
     );
   };
 }
@@ -182,6 +180,7 @@ export function StudentAttendanceSummaryPage() {
       return getAffiliatedAttendanceUploadSummary(parsed);
     },
     enabled: loadKey != null,
+    ...AFFILIATED_QUERY,
   });
 
   const errorMessage = error ? getErrorMessage(error) : "";
@@ -288,6 +287,8 @@ export function StudentAttendanceSummaryPage() {
       columnDefs={columnDefs}
       loading={isFetching}
       pagination={showTable}
+      showTable={showTable}
+      resultsVisible={showTable}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

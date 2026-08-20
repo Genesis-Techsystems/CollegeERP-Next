@@ -12,6 +12,7 @@ import { DataTable } from "@/common/components/table";
 import { AngularFilterCard, PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
@@ -262,12 +263,14 @@ export function EmployeeListPage() {
     queryKey: QK.hrPayroll.employees(),
     queryFn: listEmployeeDetails,
     enabled: mode === "all",
+    ...HR_QUERY,
   });
 
   const { data: searchedEmployee, isFetching: isFetchingSearch } = useQuery({
     queryKey: ["employeeDetailsForHr", selectedEmployeeId],
     queryFn: () => getEmployeeByIdForHr(selectedEmployeeId!),
     enabled: !!selectedEmployeeId && mode === "search",
+    ...HR_QUERY,
   });
 
   const onEmployeeSearch = useCallback(async (term: string) => {

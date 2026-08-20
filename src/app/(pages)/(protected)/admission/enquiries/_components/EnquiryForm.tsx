@@ -635,8 +635,9 @@ export function EnquiryForm({
     { value: "F", label: "Fail/WithHeld" },
   ];
 
-  const fieldClass = "space-y-1.5";
   const inputClass = "h-9";
+  const fieldGrid =
+    "grid grid-cols-1 items-start gap-x-4 gap-y-5 sm:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0 [&>*>label:first-of-type]:flex [&>*>label:first-of-type]:h-8 [&>*>label:first-of-type]:items-end [&>*>label:first-of-type]:leading-none";
 
   return (
     <PageContainer className="space-y-4">
@@ -656,7 +657,7 @@ export function EnquiryForm({
           className="space-y-5 p-4 md:p-5"
         >
           <fieldset disabled={loading || isSubmitting} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={fieldGrid}>
               <FormField
                 label="Phone No."
                 required
@@ -751,7 +752,7 @@ export function EnquiryForm({
               </FormField>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={fieldGrid}>
               <Controller
                 name="enquiryDate"
                 control={control}
@@ -919,8 +920,7 @@ export function EnquiryForm({
                   />
                 )}
               />
-              <div className={`${fieldClass} sm:col-span-2 lg:col-span-1`}>
-                <Label className="mb-2 block text-sm font-medium">Gender</Label>
+              <FormField label="Gender">
                 <Controller
                   name="genderId"
                   control={control}
@@ -930,7 +930,7 @@ export function EnquiryForm({
                       onValueChange={(v) =>
                         field.onChange(v ? Number(v) : undefined)
                       }
-                      className="flex flex-wrap gap-4 pt-1"
+                      className="flex h-9 flex-wrap items-center gap-4"
                     >
                       {genderOptions.map((g) => (
                         <div
@@ -958,7 +958,7 @@ export function EnquiryForm({
                     </RadioGroup>
                   )}
                 />
-              </div>
+              </FormField>
               <FormField label="Percentage (%)" htmlFor="enquiry-percentage">
                 <Input
                   id="enquiry-percentage"

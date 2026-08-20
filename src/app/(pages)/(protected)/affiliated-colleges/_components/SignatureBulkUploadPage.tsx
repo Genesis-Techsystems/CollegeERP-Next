@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
 import { useQuery } from "@tanstack/react-query";
-import { UploadIcon } from "lucide-react";
+import { ImagePlus, Upload } from "lucide-react";
 import { DataTable } from "@/common/components/table";
 import { FileDropzone } from "@/common/components/forms";
 import { ConfirmDialog } from "@/common/components/feedback";
@@ -15,6 +15,7 @@ import { MINIO_URL } from "@/config/constants/api";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
 import { QK } from "@/lib/query-keys";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import {
   bulkUploadAffiliatedStudentSignatures,
   listAffiliatedOrganizationsForUpload,
@@ -26,6 +27,10 @@ import {
   readAffiliatedMediaSummaryContext,
   saveAffiliatedMediaSummaryContext,
 } from "../_lib/affiliated-media-summary-context";
+import {
+  AffiliatedExcelActionPanel,
+  AffiliatedExcelActionTile,
+} from "./AffiliatedExcelActionPanel";
 
 type PersonType = "student" | "employee";
 type UploadRow = AffiliatedMediaUploadRow & {
@@ -118,6 +123,7 @@ export function SignatureBulkUploadPage() {
   const { data: organizations = [], isLoading: loadingOrgs } = useQuery({
     queryKey: [...QK.affiliatedColleges.all, "organizations"] as const,
     queryFn: listAffiliatedOrganizationsForUpload,
+    ...AFFILIATED_QUERY,
   });
 
   useEffect(() => {
@@ -262,48 +268,52 @@ export function SignatureBulkUploadPage() {
               />
             </div>
             <div className="md:col-span-4 flex flex-wrap items-end gap-2">
-              <Button type="button" variant="outline" onClick={goBack}>
+              <Button
+                type="button"
+                variant="outline"
+                className="back-btn"
+                onClick={goBack}
+              >
                 Back
               </Button>
             </div>
           </div>
-          <FileDropzone
-            accept="image/*"
-            multiple
-            onFilesChange={(files) => void handleFilesChange(files)}
-          >
-            <p className="text-xs text-muted-foreground">
-              Drag and drop signature images here, or click to select
-            </p>
-          </FileDropzone>
-          {selectedFiles.length > 0 || uploadedRows.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled={verifying || selectedFiles.length === 0}
-                onClick={() => void onVerify()}
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+            <AffiliatedExcelActionPanel title="1. Select Signatures">
+              <FileDropzone
+                accept="image/*"
+                multiple
+                onFilesChange={(files) => void handleFilesChange(files)}
               >
-                <UploadIcon className="h-4 w-4" />
-                {verifying ? "Verifying…" : "Verify"}
-              </Button>
-              <Button
-                type="button"
-                className="gap-2"
-                disabled={uploading || selectedFiles.length === 0}
-                onClick={() => setConfirmOpen(true)}
-              >
-                <UploadIcon className="h-4 w-4" />
-                {uploading ? "Uploading…" : "Upload"}
-              </Button>
-            </div>
-          ) : null}
+                <p className="text-xs text-muted-foreground">
+                  Drag and drop signature images here, or click to select
+                </p>
+              </FileDropzone>
+            </AffiliatedExcelActionPanel>
+            <AffiliatedExcelActionPanel title="2. Upload Signatures">
+              <div className="flex w-full flex-col items-center gap-3">
+                <AffiliatedExcelActionTile
+                  label={verifying ? "Verifying…" : "Verify"}
+                  disabled={verifying || selectedFiles.length === 0}
+                  onClick={() => void onVerify()}
+                  icon={<ImagePlus className="h-10 w-10" strokeWidth={1.75} />}
+                />
+                <AffiliatedExcelActionTile
+                  label={uploading ? "Uploading…" : "Upload"}
+                  disabled={uploading || selectedFiles.length === 0}
+                  onClick={() => setConfirmOpen(true)}
+                  icon={<Upload className="h-10 w-10" strokeWidth={1.75} />}
+                />
+              </div>
+            </AffiliatedExcelActionPanel>
+          </div>
         </div>
       }
       rowData={uploadedRows}
       columnDefs={UPLOADED_COLS}
       pagination={uploadedRows.length > 0}
+      showTable={uploadedRows.length > 0}
+      resultsVisible={uploadedRows.length > 0}
       toolbar={{
         search: true,
         searchPlaceholder: "Search…",

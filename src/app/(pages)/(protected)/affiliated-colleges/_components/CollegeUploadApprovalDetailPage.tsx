@@ -8,6 +8,7 @@ import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/common/generic-functions";
 import { QK } from "@/lib/query-keys";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
 import { rowIndexGetter } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -209,6 +210,7 @@ export function CollegeUploadApprovalDetailPage({
     queryFn: () =>
       getCollegeUploadApprovalDetails(config.detailProc, procParams!),
     enabled: uploadFileId > 0 && procParams != null,
+    ...AFFILIATED_QUERY,
   });
 
   const { tableRows, columnDefs } = useMemo(() => {
@@ -317,7 +319,12 @@ export function CollegeUploadApprovalDetailPage({
         >
           Reject
         </Button>
-        <Button type="button" variant="outline" onClick={goBack}>
+        <Button
+          type="button"
+          variant="outline"
+          className="back-btn"
+          onClick={goBack}
+        >
           Back
         </Button>
       </div>
