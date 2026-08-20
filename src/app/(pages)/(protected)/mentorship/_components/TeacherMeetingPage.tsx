@@ -1,5 +1,4 @@
 "use client";
-"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -22,10 +21,8 @@ import {
   updateCounselorActivity,
   type MentorshipRow,
 } from "@/services";
-} from "@/services";
 
 const schema = z.object({
-  attendeesName: z.string().trim().min(1, "Attendees name is required"),
   attendeesName: z.string().trim().min(1, "Attendees name is required"),
   relationship: z.string().optional(),
   purpose: z.string().optional(),
@@ -39,12 +36,8 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-type FormValues = z.infer<typeof schema>;
 
 function parseDate(value: string | null): Date {
-  if (!value) return new Date();
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? new Date() : d;
   if (!value) return new Date();
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? new Date() : d;
@@ -65,22 +58,7 @@ export function TeacherMeetingPage() {
   const tDate = searchParams.get("tDate") ?? "";
   const empN = searchParams.get("empN") ?? "";
   const nextScheduledRaw = searchParams.get("nextScheduledActivityDate");
-  const counselorActivityId =
-    Number(searchParams.get("counselorActivityId") || 0) || 0;
-  const studentName = searchParams.get("student") ?? "";
-  const studentId = Number(searchParams.get("studentId") || 0) || 0;
-  const collegeId = searchParams.get("collegeId") ?? "";
-  const fDate = searchParams.get("fDate") ?? "";
-  const tDate = searchParams.get("tDate") ?? "";
-  const empN = searchParams.get("empN") ?? "";
-  const nextScheduledRaw = searchParams.get("nextScheduledActivityDate");
 
-  const [activityDetails, setActivityDetails] = useState<MentorshipRow | null>(
-    null,
-  );
-  const [statuses, setStatuses] = useState<MentorshipRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [activityDate] = useState(() => new Date());
   const [activityDetails, setActivityDetails] = useState<MentorshipRow | null>(
     null,
   );
@@ -102,15 +80,9 @@ export function TeacherMeetingPage() {
       discussionPoints: "",
       summary: "",
       outputFromMeeting: "",
-      relationship: "",
-      purpose: "",
-      discussionPoints: "",
-      summary: "",
-      outputFromMeeting: "",
       activityStatusId: undefined,
       newNextScheduledActivityDate: parseDate(nextScheduledRaw),
     },
-  });
   });
 
   useEffect(() => {
@@ -120,12 +92,8 @@ export function TeacherMeetingPage() {
       newNextScheduledActivityDate: parseDate(nextScheduledRaw),
     }));
   }, [studentName, nextScheduledRaw, reset]);
-    }));
-  }, [studentName, nextScheduledRaw, reset]);
 
   useEffect(() => {
-    if (!counselorActivityId) return;
-    setLoading(true);
     if (!counselorActivityId) return;
     setLoading(true);
     void (async () => {
@@ -136,18 +104,11 @@ export function TeacherMeetingPage() {
         ]);
         setActivityDetails(activity);
         setStatuses(statusRows as MentorshipRow[]);
-        ]);
-        setActivityDetails(activity);
-        setStatuses(statusRows as MentorshipRow[]);
       } catch (e) {
-        toastError(getErrorMessage(e));
         toastError(getErrorMessage(e));
       } finally {
         setLoading(false);
-        setLoading(false);
       }
-    })();
-  }, [counselorActivityId]);
     })();
   }, [counselorActivityId]);
 
@@ -160,17 +121,10 @@ export function TeacherMeetingPage() {
             s.generalDetailCode ??
             s.generalDetailId,
         ),
-        label: String(
-          s.generalDetailDisplayName ??
-            s.generalDetailCode ??
-            s.generalDetailId,
-        ),
         // Angular disables SCHEDULED on this form
-        disabled: String(s.generalDetailCode ?? "") === "SCHEDULED",
         disabled: String(s.generalDetailCode ?? "") === "SCHEDULED",
       })),
     [statuses],
-  );
   );
 
   function goBackToSchedule() {
@@ -190,8 +144,6 @@ export function TeacherMeetingPage() {
     if (!activityDetails || !counselorActivityId) {
       toastError("Activity details not loaded");
       return;
-      toastError("Activity details not loaded");
-      return;
     }
     try {
       // Angular teacherMeeting with counselorActivityId: update current activity only
@@ -199,10 +151,6 @@ export function TeacherMeetingPage() {
       const updated: MentorshipRow = {
         ...activityDetails,
         attendeesName: values.attendeesName,
-        discussionPoints: values.discussionPoints ?? "",
-        relationship: values.relationship ?? "",
-        summary: values.summary ?? "",
-        outputFromMeeting: values.outputFromMeeting ?? "",
         discussionPoints: values.discussionPoints ?? "",
         relationship: values.relationship ?? "",
         summary: values.summary ?? "",
@@ -216,15 +164,7 @@ export function TeacherMeetingPage() {
       );
       toastSuccess("Meeting saved");
       goBackToSchedule();
-      };
-      await updateCounselorActivity(
-        Number(activityDetails.counselorActivityId),
-        updated,
-      );
-      toastSuccess("Meeting saved");
-      goBackToSchedule();
     } catch (e) {
-      toastError(getErrorMessage(e));
       toastError(getErrorMessage(e));
     }
   }
@@ -398,6 +338,5 @@ export function TeacherMeetingPage() {
         </div>
       </form>
     </PageContainer>
-  );
   );
 }
