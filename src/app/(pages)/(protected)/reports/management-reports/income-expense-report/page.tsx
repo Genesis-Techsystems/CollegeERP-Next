@@ -259,7 +259,12 @@ export default function IncomeExpenseReportPage() {
       };
       return fetchIncomeExpenseSummary(p);
     },
+    // Angular: load only on Get Report — do not refetch on tab focus / remount
     enabled: loadKey != null,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
   });
 
   const { resetApiToast } = useApiQueryToasts({

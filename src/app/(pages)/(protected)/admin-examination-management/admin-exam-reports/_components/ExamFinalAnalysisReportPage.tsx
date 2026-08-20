@@ -14,11 +14,16 @@ import { Select, type SelectOption } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useCollegeLogo } from "@/hooks/useCollegeLogo";
+import { DEFAULT_COLLEGE_LOGO, useCollegeLogo } from "@/hooks/useCollegeLogo";
+import {
+  resolveAttendancePrintLogo as resolveReportPrintLogo,
+  toPrintLogoUrl,
+} from "@/app/(pages)/(protected)/reports/admin-attendance-reports/_lib/attendance-report-print";
 import { rowIndexGetter } from "@/lib/utils";
 import { toastError } from "@/lib/toast";
 import { toast } from "sonner";
 import {
+  getCollegeById,
   getExamFinalAnalysisReport,
   getUnivExamFiltersRegSup,
   getUnivExamRestInRegExamStd,
@@ -216,26 +221,30 @@ const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
   {
     headerName: "SL.No",
     valueGetter: rowIndexGetter,
-    width: 70,
+    width: 80,
+    minWidth: 80,
+    maxWidth: 90,
     flex: 0,
+    suppressSizeToFit: true,
+    cellClass: "text-center",
   },
   {
     headerName: "Course",
     minWidth: 120,
-    flex: 1,
+    flex: 1.2,
     valueGetter: (p) => dash(p.data?.course_name),
   },
   {
     headerName: "Course Group",
     minWidth: 110,
-    flex: 0.8,
+    flex: 1,
     cellClass: "text-center",
     valueGetter: (p) => dash(p.data?.course_group),
   },
   {
     headerName: "Course Year",
-    minWidth: 130,
-    flex: 1,
+    minWidth: 140,
+    flex: 1.4,
     valueGetter: (p) => dash(p.data?.course_year),
   },
   {
@@ -246,7 +255,7 @@ const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
       {
         headerName: "Count",
         minWidth: 90,
-        flex: 0.6,
+        flex: 1,
         cellClass: "text-center",
         valueGetter: (p) => dash(p.data?.Appeared ?? p.data?.appeared),
       },
@@ -260,14 +269,14 @@ const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
       {
         headerName: "Count",
         minWidth: 90,
-        flex: 0.6,
+        flex: 1,
         cellClass: "text-center",
         valueGetter: (p) => dash(p.data?.passed),
       },
       {
         headerName: "%",
         minWidth: 70,
-        flex: 0.5,
+        flex: 0.8,
         cellClass: "text-center",
         valueGetter: (p) =>
           dash(p.data?.Pass_percentage ?? p.data?.Passed_percent),
@@ -282,14 +291,14 @@ const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
       {
         headerName: "Count",
         minWidth: 90,
-        flex: 0.6,
+        flex: 1,
         cellClass: "text-center",
         valueGetter: (p) => dash(p.data?.Promoted),
       },
       {
         headerName: "%",
         minWidth: 70,
-        flex: 0.5,
+        flex: 0.8,
         cellClass: "text-center",
         valueGetter: (p) => dash(p.data?.Promoted_Percentage),
       },
@@ -303,14 +312,14 @@ const finalAnalysisColumnDefs: (ColDef<Row> | ColGroupDef<Row>)[] = [
       {
         headerName: "Count",
         minWidth: 90,
-        flex: 0.6,
+        flex: 1,
         cellClass: "text-center",
         valueGetter: (p) => dash(p.data?.Detained),
       },
       {
         headerName: "%",
         minWidth: 70,
-        flex: 0.5,
+        flex: 0.8,
         cellClass: "text-center",
         valueGetter: (p) => dash(p.data?.Detained_Percentage),
       },
@@ -370,6 +379,22 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** Angular `getColleges()` — print header uses College.collegeName, not the filter college_code. */
+async function resolvePrintCollegeName(
+  collegeId: number,
+  fallback?: Row | null,
+): Promise<string> {
+  const record = collegeId
+    ? await getCollegeById(collegeId).catch(() => null)
+    : null;
+  return (
+    txt(record?.collegeName) ||
+    txt(fallback?.college_name) ||
+    txt(fallback?.collegeName) ||
+    ""
+  );
 }
 
 function printHtmlInIframe(html: string): void {
@@ -486,52 +511,148 @@ function exportGradewiseExcel(args: {
   );
 }
 
+function gradewisePrintCellAlign(key: string): string {
+  return /^subject$/i.test(key) ? "left" : "center";
+}
+
 function printGradewiseReport(args: {
   collegeName: string;
   title: string;
   examLabel: string;
   courseGroup: string;
+  courseYear: string;
   logoUrl: string;
+  fallbackLogo: string;
   rows: Row[];
 }): void {
   if (!args.rows.length) return;
 
   const keys = gradewiseDataKeys(args.rows[0]);
-  const head = `<thead><tr><th>S.No</th>${keys
-    .map((k) => `<th>${escapeHtml(headerLabel(k))}</th>`)
+  const head = `<thead><tr>${keys
+    .map(
+      (k) =>
+        `<th${/^subject$/i.test(k) ? ' style="text-align:left"' : ""}>${escapeHtml(k)}</th>`,
+    )
     .join("")}</tr></thead>`;
   const body = args.rows
     .map(
-      (r, i) =>
-        `<tr><td>${i + 1}</td>${keys.map((k) => `<td>${escapeHtml(dash(r[k]))}</td>`).join("")}</tr>`,
+      (r) =>
+        `<tr>${keys
+          .map(
+            (k) =>
+              `<td style="text-align:${gradewisePrintCellAlign(k)}">${escapeHtml(dash(r[k]))}</td>`,
+          )
+          .join("")}</tr>`,
     )
     .join("");
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(args.title)}</title>
-<style>
-@page { size: A4 landscape; margin: 10mm; }
-body { font: 11px/1.35 "Times New Roman", Times, serif; color: #000; margin: 0; }
-.header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
-.header img { width: 72px; height: auto; max-height: 80px; object-fit: contain; }
-.header-text { flex: 1; }
-.college { font-size: 16px; font-weight: 700; margin: 0 0 4px; }
-.title { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
-.meta { margin: 0 0 8px; color: #222; }
-table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #000; padding: 4px 5px; text-align: center; }
-th { font-weight: 700; background: #f2f2f2; }
-</style></head><body>
-<div class="header">
-  <img src="${escapeHtml(args.logoUrl)}" alt="College Logo" />
-  <div class="header-text">
-    ${args.collegeName ? `<p class="college">${escapeHtml(args.collegeName)}</p>` : ""}
-    <p class="title">${escapeHtml(args.title)}</p>
-    ${args.examLabel ? `<p class="meta">${escapeHtml(args.examLabel)}</p>` : ""}
-    ${args.courseGroup ? `<p class="meta">Course Group : ${escapeHtml(args.courseGroup)}</p>` : ""}
+  const courseMeta = args.courseGroup
+    ? `<p class="meta-left">Course : ${escapeHtml(args.courseGroup)}</p>`
+    : "";
+  const semesterMeta = args.courseYear
+    ? `<p class="meta-right">Semester : ${escapeHtml(args.courseYear)}</p>`
+    : "";
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(args.title)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: "Times New Roman", Times, serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body { font-size: 12px; line-height: 1.25; }
+    .sheet { width: 98%; margin: 0 auto; }
+    .header {
+      display: grid;
+      grid-template-columns: 20% 80%;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100px;
+    }
+    .logo {
+      max-width: 120px;
+      max-height: 120px;
+      object-fit: contain;
+    }
+    .title-wrap { text-align: center; }
+    .college-name {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 550;
+      text-transform: capitalize;
+    }
+    .report-title {
+      margin: 4px 0 0;
+      font-size: 18px;
+      font-weight: 550;
+    }
+    .exam-line {
+      margin: 4px 0 0;
+      font-size: 16px;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin: 6px 0 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .meta-left { margin: 0; text-align: left; width: 50%; }
+    .meta-right { margin: 0; text-align: right; width: 50%; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 0 auto;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 3px 4px;
+      vertical-align: middle;
+      word-break: break-word;
+    }
+    th {
+      font-size: 10px;
+      font-weight: 700;
+      text-align: center;
+    }
+    td { font-size: 10px; }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="header">
+      <div class="logo-wrap">
+        <img class="logo" src="${escapeHtml(args.logoUrl)}" alt="College Logo"
+          onerror="this.onerror=null;this.src='${escapeHtml(args.fallbackLogo)}'" />
+      </div>
+      <div class="title-wrap">
+        ${args.collegeName ? `<p class="college-name">${escapeHtml(args.collegeName)}</p>` : ""}
+        <p class="report-title">${escapeHtml(args.title)}</p>
+        ${args.examLabel ? `<p class="exam-line">${escapeHtml(args.examLabel)}</p>` : ""}
+      </div>
+    </div>
+    ${courseMeta || semesterMeta ? `<div class="meta-row">${courseMeta}${semesterMeta}</div>` : ""}
+    <table>${head}<tbody>${body}</tbody></table>
   </div>
-</div>
-<table>${head}<tbody>${body}</tbody></table>
-</body></html>`;
+</body>
+</html>`;
 
   printHtmlInIframe(html);
 }
@@ -1305,6 +1426,9 @@ export function ExamFinalAnalysisReportPage({
       filters={filterFields}
       showTable={rows.length > 0}
       resultsVisible={rows.length > 0}
+      fitColumnsToWidth={
+        kind === "final-analysis" || kind === "group-subjectwise"
+      }
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
@@ -1361,96 +1485,123 @@ export function ExamFinalAnalysisReportPage({
             size="sm"
             className="h-9 text-[12px]"
             onClick={() => {
-              if (kind === "final-analysis") {
-                const college =
-                  colleges.find(
-                    (r) => num(r.fk_college_id) === Number(collegeId),
-                  ) ?? null;
-                const course =
-                  courses.find(
-                    (r) => num(r.fk_course_id) === Number(courseId),
-                  ) ?? null;
+              void (async () => {
+                if (kind === "final-analysis") {
+                  const college =
+                    colleges.find(
+                      (r) => num(r.fk_college_id) === Number(collegeId),
+                    ) ?? null;
+                  const course =
+                    courses.find(
+                      (r) => num(r.fk_course_id) === Number(courseId),
+                    ) ?? null;
+                  const collegeName = await resolvePrintCollegeName(
+                    Number(collegeId || 0),
+                    college ?? rows[0] ?? null,
+                  );
 
-                printFinalAnalysisReport({
-                  collegeName:
-                    txt(college?.college_name) ||
-                    txt(rows[0]?.college_name) ||
-                    txt(college?.college_code) ||
-                    "",
-                  courseLabel:
-                    txt(course?.course_code) || txt(rows[0]?.course_name) || "",
-                  title,
-                  logoUrl: collegeLogo,
-                  rows,
-                });
-                return;
-              }
-              if (kind === "gradewise") {
-                const college =
-                  colleges.find(
-                    (r) => num(r.fk_college_id) === Number(collegeId),
-                  ) ?? null;
-                const group =
-                  courseGroups.find(
-                    (r) => num(r.fk_course_group_id) === Number(courseGroupId),
-                  ) ?? null;
-                const examRow =
-                  exams.find((r) => num(r.fk_exam_id) === Number(examId)) ??
-                  null;
-                printGradewiseReport({
-                  collegeName:
-                    txt(college?.college_name) ||
-                    txt(college?.college_code) ||
-                    txt(rows[0]?.college_name) ||
-                    "",
-                  title: "Subject & GradeWise Result Analysis",
-                  examLabel:
-                    txt(rows[0]?.exam_label_name) ||
-                    (examRow ? examMasterLabel(examRow) : "") ||
-                    "",
-                  courseGroup:
-                    txt(group?.group_code) || txt(rows[0]?.course_group) || "",
-                  logoUrl: collegeLogo,
-                  rows,
-                });
-                return;
-              }
-              if (kind === "group-subjectwise") {
-                const college =
-                  colleges.find(
-                    (r) => num(r.fk_college_id) === Number(collegeId),
-                  ) ?? null;
-                const year =
-                  academicYears.find(
-                    (r) =>
-                      num(r.fk_academic_year_id) === Number(academicYearId),
-                  ) ?? null;
-                const group =
-                  courseGroups.find(
-                    (r) => num(r.fk_course_group_id) === Number(courseGroupId),
-                  ) ?? null;
-                const exam =
-                  exams.find((r) => num(r.fk_exam_id) === Number(examId)) ??
-                  null;
-                printGroupSubjectwiseReport({
-                  collegeName:
-                    txt(college?.college_name) ||
-                    txt(college?.college_code) ||
-                    txt(rows[0]?.college_name) ||
-                    "",
-                  academicYear: txt(year?.academic_year) || "",
-                  courseGroup:
-                    txt(group?.group_code) || txt(rows[0]?.course_group) || "",
-                  examLabel:
-                    txt(rows[0]?.exam_label_name) ||
-                    (exam ? examMasterLabel(exam) : "") ||
-                    "",
-                  logoUrl: collegeLogo,
-                  rows,
-                });
-                return;
-              }
-              window.print();
+                  printFinalAnalysisReport({
+                    collegeName,
+                    courseLabel:
+                      txt(course?.course_code) ||
+                      txt(rows[0]?.course_name) ||
+                      "",
+                    title,
+                    logoUrl: collegeLogo,
+                    rows,
+                  });
+                  return;
+                }
+                if (kind === "gradewise") {
+                  const college =
+                    colleges.find(
+                      (r) => num(r.fk_college_id) === Number(collegeId),
+                    ) ?? null;
+                  const group =
+                    courseGroups.find(
+                      (r) =>
+                        num(r.fk_course_group_id) === Number(courseGroupId),
+                    ) ?? null;
+                  const year =
+                    courseYears.find(
+                      (r) => num(r.fk_course_year_id) === Number(courseYearId),
+                    ) ?? null;
+                  const examRow =
+                    exams.find((r) => num(r.fk_exam_id) === Number(examId)) ??
+                    null;
+                  const logoSrc = await resolveReportPrintLogo(
+                    null,
+                    Number(collegeId || 0),
+                    collegeLogo || DEFAULT_COLLEGE_LOGO,
+                  );
+                  const collegeName = await resolvePrintCollegeName(
+                    Number(collegeId || 0),
+                    college ?? rows[0] ?? null,
+                  );
+                  printGradewiseReport({
+                    collegeName,
+                    title: "Subject & GradeWise Result Analysis",
+                    examLabel:
+                      txt(examRow?.exam_name) ||
+                      txt(rows[0]?.exam_label_name) ||
+                      (examRow ? examMasterLabel(examRow) : "") ||
+                      "",
+                    courseGroup:
+                      txt(group?.group_code) ||
+                      txt(rows[0]?.course_group) ||
+                      txt(rows[0]?.group_code) ||
+                      "",
+                    courseYear:
+                      txt(year?.course_year_code) ||
+                      txt(rows[0]?.course_year) ||
+                      txt(rows[0]?.Course_Year) ||
+                      "",
+                    logoUrl: logoSrc,
+                    fallbackLogo: toPrintLogoUrl(DEFAULT_COLLEGE_LOGO),
+                    rows,
+                  });
+                  return;
+                }
+                if (kind === "group-subjectwise") {
+                  const college =
+                    colleges.find(
+                      (r) => num(r.fk_college_id) === Number(collegeId),
+                    ) ?? null;
+                  const year =
+                    academicYears.find(
+                      (r) =>
+                        num(r.fk_academic_year_id) === Number(academicYearId),
+                    ) ?? null;
+                  const group =
+                    courseGroups.find(
+                      (r) =>
+                        num(r.fk_course_group_id) === Number(courseGroupId),
+                    ) ?? null;
+                  const exam =
+                    exams.find((r) => num(r.fk_exam_id) === Number(examId)) ??
+                    null;
+                  const collegeName = await resolvePrintCollegeName(
+                    Number(collegeId || 0),
+                    college ?? rows[0] ?? null,
+                  );
+                  printGroupSubjectwiseReport({
+                    collegeName,
+                    academicYear: txt(year?.academic_year) || "",
+                    courseGroup:
+                      txt(group?.group_code) ||
+                      txt(rows[0]?.course_group) ||
+                      "",
+                    examLabel:
+                      txt(rows[0]?.exam_label_name) ||
+                      (exam ? examMasterLabel(exam) : "") ||
+                      "",
+                    logoUrl: collegeLogo,
+                    rows,
+                  });
+                  return;
+                }
+                window.print();
+              })();
             }}
           >
             <Printer className="mr-1.5 h-3.5 w-3.5" />

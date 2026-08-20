@@ -6,18 +6,45 @@ import { FormModal } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastInfo } from "@/lib/toast";
 import {
+  listDepartmentsByCollege,
+  listDepartmentHeadsByDepartment,
   listFeeCategoriesByCollege,
   listFeeParticularsByCollege,
-  searchEmployeesForTransport,
 } from "@/services";
 import type {
   FeeStudentData,
   FeeStudentParticularRow,
 } from "@/types/fees-collection";
 
+/**
+ * Angular `remove_duplicates` on add-fine / add-scholarship:
+ * keep first row per `feeCategoryId` from `feeStudentDataParticulars`.
+ * (add-discount has a buggy variant; we use the fine/scholarship algorithm
+ * so Tuition/Transport are not dropped when SPECIAL FEE duplicates appear early.)
+ */
+function uniqueParticularsByCategory(
+  arr: FeeStudentParticularRow[],
+): FeeStudentParticularRow[] {
+  const unique_array: FeeStudentParticularRow[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    if (i !== 0) {
+      if (
+        unique_array.filter((x) => x.feeCategoryId === arr[i].feeCategoryId)
+          .length === 0
+      ) {
+        unique_array.push(arr[i]);
+      }
+    } else {
+      unique_array.push(arr[i]);
+    }
+  }
+  return unique_array;
+}
+
 function particularOptions(rows: FeeStudentParticularRow[]) {
-  return rows.map((p) => ({
+  return uniqueParticularsByCategory(rows).map((p) => ({
     value: String(
       p.feeStdDataParticularsId ?? `${p.feeCategoryId}-${p.feeParticularsId}`,
     ),
@@ -131,6 +158,7 @@ export function AddAmountOnParticularModal({
   amountLabel,
   amountKey = "value",
   particulars,
+  collegeId = 0,
   onSave,
   saving,
   showEmployeeReason,
@@ -140,7 +168,10 @@ export function AddAmountOnParticularModal({
   title: string;
   amountLabel: string;
   amountKey?: "value" | "holdAmount";
+  /** Angular: full `feeStudentData.feeStudentDataParticulars` */
   particulars: FeeStudentParticularRow[];
+  /** Required for Institutional Scholarship — Angular loads MGMNT dept heads. */
+  collegeId?: number;
   onSave: (payload: Record<string, unknown>) => void;
   saving?: boolean;
   showEmployeeReason?: boolean;
@@ -149,13 +180,42 @@ export function AddAmountOnParticularModal({
   const [amount, setAmount] = useState(0);
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const [empTerm, setEmpTerm] = useState("");
-  const [empRows, setEmpRows] = useState<{ value: string; label: string }[]>(
-    [],
-  );
-  const [empLoading, setEmpLoading] = useState(false);
+  const [balanceAmt, setBalanceAmt] = useState<number | null>(null);
 
   const options = useMemo(() => particularOptions(particulars), [particulars]);
+
+  // Angular add-discount: departments where deptCode === 'MGMNT' → EmpDeptHeads
+  const mgmtEmployeesQuery = useQuery({
+    queryKey: ["FeesCollection", "mgmtEmployees", collegeId],
+    queryFn: async () => {
+      const depts = await listDepartmentsByCollege(collegeId);
+      const mgmt = depts.find(
+        (d) => String(d.deptCode ?? "").toUpperCase() === "MGMNT",
+      );
+      if (!mgmt?.departmentId) return [];
+      const heads = await listDepartmentHeadsByDepartment(mgmt.departmentId);
+      return heads
+        .map((h) => {
+          const id = Number(
+            h.employeeId ??
+              (h as { employee?: { employeeId?: number } }).employee
+                ?.employeeId ??
+              0,
+          );
+          const name = String(
+            h.employeeName ??
+              h.firstName ??
+              (h as { employee?: { employeeName?: string } }).employee
+                ?.employeeName ??
+              "",
+          ).trim();
+          if (!id || !name) return null;
+          return { value: String(id), label: name };
+        })
+        .filter((x): x is { value: string; label: string } => x != null);
+    },
+    enabled: open && showEmployeeReason === true && collegeId > 0,
+  });
 
   useEffect(() => {
     if (!open) {
@@ -163,28 +223,28 @@ export function AddAmountOnParticularModal({
       setAmount(0);
       setEmployeeId(null);
       setReason("");
-      setEmpRows([]);
+      setBalanceAmt(null);
     }
   }, [open]);
 
-  async function searchEmployees(term: string) {
-    setEmpTerm(term);
-    if (term.trim().length < 5) {
-      setEmpRows([]);
+  function onParticularChange(v: string | null) {
+    setParticularKey(v);
+    const picked = options.find((o) => o.value === v)?.row;
+    const bal = Number(picked?.balanceAmount ?? 0);
+    setBalanceAmt(picked ? bal : null);
+    if (showEmployeeReason && Number(amount) > bal) {
+      setAmount(0);
+    }
+  }
+
+  function onAmountChange(raw: string) {
+    const next = Number(raw) || 0;
+    if (showEmployeeReason && balanceAmt != null && next > balanceAmt) {
+      setAmount(0);
+      toastInfo("Discount amount is greater than balance amount.");
       return;
     }
-    setEmpLoading(true);
-    try {
-      const rows = await searchEmployeesForTransport(term);
-      setEmpRows(
-        rows.map((e) => ({
-          value: String(e.employeeId),
-          label: `${e.firstName ?? "Employee"}${e.empNumber ? ` (${e.empNumber})` : ""}`,
-        })),
-      );
-    } finally {
-      setEmpLoading(false);
-    }
+    setAmount(next);
   }
 
   return (
@@ -208,21 +268,26 @@ export function AddAmountOnParticularModal({
         };
         if (showEmployeeReason) {
           payload.requestedEmployeeId = Number(employeeId);
-          payload.authorizedEmployeeId = Number(employeeId);
+          // Angular: authorizedEmployeeId = logged-in employee
+          payload.authorizedEmployeeId = Number(
+            globalThis?.localStorage?.getItem("employeeId") ?? employeeId,
+          );
           payload.authComments = reason.trim();
         }
         onSave(payload);
       }}
       isSubmitting={saving}
       submitLabel="Save"
+      cancelLabel="Close"
       size="md"
     >
       <Select
         label="Fee Category"
         required
         value={particularKey}
-        onChange={setParticularKey}
+        onChange={onParticularChange}
         options={options.map((o) => ({ value: o.value, label: o.label }))}
+        placeholder="Fee Category"
       />
       <div className="space-y-1.5">
         <Label>{amountLabel}</Label>
@@ -230,9 +295,10 @@ export function AddAmountOnParticularModal({
           type="number"
           min={0}
           value={amount}
-          onChange={(e) => setAmount(Number(e.target.value) || 0)}
+          onChange={(e) => onAmountChange(e.target.value)}
         />
       </div>
+
       {showEmployeeReason ? (
         <>
           <Select
@@ -240,18 +306,20 @@ export function AddAmountOnParticularModal({
             required
             value={employeeId}
             onChange={setEmployeeId}
-            options={empRows}
+            options={mgmtEmployeesQuery.data ?? []}
             searchable
-            onSearch={(t) => void searchEmployees(t)}
-            isLoading={empLoading}
-            placeholder={
-              empTerm ? "Select employee" : "Search employee (min 5 chars)"
-            }
+            isLoading={mgmtEmployeesQuery.isLoading}
+            placeholder="Requested Employee"
           />
           <div className="space-y-1.5">
-            <Label>Reason</Label>
+            <Label>Reason *</Label>
             <Input value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
+          {showEmployeeReason && balanceAmt != null ? (
+            <p className="m-0 text-sm font-medium text-blue-700">
+              Balance Amount is {balanceAmt}
+            </p>
+          ) : null}
         </>
       ) : null}
     </FormModal>

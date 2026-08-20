@@ -18,11 +18,7 @@ import { printHtmlInIframe } from "@/lib/print";
 import { QK } from "@/lib/query-keys";
 import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastInfo } from "@/lib/toast";
-import {
-  buildHtmlTable,
-  escapeHtml,
-  exportHtmlTableAsExcel,
-} from "@/common/export-html-table";
+import { escapeHtml, exportHtmlTableAsExcel } from "@/common/export-html-table";
 import { MINIO_URL } from "@/config/constants/api";
 import { DEFAULT_COLLEGE_LOGO } from "@/hooks/useCollegeLogo";
 import {
@@ -547,65 +543,76 @@ export default function EmployeeDrilldownReportPage() {
         { key: "mobile", header: "Mobile" },
         { key: "cat", header: "Employee Category" },
       ];
-      const data = displayRows.map((d) => ({
-        n: d.varaiableName,
-        v: d.varaiableValue,
-        emp: `${d.Emp_Name ?? ""} (${d.emp_number ?? ""})`,
-        des: nullDash(d.Emp_Designation),
-        email: nullDash(d.email),
-        mobile: nullDash(d.mobile),
-        cat: nullDash(d.Emp_Category),
-      }));
-      return buildHtmlTable(cols, data);
+      const head = cols.map((c) => `<th>${escapeHtml(c.header)}</th>`).join("");
+      const body = displayRows
+        .map((d) => {
+          const row = {
+            n: d.varaiableName,
+            v: d.varaiableValue,
+            emp: `${d.Emp_Name ?? ""} (${d.emp_number ?? ""})`,
+            des: nullDash(d.Emp_Designation),
+            email: nullDash(d.email),
+            mobile: nullDash(d.mobile),
+            cat: nullDash(d.Emp_Category),
+          };
+          return `<tr>${cols
+            .map(
+              (c) =>
+                `<td>${escapeHtml(String(row[c.key as keyof typeof row] ?? ""))}</td>`,
+            )
+            .join("")}</tr>`;
+        })
+        .join("");
+      return `<table class="mar" border="1" cellspacing="0" cellpadding="4"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
     }
 
     if (currentPosition === "college_code") {
       // Excel/print (no Expand col): Grand Total colspan=3 + count
-      return `<table class="mar" border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse">
+      return `<table class="mar" border="1" cellspacing="0" cellpadding="4">
 <thead><tr>
-<th style="background:#C3D9FF;padding:5px"> </th>
-<th style="background:#C3D9FF;padding:5px"> </th>
-<th style="background:#C3D9FF;padding:5px">Department</th>
-<th style="background:#C3D9FF;padding:5px">Employees Count</th>
+<th> </th>
+<th> </th>
+<th>Department</th>
+<th>Employees Count</th>
 </tr></thead>
 <tbody>
 ${displayRows
   .map(
     (d) => `<tr>
-<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableName)}</td>
-<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableValue)}</td>
-<td style="text-align:center;padding:8px">${escapeHtml(d.Emp_Department ?? "")}</td>
-<td style="text-align:center;padding:8px">${d.count == null ? "" : escapeHtml(formatCount(d.count))}</td>
+<td>${escapeHtml(d.varaiableName)}</td>
+<td>${escapeHtml(d.varaiableValue)}</td>
+<td>${escapeHtml(d.Emp_Department ?? "")}</td>
+<td>${d.count == null ? "" : escapeHtml(formatCount(d.count))}</td>
 </tr>`,
   )
   .join("")}
 <tr>
-<td colspan="3" style="text-align:center;padding:8px">Grand Total</td>
-<td style="text-align:center;padding:8px">${grandTotal}</td>
+<td colspan="3">Grand Total</td>
+<td>${grandTotal}</td>
 </tr>
 </tbody></table>`;
     }
 
     // Excel/print root: Grand Total colspan=2 + count
-    return `<table class="mar" border="1" cellspacing="0" cellpadding="4" style="width:100%;border-collapse:collapse">
+    return `<table class="mar" border="1" cellspacing="0" cellpadding="4">
 <thead><tr>
-<th style="background:#C3D9FF;padding:5px"> </th>
-<th style="background:#C3D9FF;padding:5px"> </th>
-<th style="background:#C3D9FF;padding:5px">Employees Count</th>
+<th> </th>
+<th> </th>
+<th>Employees Count</th>
 </tr></thead>
 <tbody>
 ${displayRows
   .map(
     (d) => `<tr>
-<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableName)}</td>
-<td style="text-align:center;padding:8px">${escapeHtml(d.varaiableValue)}</td>
-<td style="text-align:center;padding:8px">${d.count == null ? "" : escapeHtml(formatCount(d.count))}</td>
+<td>${escapeHtml(d.varaiableName)}</td>
+<td>${escapeHtml(d.varaiableValue)}</td>
+<td>${d.count == null ? "" : escapeHtml(formatCount(d.count))}</td>
 </tr>`,
   )
   .join("")}
 <tr>
-<td colspan="2" style="text-align:center;padding:8px">Grand Total</td>
-<td style="text-align:center;padding:8px">${grandTotal}</td>
+<td colspan="2">Grand Total</td>
+<td>${grandTotal}</td>
 </tr>
 </tbody></table>`;
   };
@@ -640,14 +647,19 @@ ${displayRows
 <html><head><meta charset="utf-8"/><title>${escapeHtml(REPORT_TITLE)}</title>
 <style>
 @page{margin:12mm}
+*{box-sizing:border-box}
 body{font-family:Arial,sans-serif;padding:12px;color:#111;margin:0}
 .banner{display:flex;align-items:flex-start;width:100%;margin-bottom:8px}
 .banner img{height:96px;width:100px;object-fit:contain}
 .collegeName{text-align:left;font-size:20px;font-weight:550;margin:20px 0 -5px 0.4%}
 .title{text-align:left;font-size:19px;font-weight:550;margin:0}
-table{width:100%;border-collapse:collapse;font-size:12px}
-th,td{border:1px solid #333;padding:8px;text-align:center}
-th{background:#C3D9FF;font-weight:500}
+/* separate + outer border avoids Chrome print clipping the right edge */
+table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #333;font-size:12px;table-layout:fixed}
+th,td{border-right:1px solid #333;border-bottom:1px solid #333;padding:8px;text-align:center;word-wrap:break-word;overflow-wrap:anywhere}
+th:last-child,td:last-child{border-right:none}
+tr:last-child td{border-bottom:none}
+th{background:#C3D9FF;font-weight:500;border-top:none}
+td{border-top:none}
 </style></head><body>
 <div class="banner">
   <img src="${escapeHtml(logoSrc)}" alt="" onerror="this.onerror=null;this.src='${escapeHtml(fallbackLogo)}'"/>

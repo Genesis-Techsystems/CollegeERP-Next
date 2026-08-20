@@ -697,6 +697,7 @@ export function PayFeesPage() {
     try {
       await saveFeeStudentWiseDiscount([
         {
+          feeStdDataParticularsId: Number(payload.feeStdDataParticularsId),
           feeCategoryId: Number(payload.feeCategoryId),
           feeParticularsId: Number(payload.feeParticularsId ?? 0) || undefined,
           value: Number(payload.value),
@@ -704,7 +705,9 @@ export function PayFeesPage() {
           authComments: String(payload.authComments ?? ""),
           requestedEmployeeId: Number(payload.requestedEmployeeId),
           authorizedEmployeeId: Number(
-            payload.authorizedEmployeeId ?? payload.requestedEmployeeId,
+            payload.authorizedEmployeeId ??
+              globalThis?.localStorage?.getItem("employeeId") ??
+              payload.requestedEmployeeId,
           ),
           collegeId,
           studentId,
@@ -1314,8 +1317,8 @@ export function PayFeesPage() {
           toolbar={{
             search: true,
             searchPlaceholder: "Search receipts…",
-            exportExcel: true,
-            exportPdf: true,
+            exportExcel: false,
+            exportPdf: false,
           }}
         />
       ) : null}
@@ -1350,7 +1353,12 @@ export function PayFeesPage() {
         onClose={() => setAddDiscountOpen(false)}
         title="Add Institutional Scholarship"
         amountLabel="Discount Amount"
-        particulars={yearWiseRows.length ? yearWiseRows : particulars}
+        particulars={
+          (feeStudentData?.feeStudentDataParticulars as
+            | FeeStudentParticularRow[]
+            | undefined) ?? particulars
+        }
+        collegeId={collegeId}
         showEmployeeReason
         onSave={(p) => void handleAddDiscount(p)}
         saving={extraSaving}
@@ -1358,9 +1366,13 @@ export function PayFeesPage() {
       <AddAmountOnParticularModal
         open={addFineOpen}
         onClose={() => setAddFineOpen(false)}
-        title="Add Fine"
+        title="Add Late Fine"
         amountLabel="Fine Amount"
-        particulars={yearWiseRows.length ? yearWiseRows : particulars}
+        particulars={
+          (feeStudentData?.feeStudentDataParticulars as
+            | FeeStudentParticularRow[]
+            | undefined) ?? particulars
+        }
         onSave={(p) => void handleAddFine(p)}
         saving={extraSaving}
       />
@@ -1370,7 +1382,11 @@ export function PayFeesPage() {
         title="Add RTF"
         amountLabel="RTF Hold Amount"
         amountKey="holdAmount"
-        particulars={yearWiseRows.length ? yearWiseRows : particulars}
+        particulars={
+          (feeStudentData?.feeStudentDataParticulars as
+            | FeeStudentParticularRow[]
+            | undefined) ?? particulars
+        }
         onSave={(p) => void handleAddRtf(p)}
         saving={extraSaving}
       />
