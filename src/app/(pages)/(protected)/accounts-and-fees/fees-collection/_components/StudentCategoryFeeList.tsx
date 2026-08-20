@@ -28,17 +28,12 @@ import { resolveCategoryPayHref } from "../_lib/pay-fees-mode";
 import { buildPayFeesSearchParams } from "../_lib/pay-fees-params";
 import { FeeDetailsModal, type FeeDetailsModalTarget } from "./FeeDetailsModal";
 import { FeeStudentProfileCard } from "./FeeStudentProfileCard";
+import { FEE_COLLECTION_LIST_QUERY } from "../_lib/fee-collection-query";
 
 const YELLOW_BTN =
   "h-[30px] bg-[#f0c040] px-4 text-[12px] font-medium text-slate-900 hover:bg-[#e5b535]";
 const VIEW_BTN =
   "h-[30px] bg-[#00b8ff] px-4 text-[12px] font-medium text-white hover:bg-[#00a6e6]";
-
-function studentOptionLabel(s: StudentFeeSearchRow): string {
-  const name = s.firstName ?? "Student";
-  const id = s.hallticketNumber ?? s.rollNumber ?? s.studentId;
-  return id ? `${name} (${id})` : name;
-}
 
 function statusRenderer(p: ICellRendererParams<StudentFeeStructureRow>) {
   const bal = Number(p.data?.balanceAmount ?? 0);
@@ -174,6 +169,7 @@ export function StudentCategoryFeeList({
     queryKey: QK.feesCollection.studentStructures(studentNum),
     queryFn: () => listStudentFeeStructuresByStudent(studentNum),
     enabled: studentNum > 0,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const onStudentSearch = useCallback(async (term: string) => {
@@ -193,21 +189,6 @@ export function StudentCategoryFeeList({
       setStudentSearchLoading(false);
     }
   }, []);
-
-  const studentOptions = useMemo(() => {
-    const base = studentRows.map((s) => ({
-      value: String(s.studentId),
-      label: studentOptionLabel(s),
-    }));
-    const sid = studentId;
-    if (sid && selectedStudent && !base.some((o) => o.value === sid)) {
-      return [
-        { value: sid, label: studentOptionLabel(selectedStudent) },
-        ...base,
-      ];
-    }
-    return base;
-  }, [studentRows, studentId, selectedStudent]);
 
   useEffect(() => {
     const roll = searchParams.get("rollNumber");
@@ -449,7 +430,7 @@ export function StudentCategoryFeeList({
           <div className="flex justify-end">
             <Button
               type="button"
-              className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+              className="back-btn"
               onClick={() => {
                 if (backHref) {
                   router.push(backHref);
@@ -510,7 +491,11 @@ export function StudentCategoryFeeList({
         <div className="flex justify-end pt-2">
           <Button
             type="button"
-            className="h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+            className={
+              isFeePayment
+                ? "black-btn"
+                : "h-9 min-w-[88px] bg-[#f0c040] px-5 text-[13px] font-medium text-slate-900 hover:bg-[#e5b535]"
+            }
             onClick={() => {
               if (backHref) {
                 router.push(backHref);

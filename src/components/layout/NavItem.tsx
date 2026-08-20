@@ -2970,6 +2970,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         return "/principal-my-approvals/detain-request-approvals";
       }
 
+      // eOffice Item Approval — URL stays `/e-office/item-approval`.
+      // Do not steal principal "Item Request Approvals".
+      if (
+        !hrefLower.includes("principal-my-approvals") &&
+        !hrefLower.includes("item-request-approvals") &&
+        (hrefLower.includes("item-approval") ||
+          hrefLower.includes("item_approval") ||
+          /(?:^|\/)itemapprovals?(?:\/|$)/.test(hrefLower) ||
+          labelKey === "item approval" ||
+          labelKey === "item approvals")
+      ) {
+        return "/e-office/item-approval";
+      }
+
       // Principal My Approvals — Item Request Approvals (must beat e-office/item-request)
       if (
         hrefLower.includes("item-request-approvals") ||

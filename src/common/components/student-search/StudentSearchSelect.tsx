@@ -34,6 +34,7 @@ export interface StudentSearchSelectProps {
   /** When true, input stretches to parent width (no max-w-md cap). */
   fullWidth?: boolean;
   disabled?: boolean;
+  disabled?: boolean;
   /**
    * `outlined` — bordered box.
    * `standard` — Fuse / Angular Material underline-only field (app default).
@@ -79,7 +80,7 @@ function statusTone(code: string): string {
   const normalized = code.toUpperCase().replace(/\s+/g, "");
   switch (normalized) {
     case "INCOLLEGE":
-      return "text-[#4CAF50] font-bold";
+      return "text-[green]";
     case "DTND":
       return "text-red-600 font-bold";
     case "PASSEDOUT":
@@ -136,10 +137,11 @@ function StudentSearchOption({
 }) {
   const active = isStudentActive(row);
   const name = pickText(row, ["firstName", "studentName"]);
-  const hallticket = pickText(row, [
+  const studentIdLine = pickText(row, [
     "hallticketNumber",
     "rollNumber",
     "admissionNumber",
+    "studentId",
   ]);
   const status = statusLabel(row);
   const statusCode = pickText(row, ["studentStatusCode"]);
@@ -210,6 +212,7 @@ export function StudentSearchSelect({
   className,
   fullWidth = false,
   disabled = false,
+  disabled = false,
   variant: variantProp,
 }: StudentSearchSelectProps) {
   const variant = useFormFieldVariant(variantProp);
@@ -260,7 +263,7 @@ export function StudentSearchSelect({
     setListPos({
       top: rect.bottom + 2,
       left: rect.left,
-      width: Math.max(rect.width, 280),
+      width: Math.max(rect.width, 360),
     });
   }, []);
 
@@ -301,6 +304,7 @@ export function StudentSearchSelect({
   }, []);
 
   function handleInputChange(term: string) {
+    if (disabled) return;
     setSearchTerm(term);
     setDisplayValue(term);
     setOpen(true);
@@ -314,6 +318,7 @@ export function StudentSearchSelect({
   }
 
   function handleFocus() {
+    if (disabled) return;
     setFocused(true);
     setOpen(true);
     queueMicrotask(() => updateListPosition());
@@ -405,7 +410,7 @@ export function StudentSearchSelect({
         <label
           htmlFor={inputId}
           className={cn(
-            "text-[12px] font-medium transition-colors",
+            "text-[12px] font-medium leading-none transition-colors",
             active ? "text-[#0c51a4]" : "text-black/54",
           )}
         >
@@ -424,7 +429,10 @@ export function StudentSearchSelect({
                 "h-9 rounded-none border-0 border-b border-black/12 bg-transparent px-0 py-1.5 shadow-none",
                 active && !disabled && "border-b-2 border-[#0c51a4]",
               )
-            : "rounded-md border border-slate-300 bg-white shadow-sm",
+            : cn(
+                "rounded-md border border-slate-300 bg-white shadow-sm",
+                disabled && "opacity-50",
+              ),
         )}
       >
         <input
@@ -435,6 +443,7 @@ export function StudentSearchSelect({
           aria-expanded={open}
           aria-autocomplete="list"
           autoComplete="off"
+          disabled={disabled}
           disabled={disabled}
           value={displayValue}
           placeholder={placeholder}
@@ -452,7 +461,7 @@ export function StudentSearchSelect({
             isStandard ? "right-0" : "right-2",
           )}
         >
-          {showClear ? (
+          {showClear && !disabled ? (
             <button
               type="button"
               aria-label="Clear student"

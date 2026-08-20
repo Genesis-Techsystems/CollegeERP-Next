@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
+import { Table } from "@/common/components/table";
 import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -242,8 +243,41 @@ function Field({
 /* ── Section sub-heading ─────────────────────────────────────── */
 function SubHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded bg-muted/50 px-3 py-2 mb-4">
-      <span className="text-sm font-semibold text-foreground">{children}</span>
+    <div className="mb-4 flex items-center gap-2 rounded bg-[#042956] px-3 py-2">
+      <span className="text-sm font-semibold text-white">{children}</span>
+    </div>
+  );
+}
+
+function RowAddRemove({
+  canRemove,
+  onAdd,
+  onRemove,
+}: {
+  canRemove: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="whitespace-nowrap text-center">
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mr-2 text-lg text-green-600 hover:text-green-800"
+        title="Add"
+      >
+        +
+      </button>
+      {canRemove ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-lg text-red-500 hover:text-red-700"
+          title="Remove"
+        >
+          ×
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -2400,230 +2434,224 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {stepId === "education" && (
                 <div className="space-y-4">
                   <SubHeader>Education Information</SubHeader>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-muted">
-                          {[
-                            "Institution Name",
-                            "Board",
-                            "Medium",
-                            "Mode",
-                            "Address",
-                            "Major Subjects",
-                            "Grade",
-                            "Year Of Completion",
-                            "Percentage",
-                            "Actions",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              className="border px-2 py-2 text-left font-medium text-xs whitespace-nowrap"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {education.map((row, i) => (
-                          <tr key={i} className="border-b">
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Name"
-                                value={row.nameOfInstitution}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            nameOfInstitution: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[120px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Board"
-                                value={row.board}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? { ...x, board: e.target.value }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[100px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Medium"
-                                value={row.medium}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? { ...x, medium: e.target.value }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[90px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Select
-                                value={
-                                  row.modeofstudy
-                                    ? String(row.modeofstudy)
-                                    : null
-                                }
-                                onChange={(v) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            modeofstudy: asNum(v) || null,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                options={modeOfStudyOptions}
-                                placeholder="Mode"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Address"
-                                value={row.address}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? { ...x, address: e.target.value }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[100px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Subjects"
-                                value={row.majorSubjects}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            majorSubjects: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[100px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Grade"
-                                value={row.gradeClassSecured}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            gradeClassSecured: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[80px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Year"
-                                value={row.yearOfCompletion}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            yearOfCompletion: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[80px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                type="number"
-                                placeholder="%"
-                                value={row.precentage}
-                                onChange={(e) =>
-                                  setEducation((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? { ...x, precentage: e.target.value }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[70px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1 text-center whitespace-nowrap">
-                              <button
-                                onClick={() =>
-                                  setEducation((prev) => [
-                                    ...prev,
-                                    ...buildInitialEducation([]),
-                                  ])
-                                }
-                                className="text-green-600 hover:text-green-800 mr-2 text-lg"
-                                title="Add"
-                              >
-                                +
-                              </button>
-                              {i > 0 && (
-                                <button
-                                  onClick={() =>
-                                    setEducation((prev) =>
-                                      prev.filter((_, idx) => idx !== i),
-                                    )
-                                  }
-                                  className="text-red-500 hover:text-red-700 text-lg"
-                                  title="Remove"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table
+                    rows={education}
+                    pageSize={0}
+                    density="compact"
+                    emptyText="No education records."
+                    columns={[
+                      {
+                        id: "nameOfInstitution",
+                        label: "Institution Name",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Name"
+                            value={row.nameOfInstitution}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? {
+                                        ...x,
+                                        nameOfInstitution: e.target.value,
+                                      }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[120px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "board",
+                        label: "Board",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Board"
+                            value={row.board}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, board: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[100px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "medium",
+                        label: "Medium",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Medium"
+                            value={row.medium}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, medium: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[90px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "modeofstudy",
+                        label: "Mode",
+                        render: (row, i) => (
+                          <Select
+                            value={
+                              row.modeofstudy ? String(row.modeofstudy) : null
+                            }
+                            onChange={(v) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, modeofstudy: asNum(v) || null }
+                                    : x,
+                                ),
+                              )
+                            }
+                            options={modeOfStudyOptions}
+                            placeholder="Mode"
+                          />
+                        ),
+                      },
+                      {
+                        id: "address",
+                        label: "Address",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Address"
+                            value={row.address}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, address: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[100px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "majorSubjects",
+                        label: "Major Subjects",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Subjects"
+                            value={row.majorSubjects}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, majorSubjects: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[100px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "gradeClassSecured",
+                        label: "Grade",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Grade"
+                            value={row.gradeClassSecured}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? {
+                                        ...x,
+                                        gradeClassSecured: e.target.value,
+                                      }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[80px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "yearOfCompletion",
+                        label: "Year Of Completion",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Year"
+                            value={row.yearOfCompletion}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, yearOfCompletion: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[80px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "precentage",
+                        label: "Percentage",
+                        render: (row, i) => (
+                          <Input
+                            type="number"
+                            placeholder="%"
+                            value={row.precentage}
+                            onChange={(e) =>
+                              setEducation((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, precentage: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[70px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "actions",
+                        label: "Actions",
+                        type: "action",
+                        render: (_row, i) => (
+                          <RowAddRemove
+                            canRemove={i > 0}
+                            onAdd={() =>
+                              setEducation((prev) => [
+                                ...prev,
+                                ...buildInitialEducation([]),
+                              ])
+                            }
+                            onRemove={() =>
+                              setEducation((prev) =>
+                                prev.filter((_, idx) => idx !== i),
+                              )
+                            }
+                          />
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
               )}
 
@@ -2631,207 +2659,194 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {stepId === "experience" && (
                 <div className="space-y-4">
                   <SubHeader>Experience Information</SubHeader>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-muted">
-                          {[
-                            "Previous Institution",
-                            "Designation",
-                            "Subjects",
-                            "Experience",
-                            "Exp. From",
-                            "Exp. To",
-                            "Total Years",
-                            "Total Months",
-                            "Actions",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              className="border px-2 py-2 text-left font-medium text-xs whitespace-nowrap"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {experience.map((row, i) => (
-                          <tr key={i} className="border-b">
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Name"
-                                value={row.prevoiusInstitutions}
-                                onChange={(e) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            prevoiusInstitutions:
-                                              e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[120px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Select
-                                value={
-                                  row.designation
-                                    ? String(row.designation)
-                                    : null
-                                }
-                                onChange={(v) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            designation: asNum(v) || null,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                options={designationOptions}
-                                placeholder="Designation"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Subjects"
-                                value={row.subjects}
-                                onChange={(e) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? { ...x, subjects: e.target.value }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[90px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Experience"
-                                value={row.experienceDetail}
-                                onChange={(e) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            experienceDetail: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[90px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <DatePicker
-                                value={row.fromYrMonth}
-                                onChange={(v) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i ? { ...x, fromYrMonth: v } : x,
-                                    ),
-                                  )
-                                }
-                                placeholder="From"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <DatePicker
-                                value={row.toYrMonth}
-                                onChange={(v) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i ? { ...x, toYrMonth: v } : x,
-                                    ),
-                                  )
-                                }
-                                placeholder="To"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Total Years"
-                                value={row.experienceYear}
-                                onChange={(e) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            experienceYear: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[70px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1">
-                              <Input
-                                placeholder="Total Months"
-                                value={row.experienceMonth}
-                                onChange={(e) =>
-                                  setExperience((prev) =>
-                                    prev.map((x, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...x,
-                                            experienceMonth: e.target.value,
-                                          }
-                                        : x,
-                                    ),
-                                  )
-                                }
-                                className="min-w-[70px]"
-                              />
-                            </td>
-                            <td className="border px-1 py-1 text-center whitespace-nowrap">
-                              <button
-                                onClick={() =>
-                                  setExperience((prev) => [
-                                    ...prev,
-                                    ...buildInitialExperience([]),
-                                  ])
-                                }
-                                className="text-green-600 hover:text-green-800 mr-2 text-lg"
-                                title="Add"
-                              >
-                                +
-                              </button>
-                              {i > 0 && (
-                                <button
-                                  onClick={() =>
-                                    setExperience((prev) =>
-                                      prev.filter((_, idx) => idx !== i),
-                                    )
-                                  }
-                                  className="text-red-500 hover:text-red-700 text-lg"
-                                  title="Remove"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table
+                    rows={experience}
+                    pageSize={0}
+                    density="compact"
+                    emptyText="No experience records."
+                    columns={[
+                      {
+                        id: "prevoiusInstitutions",
+                        label: "Previous Institution",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Name"
+                            value={row.prevoiusInstitutions}
+                            onChange={(e) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? {
+                                        ...x,
+                                        prevoiusInstitutions: e.target.value,
+                                      }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[120px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "designation",
+                        label: "Designation",
+                        render: (row, i) => (
+                          <Select
+                            value={
+                              row.designation ? String(row.designation) : null
+                            }
+                            onChange={(v) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, designation: asNum(v) || null }
+                                    : x,
+                                ),
+                              )
+                            }
+                            options={designationOptions}
+                            placeholder="Designation"
+                          />
+                        ),
+                      },
+                      {
+                        id: "subjects",
+                        label: "Subjects",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Subjects"
+                            value={row.subjects}
+                            onChange={(e) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, subjects: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[90px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "experienceDetail",
+                        label: "Experience",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Experience"
+                            value={row.experienceDetail}
+                            onChange={(e) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, experienceDetail: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[90px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "fromYrMonth",
+                        label: "Exp. From",
+                        render: (row, i) => (
+                          <DatePicker
+                            value={row.fromYrMonth}
+                            onChange={(v) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i ? { ...x, fromYrMonth: v } : x,
+                                ),
+                              )
+                            }
+                            placeholder="From"
+                          />
+                        ),
+                      },
+                      {
+                        id: "toYrMonth",
+                        label: "Exp. To",
+                        render: (row, i) => (
+                          <DatePicker
+                            value={row.toYrMonth}
+                            onChange={(v) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i ? { ...x, toYrMonth: v } : x,
+                                ),
+                              )
+                            }
+                            placeholder="To"
+                          />
+                        ),
+                      },
+                      {
+                        id: "experienceYear",
+                        label: "Total Years",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Total Years"
+                            value={row.experienceYear}
+                            onChange={(e) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, experienceYear: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[70px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "experienceMonth",
+                        label: "Total Months",
+                        render: (row, i) => (
+                          <Input
+                            placeholder="Total Months"
+                            value={row.experienceMonth}
+                            onChange={(e) =>
+                              setExperience((prev) =>
+                                prev.map((x, idx) =>
+                                  idx === i
+                                    ? { ...x, experienceMonth: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            className="min-w-[70px]"
+                          />
+                        ),
+                      },
+                      {
+                        id: "actions",
+                        label: "Actions",
+                        type: "action",
+                        render: (_row, i) => (
+                          <RowAddRemove
+                            canRemove={i > 0}
+                            onAdd={() =>
+                              setExperience((prev) => [
+                                ...prev,
+                                ...buildInitialExperience([]),
+                              ])
+                            }
+                            onRemove={() =>
+                              setExperience((prev) =>
+                                prev.filter((_, idx) => idx !== i),
+                              )
+                            }
+                          />
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
               )}
 
@@ -2839,148 +2854,151 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {stepId === "certificates" && (
                 <div className="space-y-4">
                   <SubHeader>Certificates</SubHeader>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-muted">
-                          {[
-                            "Document Name",
-                            "Hardcopy",
-                            "Softcopy",
-                            "Original",
-                            "Verified",
-                            "Rack Number",
-                            "upload",
-                          ].map((h) => (
-                            <th
-                              key={h}
-                              className="border px-2 py-2 text-left font-medium text-xs whitespace-nowrap"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {documents.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="border px-2 py-6 text-center text-muted-foreground text-sm"
-                            >
-                              &nbsp;
-                            </td>
-                          </tr>
-                        ) : (
-                          documents.map((d, i) => (
-                            <tr key={i} className="border-b">
-                              <td className="border px-2 py-2 font-medium">
-                                {d.fileName ||
-                                  `Document ${d.documentRepositoryId}`}
-                              </td>
-                              <td className="border px-2 py-2 text-center">
-                                <Checkbox
-                                  checked={d.isHardCopy}
-                                  onCheckedChange={(v) =>
-                                    setDocuments((prev) =>
-                                      prev.map((x) =>
-                                        x.documentRepositoryId ===
-                                        d.documentRepositoryId
-                                          ? { ...x, isHardCopy: v === true }
-                                          : x,
-                                      ),
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td className="border px-2 py-2 text-center">
-                                <Checkbox
-                                  checked={d.isSoftCopy}
-                                  onCheckedChange={(v) =>
-                                    setDocuments((prev) =>
-                                      prev.map((x) =>
-                                        x.documentRepositoryId ===
-                                        d.documentRepositoryId
-                                          ? { ...x, isSoftCopy: v === true }
-                                          : x,
-                                      ),
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td className="border px-2 py-2 text-center">
-                                <Checkbox
-                                  checked={d.isOriginal}
-                                  onCheckedChange={(v) =>
-                                    setDocuments((prev) =>
-                                      prev.map((x) =>
-                                        x.documentRepositoryId ===
-                                        d.documentRepositoryId
-                                          ? { ...x, isOriginal: v === true }
-                                          : x,
-                                      ),
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td className="border px-2 py-2 text-center">
-                                <Checkbox
-                                  checked={d.isVerified}
-                                  onCheckedChange={(v) =>
-                                    setDocuments((prev) =>
-                                      prev.map((x) =>
-                                        x.documentRepositoryId ===
-                                        d.documentRepositoryId
-                                          ? { ...x, isVerified: v === true }
-                                          : x,
-                                      ),
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td className="border px-1 py-1">
-                                <Input
-                                  placeholder="Rack Number"
-                                  value={d.rackNumber}
-                                  onChange={(e) =>
-                                    setDocuments((prev) =>
-                                      prev.map((x) =>
-                                        x.documentRepositoryId ===
-                                        d.documentRepositoryId
-                                          ? { ...x, rackNumber: e.target.value }
-                                          : x,
-                                      ),
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td className="border px-2 py-2">
-                                {d.isSoftCopy ? (
-                                  <Input
-                                    type="file"
-                                    accept=".png,.jpg,.jpeg,.pdf"
-                                    className="text-xs"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file)
-                                        setDocFiles((prev) => ({
-                                          ...prev,
-                                          [d.documentRepositoryId]: file,
-                                        }));
-                                    }}
-                                  />
-                                ) : (
-                                  <span className="text-blue-500 text-xs">
-                                    To upload Doc check Softcopy
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <Table
+                    rows={documents}
+                    pageSize={0}
+                    density="compact"
+                    emptyText="No certificates found."
+                    columns={[
+                      {
+                        id: "fileName",
+                        label: "Document Name",
+                        render: (d) => (
+                          <span className="font-medium">
+                            {d.fileName || `Document ${d.documentRepositoryId}`}
+                          </span>
+                        ),
+                      },
+                      {
+                        id: "isHardCopy",
+                        label: "Hardcopy",
+                        render: (d) => (
+                          <div className="text-center">
+                            <Checkbox
+                              checked={d.isHardCopy}
+                              onCheckedChange={(v) =>
+                                setDocuments((prev) =>
+                                  prev.map((x) =>
+                                    x.documentRepositoryId ===
+                                    d.documentRepositoryId
+                                      ? { ...x, isHardCopy: v === true }
+                                      : x,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        ),
+                      },
+                      {
+                        id: "isSoftCopy",
+                        label: "Softcopy",
+                        render: (d) => (
+                          <div className="text-center">
+                            <Checkbox
+                              checked={d.isSoftCopy}
+                              onCheckedChange={(v) =>
+                                setDocuments((prev) =>
+                                  prev.map((x) =>
+                                    x.documentRepositoryId ===
+                                    d.documentRepositoryId
+                                      ? { ...x, isSoftCopy: v === true }
+                                      : x,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        ),
+                      },
+                      {
+                        id: "isOriginal",
+                        label: "Original",
+                        render: (d) => (
+                          <div className="text-center">
+                            <Checkbox
+                              checked={d.isOriginal}
+                              onCheckedChange={(v) =>
+                                setDocuments((prev) =>
+                                  prev.map((x) =>
+                                    x.documentRepositoryId ===
+                                    d.documentRepositoryId
+                                      ? { ...x, isOriginal: v === true }
+                                      : x,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        ),
+                      },
+                      {
+                        id: "isVerified",
+                        label: "Verified",
+                        render: (d) => (
+                          <div className="text-center">
+                            <Checkbox
+                              checked={d.isVerified}
+                              onCheckedChange={(v) =>
+                                setDocuments((prev) =>
+                                  prev.map((x) =>
+                                    x.documentRepositoryId ===
+                                    d.documentRepositoryId
+                                      ? { ...x, isVerified: v === true }
+                                      : x,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                        ),
+                      },
+                      {
+                        id: "rackNumber",
+                        label: "Rack Number",
+                        render: (d) => (
+                          <Input
+                            placeholder="Rack Number"
+                            value={d.rackNumber}
+                            onChange={(e) =>
+                              setDocuments((prev) =>
+                                prev.map((x) =>
+                                  x.documentRepositoryId ===
+                                  d.documentRepositoryId
+                                    ? { ...x, rackNumber: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                          />
+                        ),
+                      },
+                      {
+                        id: "upload",
+                        label: "upload",
+                        render: (d) =>
+                          d.isSoftCopy ? (
+                            <Input
+                              type="file"
+                              accept=".png,.jpg,.jpeg,.pdf"
+                              className="text-xs"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file)
+                                  setDocFiles((prev) => ({
+                                    ...prev,
+                                    [d.documentRepositoryId]: file,
+                                  }));
+                              }}
+                            />
+                          ) : (
+                            <span className="text-xs text-blue-500">
+                              To upload Doc check Softcopy
+                            </span>
+                          ),
+                      },
+                    ]}
+                  />
                 </div>
               )}
 
@@ -3266,7 +3284,11 @@ export function EmployeeEnrollmentPage({ mode }: { mode: Mode }) {
               {/* ── Navigation buttons ─────────────────────────── */}
               <div className="flex items-center justify-between pt-5 border-t mt-5">
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleBack}>
+                  <Button
+                    variant="outline"
+                    className="back-btn"
+                    onClick={handleBack}
+                  >
                     Back
                   </Button>
                 </div>

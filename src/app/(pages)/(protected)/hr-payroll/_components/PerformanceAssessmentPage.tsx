@@ -15,6 +15,7 @@ import {
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import { useSessionContext } from "@/context/SessionContext";
 import { useLoginEmployeeId } from "@/hooks/useLoginEmployeeId";
@@ -200,6 +201,7 @@ export function PerformanceAssessmentPage() {
     ),
     queryFn: () => listPerformanceAssessmentByEmployee(selectedEmployeeId!),
     enabled: selectedEmployeeId != null && selectedEmployeeId > 0,
+    ...HR_QUERY,
   });
 
   const viewOnly =
@@ -215,9 +217,9 @@ export function PerformanceAssessmentPage() {
   }, []);
 
   useEffect(() => {
-    // Angular `enteredEmployee(empNumber, 'params')` — select the logged-in
-    // employee on load. Principal/HOD keep the dropdown enabled so they can
-    // still search others.
+    // Locked staff (not principal/HOD) stay on the logged-in employee.
+    // Principal/HOD must pick an employee first — table stays hidden until then.
+    if (!staffLocked) return;
     if (sessionLoading || isResolving || autoSelectDone.current) return;
     if (!collegeId) return;
     if (!empNumber && loggedInEmployeeId <= 0) return;
@@ -254,6 +256,7 @@ export function PerformanceAssessmentPage() {
       }
     })();
   }, [
+    staffLocked,
     sessionLoading,
     isResolving,
     collegeId,
@@ -421,6 +424,7 @@ export function PerformanceAssessmentPage() {
         ) : null
       }
       showTable={hasEmployee}
+      resultsVisible={hasEmployee}
       rowData={history}
       columnDefs={columnDefs}
       loading={isFetching}

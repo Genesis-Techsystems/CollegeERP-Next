@@ -8,6 +8,7 @@ import { StatusBadge } from "@/common/components/data-display";
 import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import { listDepartmentHeads } from "@/services";
 import { rowIndexGetter } from "@/lib/utils";
@@ -108,6 +109,7 @@ export function DepartmentHeadsPage() {
   } = useQuery({
     queryKey: QK.hrPayroll.departmentHeads(),
     queryFn: listDepartmentHeads,
+    ...HR_QUERY,
   });
 
   const onEdit = useCallback((row: DeptHeadRow) => {

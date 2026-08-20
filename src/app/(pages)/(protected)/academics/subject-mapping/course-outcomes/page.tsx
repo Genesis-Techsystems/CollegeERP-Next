@@ -373,6 +373,7 @@ export default function CourseOutcomesPage() {
               searchable
               className="md:col-span-2"
             />
+
             <Select
               label="Academic Year *"
               value={academicYearId ? String(academicYearId) : null}
@@ -386,7 +387,8 @@ export default function CourseOutcomesPage() {
             />
           </div>
         }
-        rowData={academicYearId ? rows : []}
+        showTable={Boolean(collegeId && academicYearId)}
+        rowData={rows}
         columnDefs={tableColumns}
         loading={loadingRows}
         toolbar={{ search: true, searchPlaceholder: "Search" }}

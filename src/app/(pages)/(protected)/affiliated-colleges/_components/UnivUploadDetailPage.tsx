@@ -1,28 +1,30 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
-import { PageContainer } from '@/components/layout'
-import { Table, type TableColumn } from '@/common/components/table'
-import { formatDate } from '@/common/generic-functions'
-import { getErrorMessage } from '@/lib/errors'
-import { exportHtmlTableAsExcel } from '../_lib/export-html-table'
-import { useFilteredRows } from '../_lib/use-filtered-rows'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { PageContainer } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Table, type TableColumn } from "@/common/components/table";
+import { formatDate } from "@/common/generic-functions";
+import { getErrorMessage } from "@/lib/errors";
+import { AFFILIATED_QUERY } from "../_lib/affiliated-query";
+import { exportHtmlTableAsExcel } from "../_lib/export-html-table";
+import { useFilteredRows } from "../_lib/use-filtered-rows";
 import {
   buildUnivDataDetails,
   getUnivAffiliatedContext,
   setUnivAffiliatedContext,
   UNIV_AFFILIATED_STORAGE,
-} from '../_lib/univ-affiliated-storage'
+} from "../_lib/univ-affiliated-storage";
 import {
   UNIV_UPLOAD_DETAIL_CONFIG,
   type UnivUploadDetailKind,
-} from '../_lib/univ-upload-detail-config'
-import { AffiliatedBulkBreadcrumb } from './AffiliatedBulkBreadcrumb'
-import { AffiliatedReportToolbar } from './AffiliatedReportToolbar'
+} from "../_lib/univ-upload-detail-config";
+import { AffiliatedBulkBreadcrumb } from "./AffiliatedBulkBreadcrumb";
+import { AffiliatedReportToolbar } from "./AffiliatedReportToolbar";
 
-type AnyRow = Record<string, unknown>
+type AnyRow = Record<string, unknown>;
 
 function pickUploadFileId(row: AnyRow): number {
   const n = Number(
@@ -31,16 +33,19 @@ function pickUploadFileId(row: AnyRow): number {
       row.univUploadfileId ??
       row.univUploadFileId ??
       0,
-  )
-  return Number.isFinite(n) && n > 0 ? n : 0
+  );
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function pivotSubjectRows(raw: AnyRow[]): { rows: AnyRow[]; subjectCodes: string[] } {
-  const transformed: Record<string, AnyRow> = {}
-  const subjectsSet = new Set<string>()
+function pivotSubjectRows(raw: AnyRow[]): {
+  rows: AnyRow[];
+  subjectCodes: string[];
+} {
+  const transformed: Record<string, AnyRow> = {};
+  const subjectsSet = new Set<string>();
   for (const item of raw) {
-    const hall = String(item.hallticketno ?? '')
-    if (!hall) continue
+    const hall = String(item.hallticketno ?? "");
+    if (!hall) continue;
     if (!transformed[hall]) {
       transformed[hall] = {
         sno: Number(item.srno ?? 0),
@@ -48,100 +53,123 @@ function pivotSubjectRows(raw: AnyRow[]): { rows: AnyRow[]; subjectCodes: string
         academicyear: item.academicyear,
         courseyearcode: item.courseyearcode,
         regulationcode: item.regulationcode,
-      }
+      };
     }
-    const code = String(item.subjectcode ?? '')
+    const code = String(item.subjectcode ?? "");
     if (code) {
-      transformed[hall][code] = 'Y'
-      subjectsSet.add(code)
+      transformed[hall][code] = "Y";
+      subjectsSet.add(code);
     }
   }
   for (const row of Object.values(transformed)) {
     for (const code of subjectsSet) {
-      if (!row[code]) row[code] = 'N'
+      if (!row[code]) row[code] = "N";
     }
   }
-  return { rows: Object.values(transformed), subjectCodes: Array.from(subjectsSet) }
+  return {
+    rows: Object.values(transformed),
+    subjectCodes: Array.from(subjectsSet),
+  };
 }
 
-function mapDisplayRow(row: AnyRow, index: number, columns: TableColumn<AnyRow>[]): AnyRow {
-  const out: AnyRow = { ...row, sno: index + 1 }
+function mapDisplayRow(
+  row: AnyRow,
+  index: number,
+  columns: TableColumn<AnyRow>[],
+): AnyRow {
+  const out: AnyRow = { ...row, sno: index + 1 };
   for (const col of columns) {
-    const id = String(col.id)
-    if (out[id] != null) continue
-    if (id === 'dateOfBirth') out[id] = formatDate(String(row.dateOfBirth ?? row.date_of_birth ?? ''))
-    if (id === 'hallticket') out[id] = row.hallticket ?? row.hallticketno
-    if (id === 'Amount') out[id] = row.Amount ?? row.amount
+    const id = String(col.id);
+    if (out[id] != null) continue;
+    if (id === "dateOfBirth")
+      out[id] = formatDate(String(row.dateOfBirth ?? row.date_of_birth ?? ""));
+    if (id === "hallticket") out[id] = row.hallticket ?? row.hallticketno;
+    if (id === "Amount") out[id] = row.Amount ?? row.amount;
   }
-  return out
+  return out;
 }
 
-type UnivUploadDetailPageProps = { kind: UnivUploadDetailKind }
+type UnivUploadDetailPageProps = { kind: UnivUploadDetailKind };
 
 export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
-  const config = UNIV_UPLOAD_DETAIL_CONFIG[kind]
-  const router = useRouter()
-  const tableRef = useRef<HTMLDivElement>(null)
-  const [params, setParams] = useState<AnyRow | null>(null)
-  const [search, setSearch] = useState('')
-  const [isPrintMode, setIsPrintMode] = useState(false)
+  const config = UNIV_UPLOAD_DETAIL_CONFIG[kind];
+  const router = useRouter();
+  const tableRef = useRef<HTMLDivElement>(null);
+  const [params, setParams] = useState<AnyRow | null>(null);
+  const [search, setSearch] = useState("");
+  const [isPrintMode, setIsPrintMode] = useState(false);
 
   useEffect(() => {
-    const ctx = getUnivAffiliatedContext(config.storageKey)
+    const ctx = getUnivAffiliatedContext(config.storageKey);
     if (!ctx) {
-      router.replace('/affiliated-colleges/university-affiliated-colleges/view-uploaded-files')
-      return
+      router.replace(
+        "/affiliated-colleges/university-affiliated-colleges/view-uploaded-files",
+      );
+      return;
     }
-    setParams(ctx)
-  }, [config.storageKey, router])
+    setParams(ctx);
+  }, [config.storageKey, router]);
 
-  const uploadFileId = params ? pickUploadFileId(params) : 0
+  const uploadFileId = params ? pickUploadFileId(params) : 0;
 
-  const { data: rawRows = [], isFetching, error } = useQuery({
-    queryKey: ['affiliated-colleges', kind, uploadFileId],
+  const {
+    data: rawRows = [],
+    isFetching,
+    error,
+  } = useQuery({
+    queryKey: ["affiliated-colleges", kind, uploadFileId],
     queryFn: () => config.loadRows(uploadFileId),
     enabled: uploadFileId > 0,
-  })
+    ...AFFILIATED_QUERY,
+  });
 
   const { tableRows, columns } = useMemo(() => {
-    if (config.tableMode === 'subjects') {
-      const { rows, subjectCodes } = pivotSubjectRows(rawRows)
+    if (config.tableMode === "subjects") {
+      const { rows, subjectCodes } = pivotSubjectRows(rawRows);
       const cols: TableColumn<AnyRow>[] = [
-        { id: 'sno', label: 'SNo', width: 5 },
-        { id: 'hallticketno', label: 'Hall Ticket No', width: 12 },
-        { id: 'courseyearcode', label: 'Course Year', width: 10 },
-        { id: 'academicyear', label: 'Academic Year', width: 10 },
-        { id: 'regulationcode', label: 'Regulation', width: 10 },
+        { id: "sno", label: "SNo", width: 5 },
+        { id: "hallticketno", label: "Hall Ticket No", width: 12 },
+        { id: "courseyearcode", label: "Course Year", width: 10 },
+        { id: "academicyear", label: "Academic Year", width: 10 },
+        { id: "regulationcode", label: "Regulation", width: 10 },
         ...subjectCodes.map((code) => ({ id: code, label: code, width: 6 })),
-      ]
+      ];
       return {
         tableRows: rows.map((r, i) => ({ ...r, sno: i + 1 })),
         columns: cols,
-      }
+      };
     }
-    const cols = config.columns ?? []
+    const cols = config.columns ?? [];
     return {
       tableRows: rawRows.map((r, i) => mapDisplayRow(r, i, cols)),
       columns: cols,
-    }
-  }, [config, rawRows])
+    };
+  }, [config, rawRows]);
 
-  const filtered = useFilteredRows(tableRows, search)
-  const dataDetails = params ? buildUnivDataDetails(params) : ''
+  const filtered = useFilteredRows(tableRows, search);
+  const dataDetails = params ? buildUnivDataDetails(params) : "";
 
   const goBack = () => {
-    const parent = getUnivAffiliatedContext(UNIV_AFFILIATED_STORAGE.uploadedFilesSummary)
-    if (parent) setUnivAffiliatedContext(UNIV_AFFILIATED_STORAGE.uploadedFilesSummary, parent)
-    router.push('/affiliated-colleges/university-affiliated-colleges/view-uploaded-files')
-  }
+    const parent = getUnivAffiliatedContext(
+      UNIV_AFFILIATED_STORAGE.uploadedFilesSummary,
+    );
+    if (parent)
+      setUnivAffiliatedContext(
+        UNIV_AFFILIATED_STORAGE.uploadedFilesSummary,
+        parent,
+      );
+    router.push(
+      "/affiliated-colleges/university-affiliated-colleges/view-uploaded-files",
+    );
+  };
 
   const handlePrint = () => {
-    setIsPrintMode(true)
+    setIsPrintMode(true);
     setTimeout(() => {
-      window.print()
-      setIsPrintMode(false)
-    }, 500)
-  }
+      window.print();
+      setIsPrintMode(false);
+    }, 500);
+  };
 
   const renderPrintTable = (): ReactNode => (
     <table className="w-full border-collapse text-sm mt-4">
@@ -159,25 +187,27 @@ export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
           <tr key={i}>
             {columns.map((c) => (
               <td key={String(c.id)} className="border p-2">
-                {String(row[c.id as string] ?? (c.id === 'sno' ? i + 1 : ''))}
+                {String(row[c.id as string] ?? (c.id === "sno" ? i + 1 : ""))}
               </td>
             ))}
           </tr>
         ))}
       </tbody>
     </table>
-  )
+  );
 
-  if (!params) return null
+  if (!params) return null;
 
   if (isPrintMode) {
     return (
       <div className="print-content p-4">
         <strong className="block">{config.title}</strong>
-        {dataDetails ? <span className="text-blue-600 font-medium">{dataDetails}</span> : null}
+        {dataDetails ? (
+          <span className="text-blue-600 font-medium">{dataDetails}</span>
+        ) : null}
         {renderPrintTable()}
       </div>
-    )
+    );
   }
 
   return (
@@ -189,7 +219,9 @@ export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
             <h2 className="font-semibold text-base">{config.title}</h2>
             {dataDetails ? (
-              <span className="text-sm text-blue-600 font-medium">{dataDetails}</span>
+              <span className="text-sm text-blue-600 font-medium">
+                {dataDetails}
+              </span>
             ) : null}
           </div>
 
@@ -198,7 +230,7 @@ export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
             onSearchChange={setSearch}
             onExport={() =>
               exportHtmlTableAsExcel(
-                tableRef.current?.querySelector('table') ?? null,
+                tableRef.current?.querySelector("table") ?? null,
                 config.exportFileName,
               )
             }
@@ -207,7 +239,11 @@ export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
             onBack={goBack}
           />
 
-          {error ? <p className="text-sm text-destructive px-4">{getErrorMessage(error)}</p> : null}
+          {error ? (
+            <p className="text-sm text-destructive px-4">
+              {getErrorMessage(error)}
+            </p>
+          ) : null}
 
           <div ref={tableRef} className="p-4">
             <Table
@@ -221,12 +257,14 @@ export function UnivUploadDetailPage({ kind }: UnivUploadDetailPageProps) {
         </div>
       ) : (
         <div className="app-card p-6 mt-4 space-y-3">
-          <p className="text-sm text-muted-foreground">No records found for this upload file.</p>
-          <button type="button" className="text-sm underline" onClick={goBack}>
+          <p className="text-sm text-muted-foreground">
+            No records found for this upload file.
+          </p>
+          <Button type="button" className="back-btn" onClick={goBack}>
             Back
-          </button>
+          </Button>
         </div>
       )}
     </PageContainer>
-  )
+  );
 }

@@ -610,8 +610,14 @@ export function DataTable<T>({
   );
   const [inferredTitle, setInferredTitle] = useState<string | undefined>();
 
+  const [hasHydrated, setHasHydrated] = useState(false);
+
   useEffect(() => {
     setPopupParent(document.body);
+  }, []);
+
+  useEffect(() => {
+    setHasHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -866,7 +872,9 @@ export function DataTable<T>({
 
   const exportExcelEnabled = tb.exportExcel || exportCsv;
 
-  const isGridEmpty = !loading && pagedRowData.length === 0;
+  // Apply empty-grid CSS only after mount so SSR HTML matches the client's
+  // first paint (`loading` / row counts often differ once session hydrates).
+  const isGridEmpty = hasHydrated && !loading && pagedRowData.length === 0;
   const suppressGrid =
     !resultsVisible ||
     (hideEmptyGrid && !loading && (!rowData || rowData.length === 0));

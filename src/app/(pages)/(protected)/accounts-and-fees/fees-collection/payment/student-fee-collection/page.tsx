@@ -19,6 +19,7 @@ import {
   listStudentFeeDue,
 } from "@/services";
 import type { StudentFeeDueRow } from "@/types/fees-collection";
+import { FEE_COLLECTION_LIST_QUERY } from "../../_lib/fee-collection-query";
 
 function amt(v: unknown): string {
   if (v == null || v === "") return "0";
@@ -80,11 +81,13 @@ function StudentFeeCollectionContent() {
   const { data: colleges = [], isLoading: loadingColleges } = useQuery({
     queryKey: ["FeesCollection", "studentFeeCollection", "colleges"],
     queryFn: listActiveCollegesForGeneralSettings,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const { data: quotas = [], isLoading: loadingQuotas } = useQuery({
     queryKey: ["FeesCollection", "studentFeeCollection", "quotas"],
     queryFn: listFeeCollectionQuotaOptions,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const selectedCollege = useMemo(
@@ -100,12 +103,14 @@ function StudentFeeCollectionContent() {
     }),
     queryFn: () => listAcademicYearsForCollege(collegeNum),
     enabled: collegeNum > 0,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const { data: courses = [], isLoading: loadingCourses } = useQuery({
     queryKey: QK.feesCollection.studentDue({ universityId, kind: "courses" }),
     queryFn: () => listCoursesByUniversity(universityId),
     enabled: universityId > 0,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const { data: courseGroups = [], isLoading: loadingGroups } = useQuery({
@@ -115,6 +120,7 @@ function StudentFeeCollectionContent() {
     }),
     queryFn: () => listCourseGroupsByCourse(courseNum ?? 0),
     enabled: Boolean(courseNum),
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const { data: courseYears = [], isLoading: loadingCourseYears } = useQuery({
@@ -124,6 +130,7 @@ function StudentFeeCollectionContent() {
     }),
     queryFn: () => listCourseYearsForFeeCollection(courseNum ?? 0),
     enabled: Boolean(courseNum) && Boolean(groupNum),
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const dueFilters = useMemo(
@@ -149,6 +156,7 @@ function StudentFeeCollectionContent() {
     queryKey: QK.feesCollection.studentDue(dueFilters),
     queryFn: () => listStudentFeeDue(dueFilters),
     enabled: fetchEnabled && collegeNum > 0,
+    ...FEE_COLLECTION_LIST_QUERY,
   });
 
   const rows = dueResult?.rows ?? [];

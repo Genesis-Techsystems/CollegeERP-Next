@@ -133,6 +133,8 @@ export function useAffiliatedCascade(options: AffiliatedCascadeOptions = {}) {
       : options.examFilters
         ? QK.affiliatedColleges.examFilters(orgId, empId)
         : QK.affiliatedColleges.collegeFilters(orgId, empId),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: () =>
       options.timetableFilters
         ? fetchTimetableFilterRows("cls_timtable_filters", 0).then(

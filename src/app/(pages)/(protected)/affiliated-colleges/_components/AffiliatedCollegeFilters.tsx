@@ -84,6 +84,8 @@ type AffiliatedCollegeFiltersProps = {
   /** Hide "All" regulation option — subject upload auto-picks a regulation. */
   hideAllRegulation?: boolean;
   hideGetDetails?: boolean;
+  /** Keep Get Details clickable even when cascade filters are incomplete. */
+  getDetailsAlwaysEnabled?: boolean;
   footerExtra?: ReactNode;
   /** Place `footerExtra` on the left; buttons stay on the right (attendance summary). */
   footerExtraAlign?: "start" | "end";
@@ -111,6 +113,7 @@ export function AffiliatedCollegeFilters({
   showRegulation,
   hideAllRegulation,
   hideGetDetails,
+  getDetailsAlwaysEnabled,
   footerExtra,
   footerExtraAlign = "end",
   bare,
@@ -245,19 +248,28 @@ export function AffiliatedCollegeFilters({
   ) : null;
 
   const actionButtons = (
-    <div className="flex flex-wrap gap-2 items-end">
-      {showBack && onBack ? (
-        <Button type="button" variant="outline" onClick={onBack}>
-          Back
-        </Button>
-      ) : null}
+    <div className="ml-auto flex flex-wrap items-end justify-end gap-2">
       {!hideGetDetails ? (
         <Button
           type="button"
           onClick={onGetDetails}
-          disabled={!filtersValid || loadingDetails}
+          disabled={
+            getDetailsAlwaysEnabled
+              ? Boolean(loadingDetails)
+              : !filtersValid || loadingDetails
+          }
         >
           {loadingDetails ? "Loading…" : getDetailsLabel}
+        </Button>
+      ) : null}
+      {showBack && onBack ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="back-btn"
+          onClick={onBack}
+        >
+          Back
         </Button>
       ) : null}
     </div>

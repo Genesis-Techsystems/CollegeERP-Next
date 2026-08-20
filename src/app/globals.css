@@ -3821,6 +3821,30 @@ a.app-control.back-btn:hover {
   color: #000 !important;
 }
 
+/* Angular fee-payment Back (`black-btn`) — navy, beats data-app-back white/yellow */
+button.app-control.black-btn[data-app-back],
+a.app-control.black-btn[data-app-back],
+button.app-control.black-btn,
+a.app-control.black-btn,
+button.black-btn,
+a.black-btn {
+  background: #042956 !important;
+  background-color: #042956 !important;
+  color: #fff !important;
+  border: 0 !important;
+}
+
+button.app-control.black-btn[data-app-back]:hover,
+a.app-control.black-btn[data-app-back]:hover,
+button.app-control.black-btn:hover,
+a.app-control.black-btn:hover,
+button.black-btn:hover,
+a.black-btn:hover {
+  background: #031f42 !important;
+  background-color: #031f42 !important;
+  color: #fff !important;
+}
+
 /* Angular dialog title icon */
 .app-dialog-title__icon {
   font-size: 20px !important;

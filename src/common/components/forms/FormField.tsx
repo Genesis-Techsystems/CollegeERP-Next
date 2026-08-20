@@ -29,7 +29,7 @@ export function FormField({
         className="text-[12px] font-medium leading-none text-black/54 peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
       >
         {label}
-        {required && <span className="text-destructive ml-0.5">*</span>}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
       </label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import {
   assignEmployeeReportingManager,
@@ -137,6 +138,7 @@ export function AssignReportingManagerPage() {
     queryKey: QK.hrPayroll.employeeDetail(employeeIdParam),
     queryFn: () => getEmployeeByIdForHr(employeeIdParam),
     enabled: employeeIdParam > 0,
+    ...HR_QUERY,
   });
 
   const {
@@ -147,6 +149,7 @@ export function AssignReportingManagerPage() {
     queryKey: QK.hrPayroll.employeeReporting(employeeIdParam),
     queryFn: () => listEmployeeReportingByEmployee(employeeIdParam),
     enabled: employeeIdParam > 0,
+    ...HR_QUERY,
   });
 
   useEffect(() => {
@@ -507,8 +510,10 @@ export function AssignReportingManagerPage() {
       }
       rowData={assignedRows}
       columnDefs={columnDefs}
+      showTable={assignedRows.length > 0}
+      resultsVisible={assignedRows.length > 0}
       loading={tableLoading}
-      pagination
+      pagination={assignedRows.length > 0}
       toolbar={{
         search: true,
         searchPlaceholder: "Search",

@@ -75,6 +75,8 @@ const SIDEBAR_ROUTE_PIN_OVERRIDES = {
     "/admin-student-information-system/generate-student-rollno",
   "assign student roll number":
     "/admin-student-information-system/generate-student-rollno",
+  "item approval": "/e-office/item-approval",
+  "item approvals": "/e-office/item-approval",
 };
 
 function normalizeLabelKey(label) {
@@ -143,7 +145,6 @@ function buildRouteDisplayLabels() {
   return out;
 }
 
-/** Label-derived slugs (newUrl) → real App Router folders (oldUrl) for active highlight + 404 prevention. */
 function buildRouteCanonicalAliases(summary) {
   const out = {};
   for (const row of summary) {

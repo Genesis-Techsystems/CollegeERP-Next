@@ -1,22 +1,9 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColDef } from "ag-grid-community";
-import {
-  CheckCircle2,
-  Download,
-  FileSpreadsheet,
-  Upload,
-  X,
-} from "lucide-react";
+import { CheckCircle2, FileSpreadsheet } from "lucide-react";
 import { DataTable, TableCard } from "@/common/components/table";
 import { FormModal } from "@/common/components/feedback";
 import { FilteredPage, PageContainer } from "@/components/layout";
@@ -26,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { getErrorMessage } from "@/lib/errors";
-import { cn, rowIndexGetter } from "@/lib/utils";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   getAffiliatedStudentUploadTemplate,
   importAffiliatedDostFileOnly,
@@ -56,80 +43,11 @@ import {
   saveAffiliatedSummaryContext,
 } from "../_lib/affiliated-summary-context";
 import { useAffiliatedCascade } from "../_lib/use-affiliated-cascade";
+import { AffiliatedExcelDownloadUpload } from "./AffiliatedExcelActionPanel";
 import { AffiliatedCollegeFilters } from "./AffiliatedCollegeFilters";
 
 type AnyRow = Record<string, unknown>;
 type UploadMode = "students" | "dost";
-
-/**
- * Angular fuse-widget tile on college-student-bulk-upload —
- * `#00b9ff` card, white icon above label (Download Excel / Upload Excel).
- */
-function AffiliatedExcelActionTile({
-  icon,
-  label,
-  onClick,
-  href,
-  disabled,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-  href?: string;
-  disabled?: boolean;
-}) {
-  const className = cn(
-    "flex w-full max-w-[14rem] flex-col items-center rounded-[5px] bg-[#00b9ff] px-3 py-3 text-white shadow-[0_2px_8px_rgba(0,0,0,0.18)] transition",
-    "hover:bg-[#00a8e8] hover:shadow-[0_4px_12px_rgba(0,0,0,0.22)]",
-    "disabled:pointer-events-none disabled:opacity-60",
-  );
-
-  const content = (
-    <>
-      <span className="mb-2 inline-flex items-center justify-center text-white">
-        {icon}
-      </span>
-      <span className="text-center text-sm font-semibold leading-tight">
-        {label}
-      </span>
-    </>
-  );
-
-  if (href) {
-    return (
-      <a href={href} download className={className}>
-        {content}
-      </a>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={className}
-    >
-      {content}
-    </button>
-  );
-}
-
-/** Angular `yar-bordr` column around each download/upload action. */
-function AffiliatedExcelActionPanel({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center rounded-[3px] border-2 border-[#89c5ff] px-3 py-4">
-      <h3 className="mb-4 w-full text-center text-sm font-semibold">{title}</h3>
-      {children}
-    </div>
-  );
-}
 
 /** Angular embedded DOST tab columns on `college-student-bulk-upload`. */
 const DOST_INLINE_STAGING_COLS: ColDef<AnyRow>[] = [
@@ -600,57 +518,21 @@ export function CollegeStudentBulkUploadPage() {
             <FileSpreadsheet className="h-5 w-5 text-primary" />
             <h2 className="font-semibold text-base">Dost Upload</h2>
           </div>
-          <div className="grid gap-4 p-4 sm:grid-cols-2 sm:gap-6">
-            <AffiliatedExcelActionPanel title="1. Download Dost Sample">
-              <AffiliatedExcelActionTile
-                href="/assets/docs/DostUpload_bulk_upload.xlsx"
-                label="Download Excel"
-                icon={<Download className="h-10 w-10" strokeWidth={1.75} />}
-              />
-            </AffiliatedExcelActionPanel>
-            <AffiliatedExcelActionPanel title="2. Upload Dost">
-              <AffiliatedExcelActionTile
-                label={dostUploading ? "Uploading…" : "Upload Excel"}
-                disabled={dostUploading}
-                onClick={() => dostInputRef.current?.click()}
-                icon={<Upload className="h-10 w-10" strokeWidth={1.75} />}
-              />
-              <input
-                ref={dostInputRef}
-                type="file"
-                accept=".xls,.xlsx"
-                className="hidden"
-                onChange={(e) => {
-                  const selected = e.target.files?.[0];
-                  if (selected) void onUploadDostFile(selected);
-                  e.target.value = "";
-                }}
-              />
-              {dostFile?.name ? (
-                <div className="mt-3 inline-flex max-w-full items-center rounded-md border border-dashed border-emerald-300 bg-emerald-50 px-2.5 py-1.5">
-                  <div className="min-w-0 inline-flex items-center gap-1.5">
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs font-medium text-emerald-800 truncate">
-                      {dostFile.name}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDostFile(null);
-                        setDostStagingRows([]);
-                        if (dostInputRef.current)
-                          dostInputRef.current.value = "";
-                      }}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100 shrink-0"
-                      aria-label="Remove uploaded file"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </AffiliatedExcelActionPanel>
-          </div>
+          <AffiliatedExcelDownloadUpload
+            downloadTitle="1. Download Dost Sample"
+            uploadTitle="2. Upload Dost"
+            downloadHref="/assets/docs/DostUpload_bulk_upload.xlsx"
+            onUploadClick={() => dostInputRef.current?.click()}
+            uploading={dostUploading}
+            fileName={dostFile?.name}
+            onClearFile={() => {
+              setDostFile(null);
+              setDostStagingRows([]);
+              if (dostInputRef.current) dostInputRef.current.value = "";
+            }}
+            inputRef={dostInputRef}
+            onFileSelected={(selected) => void onUploadDostFile(selected)}
+          />
         </div>
 
         {dostStagingRows.length > 0 ? (
@@ -734,56 +616,21 @@ export function CollegeStudentBulkUploadPage() {
               Download &amp; Upload — Students Data
             </h2>
           </div>
-          <div className="grid gap-4 p-4 sm:grid-cols-2 sm:gap-6">
-            <AffiliatedExcelActionPanel title="1. Download Students Upload Sample">
-              <AffiliatedExcelActionTile
-                label="Download Excel"
-                onClick={onDownloadSampleExcel}
-                icon={<Download className="h-10 w-10" strokeWidth={1.75} />}
-              />
-            </AffiliatedExcelActionPanel>
-            <AffiliatedExcelActionPanel title="2. Upload Students">
-              <AffiliatedExcelActionTile
-                label={uploading ? "Uploading…" : "Upload Excel"}
-                disabled={uploading}
-                onClick={() => inputRef.current?.click()}
-                icon={<Upload className="h-10 w-10" strokeWidth={1.75} />}
-              />
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".xls,.xlsx"
-                className="hidden"
-                onChange={(e) => {
-                  const selected = e.target.files?.[0];
-                  if (selected) void onUploadFile(selected);
-                  e.target.value = "";
-                }}
-              />
-              {file?.name ? (
-                <div className="mt-3 inline-flex max-w-full items-center rounded-md border border-dashed border-emerald-300 bg-emerald-50 px-2.5 py-1.5">
-                  <div className="min-w-0 inline-flex items-center gap-1.5">
-                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <p className="text-xs font-medium text-emerald-800 truncate">
-                      {file.name}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFile(null);
-                        setStagingRows([]);
-                        if (inputRef.current) inputRef.current.value = "";
-                      }}
-                      className="inline-flex h-5 w-5 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100 shrink-0"
-                      aria-label="Remove uploaded file"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </AffiliatedExcelActionPanel>
-          </div>
+          <AffiliatedExcelDownloadUpload
+            downloadTitle="1. Download Students Upload Sample"
+            uploadTitle="2. Upload Students"
+            onDownload={onDownloadSampleExcel}
+            onUploadClick={() => inputRef.current?.click()}
+            uploading={uploading}
+            fileName={file?.name}
+            onClearFile={() => {
+              setFile(null);
+              setStagingRows([]);
+              if (inputRef.current) inputRef.current.value = "";
+            }}
+            inputRef={inputRef}
+            onFileSelected={(selected) => void onUploadFile(selected)}
+          />
         </div>
       ) : null}
 

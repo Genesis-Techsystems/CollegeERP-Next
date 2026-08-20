@@ -10,6 +10,7 @@ import { Select, type SelectOption } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
+import { HR_QUERY } from "../_lib/hr-query";
 import { getErrorMessage } from "@/lib/errors";
 import {
   listActiveCollegesForGeneralSettings,
@@ -87,7 +88,7 @@ function makeActionsRenderer(
           type="button"
           variant="link"
           size="sm"
-          className="h-auto px-1 text-[12px]"
+          className="h-auto px-1 text-[12px] font-medium text-blue-600 no-underline hover:text-blue-700 hover:underline"
           onClick={() => onFormDetails(row)}
         >
           Form Details
@@ -97,7 +98,7 @@ function makeActionsRenderer(
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="h-7 w-7 text-blue-600 hover:text-blue-700"
           onClick={() => onEdit(row)}
         >
           <PencilIcon className="h-3.5 w-3.5" />
@@ -136,9 +137,6 @@ export function SelfAppraisalPage() {
             label: String(c.collegeCode ?? c.collegeName ?? c.collegeId),
           })),
         );
-        if (filtered.length > 0) {
-          setCollegeId(Number(filtered[0]!.collegeId));
-        }
       } finally {
         setCollegesLoading(false);
       }
@@ -159,6 +157,7 @@ export function SelfAppraisalPage() {
     queryKey: QK.hrPayroll.selfAppraisalForms(collegeId ?? 0),
     queryFn: () => listSelfAppraisalFormsByCollege(collegeId!),
     enabled: collegeId != null && collegeId > 0,
+    ...HR_QUERY,
   });
 
   const onFormDetails = useCallback((row: FormRow) => {
@@ -226,8 +225,8 @@ export function SelfAppraisalPage() {
       }
       rowData={collegeId ? rows : []}
       columnDefs={collegeId ? columnDefs : undefined}
-      body={collegeId ? undefined : null}
-      bodyClassName="border-t-0"
+      showTable={Boolean(collegeId)}
+      resultsVisible={Boolean(collegeId)}
       loading={isFetching}
       pagination={Boolean(collegeId)}
       toolbar={

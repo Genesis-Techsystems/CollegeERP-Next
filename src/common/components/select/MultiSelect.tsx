@@ -212,10 +212,7 @@ export function MultiSelect({
     const allLabels = selectedOpts.map((o) => o.label).join(", ");
 
     return (
-      <span
-        className="flex min-w-0 flex-1"
-        title={allLabels || undefined}
-      >
+      <span className="flex min-w-0 flex-1" title={allLabels || undefined}>
         <span className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
           {visible.map((opt, i) => (
             <span
@@ -251,7 +248,6 @@ export function MultiSelect({
           {label}
           {required && (
             <span className="ml-0.5 text-destructive" aria-hidden="true">
-              {" "}
               *
             </span>
           )}
