@@ -212,7 +212,6 @@ export function StudentSearchSelect({
   className,
   fullWidth = false,
   disabled = false,
-  disabled = false,
   variant: variantProp,
 }: StudentSearchSelectProps) {
   const variant = useFormFieldVariant(variantProp);
