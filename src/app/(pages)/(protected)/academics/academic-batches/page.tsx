@@ -7,8 +7,10 @@ import { StatusBadge } from "@/common/components/data-display";
 import { FormModal } from "@/common/components/feedback";
 import { DatePicker } from "@/common/components/date-picker";
 import { Select } from "@/common/components/select";
-import { FilteredListPage, TableContextHeader } from "@/components/layout";
+import { FilteredListPage } from "@/components/layout";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { GM_CODES } from "@/config/constants/ui";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
@@ -67,6 +69,61 @@ function idStr(v: unknown): string | null {
   return num > 0 ? String(num) : null;
 }
 
+function pickText(rows: AnyRow[], keys: string[]) {
+  for (const row of rows) {
+    for (const key of keys) {
+      const text = s(row?.[key]).trim();
+      if (text) return text;
+    }
+  }
+  return "";
+}
+
+/** Toolbar search matches only the fields shown in the grid. */
+const HISTORY_SEARCH_FIELDS = [
+  "collegeCode",
+  "academicYear",
+  "courseCode",
+  "courseName",
+  "groupCode",
+  "fromCourseYearName",
+  "toCourseYearName",
+  "courseYearName",
+  "fromGroupSectionName",
+  "toGroupSectionName",
+  "fromSectionName",
+  "toSectionName",
+  "fromDate",
+  "toDate",
+  "studentStatusName",
+  "studentStatusCode",
+  "reason",
+];
+
+/** Angular header line: college | academic year | course | group | course year | section. */
+function studentDetailsParts(...rows: (AnyRow | null | undefined)[]) {
+  const present = rows.filter(Boolean) as AnyRow[];
+  if (present.length === 0) return [];
+  return [
+    pickText(present, ["collegeCode", "college_code"]),
+    pickText(present, ["academicYear", "academic_year"]),
+    pickText(present, ["courseCode", "course_code", "courseName"]),
+    pickText(present, ["groupCode", "group_code", "groupName"]),
+    pickText(present, [
+      "courseYearName",
+      "course_year_name",
+      "fromCourseYearName",
+    ]),
+    pickText(present, [
+      "section",
+      "sectionName",
+      "groupSectionName",
+      "group_section_name",
+      "fromGroupSectionName",
+    ]),
+  ].filter(Boolean);
+}
+
 function makeActionsRenderer(onEdit: (row: AnyRow) => void) {
   return (p: ICellRendererParams<AnyRow>) => (
     <button
@@ -84,7 +141,10 @@ export default function AcademicBatchesPage() {
   const [searchRows, setSearchRows] = useState<AnyRow[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [studentId, setStudentId] = useState<number | null>(null);
+  // Kept separately from `searchRows` so the header survives a new search.
+  const [pickedStudent, setPickedStudent] = useState<AnyRow | null>(null);
   const [studentHistoryRows, setStudentHistoryRows] = useState<AnyRow[]>([]);
+  const [showAllRecords, setShowAllRecords] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<AnyRow | null>(null);
@@ -140,12 +200,29 @@ export default function AcademicBatchesPage() {
 
   const studentOptions = useMemo(
     () =>
-      searchRows.map((row) => ({
-        value: String(
-          n(row.studentId ?? row.fk_student_id ?? row.student_id ?? row.id),
-        ),
-        label: `${s(row.rollNumber ?? row.hallticketNumber ?? "-")} (${s(row.firstName ?? row.studentName ?? "-")})`,
-      })),
+      searchRows.map((row) => {
+        const ticket = s(
+          row.hallticketNumber ?? row.rollNumber ?? row.admissionNumber ?? "-",
+        );
+        const name = s(row.firstName ?? row.studentName);
+        return {
+          value: String(
+            n(row.studentId ?? row.fk_student_id ?? row.student_id ?? row.id),
+          ),
+          label: name ? `${ticket} (${name})` : ticket,
+          // Angular typeahead: ticket in plain text, name in bold blue.
+          labelNode: (
+            <span>
+              <span>{ticket}</span>
+              {name ? (
+                <span className="ml-1 font-semibold text-[#0c51a4]">
+                  ({name})
+                </span>
+              ) : null}
+            </span>
+          ),
+        };
+      }),
     [searchRows],
   );
 
@@ -183,27 +260,29 @@ export default function AcademicBatchesPage() {
 
   const selectedStudent = useMemo(
     () =>
+      pickedStudent ??
       searchRows.find(
         (r) =>
           n(r.studentId ?? r.fk_student_id ?? r.student_id ?? r.id) ===
           (studentId ?? 0),
-      ) ?? null,
-    [searchRows, studentId],
+      ) ??
+      null,
+    [pickedStudent, searchRows, studentId],
   );
 
-  const selectedStudentLabel = useMemo(() => {
-    if (!studentId) return "";
-    const fromOptions = studentOptions.find(
-      (o) => o.value === String(studentId),
-    )?.label;
-    if (fromOptions) return fromOptions;
-    if (!selectedStudent) return "";
-    const roll = s(
-      selectedStudent.rollNumber ?? selectedStudent.hallticketNumber,
-    );
-    const name = s(selectedStudent.firstName ?? selectedStudent.studentName);
-    return [roll, name].filter(Boolean).join(" / ");
-  }, [studentId, studentOptions, selectedStudent]);
+  // Angular "All" checkbox: unchecked shows only active batch records.
+  const visibleHistoryRows = useMemo(
+    () =>
+      showAllRecords
+        ? studentHistoryRows
+        : studentHistoryRows.filter((row) => row.isActive !== false),
+    [showAllRecords, studentHistoryRows],
+  );
+
+  const selectedStudentDetails = useMemo(
+    () => studentDetailsParts(selectedStudent, studentHistoryRows[0]),
+    [selectedStudent, studentHistoryRows],
+  );
 
   const tableVisible = Boolean(studentId);
 
@@ -233,12 +312,12 @@ export default function AcademicBatchesPage() {
           return (
             [
               s(row.collegeCode),
-              s(row.courseName ?? row.courseCode),
-              s(row.groupCode),
               s(row.academicYear),
+              s(row.courseCode ?? row.courseName),
+              s(row.groupCode),
             ]
               .filter(Boolean)
-              .join(" / ") || "-"
+              .join(" | ") || "-"
           );
         },
       },
@@ -540,7 +619,23 @@ export default function AcademicBatchesPage() {
           <Select
             label="Student"
             value={studentId ? String(studentId) : null}
-            onChange={(v) => setStudentId(v ? Number(v) : null)}
+            onChange={(v) => {
+              const id = v ? Number(v) : null;
+              setStudentId(id);
+              setPickedStudent(
+                id
+                  ? (searchRows.find(
+                      (r) =>
+                        n(
+                          r.studentId ??
+                            r.fk_student_id ??
+                            r.student_id ??
+                            r.id,
+                        ) === id,
+                    ) ?? null)
+                  : null,
+              );
+            }}
             options={studentOptions}
             placeholder="Student"
             searchable
@@ -556,21 +651,58 @@ export default function AcademicBatchesPage() {
         showTable={tableVisible}
         resultsVisible={tableVisible}
         tableHeader={
-          tableVisible && selectedStudentLabel ? (
-            <TableContextHeader
-              title="Academic Batches Of Student"
-              info={<span>{selectedStudentLabel}</span>}
-            />
+          tableVisible && selectedStudentDetails.length > 0 ? (
+            <div className="table-context-header">
+              <span className="flex flex-wrap items-center gap-x-2 text-[14px] font-medium text-[#1a5fb4]">
+                {selectedStudentDetails.map((part, index) => (
+                  <span
+                    key={`${index}-${part}`}
+                    className="flex items-center gap-x-2"
+                  >
+                    {index > 0 ? (
+                      <span className="font-normal text-black/20" aria-hidden>
+                        |
+                      </span>
+                    ) : null}
+                    <span>{part}</span>
+                  </span>
+                ))}
+              </span>
+            </div>
           ) : null
         }
-        rowData={tableVisible ? studentHistoryRows : []}
+        rowData={tableVisible ? visibleHistoryRows : []}
         columnDefs={tableVisible ? historyColumnDefs : undefined}
         loading={loadingHistory}
         pagination
         toolbar={
           tableVisible
-            ? { search: true, searchPlaceholder: "Search" }
+            ? {
+                search: true,
+                searchPlaceholder: "Search",
+                searchFields: HISTORY_SEARCH_FIELDS,
+                pdfDocumentTitle: "Academic Batches Of Student",
+              }
             : undefined
+        }
+        toolbarTrailing={
+          tableVisible ? (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="academic-batches-all"
+                checked={showAllRecords}
+                onCheckedChange={(checked) =>
+                  setShowAllRecords(checked === true)
+                }
+              />
+              <Label
+                htmlFor="academic-batches-all"
+                className="cursor-pointer text-[12px] font-normal text-muted-foreground"
+              >
+                All
+              </Label>
+            </div>
+          ) : undefined
         }
       />
       <FormModal

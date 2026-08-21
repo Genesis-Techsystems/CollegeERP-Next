@@ -12,12 +12,11 @@ import { getCrudModalKey, rowIndexGetter } from "@/lib/utils";
 import { listBanks } from "@/services";
 import type { Bank } from "@/types/bank";
 import BankModal from "./BankModal";
-import { useSession } from "@/hooks/useSession";
 
 const COLS = {
   siNo: {
     colId: "siNo",
-    headerName: "SI.No",
+    headerName: "No.",
     valueGetter: rowIndexGetter,
     width: 70,
     flex: 0,
@@ -25,50 +24,57 @@ const COLS = {
   college: {
     colId: "college",
     headerName: "College",
-    minWidth: 90,
+    minWidth: 110,
+    flex: 0.8,
+  } as ColDef<Bank>,
+  bankCode: {
+    colId: "bankCode",
+    field: "bankCode",
+    headerName: "Bank Code",
+    minWidth: 110,
     flex: 0.8,
   } as ColDef<Bank>,
   bankName: {
     colId: "bankName",
     field: "bankName",
     headerName: "Bank Name",
-    minWidth: 120,
-    flex: 1,
-  } as ColDef<Bank>,
-  branchCode: {
-    colId: "branchCode",
-    field: "branchCode",
-    headerName: "Branch",
-    minWidth: 90,
-    flex: 0.8,
-  } as ColDef<Bank>,
-  bankCode: {
-    colId: "bankCode",
-    field: "bankCode",
-    headerName: "Code",
-    minWidth: 80,
-    flex: 0.7,
+    minWidth: 140,
+    flex: 1.1,
   } as ColDef<Bank>,
   accountNo: {
     colId: "accountNo",
     field: "accountNo",
-    headerName: "Account",
-    minWidth: 120,
+    headerName: "Account No",
+    minWidth: 130,
     flex: 1,
   } as ColDef<Bank>,
   ifscCode: {
     colId: "ifscCode",
     field: "ifscCode",
-    headerName: "IFSC",
-    minWidth: 95,
+    headerName: "IFSC Code",
+    minWidth: 110,
+    flex: 0.8,
+  } as ColDef<Bank>,
+  micrCode: {
+    colId: "micrCode",
+    field: "micrCode",
+    headerName: "MICR Code",
+    minWidth: 110,
+    flex: 0.8,
+  } as ColDef<Bank>,
+  branchCode: {
+    colId: "branchCode",
+    field: "branchCode",
+    headerName: "Branch Code",
+    minWidth: 110,
     flex: 0.8,
   } as ColDef<Bank>,
   address: {
     colId: "address",
     field: "address",
     headerName: "Address",
-    minWidth: 120,
-    flex: 1,
+    minWidth: 140,
+    flex: 1.1,
   } as ColDef<Bank>,
   isActive: {
     colId: "isActive",
@@ -116,54 +122,31 @@ export default function BanksPage() {
     queryFn: listBanks,
   });
 
-  const { user } = useSession();
   const columnDefs = useMemo<ColDef<Bank>[]>(() => {
-    const isAdmin = user?.isAdmin ?? false;
-
-    if (!isAdmin) {
-      return [
-        { ...COLS.siNo, headerName: "No." },
-        { ...COLS.college, valueGetter: (p) => p.data?.collegeCode ?? "-" },
-        { ...COLS.bankCode, headerName: "Bank Code" },
-        { ...COLS.bankName, headerName: "Bank Name" },
-        { ...COLS.branchCode, headerName: "Branch Code" },
-        { ...COLS.accountNo, headerName: "Account No" },
-        { ...COLS.ifscCode, headerName: "IFSC Code" },
-        {
-          ...COLS.address,
-          tooltipField: "address",
-          cellStyle: {
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          },
-        },
-        { ...COLS.isActive, cellRenderer: statusRenderer },
-        { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
-      ];
-    }
+    const addressCol = {
+      ...COLS.address,
+      tooltipField: "address",
+      cellStyle: {
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      },
+    } as ColDef<Bank>;
 
     return [
       COLS.siNo,
       { ...COLS.college, valueGetter: (p) => p.data?.collegeCode ?? "-" },
-      COLS.bankName,
-      COLS.branchCode,
       COLS.bankCode,
+      COLS.bankName,
       COLS.accountNo,
       COLS.ifscCode,
-      {
-        ...COLS.address,
-        tooltipField: "address",
-        cellStyle: {
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        },
-      },
+      COLS.micrCode,
+      COLS.branchCode,
+      addressCol,
       { ...COLS.isActive, cellRenderer: statusRenderer },
       { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
     ];
-  }, [user]);
+  }, []);
 
   return (
     <ListPage
@@ -174,12 +157,13 @@ export default function BanksPage() {
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: "Search banks…",
+        searchPlaceholder: "Search",
         pdfDocumentTitle: "Banks",
       }}
       toolbarTrailing={
         <Button
           size="sm"
+          data-table-primary-action
           onClick={() => {
             setRow(null);
             setOpen(true);

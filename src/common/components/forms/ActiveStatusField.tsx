@@ -28,6 +28,8 @@ interface ActiveStatusFieldProps {
   reasonError?: string;
   reasonRequired?: boolean;
   reasonPlaceholder?: string;
+  /** Checkbox label — override when the Angular screen says just "Active". */
+  label?: string;
 }
 
 export function ActiveStatusField({
@@ -38,6 +40,7 @@ export function ActiveStatusField({
   reasonError,
   reasonRequired,
   reasonPlaceholder = "Reason for deactivation",
+  label = "Is Active",
 }: ActiveStatusFieldProps) {
   return (
     <div
@@ -54,7 +57,7 @@ export function ActiveStatusField({
           onCheckedChange={onActiveChange}
         />
         <Label htmlFor="isActive" className="cursor-pointer">
-          Is Active
+          {label}
         </Label>
       </div>
       {!isActive && (

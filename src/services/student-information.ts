@@ -2120,6 +2120,8 @@ export async function listGroupSectionsByFilters(params: {
   academicYearId: number;
   courseGroupId: number;
   courseYearId: number;
+  /** Section master list also shows deactivated sections (Angular Sections page). */
+  includeInactive?: boolean;
 }): Promise<AnyRow[]> {
   const n = (v: unknown) => {
     const x = typeof v === "number" ? v : Number(v);
@@ -2167,17 +2169,27 @@ export async function listGroupSectionsByFilters(params: {
     "CourseYear.courseYearId": params.courseYearId,
   } as const;
 
-  const queryVariants = [
-    buildQuery(base),
-    buildQuery({
-      collegeId: params.collegeId,
-      academicYearId: params.academicYearId,
-      courseGroupId: params.courseGroupId,
-      courseYearId: params.courseYearId,
-      isActive: true,
-    }),
-    buildQuery(baseNoActive),
-  ];
+  const queryVariants = params.includeInactive
+    ? [
+        buildQuery(baseNoActive),
+        buildQuery({
+          collegeId: params.collegeId,
+          academicYearId: params.academicYearId,
+          courseGroupId: params.courseGroupId,
+          courseYearId: params.courseYearId,
+        }),
+      ]
+    : [
+        buildQuery(base),
+        buildQuery({
+          collegeId: params.collegeId,
+          academicYearId: params.academicYearId,
+          courseGroupId: params.courseGroupId,
+          courseYearId: params.courseYearId,
+          isActive: true,
+        }),
+        buildQuery(baseNoActive),
+      ];
 
   for (const query of queryVariants) {
     try {

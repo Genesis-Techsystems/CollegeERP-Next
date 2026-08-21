@@ -59,6 +59,8 @@ export interface DataTableToolbarConfig {
   /** Show “Show inactive” checkbox. Default **false**. */
   showInactiveToggle?: boolean;
   searchPlaceholder?: string;
+  /** Extra classes for the toolbar SearchInput wrapper. */
+  searchClassName?: string;
   pdfDocumentTitle?: string;
   /** Title row in the exported `.xls` file. Defaults to table title. */
   excelDocumentTitle?: string;
@@ -528,6 +530,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
       columnFilters: false,
       showInactiveToggle: false,
       searchPlaceholder: "",
+      searchClassName: undefined as string | undefined,
       pdfDocumentTitle: undefined as string | undefined,
       excelDocumentTitle: undefined as string | undefined,
       excelFileName: undefined as string | undefined,
@@ -546,6 +549,7 @@ function resolveToolbar(toolbar: boolean | DataTableToolbarConfig | undefined) {
     columnFilters: t.columnFilters !== false,
     showInactiveToggle: t.showInactiveToggle === true,
     searchPlaceholder: t.searchPlaceholder ?? "Search…",
+    searchClassName: t.searchClassName,
     pdfDocumentTitle: t.pdfDocumentTitle,
     excelDocumentTitle: t.excelDocumentTitle,
     excelFileName: t.excelFileName,
@@ -1033,6 +1037,7 @@ export function DataTable<T>({
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
                     searchPlaceholder={tb.searchPlaceholder}
+                    searchClassName={tb.searchClassName}
                     rowCount={filteredRowData.length}
                     showInactiveToggle={Boolean(showInactiveToggle)}
                     showInactive={showInactive}

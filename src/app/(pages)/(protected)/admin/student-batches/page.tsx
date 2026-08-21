@@ -1,43 +1,98 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon } from 'lucide-react'
-import { StatusBadge } from '@/common/components/data-display'
-import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
-import { Select } from '@/common/components/select'
-import { FilteredListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { useQuery } from '@tanstack/react-query'
-import { QK } from '@/lib/query-keys'
-import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
-import { listActiveCollegesForStudentBatches, listStudentBatches } from '@/services'
-import type { StudentBatch } from '@/types/student-batch'
-import StudentBatchModal from './StudentBatchModal'
+import { useEffect, useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import { StatusBadge } from "@/common/components/data-display";
+import {
+  GlobalFilterBarRow,
+  GlobalFilterField,
+} from "@/common/components/forms";
+import { Select } from "@/common/components/select";
+import { FilteredListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { QK } from "@/lib/query-keys";
+import { getCrudModalKey, rowIndexGetter } from "@/lib/utils";
+import {
+  listActiveCollegesForStudentBatches,
+  listStudentBatches,
+} from "@/services";
+import type { StudentBatch } from "@/types/student-batch";
+import StudentBatchModal from "./StudentBatchModal";
 
 const COLS = {
-  siNo: { colId: 'siNo', headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<StudentBatch>,
-  collegeName: { colId: 'collegeName', headerName: 'College', minWidth: 150, flex: 1.1 } as ColDef<StudentBatch>,
-  courseName: { colId: 'courseName', headerName: 'Course', minWidth: 130, flex: 1 } as ColDef<StudentBatch>,
-  subjectType: { colId: 'subjectType', headerName: 'Subject Type', minWidth: 130, flex: 1 } as ColDef<StudentBatch>,
-  batchName: { colId: 'batchName', field: 'batchName', headerName: 'Batch', minWidth: 130, flex: 1 } as ColDef<StudentBatch>,
-  capacity: { colId: 'capacity', headerName: 'Capacity', minWidth: 100, flex: 0.7 } as ColDef<StudentBatch>,
-  sortOrder: { colId: 'sortOrder', headerName: 'Sort Order', minWidth: 100, flex: 0.7 } as ColDef<StudentBatch>,
-  isActive: { colId: 'isActive', field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<StudentBatch>,
-  actions: { colId: 'actions', headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<StudentBatch>,
-}
+  siNo: {
+    colId: "siNo",
+    headerName: "No.",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<StudentBatch>,
+  collegeName: {
+    colId: "collegeName",
+    headerName: "College Name",
+    minWidth: 170,
+    flex: 1.2,
+  } as ColDef<StudentBatch>,
+  courseName: {
+    colId: "courseName",
+    headerName: "Course Name",
+    minWidth: 140,
+    flex: 1,
+  } as ColDef<StudentBatch>,
+  subjectType: {
+    colId: "subjectType",
+    headerName: "Subject Type Name",
+    minWidth: 150,
+    flex: 1,
+  } as ColDef<StudentBatch>,
+  batchName: {
+    colId: "batchName",
+    field: "batchName",
+    headerName: "Batch Name",
+    minWidth: 130,
+    flex: 1,
+  } as ColDef<StudentBatch>,
+  capacity: {
+    colId: "capacity",
+    headerName: "Capacity",
+    minWidth: 100,
+    flex: 0.7,
+  } as ColDef<StudentBatch>,
+  sortOrder: {
+    colId: "sortOrder",
+    headerName: "Sort Order",
+    minWidth: 100,
+    flex: 0.7,
+  } as ColDef<StudentBatch>,
+  isActive: {
+    colId: "isActive",
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 90,
+    flex: 0.7,
+  } as ColDef<StudentBatch>,
+  actions: {
+    colId: "actions",
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<StudentBatch>,
+};
 
 function pick(r: Record<string, unknown>, keys: string[]) {
   for (const k of keys) {
-    const v = r[k]
-    if (typeof v === 'string' && v.trim()) return v
-    if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+    const v = r[k];
+    if (typeof v === "string" && v.trim()) return v;
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
   }
-  return ''
+  return "";
 }
 
 function statusRenderer(p: ICellRendererParams<StudentBatch>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function actionRenderer(
@@ -50,53 +105,54 @@ function actionRenderer(
       variant="ghost"
       className="h-8 w-8 p-0"
       onClick={() => {
-        setRow(p.data ?? null)
-        setOpen(true)
+        setRow(p.data ?? null);
+        setOpen(true);
       }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function StudentBatchesPage() {
-  const [open, setOpen] = useState(false)
-  const [row, setRow] = useState<StudentBatch | null>(null)
-  const [collegeId, setCollegeId] = useState<number | null>(null)
+  const [open, setOpen] = useState(false);
+  const [row, setRow] = useState<StudentBatch | null>(null);
+  const [collegeId, setCollegeId] = useState<number | null>(null);
 
   const collegesQuery = useQuery({
     queryKey: QK.studentBatches.colleges(),
     queryFn: listActiveCollegesForStudentBatches,
     staleTime: 5 * 60 * 1000,
-  })
+  });
 
-  const colleges = collegesQuery.data ?? []
+  const colleges = collegesQuery.data ?? [];
 
   // Angular: auto-select first college and load batches
   useEffect(() => {
-    if (collegeId != null) return
-    if (colleges.length === 0) return
-    setCollegeId(colleges[0].collegeId)
-  }, [colleges, collegeId])
+    if (collegeId != null) return;
+    if (colleges.length === 0) return;
+    setCollegeId(colleges[0].collegeId);
+  }, [colleges, collegeId]);
 
   const listQuery = useQuery({
     queryKey: QK.studentBatches.list(collegeId ?? undefined),
     queryFn: () => listStudentBatches(collegeId ?? undefined),
     enabled: collegeId != null && collegeId > 0,
-  })
+  });
 
   const collegeOptions = useMemo(
-    () => colleges.map((c) => ({
-      value: String(c.collegeId),
-      label: c.collegeCode ?? c.collegeName,
-    })),
+    () =>
+      colleges.map((c) => ({
+        value: String(c.collegeId),
+        label: c.collegeCode ?? c.collegeName,
+      })),
     [colleges],
-  )
+  );
 
   const selectedCollege = useMemo(
     () => colleges.find((c) => c.collegeId === collegeId) ?? null,
     [colleges, collegeId],
-  )
+  );
 
   const columnDefs = useMemo<ColDef<StudentBatch>[]>(
     () => [
@@ -104,49 +160,61 @@ export default function StudentBatchesPage() {
       {
         ...COLS.collegeName,
         valueGetter: (p) =>
-          pick((p.data ?? {}) as Record<string, unknown>, ['collegeCode', 'collegeName']),
+          pick((p.data ?? {}) as Record<string, unknown>, [
+            "collegeName",
+            "collegeCode",
+          ]),
       },
       {
         ...COLS.courseName,
         valueGetter: (p) =>
-          pick((p.data ?? {}) as Record<string, unknown>, ['courseName', 'courseCode']),
+          pick((p.data ?? {}) as Record<string, unknown>, [
+            "courseName",
+            "courseCode",
+          ]),
       },
       {
         ...COLS.subjectType,
         valueGetter: (p) =>
-          pick((p.data ?? {}) as Record<string, unknown>, ['subjecttypeName', 'subjectTypeName']),
+          pick((p.data ?? {}) as Record<string, unknown>, [
+            "subjecttypeName",
+            "subjectTypeName",
+          ]),
       },
       COLS.batchName,
       {
         ...COLS.capacity,
         valueGetter: (p) => {
-          const v = p.data?.capacity
-          return v == null ? '' : String(v)
+          const v = p.data?.capacity;
+          return v == null ? "" : String(v);
         },
       },
       {
         ...COLS.sortOrder,
         valueGetter: (p) => {
-          const v = p.data?.sortOrder
-          return v == null ? '' : String(v)
+          const v = p.data?.sortOrder;
+          return v == null ? "" : String(v);
         },
       },
       { ...COLS.isActive, cellRenderer: statusRenderer },
       { ...COLS.actions, cellRenderer: actionRenderer(setRow, setOpen) },
     ],
     [],
-  )
+  );
 
   function invalidate() {
-    void listQuery.refetch()
+    void listQuery.refetch();
   }
 
   return (
     <FilteredListPage
       title="Student Batches"
-      filters={(
-        <GlobalFilterBarRow columns={3}>
-          <GlobalFilterField label="College">
+      filters={
+        <GlobalFilterBarRow>
+          <GlobalFilterField
+            label="College"
+            className="global-filter-field--shrink w-full max-w-[min(100%,16rem)] sm:w-[16rem]"
+          >
             <Select
               value={collegeId ? String(collegeId) : null}
               onChange={(v) => setCollegeId(v ? Number(v) : null)}
@@ -157,35 +225,36 @@ export default function StudentBatchesPage() {
             />
           </GlobalFilterField>
         </GlobalFilterBarRow>
-      )}
+      }
       rowData={listQuery.data ?? []}
       columnDefs={columnDefs}
       loading={listQuery.isLoading || listQuery.isFetching}
       pagination
       toolbar={{
         search: true,
-        searchPlaceholder: 'Search student batches…',
-        pdfDocumentTitle: 'Student batches',
+        searchPlaceholder: "Search",
+        pdfDocumentTitle: "Student batches",
       }}
-      toolbarTrailing={(
+      toolbarTrailing={
         <Button
           size="sm"
+          data-table-primary-action
           onClick={() => {
-            setRow(null)
-            setOpen(true)
+            setRow(null);
+            setOpen(true);
           }}
         >
           <PlusIcon className="h-4 w-4 mr-1" />
           Add Student Batch
         </Button>
-      )}
+      }
     >
       <StudentBatchModal
-        key={getCrudModalKey(row, open, 'studentbatchId')}
+        key={getCrudModalKey(row, open, "studentbatchId")}
         open={open}
         onClose={() => {
-          setOpen(false)
-          setRow(null)
+          setOpen(false);
+          setRow(null);
         }}
         row={row}
         defaultCollegeId={collegeId}
@@ -193,5 +262,5 @@ export default function StudentBatchesPage() {
         onSaved={invalidate}
       />
     </FilteredListPage>
-  )
+  );
 }

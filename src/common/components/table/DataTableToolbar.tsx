@@ -23,6 +23,7 @@ export interface DataTableToolbarProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   searchPlaceholder: string;
+  searchClassName?: string;
   rowCount?: number;
   showInactiveToggle?: boolean;
   showInactive?: boolean;
@@ -49,6 +50,7 @@ export function DataTableToolbar({
   searchQuery,
   onSearchChange,
   searchPlaceholder,
+  searchClassName,
   rowCount,
   showInactiveToggle = false,
   showInactive = false,
@@ -90,7 +92,9 @@ export function DataTableToolbar({
         {searchEnabled ? (
           <>
             <SearchInput
-              className="min-w-0 w-full max-w-md"
+              className={["min-w-0 w-full", searchClassName || "max-w-md"].join(
+                " ",
+              )}
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={onSearchChange}
