@@ -359,10 +359,20 @@ export default function ModifyElectiveBatchesPage() {
       }
       setLoading(true);
       try {
+        const sourceElective = electiveGroups.find(
+          (x) => electiveId(x) === nextSourceElectiveId,
+        );
+        const sourceSubjectId = electiveSubjectId(sourceElective ?? {});
+        if (!sourceSubjectId) {
+          setRows([]);
+          setTableEnabled(false);
+          return;
+        }
         const list = await listElectiveBatchStudents({
           collegeId: nextCollegeId,
           courseGroupId: nextCourseGroupId,
           groupSectionId: nextGroupSectionId,
+          subjectId: sourceSubjectId,
           electiveGroupyrMappingId: nextSourceElectiveId,
         });
         const mapped = list.map((row, i) => ({
@@ -382,7 +392,7 @@ export default function ModifyElectiveBatchesPage() {
       }
     }
     void loadStudents();
-  }, [studentListKey]);
+  }, [studentListKey, electiveGroups]);
 
   function toggleRow(key: string, checked: boolean) {
     setSelectedIds((prev) => {
@@ -543,10 +553,16 @@ export default function ModifyElectiveBatchesPage() {
       await submitElectiveBatchChange(payload);
       toastSuccess("Elective batches updated successfully");
       setSelectedIds(new Set());
+      const sourceElective = electiveGroups.find(
+        (x) => electiveId(x) === sourceElectiveId,
+      );
+      const sourceSubjectId = electiveSubjectId(sourceElective ?? {});
+      if (!sourceSubjectId) return;
       const list = await listElectiveBatchStudents({
         collegeId: collegeId!,
         courseGroupId: courseGroupId!,
         groupSectionId: groupSectionId!,
+        subjectId: sourceSubjectId,
         electiveGroupyrMappingId: sourceElectiveId!,
       }).catch(() => []);
       setRows(

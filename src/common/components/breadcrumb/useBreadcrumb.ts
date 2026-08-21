@@ -1349,6 +1349,64 @@ function facultyDetailsModuleBreadcrumb(
 }
 
 /**
+ * Angular `subject-allocation-sem-regulation` breadcrumb:
+ *   Home → Academics → Course Year Subject Association
+ */
+function courseYearSubjectAssociationBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !path.startsWith(
+      "/academics/college-curriculum/subject-allocation-sem-regulation",
+    )
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [
+    home,
+    { label: "Academics" },
+    { label: "Course Year Subject Association" },
+  ];
+}
+
+/**
+ * Angular `student-enrollement-to-subject` breadcrumb:
+ *   Home → Academics → Student Enrollement to Elective Subject
+ * URL still contains `/subject-mapping/` — omit that middle crumb (same as Angular).
+ */
+function studentEnrollmentToElectiveSubjectBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !path.startsWith(
+      "/academics/subject-mapping/student-enrollment-to-elective-subject",
+    ) &&
+    !path.startsWith(
+      "/academics/subject-mapping/student-enrolment-to-elective-subject",
+    )
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [
+    home,
+    { label: "Academics" },
+    { label: "Student Enrollement to Elective Subject" },
+  ];
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -1456,6 +1514,8 @@ export function useBreadcrumb(
   items = facultyLeavesSetProxyBreadcrumb(pathname, items);
   items = facultyLeavesStaffProxyListBreadcrumb(pathname, items);
   items = facultyDetailsModuleBreadcrumb(pathname, items);
+  items = courseYearSubjectAssociationBreadcrumb(pathname, items);
+  items = studentEnrollmentToElectiveSubjectBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).
   if (items[0]?.label === "Home") {

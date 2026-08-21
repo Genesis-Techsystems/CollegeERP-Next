@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Book, ChevronDown, Filter } from "lucide-react";
+import { ChevronDown, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AngularFilterCardProps {
   title: string;
   children: ReactNode;
+  /** Material Icons ligature name (default `book`). */
+  icon?: string;
   /** Show Angular "Filter" label + funnel (default true). */
   showFilterLabel?: boolean;
   /** Collapsible filter body (default true). */
@@ -22,11 +24,12 @@ export interface AngularFilterCardProps {
 
 /**
  * Angular mat-expansion-panel filter card:
- * book icon + title | Filter label, gold underline, then filter fields.
+ * icon + title | Filter label, gold underline, then filter fields.
  */
 export function AngularFilterCard({
   title,
   children,
+  icon = "book",
   showFilterLabel = true,
   collapsible = true,
   defaultOpen = true,
@@ -41,6 +44,18 @@ export function AngularFilterCard({
     onOpenChange?.(next);
     if (openProp === undefined) setInternalOpen(next);
   }
+
+  const titleBlock = (
+    <span className="app-card-title">
+      <span
+        className="material-icons app-card-title__icon font-size-26"
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="app-card-title__text">{title}</span>
+    </span>
+  );
 
   return (
     <div
@@ -59,12 +74,7 @@ export function AngularFilterCard({
             aria-expanded={open}
             aria-label={`Toggle ${title} filters`}
           >
-            <span className="app-card-title">
-              <span className="material-icons app-card-title__icon" aria-hidden>
-                book
-              </span>
-              <span className="app-card-title__text">{title}</span>
-            </span>
+            {titleBlock}
             {showFilterLabel ? (
               <span className="angular-filter-card__filter-label">
                 <span>Filter</span>
@@ -89,13 +99,7 @@ export function AngularFilterCard({
           </button>
         ) : (
           <div className="angular-filter-card__title-row">
-            <span className="app-card-title">
-              <Book
-                className="app-card-title__icon h-[18px] w-[18px]"
-                aria-hidden
-              />
-              <span className="app-card-title__text">{title}</span>
-            </span>
+            {titleBlock}
             {showFilterLabel ? (
               <span className="angular-filter-card__filter-label">
                 <span>Filter</span>

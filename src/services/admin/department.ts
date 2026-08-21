@@ -24,67 +24,73 @@ export async function listActiveDepartments(): Promise<Department[]> {
   );
 }
 
-/** Calls procedure `s_get_dept_details?in_og_id=1&in_clg_id=16` */
+/** Calls procedure `s_get_dept_details?in_og_id=&in_clg_id=`.
+ * Falls back to domain Department list when the proc is unavailable / errors.
+ */
 export async function listDepartmentsByProcedure(
   organizationId?: number,
   collegeId?: number,
 ): Promise<Department[]> {
   const ogId =
     organizationId ??
-    Number(globalThis?.localStorage?.getItem("organizationId") || 1);
+    Number(globalThis?.localStorage?.getItem("organizationId") || 0);
 
   const clgId =
-    collegeId ?? Number(globalThis?.localStorage?.getItem("collegeId") || 16);
+    collegeId ?? Number(globalThis?.localStorage?.getItem("collegeId") || 0);
+
+  if (ogId > 0 && clgId > 0) {
+    try {
+      const response = await getAllRecords<any>("s_get_dept_details", {
+        in_og_id: ogId,
+        in_clg_id: clgId,
+      });
+
+      let rows: any[] = [];
+
+      if (Array.isArray(response)) {
+        rows = response;
+      } else if (Array.isArray(response?.result)) {
+        rows = response.result;
+      } else if (Array.isArray(response?.data?.result)) {
+        rows = response.data.result;
+      }
+
+      while (rows.length > 0 && Array.isArray(rows[0])) {
+        rows = rows.flat();
+      }
+
+      const mapped = rows
+        .filter((d) => d && typeof d === "object")
+        .map((d) => ({
+          departmentId: Number(
+            d.fk_emp_dept_id ?? d.departmentId ?? d.department_id ?? 0,
+          ),
+          collegeId: clgId,
+          deptName: String(d.dept_name ?? d.deptName ?? ""),
+          deptCode: String(d.dept_code ?? d.deptCode ?? ""),
+          isActive: true,
+          ...d,
+        })) as Department[];
+
+      if (mapped.some((d) => d.departmentId > 0)) {
+        return mapped.filter((d) => d.departmentId > 0);
+      }
+    } catch {
+      // Proc missing / Internal Server Error on some campuses — use domain list.
+    }
+  }
+
+  if (clgId > 0) {
+    try {
+      return await listDepartmentsByCollege(clgId);
+    } catch {
+      // fall through
+    }
+  }
 
   try {
-    const response = await getAllRecords<any>("s_get_dept_details", {
-      in_og_id: ogId,
-      in_clg_id: clgId,
-    });
-
-    console.log("DEPARTMENT API getAllRecords RESPONSE:", response);
-
-    /*
-     * Handle all possible shapes:
-     *
-     * 1. [{...}, {...}]
-     * 2. [[{...}, {...}]]
-     * 3. { result: [{...}, {...}] }
-     * 4. { result: [[{...}, {...}]] }
-     * 5. { data: { result: [[{...}]] } }
-     */
-
-    let rows: any[] = [];
-
-    if (Array.isArray(response)) {
-      rows = response;
-    } else if (Array.isArray(response?.result)) {
-      rows = response.result;
-    } else if (Array.isArray(response?.data?.result)) {
-      rows = response.data.result;
-    }
-
-    // Flatten nested result arrays
-    while (rows.length > 0 && Array.isArray(rows[0])) {
-      rows = rows.flat();
-    }
-
-    console.log("DEPARTMENT NORMALIZED ROWS:", rows);
-
-    return rows
-      .filter((d) => d && typeof d === "object")
-      .map((d) => ({
-        departmentId: Number(d.fk_emp_dept_id ?? 0),
-
-        deptName: String(d.dept_name ?? ""),
-
-        // IMPORTANT
-        deptCode: String(d.dept_code ?? ""),
-
-        ...d,
-      })) as Department[];
-  } catch (error) {
-    console.error("DEPARTMENT API ERROR:", error);
+    return await listActiveDepartments();
+  } catch {
     return [];
   }
 }

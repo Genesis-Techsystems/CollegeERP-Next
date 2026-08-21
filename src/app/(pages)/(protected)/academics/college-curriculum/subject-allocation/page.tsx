@@ -630,7 +630,7 @@ export default function SubjectAllocationPage() {
                 exportExcel: false,
                 exportPdf: false,
               }}
-              pagination={false}
+              pagination={true}
             />
           </div>
           <DialogFooter>

@@ -415,6 +415,18 @@ export function resolveForcedNavRoute(
     return "/staff-faculty-leaves/leave-summary";
   }
 
+  // Attendance not taken / not marked list — DB often says "not taken".
+  if (
+    hrefLower.includes("staff-attendance-not-marked") ||
+    hrefLower.includes("attendance-not-taken") ||
+    hrefLower.includes("attendancenottaken") ||
+    ((labelLower.includes("not taken") || labelLower.includes("not marked")) &&
+      labelLower.includes("staff") &&
+      (labelLower.includes("attendance") || labelLower.includes("list")))
+  ) {
+    return "/attendance-management/staff-attendance-not-markedlist";
+  }
+
   // Daily Attendance of Students ONLY (Angular student-daily-attendance-count-report).
   // Do not conflate with "Daily Attendance Report" (period matrix).
   if (

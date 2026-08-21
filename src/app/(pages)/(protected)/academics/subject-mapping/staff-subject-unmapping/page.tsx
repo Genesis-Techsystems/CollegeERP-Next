@@ -9,7 +9,6 @@ import {
 } from "@/common/components/select";
 import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -17,16 +16,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/common/components/date-picker";
 import { toastError, toastSuccess } from "@/lib/toast";
 import {
   listEmployeeMappedSubjects,
   saveStaffSubjectMappings,
   searchActiveEmployeesByCollege,
 } from "@/services";
-import { toDateStr } from "@/common/generic-functions";
 import { StatusBadge } from "@/common/components/data-display";
+import { format, isValid, parseISO } from "date-fns";
 
 type AnyRow = Record<string, any>;
+
+/** Open-ended mapping end date used by Angular (shows as 31/12/9999). */
+const OPEN_END_DATE = new Date(9999, 11, 31);
 
 const n = (v: unknown) => Number(v) || 0;
 const s = (v: unknown) => {
@@ -35,16 +38,48 @@ const s = (v: unknown) => {
   return "";
 };
 
-function toInputDate(value: unknown): string {
+function parseDateValue(value: unknown): Date | null {
   const raw = s(value).trim();
-  if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (!raw) return null;
+  const ymd = raw.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    const d = parseISO(ymd);
+    return isValid(d) ? d : null;
+  }
   const parts = raw.split(/[/-]/);
-  if (parts.length !== 3) return "";
-  const [a, b, c] = parts;
-  if (a.length === 4) return `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`;
-  if (c.length === 4) return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
-  return "";
+  if (parts.length === 3) {
+    const [a, b, c] = parts;
+    let y = 0;
+    let m = 0;
+    let day = 0;
+    if (a.length === 4) {
+      y = Number(a);
+      m = Number(b);
+      day = Number(c);
+    } else if (c.length === 4) {
+      day = Number(a);
+      m = Number(b);
+      y = Number(c);
+    }
+    if (y && m && day) {
+      const d = new Date(y, m - 1, day);
+      return isValid(d) ? d : null;
+    }
+  }
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+/** Table display — e.g. `5 Sep, 2025`. */
+function formatTableDate(value: unknown): string {
+  const d = parseDateValue(value);
+  return d ? format(d, "d MMM, yyyy") : "-";
+}
+
+/** Modal Date row — Angular: `05 Sep, 25 - 31 Dec, 99`. */
+function formatModalDate(value: unknown): string {
+  const d = parseDateValue(value);
+  return d ? format(d, "dd MMM, yy") : "-";
 }
 
 function makeActionsRenderer(onUnmap: (row: AnyRow) => void) {
@@ -70,7 +105,7 @@ export default function StaffSubjectUnmappingPage() {
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [unmapOpen, setUnmapOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<AnyRow | null>(null);
-  const [editToDate, setEditToDate] = useState("");
+  const [editToDate, setEditToDate] = useState<Date | null>(null);
   const [editIsActive, setEditIsActive] = useState(true);
 
   const employeeOptions = useMemo(
@@ -123,24 +158,22 @@ export default function StaffSubjectUnmappingPage() {
 
   function openUnmap(row: AnyRow) {
     setSelectedRow(row);
-    setEditToDate(
-      toInputDate(row.toDate) || new Date().toISOString().slice(0, 10),
-    );
+    setEditToDate(parseDateValue(row.toDate) ?? new Date());
     setEditIsActive(String(row.status ?? "").toLowerCase() !== "inactive");
     setUnmapOpen(true);
   }
 
   async function saveUnmapping() {
     if (!selectedRow || !employeeId) return;
+    const toDateYmd = editToDate
+      ? format(editToDate, "yyyy-MM-dd")
+      : s(selectedRow.toDate).slice(0, 10) || format(new Date(), "yyyy-MM-dd");
     const payload = [
       {
         ...selectedRow,
         employeeId,
         isActive: editIsActive,
-        toDate:
-          editToDate ||
-          selectedRow.toDate ||
-          new Date().toISOString().slice(0, 10),
+        toDate: toDateYmd,
       },
     ];
     try {
@@ -207,14 +240,14 @@ export default function StaffSubjectUnmappingPage() {
         headerName: "From Date",
         minWidth: 120,
         flex: 0.8,
-        valueGetter: (p: any) => toDateStr(s(p.data?.fromDate)) || "-",
+        valueGetter: (p: any) => formatTableDate(p.data?.fromDate),
       },
       {
         field: "toDate",
         headerName: "To Date",
         minWidth: 120,
         flex: 0.8,
-        valueGetter: (p: any) => toDateStr(s(p.data?.toDate)) || "-",
+        valueGetter: (p: any) => formatTableDate(p.data?.toDate),
       },
       {
         headerName: "Status",
@@ -261,17 +294,15 @@ export default function StaffSubjectUnmappingPage() {
         loading={loading}
         showTable={filtersComplete}
         resultsVisible={filtersComplete}
-        tableHeader={
-          filtersComplete && selectedEmployeeLabel ? (
-            <TableContextHeader
-              title="Staff Subject Unmapping"
-              info={<span>{selectedEmployeeLabel}</span>}
-            />
-          ) : null
-        }
+        tableHeader={<TableContextHeader title="Employee Mapped Subjects" />}
         toolbar={
           filtersComplete
-            ? { search: true, searchPlaceholder: "Search" }
+            ? {
+                search: true,
+                searchPlaceholder: "Search",
+                exportPdf: false,
+                exportExcel: false,
+              }
             : undefined
         }
         // Angular has mat-paginator commented out — show the full mapped list
@@ -286,17 +317,17 @@ export default function StaffSubjectUnmappingPage() {
               Staff Subject Edit
             </DialogTitle>
           </DialogHeader>
-          <div className="px-5 py-3 space-y-3">
+          <div className="space-y-3">
             <div className="rounded-md border border-cyan-100 p-3">
-              <div className="grid grid-cols-[150px_1fr] gap-y-1.5 text-[11px]">
+              <div className="grid grid-cols-[150px_1fr] gap-y-1.5 text-[14px]">
                 <div className="font-semibold text-foreground">
                   Course Details :
                 </div>
-                <div className="font-semibold text-blue-700 text-xs">
+                <div className="font-semibold text-blue-700 ">
                   {s(selectedRow?.courseDisplay) || "-"}
                 </div>
                 <div className="font-semibold text-foreground">Subject :</div>
-                <div className="font-semibold text-blue-700 text-xs">
+                <div className="font-semibold text-blue-700">
                   {s(selectedRow?.subjectName) || "-"}{" "}
                   {s(selectedRow?.subjectCode)
                     ? `(${s(selectedRow?.subjectCode)})`
@@ -305,53 +336,44 @@ export default function StaffSubjectUnmappingPage() {
                 <div className="font-semibold text-foreground">
                   Subject Type :
                 </div>
-                <div className="font-semibold text-blue-700 text-xs">
+                <div className="font-semibold text-blue-700">
                   {s(selectedRow?.subjectType) || "-"}
                 </div>
                 <div className="font-semibold text-foreground">Date :</div>
-                <div className="font-semibold text-blue-700 text-xs">
-                  {(toDateStr(s(selectedRow?.fromDate)) || "-") +
-                    " - " +
-                    (toDateStr(s(selectedRow?.toDate)) || "-")}
+                <div className="font-semibold text-blue-700">
+                  {`${formatModalDate(selectedRow?.fromDate)} - ${formatModalDate(selectedRow?.toDate)}`}
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="space-y-1">
-                <label
-                  htmlFor="endDate"
-                  className="text-xs text-muted-foreground"
-                >
-                  End Date
-                </label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={editToDate}
-                  onChange={(e) => setEditToDate(e.target.value)}
-                  className="w-[170px] h-8 text-xs"
-                />
-              </div>
+            <div className="flex flex-wrap items-end gap-6">
+              <DatePicker
+                label="End Date"
+                value={editToDate}
+                onChange={setEditToDate}
+                maxDate={OPEN_END_DATE}
+                clearable={false}
+                className="w-[170px]"
+              />
               <label className="inline-flex items-center gap-2 pb-1">
                 <input
                   type="checkbox"
                   checked={editIsActive}
                   onChange={(e) => setEditIsActive(e.target.checked)}
                 />
-                <span className="text-xs text-muted-foreground">Active</span>
+                <span className="text-xs font-medium text-sky-700">Active</span>
               </label>
             </div>
           </div>
           <DialogFooter className="px-5 py-2 border-t">
             <Button
-              size="sm"
+              size="lg"
               variant="outline"
               onClick={() => setUnmapOpen(false)}
             >
               Close
             </Button>
             <Button
-              size="sm"
+              size="lg"
               onClick={() => {
                 void saveUnmapping();
               }}

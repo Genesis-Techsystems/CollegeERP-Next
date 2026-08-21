@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DataTable } from "@/common/components/table";
 import { Select } from "@/common/components/select";
-import { FilteredListPage } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -36,95 +35,26 @@ function safe(v: unknown): string {
   return "";
 }
 
-const COLS = {
-  siNo: {
-    headerName: "S.No",
-    valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
-    minWidth: 70,
-    maxWidth: 80,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  subjectCode: {
-    field: "subjectCode",
-    headerName: "Subject Code",
-    minWidth: 130,
-    flex: 1,
-  },
-  subjectName: {
-    field: "subjectName",
-    headerName: "Subject Name",
-    minWidth: 220,
-    flex: 1.2,
-  },
-  subjectTypeName: {
-    field: "subjectTypeName",
-    headerName: "Subject Type",
-    minWidth: 140,
-    flex: 1,
-  },
-  subCreditHrs: {
-    field: "subCreditHrs",
-    headerName: "Credits",
-    minWidth: 100,
-    maxWidth: 120,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  noExams: {
-    field: "noExams",
-    headerName: "No Exam",
-    minWidth: 90,
-    maxWidth: 110,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  regulationName: {
-    field: "regulationName",
-    headerName: "Regulation",
-    minWidth: 130,
-    flex: 1,
-  },
-  stdReg: {
-    field: "isIncludeInStdReg",
-    headerName: "Std Reg Subject",
-    minWidth: 130,
-    maxWidth: 150,
-    flex: 0,
-  } as ColDef<AnyRow>,
-  actions: {
-    headerName: "Actions",
-    minWidth: 90,
-    maxWidth: 100,
-    flex: 0,
-  } as ColDef<AnyRow>,
-};
-
-function makeDeleteRenderer(onDelete: (row: AnyRow) => void) {
-  return (p: ICellRendererParams<AnyRow>) => (
-    <button
-      type="button"
-      className="inline-flex items-center justify-center rounded p-1 text-red-600 hover:bg-red-50"
-      onClick={() => p.data && onDelete(p.data)}
-    >
-      <Trash2 className="h-4 w-4" />
-    </button>
-  );
-}
-function makeNoExamRenderer(onToggle: (row: AnyRow, checked: boolean) => void) {
-  return (p: ICellRendererParams<AnyRow>) => {
-    const row = p.data;
-    if (!row) return null;
-    return (
-      <input
-        type="checkbox"
-        checked={Boolean(row.noExams)}
-        onChange={(e) => onToggle(row, e.target.checked)}
-      />
-    );
+function normalizeSubjectRow(x: AnyRow): AnyRow {
+  return {
+    ...x,
+    subjectTypeName: x.subjectTypeName ?? x.subjecttypeName,
+    subjectCredits:
+      x.subjectCredits ??
+      x.subjectCourseyears?.[0]?.creditHours ??
+      x.subCreditHrs ??
+      x.subCredits ??
+      "",
+    subCreditHrs:
+      x.subjectCourseyears?.[0]?.creditHours ?? x.subCreditHrs ?? "",
+    noExams: x.subjectCourseyears?.[0]?.noExams ?? x.noExams ?? false,
   };
 }
-function stdRegRenderer(p: ICellRendererParams<AnyRow>) {
-  return <span>{p.data?.isIncludeInStdReg ? "Yes" : "No"}</span>;
-}
 
+/**
+ * Angular `subject-allocation-sem-regulation` layout parity.
+ * Title + one mat-card: course strip, Map Regulation accordion, mat-table, Back/Save.
+ */
 export default function SubjectAllocationSemRegulationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -154,9 +84,25 @@ export default function SubjectAllocationSemRegulationPage() {
     params.regulationId || null,
   );
   const [saving, setSaving] = useState(false);
-  const [mapPanelOpen, setMapPanelOpen] = useState(true);
+  /** Expected Angular screenshot shows the panel collapsed. */
+  const [mapPanelOpen, setMapPanelOpen] = useState(false);
   const [mapModalOpen, setMapModalOpen] = useState(false);
   const [mapRows, setMapRows] = useState<AnyRow[]>([]);
+  const [loadingRows, setLoadingRows] = useState(false);
+
+  const contextLine = [
+    params.collegeName,
+    params.academicYear,
+    params.courseName,
+    params.groupName,
+    params.courseYearName,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  const courseLine = [params.collegeName, params.courseName, params.groupName]
+    .filter(Boolean)
+    .join(" / ");
 
   useEffect(() => {
     if (!params.courseId) return;
@@ -182,6 +128,7 @@ export default function SubjectAllocationSemRegulationPage() {
       setRows([]);
       return;
     }
+    setLoadingRows(true);
     listSubjectRegulationsByRegulation({
       collegeId: params.collegeId,
       academicYearId: params.academicYearId,
@@ -190,17 +137,11 @@ export default function SubjectAllocationSemRegulationPage() {
       regulationId,
     })
       .then((list) => {
-        const normalized = list.map((x) => ({
-          ...x,
-          subjectTypeName: x.subjectTypeName ?? x.subjecttypeName,
-          subCreditHrs:
-            x.subjectCourseyears?.[0]?.creditHours ?? x.subCreditHrs ?? "",
-          noExams: x.subjectCourseyears?.[0]?.noExams ?? x.noExams ?? false,
-        }));
-        setRows(normalized);
+        setRows(list.map(normalizeSubjectRow));
         setDeletedRows([]);
       })
-      .catch(() => setRows([]));
+      .catch(() => setRows([]))
+      .finally(() => setLoadingRows(false));
   }, [
     regulationId,
     params.collegeId,
@@ -215,6 +156,7 @@ export default function SubjectAllocationSemRegulationPage() {
     );
     return safe(r?.regulationCode ?? r?.regulationName);
   }, [regulations, regulationId]);
+
   const regulationOptions = useMemo(
     () =>
       regulations.map((r) => ({
@@ -237,6 +179,7 @@ export default function SubjectAllocationSemRegulationPage() {
     if (row.subjectRegulationId)
       setDeletedRows((prev) => [...prev, { ...row, isActive: false }]);
   }
+
   function toggleNoExam(row: AnyRow, checked: boolean) {
     setRows((prev) =>
       prev.map((x) => (x === row ? { ...x, noExams: checked } : x)),
@@ -265,8 +208,8 @@ export default function SubjectAllocationSemRegulationPage() {
           ...sec,
           isActive: row.isActive !== false,
           noExams: Boolean(row.noExams),
-          creditHours: row.subCreditHrs,
-          maxWeeklyClasses: row.subCreditHrs,
+          creditHours: row.subCreditHrs ?? row.subjectCredits,
+          maxWeeklyClasses: row.subCreditHrs ?? row.subjectCredits,
           preferConsecutive: null,
           subjectId: row.subjectId,
           collegeId: params.collegeId,
@@ -288,15 +231,7 @@ export default function SubjectAllocationSemRegulationPage() {
         courseYearId: params.courseYearId,
         regulationId,
       });
-      setRows(
-        refreshed.map((x) => ({
-          ...x,
-          subjectTypeName: x.subjectTypeName ?? x.subjecttypeName,
-          subCreditHrs:
-            x.subjectCourseyears?.[0]?.creditHours ?? x.subCreditHrs ?? "",
-          noExams: x.subjectCourseyears?.[0]?.noExams ?? x.noExams ?? false,
-        })),
-      );
+      setRows(refreshed.map(normalizeSubjectRow));
       setDeletedRows([]);
       toastSuccess("Changes saved successfully");
     } catch {
@@ -335,6 +270,7 @@ export default function SubjectAllocationSemRegulationPage() {
           subjectCode: item.subjectCode,
           subjectName: item.subjectName,
           subjectTypeName: item.subjecttypeName ?? item.subjectTypeName,
+          subjectCredits: item.subCredits ?? item.subCreditHrs ?? "",
           subCreditHrs: item.subCreditHrs ?? item.subCredits ?? "",
           isIncludeInStdReg: Boolean(item.checked),
           regulationId,
@@ -348,163 +284,304 @@ export default function SubjectAllocationSemRegulationPage() {
     setMapModalOpen(false);
   }
 
-  const columnDefs = useMemo<ColDef<AnyRow>[]>(
-    () => [
-      COLS.siNo,
-      COLS.subjectCode,
-      COLS.subjectName,
-      COLS.subjectTypeName,
-      COLS.subCreditHrs,
-      { ...COLS.noExams, cellRenderer: makeNoExamRenderer(toggleNoExam) },
-      COLS.regulationName,
-      { ...COLS.stdReg, cellRenderer: stdRegRenderer },
-      { ...COLS.actions, cellRenderer: makeDeleteRenderer(deleteRow) },
-    ],
-    [rows],
-  );
+  function goBack() {
+    const q = new URLSearchParams();
+    if (params.universityId) q.set("universityId", String(params.universityId));
+    if (params.collegeId) q.set("collegeId", String(params.collegeId));
+    if (params.courseId) q.set("courseId", String(params.courseId));
+    if (params.courseGroupId)
+      q.set("courseGroupId", String(params.courseGroupId));
+    if (params.academicYearId)
+      q.set("academicYearId", String(params.academicYearId));
+    const qs = q.toString();
+    router.push(
+      `/academics/college-curriculum/subject-allocation${qs ? `?${qs}` : ""}`,
+    );
+  }
+
+  const hasSubjects = rows.length > 0;
 
   return (
-    <>
-      <FilteredListPage
-        title="Course Year Subject Association"
-        notice={
-          <div className="space-y-2 text-[13px]">
-            <div className="font-semibold text-[hsl(var(--primary))]">
-              Course Year Subject Association ({params.collegeName} /{" "}
-              {params.academicYear} / {params.courseName} / {params.groupName} /{" "}
-              {params.courseYearName})
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-              <p>
-                <span className="font-medium">Course :</span>{" "}
-                {params.collegeName} / {params.courseName} / {params.groupName}
-              </p>
-              <p>
-                <span className="font-medium">Academic Year :</span>{" "}
-                {params.academicYear}
-              </p>
-            </div>
+    <PageContainer className="cy-subject-assoc-page">
+      {/*
+        Single mat-card. Title is inside the card (Angular visual).
+        data-no-page-name blocks AppShell from injecting a second page title.
+      */}
+      <div
+        className="app-card overflow-hidden border border-[#c5d8f0] bg-white shadow-none"
+        data-no-page-name=""
+      >
+        <div className="flex items-center gap-2 border-b-2 border-[#ffcf46] px-4 py-3">
+          <span
+            className="material-icons text-[22px] text-[#0c51a4]"
+            aria-hidden
+          >
+            book
+          </span>
+          <strong className="text-[16px] font-semibold leading-snug text-[#0c51a4]">
+            Course Year Subject Association
+            {contextLine ? (
+              <>
+                {" "}
+                (<span className="font-semibold text-black">{contextLine}</span>
+                )
+              </>
+            ) : null}
+          </strong>
+        </div>
+
+        {/* Course / Academic Year */}
+        <div className="m-4 mb-0 border border-[#c5d8f0] px-3 py-1">
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            <p className="my-[7px] text-[15px] font-medium text-[#616161]">
+              Course :{" "}
+              <span className="font-normal text-[#909090]">{courseLine}</span>
+            </p>
+            <p className="my-[7px] text-[15px] font-medium text-[#616161]">
+              Academic Year :{" "}
+              <span className="font-normal text-[#909090]">
+                {params.academicYear || "-"}
+              </span>
+            </p>
           </div>
-        }
-        filters={
-          <div className="space-y-3">
-            <button
-              type="button"
-              className="text-sm font-semibold text-[hsl(var(--primary))] hover:underline inline-flex items-center gap-1"
-              onClick={() => setMapPanelOpen((s) => !s)}
-            >
-              + Map Regulation Subject
-            </button>
-            {mapPanelOpen && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        </div>
+
+        {/* Map Regulation Subject accordion — collapsed by default (Angular expected) */}
+        <div className="m-4 border border-[#c5d8f0]">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
+            aria-expanded={mapPanelOpen}
+            onClick={() => setMapPanelOpen((s) => !s)}
+          >
+            <span className="inline-flex items-center gap-2 text-[15px] font-semibold text-[#0c51a4]">
+              <span
+                className="material-icons text-[18px] leading-none"
+                aria-hidden
+              >
+                add
+              </span>
+              Map Regulation Subject
+            </span>
+            <ChevronDown
+              className={cn(
+                "h-5 w-5 shrink-0 text-[#616161] transition-transform",
+                mapPanelOpen && "rotate-180",
+              )}
+              aria-hidden
+            />
+          </button>
+
+          {mapPanelOpen ? (
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-[#c5d8f0] px-3 py-3">
+              <div className="w-[220px] max-w-full">
                 <Select
-                  label="Regulation *"
+                  label="Regulation"
+                  required
                   value={regulationId ? String(regulationId) : null}
                   onChange={(v) => setRegulationId(v ? Number(v) : null)}
                   options={regulationOptions}
-                  placeholder="Select regulation"
+                  placeholder="Regulation"
                   searchable
                 />
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    onClick={() => void openMapModal()}
-                    disabled={!regulationId}
-                  >
-                    Map Regulation Subjects
-                  </Button>
-                </div>
               </div>
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[2px] border-0 bg-[#ffcf46] px-3 text-[13px] font-medium text-black hover:bg-[#f0c040] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => void openMapModal()}
+                disabled={!regulationId}
+              >
+                <span
+                  className="material-icons text-[18px] text-black"
+                  aria-hidden
+                >
+                  add_circle_outline
+                </span>
+                Map Regulation Subjects
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Subjects mat-table — no AG Grid toolbar */}
+        {hasSubjects || loadingRows ? (
+          <div className="mx-4 mb-2 overflow-x-auto border border-[#c5d8f0]">
+            {loadingRows ? (
+              <p className="px-3 py-4 text-[13px] text-muted-foreground">
+                Loading subjects…
+              </p>
+            ) : (
+              <table className="w-full min-w-[900px] border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="bg-[#e3f0fb]">
+                    {[
+                      "S.No",
+                      "Subject Code",
+                      "Subject Name",
+                      "Subject Type",
+                      "Credits",
+                      "No Exam",
+                      "Regulation",
+                      "Std Reg Subject",
+                      "Actions",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="border border-[#c5d8f0] px-2 py-2 text-[12px] font-semibold text-[#042956]"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, index) => (
+                    <tr
+                      key={`${num(row.subjectId)}-${index}`}
+                      className={index % 2 === 1 ? "bg-[#f7fbff]" : "bg-white"}
+                    >
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center tabular-nums">
+                        {index + 1}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2">
+                        {safe(row.subjectCode)}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2">
+                        {safe(row.subjectName)}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2">
+                        {safe(row.subjectTypeName)}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center">
+                        {safe(
+                          row.subjectCredits ??
+                            row.subCreditHrs ??
+                            row.subCredits,
+                        )}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[#0c51a4]"
+                          checked={Boolean(row.noExams)}
+                          onChange={(e) => toggleNoExam(row, e.target.checked)}
+                        />
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2">
+                        {safe(row.regulationName ?? regulationCode)}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center text-black">
+                        {row.isIncludeInStdReg ? "Yes" : "No"}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center">
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center p-0.5 text-[#d80000] hover:opacity-80"
+                          aria-label="Remove subject"
+                          onClick={() => deleteRow(row)}
+                        >
+                          <X className="h-4 w-4" strokeWidth={2.5} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
-        }
-        rowData={rows}
-        columnDefs={columnDefs}
-        toolbar={{ search: true, searchPlaceholder: "Search subjects..." }}
-        pagination
-        paginationPageSize={10}
-      />
+        ) : null}
 
-      <div className="flex justify-end gap-2 mt-3">
-        <Button
-          type="button"
-          variant="back"
-          onClick={() =>
-            router.push("/academics/college-curriculum/subject-allocation")
-          }
-        >
-          Back
-        </Button>
-        <Button
-          type="button"
-          onClick={saveAll}
-          disabled={saving || !regulationId}
-        >
-          {saving ? "Saving..." : "Save"}
-        </Button>
+        <div className="flex justify-end gap-2 px-4 py-3">
+          <button
+            type="button"
+            className="inline-flex h-9 min-w-[80px] items-center justify-center rounded-[2px] border-0 bg-[#ffcf46] px-4 text-[13px] font-medium text-black hover:bg-[#f0c040]"
+            onClick={goBack}
+          >
+            Back
+          </button>
+          {hasSubjects ? (
+            <Button
+              type="button"
+              onClick={() => void saveAll()}
+              disabled={saving || !regulationId}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
-      <Dialog open={mapModalOpen} onOpenChange={setMapModalOpen}>
-        <DialogContent className="sm:max-w-5xl max-h-[88vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Map Regulations</DialogTitle>
-          </DialogHeader>
-          <div className="app-card p-0 overflow-hidden">
-            <DataTable
-              rowData={mapRows}
-              columnDefs={[
-                {
-                  headerName: "SI.No",
-                  valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
-                  minWidth: 70,
-                  maxWidth: 80,
-                  flex: 0,
-                },
-                {
-                  field: "subjectCode",
-                  headerName: "Subject Code",
-                  minWidth: 140,
-                  flex: 1,
-                },
-                {
-                  field: "subjectName",
-                  headerName: "Subject Name",
-                  minWidth: 260,
-                  flex: 1.4,
-                },
-                {
-                  headerName: "Add Subject",
-                  minWidth: 130,
-                  flex: 0,
-                  cellRenderer: (p: ICellRendererParams<AnyRow>) => (
-                    <input
-                      type="checkbox"
-                      checked={Boolean(p.data?.checked)}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        const sid = num(p.data?.subjectId);
-                        setMapRows((prev) =>
-                          prev.map((r) =>
-                            num(r.subjectId) === sid ? { ...r, checked } : r,
-                          ),
-                        );
-                      }}
-                    />
-                  ),
-                },
-              ]}
-              pagination
-              paginationPageSize={10}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMapModalOpen(false)}>
-              Close
-            </Button>
-            <Button onClick={addMappedSubjects}>Add</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      {mapModalOpen ? (
+        <Dialog open={mapModalOpen} onOpenChange={setMapModalOpen}>
+          <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-5xl">
+            <DialogHeader className="border-b-2 border-[#ffcf46]">
+              <DialogTitle className="text-[15px] font-semibold text-[#0c51a4]">
+                Map Regulations
+              </DialogTitle>
+            </DialogHeader>
+            <div className="overflow-x-auto border border-[#c5d8f0]">
+              <table className="w-full border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="bg-[#e3f0fb]">
+                    {[
+                      "SI.No",
+                      "Subject Code",
+                      "Subject Name",
+                      "Add Subject",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="border border-[#c5d8f0] px-2 py-2 text-[12px] font-semibold"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mapRows.map((row, index) => (
+                    <tr key={`${num(row.subjectId)}-${index}`}>
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center">
+                        {index + 1}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2">
+                        {safe(row.subjectCode)}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2">
+                        {safe(row.subjectName)}
+                      </td>
+                      <td className="border border-[#c5d8f0] px-2 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-[#0c51a4]"
+                          checked={Boolean(row.checked)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            const sid = num(row.subjectId);
+                            setMapRows((prev) =>
+                              prev.map((r) =>
+                                num(r.subjectId) === sid
+                                  ? { ...r, checked }
+                                  : r,
+                              ),
+                            );
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <DialogFooter>
+              <Button variant="back" onClick={() => setMapModalOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={addMappedSubjects}>Add</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </PageContainer>
   );
 }

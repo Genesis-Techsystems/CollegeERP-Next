@@ -1635,6 +1635,20 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return HR_EMPLOYEE_LIST_ROUTE;
     }
 
+    // Attendance not taken / not marked list — DB label often uses "not taken"
+    // while route slug is staff-attendance-not-markedlist. Must beat module-root hub.
+    if (
+      hrefLower.includes("staff-attendance-not-marked") ||
+      hrefLower.includes("attendance-not-taken") ||
+      hrefLower.includes("attendancenottaken") ||
+      ((labelLower.includes("not taken") ||
+        labelLower.includes("not marked")) &&
+        labelLower.includes("staff") &&
+        (labelLower.includes("attendance") || labelLower.includes("list")))
+    ) {
+      return "/attendance-management/staff-attendance-not-markedlist";
+    }
+
     // Daily Attendance of Students ONLY (not "Daily Attendance Report").
     if (
       hrefLower.includes("daily-attendance-of-students") ||
@@ -5815,8 +5829,29 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   })();
 
   const rawNavTarget = forcedRoute ?? item.href ?? "";
-  const canonicalHref =
+  let canonicalHref =
     rawNavTarget && rawNavTarget !== "#" ? normalizeHref(rawNavTarget) : "";
+
+  // Folder row "Attendance Management" must never navigate to the hub — even if
+  // DB/module url is `.../attendance-dashboard` (common Angular menu data).
+  const attendanceFolder =
+    labelLower.replace(/[^a-z0-9]+/g, "") === "attendancemanagement" ||
+    labelLower.trim() === "attendance management";
+  if (
+    attendanceFolder &&
+    (canonicalHref.includes("/attendance-dashboard") ||
+      canonicalHref === "/attendance-management" ||
+      canonicalHref === "/admin-attendance-management" ||
+      (rawNavTarget &&
+        /attendance-dashboard|admin-attendance-management\/?$/i.test(
+          rawNavTarget,
+        )))
+  ) {
+    canonicalHref = "";
+  }
+
+  const leafHref =
+    canonicalHref || (attendanceFolder ? "#" : "") || rawNavTarget || "#";
   const normPathname = normalizeHref(pathname);
   const modulePathActive = (() => {
     const label = (item.label ?? "").toLowerCase().trim();
@@ -6549,9 +6584,13 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
   /* ── Expanded: leaf items ────────────────────────────────────────── */
   return (
     <Link
-      href={canonicalHref || rawNavTarget || "#"}
+      href={leafHref === "#" || !leafHref ? "#" : leafHref}
       prefetch={false}
       onClick={(e) => {
+        if (attendanceFolder) {
+          e.preventDefault();
+          return;
+        }
         if (forcedRoute) {
           e.preventDefault();
           scheduleNavigation(() => {

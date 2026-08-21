@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Printer, Download } from "lucide-react";
-import { FilteredPage } from "@/components/layout";
+import { FileSpreadsheet, Printer } from "lucide-react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { printHtmlInIframe } from "@/lib/print";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   getStudentInfoCollegeFilters,
   listStudentsForRollNumberAssignment,
@@ -22,6 +25,14 @@ const CRS = ["fk_course_id", "courseId"];
 const GRP = ["fk_course_group_id", "courseGroupId"];
 const YR = ["fk_course_year_id", "courseYearId"];
 const SEC = ["fk_group_section_id", "groupSectionId", "group_section_id"];
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function dedupeByKey<T>(rows: T[], keyFn: (r: T) => string | number): T[] {
   const seen = new Set<string | number>();
@@ -88,9 +99,40 @@ function selectClass() {
   return "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]";
 }
 
-function exportRollCsv(rows: AnyRow[]) {
+function makeTextInputRenderer(
+  field: "rollNumber" | "hallticketNumber",
+  onChange: (
+    key: string,
+    field: "rollNumber" | "hallticketNumber",
+    value: string,
+  ) => void,
+) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data ?? {};
+    const key = rowStudentKey(row);
+    const value = String(
+      field === "rollNumber"
+        ? (row.rollNumber ?? row.roll_number ?? "")
+        : (row.hallticketNumber ?? row.hallticket_number ?? ""),
+    );
+    return (
+      <div className="flex h-full w-full items-center px-1 py-1">
+        <Input
+          variant="outlined"
+          className="h-8 w-full min-w-[150px] rounded-[4px] border border-[#ccc] bg-white px-2 text-[12px] font-normal text-foreground shadow-none focus:border-[#999] focus:ring-1 focus:ring-[#0c51a4]/30"
+          value={value}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onChange={(e) => onChange(key, field, e.target.value)}
+        />
+      </div>
+    );
+  };
+}
+
+function exportRollExcel(rows: AnyRow[]) {
   const header = [
-    "SI.No",
+    "Sl.No",
     "Admission No",
     "Student Name",
     "Roll Number",
@@ -101,21 +143,149 @@ function exportRollCsv(rows: AnyRow[]) {
     const cells = [
       String(i + 1),
       pickText(row, ["admissionNumber", "admission_no"]) || "",
-      pickText(row, ["firstName", "first_name"]) || "",
+      pickText(row, ["firstName", "first_name", "studentName"]) || "",
       String(row.rollNumber ?? row.roll_number ?? ""),
       String(row.hallticketNumber ?? row.hallticket_number ?? ""),
     ].map((c) => `"${String(c).replace(/"/g, '""')}"`);
     lines.push(cells.join(","));
   });
   const blob = new Blob(["\ufeff" + lines.join("\n")], {
-    type: "text/csv;charset=utf-8",
+    type: "application/vnd.ms-excel;charset=utf-8",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "Assigned-Student-Roll-Number.csv";
+  a.download = "Assigned-Student-Roll-Number.xls";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/** Angular Print Report — college title, filter line, boxed roll/hallticket cells. */
+function printAssignRollReport(params: {
+  collegeName: string;
+  filterLine: string;
+  rows: AnyRow[];
+}) {
+  const { collegeName, filterLine, rows } = params;
+  const bodyRows = rows
+    .map((row, i) => {
+      const admission = pickText(row, ["admissionNumber", "admission_no"]);
+      const name = pickText(row, ["firstName", "first_name", "studentName"]);
+      const roll = String(row.rollNumber ?? row.roll_number ?? "");
+      const hallticket = String(
+        row.hallticketNumber ?? row.hallticket_number ?? "",
+      );
+      return `<tr>
+  <td class="c">${i + 1}</td>
+  <td class="c">${escapeHtml(admission)}</td>
+  <td class="l">${escapeHtml(name)}</td>
+  <td class="c"><span class="box">${escapeHtml(roll)}</span></td>
+  <td class="c"><span class="box">${escapeHtml(hallticket)}</span></td>
+</tr>`;
+    })
+    .join("");
+
+  printHtmlInIframe(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Assign Student Roll Number</title>
+<style>
+  @page { size: A4 portrait; margin: 12mm 10mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 8px 4px;
+    background: #fff;
+    color: #111;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+  }
+  .hdr { text-align: center; margin-bottom: 14px; }
+  .hdr h1 {
+    margin: 0 0 6px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .hdr h2 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .hdr .meta {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 400;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+  th, td {
+    border: 1px solid #9bb8d4;
+    padding: 6px 8px;
+    vertical-align: middle;
+  }
+  th {
+    background: #e8f0fe;
+    font-weight: 700;
+    text-align: center;
+    font-size: 12px;
+  }
+  td.c { text-align: center; }
+  td.l { text-align: left; }
+  .box {
+    display: inline-block;
+    min-width: 140px;
+    max-width: 95%;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+  col.si { width: 8%; }
+  col.adm { width: 14%; }
+  col.name { width: 30%; }
+  col.roll { width: 24%; }
+  col.ht { width: 24%; }
+</style>
+</head>
+<body>
+  <div class="hdr">
+    <h1>${escapeHtml(collegeName)}</h1>
+    <h2>Assign Student Roll Number</h2>
+    <p class="meta">${escapeHtml(filterLine)}</p>
+  </div>
+  <table>
+    <colgroup>
+      <col class="si" />
+      <col class="adm" />
+      <col class="name" />
+      <col class="roll" />
+      <col class="ht" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Sl.No</th>
+        <th>Admission No</th>
+        <th>Student Name</th>
+        <th>Roll Number</th>
+        <th>Hallticket Number</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
+    </tbody>
+  </table>
+</body>
+</html>`);
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Legacy cascade + editable grid
@@ -128,18 +298,16 @@ export default function GenerateStudentRollnoPage() {
   const [loadingFilters, setLoadingFilters] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [listVisible, setListVisible] = useState(false);
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [academicYearId, setAcademicYearId] = useState<number | null>(null);
   const [courseId, setCourseId] = useState<number | null>(null);
   const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
-  /** 0 = all sections (four-id list), &gt; 0 = section-specific (five-id list). */
+  /** 0 = all sections (four-id list), > 0 = section-specific (five-id list). */
   const [groupSectionId, setGroupSectionId] = useState(0);
 
   const [students, setStudents] = useState<AnyRow[]>([]);
-  const [tableFilter, setTableFilter] = useState("");
-  const [rollPrefix, setRollPrefix] = useState("");
-  const [rollStart, setRollStart] = useState("");
 
   const loadFilters = useCallback(async () => {
     const employeeId = Number(user?.employeeId ?? 0);
@@ -281,6 +449,7 @@ export default function GenerateStudentRollnoPage() {
   useEffect(() => {
     setGroupSectionId(0);
     setStudents([]);
+    setListVisible(false);
   }, [collegeId, academicYearId, courseId, courseGroupId, courseYearId]);
 
   const displayHeader = useMemo(() => {
@@ -289,11 +458,13 @@ export default function GenerateStudentRollnoPage() {
     const cr = courses.find((x) => pickNum(x, CRS) === courseId);
     const cg = courseGroups.find((x) => pickNum(x, GRP) === courseGroupId);
     const cy = courseYears.find((x) => pickNum(x, YR) === courseYearId);
-    const secRow =
-      groupSectionId > 0
-        ? sectionRows.find((x) => pickNum(x, SEC) === groupSectionId)
-        : null;
+    const collegeName =
+      pickText(c, ["college_name", "collegeName"]) ||
+      user?.collegeName ||
+      pickText(c, ["college_code", "collegeCode"]) ||
+      "College";
     return {
+      collegeName,
       collegeCode: pickText(c, ["college_code", "collegeCode"]) || "—",
       academicYear: pickText(ay, ["academic_year", "academicYear"]) || "—",
       course: pickText(cr, ["course_code", "courseCode"]) || "—",
@@ -304,14 +475,6 @@ export default function GenerateStudentRollnoPage() {
           "courseYearName",
           "course_year_code",
         ]) || "—",
-      section:
-        groupSectionId > 0
-          ? pickText(secRow ?? {}, [
-              "section",
-              "group_section_name",
-              "groupSectionName",
-            ]) || "—"
-          : "All",
     };
   }, [
     colleges,
@@ -324,9 +487,32 @@ export default function GenerateStudentRollnoPage() {
     courseGroupId,
     courseYears,
     courseYearId,
-    sectionRows,
-    groupSectionId,
+    user?.collegeName,
   ]);
+
+  const tableSummary = useMemo(
+    () =>
+      `${displayHeader.collegeCode} / ${displayHeader.academicYear} / ${displayHeader.course} / ${displayHeader.courseGroup} / ${displayHeader.courseYear} / (Total Students: ${students.length})`,
+    [displayHeader, students.length],
+  );
+
+  const printFilterLine = useMemo(
+    () =>
+      `${displayHeader.collegeCode} / ${displayHeader.academicYear} / ${displayHeader.course} / ${displayHeader.courseGroup} / ${displayHeader.courseYear} /`,
+    [displayHeader],
+  );
+
+  function printReport() {
+    if (!students.length) {
+      toastError(new Error("Empty"), "Load students first.");
+      return;
+    }
+    printAssignRollReport({
+      collegeName: displayHeader.collegeName,
+      filterLine: printFilterLine,
+      rows: students,
+    });
+  }
 
   const handleGetList = useCallback(async () => {
     if (!collegeId || !academicYearId || !courseGroupId || !courseYearId) {
@@ -343,30 +529,16 @@ export default function GenerateStudentRollnoPage() {
         groupSectionId: groupSectionId > 0 ? groupSectionId : undefined,
       });
       setStudents(rows.map((r) => ({ ...r })));
+      setListVisible(true);
       if (!rows.length) toastSuccess("No students found for this selection.");
     } catch (e) {
       toastError(e, "Failed to load students");
       setStudents([]);
+      setListVisible(true);
     } finally {
       setLoadingList(false);
     }
   }, [collegeId, academicYearId, courseGroupId, courseYearId, groupSectionId]);
-
-  const filteredStudents = useMemo(() => {
-    const q = tableFilter.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter((row) => {
-      const blob = [
-        pickText(row, ["admissionNumber", "admission_no"]),
-        pickText(row, ["firstName", "first_name"]),
-        String(row.rollNumber ?? ""),
-        String(row.hallticketNumber ?? ""),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return blob.includes(q);
-    });
-  }, [students, tableFilter]);
 
   function updateStudentField(
     key: string,
@@ -377,24 +549,6 @@ export default function GenerateStudentRollnoPage() {
       prev.map((row) =>
         rowStudentKey(row) === key ? { ...row, [field]: value } : row,
       ),
-    );
-  }
-
-  // Angular parity: auto-generate roll numbers for the whole loaded cohort from a
-  // prefix + starting number, assigned in load order. Mutates local state only; the
-  // existing saveRollNumbers path writes the full array.
-  function generateRollNumbers() {
-    if (!students.length) {
-      toastError(new Error("Empty"), "Load students first.");
-      return;
-    }
-    const start = Number(rollStart);
-    if (!rollStart.trim() || !Number.isFinite(start)) {
-      toastError(new Error("Invalid"), "Enter a valid starting number.");
-      return;
-    }
-    setStudents((prev) =>
-      prev.map((row, i) => ({ ...row, rollNumber: `${rollPrefix}${start + i}` })),
     );
   }
 
@@ -439,7 +593,7 @@ export default function GenerateStudentRollnoPage() {
       "Year",
   }));
   const sectionOpts = [
-    { value: "0", label: "All sections" },
+    { value: "0", label: "Select" },
     ...sectionRows.map((r) => ({
       value: String(pickNum(r, SEC)),
       label:
@@ -448,265 +602,228 @@ export default function GenerateStudentRollnoPage() {
     })),
   ];
 
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "Sl.No",
+        valueGetter: rowIndexGetter,
+        width: 80,
+        flex: 0,
+        cellClass: "text-center",
+      },
+      {
+        headerName: "Admission No",
+        minWidth: 140,
+        flex: 1,
+        valueGetter: (p) =>
+          pickText(p.data, ["admissionNumber", "admission_no"]) || "",
+      },
+      {
+        headerName: "Student Name",
+        minWidth: 220,
+        flex: 1.4,
+        valueGetter: (p) =>
+          pickText(p.data, ["firstName", "first_name", "studentName"]) || "",
+      },
+      {
+        headerName: "Roll Number",
+        minWidth: 180,
+        flex: 1.2,
+        sortable: false,
+        filter: false,
+        cellRenderer: makeTextInputRenderer("rollNumber", updateStudentField),
+      },
+      {
+        headerName: "Hallticket Number",
+        minWidth: 180,
+        flex: 1.2,
+        sortable: false,
+        filter: false,
+        cellRenderer: makeTextInputRenderer(
+          "hallticketNumber",
+          updateStudentField,
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
-    <FilteredPage
-      title="Generate Student Roll No."
+    <FilteredListPage
+      title="Assign Student Roll Number"
+      filterTitle="Assign Student Roll Number Filter"
       className="print:space-y-2"
+      showTable={listVisible}
+      resultsVisible={listVisible}
+      loading={loadingList}
+      pagination
+      height="auto"
+      rowHeight={44}
+      getRowId={(p) => rowStudentKey(p.data ?? {})}
+      rowData={students}
+      columnDefs={columnDefs}
+      tableHeader={
+        <TableContextHeader
+          title="Assign Student Roll Number"
+          info={<span>{tableSummary}</span>}
+        />
+      }
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search",
+        searchFields: [
+          "admissionNumber",
+          "admission_no",
+          "firstName",
+          "first_name",
+          "studentName",
+          "rollNumber",
+          "roll_number",
+          "hallticketNumber",
+          "hallticket_number",
+        ],
+        columnPicker: false,
+        exportExcel: false,
+        exportPdf: false,
+        columnFilters: false,
+      }}
+      toolbarTrailing={
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={() => exportRollExcel(students)}
+            disabled={!students.length}
+          >
+            <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5" />
+            Export Excel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 px-3 text-[12px]"
+            onClick={printReport}
+            disabled={!students.length}
+          >
+            <Printer className="mr-1.5 h-3.5 w-3.5" />
+            Print Report
+          </Button>
+        </div>
+      }
       filters={
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <div className={selectClass()}>
-              <Select
-                label="College"
-                placeholder="College"
-                value={collegeId ? String(collegeId) : null}
-                onChange={(v) => {
-                  setCollegeId(parseSelectNumber(v));
-                  setStudents([]);
-                }}
-                options={collegeOpts}
-                disabled={loadingFilters || !collegeOpts.length}
-                searchable
-              />
-            </div>
-            <div className={selectClass()}>
-              <Select
-                label="Academic year"
-                placeholder="Academic year"
-                value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => {
-                  setAcademicYearId(parseSelectNumber(v));
-                  setStudents([]);
-                }}
-                options={ayOpts}
-                disabled={loadingFilters || !ayOpts.length}
-                searchable
-              />
-            </div>
-            <div className={selectClass()}>
-              <Select
-                label="Course"
-                placeholder="Course"
-                value={courseId ? String(courseId) : null}
-                onChange={(v) => {
-                  setCourseId(parseSelectNumber(v));
-                  setStudents([]);
-                }}
-                options={courseOpts}
-                disabled={loadingFilters || !courseOpts.length}
-                searchable
-              />
-            </div>
-            <div className={selectClass()}>
-              <Select
-                label="Course group"
-                placeholder="Course group"
-                value={courseGroupId ? String(courseGroupId) : null}
-                onChange={(v) => {
-                  setCourseGroupId(parseSelectNumber(v));
-                  setStudents([]);
-                }}
-                options={groupOpts}
-                disabled={loadingFilters || !groupOpts.length}
-                searchable
-              />
-            </div>
-            <div className={selectClass()}>
-              <Select
-                label="Course year"
-                placeholder="Course year"
-                value={courseYearId ? String(courseYearId) : null}
-                onChange={(v) => {
-                  setCourseYearId(parseSelectNumber(v));
-                  setStudents([]);
-                }}
-                options={yearOpts}
-                disabled={loadingFilters || !yearOpts.length}
-                searchable
-              />
-            </div>
-            <div className={selectClass()}>
-              <Select
-                label="Section"
-                placeholder="Section"
-                value={String(groupSectionId)}
-                onChange={(v) => {
-                  setGroupSectionId(parseSelectNumberOrZero(v));
-                  setStudents([]);
-                }}
-                options={sectionOpts}
-                disabled={loadingFilters || !courseYearId}
-                searchable
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              onClick={() => void handleGetList()}
-              disabled={loadingList || loadingFilters}
-            >
-              {loadingList ? "Loading…" : "Get list"}
-            </Button>
-            {loadingFilters && (
-              <span className="self-center text-xs text-muted-foreground">
-                Loading…
-              </span>
-            )}
-          </div>
-        </>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <Select
+            label="College"
+            placeholder="Select"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => {
+              setCollegeId(parseSelectNumber(v));
+              setStudents([]);
+              setListVisible(false);
+            }}
+            options={collegeOpts}
+            disabled={loadingFilters || !collegeOpts.length}
+            searchable
+            className={selectClass()}
+          />
+          <Select
+            label="Academic Year"
+            placeholder="Select"
+            value={academicYearId ? String(academicYearId) : null}
+            onChange={(v) => {
+              setAcademicYearId(parseSelectNumber(v));
+              setStudents([]);
+              setListVisible(false);
+            }}
+            options={ayOpts}
+            disabled={loadingFilters || !ayOpts.length}
+            searchable
+            className={selectClass()}
+          />
+          <Select
+            label="Course"
+            placeholder="Select"
+            value={courseId ? String(courseId) : null}
+            onChange={(v) => {
+              setCourseId(parseSelectNumber(v));
+              setStudents([]);
+              setListVisible(false);
+            }}
+            options={courseOpts}
+            disabled={loadingFilters || !courseOpts.length}
+            searchable
+            className={selectClass()}
+          />
+          <Select
+            label="Course Group"
+            placeholder="Select"
+            value={courseGroupId ? String(courseGroupId) : null}
+            onChange={(v) => {
+              setCourseGroupId(parseSelectNumber(v));
+              setStudents([]);
+              setListVisible(false);
+            }}
+            options={groupOpts}
+            disabled={loadingFilters || !groupOpts.length}
+            searchable
+            className={selectClass()}
+          />
+          <Select
+            label="Course Year"
+            placeholder="Select"
+            value={courseYearId ? String(courseYearId) : null}
+            onChange={(v) => {
+              setCourseYearId(parseSelectNumber(v));
+              setStudents([]);
+              setListVisible(false);
+            }}
+            options={yearOpts}
+            disabled={loadingFilters || !yearOpts.length}
+            searchable
+            className={selectClass()}
+          />
+          <Select
+            label="Section"
+            placeholder="Select"
+            value={String(groupSectionId)}
+            onChange={(v) => {
+              setGroupSectionId(parseSelectNumberOrZero(v));
+              setStudents([]);
+              setListVisible(false);
+            }}
+            options={sectionOpts}
+            disabled={loadingFilters || !courseYearId}
+            searchable
+            className={selectClass()}
+          />
+        </div>
+      }
+      filtersFooter={
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            className="h-9 px-4 text-[12px]"
+            onClick={() => void handleGetList()}
+            disabled={loadingList || loadingFilters}
+          >
+            {loadingList ? "Loading…" : "Get List"}
+          </Button>
+        </div>
       }
     >
-      <div className="space-y-4 print:space-y-2">
-        {students.length > 0 && (
-          <>
-            <div className="rounded-lg border border-b-0 bg-muted/30 px-4 py-3 print:border print:bg-transparent">
-              <p className="text-sm font-medium">
-                Assign student roll number — {displayHeader.collegeCode} /{" "}
-                {displayHeader.academicYear} / {displayHeader.course} /{" "}
-                {displayHeader.courseGroup} / {displayHeader.courseYear} /{" "}
-                {displayHeader.section}{" "}
-                <span className="text-muted-foreground">
-                  (Total: {students.length})
-                </span>
-              </p>
-            </div>
-
-            <div className="rounded-lg border bg-card shadow-sm print:border-0 print:shadow-none">
-              <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-end sm:justify-between print:hidden">
-                <div className="flex flex-wrap items-end gap-2">
-                  <Input
-                    placeholder="Search"
-                    value={tableFilter}
-                    onChange={(e) => setTableFilter(e.target.value)}
-                    className="max-w-[12rem]"
-                  />
-                  <Input
-                    placeholder="Prefix"
-                    value={rollPrefix}
-                    onChange={(e) => setRollPrefix(e.target.value)}
-                    className="h-9 w-28"
-                  />
-                  <Input
-                    placeholder="Starting number"
-                    inputMode="numeric"
-                    value={rollStart}
-                    onChange={(e) => setRollStart(e.target.value)}
-                    className="h-9 w-36"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={generateRollNumbers}
-                  >
-                    Generate roll numbers
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportRollCsv(students)}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    Export CSV
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.print()}
-                  >
-                    <Printer className="mr-1.5 h-4 w-4" />
-                    Print
-                  </Button>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto px-4 pb-4 print:px-0">
-                <table className="w-full min-w-[720px] text-xs">
-                  <thead>
-                    <tr className="border-b bg-muted/50 text-left text-xs">
-                      <th className="px-2 py-1.5 font-medium">SI.No</th>
-                      <th className="px-2 py-1.5 font-medium">Admission No</th>
-                      <th className="px-2 py-1.5 font-medium">Student name</th>
-                      <th className="px-2 py-1.5 font-medium">Roll number</th>
-                      <th className="px-2 py-1.5 font-medium">
-                        Hallticket number
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-xs">
-                    {filteredStudents.map((row, index) => {
-                      const key = rowStudentKey(row);
-                      const gIdx = students.findIndex(
-                        (s) => rowStudentKey(s) === key,
-                      );
-                      const siNo = gIdx >= 0 ? gIdx + 1 : index + 1;
-                      return (
-                        <tr key={key} className="border-b last:border-0">
-                          <td className="px-2 py-1.5">{siNo}</td>
-                          <td className="px-2 py-1.5">
-                            {pickText(row, [
-                              "admissionNumber",
-                              "admission_no",
-                            ]) || "—"}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            {pickText(row, ["firstName", "first_name"]) || "—"}
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input
-                              className="h-7 min-w-[120px] text-xs"
-                              value={String(
-                                row.rollNumber ?? row.roll_number ?? "",
-                              )}
-                              onChange={(e) =>
-                                updateStudentField(
-                                  key,
-                                  "rollNumber",
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="px-2 py-1.5">
-                            <Input
-                              className="h-7 min-w-[120px] text-xs"
-                              value={String(
-                                row.hallticketNumber ??
-                                  row.hallticket_number ??
-                                  "",
-                              )}
-                              onChange={(e) =>
-                                updateStudentField(
-                                  key,
-                                  "hallticketNumber",
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex justify-end border-t p-4 print:hidden">
-                <Button
-                  onClick={() => void saveRollNumbers()}
-                  disabled={saving}
-                >
-                  {saving ? "Saving…" : "Save"}
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </FilteredPage>
+      {listVisible && students.length > 0 ? (
+        <div className="flex justify-end print:hidden">
+          <Button
+            type="button"
+            className="h-9 px-4 text-[12px]"
+            onClick={() => void saveRollNumbers()}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      ) : null}
+    </FilteredListPage>
   );
 }
