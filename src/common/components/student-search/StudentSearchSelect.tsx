@@ -180,9 +180,9 @@ function StudentSearchOption({
         }}
       />
       <div className="min-w-0 flex-1 leading-snug">
-        {hallticket ? (
+        {studentIdLine ? (
           <p className="text-[13px] font-normal text-[rgba(0,0,0,0.87)]">
-            {hallticket}
+            {studentIdLine}
           </p>
         ) : null}
         <p className="mt-0.5 text-[13px]">
