@@ -74,10 +74,9 @@ export default function CourseModal({ open, onClose, row, onSaved }: Readonly<{ 
             <div><Label htmlFor="dur">Duration</Label><Input id="dur" type="number" {...register('duration', { valueAsNumber: true })} /></div>
             <div><Label htmlFor="it">Intake</Label><Input id="it" type="number" {...register('inTake', { valueAsNumber: true })} /></div>
             <div><Label htmlFor="pr">Prefix</Label><Input id="pr" {...register('prefix')} /></div>
+            <div><Label htmlFor="sno">Starting No</Label><Input id="sno" type="number" {...register('startingNo', { setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)) })} />{errors.startingNo && <p className="text-xs text-red-500">{errors.startingNo.message}</p>}</div>
           </div>
-          {isEditing && (
-            <Controller name="isActive" control={control} render={({ field }) => <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />} />
-          )}
+          <Controller name="isActive" control={control} render={({ field }) => <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />} />
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
           <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>

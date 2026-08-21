@@ -813,8 +813,13 @@ export default function StudentWiseGradePointReportPage() {
       title="Grade And Grade Points Report"
       filters={
         <div className="space-y-3">
-          <GlobalFilterBarRow>
-            <GlobalFilterField label="Course" icon={GraduationCap}>
+          {/* Angular fxFlex: Course 20 / Exam Year 20 / Exam Master 60 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r1">
+            <GlobalFilterField
+              label="Course"
+              icon={GraduationCap}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={courseId ? String(courseId) : null}
                 onChange={(v) => {
@@ -836,7 +841,11 @@ export default function StudentWiseGradePointReportPage() {
                 isLoading={loading && baseRows.length === 0}
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Exam Year" icon={CalendarDays}>
+            <GlobalFilterField
+              label="Exam Year"
+              icon={CalendarDays}
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={academicYearId ? String(academicYearId) : null}
                 onChange={(v) => {
@@ -855,7 +864,11 @@ export default function StudentWiseGradePointReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <GlobalFilterField label="Exam Master" icon={ClipboardList}>
+            <GlobalFilterField
+              label="Exam Master"
+              icon={ClipboardList}
+              className="global-filter-field--fx60"
+            >
               <Select
                 value={examId ? String(examId) : null}
                 onChange={(v) => {

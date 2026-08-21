@@ -1,9 +1,13 @@
 'use client'
 
+/**
+ * Consolidated Exam Report — Angular `consolidated-exam-report`.
+ * By Course / By Student radios above the filter card; Get Report only (no Reset).
+ */
+
 import { useEffect, useMemo, useState } from 'react'
 import { FilteredPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select } from '@/common/components/select'
 import { GlobalFilterBarRow, GlobalFilterField } from '@/common/components/forms'
@@ -29,7 +33,6 @@ import {
   FileDown,
   GraduationCap,
   Layers,
-  RotateCcw,
   School,
   UserRound,
 } from 'lucide-react'
@@ -65,7 +68,6 @@ export default function ConsolidatedExamReportPage() {
   const [courseYearId, setCourseYearId] = useState<number>(0)
   const [skipAutoSelect, setSkipAutoSelect] = useState(false)
 
-  const [studentQuery, setStudentQuery] = useState('')
   const [studentOptions, setStudentOptions] = useState<AnyRow[]>([])
   const [studentId, setStudentId] = useState<number | null>(null)
 
@@ -163,21 +165,20 @@ export default function ConsolidatedExamReportPage() {
   function handleModeChange(next: Mode) {
     setMode(next)
     setStudentId(null)
-    setStudentQuery('')
     setStudentOptions([])
   }
 
-  async function handleSearchStudents() {
-    const q = studentQuery.trim()
-    if (q.length < 5) {
-      toastError('Enter at least 5 characters to search students')
+  /** Angular `enteredStudent` — search when length > 4. */
+  async function handleStudentSearch(term: string) {
+    const q = term.trim()
+    if (q.length <= 4) {
+      if (!q) setStudentOptions([])
       return
     }
     setSearchingStudents(true)
     try {
       const rows = await searchStudentsByKeyword(q)
       setStudentOptions(rows)
-      if (rows.length === 0) toastError('No students found')
     } catch (e) {
       toastError(e instanceof Error ? e.message : 'Failed to search students')
     } finally {
@@ -200,18 +201,6 @@ export default function ConsolidatedExamReportPage() {
     if (nextCollege) setCollegeId(nextCollege)
     if (nextCourse) setCourseId(nextCourse)
     if (nextAy) setAcademicYearId(nextAy)
-  }
-
-  function handleReset() {
-    setSkipAutoSelect(true)
-    setCollegeId(null)
-    setAcademicYearId(null)
-    setCourseId(null)
-    setCourseGroupId(null)
-    setCourseYearId(0)
-    setStudentId(null)
-    setStudentQuery('')
-    setStudentOptions([])
   }
 
   async function handleGetReport() {
@@ -280,24 +269,26 @@ export default function ConsolidatedExamReportPage() {
   }
 
   const modeToggle = (
-    <RadioGroup
-      value={mode}
-      onValueChange={(v) => handleModeChange(v as Mode)}
-      className="flex flex-nowrap items-center gap-6 px-0.5"
-    >
-      <label className="flex items-center gap-2 whitespace-nowrap text-[12px]">
-        <RadioGroupItem value="course" id="consolidated-mode-course" />
-        By Course
-      </label>
-      <label className="flex items-center gap-2 whitespace-nowrap text-[12px]">
-        <RadioGroupItem value="student" id="consolidated-mode-student" />
-        By Student
-      </label>
-    </RadioGroup>
+    <div className="-mx-1 rounded-md bg-muted/60 px-3 py-2">
+      <RadioGroup
+        value={mode}
+        onValueChange={(v) => handleModeChange(v as Mode)}
+        className="flex flex-nowrap items-center gap-6"
+      >
+        <label className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
+          <RadioGroupItem value="course" id="consolidated-mode-course" />
+          By Course
+        </label>
+        <label className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
+          <RadioGroupItem value="student" id="consolidated-mode-student" />
+          By Student
+        </label>
+      </RadioGroup>
+    </div>
   )
 
-  const actionButtons = (
-    <div className="ml-auto flex shrink-0 items-center gap-3 self-end pb-0.5">
+  const getReportButton = (
+    <div className="flex shrink-0 items-center self-end pb-0.5">
       <Button
         type="button"
         className="h-8 gap-1.5 text-[12px]"
@@ -307,158 +298,137 @@ export default function ConsolidatedExamReportPage() {
         <FileDown className="h-3.5 w-3.5" />
         {loading ? 'Generating...' : 'Get Report'}
       </Button>
-      <Button
-        type="button"
-        variant="outline"
-        className="h-8 gap-1.5 text-[12px]"
-        onClick={handleReset}
-        title="Reset"
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-        Reset
-      </Button>
     </div>
   )
 
   return (
     <FilteredPage
       title="Consolidated Exam Report"
+      notice={modeToggle}
       filters={
-        <div className="space-y-3">
-          {modeToggle}
-          {mode === 'course' ? (
-            <GlobalFilterBarRow className="!flex-nowrap overflow-x-auto">
-              <GlobalFilterField label="College" icon={Building2} className="!min-w-[9rem]">
-                <Select
-                  value={collegeId ? String(collegeId) : null}
-                  onChange={(v) => {
-                    setSkipAutoSelect(false)
-                    setCollegeId(v ? Number(v) : null)
-                  }}
-                  options={colleges.map((r) => ({
-                    value: String(pickNum(r, ['fk_college_id', 'collegeId'])),
-                    label: pickText(r, ['college_code', 'collegeCode', 'college_name']),
-                  }))}
-                  placeholder="College"
-                  searchable
-                  isLoading={loading && filtersData.length === 0}
-                />
-              </GlobalFilterField>
-              <GlobalFilterField label="Academic Year" icon={CalendarDays} className="!min-w-[9rem]">
-                <Select
-                  value={academicYearId ? String(academicYearId) : null}
-                  onChange={(v) => {
-                    setSkipAutoSelect(false)
-                    setAcademicYearId(v ? Number(v) : null)
-                  }}
-                  options={academicYears.map((r) => ({
-                    value: String(pickNum(r, ['fk_academic_year_id', 'academicYearId'])),
-                    label: pickText(r, ['academic_year', 'academicYear']),
-                  }))}
-                  placeholder="Academic Year"
-                  searchable
-                />
-              </GlobalFilterField>
-              <GlobalFilterField label="Course" icon={GraduationCap} className="!min-w-[9rem]">
-                <Select
-                  value={courseId ? String(courseId) : null}
-                  onChange={(v) => {
-                    setSkipAutoSelect(false)
-                    setCourseId(v ? Number(v) : null)
-                  }}
-                  options={courses.map((r) => ({
-                    value: String(pickNum(r, ['fk_course_id', 'courseId'])),
-                    label: pickText(r, ['course_code', 'courseCode', 'course_name']),
-                  }))}
-                  placeholder="Course"
-                  searchable
-                />
-              </GlobalFilterField>
-              <GlobalFilterField label="Course Group" icon={School} className="!min-w-[9rem]">
-                <Select
-                  value={courseGroupId ? String(courseGroupId) : null}
-                  onChange={(v) => {
-                    setSkipAutoSelect(false)
-                    setCourseGroupId(v ? Number(v) : null)
-                  }}
-                  options={courseGroups.map((r) => ({
-                    value: String(pickNum(r, ['fk_course_group_id', 'courseGroupId'])),
-                    label: pickText(r, ['group_code', 'groupCode', 'course_group_code']),
-                  }))}
-                  placeholder="Course Group"
-                  searchable
-                />
-              </GlobalFilterField>
-              <GlobalFilterField label="Course Year" icon={Layers} className="!min-w-[9rem]">
-                <Select
-                  value={String(courseYearId)}
-                  onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-                  options={[
-                    { value: '0', label: 'All' },
-                    ...courseYears.map((r) => ({
-                      value: String(pickNum(r, ['fk_course_year_id', 'courseYearId'])),
-                      label: pickText(r, [
-                        'course_year_name',
-                        'courseYearName',
-                        'course_year_code',
-                        'courseYearCode',
-                      ]),
-                    })),
-                  ]}
-                  placeholder="Course Year"
-                  searchable
-                />
-              </GlobalFilterField>
-              {actionButtons}
-            </GlobalFilterBarRow>
-          ) : (
-            <GlobalFilterBarRow className="!flex-nowrap overflow-x-auto">
-              <GlobalFilterField label="Search" icon={UserRound} className="!min-w-[14rem] !flex-[1_1_14rem]">
-                <div className="flex gap-2">
-                  <Input
-                    value={studentQuery}
-                    onChange={(e) => setStudentQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        void handleSearchStudents()
-                      }
-                    }}
-                    placeholder="Student name or roll no."
-                    className="h-8 text-[12px]"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-8 shrink-0 text-[12px]"
-                    onClick={() => void handleSearchStudents()}
-                    disabled={searchingStudents}
-                  >
-                    {searchingStudents ? 'Searching...' : 'Search'}
-                  </Button>
-                </div>
-              </GlobalFilterField>
-              <GlobalFilterField label="Student" icon={UserRound} className="!min-w-[14rem] !flex-[1_1_14rem]">
-                <Select
-                  value={studentId ? String(studentId) : null}
-                  onChange={handleStudentChange}
-                  options={studentOptions.map((r) => {
-                    const id = Number(r.studentId ?? r.student_id ?? r.fk_student_id)
-                    const roll = pickText(r, ['rollNumber', 'roll_number', 'hallticketNumber', 'hallticket_number'])
-                    const name = pickText(r, ['firstName', 'first_name', 'studentName', 'student_name'])
-                    return {
-                      value: String(id),
-                      label: name ? `${roll} (${name})` : roll || String(id),
-                    }
-                  })}
-                  placeholder="Select Student"
-                  searchable
-                />
-              </GlobalFilterField>
-              {actionButtons}
-            </GlobalFilterBarRow>
-          )}
-        </div>
+        mode === 'course' ? (
+          <GlobalFilterBarRow className="!flex-nowrap overflow-x-auto">
+            <GlobalFilterField label="College" icon={Building2} className="!min-w-[9rem]">
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => {
+                  setSkipAutoSelect(false)
+                  setCollegeId(v ? Number(v) : null)
+                }}
+                options={colleges.map((r) => ({
+                  value: String(pickNum(r, ['fk_college_id', 'collegeId'])),
+                  label: pickText(r, ['college_code', 'collegeCode', 'college_name']),
+                }))}
+                placeholder="College"
+                searchable
+                isLoading={loading && filtersData.length === 0}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Academic Year" icon={CalendarDays} className="!min-w-[9rem]">
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => {
+                  setSkipAutoSelect(false)
+                  setAcademicYearId(v ? Number(v) : null)
+                }}
+                options={academicYears.map((r) => ({
+                  value: String(pickNum(r, ['fk_academic_year_id', 'academicYearId'])),
+                  label: pickText(r, ['academic_year', 'academicYear']),
+                }))}
+                placeholder="Academic Year"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course" icon={GraduationCap} className="!min-w-[9rem]">
+              <Select
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => {
+                  setSkipAutoSelect(false)
+                  setCourseId(v ? Number(v) : null)
+                }}
+                options={courses.map((r) => ({
+                  value: String(pickNum(r, ['fk_course_id', 'courseId'])),
+                  label: pickText(r, ['course_code', 'courseCode', 'course_name']),
+                }))}
+                placeholder="Course"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Group" icon={School} className="!min-w-[9rem]">
+              <Select
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => {
+                  setSkipAutoSelect(false)
+                  setCourseGroupId(v ? Number(v) : null)
+                }}
+                options={courseGroups.map((r) => ({
+                  value: String(pickNum(r, ['fk_course_group_id', 'courseGroupId'])),
+                  label: pickText(r, ['group_code', 'groupCode', 'course_group_code']),
+                }))}
+                placeholder="Course Group"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField label="Course Year" icon={Layers} className="!min-w-[9rem]">
+              <Select
+                value={String(courseYearId)}
+                onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
+                options={[
+                  { value: '0', label: 'All' },
+                  ...courseYears.map((r) => ({
+                    value: String(pickNum(r, ['fk_course_year_id', 'courseYearId'])),
+                    label: pickText(r, [
+                      'course_year_name',
+                      'courseYearName',
+                      'course_year_code',
+                      'courseYearCode',
+                    ]),
+                  })),
+                ]}
+                placeholder="Course Year"
+                searchable
+              />
+            </GlobalFilterField>
+            {getReportButton}
+          </GlobalFilterBarRow>
+        ) : (
+          <GlobalFilterBarRow className="!flex-nowrap overflow-x-auto">
+            <GlobalFilterField
+              label="Student"
+              icon={UserRound}
+              className="!min-w-[12rem] !max-w-[16rem] !flex-[0_0_16rem]"
+            >
+              <Select
+                value={studentId ? String(studentId) : null}
+                onChange={handleStudentChange}
+                onSearch={(term) => void handleStudentSearch(term)}
+                options={studentOptions.map((r) => {
+                  const id = Number(r.studentId ?? r.student_id ?? r.fk_student_id)
+                  const roll = pickText(r, [
+                    'rollNumber',
+                    'roll_number',
+                    'hallticketNumber',
+                    'hallticket_number',
+                  ])
+                  const name = pickText(r, [
+                    'firstName',
+                    'first_name',
+                    'studentName',
+                    'student_name',
+                  ])
+                  return {
+                    value: String(id),
+                    label: name ? `${roll} (${name})` : roll || String(id),
+                  }
+                })}
+                placeholder="Student"
+                searchable
+                isLoading={searchingStudents}
+              />
+            </GlobalFilterField>
+            {getReportButton}
+          </GlobalFilterBarRow>
+        )
       }
     />
   )

@@ -23,7 +23,7 @@ import {
 } from "@/services";
 import { toastError, toastInfo } from "@/lib/toast";
 import { useCollegeLogo } from "@/hooks/useCollegeLogo";
-import { FileSpreadsheet, Printer, RotateCcw } from "lucide-react";
+import { FileSpreadsheet, Printer } from "lucide-react";
 import { printExamAbsenteesReport } from "../_components/printExamAbsenteesReport";
 
 type AnyRow = Record<string, any>;
@@ -523,21 +523,6 @@ export default function ExamAbsenteesReportPage() {
     }
   }
 
-  function handleReset() {
-    setSkipAutoSelect(true);
-    setCourseId(null);
-    setAcademicYearId(null);
-    setExamId(null);
-    setCollegeId(0);
-    setCourseGroupId(0);
-    setCourseYearId(0);
-    setRegulationId(0);
-    setSubjectId(0);
-    setRestRows([]);
-    setSubjectRows([]);
-    clearResults();
-  }
-
   function handleExportExcel() {
     if (rows.length === 0) return;
     const head = `<tr><th>SI.No</th><th>College Code</th><th>Group Code</th><th>Course Year Code</th><th>Exam Date</th><th>Subject Name (Subject Code)</th><th>Hallticket Number</th></tr>`;
@@ -646,7 +631,7 @@ export default function ExamAbsenteesReportPage() {
       <GlobalFilterBarRow className="global-filter-bar__row--ear-r2">
         <GlobalFilterField
           label="College *"
-          className="global-filter-field--fx20"
+          className="global-filter-field--fx12"
         >
           <Select
             value={String(collegeId)}
@@ -673,7 +658,7 @@ export default function ExamAbsenteesReportPage() {
         </GlobalFilterField>
         <GlobalFilterField
           label="Course Group *"
-          className="global-filter-field--fx20"
+          className="global-filter-field--fx12"
         >
           <Select
             value={String(courseGroupId)}
@@ -701,7 +686,7 @@ export default function ExamAbsenteesReportPage() {
         </GlobalFilterField>
         <GlobalFilterField
           label="Course Years *"
-          className="global-filter-field--fx20"
+          className="global-filter-field--fx12"
         >
           <Select
             value={String(courseYearId)}
@@ -728,7 +713,7 @@ export default function ExamAbsenteesReportPage() {
         </GlobalFilterField>
         <GlobalFilterField
           label="Regulation"
-          className="global-filter-field--fx15"
+          className="global-filter-field--fx10"
         >
           <Select
             value={String(regulationId)}
@@ -749,7 +734,7 @@ export default function ExamAbsenteesReportPage() {
         </GlobalFilterField>
         <GlobalFilterField
           label="Subject *"
-          className="global-filter-field--fx30"
+          className="global-filter-field--fx40"
         >
           <Select
             value={String(subjectId)}
@@ -772,26 +757,14 @@ export default function ExamAbsenteesReportPage() {
           label=" "
           className="global-filter-field--action global-filter-field--fx10"
         >
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              className="h-[30px] shrink-0 px-3 text-[12px]"
-              onClick={() => void handleGetReport()}
-              disabled={loading}
-            >
-              {loading ? "Loading..." : "Get List"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-[30px] shrink-0 gap-1.5 px-2.5 text-[12px]"
-              onClick={handleReset}
-              title="Reset"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </Button>
-          </div>
+          <Button
+            type="button"
+            className="h-[30px] shrink-0 px-3 text-[12px]"
+            onClick={() => void handleGetReport()}
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "Get List"}
+          </Button>
         </GlobalFilterField>
       </GlobalFilterBarRow>
     </>

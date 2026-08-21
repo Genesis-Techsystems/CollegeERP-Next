@@ -894,11 +894,11 @@ export default function LabRemunerationReportPage() {
             </GlobalFilterField>
           </GlobalFilterBarRow>
 
-          <GlobalFilterBarRow>
+          <GlobalFilterBarRow className="!flex-nowrap">
             <GlobalFilterField
               label="Evaluators"
               icon={UserRound}
-              className="!flex-[0_1_40%] !min-w-[16rem]"
+              className="global-filter-field--shrink !min-w-[16rem] !max-w-[28rem] !flex-[0_1_28rem]"
             >
               <Select
                 value={String(evaluatorProfileId)}
@@ -922,8 +922,8 @@ export default function LabRemunerationReportPage() {
                 searchable
               />
             </GlobalFilterField>
-            <div className="flex min-w-[10rem] flex-[0_1_15%] items-end pb-0.5">
-              <label className="flex h-8 items-center gap-2 text-[12px] whitespace-nowrap">
+            <div className="flex shrink-0 items-end self-end pb-0.5">
+              <label className="flex h-8 items-center gap-2 whitespace-nowrap text-[12px]">
                 <Checkbox
                   checked={isReevaluation}
                   onCheckedChange={(v) => {
@@ -934,10 +934,10 @@ export default function LabRemunerationReportPage() {
                 <span>Is Re-Evaluation</span>
               </label>
             </div>
-            <div className="flex min-w-[6rem] flex-[0_1_10%] items-end pb-0.5">
+            <div className="flex shrink-0 items-end self-end pb-0.5">
               <Button
                 type="button"
-                className="h-8 w-full text-[12px]"
+                className="h-8 px-3 text-[12px]"
                 onClick={() => void handleGetReport()}
                 disabled={loading}
               >

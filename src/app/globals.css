@@ -1096,6 +1096,67 @@
   min-width: auto !important;
 }
 
+/* Exam Absentees Report — Angular fxFlex (20/20/60, compact row2 + wide Subject) */
+.global-filter-bar__row--ear-r1,
+.global-filter-bar__row--ear-r2 {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 0.5rem !important;
+  width: 100%;
+}
+
+.global-filter-bar__row--ear-r1 > .global-filter-field,
+.global-filter-bar__row--ear-r2 > .global-filter-field {
+  flex: unset !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: auto !important;
+}
+
+.global-filter-bar__row--ear-r1 > .global-filter-field--fx20 {
+  flex: 0 0 20% !important;
+  width: 20% !important;
+  max-width: 20% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ear-r1 > .global-filter-field--fx60 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+/* Row 2: College / Course Group / Course Years compact, Regulation smaller, Subject wide */
+.global-filter-bar__row--ear-r2 > .global-filter-field--fx12 {
+  flex: 0 0 12% !important;
+  width: 12% !important;
+  max-width: 12% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ear-r2 > .global-filter-field--fx10 {
+  flex: 0 0 10% !important;
+  width: 10% !important;
+  max-width: 10% !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ear-r2 > .global-filter-field--fx40 {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+.global-filter-bar__row--ear-r2 > .global-filter-field--action.global-filter-field--fx10 {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: auto !important;
+}
+
 /* Academic Year Curriculum Report — Angular fxFlex (25/25/25/25, 20/25/15/5) */
 .global-filter-bar__row--aycr-r1,
 .global-filter-bar__row--aycr-r2 {
@@ -1198,7 +1259,12 @@
   .global-filter-bar__row--mbs-r1 > .global-filter-field--fx15,
   .global-filter-bar__row--mbs-r2 > .global-filter-field--fx20,
   .global-filter-bar__row--mbs-r2 > .global-filter-field--fx15,
-  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx10 {
+  .global-filter-bar__row--mbs-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--ear-r1 > .global-filter-field--fx20,
+  .global-filter-bar__row--ear-r1 > .global-filter-field--fx60,
+  .global-filter-bar__row--ear-r2 > .global-filter-field--fx12,
+  .global-filter-bar__row--ear-r2 > .global-filter-field--fx10,
+  .global-filter-bar__row--ear-r2 > .global-filter-field--fx40 {
     flex: 1 1 100% !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -1216,7 +1282,9 @@
   .global-filter-bar__row--gwfrs-r1,
   .global-filter-bar__row--gwfrs-r2,
   .global-filter-bar__row--mbs-r1,
-  .global-filter-bar__row--mbs-r2 {
+  .global-filter-bar__row--mbs-r2,
+  .global-filter-bar__row--ear-r1,
+  .global-filter-bar__row--ear-r2 {
     flex-wrap: wrap !important;
   }
 }

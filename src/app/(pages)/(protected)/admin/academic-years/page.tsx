@@ -8,7 +8,7 @@ import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listAcademicYears } from '@/services'
 import type { AcademicYear } from '@/types/academic-year'
 import AcademicYearModal from './AcademicYearModal'
@@ -121,6 +121,7 @@ export default function AcademicYearsPage() {
       }
     >
       <AcademicYearModal
+        key={getCrudModalKey(editingAcademicYear, modalOpen, 'academicYearId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingAcademicYear(null) }}
         academicYear={editingAcademicYear}

@@ -1,7 +1,13 @@
 "use client";
 
+/**
+ * Internal Marks Report — Angular `internal-marks-entry-report`.
+ * Two-row filters (Course/Exam Year/Exam Master + College/Group/Years + Get Report + Reset icon).
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
+import { format, parseISO } from "date-fns";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
@@ -38,11 +44,40 @@ type AnyRow = Record<string, any>;
 
 const TOOLBAR = {
   search: true,
-  searchPlaceholder: "Search roll no",
+  searchPlaceholder: "Search...",
   columnPicker: true,
   exportPdf: false,
   exportExcel: false,
 } as const;
+
+function parseMaybeDate(v: unknown): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  try {
+    if (/^\d{4}-\d{2}-\d{2}/.test(s))
+      return format(parseISO(s.slice(0, 10)), "dd MMM, yyyy");
+    return format(new Date(s), "dd MMM, yyyy");
+  } catch {
+    return s;
+  }
+}
+
+/** Angular exam option: name (from - to) (Internal|Regular|Supple) */
+function examMasterLabel(r: AnyRow): string {
+  const name = strFrom(r, ["exam_name", "examName"]) || "Exam";
+  const from = parseMaybeDate(r.from_date ?? r.fromDate);
+  const to = parseMaybeDate(r.to_date ?? r.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = [
+    r.is_internal_exam || r.isInternalExam ? "Internal" : "",
+    r.is_regular_exam || r.isRegularExam ? "Regular" : "",
+    r.is_supply_exam || r.isSupplyExam ? "Supple" : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const suffix = tags ? ` (${tags})` : "";
+  return `${name}${range}${suffix}`;
+}
 
 function numFrom(row: AnyRow, keys: string[]): number {
   for (const key of keys) {
@@ -638,11 +673,12 @@ export default function InternalMarksReportPage() {
       title="Internal Marks Report"
       filters={
         <div className="space-y-3">
-          <GlobalFilterBarRow>
+          {/* Angular fxFlex: Course 20 / Exam Year 20 / Exam Master 60 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r1">
             <GlobalFilterField
               label="Course"
               icon={GraduationCap}
-              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+              className="global-filter-field--fx20"
             >
               <Select
                 value={courseId ? String(courseId) : null}
@@ -667,7 +703,7 @@ export default function InternalMarksReportPage() {
             <GlobalFilterField
               label="Exam Year"
               icon={CalendarDays}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="global-filter-field--fx20"
             >
               <Select
                 value={academicYearId ? String(academicYearId) : null}
@@ -687,9 +723,9 @@ export default function InternalMarksReportPage() {
               />
             </GlobalFilterField>
             <GlobalFilterField
-              label="Exam"
+              label="Exam Master"
               icon={ClipboardList}
-              className="!flex-[1_1_22rem] !min-w-[16rem]"
+              className="global-filter-field--fx60"
             >
               <Select
                 value={examId ? String(examId) : null}
@@ -700,16 +736,20 @@ export default function InternalMarksReportPage() {
                 }}
                 options={exams.map((r) => ({
                   value: String(numFrom(r, ["fk_exam_id", "examId"])),
-                  label: strFrom(r, ["exam_name", "examName"]),
+                  label: examMasterLabel(r),
                 }))}
-                placeholder="Exam"
+                placeholder="Exam Master"
                 searchable
               />
             </GlobalFilterField>
+          </GlobalFilterBarRow>
+
+          {/* Angular fxFlex: College 20 / Course Group 20 / Course Years 20 / Get Report 15 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--mbs-r2">
             <GlobalFilterField
               label="College"
               icon={Building2}
-              className="!flex-[0_1_7.5rem] !max-w-[8.5rem] !min-w-[6.5rem]"
+              className="global-filter-field--fx20"
             >
               <Select
                 value={collegeId ? String(collegeId) : null}
@@ -734,7 +774,7 @@ export default function InternalMarksReportPage() {
             <GlobalFilterField
               label="Course Group"
               icon={Layers}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="global-filter-field--fx20"
             >
               <Select
                 value={String(courseGroupId)}
@@ -761,9 +801,9 @@ export default function InternalMarksReportPage() {
               />
             </GlobalFilterField>
             <GlobalFilterField
-              label="Course Year"
+              label="Course Years"
               icon={School}
-              className="!flex-[0_1_8.5rem] !max-w-[9.5rem] !min-w-[7rem]"
+              className="global-filter-field--fx20"
             >
               <Select
                 value={String(courseYearId)}
@@ -785,11 +825,11 @@ export default function InternalMarksReportPage() {
                     ]),
                   })),
                 ]}
-                placeholder="Course Year"
+                placeholder="Course Years"
                 searchable
               />
             </GlobalFilterField>
-            <div className="ml-auto flex shrink-0 flex-wrap items-center gap-3 self-end pb-0.5">
+            <div className="global-filter-field global-filter-field--action global-filter-field--fx15 flex items-center self-end pb-0.5">
               <Button
                 type="button"
                 className="h-8 text-[12px]"
@@ -798,15 +838,17 @@ export default function InternalMarksReportPage() {
               >
                 {loading ? "Loading..." : "Get Report"}
               </Button>
+            </div>
+            <div className="global-filter-field global-filter-field--action global-filter-field--fx10 flex items-center self-end pb-0.5">
               <Button
                 type="button"
-                variant="outline"
-                className="h-8 gap-1.5 text-[12px]"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 onClick={handleReset}
                 title="Reset"
               >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
+                <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
           </GlobalFilterBarRow>

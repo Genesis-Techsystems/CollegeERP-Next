@@ -8,7 +8,7 @@ import { ListPage } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { useCrudList } from '@/hooks/useCrudList'
 import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
+import { getCrudModalKey, rowIndexGetter } from '@/lib/utils'
 import { listFinancialYears } from '@/services'
 import type { FinancialYear } from '@/types/financial-year'
 import FinancialYearModal from './FinancialYearModal'
@@ -121,6 +121,7 @@ export default function FinancialYearsPage() {
       }
     >
       <FinancialYearModal
+        key={getCrudModalKey(editingFinancialYear, modalOpen, 'financialYearId')}
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditingFinancialYear(null) }}
         financialYear={editingFinancialYear}

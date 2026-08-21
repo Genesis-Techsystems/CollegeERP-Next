@@ -759,8 +759,9 @@ ${tableHtml}
     <FilteredListPage<GridRow>
       title={pageTitle}
       filters={
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
+        <div className="space-y-3">
+          {/* Row 1: College → Section (Angular fxFlex row of 6) */}
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Select
               label="College"
               required
@@ -770,8 +771,6 @@ ${tableHtml}
               placeholder="College"
               isLoading={filters.loadingFilters}
             />
-          </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Academic Year"
               required
@@ -780,8 +779,6 @@ ${tableHtml}
               options={filters.ayOptions}
               placeholder="Academic Year"
             />
-          </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Course"
               required
@@ -791,8 +788,6 @@ ${tableHtml}
               placeholder="Course"
               disabled={!filters.collegeId}
             />
-          </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Course Group"
               required
@@ -802,8 +797,6 @@ ${tableHtml}
               placeholder="Course Group"
               disabled={!filters.courseId}
             />
-          </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Course Year"
               required
@@ -813,8 +806,6 @@ ${tableHtml}
               placeholder="Course Year"
               disabled={!filters.courseGroupId}
             />
-          </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
             <Select
               label="Section"
               required
@@ -825,35 +816,39 @@ ${tableHtml}
               disabled={!filters.courseYearId}
             />
           </div>
-          <div className="w-full min-w-[9rem] sm:w-auto sm:min-w-[10rem]">
+
+          {/* Row 2: Date (same col width) + Get / Back */}
+          <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <DatePicker
               label="Date"
               required
               value={clsDate}
               maxDate={today}
               clearable={false}
-              displayFormat="dd-MMM-yyyy"
+              displayFormat="dd/MM/yyyy"
               onChange={(d) => {
                 setClsDate(d);
                 clearResults();
               }}
             />
+            <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-2">
+              <Button
+                type="button"
+                className="h-9 w-fit px-4"
+                disabled={loadingList}
+                onClick={() => void handleGetList()}
+              >
+                {loadingList ? "Loading…" : "Get Daily Attendance"}
+              </Button>
+              <Button
+                type="button"
+                className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
+                onClick={goBack}
+              >
+                Back
+              </Button>
+            </div>
           </div>
-          <Button
-            type="button"
-            className="h-9 w-fit px-4"
-            disabled={loadingList}
-            onClick={() => void handleGetList()}
-          >
-            {loadingList ? "Loading…" : "Get Daily Attendance"}
-          </Button>
-          <Button
-            type="button"
-            className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
-            onClick={goBack}
-          >
-            Back
-          </Button>
         </div>
       }
       showTable={showTable}

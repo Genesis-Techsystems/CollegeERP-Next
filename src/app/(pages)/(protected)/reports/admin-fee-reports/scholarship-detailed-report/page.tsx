@@ -673,7 +673,7 @@ ${tableHtml}
                 <Button
                   type="button"
                   size="sm"
-                  variant="secondary"
+                  className="black-btn h-9 px-3 text-[12px]"
                   onClick={() => void goBack()}
                   disabled={loading}
                 >

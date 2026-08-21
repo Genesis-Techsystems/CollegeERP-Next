@@ -60,9 +60,6 @@ const schema = z.object({
   stateId: z.number().optional(),
   districtId: requiredNumber("District is required"),
   cityId: requiredNumber("City is required"),
-  reportLine1: z.string().optional(),
-  reportLine2: z.string().optional(),
-  reportLine3: z.string().optional(),
   isActive: z.boolean(),
   reason: z.string().optional(),
 });
@@ -120,9 +117,6 @@ export default function UniversityModal({
       stateId: undefined,
       districtId: undefined,
       cityId: undefined,
-      reportLine1: "",
-      reportLine2: "",
-      reportLine3: "",
       isActive: true,
       reason: "",
     },
@@ -195,9 +189,6 @@ export default function UniversityModal({
         stateId: university.stateId ?? undefined,
         districtId: university.districtId,
         cityId: university.cityId,
-        reportLine1: university.reportLine1 ?? "",
-        reportLine2: university.reportLine2 ?? "",
-        reportLine3: university.reportLine3 ?? "",
         isActive: university.isActive,
         reason: university.isActive ? "" : (university.reason ?? ""),
       });
@@ -530,18 +521,6 @@ export default function UniversityModal({
             </FormField>
             <FormField label="Fax" htmlFor="fax">
               <Input id="fax" {...register("fax")} placeholder="Fax number" />
-            </FormField>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <FormField label="Report Line 1" htmlFor="reportLine1">
-              <Input id="reportLine1" {...register("reportLine1")} />
-            </FormField>
-            <FormField label="Report Line 2" htmlFor="reportLine2">
-              <Input id="reportLine2" {...register("reportLine2")} />
-            </FormField>
-            <FormField label="Report Line 3" htmlFor="reportLine3">
-              <Input id="reportLine3" {...register("reportLine3")} />
             </FormField>
           </div>
 

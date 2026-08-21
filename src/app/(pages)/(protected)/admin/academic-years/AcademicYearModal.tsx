@@ -158,7 +158,16 @@ export default function AcademicYearModal({
         reason: academicYear.reason ?? "",
       });
     } else {
-      reset();
+      reset({
+        organizationId: undefined as unknown as number,
+        universityId: undefined as unknown as number,
+        academicYear: "",
+        fromDate: asDateInputValue(new Date().toISOString()),
+        toDate: asDateInputValue(new Date().toISOString()),
+        isDefault: false,
+        isActive: true,
+        reason: "",
+      });
     }
     setSubmitError(null);
   }, [academicYear, open, reset]);
@@ -303,21 +312,19 @@ export default function AcademicYearModal({
             </label>
           </div>
 
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch("reason") ?? ""}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue("reason", value)}
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={field.onChange}
+                onReasonChange={(value) => setValue("reason", value)}
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
           {submitError && (
             <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">

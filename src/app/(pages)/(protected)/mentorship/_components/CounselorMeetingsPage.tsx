@@ -929,13 +929,13 @@ export function CounselorMeetingsPage({
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="h-[30px] px-3 text-[12px]"
+              variant="ghost"
+              className="h-[30px] w-[30px] p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+              aria-label="Print report"
               onClick={() => void printReport()}
               disabled={rows.length === 0}
             >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
-              Print Report
+              <Printer className="h-4 w-4" />
             </Button>
           </div>
         ) : null

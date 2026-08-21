@@ -57,20 +57,40 @@ export default function CourseGroupModal({
   const selectedUniversityId = watch('universityId')
 
   useEffect(() => { if (open) listActiveUniversities().then(setUniversities).catch(console.error) }, [open])
-  useEffect(() => { if (selectedUniversityId) listActiveCoursesByUniversity(selectedUniversityId).then(setCourses).catch(console.error) }, [selectedUniversityId])
   useEffect(() => {
-    if (row) reset({
-      universityId: row.universityId,
-      courseId: row.courseId,
-      groupName: row.groupName,
-      groupCode: row.groupCode,
-      shortName: row.shortName ?? row.groupCode ?? '',
-      enrollPrefix: row.enrollPrefix ?? '',
-      startingNo: row.startingNo ?? '',
-      isActive: row.isActive,
-      reason: row.reason ?? '',
-    })
-    else reset()
+    if (!selectedUniversityId) {
+      setCourses([])
+      return
+    }
+    listActiveCoursesByUniversity(selectedUniversityId).then(setCourses).catch(console.error)
+  }, [selectedUniversityId])
+  useEffect(() => {
+    if (row) {
+      reset({
+        universityId: row.universityId,
+        courseId: row.courseId,
+        groupName: row.groupName,
+        groupCode: row.groupCode,
+        shortName: row.shortName ?? row.groupCode ?? '',
+        enrollPrefix: row.enrollPrefix ?? '',
+        startingNo: row.startingNo ?? '',
+        isActive: row.isActive,
+        reason: row.reason ?? '',
+      })
+    } else {
+      reset({
+        universityId: undefined as unknown as number,
+        courseId: undefined as unknown as number,
+        groupName: '',
+        groupCode: '',
+        shortName: '',
+        enrollPrefix: '',
+        startingNo: '',
+        isActive: true,
+        reason: '',
+      })
+      setCourses([])
+    }
     setSubmitError(null)
   }, [row, open, reset])
 
@@ -110,11 +130,9 @@ export default function CourseGroupModal({
             <div><Label htmlFor="cgep">Enroll Prefix *</Label><Input id="cgep" {...register('enrollPrefix')} />{errors.enrollPrefix && <p className="text-xs text-red-500">{errors.enrollPrefix.message}</p>}</div>
             <div><Label htmlFor="cgsno">Starting No *</Label><Input id="cgsno" {...register('startingNo')} />{errors.startingNo && <p className="text-xs text-red-500">{errors.startingNo.message}</p>}</div>
           </div>
-          {isEditing && (
-            <Controller name="isActive" control={control} render={({ field }) => (
-              <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
-            )} />
-          )}
+          <Controller name="isActive" control={control} render={({ field }) => (
+            <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
+          )} />
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
           <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>

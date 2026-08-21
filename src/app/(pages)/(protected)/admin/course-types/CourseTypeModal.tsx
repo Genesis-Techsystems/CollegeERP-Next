@@ -70,11 +70,9 @@ export default function CourseTypeModal({
             <div><Label htmlFor="ctn">Course Type Name *</Label><Input id="ctn" {...register('courseTypeName')} />{errors.courseTypeName && <p className="text-xs text-red-500">{errors.courseTypeName.message}</p>}</div>
             <div><Label htmlFor="ctc">Course Type Code *</Label><Input id="ctc" {...register('courseTypeCode')} />{errors.courseTypeCode && <p className="text-xs text-red-500">{errors.courseTypeCode.message}</p>}</div>
           </div>
-          {isEditing && (
-            <Controller name="isActive" control={control} render={({ field }) => (
-              <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
-            )} />
-          )}
+          <Controller name="isActive" control={control} render={({ field }) => (
+            <ActiveStatusField isActive={field.value} reason={watch('reason') ?? ''} onActiveChange={field.onChange} onReasonChange={(v) => setValue('reason', v)} reasonError={errors.reason?.message} />
+          )} />
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
           <DialogFooter className="pt-1"><Button variant="outline" type="button" onClick={onClose}>Cancel</Button><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Save'}</Button></DialogFooter>
         </form>
