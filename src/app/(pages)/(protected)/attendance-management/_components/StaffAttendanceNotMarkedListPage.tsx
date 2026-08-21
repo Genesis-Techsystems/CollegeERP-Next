@@ -21,13 +21,14 @@ import {
   courseGroupIdFromDeptHead,
   downloadStaffAttendanceNotMarkedReport,
   listActiveDepartments,
-  listDepartmentsByProcedure,
+  listDepartmentsByCollege,
   listDepartmentHeadsByDepartment,
   listStaffAttendanceNotMarkedByDepartment,
   type DepartmentHeadRow,
   type StaffNotMarkedRow,
 } from "@/services";
 import type { Department } from "@/types/department";
+import { useSessionContext } from "@/context/SessionContext";
 
 type StaffRow = StaffNotMarkedRow;
 
@@ -107,6 +108,7 @@ function batchRenderer(p: ICellRendererParams<StaffRow>) {
 }
 
 export function StaffAttendanceNotMarkedListPage() {
+  const { user } = useSessionContext();
   // Angular: localStorage isHOD / empDeptId
   const isHod = readStorage("isHOD") === "true";
   const hodDeptId = Number(readStorage("empDeptId") || 0) || null;
@@ -129,10 +131,15 @@ export function StaffAttendanceNotMarkedListPage() {
   } | null>(null);
 
   useEffect(() => {
-    const ogId = Number(readStorage("organizationId") || 1);
-    const clgId = Number(readStorage("collegeId") || 16);
+    const clgId =
+      Number(user?.collegeId || 0) ||
+      Number(readStorage("collegeId") || 0) ||
+      0;
 
-    listDepartmentsByProcedure(ogId, clgId)
+    const load =
+      clgId > 0 ? listDepartmentsByCollege(clgId) : listActiveDepartments();
+
+    load
       .then((rows) => {
         setDepartments(rows);
         if (isHod && hodDeptId) {
@@ -140,16 +147,16 @@ export function StaffAttendanceNotMarkedListPage() {
         }
       })
       .catch(() => setDepartments([]));
-  }, [isHod, hodDeptId]);
+  }, [user?.collegeId, isHod, hodDeptId]);
 
   const departmentOptions = useMemo(() => {
-    console.log("DEPARTMENTS STATE:", departments);
-
     return departments
-      .filter((d: any) => Number(d.departmentId) > 0)
-      .map((d: any) => ({
+      .filter((d) => Number(d.departmentId) > 0)
+      .map((d) => ({
         value: String(d.departmentId),
-        label: d.deptCode ? `${d.deptCode}` : d.deptName,
+        label: d.deptCode?.trim()
+          ? `${d.deptCode}${d.deptName ? ` — ${d.deptName}` : ""}`
+          : d.deptName || String(d.departmentId),
       }));
   }, [departments]);
 

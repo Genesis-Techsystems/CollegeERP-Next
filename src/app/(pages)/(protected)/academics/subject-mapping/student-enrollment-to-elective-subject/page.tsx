@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { ColDef } from "ag-grid-community";
 import { Select } from "@/common/components/select";
 import { FilteredListPage } from "@/components/layout";
-import { Button } from "@/components/ui/button";
+import { toastError } from "@/lib/toast";
 import {
   getDigitalOnlineSyncFilters,
-  listElectiveGroupMappings,
+  listSectionElectiveGroups,
   listStaffMappingSections,
-  listStudentEnrollmentElectives,
+  listElectiveBatchStudents,
+  listStudentsForPromotionPreview,
 } from "@/services";
 
 type AnyRow = Record<string, any>;
@@ -37,6 +38,12 @@ const uniq = (rows: AnyRow[], key: string) => {
   });
 };
 
+/**
+ * Angular `student-enrollement-to-subject` (no Get List):
+ * 1) Section → `electivegroupyrmapping?collegeId&academicYearId&groupSectionId`
+ * 2) Elective → `studentsList` + `batchwisestudents` (selectedElective)
+ * 3) Results only when students.length > 0
+ */
 export default function StudentEnrollmentToElectiveSubjectPage() {
   const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
   const [academicData, setAcademicData] = useState<AnyRow[]>([]);
@@ -44,7 +51,6 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
   const [electives, setElectives] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tableEnabled, setTableEnabled] = useState(false);
 
   const [collegeId, setCollegeId] = useState<number | null>(null);
   const [courseId, setCourseId] = useState<number | null>(null);
@@ -129,6 +135,7 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
     if (!collegeId && colleges.length)
       setCollegeId(n(colleges[0].fk_college_id));
   }, [colleges, collegeId]);
+
   useEffect(() => {
     setCourseId(null);
     setCourseGroupId(null);
@@ -136,44 +143,55 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
     setAcademicYearId(null);
     setGroupSectionId(null);
     setElectiveGroupMappingId(null);
+    setSections([]);
+    setElectives([]);
     setRows([]);
-    setTableEnabled(false);
   }, [collegeId]);
+
   useEffect(() => {
     if (!courseId && courses.length) setCourseId(n(courses[0].fk_course_id));
   }, [courses, courseId]);
+
   useEffect(() => {
     setCourseGroupId(null);
     setCourseYearId(null);
     setAcademicYearId(null);
     setGroupSectionId(null);
     setElectiveGroupMappingId(null);
+    setSections([]);
+    setElectives([]);
     setRows([]);
-    setTableEnabled(false);
   }, [courseId]);
+
   useEffect(() => {
     if (!courseGroupId && courseGroups.length)
       setCourseGroupId(n(courseGroups[0].fk_course_group_id));
   }, [courseGroups, courseGroupId]);
+
   useEffect(() => {
     setCourseYearId(null);
     setAcademicYearId(null);
     setGroupSectionId(null);
     setElectiveGroupMappingId(null);
+    setSections([]);
+    setElectives([]);
     setRows([]);
-    setTableEnabled(false);
   }, [courseGroupId]);
+
   useEffect(() => {
     if (!courseYearId && courseYears.length)
       setCourseYearId(n(courseYears[0].fk_course_year_id));
   }, [courseYears, courseYearId]);
+
   useEffect(() => {
     setAcademicYearId(null);
     setGroupSectionId(null);
     setElectiveGroupMappingId(null);
+    setSections([]);
+    setElectives([]);
     setRows([]);
-    setTableEnabled(false);
   }, [courseYearId]);
+
   useEffect(() => {
     if (!academicYearId && academicYears.length)
       setAcademicYearId(
@@ -184,30 +202,16 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
         ),
       );
   }, [academicYears, academicYearId]);
+
   useEffect(() => {
     setGroupSectionId(null);
     setElectiveGroupMappingId(null);
-    setRows([]);
     setSections([]);
     setElectives([]);
-    setTableEnabled(false);
+    setRows([]);
   }, [academicYearId]);
-  useEffect(() => {
-    if (!groupSectionId && sections.length)
-      setGroupSectionId(
-        n(sections[0].pk_group_section_id ?? sections[0].groupSectionId),
-      );
-  }, [sections, groupSectionId]);
-  useEffect(() => {
-    if (!electiveGroupMappingId && electives.length)
-      setElectiveGroupMappingId(
-        n(
-          electives[0].electiveGroupyrMappingId ??
-            electives[0].pk_elective_groupyr_mapping_id,
-        ),
-      );
-  }, [electives, electiveGroupMappingId]);
 
+  // Angular selectedYear → sections
   useEffect(() => {
     async function loadSections() {
       if (
@@ -238,20 +242,120 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
     void loadSections();
   }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId]);
 
+  // Angular selectedSection → elective dropdown options
   useEffect(() => {
     async function loadElectives() {
-      if (!collegeId || !academicYearId) {
+      setElectiveGroupMappingId(null);
+      setRows([]);
+      if (!collegeId || !academicYearId || !groupSectionId) {
         setElectives([]);
         return;
       }
-      const list = await listElectiveGroupMappings({
+      const list = await listSectionElectiveGroups({
         collegeId,
         academicYearId,
+        groupSectionId,
       }).catch(() => []);
       setElectives(Array.isArray(list) ? list : []);
     }
     void loadElectives();
-  }, [collegeId, academicYearId]);
+  }, [collegeId, academicYearId, groupSectionId]);
+
+  const selectedElective = useMemo(
+    () =>
+      electives.find(
+        (x) =>
+          n(
+            x.electiveGroupyrMappingId ??
+              x.pk_elective_groupyr_mapping_id ??
+              x.electiveGroupyrMappingID,
+          ) === (electiveGroupMappingId ?? 0),
+      ) ?? null,
+    [electives, electiveGroupMappingId],
+  );
+
+  // Angular selectedElective — studentsList (+ batch by subjectId); no Get List
+  useEffect(() => {
+    let cancelled = false;
+    async function loadStudents() {
+      const subjectId = n(
+        selectedElective?.subjectId ??
+          selectedElective?.fk_subject_id ??
+          selectedElective?.subject_id,
+      );
+      if (
+        !collegeId ||
+        !courseGroupId ||
+        !groupSectionId ||
+        !electiveGroupMappingId ||
+        !subjectId
+      ) {
+        setRows([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        // Angular: students.length from studentsList drives *ngIf show boards
+        const sectionStudents = await listStudentsForPromotionPreview({
+          collegeId,
+          courseGroupId,
+          groupSectionId,
+        }).catch(() => []);
+
+        const enrolled = await listElectiveBatchStudents({
+          collegeId,
+          courseGroupId,
+          groupSectionId,
+          subjectId,
+          electiveGroupyrMappingId: electiveGroupMappingId,
+        }).catch(() => []);
+        const enrolledIds = new Set(
+          (Array.isArray(enrolled) ? enrolled : []).map((r) =>
+            n(r.studentId ?? r.fk_student_id ?? r.student_id),
+          ),
+        );
+
+        const electiveSubject = pick(selectedElective ?? {}, [
+          "subjectName",
+          "subject_name",
+        ]);
+        const electiveGroup = pick(selectedElective ?? {}, [
+          "electiveGroupName",
+          "groupName",
+          "firstName",
+        ]);
+
+        const next = (
+          Array.isArray(sectionStudents) ? sectionStudents : []
+        ).map((r) => ({
+          ...r,
+          subjectName: electiveSubject,
+          electiveGroupName: electiveGroup,
+          isEnrolled: enrolledIds.has(
+            n(r.studentId ?? r.fk_student_id ?? r.student_id),
+          ),
+        }));
+        if (!cancelled) setRows(next);
+      } catch (e) {
+        if (!cancelled) {
+          setRows([]);
+          toastError(e, "Failed to load students");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadStudents();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    collegeId,
+    courseGroupId,
+    groupSectionId,
+    electiveGroupMappingId,
+    selectedElective,
+  ]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -268,23 +372,23 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
         flex: 1.2,
         valueGetter: (p) =>
           pick(p.data ?? {}, [
+            "firstName",
             "studentName",
             "student_name",
             "fullName",
-            "studentFullName",
           ]),
       },
       {
         headerName: "Register No",
-        minWidth: 130,
+        minWidth: 140,
         flex: 1,
         valueGetter: (p) =>
           pick(p.data ?? {}, [
+            "rollNumber",
+            "admissionNumber",
             "registerNo",
             "regNo",
-            "register_number",
-            "admissionNo",
-            "rollNo",
+            "hallticketNumber",
           ]),
       },
       {
@@ -297,7 +401,7 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
             "electiveSubjectName",
             "elective_name",
             "subject_name",
-          ]),
+          ]) || pick(selectedElective ?? {}, ["subjectName", "subject_name"]),
       },
       {
         headerName: "Elective Group",
@@ -308,46 +412,28 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
             "electiveGroupName",
             "groupName",
             "elective_group_name",
+          ]) ||
+          pick(selectedElective ?? {}, [
+            "electiveGroupName",
+            "groupName",
+            "firstName",
           ]),
       },
     ],
-    [],
+    [selectedElective],
   );
 
-  async function loadEnrollmentRows() {
-    if (!collegeId || !academicYearId) return;
-    setLoading(true);
-    setTableEnabled(true);
-    const list = await listStudentEnrollmentElectives({
-      collegeId,
-      academicYearId,
-      courseId: courseId ?? 0,
-      courseGroupId: courseGroupId ?? 0,
-      courseYearId: courseYearId ?? 0,
-      groupSectionId: groupSectionId ?? 0,
-    }).catch(() => []);
-    const baseRows = Array.isArray(list) ? list : [];
-    const filteredRows = electiveGroupMappingId
-      ? baseRows.filter(
-          (r) =>
-            n(
-              r.electiveGroupyrMappingId ??
-                r.fk_elective_groupyr_mapping_id ??
-                r.pk_elective_groupyr_mapping_id,
-            ) === electiveGroupMappingId,
-        )
-      : baseRows;
-    setRows(filteredRows);
-    setLoading(false);
-  }
+  const showTable = rows.length > 0;
 
   return (
     <FilteredListPage
-      title="Student Enrollment to Elective Subject"
+      title="Student Enrollement to Elective Subject"
+      filterTitle="Student Enrollement to Elective Subject"
       filters={
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <Select
-            label="College *"
+            label="College"
+            required
             value={collegeId ? String(collegeId) : null}
             onChange={(v) => setCollegeId(v ? Number(v) : null)}
             options={colleges.map((x) => ({
@@ -355,10 +441,10 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
               label: s(x.college_code),
             }))}
             searchable
-            className="md:col-span-2"
           />
           <Select
-            label="Course *"
+            label="Course"
+            required
             value={courseId ? String(courseId) : null}
             onChange={(v) => setCourseId(v ? Number(v) : null)}
             options={courses.map((x) => ({
@@ -366,10 +452,10 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
               label: s(x.course_code),
             }))}
             searchable
-            className="md:col-span-2"
           />
           <Select
-            label="Course Group *"
+            label="Course Group"
+            required
             value={courseGroupId ? String(courseGroupId) : null}
             onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
             options={courseGroups.map((x) => ({
@@ -377,10 +463,10 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
               label: s(x.group_code) || s(x.group_name),
             }))}
             searchable
-            className="md:col-span-2"
           />
           <Select
-            label="Course Year *"
+            label="Course Year"
+            required
             value={courseYearId ? String(courseYearId) : null}
             onChange={(v) => setCourseYearId(v ? Number(v) : null)}
             options={courseYears.map((x) => ({
@@ -388,10 +474,10 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
               label: s(x.course_year_name),
             }))}
             searchable
-            className="md:col-span-2"
           />
           <Select
-            label="Academic Year *"
+            label="Academic Year"
+            required
             value={academicYearId ? String(academicYearId) : null}
             onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
             options={academicYears.map((x) => ({
@@ -399,10 +485,10 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
               label: s(x.academic_year),
             }))}
             searchable
-            className="md:col-span-1"
           />
           <Select
             label="Section"
+            required
             value={groupSectionId ? String(groupSectionId) : null}
             onChange={(v) => setGroupSectionId(v ? Number(v) : null)}
             options={sections.map((x) => ({
@@ -410,48 +496,55 @@ export default function StudentEnrollmentToElectiveSubjectPage() {
               label: s(x.section) || s(x.sectionName),
             }))}
             searchable
-            className="md:col-span-1"
+            disabled={!academicYearId || sections.length === 0}
           />
           <Select
             label="Elective"
+            required
             value={
               electiveGroupMappingId ? String(electiveGroupMappingId) : null
             }
             onChange={(v) => setElectiveGroupMappingId(v ? Number(v) : null)}
-            options={electives.map((x) => ({
-              value: String(
-                n(
-                  x.electiveGroupyrMappingId ??
-                    x.pk_elective_groupyr_mapping_id,
+            options={electives.map((x) => {
+              const subject = pick(x, ["subjectName", "subject_name"]);
+              const staff = pick(x, ["firstName", "staffName", "employeeName"]);
+              const label =
+                subject !== "-" && staff !== "-"
+                  ? `${subject} (${staff})`
+                  : subject !== "-"
+                    ? subject
+                    : pick(x, [
+                        "electiveGroupName",
+                        "groupName",
+                        "elective_group_name",
+                      ]);
+              return {
+                value: String(
+                  n(
+                    x.electiveGroupyrMappingId ??
+                      x.pk_elective_groupyr_mapping_id,
+                  ),
                 ),
-              ),
-              label: pick(x, [
-                "electiveGroupName",
-                "groupName",
-                "elective_group_name",
-                "electiveGroupCode",
-              ]),
-            }))}
+                label,
+              };
+            })}
             searchable
-            className="md:col-span-1"
+            disabled={!groupSectionId}
+            placeholder={
+              !groupSectionId
+                ? "Select section first"
+                : electives.length === 0
+                  ? "No electives mapped"
+                  : "Select Elective"
+            }
           />
-          <div className="md:col-span-1">
-            <Button
-              type="button"
-              className="h-9 w-full"
-              disabled={!collegeId || !academicYearId}
-              onClick={() => {
-                void loadEnrollmentRows();
-              }}
-            >
-              Get List
-            </Button>
-          </div>
         </div>
       }
-      rowData={tableEnabled ? rows : []}
+      rowData={rows}
       columnDefs={columnDefs}
       loading={loading}
+      resultsVisible={showTable}
+      showTable={showTable}
       toolbar={{ search: true, searchPlaceholder: "Search students" }}
       pagination
       paginationPageSize={10}

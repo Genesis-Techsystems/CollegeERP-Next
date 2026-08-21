@@ -40,7 +40,7 @@ const ADMIN_MODULES: AdminModule[] = [
   },
   {
     label: "Attendance",
-    href: "/attendance-management/attendance-dashboard",
+    href: "/attendance-management/student-attendance",
     icon: "attendenace.png",
     materialIcon: "how_to_reg",
   },

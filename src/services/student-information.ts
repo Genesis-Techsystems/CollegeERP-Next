@@ -1521,68 +1521,115 @@ export async function listSectionElectiveGroups(params: {
 }): Promise<AnyRow[]> {
   const { collegeId, academicYearId, groupSectionId } = params;
   if (!collegeId || !academicYearId || !groupSectionId) return [];
-  try {
-    const data = await fetchDetails<any>("electivegroupyrmapping", {
+
+  // Angular treats success:false "No Record(s) found" as an empty list (not a hard error).
+  const body = await fetchDetailsEnvelope<AnyRow[] | AnyRow>(
+    "electivegroupyrmapping",
+    {
       collegeId,
       academicYearId,
       groupSectionId,
-    });
-    return asArray<AnyRow>(data);
-  } catch {
-    return [];
+    },
+  ).catch(() => null);
+
+  if (body?.success) {
+    const fromSection = asArray<AnyRow>(body.data);
+    if (fromSection.length > 0) return fromSection;
   }
+
+  // Fallback: college + AY list filtered to this section (same endpoint Angular uses for mapping grids).
+  const allBody = await fetchDetailsEnvelope<AnyRow[] | AnyRow>(
+    "electivegroupyrmapping",
+    { collegeId, academicYearId },
+  ).catch(() => null);
+  if (!allBody?.success) return [];
+  const all = asArray<AnyRow>(allBody.data);
+  return all.filter((r) => {
+    const sid = num(r, [
+      "groupSectionId",
+      "pk_group_section_id",
+      "fk_group_section_id",
+      "group_section_id",
+    ]);
+    return sid === groupSectionId;
+  });
 }
 
 /**
- * Students currently in a section's elective batch.
- * Mirrors Angular `selectedElective`: intersect the section's student list (`StudentList`)
- * with the elective batch roster (`batchwisestudents` subjectTypeCode=ELECTIVE) by studentId.
+ * Angular `selectedElective` batch roster (modify-elective / enrolled side):
+ * - studentsList?collegeId&courseGroupId&groupSectionId
+ * - batchwisestudents?collegeId&groupSectionId&subjectTypeCode=ELECTIVE&subjectId=&isActive=true
+ * Returns only students enrolled in this elective subject (with batchwiseStudentId).
  */
 export async function listElectiveBatchStudents(params: {
   collegeId: number;
   courseGroupId: number;
   groupSectionId: number;
-  electiveGroupyrMappingId: number;
+  subjectId: number;
+  electiveGroupyrMappingId?: number;
 }): Promise<AnyRow[]> {
-  const { collegeId, courseGroupId, groupSectionId, electiveGroupyrMappingId } =
-    params;
-  if (
-    !collegeId ||
-    !courseGroupId ||
-    !groupSectionId ||
-    !electiveGroupyrMappingId
-  )
-    return [];
-  try {
-    const [studentsRaw, batchRaw] = await Promise.all([
-      fetchDetails<any>(STUDENT_API.STUDENT, {
-        collegeId,
-        courseGroupId,
-        groupSectionId,
-      }),
-      fetchDetails<any>("batchwisestudents", {
-        collegeId,
-        groupSectionId,
-        subjectTypeCode: "ELECTIVE",
-        electiveGroupyrMappingId,
-        isActive: "true",
-      }),
-    ]);
-    const sectionStudentIds = new Set(
-      asArray<AnyRow>(studentsRaw).map((r) =>
-        num(r, ["studentId", "fk_student_id", "student_id"]),
-      ),
-    );
-    return asArray<AnyRow>(batchRaw)
-      .filter((b) =>
-        sectionStudentIds.has(
-          num(b, ["studentId", "fk_student_id", "student_id"]),
-        ),
-      )
-      .map((b) => ({ ...normalizeStudentRow(b), checked: false }));
-  } catch {
-    return [];
+  const {
+    collegeId,
+    courseGroupId,
+    groupSectionId,
+    subjectId,
+    electiveGroupyrMappingId,
+  } = params;
+  if (!collegeId || !courseGroupId || !groupSectionId || !subjectId) return [];
+
+  const studentsEnv = await fetchDetailsEnvelope<AnyRow[] | AnyRow>(
+    STUDENT_API.STUDENT,
+    { collegeId, courseGroupId, groupSectionId },
+  ).catch(() => null);
+  if (!studentsEnv?.success) return [];
+  const students = asArray<AnyRow>(studentsEnv.data).map((r) =>
+    normalizeStudentRow(r),
+  );
+  if (students.length === 0) return [];
+
+  const batchEnv = await fetchDetailsEnvelope<AnyRow[] | AnyRow>(
+    "batchwisestudents",
+    {
+      collegeId,
+      groupSectionId,
+      subjectTypeCode: "ELECTIVE",
+      subjectId,
+      isActive: "true",
+    },
+  ).catch(() => null);
+  const batch = batchEnv?.success ? asArray<AnyRow>(batchEnv.data) : [];
+
+  const batchByStudent = new Map<number, AnyRow>();
+  for (const b of batch) {
+    if (num(b, ["subjectId", "fk_subject_id"]) !== subjectId) continue;
+    if (electiveGroupyrMappingId) {
+      const mid = num(b, [
+        "electiveGroupyrMappingId",
+        "pk_elective_groupyr_mapping_id",
+      ]);
+      if (mid && mid !== electiveGroupyrMappingId) continue;
+    }
+    const sid = num(b, ["studentId", "fk_student_id", "student_id"]);
+    if (sid) batchByStudent.set(sid, b);
   }
+
+  const out: AnyRow[] = [];
+  for (const row of students) {
+    const sid = num(row, ["studentId", "fk_student_id", "student_id"]);
+    const b = batchByStudent.get(sid);
+    if (!b) continue;
+    out.push({
+      ...row,
+      ...normalizeStudentRow(b),
+      batchwiseStudentId: num(b, [
+        "batchwiseStudentId",
+        "pk_batchwise_student_id",
+        "batchWiseStudentId",
+      ]),
+      checked: false,
+    });
+  }
+  return out;
 }
 
 /**

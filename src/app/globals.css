@@ -247,13 +247,13 @@
 /* Student Details — table context bar (Angular pipe-separated summary) */
 .students-list-context-bar {
   padding: 10px 24px;
-  background: #f5f5f5;
+  background: #fff;
   border-bottom: 2px solid #ffcf46;
 }
 
 .students-list-context-bar__text {
   margin: 0;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.45;
   color: #1a5fb4;
@@ -1034,7 +1034,8 @@
 }
 
 /* Get Report + optional checkbox — Angular savebtn fxFlex 15, content-sized */
-.global-filter-bar__row--gwfrs-r2 > .global-filter-field--action.global-filter-field--fx15 {
+.global-filter-bar__row--gwfrs-r2
+  > .global-filter-field--action.global-filter-field--fx15 {
   flex: 0 0 auto !important;
   width: auto !important;
   max-width: none !important;
@@ -1082,7 +1083,8 @@
   min-width: 0 !important;
 }
 
-.global-filter-bar__row--mbs-r2 > .global-filter-field--action.global-filter-field--fx15 {
+.global-filter-bar__row--mbs-r2
+  > .global-filter-field--action.global-filter-field--fx15 {
   flex: 0 0 auto !important;
   width: auto !important;
   max-width: none !important;
@@ -2333,6 +2335,17 @@ input[type="reset"]:disabled,
   margin-bottom: 0.5rem;
 }
 
+/* Course Year Subject Association — never inject a second AppShell page title */
+.cy-subject-assoc-page [data-page-first-card]::before,
+.cy-subject-assoc-page.app-card[data-page-first-card]::before,
+.cy-subject-assoc-page .app-card[data-page-first-card]::before {
+  content: none !important;
+  display: none !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
   EXAMINATION THEME (scoped) — match reference site 100% within wrapper
   Apply by wrapping a route with <div class="theme-examination">...</div>
@@ -2964,6 +2977,7 @@ h4,
 
 .angular-filter-card__title-btn,
 .angular-filter-card__title-row {
+  background-color: #fff;
   display: flex;
   width: 100%;
   align-items: center;
@@ -3056,7 +3070,7 @@ h4,
 }
 
 .app-card-title__icon {
-  font-size: 18px !important;
+  font-size: 24px !important;
   width: 22px;
   height: 22px;
   line-height: 22px !important;

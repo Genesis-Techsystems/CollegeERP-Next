@@ -15,8 +15,7 @@ import {
 type AnyRow = Record<string, any>;
 
 const SEARCH_ONLY_TOOLBAR = {
-  search: true,
-  searchPlaceholder: "Search...",
+  search: false,
   columnPicker: false,
   exportPdf: false,
   exportExcel: false,
@@ -41,39 +40,74 @@ function pickText(row: AnyRow | null | undefined, keys: string[]): string {
   return "";
 }
 
+/** Angular pipe summary: `MECS | 2025-2026 | B.E | CSE | II YEAR IV SEM | C` */
+function buildStudentSubjectsContextLine(student: AnyRow | null): string {
+  if (!student) return "";
+  return [
+    pickText(student, ["collegeCode", "college_code"]),
+    pickText(student, ["academicYear", "academic_year"]),
+    pickText(student, ["courseCode", "course_code"]),
+    pickText(student, ["groupCode", "group_code"]),
+    pickText(student, [
+      "courseYearName",
+      "course_year_name",
+      "courseYearCode",
+      "course_year_code",
+    ]),
+    pickText(student, [
+      "section",
+      "sectionName",
+      "group_section_name",
+      "groupSectionName",
+    ]),
+  ]
+    .filter((p) => p && p !== "-")
+    .join(" | ");
+}
+
 const SUBJECT_COLS: ColDef<AnyRow>[] = [
-  { headerName: "Sl.No", valueGetter: rowIndexGetter, width: 70, flex: 0 },
+  {
+    headerName: "Sl.No",
+    valueGetter: rowIndexGetter,
+    width: 80,
+    flex: 0,
+    cellClass: "text-center",
+  },
   {
     headerName: "Subject Code",
-    minWidth: 130,
-    valueGetter: (p) =>
-      pickText(p.data, ["subjectCode", "subject_code"]) || "—",
+    minWidth: 140,
+    flex: 1,
+    valueGetter: (p) => pickText(p.data, ["subjectCode", "subject_code"]) || "",
   },
   {
     headerName: "Subject Name",
-    minWidth: 200,
-    valueGetter: (p) =>
-      pickText(p.data, ["subjectName", "subject_name"]) || "—",
+    minWidth: 260,
+    flex: 1.6,
+    valueGetter: (p) => pickText(p.data, ["subjectName", "subject_name"]) || "",
   },
   {
     headerName: "Subject Type",
     minWidth: 130,
+    flex: 1,
     valueGetter: (p) =>
       pickText(p.data, [
         "subjectTypeName",
         "subjectType",
         "subject_type_name",
-      ]) || "—",
+        "subject_type",
+      ]) || "",
   },
   {
     headerName: "Regulation",
-    minWidth: 140,
+    minWidth: 120,
+    flex: 0.9,
     valueGetter: (p) =>
       pickText(p.data, [
-        "regulationName",
         "regulationCode",
+        "regulation_code",
+        "regulationName",
         "regulation_name",
-      ]) || "—",
+      ]) || "",
   },
 ];
 
@@ -162,22 +196,10 @@ export default function StudentSubjectsPage() {
     await loadStudentSubjects(row);
   }
 
-  const contextLine = selectedStudent
-    ? [
-        pickText(selectedStudent, ["collegeCode", "college_code"]),
-        pickText(selectedStudent, ["academicYear", "academic_year"]),
-        pickText(selectedStudent, ["courseCode", "course_code"]),
-        pickText(selectedStudent, ["groupCode", "group_code"]),
-        pickText(selectedStudent, ["courseYearName", "course_year_name"]),
-        pickText(selectedStudent, [
-          "section",
-          "sectionName",
-          "group_section_name",
-        ]),
-      ]
-        .filter(Boolean)
-        .join(" | ")
-    : "";
+  const contextLine = useMemo(
+    () => buildStudentSubjectsContextLine(selectedStudent),
+    [selectedStudent],
+  );
 
   const columnDefs = useMemo(() => SUBJECT_COLS, []);
 
@@ -198,11 +220,11 @@ export default function StudentSubjectsPage() {
       }
     >
       {selectedStudent ? (
-        <div className="space-y-2">
+        <div className="app-card angular-filter-card overflow-hidden">
           {contextLine ? (
-            <p className="text-[12px] font-semibold leading-snug text-[#1a5fb4]">
-              {contextLine}
-            </p>
+            <div className="students-list-context-bar">
+              <p className="students-list-context-bar__text">{contextLine}</p>
+            </div>
           ) : null}
           <DataTable
             title=""
@@ -211,6 +233,9 @@ export default function StudentSubjectsPage() {
             columnDefs={columnDefs}
             loading={loadingSubjects}
             pagination
+            paginationPageSize={5}
+            pageSizeOptions={[5, 10, 25, 100]}
+            height="auto"
             toolbar={SEARCH_ONLY_TOOLBAR}
           />
         </div>

@@ -61,6 +61,7 @@ export function mapModuleTail(
   base: string,
   slugAliases: Record<string, string>,
   defaultSlug: string,
+  options?: { onlyKnownSlugs?: boolean },
 ): string | null {
   const hrefLower = href.toLowerCase();
   if (!hrefLower.includes(angularSegment)) return null;
@@ -77,8 +78,13 @@ export function mapModuleTail(
   }
 
   const first = tail.split("/")[0]!.toLowerCase();
-  const slug =
-    slugAliases[first] ?? slugAliases[first.replace(/-/g, "")] ?? first;
+  const known = slugAliases[first] ?? slugAliases[first.replace(/-/g, "")];
+  // Shared Angular segments (e.g. certificates/ for TC + Certificates) must not
+  // invent paths for unknown tails — let the module that owns the slug claim it.
+  if (options?.onlyKnownSlugs && !known) {
+    return null;
+  }
+  const slug = known ?? first;
   const rest = tail.split("/").slice(1).join("/");
   return rest ? `${base}/${slug}/${rest}` : `${base}/${slug}`;
 }

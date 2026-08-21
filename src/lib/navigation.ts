@@ -993,7 +993,23 @@ function overrideTimetableHref(href: string, pageLabel: string): string {
 
 function overrideErpModuleHref(href: string, pageLabel: string): string {
   const mapped = mapErpModuleNavRoute(href, pageLabel);
-  return mapped ?? href;
+  if (mapped) return mapped;
+
+  // mapErpModuleNavRoute returns null for folder rows like "Attendance Management"
+  // even when DB url is `.../attendance-dashboard`. Do not keep that hub href.
+  const labelKey = (pageLabel ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const hrefLower = (href ?? "").toLowerCase();
+  if (
+    (labelKey === "attendancemanagement" ||
+      labelKey === "adminattendancemanagement") &&
+    (hrefLower.includes("attendance-dashboard") ||
+      /admin-attendance-management\/?$/i.test(hrefLower) ||
+      /attendance-management\/?$/i.test(hrefLower))
+  ) {
+    return "#";
+  }
+
+  return href;
 }
 
 function overrideInstitutionalMastersHref(
@@ -1016,9 +1032,7 @@ export function normalizePageHref(href: string, pageLabel: string): string {
   // Sidebar builds hrefs with normalizePageHref (not resolveNavHref). Pin here
   // so Exam Results → Student AnswerPaper View does not 404 → dashboard.
   const answerPaperHref = mapExaminationSectionNavRoute(href, pageLabel);
-  if (
-    answerPaperHref === "/student-examination/student-answerpaper-view"
-  ) {
+  if (answerPaperHref === "/student-examination/student-answerpaper-view") {
     return answerPaperHref;
   }
 
@@ -1035,18 +1049,19 @@ export function normalizePageHref(href: string, pageLabel: string): string {
     withExaminationSection,
     pageLabel,
   );
-  return normalizeHref(
-    overrideErpModuleHref(
-      overrideTimetableHref(
-        overrideLegacyPostExamHref(
-          overrideLegacyPreExamHref(withInstitutional, pageLabel),
-          pageLabel,
-        ),
+  const overridden = overrideErpModuleHref(
+    overrideTimetableHref(
+      overrideLegacyPostExamHref(
+        overrideLegacyPreExamHref(withInstitutional, pageLabel),
         pageLabel,
       ),
       pageLabel,
     ),
+    pageLabel,
   );
+  // "#" means "no navigation" (e.g. Attendance Management folder row).
+  if (!overridden || overridden === "#") return "#";
+  return normalizeHref(overridden);
 }
 
 /**

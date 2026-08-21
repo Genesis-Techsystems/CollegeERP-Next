@@ -2,6 +2,7 @@ import type { NavItem } from "@/types/navigation";
 import {
   mapMirroredModuleLabelToRoute,
   mapMirroredModuleNavRoute,
+  resolveCertificateIssuanceNavRoute,
 } from "@/lib/erp-module-mirror/navigation";
 import {
   isRegistrarLogin,
@@ -185,12 +186,25 @@ export function isStaffWorkloadAdjustmentNav(
 export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (!label) return null;
   const key = normalizeLabelKey(label);
-  if (key.includes("attendancemanagement") || key === "attendancemanagement") {
-    return `${ATTENDANCE_MGMT_BASE}/attendance-dashboard`;
+
+  // Specific screens first — DB labels vary ("not taken" vs "not marked") and must
+  // not fall through to a module-root → hub remap.
+  if (
+    (key.includes("staff") &&
+      (key.includes("notmarked") || key.includes("nottaken"))) ||
+    key.includes("attendancenottaken") ||
+    key.includes("attendancenotmarked") ||
+    (key.includes("nottaken") &&
+      key.includes("list") &&
+      key.includes("staff")) ||
+    (key.includes("notmarked") && key.includes("list") && key.includes("staff"))
+  ) {
+    return `${ATTENDANCE_MGMT_BASE}/staff-attendance-not-markedlist`;
   }
+
   // Attendance Management entry only — not Student Attendance *Reports*.
   // "Course Wise Student Attendance" contains "studentattendance" but is a report.
-  const isAttendanceReportLabel =
+  const isStudentAttendanceReport =
     key.includes("report") ||
     key.includes("subjectwise") ||
     key.includes("coursewise") ||
@@ -202,7 +216,7 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (
     key.includes("studentattendance") &&
     !key.includes("view") &&
-    !isAttendanceReportLabel
+    !isStudentAttendanceReport
   ) {
     return `${ATTENDANCE_MGMT_BASE}/student-attendance`;
   }
@@ -219,9 +233,6 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
     if (key.includes("staff")) return STAFF_WORKLOAD_ADJUSTMENT_ROUTE;
     return `/staff-faculty-leaves/workload-adjustment`;
   }
-  if (key.includes("staff") && key.includes("notmarked")) {
-    return `${ATTENDANCE_MGMT_BASE}/staff-attendance-not-markedlist`;
-  }
   // Angular Academics menu label (staff-classes/attendance-update).
   if (key.includes("attendanceupdate")) {
     return `${ATTENDANCE_MGMT_BASE}/mark-attendance`;
@@ -235,10 +246,23 @@ export function mapAttendanceLabelToRoute(label?: string): string | null {
   if (key.includes("exam") && key.includes("attendance")) {
     return `${ATTENDANCE_MGMT_BASE}/exam-attendance`;
   }
+  // Explicit dashboard label only — bare "Attendance Management" must not open the
+  // hub (parent expands children; child rows use their own page labels/hrefs).
   if (key.includes("attendancedashboard")) {
     return `${ATTENDANCE_MGMT_BASE}/attendance-dashboard`;
   }
   return null;
+}
+
+/** Sidebar folder row "Attendance Management" (not a specific page). */
+export function isAttendanceModuleFolderLabel(label?: string): boolean {
+  if (!label) return false;
+  const key = normalizeLabelKey(label);
+  return (
+    key === "attendancemanagement" ||
+    key === "adminattendancemanagement" ||
+    key === "attendancemanagementmodule"
+  );
 }
 
 export function mapAttendanceNavRoute(
@@ -264,6 +288,23 @@ export function mapAttendanceNavRoute(
     return null;
   }
 
+  // Trainings session attendance (`trainings/mark-attendance`, `trainings/attendance`)
+  // must not be stolen by Academics "Mark Attendance".
+  if (
+    hrefLower.includes("trainings/") ||
+    hrefLower.includes("/trainings") ||
+    hrefLower.includes("training-attendance") ||
+    hrefLower.includes("view-training-attendance")
+  ) {
+    return null;
+  }
+
+  // Parent folder row — DB often stores url `.../attendance-dashboard` on the
+  // module itself. Never open the hub from that label; sidebar should only expand.
+  if (isAttendanceModuleFolderLabel(label)) {
+    return null;
+  }
+
   const byLabel = mapAttendanceLabelToRoute(label);
   if (byLabel) return byLabel;
 
@@ -286,12 +327,27 @@ export function mapAttendanceNavRoute(
     ATTENDANCE_SLUGS,
     "attendance-dashboard",
   );
-  if (fromAdmin) return fromAdmin;
+  if (fromAdmin) {
+    // Empty-tail / hub default: only when label explicitly says "dashboard".
+    // Do not trust href alone — module rows often use .../attendance-dashboard as url.
+    if (fromAdmin.endsWith("/attendance-dashboard")) {
+      const key = normalizeLabelKey(label ?? "");
+      if (!key.includes("dashboard")) return null;
+    }
+    return fromAdmin;
+  }
 
   if (hrefLower.includes("attendance-management")) {
     const idx = hrefLower.indexOf("attendance-management");
     const tail = hrefRaw.slice(idx).split("?")[0];
-    if (tail === "attendance-management" || tail === "/attendance-management") {
+    if (
+      tail === "attendance-management" ||
+      tail === "/attendance-management" ||
+      /attendance-management\/?$/i.test(tail) ||
+      /attendance-management\/attendance-dashboard\/?$/i.test(tail)
+    ) {
+      const key = normalizeLabelKey(label ?? "");
+      if (!key.includes("dashboard")) return null;
       return `${ATTENDANCE_MGMT_BASE}/attendance-dashboard`;
     }
     return tail.startsWith("/") ? tail : `/${tail}`;
@@ -299,8 +355,15 @@ export function mapAttendanceNavRoute(
 
   const seg = lastPathSegment(hrefLower);
   const slug = ATTENDANCE_SLUGS[seg] ?? ATTENDANCE_SLUGS[seg.replace(/-/g, "")];
-  if (slug && hrefLower.includes("attendance"))
+  if (slug && hrefLower.includes("attendance")) {
+    if (
+      slug === "attendance-dashboard" &&
+      !normalizeLabelKey(label ?? "").includes("dashboard")
+    ) {
+      return null;
+    }
     return `${ATTENDANCE_MGMT_BASE}/${slug}`;
+  }
 
   return null;
 }
@@ -695,8 +758,7 @@ const EVENTS_SLUGS: Record<string, string> = {
 export function mapEventsLabelToRoute(label?: string): string | null {
   if (!label) return null;
   const key = normalizeLabelKey(label);
-  if (key.includes("eventsdashboard") || key === "events")
-    return `${EVENTS_BASE}/events-dashboard`;
+  // Specific screens before bare module name.
   if (key.includes("addevent")) return `${EVENTS_BASE}/add-event`;
   if (key.includes("eventtype")) return `${EVENTS_BASE}/event-type`;
   if (key.includes("departmentevent"))
@@ -706,6 +768,8 @@ export function mapEventsLabelToRoute(label?: string): string | null {
   if (key.includes("staffevent")) return `${EVENTS_BASE}/staff-events`;
   if (key.includes("eventscalendar") || key === "eventcalendar")
     return `${EVENTS_BASE}/events-calendar`;
+  // Explicit dashboard only — bare "Events" expands children; does not open hub.
+  if (key.includes("eventsdashboard")) return `${EVENTS_BASE}/events-dashboard`;
   return null;
 }
 
@@ -771,7 +835,16 @@ export function mapEventsNavRoute(
     EVENTS_SLUGS,
     "events-dashboard",
   );
-  if (fromEvents && !fromEvents.endsWith("/events")) return fromEvents;
+  if (fromEvents && !fromEvents.endsWith("/events")) {
+    if (fromEvents.endsWith("/events-dashboard")) {
+      const key = normalizeLabelKey(label ?? "");
+      const hrefWantsDashboard =
+        hrefLower.includes("events-dashboard") ||
+        hrefLower.endsWith("/events-dashboard");
+      if (!key.includes("dashboard") && !hrefWantsDashboard) return null;
+    }
+    return fromEvents;
+  }
 
   if (hrefLower.includes("/events/") || hrefLower.match(/\/events$/)) {
     const idx = hrefLower.lastIndexOf("/events");
@@ -779,7 +852,11 @@ export function mapEventsNavRoute(
       .slice(idx + "/events".length)
       .replace(/^\/+/, "")
       .split("?")[0];
-    if (!tail) return `${EVENTS_BASE}/events-dashboard`;
+    if (!tail) {
+      const key = normalizeLabelKey(label ?? "");
+      if (!key.includes("dashboard")) return null;
+      return `${EVENTS_BASE}/events-dashboard`;
+    }
     const first = tail.split("/")[0]!.toLowerCase();
     const slug = EVENTS_SLUGS[first] ?? first;
     const rest = tail.split("/").slice(1).join("/");
@@ -963,8 +1040,7 @@ const LIBRARY_SLUGS: Record<string, string> = {
 export function mapLibraryLabelToRoute(label?: string): string | null {
   if (!label) return null;
   const key = normalizeLabelKey(label);
-  if (key === "library" || key === "librarymanagement")
-    return `${LIBRARY_BASE}/library-dashboard`;
+  // Specific screens before bare "Library" / "Library Management".
   if (key.includes("membershipbarcode") || key.includes("memberbarcode")) {
     return `${LIBRARY_BASE}/membership-barcode`;
   }
@@ -995,6 +1071,10 @@ export function mapLibraryLabelToRoute(label?: string): string | null {
     return `${LIBRARY_BASE}/library-settings`;
   }
   if (key.includes("librarydetail")) return `${LIBRARY_BASE}/library-details`;
+  if (key.includes("addmorebook")) return `${LIBRARY_BASE}/add-more-books`;
+  if (key.includes("addbook")) return `${LIBRARY_BASE}/add-books`;
+  if (key.includes("bookdetail")) return `${LIBRARY_BASE}/book-details`;
+  // Explicit dashboard only — bare Library parent expands children.
   if (key.includes("librarydashboard"))
     return `${LIBRARY_BASE}/library-dashboard`;
   return null;
@@ -1127,7 +1207,16 @@ export function mapLibraryNavRoute(
     LIBRARY_SLUGS,
     "library-dashboard",
   );
-  if (mapped) return mapped;
+  if (mapped) {
+    if (mapped.endsWith("/library-dashboard")) {
+      const key = normalizeLabelKey(label ?? "");
+      const hrefWantsDashboard =
+        hrefLower.includes("library-dashboard") ||
+        hrefLower.endsWith("/library-dashboard");
+      if (!key.includes("dashboard") && !hrefWantsDashboard) return null;
+    }
+    return mapped;
+  }
 
   if (hrefLower.includes("/library/") || hrefLower.includes("/apps/library/")) {
     const idx = Math.max(
@@ -1141,7 +1230,11 @@ export function mapLibraryNavRoute(
       .slice(idx + segment.length)
       .split("?")[0]
       .replace(/^\/+/, "");
-    if (!tail) return `${LIBRARY_BASE}/library-dashboard`;
+    if (!tail) {
+      const key = normalizeLabelKey(label ?? "");
+      if (!key.includes("dashboard")) return null;
+      return `${LIBRARY_BASE}/library-dashboard`;
+    }
     const first = tail.split("/")[0]!.toLowerCase();
     const slug =
       LIBRARY_SLUGS[first] ?? LIBRARY_SLUGS[first.replace(/-/g, "")] ?? first;
@@ -1188,6 +1281,18 @@ export function mapErpModuleNavRoute(
 
   if (isSalarySlipsNav(href, label)) {
     return SALARY_SLIPS_ROUTE;
+  }
+
+  // Certificates issuance pages — must beat shared Angular `certificates/` → TC remap.
+  const certIssuance = resolveCertificateIssuanceNavRoute(href, label);
+  if (certIssuance) {
+    if (
+      certIssuance === "/certificates/bonafied-certificate" &&
+      isStudentPortalViewer()
+    ) {
+      return "/student-requests/bonafied-certificate";
+    }
+    return certIssuance;
   }
 
   // Staff/Student Class Diary labels (and student portal bare Class Diary /

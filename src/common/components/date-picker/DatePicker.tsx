@@ -54,6 +54,7 @@ export function DatePicker({
   error,
   disabled = false,
   minDate,
+  maxDate,
   clearable = true,
   variant: variantProp,
   className,
@@ -63,6 +64,7 @@ export function DatePicker({
   const isStandard = variant === "standard";
   const displayValue = value ? format(value, UI_DATE_FORMAT) : "";
   const nativeMin = toDateInputValue(minDate) || NATIVE_MIN;
+  const nativeMax = toDateInputValue(maxDate) || NATIVE_MAX;
 
   function handleChange(raw: string) {
     const next = fromDateInputValue(raw);
@@ -74,6 +76,11 @@ export function DatePicker({
       const min = new Date(minDate);
       min.setHours(0, 0, 0, 0);
       if (next < min) return;
+    }
+    if (maxDate) {
+      const max = new Date(maxDate);
+      max.setHours(23, 59, 59, 999);
+      if (next > max) return;
     }
     onChange(next);
   }
@@ -97,7 +104,7 @@ export function DatePicker({
           variant={variant}
           value={toDateInputValue(value)}
           min={nativeMin}
-          max={NATIVE_MAX}
+          max={nativeMax}
           disabled={disabled}
           required={required}
           aria-required={required || undefined}

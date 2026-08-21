@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FilteredPage } from "@/components/layout";
+import type {
+  ColDef,
+  ICellRendererParams,
+  IHeaderParams,
+} from "ag-grid-community";
+import { AngularFilterCard, PageContainer } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
+import { DataTable } from "@/common/components/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   getStudentInfoCollegeFilters,
   listGroupSectionsByFilters,
@@ -24,6 +31,53 @@ import {
 } from "@/services";
 
 type AnyRow = Record<string, any>;
+
+type MarkAllHeaderParams = IHeaderParams & {
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+};
+
+function MarkAllHeader(props: MarkAllHeaderParams) {
+  return (
+    <label className="flex h-full w-full cursor-pointer items-center gap-1.5 px-1 text-[12px] font-medium leading-none">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        onChange={(e) => props.onToggle(e.target.checked)}
+      />
+      <span>{props.checked ? "UnMark All" : "Mark All"}</span>
+    </label>
+  );
+}
+
+function makePromoteRenderer(
+  selectedIds: number[],
+  onToggle: (studentId: number, checked: boolean) => void,
+) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data ?? {};
+    const studentId = Number(row.__promoId) || rowStudentId(row, 0);
+    const checked = studentId > 0 && selectedIds.includes(studentId);
+    return (
+      <label className="inline-flex h-full cursor-pointer items-center gap-1.5 px-1">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => {
+            if (studentId > 0) onToggle(studentId, e.target.checked);
+          }}
+        />
+        <span
+          className={
+            checked ? "text-emerald-700 font-medium" : "text-muted-foreground"
+          }
+        >
+          {checked ? "Promote" : "Unpromote"}
+        </span>
+      </label>
+    );
+  };
+}
 
 const COL = ["fk_college_id", "collegeId"];
 const AY = ["fk_academic_year_id", "academicYearId"];
@@ -271,7 +325,6 @@ export default function StudentPromotionPage() {
   const [fromSectionApiRows, setFromSectionApiRows] = useState<AnyRow[]>([]);
   const [toSectionApiRows, setToSectionApiRows] = useState<AnyRow[]>([]);
   const [resultRows, setResultRows] = useState<AnyRow[]>([]);
-  const [listSearch, setListSearch] = useState("");
   const [selectedPromotionIds, setSelectedPromotionIds] = useState<number[]>(
     [],
   );
@@ -279,6 +332,8 @@ export default function StudentPromotionPage() {
   const [previewSearch, setPreviewSearch] = useState("");
   const [submittingPromotion, setSubmittingPromotion] = useState(false);
   const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [fromFilterOpen, setFromFilterOpen] = useState(true);
+  const [toFilterOpen, setToFilterOpen] = useState(true);
   const [attendanceRows, setAttendanceRows] = useState<AnyRow[]>([]);
   const [attendanceMessage, setAttendanceMessage] = useState(
     "No academic batches found for this date.",
@@ -458,8 +513,8 @@ export default function StudentPromotionPage() {
 
   const previewRows = useMemo(
     () =>
-      resultRows.filter((row, idx) =>
-        selectedPromotionIds.includes(rowStudentId(row, idx + 1)),
+      resultRows.filter((row) =>
+        selectedPromotionIds.includes(Number(row.__promoId) || 0),
       ),
     [resultRows, selectedPromotionIds],
   );
@@ -573,20 +628,6 @@ export default function StudentPromotionPage() {
     academicYearEndLabel(previewFromAy) > 0 &&
     academicYearEndLabel(previewToAy) > 0 &&
     academicYearEndLabel(previewFromAy) > academicYearEndLabel(previewToAy);
-
-  const filteredResultRows = useMemo(() => {
-    const q = listSearch.trim().toLowerCase();
-    if (!q) return resultRows;
-    return resultRows.filter((row) =>
-      [
-        pickText(row, ["rollNumber", "hallticketNumber"]),
-        pickText(row, ["firstName", "studentName"]),
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [resultRows, listSearch]);
 
   const previewFilteredRows = useMemo(() => {
     const q = previewSearch.trim().toLowerCase();
@@ -832,12 +873,18 @@ export default function StudentPromotionPage() {
         courseGroupId: fromGroupId,
         groupSectionId: fromSectionId,
       });
-      const normalized = (Array.isArray(raw) ? raw : []).map((row) =>
-        normalizeStudentRow(row),
-      );
+      const normalized = (Array.isArray(raw) ? raw : []).map((row, idx) => {
+        const n = normalizeStudentRow(row) as AnyRow;
+        return {
+          ...n,
+          __promoId: rowStudentId(n, idx + 1),
+        };
+      });
       setResultRows(normalized);
       setSelectedPromotionIds(
-        normalized.map((row, idx) => rowStudentId(row, idx + 1)),
+        normalized
+          .map((row) => Number(row.__promoId) || 0)
+          .filter((id) => id > 0),
       );
     } catch {
       setResultRows([]);
@@ -865,9 +912,54 @@ export default function StudentPromotionPage() {
       return;
     }
     setSelectedPromotionIds(
-      resultRows.map((row, idx) => rowStudentId(row, idx + 1)),
+      resultRows
+        .map((row) => Number(row.__promoId) || 0)
+        .filter((id) => id > 0),
     );
   }
+
+  const allPromoteSelected =
+    resultRows.length > 0 && selectedPromotionIds.length === resultRows.length;
+
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "Sl.No",
+        valueGetter: rowIndexGetter,
+        width: 80,
+        flex: 0,
+      },
+      {
+        headerName: "Roll No.",
+        minWidth: 160,
+        flex: 1,
+        valueGetter: (p) =>
+          pickText(p.data, ["rollNumber", "hallticketNumber"]) || "-",
+      },
+      {
+        headerName: "Student Name",
+        minWidth: 220,
+        flex: 1.4,
+        valueGetter: (p) =>
+          pickText(p.data, ["firstName", "studentName"]) || "-",
+      },
+      {
+        headerName: "Mark All",
+        minWidth: 150,
+        width: 160,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        headerComponent: MarkAllHeader,
+        headerComponentParams: {
+          checked: allPromoteSelected,
+          onToggle: toggleAllPromote,
+        },
+        cellRenderer: makePromoteRenderer(selectedPromotionIds, togglePromote),
+      },
+    ],
+    [allPromoteSelected, selectedPromotionIds, resultRows],
+  );
 
   function onOpenPreview() {
     if (!hasRequiredPromotionFilters) {
@@ -934,8 +1026,8 @@ export default function StudentPromotionPage() {
       return;
     }
 
-    const selectedRows = resultRows.filter((row, idx) =>
-      selectedPromotionIds.includes(rowStudentId(row, idx + 1)),
+    const selectedRows = resultRows.filter((row) =>
+      selectedPromotionIds.includes(Number(row.__promoId) || 0),
     );
     if (selectedRows.length === 0) {
       toastError(new Error("No students selected for promotion."));
@@ -1016,255 +1108,198 @@ export default function StudentPromotionPage() {
   }
 
   return (
-    <FilteredPage
-      title="Student Promotion"
-      filtersCollapsible={false}
-      filters={(
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="space-y-3 rounded border border-border p-3">
-            <h3 className="text-sm font-semibold text-primary">Promote From</h3>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Select
-                  label="College"
-                  required
-                  value={fromCollegeId ? String(fromCollegeId) : null}
-                  onChange={(v) => setFromCollegeId(v ? Number(v) : null)}
-                  options={mapCollegeOptsFrom(colleges)}
-                  placeholder="Select College"
-                  disabled={loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Academic Year"
-                  required
-                  value={fromAyId ? String(fromAyId) : null}
-                  onChange={(v) => setFromAyId(v ? Number(v) : null)}
-                  options={mapAyOptsFrom(fromAcademicYears)}
-                  placeholder="Select Academic Year"
-                  disabled={!fromCollegeId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course"
-                  required
-                  value={fromCourseId ? String(fromCourseId) : null}
-                  onChange={(v) => setFromCourseId(v ? Number(v) : null)}
-                  options={mapCourseOptsFrom(fromCourses)}
-                  placeholder="Select Course"
-                  disabled={!fromAyId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course Group"
-                  required
-                  value={fromGroupId ? String(fromGroupId) : null}
-                  onChange={(v) => setFromGroupId(v ? Number(v) : null)}
-                  options={mapGroupOptsFrom(fromGroups)}
-                  placeholder="Select Course Group"
-                  disabled={!fromCourseId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course Year"
-                  required
-                  value={fromYearId ? String(fromYearId) : null}
-                  onChange={(v) => setFromYearId(v ? Number(v) : null)}
-                  options={mapYearOptsFrom(fromYears)}
-                  placeholder="Select Course Year"
-                  disabled={!fromGroupId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Section"
-                  required
-                  value={fromSectionId ? String(fromSectionId) : null}
-                  onChange={(v) => setFromSectionId(parseSelectNumber(v))}
-                  options={mapSectionOptsFrom(fromSections)}
-                  placeholder="Select Section"
-                  disabled={!fromYearId || loadingFilters}
-                  searchable
-                  className={selectClass()}
-                />
-              </div>
+    <PageContainer className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
+        <AngularFilterCard
+          title="Promote From"
+          icon="swap_horiz"
+          pageFirstCard
+          open={fromFilterOpen}
+          onOpenChange={setFromFilterOpen}
+        >
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+            <Select
+              label="College"
+              required
+              value={fromCollegeId ? String(fromCollegeId) : null}
+              onChange={(v) => setFromCollegeId(v ? Number(v) : null)}
+              options={mapCollegeOptsFrom(colleges)}
+              placeholder="Select College"
+              disabled={loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Academic Year"
+              required
+              value={fromAyId ? String(fromAyId) : null}
+              onChange={(v) => setFromAyId(v ? Number(v) : null)}
+              options={mapAyOptsFrom(fromAcademicYears)}
+              placeholder="Select Academic Year"
+              disabled={!fromCollegeId || loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Course"
+              required
+              value={fromCourseId ? String(fromCourseId) : null}
+              onChange={(v) => setFromCourseId(v ? Number(v) : null)}
+              options={mapCourseOptsFrom(fromCourses)}
+              placeholder="Select Course"
+              disabled={!fromAyId || loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Course Group"
+              required
+              value={fromGroupId ? String(fromGroupId) : null}
+              onChange={(v) => setFromGroupId(v ? Number(v) : null)}
+              options={mapGroupOptsFrom(fromGroups)}
+              placeholder="Select Course Group"
+              disabled={!fromCourseId || loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Course Year"
+              required
+              value={fromYearId ? String(fromYearId) : null}
+              onChange={(v) => setFromYearId(v ? Number(v) : null)}
+              options={mapYearOptsFrom(fromYears)}
+              placeholder="Select Course Year"
+              disabled={!fromGroupId || loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Section"
+              required
+              value={fromSectionId ? String(fromSectionId) : null}
+              onChange={(v) => setFromSectionId(parseSelectNumber(v))}
+              options={mapSectionOptsFrom(fromSections)}
+              placeholder="Select Section"
+              disabled={!fromYearId || loadingFilters}
+              searchable
+              className={selectClass()}
+            />
           </div>
+        </AngularFilterCard>
 
-          <div className="space-y-3 rounded border border-border p-3">
-            <h3 className="text-sm font-semibold text-primary">Promote To</h3>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Select
-                  label="College"
-                  value={toCollegeId ? String(toCollegeId) : null}
-                  onChange={() => {}}
-                  options={
-                    toCollegeId
-                      ? [{ value: String(toCollegeId), label: toCollegeLabel }]
-                      : []
-                  }
-                  placeholder="College"
-                  disabled
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course"
-                  value={toCourseId ? String(toCourseId) : null}
-                  onChange={() => {}}
-                  options={mapCourseOptsFrom(toCourses)}
-                  placeholder="Course"
-                  disabled
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course Group"
-                  value={toGroupId ? String(toGroupId) : null}
-                  onChange={() => {}}
-                  options={mapGroupOptsFrom(toGroups)}
-                  placeholder="Course Group"
-                  disabled
-                  className={selectClass()}
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Select
-                  label="Academic Year"
-                  required
-                  value={toAyId ? String(toAyId) : null}
-                  onChange={(v) => setToAyId(v ? Number(v) : null)}
-                  options={mapAyOptsFrom(toAcademicYears)}
-                  placeholder="Select Academic Year"
-                  disabled={!toCollegeId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Course Year"
-                  required
-                  value={toYearId ? String(toYearId) : null}
-                  onChange={(v) => setToYearId(v ? Number(v) : null)}
-                  options={mapYearOptsFrom(toYears)}
-                  placeholder="Select Course Year"
-                  disabled={!toGroupId || loadingFilters}
-                  className={selectClass()}
-                />
-                <Select
-                  label="Section"
-                  required
-                  value={toSectionId ? String(toSectionId) : null}
-                  onChange={(v) => setToSectionId(parseSelectNumber(v))}
-                  options={mapSectionOptsFrom(toSections)}
-                  placeholder="Select Section"
-                  disabled={!toYearId || loadingFilters}
-                  searchable
-                  className={selectClass()}
-                />
-              </div>
+        <AngularFilterCard
+          title="Promote To"
+          icon="swap_horiz"
+          open={toFilterOpen}
+          onOpenChange={setToFilterOpen}
+        >
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 md:grid-cols-3">
+            <Select
+              label="College"
+              value={toCollegeId ? String(toCollegeId) : null}
+              onChange={() => {}}
+              options={
+                toCollegeId
+                  ? [{ value: String(toCollegeId), label: toCollegeLabel }]
+                  : []
+              }
+              placeholder="College"
+              disabled
+              className={selectClass()}
+            />
+            <Select
+              label="Course"
+              value={toCourseId ? String(toCourseId) : null}
+              onChange={() => {}}
+              options={mapCourseOptsFrom(toCourses)}
+              placeholder="Course"
+              disabled
+              className={selectClass()}
+            />
+            <Select
+              label="Course Group"
+              value={toGroupId ? String(toGroupId) : null}
+              onChange={() => {}}
+              options={mapGroupOptsFrom(toGroups)}
+              placeholder="Course Group"
+              disabled
+              className={selectClass()}
+            />
+            <Select
+              label="Academic Year"
+              required
+              value={toAyId ? String(toAyId) : null}
+              onChange={(v) => setToAyId(v ? Number(v) : null)}
+              options={mapAyOptsFrom(toAcademicYears)}
+              placeholder="Select Academic Year"
+              disabled={!toCollegeId || loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Course Year"
+              required
+              value={toYearId ? String(toYearId) : null}
+              onChange={(v) => setToYearId(v ? Number(v) : null)}
+              options={mapYearOptsFrom(toYears)}
+              placeholder="Select Course Year"
+              disabled={!toGroupId || loadingFilters}
+              className={selectClass()}
+            />
+            <Select
+              label="Section"
+              required
+              value={toSectionId ? String(toSectionId) : null}
+              onChange={(v) => setToSectionId(parseSelectNumber(v))}
+              options={mapSectionOptsFrom(toSections)}
+              placeholder="Select Section"
+              disabled={!toYearId || loadingFilters}
+              searchable
+              className={selectClass()}
+            />
             <DatePicker
               label="Change From"
               value={changeFrom}
               onChange={setChangeFrom}
-              placeholder="Pick a date"
-              className="max-w-xs"
+              className="max-w-[200px]"
             />
           </div>
-        </div>
-      )}
-    >
-      {loadingList && fromSectionId ? (
-        <p className="text-xs text-muted-foreground">Loading students…</p>
-      ) : null}
+        </AngularFilterCard>
+      </div>
 
-      {resultRows.length > 0 && (
-        <div className="app-card p-4 space-y-3">
-          <Input
-            value={listSearch}
-            onChange={(e) => setListSearch(e.target.value)}
-            placeholder="Search"
-            className="max-w-xs h-8 text-xs"
+      {resultRows.length > 0 || (loadingList && fromSectionId) ? (
+        <div className="space-y-3">
+          <DataTable
+            title=""
+            rowData={resultRows}
+            columnDefs={columnDefs}
+            loading={loadingList}
+            pagination
+            height="auto"
+            getRowId={(p) => String(p.data?.__promoId ?? "")}
+            toolbar={{
+              search: true,
+              searchPlaceholder: "Search",
+              searchFields: [
+                "rollNumber",
+                "hallticketNumber",
+                "firstName",
+                "studentName",
+              ],
+              columnPicker: false,
+              exportExcel: false,
+              exportPdf: false,
+              columnFilters: false,
+            }}
           />
-          <div className="overflow-auto rounded border">
-            <table className="w-full text-[12px]">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-2 py-1 text-left">SI.No</th>
-                  <th className="px-2 py-1 text-left">Roll No.</th>
-                  <th className="px-2 py-1 text-left">Student Name</th>
-                  <th className="px-2 py-1 text-left">
-                    <label className="inline-flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedPromotionIds.length > 0 &&
-                          selectedPromotionIds.length === resultRows.length
-                        }
-                        onChange={(e) => toggleAllPromote(e.target.checked)}
-                      />{" "}
-                      {selectedPromotionIds.length === resultRows.length &&
-                      resultRows.length > 0
-                        ? "UnMark All"
-                        : "Mark All"}
-                    </label>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredResultRows.map((row, index) => (
-                  <tr
-                    key={`r-${rowStudentId(row, index + 1)}-${index}`}
-                    className="border-t"
-                  >
-                    <td className="px-2 py-1">{resultRows.indexOf(row) + 1}</td>
-                    <td className="px-2 py-1">
-                      {pickText(row, ["rollNumber", "hallticketNumber"])}
-                    </td>
-                    <td className="px-2 py-1">
-                      {pickText(row, ["firstName", "studentName"])}
-                    </td>
-                    <td className="px-2 py-1">
-                      <label className="inline-flex items-center gap-1.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedPromotionIds.includes(
-                            rowStudentId(row, resultRows.indexOf(row) + 1),
-                          )}
-                          onChange={(e) =>
-                            togglePromote(
-                              rowStudentId(row, resultRows.indexOf(row) + 1),
-                              e.target.checked,
-                            )
-                          }
-                        />{" "}
-                        <span
-                          className={
-                            selectedPromotionIds.includes(
-                              rowStudentId(row, resultRows.indexOf(row) + 1),
-                            )
-                              ? "text-emerald-700"
-                              : "text-muted-foreground"
-                          }
-                        >
-                          {selectedPromotionIds.includes(
-                            rowStudentId(row, resultRows.indexOf(row) + 1),
-                          )
-                            ? "Promote"
-                            : "Unpromote"}
-                        </span>
-                      </label>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              className="h-8 text-[12px]"
-              disabled={selectedPromotionIds.length === 0}
-              onClick={onOpenPreview}
-            >
-              Save
-            </Button>
-          </div>
+          {resultRows.length > 0 ? (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                className="h-8 text-[12px]"
+                disabled={selectedPromotionIds.length === 0}
+                onClick={onOpenPreview}
+              >
+                Save
+              </Button>
+            </div>
+          ) : null}
         </div>
-      )}
+      ) : null}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
@@ -1432,6 +1467,6 @@ export default function StudentPromotionPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </FilteredPage>
+    </PageContainer>
   );
 }
