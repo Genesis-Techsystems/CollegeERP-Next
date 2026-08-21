@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { PencilIcon } from "lucide-react";
@@ -9,8 +9,8 @@ import { StatusBadge } from "@/common/components/data-display";
 import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
-import { toastError } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 import {
   listPeriodicalDetailsByPeriodicalId,
   type LibraryRow,
@@ -96,12 +96,7 @@ export default function PeriodicalDetailsPage() {
     queryFn: () => listPeriodicalDetailsByPeriodicalId(periodicalId),
     enabled: periodicalId > 0,
   });
-
-  useEffect(() => {
-    if (isError && error) {
-      toastError(error, "Failed to load periodical details");
-    }
-  }, [isError, error]);
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryRow>[]>(
     () => [

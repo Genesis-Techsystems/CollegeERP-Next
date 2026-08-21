@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { MINIO_URL } from "@/config/constants/api";
 import {
   createCollege,
   listActiveCampuses,
@@ -87,6 +88,36 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+const EMPTY_FORM_VALUES: FormValues = {
+  organizationId: undefined as unknown as number,
+  universityId: undefined as unknown as number,
+  campusId: undefined as unknown as number,
+  countryId: undefined,
+  stateId: undefined,
+  districtId: undefined as unknown as number,
+  cityId: undefined as unknown as number,
+  collegeName: "",
+  collegeShortName: "",
+  collegeCode: "",
+  affiliatedTo: undefined as unknown as number,
+  address: "",
+  mandal: "",
+  pincode: "",
+  sortOrder: undefined as unknown as number,
+  collegeType: undefined,
+  approvedBy: "",
+  mobileNumber: "",
+  landlineNumber: "",
+  fax: "",
+  email: "",
+  facebookUrl: "",
+  googleUrl: "",
+  linkedinUrl: "",
+  isActive: true,
+  isUniversity: false,
+  reason: "",
+};
+
 const FORM_ROW =
   "grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-4";
 
@@ -138,35 +169,7 @@ export default function CollegeModal({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      organizationId: undefined,
-      universityId: undefined,
-      campusId: undefined,
-      countryId: undefined,
-      stateId: undefined,
-      districtId: undefined,
-      cityId: undefined,
-      collegeName: "",
-      collegeShortName: "",
-      collegeCode: "",
-      affiliatedTo: undefined,
-      address: "",
-      mandal: "",
-      pincode: "",
-      sortOrder: undefined,
-      collegeType: undefined,
-      approvedBy: "",
-      mobileNumber: "",
-      landlineNumber: "",
-      fax: "",
-      email: "",
-      facebookUrl: "",
-      googleUrl: "",
-      linkedinUrl: "",
-      isActive: true,
-      isUniversity: false,
-      reason: "",
-    },
+    defaultValues: EMPTY_FORM_VALUES,
   });
 
   const countryId = watch("countryId");
@@ -268,6 +271,8 @@ export default function CollegeModal({
   }, [open]);
 
   useEffect(() => {
+    if (!open) return;
+
     if (college) {
       reset({
         organizationId: college.organizationId,
@@ -298,15 +303,24 @@ export default function CollegeModal({
         isUniversity: college.isUniversity ?? false,
         reason: college.isActive ? "" : (college.reason ?? ""),
       });
-      setLogoPreview(college.logo ?? null);
+      setLogoPreview(
+        college.logo
+          ? /^(https?:\/\/|data:)/i.test(college.logo)
+            ? college.logo
+            : `${String(MINIO_URL ?? "").replace(/\/?$/, "/")}${college.logo.replace(/^\/+/, "")}`
+          : null,
+      );
     } else {
-      reset();
+      // Add College — always clear previous edit values
+      reset({ ...EMPTY_FORM_VALUES });
       setLogoPreview(null);
     }
+
     setStates([]);
     setDistricts([]);
     setCities([]);
     setSubmitError(null);
+    if (fileRef.current) fileRef.current.value = "";
   }, [college, open, reset]);
 
   useEffect(() => {
@@ -561,7 +575,7 @@ export default function CollegeModal({
                 <img
                   src={logoPreview ?? noImgLogo.src}
                   alt="College logo preview"
-                  className="h-9 w-9 shrink-0 rounded-md border border-[#d7dce5] object-contain bg-white"
+                  className="h-9 w-9 shrink-0 rounded-full border border-[#d7dce5] object-cover bg-white"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src = noImgLogo.src;
                   }}
@@ -770,7 +784,7 @@ export default function CollegeModal({
             </FormField>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start border-t border-border/60 pt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start pt-3">
             {/* Is University Checkbox */}
             <Controller
               name="isUniversity"
@@ -814,7 +828,7 @@ export default function CollegeModal({
             </p>
           )}
 
-          <DialogFooter className="gap-2 border-t border-border/60 pt-3 sm:justify-end">
+          <DialogFooter className="gap-2 pt-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"

@@ -54,7 +54,7 @@ export function ActiveStatusField({
           onCheckedChange={onActiveChange}
         />
         <Label htmlFor="isActive" className="cursor-pointer">
-          Is Active
+          Active
         </Label>
       </div>
       {!isActive && (

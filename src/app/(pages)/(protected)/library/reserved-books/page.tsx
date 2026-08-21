@@ -8,6 +8,7 @@ import { FilteredListPage } from "@/components/layout";
 import { QK } from "@/lib/query-keys";
 import { rowIndexGetter } from "@/lib/utils";
 import { listReservedBooks, type LibraryRow } from "@/services";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 function availabilityRenderer(p: ICellRendererParams<LibraryRow>) {
   const v = p.data?.availabilityStatus;
@@ -21,10 +22,11 @@ function availabilityRenderer(p: ICellRendererParams<LibraryRow>) {
 }
 
 export default function ReservedBooksPage() {
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError, error } = useQuery({
     queryKey: QK.library.reservedBooks(),
     queryFn: listReservedBooks,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryRow>[]>(
     () => [

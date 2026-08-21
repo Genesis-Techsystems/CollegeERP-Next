@@ -18,6 +18,7 @@ import { USER_ROLES } from "@/config/constants/app";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 import {
   createBookIssues,
   getLibraryBookDetailById,
@@ -271,12 +272,15 @@ export default function BookIssuePage() {
   const {
     data: issuedBooks = [],
     isLoading: loadingIssued,
+    isError: issuedError,
+    error: issuedErr,
     refetch: refetchIssued,
   } = useQuery({
     queryKey: ["Library", "issuedBooksByMember", libMemberId],
     queryFn: () => listIssuedBooksByMemberId(libMemberId),
     enabled: libMemberId > 0,
   });
+  useLibraryQueryErrorToast(issuedError, issuedErr);
 
   const maxBooks = Number(selectedMember?.noOfMaxBooks ?? 0);
   const issuedCount =

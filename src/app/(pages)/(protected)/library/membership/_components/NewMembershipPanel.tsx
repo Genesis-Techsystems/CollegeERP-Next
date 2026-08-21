@@ -25,6 +25,7 @@ import type {
   LibraryMembershipPayload,
 } from "@/types/library";
 import { toastError, toastSuccess } from "@/lib/toast";
+import { useLibraryQueryErrorToast } from "../../_hooks/use-library-query-error-toast";
 import { DefaultMembershipListModal } from "./DefaultMembershipListModal";
 
 type MemberKind = "S" | "E";
@@ -70,7 +71,11 @@ export function NewMembershipPanel({
         ? searchStudentsForLibraryMembership(term)
         : searchEmployeesForLibraryMembership(term),
     enabled: term.length >= 5,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
+  useLibraryQueryErrorToast(peopleQuery.isError, peopleQuery.error);
 
   const people = (peopleQuery.data ?? []) as PersonRow[];
   const personOptions = useMemo(
@@ -97,7 +102,11 @@ export function NewMembershipPanel({
     queryKey: ["Library", "membership-libraries", collegeId],
     queryFn: () => listLibrariesByCollege(collegeId),
     enabled: collegeId > 0,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
+  useLibraryQueryErrorToast(librariesQuery.isError, librariesQuery.error);
   const libraryOptions = (librariesQuery.data ?? []).map((library) => ({
     value: String(library.libraryId),
     label: String(

@@ -26,7 +26,7 @@ const COL_DEFS = {
     sortable: false,
   } as ColDef<Organization>,
   logo: {
-    headerName: "Logo",
+    headerName: "Image",
     field: "logoPath",
     minWidth: 72,
     width: 72,
@@ -54,7 +54,7 @@ const COL_DEFS = {
   } as ColDef<Organization>,
   mobileNumber: {
     field: "mobileNumber",
-    headerName: "Mobile Number",
+    headerName: "Mobile No",
     minWidth: 120,
     flex: 0.9,
   } as ColDef<Organization>,
@@ -86,7 +86,7 @@ function logoRenderer(p: ICellRendererParams<Organization>) {
     <img
       src={p.data?.logoPath ? `${MINIO_URL}${p.data.logoPath}` : noImgLogo.src}
       alt="logo"
-      className="h-8 w-8 rounded object-contain"
+      className="h-9 w-9 rounded-full object-cover"
       onError={(e) => {
         (e.currentTarget as HTMLImageElement).src = noImgLogo.src;
       }}
@@ -130,8 +130,8 @@ export default function OrganizationsPage() {
     () => [
       COL_DEFS.siNo,
       { ...COL_DEFS.logo, cellRenderer: logoRenderer },
-      COL_DEFS.orgName,
       COL_DEFS.orgCode,
+      COL_DEFS.orgName,
       COL_DEFS.address,
       COL_DEFS.mobileNumber,
       COL_DEFS.email,

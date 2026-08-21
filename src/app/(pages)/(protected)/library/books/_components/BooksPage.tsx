@@ -16,6 +16,7 @@ import { useSessionContext } from "@/context/SessionContext";
 import { QK } from "@/lib/query-keys";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
+import { useLibraryQueryErrorToast } from "../../_hooks/use-library-query-error-toast";
 import {
   generateBooksBarcode,
   getLibraryBookById,
@@ -184,12 +185,7 @@ export function BooksPage() {
     // Angular clearData(All) → selectcategory() even when bookcatId is undefined
     enabled: searchMode === "all" && libraryNum > 0,
   });
-
-  useEffect(() => {
-    if (searchMode === "all" && isError && error) {
-      toastError(error, "Failed to load books");
-    }
-  }, [searchMode, isError, error]);
+  useLibraryQueryErrorToast(searchMode === "all" && isError, error);
 
   const collegeOptions = useMemo<SelectOption[]>(
     () =>

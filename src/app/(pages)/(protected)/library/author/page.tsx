@@ -12,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { listLibraryAuthors } from "@/services";
 import type { LibraryAuthor } from "@/types/library";
 import { AuthorModal } from "./AuthorModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -91,11 +92,14 @@ export default function AuthorPage() {
   const {
     data: rows,
     isLoading: loading,
+    isError,
+    error,
     invalidate,
   } = useCrudList({
     queryKey: QK.library.authors(),
     queryFn: listLibraryAuthors,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryAuthor>[]>(
     () => [

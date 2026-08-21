@@ -12,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { getLibraryBookById, listBookDetailsByBookId } from "@/services";
 import type { LibraryRow } from "@/services";
 import { EditBookDetailModal } from "./_components/EditBookDetailModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 function statusRenderer(p: ICellRendererParams<LibraryRow>) {
   return <StatusBadge status={Boolean(p.data?.isActive)} />;
@@ -75,7 +76,7 @@ export default function BookDetailsPage() {
   const bookcatId = searchParams.get("bookcatId") ?? "";
   const check = searchParams.get("check") ?? "";
 
-  const { data: book } = useQuery({
+  const { data: book, isError: bookError, error: bookErr } = useQuery({
     queryKey: ["Library", "book", bookId],
     queryFn: () => getLibraryBookById(bookId),
     enabled: bookId > 0,
@@ -84,12 +85,16 @@ export default function BookDetailsPage() {
   const {
     data: copies = [],
     isLoading,
+    isError: copiesError,
+    error: copiesErr,
     refetch,
   } = useQuery({
     queryKey: ["Library", "bookDetails", bookId],
     queryFn: () => listBookDetailsByBookId(bookId),
     enabled: bookId > 0,
   });
+  useLibraryQueryErrorToast(bookError, bookErr);
+  useLibraryQueryErrorToast(copiesError, copiesErr);
 
   const activeCount = useMemo(
     () => copies.filter((c) => c.isActive !== false).length,

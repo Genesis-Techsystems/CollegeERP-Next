@@ -204,38 +204,40 @@ export default function ModifySubjectGroupsPage() {
   }
 
   return (
-    <FilteredListPage
-      title="Modify Course Group"
-      filters={
-        <StudentSearchSelect
-          label="Student"
-          value={selectedStudentId}
-          students={searchRows}
-          selectedStudent={student}
-          isLoading={loadingSearch}
-          onSearch={(term) => void onSearchStudents(term)}
-          onChange={(id, row) => void onStudentSelect(id, row)}
-        />
-      }
-      rowData={student ? studentDetailsRows : []}
-      columnDefs={student ? studentDetailsColumnDefs : []}
-      toolbar={
-        student
-          ? {
-              search: true,
-              searchPlaceholder: "Search",
-            }
-          : false
-      }
-      pagination={student ? false : false}
-      rightRail={
-        student ? (
-          <div className="overflow-hidden rounded-md border border-[#c3d9ff] bg-card">
-            <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[13px] font-semibold uppercase tracking-wide text-slate-700">
-              To Course Group
-            </h3>
+  <FilteredListPage
+    title="Modify Course Group"
+    filters={
+      <StudentSearchSelect
+        label="Student"
+        value={selectedStudentId}
+        students={searchRows}
+        selectedStudent={student}
+        isLoading={loadingSearch}
+        onSearch={(term) => void onSearchStudents(term)}
+        onChange={(id, row) => void onStudentSelect(id, row)}
+      />
+    }
+    rowData={student ? studentDetailsRows : []}
+    columnDefs={student ? studentDetailsColumnDefs : []}
+    toolbar={
+      student
+        ? {
+            search: true,
+            searchPlaceholder: "Search",
+          }
+        : false
+    }
+    pagination={student ? false : false}
+    rightRail={
+      student ? (
+        <div className="overflow-hidden rounded-md border border-[#c3d9ff] bg-card">
+          <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[13px] font-semibold uppercase tracking-wide text-slate-700">
+            To Course Group
+          </h3>
 
-            <div className="space-y-3 p-3">
+          <div className="p-3">
+            {/* Side-by-side grid layout for inputs */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Select
                 label="Course Group *"
                 value={targetGroupId ? String(targetGroupId) : null}
@@ -253,20 +255,21 @@ export default function ModifySubjectGroupsPage() {
                 onChange={setModifiedOn}
                 placeholder="Select date"
               />
+            </div>
 
-              <div className="flex justify-end pt-1">
-                <Button
-                  type="button"
-                  disabled={!targetGroupId || submitting}
-                  onClick={() => void onSubmitChange()}
-                >
-                  {submitting ? "Changing..." : "Change"}
-                </Button>
-              </div>
+            <div className="flex justify-end pt-3">
+              <Button
+                type="button"
+                disabled={!targetGroupId || submitting}
+                onClick={() => void onSubmitChange()}
+              >
+                {submitting ? "Changing..." : "Change"}
+              </Button>
             </div>
           </div>
-        ) : null
-      }
-    />
-  );
+        </div>
+      ) : null
+    }
+  />
+);
 }

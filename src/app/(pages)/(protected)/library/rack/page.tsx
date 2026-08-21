@@ -12,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { listLibraryRacks } from "@/services";
 import type { LibraryRack } from "@/types/library";
 import { RackModal } from "./RackModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -105,11 +106,14 @@ export default function RackPage() {
   const {
     data: rows,
     isLoading: loading,
+    isError,
+    error,
     invalidate,
   } = useCrudList({
     queryKey: QK.library.racks(),
     queryFn: listLibraryRacks,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryRack>[]>(
     () => [

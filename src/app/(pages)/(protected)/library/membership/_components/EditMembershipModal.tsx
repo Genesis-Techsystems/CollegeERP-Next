@@ -111,7 +111,7 @@ export function EditMembershipModal({
       title={`Edit Membership${row?.memberCode ? ` — ${row.memberCode}` : ""}`}
       titleClassName={LIBRARY_MODAL_TITLE_CLASS}
       showHeaderDivider
-      size="lg"
+      size="xl"
       submitLabel="Save"
       cancelLabel="Cancel"
       isSubmitting={isSubmitting}
@@ -154,6 +154,8 @@ export function EditMembershipModal({
             />
           )}
         />
+      </div>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor="membershipMaxBooks" className="text-[12px]">
             Max no. of books *
@@ -172,7 +174,6 @@ export function EditMembershipModal({
             </p>
           ) : null}
         </div>
-        <div />
         <Controller
           name="memberFromDt"
           control={control}
@@ -233,7 +234,7 @@ export function EditMembershipModal({
           )}
         />
       </div>
-      <div className="space-y-1">
+      <div className="max-w-xs space-y-1">
         <Label htmlFor="membershipComments" className="text-[12px]">
           Comments
         </Label>

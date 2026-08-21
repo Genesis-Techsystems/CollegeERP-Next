@@ -3,9 +3,7 @@
 import { useMemo, useState } from "react";
 import { PencilIcon, PlusIcon } from "lucide-react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { EmptyState } from "@/common/components/feedback";
 import { StatusBadge } from "@/common/components/data-display";
-import { getErrorMessage } from "@/lib/errors";
 import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { useCrudList } from "@/hooks/useCrudList";
@@ -14,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { listLibraryDetails } from "@/services";
 import type { LibraryDetail } from "@/types/library";
 import { LibraryDetailsModal } from "./LibraryDetailsModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -99,12 +98,12 @@ export default function LibraryDetailsPage() {
     isLoading: loading,
     isError,
     error,
-    refetch,
     invalidate,
   } = useCrudList({
     queryKey: QK.library.details(),
     queryFn: listLibraryDetails,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryDetail>[]>(
     () => [
@@ -147,15 +146,6 @@ export default function LibraryDetailsPage() {
           <PlusIcon className="h-4 w-4 mr-1" />
           Add Library Details
         </Button>
-      }
-      emptyState={
-        isError ? (
-          <EmptyState
-            title="Could not load library details"
-            description={getErrorMessage(error)}
-            action={{ label: "Retry", onClick: () => void refetch() }}
-          />
-        ) : undefined
       }
     >
       <LibraryDetailsModal
