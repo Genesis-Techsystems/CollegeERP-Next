@@ -189,6 +189,7 @@ import {
   mapTimetableNavRoute,
 } from "@/lib/timetable-navigation";
 import {
+  mapAdminInstitutionalMastersRoute,
   mapAdminInstitutionalRoomRoute,
   mapLegacyInstitutionalMastersHref,
 } from "@/lib/admin-institutional-navigation";
@@ -1159,9 +1160,9 @@ function hasActiveDescendant(
       return "/assessments/question-bank";
     }
     if (lower.includes("room type") || lower === "room types")
-      return "/admin/room-types";
+      return "/admin/institutional-masters/rooms-type";
     if (lower.includes("room details") || lower === "room detail")
-      return "/admin/room-details";
+      return "/admin/institutional-masters/room-details";
     if (
       lower.includes("exam") &&
       (lower.includes("timetable") || lower.includes("time table")) &&
@@ -1435,9 +1436,9 @@ function mapLegacyMasterSettingsHref(href?: string): string | null {
     "config-auto-number": "/admin/configure-auto-numbers",
     "config-autonumber": "/admin/configure-auto-numbers",
     configautonumber: "/admin/configure-auto-numbers",
-    "room-details": "/admin/room-details",
-    "room-detail": "/admin/room-details",
-    roomdetails: "/admin/room-details",
+    "room-details": "/admin/institutional-masters/room-details",
+    "room-detail": "/admin/institutional-masters/room-details",
+    roomdetails: "/admin/institutional-masters/room-details",
   };
 
   return routeMap[slug] ?? `/admin/${slug}`;
@@ -1591,6 +1592,14 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/grievance/grievance-masters/committee-members";
     }
 
+    // Admin → Institutional Masters (Buildings / Blocks / Floors / Rooms…)
+    // must beat sidebar pins that map the same labels to Exam Papers Delivery.
+    const institutionalMastersRoute = mapAdminInstitutionalMastersRoute(
+      item.href,
+      item.label,
+    );
+    if (institutionalMastersRoute) return institutionalMastersRoute;
+
     // Label pins (e.g. "Student Details" → SIS students-list) beat fuzzy remaps.
     const sidebarPin = resolveSidebarLabelPin(item.href, item.label);
     if (sidebarPin) {
@@ -1610,9 +1619,16 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
         (hrefLower.includes("committee-members") ||
           hrefLower.includes("grievance-masters") ||
           hrefLower.includes("add-committee-members"));
+      const pinIsExamPapersFacility = sidebarPin.includes(
+        "/exam-papers-delivery-process/exam-center-",
+      );
+      const hrefIsInstitutionalMasters =
+        hrefLower.includes("institutional-masters") ||
+        hrefLower.includes("institutional");
       if (
         !(pinIsSisStudentsList && hrefIsStudentsListReport) &&
-        !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers)
+        !(pinIsUnivCommitteeMembers && hrefIsGrievanceCommitteeMembers) &&
+        !(pinIsExamPapersFacility && hrefIsInstitutionalMasters)
       ) {
         return sidebarPin;
       }
@@ -5413,7 +5429,7 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       return "/admin/batches";
     }
     if (labelLower === "building" || labelLower === "buildings") {
-      return "/admin/buildings";
+      return "/admin/institutional-masters/buildings";
     }
     if (
       labelLower === "block" ||
@@ -5424,19 +5440,19 @@ export function NavItem({ item, depth = 0, layoutHydrated }: NavItemProps) {
       labelLower.startsWith("blocks ") ||
       labelLower.endsWith(" blocks")
     ) {
-      return "/admin/blocks";
+      return "/admin/institutional-masters/blocks";
     }
     if (labelLower === "floor" || labelLower === "floors") {
-      return "/admin/floors";
+      return "/admin/institutional-masters/floors";
     }
     if (labelLower.includes("room type") || labelLower === "room types") {
-      return "/admin/room-types";
+      return "/admin/institutional-masters/rooms-type";
     }
     if (labelLower.includes("room details") || labelLower === "room detail") {
-      return "/admin/room-details";
+      return "/admin/institutional-masters/room-details";
     }
     if (labelLower === "room" || labelLower === "rooms") {
-      return "/admin/rooms";
+      return "/admin/institutional-masters/rooms";
     }
     if (labelLower === "general setting" || labelLower === "general settings") {
       return "/admin/general-settings";

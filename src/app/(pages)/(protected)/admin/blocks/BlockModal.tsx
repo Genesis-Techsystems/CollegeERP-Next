@@ -19,6 +19,7 @@ import { createBlock, listActiveBuildings, updateBlock } from "@/services";
 import type { Block } from "@/types/block";
 import type { Building } from "@/types/building";
 import { applyRequiredFieldError, requiredNumber } from "@/lib/zod-fields";
+import { toastApiSuccess, toastError } from "@/lib/toast";
 
 const INPUT_CLASS =
   "min-h-9 placeholder:text-muted-foreground placeholder:opacity-100";
@@ -51,6 +52,16 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+const EMPTY_DEFAULTS: FormValues = {
+  campusId: undefined,
+  buildingId: undefined as unknown as number,
+  blockName: "",
+  blockCode: "",
+  noOfFloors: undefined,
+  isActive: true,
+  reason: "",
+};
+
 interface BlockModalProps {
   open: boolean;
   onClose: () => void;
@@ -77,7 +88,6 @@ export default function BlockModal({
 }: Readonly<BlockModalProps>) {
   const isEditing = block != null;
   const [buildings, setBuildings] = useState<Building[]>([]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -93,15 +103,7 @@ export default function BlockModal({
     mode: "onSubmit",
     reValidateMode: "onChange",
     criteriaMode: "all",
-    defaultValues: {
-      campusId: undefined,
-      buildingId: undefined,
-      blockName: "",
-      blockCode: "",
-      noOfFloors: undefined,
-      isActive: true,
-      reason: "",
-    },
+    defaultValues: EMPTY_DEFAULTS,
   });
 
   const buildingOptions = useMemo(
@@ -120,6 +122,7 @@ export default function BlockModal({
   }, [open]);
 
   useEffect(() => {
+    if (!open) return;
     if (block) {
       reset({
         campusId: block.campusId,
@@ -131,35 +134,31 @@ export default function BlockModal({
         reason: block.isActive ? "" : (block.reason ?? ""),
       });
     } else {
-      reset();
+      reset(EMPTY_DEFAULTS);
     }
-    setSubmitError(null);
   }, [block, open, reset]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null);
     try {
       if (isEditing) {
-        await updateBlock(block!.blockId, data, block!);
+        const result = await updateBlock(block!.blockId, data, block!);
+        toastApiSuccess(result.message, "Record(s) updated successfully!");
       } else {
-        await createBlock(data as Omit<Block, "blockId">);
+        const result = await createBlock(data as Omit<Block, "blockId">);
+        toastApiSuccess(result.message, "Record(s) created successfully!");
       }
       onSaved();
       onClose();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to save block";
-      if (
-        applyRequiredFieldError(message, setError, {
-          building: "buildingId",
-          "block name": "blockName",
-          "block code": "blockCode",
-          reason: "reason",
-        })
-      ) {
-        return;
-      }
-      setSubmitError(message);
+      applyRequiredFieldError(message, setError, {
+        building: "buildingId",
+        "block name": "blockName",
+        "block code": "blockCode",
+        reason: "reason",
+      });
+      toastError(err);
     }
   }
 
@@ -174,7 +173,7 @@ export default function BlockModal({
         if (!next) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
             {isEditing ? "Edit Block" : "Add Block"}
@@ -184,9 +183,10 @@ export default function BlockModal({
         <form
           onSubmit={handleSubmit(onSubmit)}
           noValidate
-          className="space-y-2 py-1"
+          className="space-y-3 py-1"
         >
-          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
+          {/* Row 1: Building */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField
               label="Building"
               required
@@ -206,6 +206,10 @@ export default function BlockModal({
                 )}
               />
             </FormField>
+          </div>
+
+          {/* Row 2: Block Name, Block Code, No. of Floors (3 Columns) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&>*]:min-w-0">
             <FormField
               label="Block Name"
               required
@@ -219,6 +223,7 @@ export default function BlockModal({
                 {...register("blockName")}
               />
             </FormField>
+
             <FormField
               label="Block Code"
               required
@@ -232,6 +237,7 @@ export default function BlockModal({
                 {...register("blockCode")}
               />
             </FormField>
+
             <FormField
               label="No. of Floors"
               htmlFor="noOfFloors"
@@ -248,31 +254,23 @@ export default function BlockModal({
             </FormField>
           </div>
 
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch("reason") ?? ""}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue("reason", value)}
-                  reasonRequired={!field.value}
-                  reasonPlaceholder="Reason"
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={field.onChange}
+                onReasonChange={(value) => setValue("reason", value)}
+                reasonRequired={!field.value}
+                reasonPlaceholder="Reason"
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
-              {submitError}
-            </p>
-          )}
-
-          <DialogFooter className="pt-1">
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"

@@ -39,6 +39,18 @@ export function toastSuccess(message: string): void {
   toast.success(message);
 }
 
+/**
+ * Toast the Spring API `message` from a create/update response.
+ * Falls back when the backend returns an empty message.
+ */
+export function toastApiSuccess(
+  message?: string | null,
+  fallback = "Saved successfully",
+): void {
+  const msg = (message ?? "").trim();
+  toastSuccess(msg || fallback);
+}
+
 /** Informational toast (Angular Snotify info parity). */
 export function toastInfo(message: string): void {
   toast.message(message);

@@ -8,11 +8,19 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useFormFieldVariant } from "@/common/components/forms/form-field-variant";
 
 interface TimePickerProps {
   value: string;
   onChange: (value: string) => void;
   label?: string;
+  /** When false, omit built-in label (pair with FormField). Default true. */
+  showLabel?: boolean;
+  /**
+   * `outlined` — bordered box.
+   * `standard` — Fuse / Angular Material underline-only field (matches Input/Select).
+   */
+  variant?: "outlined" | "standard";
   className?: string;
 }
 
@@ -51,22 +59,28 @@ export function TimePicker({
   value,
   onChange,
   label = "Time Picker",
+  showLabel = true,
+  variant: variantProp,
   className,
 }: Readonly<TimePickerProps>) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const variant = useFormFieldVariant(variantProp);
+  const isStandard = variant === "standard";
   const parsed = parseTime(value);
   const filled = hasTimeValue(value);
   const displayValue = `${parsed.hour}:${parsed.minute} ${parsed.period}`;
 
   return (
     <div className={cn("min-w-0 space-y-1", className)}>
-      <label
-        htmlFor={id}
-        className="block text-[12px] font-medium text-slate-700"
-      >
-        {label}
-      </label>
+      {showLabel ? (
+        <label
+          htmlFor={id}
+          className="block text-[12px] font-medium leading-none text-black/54"
+        >
+          {label}
+        </label>
+      ) : null}
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -74,9 +88,16 @@ export function TimePicker({
             id={id}
             type="button"
             className={cn(
-              // Match `Input` + modal overrides (`h-9 text-[12px]`) on exam session and similar forms.
-              "app-control flex h-9 w-full min-w-0 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-left text-[length:var(--app-control-font-size)] font-normal text-slate-900 shadow-sm outline-none transition-colors",
-              "hover:bg-muted/40 focus-visible:outline-none focus:ring-0 focus-visible:ring-0 focus:border-[hsl(var(--ring))]",
+              "app-control flex h-9 w-full min-w-0 items-center gap-2 text-left text-[length:var(--app-control-font-size)] outline-none transition-colors",
+              "focus-visible:outline-none focus:ring-0 focus-visible:ring-0",
+              isStandard
+                ? cn(
+                    "rounded-none border-0 border-b border-black/12 bg-transparent px-0 py-1.5 shadow-none",
+                    open
+                      ? "border-b-2 border-[#0c51a4]"
+                      : "focus-visible:border-b-2 focus-visible:border-[#0c51a4]",
+                  )
+                : "rounded-md border border-slate-300 bg-white px-3 shadow-sm hover:bg-muted/40 focus:border-[hsl(var(--ring))]",
               filled
                 ? "font-medium text-slate-900"
                 : "font-medium text-[rgba(0,0,0,0.54)]",

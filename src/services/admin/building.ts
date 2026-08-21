@@ -1,21 +1,27 @@
-import { ENTITIES } from '@/config/constants/entities'
-import type { Building } from '@/types/building'
+import { ENTITIES } from "@/config/constants/entities";
+import type { Building } from "@/types/building";
 import {
   angularLowerActiveReason,
   asNullableNumber,
   asNullableString,
   asString,
-} from '../angular-payload'
-import { buildQuery, domainCreate, domainList, domainUpdate } from '../crud'
+} from "../angular-payload";
+import {
+  buildQuery,
+  domainCreateResult,
+  domainList,
+  domainUpdateResult,
+} from "../crud";
 
-type BuildingWriteInput = Partial<Omit<Building, 'buildingId'>> & Record<string, unknown>
+type BuildingWriteInput = Partial<Omit<Building, "buildingId">> &
+  Record<string, unknown>;
 
 function buildAngularBuildingPayload(
   data: BuildingWriteInput,
   buildingId?: number,
   existing?: Building,
 ): Record<string, unknown> {
-  const isActive = data.isActive !== false
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     campusId: data.campusId ?? existing?.campusId,
@@ -25,36 +31,68 @@ function buildAngularBuildingPayload(
     noOfFloors: asNullableNumber(data.noOfFloors),
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason, existing?.reason),
-  }
+  };
 
   if (buildingId != null) {
-    payload.buildingId = buildingId
+    payload.buildingId = buildingId;
   }
 
-  return payload
+  return payload;
+}
+
+function normalizeBuilding(row: Building): Building {
+  const landmark = row.landMark ?? row.landmark ?? undefined;
+  return {
+    ...row,
+    landMark: landmark ?? undefined,
+    landmark: landmark ?? null,
+  };
 }
 
 export async function listBuildings(): Promise<Building[]> {
-  return domainList<Building>(
+  const rows = await domainList<Building>(
     ENTITIES.BUILDING.name,
-    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
-  )
+    buildQuery({}, { field: "createdDt", direction: "DESC" }),
+  );
+  return rows.map(normalizeBuilding);
 }
 
 export async function listActiveBuildings(): Promise<Building[]> {
-  return domainList<Building>(ENTITIES.BUILDING.name, buildQuery({ isActive: true }))
+  const rows = await domainList<Building>(
+    ENTITIES.BUILDING.name,
+    buildQuery({ isActive: true }),
+  );
+  return rows.map(normalizeBuilding);
 }
 
-export async function createBuilding(data: Omit<Building, 'buildingId'>): Promise<Building> {
-  const payload = buildAngularBuildingPayload(data)
-  return domainCreate<Building>(ENTITIES.BUILDING.name, payload)
+export async function createBuilding(
+  data: Omit<Building, "buildingId">,
+): Promise<{ data: Building; message: string }> {
+  const payload = buildAngularBuildingPayload(data);
+  const result = await domainCreateResult<Building>(
+    ENTITIES.BUILDING.name,
+    payload,
+  );
+  return {
+    data: normalizeBuilding(result.data ?? ({} as Building)),
+    message: result.message,
+  };
 }
 
 export async function updateBuilding(
   buildingId: number,
-  data: Partial<Omit<Building, 'buildingId'>>,
+  data: Partial<Omit<Building, "buildingId">>,
   existing?: Building,
-): Promise<Building> {
-  const payload = buildAngularBuildingPayload(data, buildingId, existing)
-  return domainUpdate<Building>(ENTITIES.BUILDING.name, ENTITIES.BUILDING.pk, buildingId, payload)
+): Promise<{ data: Building; message: string }> {
+  const payload = buildAngularBuildingPayload(data, buildingId, existing);
+  const result = await domainUpdateResult<Building>(
+    ENTITIES.BUILDING.name,
+    ENTITIES.BUILDING.pk,
+    buildingId,
+    payload,
+  );
+  return {
+    data: normalizeBuilding(result.data ?? ({} as Building)),
+    message: result.message,
+  };
 }

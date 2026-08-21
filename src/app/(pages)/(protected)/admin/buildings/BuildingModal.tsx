@@ -19,6 +19,7 @@ import { createBuilding, listActiveCampuses, updateBuilding } from "@/services";
 import type { Building } from "@/types/building";
 import type { Campus } from "@/types/campus";
 import { applyRequiredFieldError, requiredNumber } from "@/lib/zod-fields";
+import { toastApiSuccess, toastError } from "@/lib/toast";
 
 const INPUT_CLASS =
   "min-h-9 placeholder:text-muted-foreground placeholder:opacity-100";
@@ -52,6 +53,17 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>;
 
+const EMPTY_DEFAULTS: FormValues = {
+  organizationId: undefined,
+  campusId: undefined as unknown as number,
+  buildingName: "",
+  buildingCode: "",
+  landMark: "",
+  noOfFloors: undefined,
+  isActive: true,
+  reason: "",
+};
+
 interface BuildingModalProps {
   open: boolean;
   onClose: () => void;
@@ -78,7 +90,6 @@ export default function BuildingModal({
 }: Readonly<BuildingModalProps>) {
   const isEditing = building != null;
   const [campuses, setCampuses] = useState<Campus[]>([]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -94,16 +105,7 @@ export default function BuildingModal({
     mode: "onSubmit",
     reValidateMode: "onChange",
     criteriaMode: "all",
-    defaultValues: {
-      organizationId: undefined,
-      campusId: undefined,
-      buildingName: "",
-      buildingCode: "",
-      landMark: "",
-      noOfFloors: undefined,
-      isActive: true,
-      reason: "",
-    },
+    defaultValues: EMPTY_DEFAULTS,
   });
 
   const campusOptions = useMemo(
@@ -122,51 +124,50 @@ export default function BuildingModal({
   }, [open]);
 
   useEffect(() => {
+    if (!open) return;
     if (building) {
-      const raw = building as unknown as Record<string, unknown>;
       reset({
         organizationId: building.organizationId,
         campusId: building.campusId,
         buildingName: building.buildingName,
         buildingCode: building.buildingCode,
-        landMark:
-          building.landMark ??
-          (typeof raw.landmark === "string" ? raw.landmark : "") ??
-          "",
+        landMark: building.landMark ?? building.landmark ?? "",
         noOfFloors: building.noOfFloors ?? undefined,
         isActive: building.isActive,
         reason: building.isActive ? "" : (building.reason ?? ""),
       });
     } else {
-      reset();
+      reset(EMPTY_DEFAULTS);
     }
-    setSubmitError(null);
   }, [building, open, reset]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null);
     try {
       if (isEditing) {
-        await updateBuilding(building!.buildingId, data, building!);
+        const result = await updateBuilding(
+          building!.buildingId,
+          data,
+          building!,
+        );
+        toastApiSuccess(result.message, "Record(s) updated successfully!");
       } else {
-        await createBuilding(data as Omit<Building, "buildingId">);
+        const result = await createBuilding(
+          data as Omit<Building, "buildingId">,
+        );
+        toastApiSuccess(result.message, "Record(s) created successfully!");
       }
       onSaved();
       onClose();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to save building";
-      if (
-        applyRequiredFieldError(message, setError, {
-          campus: "campusId",
-          "building name": "buildingName",
-          "building code": "buildingCode",
-          reason: "reason",
-        })
-      ) {
-        return;
-      }
-      setSubmitError(message);
+      applyRequiredFieldError(message, setError, {
+        campus: "campusId",
+        "building name": "buildingName",
+        "building code": "buildingCode",
+        reason: "reason",
+      });
+      toastError(err);
     }
   }
 
@@ -181,7 +182,7 @@ export default function BuildingModal({
         if (!next) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pr-8">
           <DialogTitle className="text-base font-semibold leading-none text-[hsl(var(--primary))]">
             {isEditing ? "Edit Building" : "Add Building"}
@@ -191,25 +192,29 @@ export default function BuildingModal({
         <form
           onSubmit={handleSubmit(onSubmit)}
           noValidate
-          className="space-y-2 py-1"
+          className="space-y-3 py-1"
         >
-          <FormField label="Campus" required error={errors.campusId?.message}>
-            <Controller
-              name="campusId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={campusOptions}
-                  placeholder="Campus"
-                  searchable
-                />
-              )}
-            />
-          </FormField>
+          {/* Row 1: Campus */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField label="Campus" required error={errors.campusId?.message}>
+              <Controller
+                name="campusId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={campusOptions}
+                    placeholder="Campus"
+                    searchable
+                  />
+                )}
+              />
+            </FormField>
+          </div>
 
-          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
+          {/* Row 2: Building Name, Building Code, Landmark (3 columns) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&>*]:min-w-0">
             <FormField
               label="Building Name"
               required
@@ -223,6 +228,7 @@ export default function BuildingModal({
                 {...register("buildingName")}
               />
             </FormField>
+
             <FormField
               label="Building Code"
               required
@@ -236,17 +242,19 @@ export default function BuildingModal({
                 {...register("buildingCode")}
               />
             </FormField>
-          </div>
 
-          <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
-            <FormField label="Land Mark" htmlFor="landMark">
+            <FormField label="Landmark" htmlFor="landMark">
               <Input
                 id="landMark"
                 className={INPUT_CLASS}
-                placeholder="Land Mark"
+                placeholder="Landmark"
                 {...register("landMark")}
               />
             </FormField>
+          </div>
+
+          {/* Row 3: No. of Floors */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 [&>*]:min-w-0">
             <FormField
               label="No. of Floors"
               htmlFor="noOfFloors"
@@ -257,37 +265,29 @@ export default function BuildingModal({
                 type="number"
                 min={0}
                 className={INPUT_CLASS}
-                placeholder="No Of Floors"
+                placeholder="No. of Floors"
                 {...register("noOfFloors", { valueAsNumber: true })}
               />
             </FormField>
           </div>
 
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch("reason") ?? ""}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue("reason", value)}
-                  reasonRequired={!field.value}
-                  reasonPlaceholder="Reason"
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={field.onChange}
+                onReasonChange={(value) => setValue("reason", value)}
+                reasonRequired={!field.value}
+                reasonPlaceholder="Reason"
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
-              {submitError}
-            </p>
-          )}
-
-          <DialogFooter className="pt-1">
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"

@@ -23,6 +23,7 @@ import {
 import type { Organization } from "@/types/organization";
 import type { RoomType } from "@/types/room-type";
 import { applyRequiredFieldError, requiredNumber } from "@/lib/zod-fields";
+import { toastApiSuccess, toastError } from "@/lib/toast";
 
 const INPUT_CLASS =
   "min-h-9 placeholder:text-muted-foreground placeholder:opacity-100";
@@ -45,6 +46,13 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
+
+const EMPTY_DEFAULTS: FormValues = {
+  organizationId: undefined as unknown as number,
+  roomType: "",
+  isActive: true,
+  reason: "",
+};
 
 interface RoomTypeModalProps {
   open: boolean;
@@ -72,7 +80,6 @@ export default function RoomTypeModal({
 }: Readonly<RoomTypeModalProps>) {
   const isEditing = roomType != null;
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -88,12 +95,7 @@ export default function RoomTypeModal({
     mode: "onSubmit",
     reValidateMode: "onChange",
     criteriaMode: "all",
-    defaultValues: {
-      organizationId: undefined,
-      roomType: "",
-      isActive: true,
-      reason: "",
-    },
+    defaultValues: EMPTY_DEFAULTS,
   });
 
   const organizationOptions = useMemo(
@@ -112,6 +114,7 @@ export default function RoomTypeModal({
   }, [open]);
 
   useEffect(() => {
+    if (!open) return;
     if (roomType) {
       reset({
         organizationId: roomType.organizationId,
@@ -120,34 +123,34 @@ export default function RoomTypeModal({
         reason: roomType.isActive ? "" : (roomType.reason ?? ""),
       });
     } else {
-      reset();
+      reset(EMPTY_DEFAULTS);
     }
-    setSubmitError(null);
   }, [roomType, open, reset]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null);
     try {
       if (isEditing) {
-        await updateRoomType(roomType.roomTypeId, data, roomType);
+        const result = await updateRoomType(
+          roomType.roomTypeId,
+          data,
+          roomType,
+        );
+        toastApiSuccess(result.message, "Record(s) updated successfully!");
       } else {
-        await createRoomType(data);
+        const result = await createRoomType(data);
+        toastApiSuccess(result.message, "Record(s) created successfully!");
       }
       onSaved();
       onClose();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to save room type";
-      if (
-        applyRequiredFieldError(message, setError, {
-          organization: "organizationId",
-          "room type": "roomType",
-          reason: "reason",
-        })
-      ) {
-        return;
-      }
-      setSubmitError(message);
+      applyRequiredFieldError(message, setError, {
+        organization: "organizationId",
+        "room type": "roomType",
+        reason: "reason",
+      });
+      toastError(err);
     }
   }
 
@@ -174,39 +177,42 @@ export default function RoomTypeModal({
           noValidate
           className="space-y-4 py-1"
         >
-          <FormField
-            label="Organization"
-            required
-            error={errors.organizationId?.message}
-          >
-            <Controller
-              name="organizationId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => field.onChange(v ? Number(v) : undefined)}
-                  options={organizationOptions}
-                  placeholder="Organization"
-                  searchable
-                />
-              )}
-            />
-          </FormField>
+          {/* Side-by-side grid container for Organization and Room Type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end [&>*]:min-w-0">
+            <FormField
+              label="Organization"
+              required
+              error={errors.organizationId?.message}
+            >
+              <Controller
+                name="organizationId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => field.onChange(v ? Number(v) : undefined)}
+                    options={organizationOptions}
+                    placeholder="Organization"
+                    searchable
+                  />
+                )}
+              />
+            </FormField>
 
-          <FormField
-            label="Room Type"
-            required
-            htmlFor="roomType"
-            error={errors.roomType?.message}
-          >
-            <Input
-              id="roomType"
-              className={INPUT_CLASS}
-              placeholder="Room Type"
-              {...register("roomType")}
-            />
-          </FormField>
+            <FormField
+              label="Room Type"
+              required
+              htmlFor="roomType"
+              error={errors.roomType?.message}
+            >
+              <Input
+                id="roomType"
+                className={INPUT_CLASS}
+                placeholder="Room Type"
+                {...register("roomType")}
+              />
+            </FormField>
+          </div>
 
           <Controller
             name="isActive"
@@ -223,12 +229,6 @@ export default function RoomTypeModal({
               />
             )}
           />
-
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
-              {submitError}
-            </p>
-          )}
 
           <DialogFooter className="gap-2 pt-2 sm:justify-end">
             <Button

@@ -65,7 +65,13 @@
   },
   {
     "label": "blocks",
-    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-blocks"
+    "route": "/admin/institutional-masters/blocks",
+    "hrefIncludes": "institutional"
+  },
+  {
+    "label": "blocks",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-blocks",
+    "hrefIncludes": "exam-papers"
   },
   {
     "label": "book return",
@@ -85,7 +91,13 @@
   },
   {
     "label": "buildings",
-    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-buildings"
+    "route": "/admin/institutional-masters/buildings",
+    "hrefIncludes": "institutional"
+  },
+  {
+    "label": "buildings",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-buildings",
+    "hrefIncludes": "exam-papers"
   },
   {
     "label": "caste",
@@ -332,7 +344,13 @@
   },
   {
     "label": "floors",
-    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-floors"
+    "route": "/admin/institutional-masters/floors",
+    "hrefIncludes": "institutional"
+  },
+  {
+    "label": "floors",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-floors",
+    "hrefIncludes": "exam-papers"
   },
   {
     "label": "generate student roll no.",
@@ -591,11 +609,33 @@
   },
   {
     "label": "room types",
-    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-types"
+    "route": "/admin/institutional-masters/rooms-type",
+    "hrefIncludes": "institutional"
+  },
+  {
+    "label": "room types",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-room-types",
+    "hrefIncludes": "exam-papers"
   },
   {
     "label": "rooms",
-    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms"
+    "route": "/admin/institutional-masters/rooms",
+    "hrefIncludes": "institutional"
+  },
+  {
+    "label": "rooms",
+    "route": "/admin-examination-management/exam-papers-delivery-process/exam-center-rooms",
+    "hrefIncludes": "exam-papers"
+  },
+  {
+    "label": "room details",
+    "route": "/admin/institutional-masters/room-details",
+    "hrefIncludes": "institutional"
+  },
+  {
+    "label": "room detail",
+    "route": "/admin/institutional-masters/room-details",
+    "hrefIncludes": "institutional"
   },
   {
     "label": "scan bundles",

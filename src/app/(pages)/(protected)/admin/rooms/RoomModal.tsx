@@ -26,6 +26,7 @@ import type { Block } from "@/types/block";
 import type { Room } from "@/types/room";
 import type { RoomType } from "@/types/room-type";
 import { applyRequiredFieldError, requiredNumber } from "@/lib/zod-fields";
+import { toastApiSuccess, toastError } from "@/lib/toast";
 
 const INPUT_CLASS =
   "min-h-9 placeholder:text-muted-foreground placeholder:opacity-100";
@@ -128,7 +129,6 @@ export default function RoomModal({
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -200,6 +200,7 @@ export default function RoomModal({
   }, [selectedBlockId, setValue]);
 
   useEffect(() => {
+    if (!open) return;
     if (room) {
       const raw = room as unknown as Record<string, unknown>;
       reset({
@@ -227,36 +228,32 @@ export default function RoomModal({
     } else {
       reset(EMPTY_DEFAULTS);
     }
-    setSubmitError(null);
   }, [room, open, reset]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null);
     try {
       if (isEditing) {
-        await updateRoom(room.roomId, data, room);
+        const result = await updateRoom(room.roomId, data, room);
+        toastApiSuccess(result.message, "Record(s) updated successfully!");
       } else {
-        await createRoom(data);
+        const result = await createRoom(data);
+        toastApiSuccess(result.message, "Record(s) created successfully!");
       }
       onSaved();
       onClose();
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to save room";
-      if (
-        applyRequiredFieldError(message, setError, {
-          block: "blockId",
-          floor: "floorId",
-          "room type": "roomTypeId",
-          "room name": "roomName",
-          "room code": "roomCode",
-          occupancy: "occupancy",
-          reason: "reason",
-        })
-      ) {
-        return;
-      }
-      setSubmitError(message);
+      applyRequiredFieldError(message, setError, {
+        block: "blockId",
+        floor: "floorId",
+        "room type": "roomTypeId",
+        "room name": "roomName",
+        "room code": "roomCode",
+        occupancy: "occupancy",
+        reason: "reason",
+      });
+      toastError(err);
     }
   }
 
@@ -429,12 +426,6 @@ export default function RoomModal({
               />
             )}
           />
-
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
-              {submitError}
-            </p>
-          )}
 
           <DialogFooter className="gap-2 pt-2 sm:justify-end">
             <Button

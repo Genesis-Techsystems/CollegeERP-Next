@@ -159,10 +159,11 @@ export default function InvigilatorRemunerationPage() {
   }, []);
 
   function openAdd() {
+    // Angular Add: college + designation start empty (not first option).
     setEditing(null);
     setFieldErrors({});
-    setCollegeId(colleges[0]?.collegeId ?? colleges[0]?.fk_college_id ?? null);
-    setInvgdesignationCatId(designations[0]?.generalDetailId ?? null);
+    setCollegeId(null);
+    setInvgdesignationCatId(null);
     setAmount("");
     const today = format(new Date(), "yyyy-MM-dd");
     setFromDate(today);

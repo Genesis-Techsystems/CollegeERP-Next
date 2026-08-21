@@ -296,7 +296,7 @@ export default function GradeSetupPage() {
     () => ({
       slNo: {
         colId: "slNo",
-        headerName: "S.No",
+        headerName: "SI.No",
         valueGetter: rowIndexGetter,
         width: 80,
         minWidth: 70,
@@ -304,7 +304,7 @@ export default function GradeSetupPage() {
       },
       grade: {
         colId: "grade",
-        headerName: "Grade",
+        headerName: "Grade Code",
         minWidth: 110,
         valueGetter: (p) => String(p.data?.gradeCode ?? "—"),
         cellRenderer: (p: ICellRendererParams<any>) => {
@@ -337,7 +337,7 @@ export default function GradeSetupPage() {
       },
       score: {
         colId: "score",
-        headerName: "Min - Max Score %",
+        headerName: "Min - Max Score Percentage",
         minWidth: 170,
         valueGetter: (p) =>
           rangeText(
@@ -351,7 +351,7 @@ export default function GradeSetupPage() {
       },
       credit: {
         colId: "credit",
-        headerName: "Credit Pts",
+        headerName: "Credit Points",
         minWidth: 120,
         valueGetter: (p) => p.data?.creditPoints ?? p.data?.gradePoint ?? "—",
       },

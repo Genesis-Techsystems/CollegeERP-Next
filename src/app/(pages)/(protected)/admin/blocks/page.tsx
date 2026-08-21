@@ -1,38 +1,77 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { Blocks, PencilIcon, PlusIcon } from 'lucide-react'
-import { StatusBadge } from '@/common/components/data-display'
-import { ListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listBlocks } from '@/services'
-import type { Block } from '@/types/block'
-import BlockModal from './BlockModal'
+import { useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { Blocks, PencilIcon, PlusIcon } from "lucide-react";
+import { StatusBadge } from "@/common/components/data-display";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listBlocks } from "@/services";
+import type { Block } from "@/types/block";
+import BlockModal from "./BlockModal";
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<Block>,
-  blockName: { field: 'blockName', headerName: 'Block Name', minWidth: 160, flex: 1.2 } as ColDef<Block>,
-  blockCode: { field: 'blockCode', headerName: 'Block Code', minWidth: 115, flex: 0.85 } as ColDef<Block>,
-  buildingName: { field: 'buildingName', headerName: 'Building', minWidth: 150, flex: 1 } as ColDef<Block>,
-  noOfFloors: { field: 'noOfFloors', headerName: 'No Of Floors', minWidth: 110, flex: 0.75 } as ColDef<Block>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<Block>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<Block>,
-}
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<Block>,
+  blockName: {
+    field: "blockName",
+    headerName: "Block Name",
+    minWidth: 160,
+    flex: 1.2,
+  } as ColDef<Block>,
+  blockCode: {
+    field: "blockCode",
+    headerName: "Block Code",
+    minWidth: 115,
+    flex: 0.85,
+  } as ColDef<Block>,
+  buildingName: {
+    field: "buildingName",
+    headerName: "Building",
+    minWidth: 150,
+    flex: 1,
+  } as ColDef<Block>,
+  noOfFloors: {
+    field: "noOfFloors",
+    headerName: "No Of Floors",
+    minWidth: 110,
+    flex: 0.75,
+  } as ColDef<Block>,
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 90,
+    flex: 0.7,
+  } as ColDef<Block>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<Block>,
+};
 
 function toSearchText(value: unknown): string {
-  if (value == null) return ''
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
+  if (value == null) return "";
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
   }
-  return ''
+  return "";
 }
 
 function statusRenderer(p: ICellRendererParams<Block>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -45,34 +84,44 @@ function makeActionsRenderer(
       variant="ghost"
       className="h-8 w-8 p-0"
       aria-label="Edit block"
-      onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
+      onClick={() => {
+        setEditing(p.data ?? null);
+        setModalOpen(true);
+      }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function BlocksPage() {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingBlock, setEditingBlock] = useState<Block | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<Block | null>(null);
 
-  const { data: blocks, isLoading: loading, invalidate } = useCrudList({
+  const {
+    data: blocks,
+    isLoading: loading,
+    invalidate,
+  } = useCrudList({
     queryKey: QK.blocks.list(),
     queryFn: listBlocks,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<Block>[]>(
     () => [
       COL_DEFS.siNo,
-      COL_DEFS.blockName,
-      COL_DEFS.blockCode,
       COL_DEFS.buildingName,
+      COL_DEFS.blockCode,
+      COL_DEFS.blockName,
       COL_DEFS.noOfFloors,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditingBlock, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditingBlock, setModalOpen),
+      },
     ],
     [setEditingBlock, setModalOpen],
-  )
+  );
 
   return (
     <ListPage
@@ -81,9 +130,19 @@ export default function BlocksPage() {
       columnDefs={columnDefs}
       loading={loading}
       pagination
-      toolbar={{ search: true, searchPlaceholder: 'Search blocks…', pdfDocumentTitle: 'Blocks' }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search blocks…",
+        pdfDocumentTitle: "Blocks",
+      }}
       toolbarTrailing={
-        <Button size="sm" onClick={() => { setEditingBlock(null); setModalOpen(true) }}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditingBlock(null);
+            setModalOpen(true);
+          }}
+        >
           <PlusIcon className="h-4 w-4 mr-1" />
           Add Block
         </Button>
@@ -95,7 +154,10 @@ export default function BlocksPage() {
           <Button
             size="sm"
             className="mt-4"
-            onClick={() => { setEditingBlock(null); setModalOpen(true) }}
+            onClick={() => {
+              setEditingBlock(null);
+              setModalOpen(true);
+            }}
           >
             <PlusIcon className="h-4 w-4 mr-1" />
             Add Block
@@ -104,11 +166,15 @@ export default function BlocksPage() {
       }
     >
       <BlockModal
+        key={editingBlock?.blockId ?? "add-block"}
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingBlock(null) }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingBlock(null);
+        }}
         block={editingBlock}
         onSaved={invalidate}
       />
     </ListPage>
-  )
+  );
 }

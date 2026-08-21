@@ -24,6 +24,11 @@ function segmentToLabel(segment: string): string {
 
 function adminSubmoduleLabel(pathname: string): string {
   const normalized = pathname.toLowerCase();
+  // Nested `/admin/institutional-masters/...` already includes the submodule
+  // segment in the URL — do not insert a duplicate crumb.
+  if (normalized.includes("/institutional-masters")) {
+    return "";
+  }
   const academicSettingsPrefixes = [
     "/admin/courses",
     "/admin/course-groups",
@@ -1421,7 +1426,10 @@ export function useBreadcrumb(
       // sidebar/nav metadata is unavailable client-side.
       const isAdminRoot = segment === "admin" && index === 0;
       if (isAdminRoot && segments.length >= 2) {
-        items.push({ label: adminSubmoduleLabel(pathname) });
+        const submodule = adminSubmoduleLabel(pathname);
+        if (submodule) {
+          items.push({ label: submodule });
+        }
       }
     });
   }

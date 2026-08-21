@@ -1,21 +1,27 @@
-import { ENTITIES } from '@/config/constants/entities'
-import type { Block } from '@/types/block'
-import type { Floor } from '@/types/floor'
+import { ENTITIES } from "@/config/constants/entities";
+import type { Block } from "@/types/block";
+import type { Floor } from "@/types/floor";
 import {
   angularLowerActiveReason,
   asNullableNumber,
   asString,
-} from '../angular-payload'
-import { buildQuery, domainCreate, domainList, domainUpdate } from '../crud'
+} from "../angular-payload";
+import {
+  buildQuery,
+  domainCreateResult,
+  domainList,
+  domainUpdateResult,
+} from "../crud";
 
-type FloorWriteInput = Partial<Omit<Floor, 'floorId'>> & Record<string, unknown>
+type FloorWriteInput = Partial<Omit<Floor, "floorId">> &
+  Record<string, unknown>;
 
 function buildAngularFloorPayload(
   data: FloorWriteInput,
   floorId?: number,
   existing?: Floor,
 ): Record<string, unknown> {
-  const isActive = data.isActive !== false
+  const isActive = data.isActive !== false;
 
   const payload: Record<string, unknown> = {
     blockId: data.blockId ?? existing?.blockId,
@@ -24,47 +30,54 @@ function buildAngularFloorPayload(
     noOfRooms: asNullableNumber(data.noOfRooms),
     isActive,
     reason: angularLowerActiveReason(isActive, data.reason, existing?.reason),
-  }
+  };
 
   if (floorId != null) {
-    payload.floorId = floorId
+    payload.floorId = floorId;
   }
 
-  return payload
+  return payload;
 }
 
 export async function listFloors(): Promise<Floor[]> {
   return domainList<Floor>(
     ENTITIES.FLOOR.name,
-    buildQuery({}, { field: 'createdDt', direction: 'DESC' }),
-  )
+    buildQuery({}, { field: "createdDt", direction: "DESC" }),
+  );
 }
 
-export async function createFloor(data: Omit<Floor, 'floorId'>): Promise<Floor> {
-  const payload = buildAngularFloorPayload(data)
-  return domainCreate<Floor>(ENTITIES.FLOOR.name, payload)
+export async function createFloor(
+  data: Omit<Floor, "floorId">,
+): Promise<{ data: Floor; message: string }> {
+  const payload = buildAngularFloorPayload(data);
+  return domainCreateResult<Floor>(ENTITIES.FLOOR.name, payload);
 }
 
 export async function updateFloor(
   floorId: number,
-  data: Partial<Omit<Floor, 'floorId'>>,
+  data: Partial<Omit<Floor, "floorId">>,
   existing?: Floor,
-): Promise<Floor> {
-  const payload = buildAngularFloorPayload(data, floorId, existing)
-  return domainUpdate<Floor>(ENTITIES.FLOOR.name, ENTITIES.FLOOR.pk, floorId, payload)
+): Promise<{ data: Floor; message: string }> {
+  const payload = buildAngularFloorPayload(data, floorId, existing);
+  return domainUpdateResult<Floor>(
+    ENTITIES.FLOOR.name,
+    ENTITIES.FLOOR.pk,
+    floorId,
+    payload,
+  );
 }
 
 export async function listActiveBlocksForFloors(): Promise<Block[]> {
   return domainList<Block>(
     ENTITIES.BLOCK.name,
-    buildQuery({ isActive: true }, { field: 'createdDt', direction: 'DESC' }),
-  )
+    buildQuery({ isActive: true }, { field: "createdDt", direction: "DESC" }),
+  );
 }
 
 export async function listFloorsByBlock(blockId: number): Promise<Floor[]> {
-  if (!blockId) return []
+  if (!blockId) return [];
   return domainList<Floor>(
     ENTITIES.FLOOR.name,
-    buildQuery({ 'Block.blockId': blockId, isActive: true }),
-  )
+    buildQuery({ "Block.blockId": blockId, isActive: true }),
+  );
 }
