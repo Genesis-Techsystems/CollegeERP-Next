@@ -324,6 +324,40 @@ class CrudService {
     return body.data as T;
   }
 
+  /**
+   * Same as {@link create}, but also returns the Spring `message`
+   * (e.g. "Record(s) created successfully!") for toast display.
+   */
+  async createResult<T>(
+    entity: string,
+    data: unknown,
+  ): Promise<{ data: T; message: string }> {
+    const res = await fetch(`${this.base}/${DOMAIN.CREATE}/${entity}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
+    }
+
+    const body: ApiResponse<T> = await res.json();
+
+    if (!body.success) {
+      throw new AppError(
+        "API_ERROR",
+        body.message ?? `Failed to create ${entity}`,
+      );
+    }
+
+    return {
+      data: body.data as T,
+      message: (body.message ?? "").trim(),
+    };
+  }
+
   /** POST `cms/domain/create/{Entity}` — mirrors {@link create} for CMS-prefixed Spring apps. */
   async createCms<T>(entity: string, data: unknown): Promise<T> {
     const res = await fetch(`${this.base}/${DOMAIN.CMS_CREATE}/${entity}`, {
@@ -398,6 +432,54 @@ class CrudService {
     }
 
     return body.data as T;
+  }
+
+  /**
+   * Same as {@link update}, but also returns the Spring `message`
+   * (e.g. "Record(s) updated successfully!") for toast display.
+   */
+  async updateResult<T>(
+    entity: string,
+    pkField: string,
+    pkValue: string | number,
+    data: unknown,
+  ): Promise<{ data: T; message: string }> {
+    const res = await fetch(
+      `${this.base}/${DOMAIN.UPDATE}/${entity}?query=${pkField}==${pkValue}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      },
+    );
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      throw parseApiError(res, body);
+    }
+
+    const body: ApiResponse<T> = await res.json();
+
+    if (!body.success) {
+      const detail =
+        body.data != null && typeof body.data === "object"
+          ? JSON.stringify(body.data)
+          : typeof body.data === "string" && body.data.trim()
+            ? body.data
+            : null;
+      throw new AppError(
+        "API_ERROR",
+        detail
+          ? `${body.message ?? `Failed to update ${entity}`} (${detail})`
+          : (body.message ?? `Failed to update ${entity}`),
+        body,
+      );
+    }
+
+    return {
+      data: body.data as T,
+      message: (body.message ?? "").trim(),
+    };
   }
 
   /** PUT `cms/domain/update/{Entity}?query={pkField}=={pkValue}` — same contract as {@link update}. */
@@ -868,6 +950,11 @@ export const cmsDomainList = <T>(
 export const domainCreate = <T>(entity: string, data: unknown): Promise<T> =>
   crud.create<T>(entity, data);
 
+export const domainCreateResult = <T>(
+  entity: string,
+  data: unknown,
+): Promise<{ data: T; message: string }> => crud.createResult<T>(entity, data);
+
 export const cmsDomainCreate = <T>(entity: string, data: unknown): Promise<T> =>
   crud.createCms<T>(entity, data);
 
@@ -877,6 +964,14 @@ export const domainUpdate = <T>(
   pkValue: string | number,
   data: unknown,
 ): Promise<T> => crud.update<T>(entity, pkField, pkValue, data);
+
+export const domainUpdateResult = <T>(
+  entity: string,
+  pkField: string,
+  pkValue: string | number,
+  data: unknown,
+): Promise<{ data: T; message: string }> =>
+  crud.updateResult<T>(entity, pkField, pkValue, data);
 
 export const cmsDomainUpdate = <T>(
   entity: string,

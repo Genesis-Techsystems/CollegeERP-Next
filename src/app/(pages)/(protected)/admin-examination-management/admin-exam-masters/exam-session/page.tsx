@@ -11,17 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ListPage } from "@/components/layout";
-import { TimePicker } from "@/common/components";
+import { TimePicker, ActiveStatusField, FormField } from "@/common/components";
+import { Select, type SelectOption } from "@/common/components/select";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { StatusBadge } from "@/common/components/data-display";
 import { useSessionContext } from "@/context/SessionContext";
@@ -35,6 +27,28 @@ import {
 import { GM_CODES } from "@/config/constants/ui";
 import { distinct } from "@/lib/utils";
 import { toastError, toastSuccess } from "@/lib/toast";
+
+/** 24h `HH:mm[:ss]` → `h:mm AM/PM` (e.g. `13:00:00` → `1:00 PM`). */
+function formatTime12h(value?: string | null): string {
+  if (!value) return "";
+  const raw = String(value).trim();
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return raw;
+  const hh = Number(m[1]);
+  const mm = m[2];
+  if (!Number.isFinite(hh)) return raw;
+  const ampm = hh >= 12 ? "PM" : "AM";
+  const hour12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${hour12}:${mm} ${ampm}`;
+}
+
+function formatSessionStartEnd(
+  start?: string | null,
+  end?: string | null,
+): string {
+  if (!start || !end) return "—";
+  return `${formatTime12h(start)} - ${formatTime12h(end)}`;
+}
 
 // ── Column shape ─────────────────────────────────────────────────────────────
 const COL_DEFS = {
@@ -64,9 +78,7 @@ const COL_DEFS = {
     headerName: "Session Start - End Times",
     minWidth: 200,
     valueGetter: (p: any) =>
-      p.data?.sessionStartTime && p.data?.sessionEndTime
-        ? `${p.data.sessionStartTime} - ${p.data.sessionEndTime}`
-        : "—",
+      formatSessionStartEnd(p.data?.sessionStartTime, p.data?.sessionEndTime),
   } as ColDef,
   isActive: {
     field: "isActive",
@@ -251,18 +263,24 @@ export default function ExamSessionPage() {
     if (match) setForm((s) => ({ ...s, examsessioninCatId: String(match.id) }));
   }, [open, editing, form.examsessioninCatId, sessionInOptions]);
 
-  function formatTime12h(value?: string) {
-    if (!value) return "";
-    const raw = String(value).trim();
-    const m = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-    if (!m) return raw;
-    const hh = Number(m[1]);
-    const mm = m[2];
-    if (!Number.isFinite(hh)) return raw;
-    const ampm = hh >= 12 ? "PM" : "AM";
-    const hour12 = hh % 12 === 0 ? 12 : hh % 12;
-    return `${hour12}:${mm} ${ampm}`;
-  }
+  const universitySelectOptions = useMemo<SelectOption[]>(
+    () =>
+      universityOptions.map((u) => ({
+        value: u.code,
+        label: u.name ? `${u.code} - ${u.name}` : u.code,
+      })),
+    [universityOptions],
+  );
+
+  const sessionInSelectOptions = useMemo<SelectOption[]>(
+    () =>
+      sessionInOptions.map((o) => ({
+        value: String(o.id),
+        label:
+          o.label && o.label !== o.code ? `${o.code} - ${o.label}` : o.code,
+      })),
+    [sessionInOptions],
+  );
 
   // ── Column assembly ─────────────────────────────────────────────────────────
   const columnDefs = useMemo<ColDef[]>(
@@ -367,7 +385,7 @@ export default function ExamSessionPage() {
         }}
       >
         <DialogContent
-          className="max-w-2xl p-0 overflow-hidden"
+          className="sm:max-w-3xl p-0 overflow-hidden"
           closeOnOutsideClick={false}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
@@ -377,155 +395,125 @@ export default function ExamSessionPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid min-w-0 grid-cols-1 gap-3 p-4 md:grid-cols-2">
-            <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">
-                University Code <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={form.universityCode || undefined}
-                onValueChange={(v) => {
-                  setForm((s) => ({ ...s, universityCode: v }));
-                  if (fieldErrors.universityCode) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.universityCode;
-                      return next;
-                    });
-                  }
-                }}
+          <div className="space-y-3 p-4">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 [&>*]:min-w-0">
+              <FormField
+                label="University Code"
+                required
+                error={fieldErrors.universityCode}
               >
-                <SelectTrigger
-                  className="h-9 text-[12px]"
-                  aria-invalid={Boolean(fieldErrors.universityCode)}
-                >
-                  <SelectValue placeholder="Select university code" />
-                </SelectTrigger>
-                <SelectContent>
-                  {universityOptions.map((u) => (
-                    <SelectItem key={u.code} value={u.code}>
-                      {u.code}
-                      {u.name ? ` - ${u.name}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fieldErrors.universityCode ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.universityCode}
-                </p>
-              ) : null}
-            </div>
-            <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">
-                Exam Session Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                className="h-9 text-[12px]"
-                placeholder="Enter exam session name"
-                value={form.examSessionName}
-                onChange={(e) => {
-                  setForm((s) => ({ ...s, examSessionName: e.target.value }));
-                  if (fieldErrors.examSessionName) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.examSessionName;
-                      return next;
-                    });
-                  }
-                }}
-                aria-invalid={Boolean(fieldErrors.examSessionName)}
-              />
-              {fieldErrors.examSessionName ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.examSessionName}
-                </p>
-              ) : null}
-            </div>
-            <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">
-                Session In <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={form.examsessioninCatId || undefined}
-                onValueChange={(v) => {
-                  setForm((s) => ({ ...s, examsessioninCatId: v }));
-                  if (fieldErrors.examsessioninCatId) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.examsessioninCatId;
-                      return next;
-                    });
-                  }
-                }}
+                <Select
+                  value={form.universityCode || null}
+                  onChange={(v) => {
+                    setForm((s) => ({ ...s, universityCode: v ?? "" }));
+                    if (fieldErrors.universityCode) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.universityCode;
+                        return next;
+                      });
+                    }
+                  }}
+                  options={universitySelectOptions}
+                  placeholder="Select university code"
+                  searchable
+                />
+              </FormField>
+
+              <FormField
+                label="Exam Session Name"
+                required
+                htmlFor="examSessionName"
+                error={fieldErrors.examSessionName}
               >
-                <SelectTrigger
-                  className="h-9 text-[12px]"
-                  aria-invalid={Boolean(fieldErrors.examsessioninCatId)}
-                >
-                  <SelectValue placeholder="Select session in" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessionInOptions.map((o) => (
-                    <SelectItem key={o.id} value={String(o.id)}>
-                      {o.code}
-                      {o.label && o.label !== o.code ? ` - ${o.label}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fieldErrors.examsessioninCatId ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.examsessioninCatId}
-                </p>
-              ) : null}
+                <Input
+                  id="examSessionName"
+                  className="h-9"
+                  placeholder="Enter exam session name"
+                  value={form.examSessionName}
+                  onChange={(e) => {
+                    setForm((s) => ({ ...s, examSessionName: e.target.value }));
+                    if (fieldErrors.examSessionName) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.examSessionName;
+                        return next;
+                      });
+                    }
+                  }}
+                  aria-invalid={Boolean(fieldErrors.examSessionName)}
+                />
+              </FormField>
+
+              <FormField
+                label="Session In"
+                required
+                error={fieldErrors.examsessioninCatId}
+              >
+                <Select
+                  value={form.examsessioninCatId || null}
+                  onChange={(v) => {
+                    setForm((s) => ({ ...s, examsessioninCatId: v ?? "" }));
+                    if (fieldErrors.examsessioninCatId) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.examsessioninCatId;
+                        return next;
+                      });
+                    }
+                  }}
+                  options={sessionInSelectOptions}
+                  placeholder="Select session in"
+                  searchable
+                />
+              </FormField>
             </div>
 
-            <div className="min-w-0 space-y-1">
-              <TimePicker
-                value={form.sessionStartTime}
-                onChange={(next) =>
-                  setForm((s) => ({ ...s, sessionStartTime: next }))
-                }
-                label="Start Time"
-              />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <TimePicker
-                value={form.sessionEndTime}
-                onChange={(next) =>
-                  setForm((s) => ({ ...s, sessionEndTime: next }))
-                }
-                label="End Time"
-              />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <Label className="text-[12px]">Active</Label>
-              <label className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-2">
-                <Checkbox
-                  checked={form.isActive}
-                  onCheckedChange={(v) =>
-                    setForm((s) => ({ ...s, isActive: !!v }))
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 [&>*]:min-w-0">
+              <FormField label="Start Time">
+                <TimePicker
+                  value={form.sessionStartTime}
+                  onChange={(next) =>
+                    setForm((s) => ({ ...s, sessionStartTime: next }))
                   }
+                  label="Start Time"
+                  showLabel={false}
                 />
-                <span className="text-[12px] text-slate-700">
-                  Session is active
-                </span>
-              </label>
-            </div>
-            {!form.isActive && (
-              <div className="space-y-1 md:col-span-2">
-                <Label className="text-[12px]">Reason</Label>
-                <Input
-                  className="h-9 text-[12px]"
-                  placeholder="Enter reason for deactivation"
-                  value={form.reason}
-                  onChange={(e) =>
-                    setForm((s) => ({ ...s, reason: e.target.value }))
+              </FormField>
+
+              <FormField label="End Time">
+                <TimePicker
+                  value={form.sessionEndTime}
+                  onChange={(next) =>
+                    setForm((s) => ({ ...s, sessionEndTime: next }))
                   }
+                  label="End Time"
+                  showLabel={false}
                 />
-              </div>
-            )}
+              </FormField>
+            </div>
+
+            <ActiveStatusField
+              isActive={form.isActive}
+              reason={form.isActive ? "" : form.reason}
+              onActiveChange={(v) =>
+                setForm((s) => ({
+                  ...s,
+                  isActive: v === true,
+                  reason:
+                    v === true
+                      ? "active"
+                      : s.reason === "active"
+                        ? ""
+                        : s.reason,
+                }))
+              }
+              onReasonChange={(value) =>
+                setForm((s) => ({ ...s, reason: value }))
+              }
+              reasonRequired={!form.isActive}
+              reasonPlaceholder="Reason"
+            />
           </div>
 
           <DialogFooter className="px-4 pb-4">

@@ -662,6 +662,13 @@ export default function RoomDetailsPage() {
       }
     >
       <RoomDetailModal
+        key={
+          editingRoom?.roomDetailId != null
+            ? `edit-room-detail-${editingRoom.roomDetailId}`
+            : editingRoom
+              ? `edit-room-detail-${editingRoom.roomId}`
+              : "add-room-detail"
+        }
         open={modalOpen}
         onClose={() => {
           setModalOpen(false);

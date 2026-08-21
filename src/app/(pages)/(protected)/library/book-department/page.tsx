@@ -12,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { listLibraryBookCategories } from "@/services";
 import type { LibraryBookCategory } from "@/types/library";
 import { BookDepartmentModal } from "./BookDepartmentModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -85,11 +86,14 @@ export default function BookDepartmentPage() {
   const {
     data: rows,
     isLoading: loading,
+    isError,
+    error,
     invalidate,
   } = useCrudList({
     queryKey: QK.library.bookCategories(),
     queryFn: listLibraryBookCategories,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryBookCategory>[]>(
     () => [
@@ -109,7 +113,7 @@ export default function BookDepartmentPage() {
 
   return (
     <ListPage
-      title="Book Department"
+      title="Library Department Details"
       rowData={rows}
       columnDefs={columnDefs}
       loading={loading}

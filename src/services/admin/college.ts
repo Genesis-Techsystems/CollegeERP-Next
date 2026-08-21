@@ -13,6 +13,7 @@ import {
   buildQuery,
   domainCreate,
   domainList,
+  domainListRawQuery,
   domainUpdate,
   uploadFile,
 } from "../crud";
@@ -81,9 +82,11 @@ function buildAngularCollegePayload(
 }
 
 export async function listColleges(): Promise<College[]> {
-  return domainList<College>(
+  // Angular listAllDetails(College) → query=order(createdDt=desc)&size=99999
+  return domainListRawQuery<College>(
     ENTITIES.COLLEGE.name,
-    buildQuery({}, { field: "createdDt", direction: "DESC" }),
+    "order(createdDt=desc)",
+    true,
   );
 }
 

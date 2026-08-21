@@ -425,13 +425,14 @@ export default function OrganizationModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-          <div className={`${FORM_ROW} lg:grid-cols-12`}>
+          {/* Row 1: Org Name, Org Code, Logo */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
             <FormField
               label="Organization Name"
               required
               error={errors.orgName?.message}
               htmlFor="orgName"
-              className="min-w-0 lg:col-span-5"
+              className="min-w-0 sm:col-span-5"
             >
               <Input
                 id="orgName"
@@ -444,7 +445,7 @@ export default function OrganizationModal({
               required
               error={errors.orgCode?.message}
               htmlFor="orgCode"
-              className="min-w-0 lg:col-span-3"
+              className="min-w-0 sm:col-span-3"
             >
               <Input
                 id="orgCode"
@@ -455,7 +456,7 @@ export default function OrganizationModal({
             <FormField
               label="Logo (.png, .jpg, .jpeg)"
               error={logoError ?? undefined}
-              className="min-w-0 lg:col-span-4"
+              className="min-w-0 sm:col-span-4"
             >
               <Input
                 type="file"
@@ -479,45 +480,69 @@ export default function OrganizationModal({
             </FormField>
           </div>
 
-          <div className={FORM_ROW}>
-            <Controller
-              name="countryId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Country"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined);
-                    setValue("stateId", undefined);
-                    setValue("districtId", undefined as unknown as number);
-                    setValue("cityId", undefined);
-                  }}
-                  options={countryOptions}
-                  placeholder="Select country"
-                  searchable
-                />
-              )}
-            />
-            <Controller
-              name="stateId"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="State"
-                  value={field.value ? String(field.value) : null}
-                  onChange={(v) => {
-                    field.onChange(v ? Number(v) : undefined);
-                    setValue("districtId", undefined as unknown as number);
-                    setValue("cityId", undefined);
-                  }}
-                  options={stateOptions}
-                  placeholder="Select state"
-                  searchable
-                  disabled={!countryId}
-                />
-              )}
-            />
+          {/* Row 2: Address, Country, State */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+            <FormField
+              label="Address"
+              required
+              error={errors.address?.message}
+              htmlFor="address"
+              className="min-w-0 sm:col-span-6"
+            >
+              <Input
+                id="address"
+                {...register("address")}
+                placeholder="Street, area, city"
+              />
+            </FormField>
+
+            <div className="min-w-0 sm:col-span-3">
+              <Controller
+                name="countryId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Country"
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => {
+                      field.onChange(v ? Number(v) : undefined);
+                      setValue("stateId", undefined);
+                      setValue("districtId", undefined as unknown as number);
+                      setValue("cityId", undefined);
+                    }}
+                    options={countryOptions}
+                    placeholder="Select country"
+                    searchable
+                  />
+                )}
+              />
+            </div>
+
+            <div className="min-w-0 sm:col-span-3">
+              <Controller
+                name="stateId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="State"
+                    value={field.value ? String(field.value) : null}
+                    onChange={(v) => {
+                      field.onChange(v ? Number(v) : undefined);
+                      setValue("districtId", undefined as unknown as number);
+                      setValue("cityId", undefined);
+                    }}
+                    options={stateOptions}
+                    placeholder="Select state"
+                    searchable
+                    disabled={!countryId}
+                  />
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Row 3: District to Pincode in one line */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <Controller
               name="districtId"
               control={control}
@@ -538,6 +563,7 @@ export default function OrganizationModal({
                 />
               )}
             />
+
             <Controller
               name="cityId"
               control={control}
@@ -553,9 +579,7 @@ export default function OrganizationModal({
                 />
               )}
             />
-          </div>
 
-          <div className={FORM_ROW}>
             <FormField
               label="Mandal"
               required
@@ -568,6 +592,7 @@ export default function OrganizationModal({
                 placeholder="e.g. Kukatpally"
               />
             </FormField>
+
             <FormField
               label="Pincode"
               required
@@ -580,34 +605,12 @@ export default function OrganizationModal({
                 placeholder="6-digit pincode"
               />
             </FormField>
-            <Controller
-              name="licenseFdate"
-              control={control}
-              render={({ field }) => (
-                <DatePicker
-                  label="License From Date"
-                  value={parseYmd(field.value)}
-                  onChange={(d) => field.onChange(d ? toDateStr(d) : "")}
-                />
-              )}
-            />
-            <Controller
-              name="licenseTdate"
-              control={control}
-              render={({ field }) => (
-                <DatePicker
-                  label="License To Date"
-                  value={parseYmd(field.value)}
-                  onChange={(d) => field.onChange(d ? toDateStr(d) : "")}
-                  minDate={parseYmd(licenseFdate) ?? undefined}
-                />
-              )}
-            />
           </div>
 
-          <div className={FORM_ROW}>
+          {/* Row 4: Mobile No, Landline No, Email, Fax */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <FormField
-              label="Mobile No"
+              label="Mobile Number"
               error={errors.mobileNumber?.message}
               htmlFor="mobileNumber"
             >
@@ -618,7 +621,7 @@ export default function OrganizationModal({
               />
             </FormField>
             <FormField
-              label="Landline No"
+              label="Landline Number"
               error={errors.landlineNumber?.message}
               htmlFor="landlineNumber"
             >
@@ -649,7 +652,8 @@ export default function OrganizationModal({
             </FormField>
           </div>
 
-          <div className={FORM_ROW}>
+          {/* Row 5: Google URL, Facebook URL, LinkedIn URL, Website URL */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <FormField label="Google URL" htmlFor="googleUrl">
               <Input
                 id="googleUrl"
@@ -680,30 +684,40 @@ export default function OrganizationModal({
             </FormField>
           </div>
 
-          <div className={`${FORM_ROW} lg:grid-cols-12`}>
+          {/* Row 6: License From Date, License To Date, No. of Licenses */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Controller
+              name="licenseFdate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="License From Date"
+                  value={parseYmd(field.value)}
+                  onChange={(d) => field.onChange(d ? toDateStr(d) : "")}
+                />
+              )}
+            />
+            <Controller
+              name="licenseTdate"
+              control={control}
+              render={({ field }) => (
+                <DatePicker
+                  label="License To Date"
+                  value={parseYmd(field.value)}
+                  onChange={(d) => field.onChange(d ? toDateStr(d) : "")}
+                  minDate={parseYmd(licenseFdate) ?? undefined}
+                />
+              )}
+            />
             <FormField
-              label="No. of Licenses"
+              label="No. of Issued Licenses"
               error={errors.noIssuedLicenses?.message}
               htmlFor="noIssuedLicenses"
-              className="min-w-0 lg:col-span-3"
             >
               <Input
                 id="noIssuedLicenses"
                 {...bindDigitsField(register, "noIssuedLicenses", 6)}
                 placeholder="e.g. 100"
-              />
-            </FormField>
-            <FormField
-              label="Address"
-              required
-              error={errors.address?.message}
-              htmlFor="address"
-              className="min-w-0 lg:col-span-9"
-            >
-              <Input
-                id="address"
-                {...register("address")}
-                placeholder="Street, area, city"
               />
             </FormField>
           </div>
@@ -714,6 +728,7 @@ export default function OrganizationModal({
               control={control}
               render={({ field }) => (
                 <ActiveStatusField
+                  // label="Active"
                   isActive={field.value}
                   reason={watch("reason") ?? ""}
                   onActiveChange={field.onChange}
@@ -730,7 +745,7 @@ export default function OrganizationModal({
             </p>
           )}
 
-          <DialogFooter className="gap-2 border-t border-border/60 pt-3 sm:justify-end">
+          <DialogFooter className="gap-2 pt-3 sm:justify-end">
             <Button
               type="button"
               variant="outline"

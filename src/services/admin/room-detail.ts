@@ -8,8 +8,8 @@ import {
   domainList,
   domainListRawQuery,
   getAllRecords,
-  postDetails,
-  putDetails,
+  postDetailsEnvelope,
+  putDetailsEnvelope,
 } from "../crud";
 
 type Floor = {
@@ -96,8 +96,15 @@ export type RoomDevicePayload = {
 
 export async function addRoomDetailsList(
   payload: RoomDevicePayload[],
-): Promise<void> {
-  await postDetails(ROOM_DETAILS_API.ADD_ROOM_DETAILS_LIST, payload);
+): Promise<{ message: string }> {
+  const body = await postDetailsEnvelope(
+    ROOM_DETAILS_API.ADD_ROOM_DETAILS_LIST,
+    payload,
+  );
+  if (!body.success) {
+    throw new Error(body.message?.trim() || "Failed to add room details");
+  }
+  return { message: (body.message ?? "").trim() };
 }
 
 export async function updateRoomDetails(payload: {
@@ -105,8 +112,15 @@ export async function updateRoomDetails(payload: {
   roomId: number;
   ettlDeviceId: number;
   isActive: boolean;
-}): Promise<void> {
-  await putDetails(ROOM_DETAILS_API.UPDATE_ROOM_DETAILS, payload);
+}): Promise<{ message: string }> {
+  const body = await putDetailsEnvelope(
+    ROOM_DETAILS_API.UPDATE_ROOM_DETAILS,
+    payload,
+  );
+  if (!body.success) {
+    throw new Error(body.message?.trim() || "Failed to update room details");
+  }
+  return { message: (body.message ?? "").trim() };
 }
 
 export async function listActiveBuildingsForRooms(): Promise<Building[]> {

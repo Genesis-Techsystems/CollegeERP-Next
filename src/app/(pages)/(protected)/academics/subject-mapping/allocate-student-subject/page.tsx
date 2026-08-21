@@ -348,9 +348,9 @@ export default function AllocateStudentSubjectPage() {
       body={
         canAllocate ? (
           <div className="space-y-3">
-            <div className="text-[13.5px] font-semibold tracking-tight text-primary font-[family-name:var(--font-heading)]">
+            {/* <div className="text-[13.5px] font-semibold tracking-tight text-primary font-[family-name:var(--font-heading)]">
               Allocate Student Subjects
-            </div>
+            </div> */}
             <Button
               type="button"
               className="h-8 rounded-full px-4 text-xs inline-flex items-center gap-1"

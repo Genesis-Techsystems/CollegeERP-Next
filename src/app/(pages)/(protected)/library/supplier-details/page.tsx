@@ -12,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { listLibrarySuppliers } from "@/services";
 import type { LibrarySupplier } from "@/types/library";
 import { SupplierModal } from "./SupplierModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -95,11 +96,14 @@ export default function SupplierDetailsPage() {
   const {
     data: rows,
     isLoading: loading,
+    isError,
+    error,
     invalidate,
   } = useCrudList({
     queryKey: QK.library.suppliers(),
     queryFn: listLibrarySuppliers,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibrarySupplier>[]>(
     () => [

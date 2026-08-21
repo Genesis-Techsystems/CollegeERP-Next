@@ -13,10 +13,10 @@ import {
   listLibrariesByCollege,
   listStudentsWithoutLibraryMembership,
 } from "@/services";
-import { getErrorMessage } from "@/lib/errors";
-import { toastError, toastInfo } from "@/lib/toast";
+import { toastError } from "@/lib/toast";
 import type { LibraryMembership } from "@/types/library";
 import { LIBRARY_MODAL_TITLE_CLASS } from "../../_lib/modal-styles";
+import { useLibraryQueryErrorToast } from "../../_hooks/use-library-query-error-toast";
 
 type MemberKind = "S" | "E";
 
@@ -80,12 +80,7 @@ export function DefaultMembershipListModal({
     enabled: open && Number(requestedCollegeId) > 0,
     retry: false,
   });
-
-  // Angular: success:false still shows result.message via snotify (e.g. "Record(s) already exists")
-  useEffect(() => {
-    if (!rowsQuery.isError || !rowsQuery.error) return;
-    toastInfo(getErrorMessage(rowsQuery.error));
-  }, [rowsQuery.isError, rowsQuery.error]);
+  useLibraryQueryErrorToast(rowsQuery.isError, rowsQuery.error);
 
   const collegeOptions = (collegesQuery.data ?? []).map((college) => ({
     value: String(college.collegeId),

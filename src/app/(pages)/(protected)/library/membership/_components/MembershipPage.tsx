@@ -16,10 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { APP_CONFIG } from "@/config/constants/app";
 import { useSessionContext } from "@/context/SessionContext";
-import { getErrorMessage } from "@/lib/errors";
 import { toastError, toastSuccess } from "@/lib/toast";
-import { rowIndexGetter } from "@/lib/utils";
+import { useLibraryQueryErrorToast } from "../../_hooks/use-library-query-error-toast";
+import { cn, rowIndexGetter } from "@/lib/utils";
 import {
   generateLibraryMemberBarcode,
   getLibrarySecurityLibraryId,
@@ -37,7 +38,7 @@ type SearchMode = "member" | "all" | "students" | "employees";
 const PAGE_SIZE = 50;
 
 const TAB_TRIGGER_CLASS =
-  "rounded-none border-b-2 border-transparent px-4 py-2 text-[13px] data-[state=active]:border-[#c9a227] data-[state=active]:bg-[#fff8e1] data-[state=active]:text-[#1e3a5f] data-[state=active]:shadow-none";
+  "relative z-[1] -mb-[2px] rounded-none border-b-2 border-transparent px-4 py-2 text-[13px] font-medium shadow-none data-[state=active]:border-[#0c51a4] data-[state=active]:bg-[#ffcf46] data-[state=active]:text-[#1e3a5f] data-[state=active]:shadow-none";
 
 const COL_DEFS = {
   siNo: {
@@ -191,13 +192,14 @@ export function MembershipPage() {
         Number(user?.employeeId ?? 0),
       ),
     enabled: !isAdmin && Boolean(user?.organizationId),
+    staleTime: APP_CONFIG.SESSION_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
+  useLibraryQueryErrorToast(securityQuery.isError, securityQuery.error);
   const memberReady = searchMode !== "member" || searchText.trim().length >= 5;
   const queryEnabled =
-    Boolean(user) &&
-    activeTab === "list" &&
-    memberReady &&
-    (isAdmin || !securityQuery.isFetching);
+    Boolean(user) && memberReady && (isAdmin || !securityQuery.isFetching);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
     queryKey: [
@@ -218,7 +220,11 @@ export function MembershipPage() {
         securityQuery.data,
       ),
     enabled: queryEnabled,
+    staleTime: APP_CONFIG.SESSION_STALE_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
+  useLibraryQueryErrorToast(isError, error);
   const rows = data?.rows ?? [];
   const totalCount = data?.totalCount ?? 0;
 
@@ -275,7 +281,7 @@ export function MembershipPage() {
       value={activeTab}
       onValueChange={(value) => setActiveTab(value as MembershipTab)}
     >
-      <TabsList className="h-auto w-full justify-start rounded-none border-b border-slate-200 bg-transparent p-0">
+      <TabsList className="h-auto w-full justify-start rounded-none border-b-2 border-[#ffcf46] bg-transparent p-0">
         <TabsTrigger value="list" className={TAB_TRIGGER_CLASS}>
           Membership List
         </TabsTrigger>
@@ -289,7 +295,12 @@ export function MembershipPage() {
   const listFilters = (
     <div className="space-y-4">
       {tabs}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div
+        className={cn(
+          "flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between",
+          activeTab !== "list" && "hidden",
+        )}
+      >
         <RadioGroup
           value={searchMode}
           onValueChange={(value) => {
@@ -338,7 +349,7 @@ export function MembershipPage() {
           </Button>
         </div>
       </div>
-      {searchMode === "member" ? (
+      {activeTab === "list" && searchMode === "member" ? (
         <Select
           className="max-w-sm"
           value={
@@ -374,31 +385,15 @@ export function MembershipPage() {
     </div>
   );
 
-  if (activeTab === "new") {
-    return (
-      <FilteredListPage
-        title="Membership"
-        filters={tabs}
-        filtersCollapsible={false}
-        body={<NewMembershipPanel onSaved={() => void refetch()} />}
-      />
-    );
-  }
-
   return (
     <FilteredListPage
       title="Membership"
       filters={listFilters}
       filtersCollapsible={false}
-      notice={
-        isError && !/no\s*record/i.test(getErrorMessage(error)) ? (
-          <p className="text-sm text-destructive">{getErrorMessage(error)}</p>
-        ) : null
-      }
       rowData={memberReady ? displayedRows : []}
-      columnDefs={showTable ? columnDefs : undefined}
-      body={showTable ? undefined : null}
-      loading={isFetching}
+      columnDefs={activeTab === "list" && showTable ? columnDefs : undefined}
+      body={activeTab === "list" && !showTable ? null : undefined}
+      loading={activeTab === "list" && isFetching}
       pagination={searchMode !== "all"}
       serverSide={searchMode === "all"}
       totalCount={totalCount}
@@ -412,6 +407,14 @@ export function MembershipPage() {
         pdfDocumentTitle: "Library Membership",
       }}
     >
+      <div
+        className={cn(
+          "app-card app-card--mixed-content overflow-hidden p-4",
+          activeTab !== "new" && "hidden",
+        )}
+      >
+        <NewMembershipPanel onSaved={() => void refetch()} />
+      </div>
       <EditMembershipModal
         open={editing != null}
         row={editing}

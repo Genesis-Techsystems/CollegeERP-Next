@@ -33,6 +33,7 @@ import type { Room } from "@/types/room";
 import type { RoomDetail } from "@/types/room-detail";
 import type { EttlDevice } from "@/services/admin/room-detail";
 import { requiredNumber } from "@/lib/zod-fields";
+import { toastApiSuccess, toastError } from "@/lib/toast";
 
 function num(value: unknown): number {
   const n = Number(value);
@@ -191,7 +192,6 @@ export default function RoomDetailModal({
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [devices, setDevices] = useState<EttlDevice[]>([]);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     handleSubmit,
@@ -340,6 +340,7 @@ export default function RoomDetailModal({
   }, [roomDeviceRows, selectedRoomId]);
 
   useEffect(() => {
+    if (!open) return;
     if (room) {
       const raw = room as unknown as Record<string, unknown>;
       reset({
@@ -368,31 +369,20 @@ export default function RoomDetailModal({
       });
     } else {
       reset({
-        campusId: initialCampusId ?? undefined,
-        buildingId: initialBuildingId ?? undefined,
-        blockId: initialBlockId ?? undefined,
-        floorId: initialFloorId ?? undefined,
-        roomId: initialRoomId ?? undefined,
+        campusId: undefined,
+        buildingId: undefined,
+        blockId: undefined,
+        floorId: undefined,
+        roomId: undefined,
         ettlDeviceId: undefined,
         roomDetailId: undefined,
         isActive: true,
         reason: "",
       });
     }
-    setSubmitError(null);
-  }, [
-    room,
-    open,
-    reset,
-    initialCampusId,
-    initialBuildingId,
-    initialBlockId,
-    initialFloorId,
-    initialRoomId,
-  ]);
+  }, [room, open, reset]);
 
   async function onSubmit(data: FormValues) {
-    setSubmitError(null);
     try {
       if (isEditing) {
         const roomDetailId =
@@ -403,30 +393,30 @@ export default function RoomDetailModal({
             "pk_room_detail_id",
           ]);
         if (!roomDetailId) {
-          setSubmitError("Unable to identify room detail for update");
+          toastError("Unable to identify room detail for update");
           return;
         }
-        await updateRoomDetails({
+        const result = await updateRoomDetails({
           roomDetailId,
           roomId: data.roomId,
           ettlDeviceId: data.ettlDeviceId,
           isActive: data.isActive,
         });
+        toastApiSuccess(result.message, "Record(s) updated successfully!");
       } else {
-        await addRoomDetailsList([
+        const result = await addRoomDetailsList([
           {
             roomId: data.roomId,
             ettlDeviceId: data.ettlDeviceId,
             isActive: data.isActive,
           },
         ]);
+        toastApiSuccess(result.message, "Record(s) created successfully!");
       }
       onSaved();
       onClose();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : "Failed to save room",
-      );
+      toastError(err);
     }
   }
 
@@ -584,27 +574,21 @@ export default function RoomDetailModal({
             />
           </div>
 
-          {isEditing && (
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <ActiveStatusField
-                  isActive={field.value}
-                  reason={watch("reason") ?? ""}
-                  onActiveChange={field.onChange}
-                  onReasonChange={(value) => setValue("reason", value)}
-                  reasonError={errors.reason?.message}
-                />
-              )}
-            />
-          )}
-
-          {submitError && (
-            <p className="text-sm text-red-600 rounded bg-red-50 px-3 py-2">
-              {submitError}
-            </p>
-          )}
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <ActiveStatusField
+                isActive={field.value}
+                reason={watch("reason") ?? ""}
+                onActiveChange={field.onChange}
+                onReasonChange={(value) => setValue("reason", value)}
+                reasonRequired={!field.value}
+                reasonPlaceholder="Reason"
+                reasonError={errors.reason?.message}
+              />
+            )}
+          />
 
           <DialogFooter className="pt-1">
             <Button

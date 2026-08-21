@@ -7,7 +7,7 @@ import {
   ensureTimetableNavChildren,
   mapTimetableNavRoute,
 } from "./timetable-navigation";
-import { mapAdminInstitutionalRoomRoute } from "./admin-institutional-navigation";
+import { mapAdminInstitutionalMastersRoute } from "./admin-institutional-navigation";
 import { resolveExaminationReportHref } from "./exam-reports-navigation";
 import { mapExaminationSectionNavRoute } from "./examination-section-navigation";
 import { findSidebarLabelForRoute } from "./sidebar-route-pins";
@@ -527,38 +527,52 @@ export function normalizeHref(path: string): string {
       /\/wallet\/university-wallet-recharge(?=\/|$)/gi,
       "/wallet/recharge-wallet",
     )
-    // Angular Admin institutional masters → App Router admin pages.
-    .replace(
-      /\/institutional-masters\/rooms-type(?=\/|$)/gi,
-      "/admin/room-types",
-    )
+    // Angular Admin institutional masters — keep `/admin/institutional-masters/{page}`.
+    // Normalize slug aliases only (do not flatten to `/admin/buildings` etc.).
     .replace(
       /\/institutional-masters\/rooms-types(?=\/|$)/gi,
-      "/admin/room-types",
+      "/admin/institutional-masters/rooms-type",
     )
     .replace(
       /\/institutional-masters\/room-type(?=\/|$)/gi,
-      "/admin/room-types",
+      "/admin/institutional-masters/rooms-type",
     )
     .replace(
       /\/institutional-masters\/room-types(?=\/|$)/gi,
-      "/admin/room-types",
-    )
-    .replace(/\/institutional-masters\/rooms(?=\/|$)/gi, "/admin/rooms")
-    .replace(
-      /\/institutional-masters\/room-details(?=\/|$)/gi,
-      "/admin/room-details",
+      "/admin/institutional-masters/rooms-type",
     )
     .replace(
       /\/institutional-masters\/room-detail(?=\/|$)/gi,
-      "/admin/room-details",
+      "/admin/institutional-masters/room-details",
     )
-    .replace(/\/institutional-masters\/buildings(?=\/|$)/gi, "/admin/buildings")
-    .replace(/\/institutional-masters\/building(?=\/|$)/gi, "/admin/buildings")
-    .replace(/\/institutional-masters\/blocks(?=\/|$)/gi, "/admin/blocks")
-    .replace(/\/institutional-masters\/block(?=\/|$)/gi, "/admin/blocks")
-    .replace(/\/institutional-masters\/floors(?=\/|$)/gi, "/admin/floors")
-    .replace(/\/institutional-masters\/floor(?=\/|$)/gi, "/admin/floors")
+    .replace(
+      /\/institutional-masters\/building(?=\/|$)/gi,
+      "/admin/institutional-masters/buildings",
+    )
+    .replace(
+      /\/institutional-masters\/block(?=\/|$)/gi,
+      "/admin/institutional-masters/blocks",
+    )
+    .replace(
+      /\/institutional-masters\/floor(?=\/|$)/gi,
+      "/admin/institutional-masters/floors",
+    )
+    // Legacy flat admin URLs → Institutional Masters paths.
+    .replace(
+      /\/admin\/room-types(?=\/|$)/gi,
+      "/admin/institutional-masters/rooms-type",
+    )
+    .replace(
+      /\/admin\/room-details(?=\/|$)/gi,
+      "/admin/institutional-masters/room-details",
+    )
+    .replace(
+      /\/admin\/buildings(?=\/|$)/gi,
+      "/admin/institutional-masters/buildings",
+    )
+    .replace(/\/admin\/blocks(?=\/|$)/gi, "/admin/institutional-masters/blocks")
+    .replace(/\/admin\/floors(?=\/|$)/gi, "/admin/institutional-masters/floors")
+    .replace(/\/admin\/rooms(?=\/|$)/gi, "/admin/institutional-masters/rooms")
     // Angular Admin academic-settings submodule → flat App Router admin pages.
     .replace(/\/admin\/academic-settings\//gi, "/admin/")
     // Angular E-Office module (`Office/` menu prefix) → App Router path.
@@ -1016,7 +1030,7 @@ function overrideInstitutionalMastersHref(
   href: string,
   pageLabel: string,
 ): string {
-  return mapAdminInstitutionalRoomRoute(href, pageLabel) ?? href;
+  return mapAdminInstitutionalMastersRoute(href, pageLabel) ?? href;
 }
 
 function overrideExaminationSectionHref(
@@ -1466,7 +1480,7 @@ function resolveNavItemHrefForBreadcrumb(item: NavItem): string | null {
       return "/hostel/view-room-details";
     }
     if (hrefLower.includes("/admin/") || hrefLower.includes("institutional")) {
-      return "/admin/room-details";
+      return "/admin/institutional-masters/room-details";
     }
   }
   if (

@@ -727,6 +727,9 @@ export async function getExamSubjectsForSchedule(params: {
  * Positional result groups (not by row.flag):
  * - result[0] → subject/regulation/course-group rows (`dataList` after course/year/exam filter)
  * - result[1] → exam sessions
+ *
+ * Angular always sends `in_university_id=0` — do not pass a course university id
+ * or the proc returns a truncated session list.
  */
 export async function getClgExamSubjectFiltersBundle(params: {
   courseId: number;
@@ -734,15 +737,13 @@ export async function getClgExamSubjectFiltersBundle(params: {
   academicYearId: number;
   courseYearId: number;
   employeeId?: number;
-  /** Angular always sends 0; optional override if caller has course university. */
-  universityId?: number;
 }): Promise<{ dataList: any[]; sessions: any[] }> {
   const data = await getAllRecords<{ result?: any[][] }>(
     "s_get_univ_exam_details",
     {
       in_flag: "clg_exam_subject_filters",
       in_flag_type: "",
-      in_university_id: params.universityId ?? 0,
+      in_university_id: 0,
       in_college_id: 0,
       in_course_id: params.courseId || 0,
       in_course_group_id: 0,
@@ -761,7 +762,30 @@ export async function getClgExamSubjectFiltersBundle(params: {
 
   const groups = Array.isArray(data?.result) ? data.result : [];
   const rawRows = Array.isArray(groups[0]) ? groups[0] : [];
-  const sessions = Array.isArray(groups[1]) ? groups[1] : [];
+
+  // Prefer Angular positional result[1]; fall back to flag / session-shaped groups.
+  let sessions: any[] = Array.isArray(groups[1]) ? groups[1] : [];
+  const looksLikeSessions = (rows: any[]) =>
+    rows.some(
+      (r) =>
+        r?.fk_exam_session_id != null ||
+        r?.examSessionId != null ||
+        r?.exam_display_session_name != null ||
+        String(r?.flag ?? "") === "exam_sessions",
+    );
+  if (!looksLikeSessions(sessions)) {
+    const byFlag = groups.find(
+      (g) => Array.isArray(g) && String(g?.[0]?.flag ?? "") === "exam_sessions",
+    );
+    if (Array.isArray(byFlag) && byFlag.length > 0) {
+      sessions = byFlag;
+    } else {
+      const shaped = groups.find(
+        (g) => Array.isArray(g) && g !== rawRows && looksLikeSessions(g),
+      );
+      if (Array.isArray(shaped)) sessions = shaped;
+    }
+  }
 
   const courseId = Number(params.courseId) || 0;
   const courseYearId = Number(params.courseYearId) || 0;

@@ -239,7 +239,8 @@ export function LibraryDetailsModal({
             control={control}
             render={({ field }) => (
               <Select
-                label="Organization *"
+                label="Organization"
+                required
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => {
                   field.onChange(v ? Number(v) : undefined);
@@ -258,7 +259,8 @@ export function LibraryDetailsModal({
             control={control}
             render={({ field }) => (
               <Select
-                label="Campus *"
+                label="Campus"
+                required
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => {
                   field.onChange(v ? Number(v) : undefined);
@@ -278,7 +280,8 @@ export function LibraryDetailsModal({
             control={control}
             render={({ field }) => (
               <Select
-                label="College *"
+                label="College"
+                required
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => field.onChange(v ? Number(v) : undefined)}
                 options={colleges}
@@ -330,7 +333,8 @@ export function LibraryDetailsModal({
             control={control}
             render={({ field }) => (
               <Select
-                label="Room *"
+                label="Room"
+                required
                 value={field.value ? String(field.value) : null}
                 onChange={(v) => field.onChange(v ? Number(v) : undefined)}
                 options={rooms}

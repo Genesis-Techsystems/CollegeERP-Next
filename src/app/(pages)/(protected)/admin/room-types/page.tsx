@@ -1,63 +1,84 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
-import { PencilIcon, PlusIcon, Warehouse } from 'lucide-react'
-import { StatusBadge } from '@/common/components/data-display'
-import { ListPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { useCrudList } from '@/hooks/useCrudList'
-import { QK } from '@/lib/query-keys'
-import { rowIndexGetter } from '@/lib/utils'
-import { listRoomTypes } from '@/services'
-import type { RoomType } from '@/types/room-type'
-import RoomTypeModal from './RoomTypeModal'
+import { useMemo, useState } from "react";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { PencilIcon, PlusIcon, Warehouse } from "lucide-react";
+import { StatusBadge } from "@/common/components/data-display";
+import { ListPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { useCrudList } from "@/hooks/useCrudList";
+import { QK } from "@/lib/query-keys";
+import { rowIndexGetter } from "@/lib/utils";
+import { listRoomTypes } from "@/services";
+import type { RoomType } from "@/types/room-type";
+import RoomTypeModal from "./RoomTypeModal";
 
 const COL_DEFS = {
-  siNo: { headerName: 'SI.No', valueGetter: rowIndexGetter, width: 70, flex: 0 } as ColDef<RoomType>,
+  siNo: {
+    headerName: "SI.No",
+    valueGetter: rowIndexGetter,
+    width: 70,
+    flex: 0,
+  } as ColDef<RoomType>,
   roomType: {
-    headerName: 'Room Type',
+    headerName: "Room Type",
     minWidth: 160,
     flex: 1,
     valueGetter: (p) => {
-      const row = (p.data ?? {}) as Record<string, unknown>
+      const row = (p.data ?? {}) as Record<string, unknown>;
       return (
-        (typeof row.roomType === 'string' && row.roomType) ||
-        (typeof row.roomtype === 'string' && row.roomtype) ||
-        ''
-      )
+        (typeof row.roomType === "string" && row.roomType) ||
+        (typeof row.roomtype === "string" && row.roomtype) ||
+        ""
+      );
     },
   } as ColDef<RoomType>,
   orgCode: {
-    headerName: 'Organization',
+    headerName: "Organization",
     minWidth: 130,
     flex: 0.9,
     valueGetter: (p) => {
-      const row = (p.data ?? {}) as Record<string, unknown>
-      const org = (row.organization ?? row.Organization) as Record<string, unknown> | undefined
+      const row = (p.data ?? {}) as Record<string, unknown>;
+      const org = (row.organization ?? row.Organization) as
+        | Record<string, unknown>
+        | undefined;
       return (
-        (typeof row.orgCode === 'string' && row.orgCode) ||
-        (typeof row.orgcode === 'string' && row.orgcode) ||
-        (typeof row.organizationCode === 'string' && row.organizationCode) ||
-        (typeof org?.orgCode === 'string' && org.orgCode) ||
-        ''
-      )
+        (typeof row.orgCode === "string" && row.orgCode) ||
+        (typeof row.orgcode === "string" && row.orgcode) ||
+        (typeof row.organizationCode === "string" && row.organizationCode) ||
+        (typeof org?.orgCode === "string" && org.orgCode) ||
+        ""
+      );
     },
   } as ColDef<RoomType>,
-  isActive: { field: 'isActive', headerName: 'Status', minWidth: 90, flex: 0.7 } as ColDef<RoomType>,
-  actions: { headerName: 'Actions', minWidth: 86, width: 86, flex: 0 } as ColDef<RoomType>,
-}
+  isActive: {
+    field: "isActive",
+    headerName: "Status",
+    minWidth: 90,
+    flex: 0.7,
+  } as ColDef<RoomType>,
+  actions: {
+    headerName: "Actions",
+    minWidth: 86,
+    width: 86,
+    flex: 0,
+  } as ColDef<RoomType>,
+};
 
 function toSearchText(value: unknown): string {
-  if (value == null) return ''
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
+  if (value == null) return "";
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
   }
-  return ''
+  return "";
 }
 
 function statusRenderer(p: ICellRendererParams<RoomType>) {
-  return <StatusBadge status={p.data?.isActive ?? false} />
+  return <StatusBadge status={p.data?.isActive ?? false} />;
 }
 
 function makeActionsRenderer(
@@ -70,21 +91,28 @@ function makeActionsRenderer(
       variant="ghost"
       className="h-8 w-8 p-0"
       aria-label="Edit room type"
-      onClick={() => { setEditing(p.data ?? null); setModalOpen(true) }}
+      onClick={() => {
+        setEditing(p.data ?? null);
+        setModalOpen(true);
+      }}
     >
       <PencilIcon className="h-3.5 w-3.5" />
     </Button>
-  )
+  );
 }
 
 export default function RoomTypesPage() {
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingRoomType, setEditingRoomType] = useState<RoomType | null>(null)
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingRoomType, setEditingRoomType] = useState<RoomType | null>(null);
 
-  const { data: roomTypes, isLoading: loading, invalidate } = useCrudList({
+  const {
+    data: roomTypes,
+    isLoading: loading,
+    invalidate,
+  } = useCrudList({
     queryKey: QK.roomTypes.list(),
     queryFn: listRoomTypes,
-  })
+  });
 
   const columnDefs = useMemo<ColDef<RoomType>[]>(
     () => [
@@ -92,10 +120,13 @@ export default function RoomTypesPage() {
       COL_DEFS.orgCode,
       COL_DEFS.roomType,
       { ...COL_DEFS.isActive, cellRenderer: statusRenderer },
-      { ...COL_DEFS.actions, cellRenderer: makeActionsRenderer(setEditingRoomType, setModalOpen) },
+      {
+        ...COL_DEFS.actions,
+        cellRenderer: makeActionsRenderer(setEditingRoomType, setModalOpen),
+      },
     ],
     [setEditingRoomType, setModalOpen],
-  )
+  );
 
   return (
     <ListPage
@@ -104,9 +135,19 @@ export default function RoomTypesPage() {
       columnDefs={columnDefs}
       loading={loading}
       pagination
-      toolbar={{ search: true, searchPlaceholder: 'Search room types…', pdfDocumentTitle: 'Room Types' }}
+      toolbar={{
+        search: true,
+        searchPlaceholder: "Search room types…",
+        pdfDocumentTitle: "Room Types",
+      }}
       toolbarTrailing={
-        <Button size="sm" onClick={() => { setEditingRoomType(null); setModalOpen(true) }}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setEditingRoomType(null);
+            setModalOpen(true);
+          }}
+        >
           <PlusIcon className="h-4 w-4 mr-1" />
           Add Room Type
         </Button>
@@ -115,7 +156,14 @@ export default function RoomTypesPage() {
         <div className="app-card flex flex-col items-center justify-center py-16 text-muted-foreground">
           <Warehouse className="h-10 w-10 mb-3 opacity-40" />
           <p className="text-sm">No room types found</p>
-          <Button size="sm" className="mt-4" onClick={() => { setEditingRoomType(null); setModalOpen(true) }}>
+          <Button
+            size="sm"
+            className="mt-4"
+            onClick={() => {
+              setEditingRoomType(null);
+              setModalOpen(true);
+            }}
+          >
             <PlusIcon className="h-4 w-4 mr-1" />
             Add Room Type
           </Button>
@@ -123,11 +171,15 @@ export default function RoomTypesPage() {
       }
     >
       <RoomTypeModal
+        key={editingRoomType?.roomTypeId ?? "add-room-type"}
         open={modalOpen}
-        onClose={() => { setModalOpen(false); setEditingRoomType(null) }}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingRoomType(null);
+        }}
         roomType={editingRoomType}
         onSaved={invalidate}
       />
     </ListPage>
-  )
+  );
 }

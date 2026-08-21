@@ -243,7 +243,7 @@ export function BookDepartmentModal({
           disabled={!organizationId}
           error={errors.libraryId?.message}
         />
-        <div className="sm:col-span-2">
+        <div className="sm:col-span-1 mt-2">
           <Select
             label="Library Category"
             required

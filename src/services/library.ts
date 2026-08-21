@@ -256,7 +256,11 @@ export async function listCollegesByCampus(
 // ── Library details ───────────────────────────────────────────────────────────
 
 export async function listLibraryDetails(): Promise<LibraryDetail[]> {
-  return domainList<LibraryDetail>(ENTITIES.LIBRARY_DETAIL.name);
+  return domainListRawQuery<LibraryDetail>(
+    ENTITIES.LIBRARY_DETAIL.name,
+    "order(createdDt=desc)",
+    true,
+  );
 }
 
 export async function listLibraryDetailsByOrganization(

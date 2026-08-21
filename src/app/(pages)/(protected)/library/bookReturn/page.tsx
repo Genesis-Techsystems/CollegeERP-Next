@@ -12,6 +12,7 @@ import { USER_ROLES } from "@/config/constants/app";
 import { useSessionContext } from "@/context/SessionContext";
 import { toastError } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 import {
   getLibrarySecurityLibraryId,
   listIssuedBooksByMemberCode,
@@ -171,11 +172,17 @@ export default function BookReturnPage() {
 
   const memberCode = memberCodeOf(selectedMember);
 
-  const { data: issuedBooks = [], isLoading: loadingIssued } = useQuery({
+  const {
+    data: issuedBooks = [],
+    isLoading: loadingIssued,
+    isError: issuedError,
+    error: issuedErr,
+  } = useQuery({
     queryKey: ["Library", "issuedBooksByMemberCode", memberCode],
     queryFn: () => listIssuedBooksByMemberCode(memberCode),
     enabled: memberCode.length > 0,
   });
+  useLibraryQueryErrorToast(issuedError, issuedErr);
 
   const selectMember = useCallback((member: BookReturnSearchRow) => {
     setSelectedMember(member);

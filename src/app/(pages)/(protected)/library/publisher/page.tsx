@@ -12,6 +12,7 @@ import { rowIndexGetter } from "@/lib/utils";
 import { listLibraryPublishers } from "@/services";
 import type { LibraryPublisher } from "@/types/library";
 import { PublisherModal } from "./PublisherModal";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -80,11 +81,14 @@ export default function PublisherPage() {
   const {
     data: rows,
     isLoading: loading,
+    isError,
+    error,
     invalidate,
   } = useCrudList({
     queryKey: QK.library.publishers(),
     queryFn: listLibraryPublishers,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryPublisher>[]>(
     () => [

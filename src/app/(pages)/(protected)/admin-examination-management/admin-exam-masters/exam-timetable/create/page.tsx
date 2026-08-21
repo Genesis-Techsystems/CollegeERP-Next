@@ -53,7 +53,6 @@ export default function CreateExamTimetablePage() {
   const paramCourseYearName = String(searchParams.get("courseYearName") ?? "");
   const paramFromDate = String(searchParams.get("fromDate") ?? "");
   const paramToDate = String(searchParams.get("toDate") ?? "");
-  const paramUniversityId = Number(searchParams.get("universityId") ?? 0) || 0;
 
   function goBack() {
     const qp = new URLSearchParams();
@@ -178,6 +177,7 @@ export default function CreateExamTimetablePage() {
         return;
 
       const empId = resolveExamLoginEmpId(user?.employeeId);
+      // Angular getFiltersList always sends in_university_id=0.
       const { dataList: rows, sessions } = await getClgExamSubjectFiltersBundle(
         {
           courseId: selectedCourseId,
@@ -185,13 +185,13 @@ export default function CreateExamTimetablePage() {
           academicYearId: selectedAcademicYearId,
           courseYearId: selectedCourseYearId,
           employeeId: empId,
-          universityId: paramUniversityId,
         },
       ).catch(() => ({ dataList: [] as any[], sessions: [] as any[] }));
       if (cancelled) return;
 
       setDataList(rows);
 
+      // Angular: unique by fk_exam_session_id from result[1] — do not drop empty names.
       const seen = new Set<number>();
       const mappedSessions: {
         id: number;
@@ -205,13 +205,17 @@ export default function CreateExamTimetablePage() {
         if (id <= 0 || seen.has(id)) continue;
         seen.add(id);
         const name = String(
-          r.exam_display_session_name ?? r.examSessionName ?? "",
+          r.exam_display_session_name ??
+            r.examSessionName ??
+            r.session_name ??
+            "",
         ).trim();
-        if (!name) continue;
         mappedSessions.push({
           id,
-          name,
-          code: String(r.examsessioninCatCode ?? r.sessionCode ?? "").trim(),
+          name: name || `Session ${id}`,
+          code: String(
+            r.examsessioninCatCode ?? r.sessionCode ?? r.session ?? "",
+          ).trim(),
           sessionStartTime: r.session_start_time
             ? String(r.session_start_time)
             : r.sessionStartTime
@@ -240,7 +244,6 @@ export default function CreateExamTimetablePage() {
     selectedAcademicYearId,
     selectedExamId,
     selectedCourseYearId,
-    paramUniversityId,
     user?.employeeId,
   ]);
 
@@ -649,7 +652,8 @@ export default function CreateExamTimetablePage() {
                 onChange={(v) => applySession(v ? Number(v) : null)}
                 options={examSessions.map((s) => ({
                   value: String(s.id),
-                  label: `${s.name}${s.sessionStartTime && s.sessionEndTime ? ` (${s.sessionStartTime} - ${s.sessionEndTime})` : ""}`,
+                  // Angular mat-option: examSessionName only (display name already includes times).
+                  label: s.name,
                 }))}
                 placeholder={
                   examSessions.length === 0

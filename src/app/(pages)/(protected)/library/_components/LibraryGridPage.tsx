@@ -5,11 +5,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef } from "ag-grid-community";
 import { DataTable, TableCard } from "@/common/components/table";
-import { EmptyState } from "@/common/components/feedback";
-import { getErrorMessage } from "@/lib/errors";
 import { rowIndexGetter } from "@/lib/utils";
 import type { LibraryRow } from "@/services";
 import { LibraryScreenShell } from "./LibraryScreenShell";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 export type LibraryGridQueryResult =
   | LibraryRow[]
@@ -85,11 +84,12 @@ export function LibraryGridPage({
   currentPage,
   onPageChange,
 }: Readonly<LibraryGridPageProps>) {
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey,
     queryFn,
     enabled,
   });
+  useLibraryQueryErrorToast(isError, error);
 
   const { rows, totalCount: queryTotalCount } = normalizeQueryResult(data);
   const totalCount = totalCountProp ?? queryTotalCount;
@@ -97,6 +97,7 @@ export function LibraryGridPage({
   const showEmpty =
     !alwaysShowTable &&
     !isLoading &&
+    !isError &&
     rows.length === 0 &&
     (!serverSide || totalCount === 0);
 
@@ -106,13 +107,7 @@ export function LibraryGridPage({
       action={headerAction}
       showHeader={showHeaderCard}
     >
-      {isError ? (
-        <EmptyState
-          title={`Could not load ${title.toLowerCase()}`}
-          description={getErrorMessage(error)}
-          action={{ label: "Retry", onClick: () => void refetch() }}
-        />
-      ) : showEmpty ? (
+      {showEmpty ? (
         <div className="app-card overflow-hidden bg-card">
           {!showHeaderCard ? (
             <div className="px-5 pt-5 pb-3">

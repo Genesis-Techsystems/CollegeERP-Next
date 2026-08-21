@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { PlusIcon, PencilIcon } from "lucide-react";
@@ -9,9 +9,9 @@ import { StatusBadge } from "@/common/components/data-display";
 import { ListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { QK } from "@/lib/query-keys";
-import { toastError } from "@/lib/toast";
 import { rowIndexGetter } from "@/lib/utils";
 import { listLibraryPeriodicals, type LibraryRow } from "@/services";
+import { useLibraryQueryErrorToast } from "../_hooks/use-library-query-error-toast";
 
 const COL_DEFS = {
   siNo: {
@@ -99,12 +99,7 @@ export default function PeriodicalsPage() {
     queryKey: QK.library.periodicals(),
     queryFn: listLibraryPeriodicals,
   });
-
-  useEffect(() => {
-    if (isError && error) {
-      toastError(error, "Failed to load periodicals");
-    }
-  }, [isError, error]);
+  useLibraryQueryErrorToast(isError, error);
 
   const columnDefs = useMemo<ColDef<LibraryRow>[]>(
     () => [

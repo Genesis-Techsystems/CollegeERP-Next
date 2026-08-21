@@ -249,24 +249,26 @@ export default function ModifyAcademicBatchPage() {
             <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[13px] font-semibold uppercase tracking-wide text-slate-700">
               To Batch
             </h3>
-            <div className="space-y-3 p-3">
-              <Select
-                label="Batch *"
-                value={targetBatchId ? String(targetBatchId) : null}
-                onChange={(v) => setTargetBatchId(v ? Number(v) : null)}
-                options={batchOptions}
-                placeholder="Select batch"
-                searchable
-                isLoading={loadingBatches}
-                disabled={loadingBatches}
-              />
-              <DatePicker
-                label="Modified On"
-                value={modifiedOn}
-                onChange={setModifiedOn}
-                placeholder="Select date"
-              />
-              <div className="flex justify-end pt-1">
+            <div className="p-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Select
+                  label="Batch *"
+                  value={targetBatchId ? String(targetBatchId) : null}
+                  onChange={(v) => setTargetBatchId(v ? Number(v) : null)}
+                  options={batchOptions}
+                  placeholder="Select batch"
+                  searchable
+                  isLoading={loadingBatches}
+                  disabled={loadingBatches}
+                />
+                <DatePicker
+                  label="Modified On"
+                  value={modifiedOn}
+                  onChange={setModifiedOn}
+                  placeholder="Select date"
+                />
+              </div>
+              <div className="flex justify-end pt-3">
                 <Button
                   type="button"
                   disabled={!targetBatchId || submitting}
