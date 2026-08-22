@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { PageContainer, PageHeader } from "@/components/layout";
+import { PageContainer } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/lib/toast";
 import {
@@ -23,9 +23,6 @@ export default function StudentsProfilePage() {
 
   const queryStudentId = Number(searchParams.get("studentId") ?? 0);
   const check = Number(searchParams.get("check") ?? 1);
-  // Portal identity must come from the authenticated session — userTypeCode/studentId
-  // are never synced to localStorage, so the old readStorage path made isStudentPortal
-  // permanently false and any student/parent view resolve to studentId 0.
   const isStudentPortal =
     user?.userTypeCode === "STUDENT" || user?.userTypeCode === "PARENT";
   const studentId = isStudentPortal
@@ -99,31 +96,44 @@ export default function StudentsProfilePage() {
   }
 
   return (
-    <PageContainer className="space-y-4">
-      {/* <PageHeader title="Student Details" subtitle="Student Information System" /> */}
-
+    <PageContainer className="space-y-3 px-1 sm:px-2">
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Loading student profile…
         </div>
       ) : !student ? (
-        <div className="app-card p-8 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border bg-white p-8 text-center text-sm text-muted-foreground shadow">
           Student not found. Go back and select a student from the list.
         </div>
       ) : (
-        <>
-          <StudentProfileHeader student={student} feeLedger={feeLedger} />
-          <StudentProfileTabs student={student} />
-        </>
+        <div className="overflow-hidden rounded-md bg-white shadow-md">
+          {/* Angular `.sub-header` — computer icon + Student Details */}
+          <div className="flex items-center gap-2 border-b-2 border-[#ffcf46] px-4 py-3">
+            <span
+              className="material-icons text-[22px] text-[#042956]"
+              aria-hidden
+            >
+              computer
+            </span>
+            <span className="text-[18px] font-medium text-[#042956]">
+              Student Details
+            </span>
+          </div>
+
+          <div className="pt-2.5">
+            <StudentProfileHeader student={student} feeLedger={feeLedger} />
+            <StudentProfileTabs student={student} />
+          </div>
+        </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end pr-3">
         <Button
           type="button"
           size="sm"
           onClick={goBack}
-          className="h-9 min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
+          className="h-[30px] min-w-20 !border-0 !bg-[#ffcf46] px-4 !text-black shadow-sm hover:!bg-[#e5b535]"
         >
           Back
         </Button>

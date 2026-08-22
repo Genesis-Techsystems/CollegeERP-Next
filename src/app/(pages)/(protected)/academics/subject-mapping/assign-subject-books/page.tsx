@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { BookOpen, Eye, Link2 } from "lucide-react";
 import { DataTable } from "@/common/components/table";
@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
   getDigitalOnlineSyncFilters,
@@ -74,12 +75,18 @@ function mapBookRow(
   return {
     ...raw,
     checked: false,
-    bookId: n(raw.bookId ?? raw.pk_book_id),
+    bookId: n(raw.bookId ?? raw.pk_book_id ?? raw.Book?.bookId),
     booknumber: s(
-      raw.booknumber ?? raw.bookNumber ?? raw.bookNo ?? raw.book_code,
+      raw.booknumber ??
+        raw.bookNumber ??
+        raw.bookNo ??
+        raw.book_code ??
+        raw.bookCode,
     ),
-    title: s(raw.title ?? raw.bookTitle ?? raw.bookName ?? raw.name),
-    isbn: s(raw.isbn ?? raw.isbnNo ?? raw.isbnNumber),
+    title: s(
+      raw.title ?? raw.bookTitle ?? raw.bookName ?? raw.name ?? raw.Book?.title,
+    ),
+    isbn: s(raw.isbn ?? raw.isbnNo ?? raw.isbnNumber ?? raw.Book?.isbn),
     isTextbook: false,
     isOnlinecourse: false,
     isReference: false,
@@ -94,7 +101,7 @@ function applyAssignedFlags(
 ): AssignBookRow[] {
   return books.map((book) => {
     const match = subjectBooks.find(
-      (x) => n(x.bookId ?? x.Book?.bookId) === book.bookId,
+      (x) => n(x.bookId ?? x.Book?.bookId ?? x.fk_book_id) === book.bookId,
     );
     if (!match) return book;
     return {
@@ -122,7 +129,7 @@ function makeActionsRenderer(
       <div className="flex items-center gap-1.5 h-full">
         <button
           type="button"
-          className="text-xs font-medium text-primary hover:underline"
+          className="text-xs font-medium text-[#1565c0] hover:underline"
           onClick={() => onAssign(row)}
         >
           Assign Book
@@ -134,7 +141,7 @@ function makeActionsRenderer(
           title="Books List"
           onClick={() => onView(row)}
         >
-          <Eye className="h-3.5 w-3.5" />
+          <Eye className="h-3.5 w-3.5 text-[#1565c0]" />
         </button>
       </div>
     );
@@ -155,22 +162,20 @@ export default function AssignSubjectBooksPage() {
 
   const [rows, setRows] = useState<AnyRow[]>([]);
 
-  // Assign modal
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignSubject, setAssignSubject] = useState<AnyRow | null>(null);
   const [assignBooks, setAssignBooks] = useState<AssignBookRow[]>([]);
-  const [subjectBooksCache, setSubjectBooksCache] = useState<AnyRow[]>([]);
   const [booksLoading, setBooksLoading] = useState(false);
   const [bookSearch, setBookSearch] = useState("");
   const [booksPage, setBooksPage] = useState(0);
+  const [booksPageSize, setBooksPageSize] = useState(50);
   const [booksTotalCount, setBooksTotalCount] = useState(0);
-  const booksPageSize = 50;
+  /** Assigned SubjectBook rows for the open subject — reused across Book pages (not duplicate fetches). */
+  const subjectBooksRef = useRef<AnyRow[]>([]);
 
-  // View assigned modal
   const [viewOpen, setViewOpen] = useState(false);
   const [viewBooks, setViewBooks] = useState<AnyRow[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
-  const [viewSearch, setViewSearch] = useState("");
 
   useEffect(() => {
     const orgId = Number(localStorage.getItem("organizationId") ?? 0);
@@ -241,7 +246,6 @@ export default function AssignSubjectBooksPage() {
     [filtersData, collegeId, courseId, courseGroupId],
   );
 
-  // Angular cascade: College → AY → Course → Group → Year
   useEffect(() => {
     if (!collegeId && colleges.length)
       setCollegeId(n(colleges[0].fk_college_id));
@@ -336,23 +340,27 @@ export default function AssignSubjectBooksPage() {
   }, [collegeId, academicYearId, courseGroupId, courseYearId]);
 
   const loadAssignBooksPage = useCallback(
-    async (page: number, subject: AnyRow, existingSubjectBooks?: AnyRow[]) => {
-      if (!collegeId) return;
+    async (page: number, pageSize: number, subject: AnyRow) => {
       const regId = subjectRegulationIdOf(subject);
+      const clgId = n(subject.collegeId) || collegeId || 0;
       setBooksLoading(true);
       try {
+        const needSubjectBooks = subjectBooksRef.current.length === 0;
         const [{ rows: bookRows, totalCount }, subjectBooks] =
           await Promise.all([
-            listBooksPage(page, booksPageSize),
-            existingSubjectBooks
-              ? Promise.resolve(existingSubjectBooks)
-              : listActiveSubjectBooksByRegulation(regId),
+            listBooksPage(page, pageSize),
+            needSubjectBooks && regId
+              ? listActiveSubjectBooksByRegulation(regId)
+              : Promise.resolve(subjectBooksRef.current),
           ]);
-        setSubjectBooksCache(subjectBooks);
+        if (needSubjectBooks) subjectBooksRef.current = subjectBooks;
         setBooksTotalCount(totalCount);
         setBooksPage(page);
-        const mapped = bookRows.map((b) => mapBookRow(b, regId, collegeId));
-        setAssignBooks(applyAssignedFlags(mapped, subjectBooks));
+        setBooksPageSize(pageSize);
+        const mapped = bookRows
+          .map((b) => mapBookRow(b, regId, clgId))
+          .filter((b) => b.bookId > 0 || b.title.length > 0);
+        setAssignBooks(applyAssignedFlags(mapped, subjectBooksRef.current));
       } catch {
         setAssignBooks([]);
         setBooksTotalCount(0);
@@ -364,32 +372,40 @@ export default function AssignSubjectBooksPage() {
     [collegeId],
   );
 
-  async function openAssign(row: AnyRow) {
+  const openAssign = useCallback((row: AnyRow) => {
     setAssignSubject(row);
     setBookSearch("");
-    setAssignOpen(true);
     setAssignBooks([]);
-    setSubjectBooksCache([]);
-    await loadAssignBooksPage(0, row);
-  }
+    subjectBooksRef.current = [];
+    setBooksPage(0);
+    setBooksTotalCount(0);
+    setAssignOpen(true);
+  }, []);
 
-  async function openView(row: AnyRow) {
+  // Server-side Book pages (Angular paginatorByTwoIds) — not client-only on 50 rows.
+  useEffect(() => {
+    if (!assignOpen || !assignSubject) return;
+    void loadAssignBooksPage(booksPage, booksPageSize, assignSubject);
+  }, [
+    assignOpen,
+    assignSubject,
+    booksPage,
+    booksPageSize,
+    loadAssignBooksPage,
+  ]);
+
+  const openView = useCallback((row: AnyRow) => {
     setViewOpen(true);
-    setViewSearch("");
     setViewBooks([]);
     setViewLoading(true);
-    try {
-      const list = await listActiveSubjectBooksByRegulation(
-        subjectRegulationIdOf(row),
-      );
-      setViewBooks(list);
-    } catch {
-      setViewBooks([]);
-      toastError("Failed to load assigned books");
-    } finally {
-      setViewLoading(false);
-    }
-  }
+    void listActiveSubjectBooksByRegulation(subjectRegulationIdOf(row))
+      .then((list) => setViewBooks(list))
+      .catch(() => {
+        setViewBooks([]);
+        toastError("Failed to load assigned books");
+      })
+      .finally(() => setViewLoading(false));
+  }, []);
 
   function updateAssignBook(bookId: number, patch: Partial<AssignBookRow>) {
     setAssignBooks((prev) =>
@@ -423,6 +439,7 @@ export default function AssignSubjectBooksPage() {
     }
   }
 
+  // Angular applyFilter — client filter on the current server page only.
   const filteredAssignBooks = useMemo(() => {
     const q = bookSearch.trim().toLowerCase();
     if (!q) return assignBooks;
@@ -434,16 +451,6 @@ export default function AssignSubjectBooksPage() {
       );
     });
   }, [assignBooks, bookSearch]);
-
-  const filteredViewBooks = useMemo(() => {
-    const q = viewSearch.trim().toLowerCase();
-    if (!q) return viewBooks;
-    return viewBooks.filter((b) => {
-      const title = s(b.title ?? b.bookTitle ?? b.bookName).toLowerCase();
-      const code = s(b.bookCode ?? b.booknumber ?? b.isbn).toLowerCase();
-      return title.includes(q) || code.includes(q);
-    });
-  }, [viewBooks, viewSearch]);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -478,22 +485,27 @@ export default function AssignSubjectBooksPage() {
         cellRenderer: makeActionsRenderer(openAssign, openView),
       },
     ],
-    [],
+    [openAssign, openView],
   );
 
   const assignColumnDefs = useMemo<ColDef<AssignBookRow>[]>(
     () => [
       {
         headerName: "Select",
-        width: 80,
+        width: 90,
+        minWidth: 80,
+        maxWidth: 100,
         flex: 0,
+        sortable: false,
+        filter: false,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: ICellRendererParams<AssignBookRow>) => {
           const row = p.data;
           if (!row) return null;
           return (
             <input
               type="checkbox"
-              checked={row.checked}
+              checked={Boolean(row.checked)}
               onChange={(e) =>
                 updateAssignBook(row.bookId, { checked: e.target.checked })
               }
@@ -501,20 +513,40 @@ export default function AssignSubjectBooksPage() {
           );
         },
       },
-      { field: "booknumber", headerName: "Book Number", minWidth: 120 },
-      { field: "title", headerName: "Title", minWidth: 220, flex: 1.2 },
-      { field: "isbn", headerName: "ISBN", minWidth: 120 },
+      {
+        field: "booknumber",
+        headerName: "Book Number",
+        minWidth: 120,
+        flex: 0.9,
+      },
+      {
+        field: "title",
+        headerName: "Title",
+        minWidth: 260,
+        flex: 1.6,
+      },
+      {
+        field: "isbn",
+        headerName: "ISBN",
+        minWidth: 120,
+        flex: 0.9,
+      },
       {
         headerName: "TextBook",
-        width: 100,
+        width: 110,
+        minWidth: 100,
+        maxWidth: 120,
         flex: 0,
+        sortable: false,
+        filter: false,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: ICellRendererParams<AssignBookRow>) => {
           const row = p.data;
           if (!row) return null;
           return (
             <input
               type="checkbox"
-              checked={row.isTextbook}
+              checked={Boolean(row.isTextbook)}
               onChange={(e) =>
                 updateAssignBook(row.bookId, { isTextbook: e.target.checked })
               }
@@ -524,15 +556,20 @@ export default function AssignSubjectBooksPage() {
       },
       {
         headerName: "Online Course",
-        width: 120,
+        width: 130,
+        minWidth: 120,
+        maxWidth: 140,
         flex: 0,
+        sortable: false,
+        filter: false,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: ICellRendererParams<AssignBookRow>) => {
           const row = p.data;
           if (!row) return null;
           return (
             <input
               type="checkbox"
-              checked={row.isOnlinecourse}
+              checked={Boolean(row.isOnlinecourse)}
               onChange={(e) =>
                 updateAssignBook(row.bookId, {
                   isOnlinecourse: e.target.checked,
@@ -544,15 +581,20 @@ export default function AssignSubjectBooksPage() {
       },
       {
         headerName: "Reference",
-        width: 100,
+        width: 110,
+        minWidth: 100,
+        maxWidth: 120,
         flex: 0,
+        sortable: false,
+        filter: false,
+        cellClass: "flex items-center justify-center",
         cellRenderer: (p: ICellRendererParams<AssignBookRow>) => {
           const row = p.data;
           if (!row) return null;
           return (
             <input
               type="checkbox"
-              checked={row.isReference}
+              checked={Boolean(row.isReference)}
               onChange={(e) =>
                 updateAssignBook(row.bookId, { isReference: e.target.checked })
               }
@@ -571,33 +613,37 @@ export default function AssignSubjectBooksPage() {
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
         width: 70,
         flex: 0,
+        sortable: false,
+        filter: false,
       },
       {
         headerName: "Book Name",
         flex: 1,
         minWidth: 220,
         valueGetter: (p) =>
-          s(p.data?.title ?? p.data?.bookTitle ?? p.data?.bookName) || "-",
+          s(
+            p.data?.title ??
+              p.data?.bookTitle ??
+              p.data?.bookName ??
+              p.data?.Book?.title,
+          ) || "-",
       },
     ],
     [],
   );
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil((booksTotalCount || 0) / booksPageSize),
-  );
-  const pageStart = booksTotalCount === 0 ? 0 : booksPage * booksPageSize + 1;
-  const pageEnd = Math.min((booksPage + 1) * booksPageSize, booksTotalCount);
+  const showTable = rows.length > 0;
 
   return (
-    <>
+    <div className="assign-subject-books-page">
       <FilteredListPage
         title="Assign Subject Books"
+        filterTitle="Subject Books List"
         filters={
           <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
             <Select
               label="College"
+              required
               value={collegeId ? String(collegeId) : null}
               onChange={(v) => setCollegeId(v ? Number(v) : null)}
               options={colleges.map((x) => ({
@@ -608,6 +654,7 @@ export default function AssignSubjectBooksPage() {
             />
             <Select
               label="Academic Year"
+              required
               value={academicYearId ? String(academicYearId) : null}
               onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
               options={academicYears.map((x) => ({
@@ -619,6 +666,7 @@ export default function AssignSubjectBooksPage() {
             />
             <Select
               label="Course"
+              required
               value={courseId ? String(courseId) : null}
               onChange={(v) => setCourseId(v ? Number(v) : null)}
               options={courses.map((x) => ({
@@ -630,6 +678,7 @@ export default function AssignSubjectBooksPage() {
             />
             <Select
               label="Course Group"
+              required
               value={courseGroupId ? String(courseGroupId) : null}
               onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
               options={courseGroups.map((x) => ({
@@ -641,6 +690,7 @@ export default function AssignSubjectBooksPage() {
             />
             <Select
               label="Course Year"
+              required
               value={courseYearId ? String(courseYearId) : null}
               onChange={(v) => setCourseYearId(v ? Number(v) : null)}
               options={courseYears.map((x) => ({
@@ -655,82 +705,78 @@ export default function AssignSubjectBooksPage() {
         rowData={rows}
         columnDefs={columnDefs}
         loading={loading}
+        showTable={showTable}
+        resultsVisible={showTable}
         toolbar={{ search: true, searchPlaceholder: "Search" }}
         pagination
         paginationPageSize={10}
       />
 
       <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <DialogContent className="sm:max-w-5xl p-0 bg-background overflow-hidden">
-          <DialogHeader className="border-b bg-background pr-12 pb-3">
-            <DialogTitle className="flex items-center gap-2 text-base leading-6 text-primary pt-[18px] pl-[28px]">
-              <Link2 className="h-4 w-4" />
-              Books List
+        <DialogContent
+          className={cn(
+            "assign-books-modal flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0",
+            "sm:max-w-5xl",
+          )}
+        >
+          <DialogHeader className="shrink-0 justify-start border-b px-4 py-3 pr-12 text-left sm:text-left">
+            <DialogTitle className="m-0 inline-flex items-center justify-start gap-2 text-left text-base font-semibold leading-none text-[hsl(var(--primary))]">
+              {/* <Link2 className="h-4 w-4 shrink-0" aria-hidden /> */}
+              <span>Books List</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 px-4 py-3">
-            <Input
-              placeholder="Book Code / Name / ISBN"
-              value={bookSearch}
-              onChange={(e) => setBookSearch(e.target.value)}
-              className="h-8 text-xs"
-            />
-            <div className="max-h-[330px] overflow-auto rounded-md border">
+
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-3">
+            <div className="shrink-0 rounded-[5px] border-2 border-[#c3d9ff] px-3 pt-1 pb-0.5">
+              <Input
+                placeholder="Book Code / Name / ISBN"
+                value={bookSearch}
+                onChange={(e) => setBookSearch(e.target.value)}
+                className="h-9 border-0 border-b border-input rounded-none px-0 shadow-none focus-visible:ring-0"
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-hidden [&_.ag-root-wrapper]:min-h-0">
               <DataTable
                 rowData={filteredAssignBooks}
                 columnDefs={assignColumnDefs}
                 loading={booksLoading}
-                toolbar={false}
+                height="380px"
                 pagination={false}
-                getRowId={(p) =>
-                  String(p.data?.bookId ?? p.data?.title ?? Math.random())
-                }
+                serverSide
+                totalCount={booksTotalCount}
+                currentPage={booksPage}
+                paginationPageSize={booksPageSize}
+                pageSizeOptions={[50]}
+                onPageChange={(page, pageSize) => {
+                  setBooksPage(page);
+                  setBooksPageSize(pageSize);
+                }}
+                columnFilters={false}
+                toolbar={{
+                  search: false,
+                  exportExcel: false,
+                  exportPdf: false,
+                  columnPicker: false,
+                }}
+                getRowId={(p) => String(p.data?.bookId ?? "")}
               />
             </div>
-            <div className="flex items-center justify-end gap-4 text-xs text-muted-foreground">
-              <span>Items per page: {booksPageSize}</span>
-              <span>
-                {booksTotalCount === 0 ? "0 - 0" : `${pageStart} - ${pageEnd}`}{" "}
-                of {booksTotalCount}
-              </span>
-              <button
-                type="button"
-                className="px-2 py-1 border rounded disabled:opacity-50"
-                disabled={booksPage <= 0 || !assignSubject}
-                onClick={() => {
-                  if (assignSubject)
-                    void loadAssignBooksPage(
-                      booksPage - 1,
-                      assignSubject,
-                      subjectBooksCache,
-                    );
-                }}
-              >
-                {"<"}
-              </button>
-              <button
-                type="button"
-                className="px-2 py-1 border rounded disabled:opacity-50"
-                disabled={booksPage + 1 >= totalPages || !assignSubject}
-                onClick={() => {
-                  if (assignSubject)
-                    void loadAssignBooksPage(
-                      booksPage + 1,
-                      assignSubject,
-                      subjectBooksCache,
-                    );
-                }}
-              >
-                {">"}
-              </button>
-            </div>
           </div>
-          <DialogFooter className="px-4 pb-4 pt-2">
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>
+
+          <DialogFooter className="shrink-0 gap-2 border-t px-4 py-3 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-[88px]"
+              onClick={() => setAssignOpen(false)}
+            >
               Close
             </Button>
             <Button
-              disabled={saving}
+              type="button"
+              className="min-w-[88px] bg-[#1a237e] hover:bg-[#151b66]"
+              disabled={saving || booksLoading}
               onClick={() => {
                 void saveAssign();
               }}
@@ -742,37 +788,65 @@ export default function AssignSubjectBooksPage() {
       </Dialog>
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="sm:max-w-lg p-0 bg-background overflow-hidden">
-          <DialogHeader className="border-b bg-background pr-12 pb-3">
-            <DialogTitle className="flex items-center gap-2 text-base leading-6 text-primary pt-[18px] pl-[28px]">
-              <BookOpen className="h-4 w-4" />
-              Books List
+        <DialogContent
+          className={cn(
+            "assign-books-modal flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0",
+            "sm:max-w-2xl",
+          )}
+        >
+          <DialogHeader className="shrink-0 justify-start border-b px-4 py-3 pr-12 text-left sm:text-left">
+            <DialogTitle className="m-0 inline-flex items-center justify-start gap-2 text-left text-base font-semibold leading-none text-[hsl(var(--primary))]">
+              <span>Books List</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 px-4 py-3">
-            <Input
-              placeholder="Book Code / Name / ISBN"
-              value={viewSearch}
-              onChange={(e) => setViewSearch(e.target.value)}
-              className="h-8 text-xs"
+
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3">
+            <DataTable
+              rowData={viewBooks}
+              columnDefs={viewColumnDefs}
+              loading={viewLoading}
+              height="360px"
+              pagination
+              paginationPageSize={10}
+              columnFilters={false}
+              toolbar={{
+                search: true,
+                searchPlaceholder: "Book Code / Name / ISBN",
+                searchFields: [
+                  "title",
+                  "bookTitle",
+                  "bookName",
+                  "isbn",
+                  "bookCode",
+                  "booknumber",
+                ],
+                exportExcel: false,
+                exportPdf: false,
+                columnPicker: false,
+              }}
+              getRowId={(p) =>
+                String(
+                  n(p.data?.subBookId) ||
+                    n(p.data?.bookId) ||
+                    s(p.data?.title) ||
+                    "row",
+                )
+              }
             />
-            <div className="max-h-[330px] overflow-auto rounded-md border">
-              <DataTable
-                rowData={filteredViewBooks}
-                columnDefs={viewColumnDefs}
-                loading={viewLoading}
-                toolbar={false}
-                pagination={false}
-              />
-            </div>
           </div>
-          <DialogFooter className="px-4 pb-4 pt-2">
-            <Button variant="outline" onClick={() => setViewOpen(false)}>
+
+          <DialogFooter className="shrink-0 border-t px-4 py-3 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-[88px]"
+              onClick={() => setViewOpen(false)}
+            >
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

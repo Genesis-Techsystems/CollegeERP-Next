@@ -738,9 +738,13 @@ export function DataTable<T>({
     subtitle ??
     (resolvedTitle && enableColumnFilters && tb.show ? FILTER_HINT : undefined);
 
+  // Explicit height always wins. autoHeight={true} forces auto layout.
+  // Otherwise auto-size when height is "auto" (default) on paginated/server grids.
   const isAutoHeight =
-    autoHeight ||
-    (!isWideTable && (height === "auto" || pagination || serverSide));
+    autoHeight === true ||
+    (!isWideTable &&
+      (height === "auto" || height === undefined) &&
+      (pagination || serverSide));
 
   const dataForPaging = clientPaginationEnabled ? filteredRowData : rowData;
   const clientTotalRows = dataForPaging.length;

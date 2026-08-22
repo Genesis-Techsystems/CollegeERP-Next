@@ -1,18 +1,19 @@
 /** Angular `students-profile` view tokens. */
 export const STUDENT_PROFILE_VIEW = {
-  darkBlue: "#00008b",
+  darkBlue: "#042956",
   linkBlue: "#007bff",
-  gold: "#ffc107",
+  gold: "#ffcf46",
   border: "#dee2e6",
-  photoBoxBorder: "#b3d4fc",
+  photoBoxBorder: "#c3d9ff",
   photoBoxBg: "#e8f4fc",
   statusGreen: "#008000",
-  tabActiveBg: "#ffc107",
+  tabActiveBg: "#ffcf46",
   label: "#333333",
+  sectionTitle: "#0c51a4",
 } as const;
 
 export function formatAdmissionDate(value: unknown): string {
-  if (!value) return "—";
+  if (!value) return "";
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return String(value);
   const months = [
@@ -29,19 +30,21 @@ export function formatAdmissionDate(value: unknown): string {
     "Nov",
     "Dec",
   ];
-  return `${d.getDate()} ${months[d.getMonth()]}, ${d.getFullYear()}`;
+  return `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]}, ${d.getFullYear()}`;
 }
 
 export function studentProfileStatusClass(code: string): string {
   switch (code.toUpperCase().replace(/\s+/g, "")) {
     case "INCOLLEGE":
-      return "font-bold text-[#008000]";
+      return "font-bold text-[green]";
     case "DTND":
-      return "font-semibold text-red-600";
+      return "font-bold text-[red]";
     case "PASSEDOUT":
-      return "font-semibold text-[#007bff]";
+      return "font-bold text-[#461eb6]";
     case "DISCONTINUED":
-      return "font-semibold text-slate-500";
+      return "font-bold text-[red]";
+    case "DETAINRECOMMENDED":
+      return "font-bold text-[orangered]";
     default:
       return "font-medium text-[#333333]";
   }

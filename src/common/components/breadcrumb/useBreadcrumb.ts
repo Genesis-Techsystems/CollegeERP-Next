@@ -1412,6 +1412,248 @@ function studentEnrollmentToElectiveSubjectBreadcrumb(
 }
 
 /**
+ * Angular `assign-subject-book` breadcrumb:
+ *   Home → Academics → Assign Subject Books
+ * URL still contains `/subject-mapping/` — omit that middle crumb.
+ */
+function assignSubjectBooksBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !path.startsWith("/academics/subject-mapping/assign-subject-books") &&
+    !path.startsWith("/academics/subject-mapping/assign-subject-book")
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Academics" }, { label: "Assign Subject Books" }];
+}
+
+/**
+ * Angular `student-lab-batches` breadcrumb:
+ *   Home → Academics → Assign Students To Lab
+ * URL still contains `/subject-mapping/` — omit that middle crumb.
+ */
+function assignStudentsToLabBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !path.startsWith(
+      "/academics/subject-mapping/assign-students-to-lab-batches",
+    ) &&
+    !path.startsWith("/academics/subject-mapping/assign-students-to-lab")
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Academics" }, { label: "Assign Students To Lab" }];
+}
+
+/**
+ * Angular `assign-subject-unit` list breadcrumb:
+ *   Home → Academics → Subject Unit Topics
+ */
+function subjectUnitTopicsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/academics\/subject-unit-topics$/i.test(path)) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Academics" }, { label: "Subject Unit Topics" }];
+}
+
+/**
+ * Angular `add-subject-units` (Assign Units) breadcrumb:
+ *   Home → Academics → Subjects Units
+ * URL still contains `/subject-mapping/` — omit that middle crumb.
+ */
+function subjectsUnitsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!path.startsWith("/academics/subject-mapping/add-subject-units")) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Academics" }, { label: "Subjects Units" }];
+}
+
+/**
+ * Angular `assign-lesson-planning` breadcrumb:
+ *   Home → Academics → Subject Unit Topics → Assign Lesson Planning
+ */
+function assignLessonPlanningBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !path.startsWith(
+      "/academics/subject-mapping/assign-subject-units/assign-lesson-planning",
+    )
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [
+    home,
+    { label: "Academics" },
+    {
+      label: "Subject Unit Topics",
+      href: "/academics/subject-unit-topics",
+    },
+    { label: "Assign Lesson Planning" },
+  ];
+}
+
+/**
+ * Angular `students-list` / `students-profile` breadcrumb:
+ *   Home → Student → Student Details
+ */
+function studentsDetailsBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin-student-information-system\/students-(?:list|profile)$/i.test(
+      path,
+    )
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Student" }, { label: "Student Details" }];
+}
+
+/**
+ * Angular `student-passout` breadcrumb:
+ *   Home → Student → Students Passout
+ */
+function studentsPassoutBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/admin-student-information-system\/student-passout$/i.test(path)) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Student" }, { label: "Students Passout" }];
+}
+
+/**
+ * Angular `student-discontinue` breadcrumb:
+ *   Home → Student → Student Discontinue
+ */
+function studentDiscontinueBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin-student-information-system\/student-discontinue$/i.test(path)
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Student" }, { label: "Student Discontinue" }];
+}
+
+/**
+ * Angular `subject-syllabus-plan` breadcrumb:
+ *   Home → Academics → Subjects Syllabus Plan
+ */
+function subjectsSyllabusPlanBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (!/^\/academics\/subject-mapping\/subject-syllabus-plan$/i.test(path)) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Academics" }, { label: "Subjects Syllabus Plan" }];
+}
+
+/**
+ * Angular `readmission-application` breadcrumb:
+ *   Home → Student → Student Re-Admission
+ */
+function studentReadmissionApplicationBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin-student-information-system\/readmission-application$/i.test(path)
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Student" }, { label: "Student Re-Admission" }];
+}
+
+/**
+ * Angular `student-re-admission` list breadcrumb:
+ *   Home → Student → Student Re-Admission
+ */
+function studentReadmissionListBreadcrumb(
+  pathname: string,
+  items: BreadcrumbItem[],
+): BreadcrumbItem[] {
+  const path = pathname.replace(/\/$/, "") || "/";
+  if (
+    !/^\/admin-student-information-system\/student-re-admission$/i.test(path)
+  ) {
+    return items;
+  }
+  const home =
+    items[0]?.label.toLowerCase() === "home"
+      ? items[0]
+      : { label: "Home", href: "/dashboard" };
+  return [home, { label: "Student" }, { label: "Student Re-Admission" }];
+}
+
+/**
  * Builds breadcrumb items from the current Next.js pathname.
  *
  * When `customItems` are provided they are returned as-is, letting the caller
@@ -1524,6 +1766,17 @@ export function useBreadcrumb(
   items = facultyDetailsModuleBreadcrumb(pathname, items);
   items = courseYearSubjectAssociationBreadcrumb(pathname, items);
   items = studentEnrollmentToElectiveSubjectBreadcrumb(pathname, items);
+  items = assignSubjectBooksBreadcrumb(pathname, items);
+  items = assignStudentsToLabBreadcrumb(pathname, items);
+  items = subjectUnitTopicsBreadcrumb(pathname, items);
+  items = subjectsUnitsBreadcrumb(pathname, items);
+  items = assignLessonPlanningBreadcrumb(pathname, items);
+  items = studentsDetailsBreadcrumb(pathname, items);
+  items = studentsPassoutBreadcrumb(pathname, items);
+  items = studentDiscontinueBreadcrumb(pathname, items);
+  items = studentReadmissionListBreadcrumb(pathname, items);
+  items = studentReadmissionApplicationBreadcrumb(pathname, items);
+  items = subjectsSyllabusPlanBreadcrumb(pathname, items);
 
   // Role home path (evaluator → /evaluator, student → /student-dashboard).
   if (items[0]?.label === "Home") {

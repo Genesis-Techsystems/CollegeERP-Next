@@ -1,89 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { StatusBadge } from "@/common/components/data-display";
-import { DataTable } from "@/common/components/table";
-import { rowIndexGetter } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import { loadStudentProfileTabData, pickProfileCell } from "@/services";
 import { formatProfileDate } from "./profile-utils";
+import { PROFILE_TD, PROFILE_TH } from "./profile-table";
 
 type AnyRow = Record<string, unknown>;
 
-const SEARCH_ONLY_TOOLBAR = {
-  search: true,
-  searchPlaceholder: "Search...",
-  columnPicker: false,
-  exportPdf: false,
-  exportExcel: false,
-  columnFilters: false,
-} as const;
-
-function placementValue(row: AnyRow, keys: string[]): string {
-  const value = pickProfileCell(row, keys);
-  return value && value !== "—" ? value : "—";
-}
-
 function isRegistered(row: AnyRow): boolean {
-  const raw = row.isRegistered ?? row.is_registered ?? row.registered;
+  const raw =
+    row.isRegistered ?? row.is_registered ?? row.registered ?? row.isActive;
   if (raw === true || raw === 1 || raw === "1") return true;
   if (typeof raw === "string" && raw.toLowerCase() === "true") return true;
   return false;
 }
 
-function statusRenderer(p: ICellRendererParams<AnyRow>) {
-  const row = p.data;
-  if (!row) return null;
-  return isRegistered(row) ? (
-    <StatusBadge status="active" label="Registered" />
-  ) : (
-    <StatusBadge status="pending" label="Register" />
-  );
-}
-
-const PLACEMENT_COLS: ColDef<AnyRow>[] = [
-  { headerName: "No.", valueGetter: rowIndexGetter, width: 70, flex: 0 },
-  {
-    headerName: "Company",
-    minWidth: 180,
-    valueGetter: (p) =>
-      placementValue(p.data ?? {}, [
-        "companyName",
-        "company_name",
-        "organizationName",
-        "employerName",
-      ]),
-  },
-  {
-    headerName: "Placement",
-    minWidth: 180,
-    valueGetter: (p) =>
-      placementValue(p.data ?? {}, [
-        "placementTitle",
-        "placement_title",
-        "plaecmentTitle",
-        "jobRole",
-        "designation",
-      ]),
-  },
-  {
-    headerName: "Date",
-    minWidth: 120,
-    valueGetter: (p) =>
-      formatProfileDate(
-        p.data?.registeredDate ??
-          p.data?.registered_date ??
-          p.data?.placementStartDate ??
-          p.data?.placement_start_date,
-      ),
-  },
-  {
-    headerName: "Status",
-    minWidth: 120,
-    cellRenderer: statusRenderer,
-  },
-];
-
+/** Angular `student-placements` */
 export function PlacementsTab({ student }: { readonly student: AnyRow }) {
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,22 +36,84 @@ export function PlacementsTab({ student }: { readonly student: AnyRow }) {
     };
   }, [student]);
 
-  const columnDefs = useMemo(() => PLACEMENT_COLS, []);
-
   return (
-    <div className="space-y-3 rounded-md border border-[#e8e8e8] p-2">
-      <p className="text-base font-medium text-[#0c51a4]">
-        Student Placement Details
-      </p>
-      <DataTable
-        title=""
-        subtitle=""
-        rowData={rows}
-        columnDefs={columnDefs}
-        loading={loading}
-        pagination
-        toolbar={SEARCH_ONLY_TOOLBAR}
-      />
+    <div className="border border-[#e8e8e8]">
+      <div className="border-b-2 border-[#ffcf46] bg-[#ecf3ff] px-3 py-2">
+        <p className="text-sm font-medium text-[#042956]">
+          Student Placement Details
+        </p>
+      </div>
+      {loading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          Loading…
+        </p>
+      ) : (
+        <div className="overflow-x-auto p-2">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className={PROFILE_TH}>No.</th>
+                <th className={PROFILE_TH}>Company</th>
+                <th className={PROFILE_TH}>Placement</th>
+                <th className={PROFILE_TH}>Date</th>
+                <th className={PROFILE_TH}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className={PROFILE_TD}>
+                    —
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row, i) => (
+                  <tr
+                    key={i}
+                    className={i % 2 === 1 ? "bg-[#f1f6ff]" : "bg-white"}
+                  >
+                    <td className={PROFILE_TD}>{i + 1}</td>
+                    <td className={PROFILE_TD}>
+                      {pickProfileCell(row, [
+                        "companyName",
+                        "company_name",
+                        "organizationName",
+                      ])}
+                    </td>
+                    <td className={PROFILE_TD}>
+                      {pickProfileCell(row, [
+                        "placementTitle",
+                        "placement_title",
+                        "plaecmentTitle",
+                        "jobRole",
+                      ])}
+                    </td>
+                    <td className={PROFILE_TD}>
+                      {formatProfileDate(
+                        row.registeredDate ??
+                          row.registered_date ??
+                          row.placementStartDate ??
+                          row.placement_start_date,
+                      )}
+                    </td>
+                    <td className={PROFILE_TD}>
+                      {isRegistered(row) ? (
+                        <span className="rounded px-2 py-0.5 text-[11px] font-medium text-[#1bc5bd] bg-[#c9f7f5]">
+                          Registered
+                        </span>
+                      ) : (
+                        <span className="rounded px-2 py-0.5 text-[11px] font-medium text-[#ffa800] bg-[#fff4de]">
+                          Register
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

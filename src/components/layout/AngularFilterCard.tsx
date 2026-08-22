@@ -7,8 +7,11 @@ import { cn } from "@/lib/utils";
 export interface AngularFilterCardProps {
   title: string;
   children: ReactNode;
-  /** Material Icons ligature name (default `book`). */
-  icon?: string;
+  /**
+   * Material Icons ligature name (default `book`).
+   * Pass `false` to omit the icon (Angular pages that only show `table-heads` text).
+   */
+  icon?: string | false;
   /** Show Angular "Filter" label + funnel (default true). */
   showFilterLabel?: boolean;
   /** Collapsible filter body (default true). */
@@ -47,12 +50,17 @@ export function AngularFilterCard({
 
   const titleBlock = (
     <span className="app-card-title">
-      <span
-        className="material-icons app-card-title__icon font-size-26"
-        aria-hidden
-      >
-        {icon}
-      </span>
+      {icon !== false ? (
+        <span
+          className="material-icons app-card-title__icon font-size-26"
+          aria-hidden
+        >
+          {icon}
+        </span>
+      ) : (
+        /* Keeps :has(.app-card-title__icon) so globals.css does not inject `book`. */
+        <span className="app-card-title__icon hidden" aria-hidden />
+      )}
       <span className="app-card-title__text">{title}</span>
     </span>
   );

@@ -8,7 +8,6 @@ import {
   studentPhotoSrc,
 } from "./profile-utils";
 import {
-  STUDENT_PROFILE_VIEW,
   formatAdmissionDate,
   studentProfileStatusClass,
 } from "./profile-view-styles";
@@ -20,7 +19,11 @@ export interface StudentProfileHeaderProps {
   feeLedger?: AnyRow | null;
 }
 
-export function StudentProfileHeader({ student }: StudentProfileHeaderProps) {
+/** Angular `student-profile` header — photo | identity | admission/quota/category/status */
+export function StudentProfileHeader({
+  student,
+  feeLedger,
+}: StudentProfileHeaderProps) {
   const isLateral = student.isLateral === true;
   const statusCode = pickText(student, ["studentStatusCode", "statusCode"]);
   const statusLabel = pickDisplay(student, [
@@ -35,10 +38,24 @@ export function StudentProfileHeader({ student }: StudentProfileHeaderProps) {
     pickText(student, ["courseName", "course_code", "courseCode"]),
     pickText(student, ["groupCode", "group_code", "courseGroupCode"]),
     pickText(student, ["courseYearName", "course_year_name"]),
-    student.section ? `Section ${student.section}` : "Section",
+    student.section != null && String(student.section).trim() !== ""
+      ? `Section ${student.section}`
+      : "Section",
   ]
     .filter(Boolean)
     .join(" / ");
+
+  const category =
+    pickText(feeLedger, [
+      "scholarship_type_code",
+      "scholarshipTypeCode",
+      "scholarship_type",
+    ]) || "";
+  const categoryTip = pickText(feeLedger, [
+    "scholarship_type_desc",
+    "scholarshipTypeDesc",
+    "scholarship_type_description",
+  ]);
 
   const metaFields: ProfileField[] = [
     {
@@ -51,80 +68,76 @@ export function StudentProfileHeader({ student }: StudentProfileHeaderProps) {
     },
     {
       label: "Quota",
-      value: pickDisplay(student, ["quotaDisplayName", "quotaName"]),
+      value: pickDisplay(student, ["quotaDisplayName", "quotaName"], ""),
     },
-    { label: "Student Status", value: statusLabel },
+    { label: "Category", value: category },
+    { label: "Student Status", value: statusLabel === "—" ? "" : statusLabel },
   ];
 
   return (
-    <div className="app-card overflow-hidden">
-      <div
-        className="border-2 p-3 sm:p-4"
-        style={{
-          borderColor: STUDENT_PROFILE_VIEW.photoBoxBorder,
-          backgroundColor: `${STUDENT_PROFILE_VIEW.photoBoxBg}55`,
-        }}
-      >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="shrink-0">
-            <img
-              src={studentPhotoSrc(
-                student.studentPhotoPath ?? student.student_photo_path,
-              )}
-              alt=""
-              className="h-[110px] w-[110px] border-2 bg-white object-cover sm:h-[120px] sm:w-[120px]"
-              style={{ borderColor: STUDENT_PROFILE_VIEW.photoBoxBorder }}
-              onError={(e) => {
-                const img = e.currentTarget;
-                if (!img.src.includes("default_Student.png")) {
-                  img.src = "/assets/images/avatars/default_Student.png";
-                }
-              }}
-            />
-          </div>
+    <div className="mx-2 mb-2 overflow-hidden rounded-[3px] border-4 border-[#c3d9ff]">
+      <div className="flex flex-col gap-3 p-2 sm:flex-row sm:items-start">
+        <div className="w-full shrink-0 sm:w-[15%]">
+          <img
+            src={studentPhotoSrc(
+              student.studentPhotoPath ?? student.student_photo_path,
+            )}
+            alt=""
+            className="w-[80%] max-w-[140px] bg-[#c3d9ff] object-cover p-1.5"
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (!img.src.includes("default_Student.png")) {
+                img.src = "/assets/images/avatars/default_Student.png";
+              }
+            }}
+          />
+        </div>
 
-          <div className="min-w-0 flex-1 space-y-1 text-[13px]">
-            <p
-              className="text-[15px] font-bold uppercase leading-snug"
-              style={{ color: STUDENT_PROFILE_VIEW.darkBlue }}
-            >
-              {studentFullName(student)}{" "}
-              <span>({isLateral ? "LATERAL" : "REGULAR"})</span>
-            </p>
-            {pathLine ? (
-              <p style={{ color: STUDENT_PROFILE_VIEW.label }}>{pathLine}</p>
-            ) : null}
-            <p style={{ color: STUDENT_PROFILE_VIEW.label }}>
-              {pickDisplay(student, [
-                "mobile",
-                "mobileNumber",
-                "student_mobile_no",
-              ])}
-            </p>
-          </div>
+        <div className="min-w-0 flex-1 space-y-0.5 py-2.5 text-[13px] sm:w-[60%]">
+          <p className="text-[15px] font-semibold uppercase leading-snug text-[#042956]">
+            {studentFullName(student)}(
+            <span className="text-[blue]">
+              {isLateral ? "LATERAL" : "REGULAR"}
+            </span>
+            )
+          </p>
+          <p className="text-[#8c8c8c]">
+            {pickText(student, [
+              "hallticketNumber",
+              "hallTicketNumber",
+              "rollNumber",
+            ])}
+          </p>
+          {pathLine ? <p className="text-[#8c8c8c]">{pathLine}</p> : null}
+          <p className="text-[#8c8c8c]">
+            {pickText(student, ["mobile", "mobileNumber", "student_mobile_no"])}
+          </p>
+        </div>
 
-          <div className="space-y-1 text-[13px] lg:min-w-[210px]">
-            {metaFields.map((field) => (
-              <p
-                key={field.label}
-                style={{ color: STUDENT_PROFILE_VIEW.label }}
-              >
-                <span>{field.label} : </span>
-                {field.label === "Student Status" ? (
+        <div className="space-y-0 text-[15px] text-black sm:min-w-[220px]">
+          {metaFields.map((field) => (
+            <div key={field.label} className="py-1.5">
+              <span>{field.label} : </span>
+              {field.label === "Student Status" ? (
+                statusCode ? (
                   <span className={studentProfileStatusClass(statusCode)}>
                     {field.value}
                   </span>
-                ) : (
-                  <span
-                    className="font-medium"
-                    style={{ color: STUDENT_PROFILE_VIEW.linkBlue }}
-                  >
-                    {field.value}
-                  </span>
-                )}
-              </p>
-            ))}
-          </div>
+                ) : null
+              ) : (
+                <span
+                  className="text-[blue]"
+                  title={
+                    field.label === "Category" && categoryTip
+                      ? categoryTip
+                      : undefined
+                  }
+                >
+                  {field.value}
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>

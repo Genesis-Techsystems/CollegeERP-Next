@@ -3,20 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { User } from "lucide-react";
-import { PageContainer } from "@/components/layout";
+import { PageContainer, AngularFilterCard } from "@/components/layout";
 import { DataTable } from "@/common/components/table";
+import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
+import { FormModal } from "@/common/components/feedback";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import { Select } from "@/common/components/select";
-import { DatePicker } from "@/common/components/date-picker";
-import { FormModal } from "@/common/components/feedback";
-import { StatusBadge } from "@/common/components/data-display";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSessionContext } from "@/context/SessionContext";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
   listAcademicYearsForReadmissionWithProcFallback,
   listActiveOrganizations,
@@ -40,7 +40,7 @@ type AnyRow = Record<string, any>;
 
 const SEARCH_ONLY_TOOLBAR = {
   search: true,
-  searchPlaceholder: "Search...",
+  searchPlaceholder: "Search",
   columnPicker: false,
   exportPdf: false,
   exportExcel: false,
@@ -77,9 +77,6 @@ function toIsoDate(d: Date | null): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-
-const TAB_TRIGGER_CLASS =
-  "rounded-none border-b-2 border-transparent px-4 py-2.5 text-[13px] font-medium whitespace-nowrap data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:text-primary data-[state=active]:shadow-none";
 
 function statusUpper(row: AnyRow): string {
   return String(row.studentStatusCode ?? row.student_status_code ?? "")
@@ -142,8 +139,10 @@ function studentSearchText(row: AnyRow): string {
 
 function photoRenderer(_p: ICellRendererParams<AnyRow>) {
   return (
-    <div className="my-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-slate-100 text-muted-foreground">
-      <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+    <div className="flex w-full items-center justify-center py-1.5">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-slate-100 text-muted-foreground">
+        <User className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+      </div>
     </div>
   );
 }
@@ -152,15 +151,18 @@ function studentInfoRenderer(p: ICellRendererParams<AnyRow>) {
   const row = p.data;
   if (!row) return null;
   return (
-    <div className="leading-snug py-2">
-      <div className="font-medium text-slate-900">
-        {pickText(row, ["hallticketNumber", "rollNumber"])},{" "}
+    <div className="leading-snug py-2 text-left">
+      {/* Angular .clr + .font-align */}
+      <p className="m-0 text-[15px] font-medium text-[blue]">
+        {pickText(row, ["hallticketNumber", "rollNumber"])} ,{" "}
         {pickText(row, ["firstName", "studentName"])}
-      </div>
-      <div className="text-slate-600">{studentDetailsLine(row) || "-"}</div>
-      <div className="text-slate-600">
+      </p>
+      <p className="m-0 text-[13px] text-[rgba(0,0,0,0.7)]">
+        {studentDetailsLine(row) || "-"}
+      </p>
+      <span className="text-[13px] text-[rgba(0,0,0,0.7)]">
         {pickText(row, ["mobile", "mobileNumber"]) || "-"}
-      </div>
+      </span>
     </div>
   );
 }
@@ -172,17 +174,18 @@ function makeDiscontinueActionRenderer(onOpen: (row: AnyRow) => void) {
     const already = statusUpper(row) === "DISCONTINUED";
     if (already) {
       return (
-        <div className="py-2">
-          <StatusBadge status="inactive" label="DISCONTINUED" />
+        <div className="flex w-full items-center justify-center py-2 text-[13px] font-medium text-foreground">
+          DISCONTINUED
         </div>
       );
     }
     return (
-      <div className="py-2">
+      <div className="flex w-full items-center justify-center py-2">
+        {/* Angular .btn-add mat-raised-button color="accent" */}
         <Button
           type="button"
           size="sm"
-          className="h-7 text-xs"
+          className="h-[30px] rounded-[20px] bg-[#00b9f5] px-3 text-xs font-medium text-white hover:bg-[#00a6dc]"
           onClick={() => onOpen(row)}
         >
           Discontinue
@@ -190,6 +193,21 @@ function makeDiscontinueActionRenderer(onOpen: (row: AnyRow) => void) {
       </div>
     );
   };
+}
+
+function discontinuedBadgeRenderer() {
+  return (
+    <div className="flex w-full items-center justify-center py-2">
+      <Button
+        type="button"
+        size="sm"
+        className="h-[30px] cursor-default rounded-[20px] bg-[#00b9f5] px-3 text-xs font-medium text-white hover:bg-[#00b9f5]"
+        tabIndex={-1}
+      >
+        Discontinued
+      </Button>
+    </div>
+  );
 }
 
 export default function StudentDiscontinuePage() {
@@ -221,6 +239,10 @@ export default function StudentDiscontinuePage() {
 
   const [studentOptions, setStudentOptions] = useState<AnyRow[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(
+    null,
+  );
+  /** Kept separate from tableRows so main-tab switches / cascade resets do not wipe the search display. */
+  const [selectedStudentRow, setSelectedStudentRow] = useState<AnyRow | null>(
     null,
   );
   const [loadingStudents, setLoadingStudents] = useState(false);
@@ -392,7 +414,6 @@ export default function StudentDiscontinuePage() {
     defaultAcademicYearId,
     user?.organizationId,
     user?.employeeId,
-    mainTab,
   ]);
 
   useEffect(() => {
@@ -508,7 +529,9 @@ export default function StudentDiscontinuePage() {
       setLoadingDisc(true);
       try {
         const rows = await listDiscontinuedStudents(collegeId, academicYearId);
-        setDiscRows(Array.isArray(rows) ? rows : []);
+        const list = Array.isArray(rows) ? rows : [];
+        setDiscRows(list);
+        if (!list.length) toastInfo("No records found.");
       } catch (e) {
         toastError(e, "Failed to load discontinued list");
         setDiscRows([]);
@@ -550,17 +573,14 @@ export default function StudentDiscontinuePage() {
   }, [mainTab, searchMode, collegeId, courseGroupId, groupSectionId]);
 
   useEffect(() => {
-    if (searchMode !== "student" || !selectedStudentId) {
-      if (searchMode === "student") setTableRows([]);
+    if (mainTab !== "discontinue") return;
+    if (searchMode !== "student" || !selectedStudentId || !selectedStudentRow) {
       return;
     }
-    const match = studentOptions.find(
-      (r, i) => studentId(r, i) === selectedStudentId,
-    );
-    if (match) {
-      setTableRows([{ ...normalizeStudentRow(match), ...match }]);
-    }
-  }, [searchMode, selectedStudentId, studentOptions]);
+    setTableRows([
+      { ...normalizeStudentRow(selectedStudentRow), ...selectedStudentRow },
+    ]);
+  }, [mainTab, searchMode, selectedStudentId, selectedStudentRow]);
 
   async function onSearchStudents(term: string) {
     const q = term.trim();
@@ -580,6 +600,7 @@ export default function StudentDiscontinuePage() {
 
   function onStudentSelect(nextId: number | null, match: AnyRow | null) {
     setSelectedStudentId(nextId);
+    setSelectedStudentRow(match);
     if (!nextId || !match) {
       setTableRows([]);
       return;
@@ -639,6 +660,7 @@ export default function StudentDiscontinuePage() {
       }
       if (searchMode === "student") {
         setSelectedStudentId(null);
+        setSelectedStudentRow(null);
         setStudentOptions([]);
         setTableRows([]);
       }
@@ -647,13 +669,6 @@ export default function StudentDiscontinuePage() {
     } finally {
       setModalSubmitting(false);
     }
-  }
-
-  function clearDiscontinue() {
-    setSelectedStudentId(null);
-    setStudentOptions([]);
-    setTableRows([]);
-    setGroupSectionId(null);
   }
 
   const orgOptions = useMemo(
@@ -750,10 +765,12 @@ export default function StudentDiscontinuePage() {
         sortable: false,
         autoHeight: true,
         cellRenderer: photoRenderer,
-        cellClass: "flex items-center",
+        headerClass: "text-center",
+        cellClass: "justify-center",
+        cellStyle: { display: "flex", justifyContent: "center" },
       },
       {
-        headerName: "Student",
+        headerName: "Student Name",
         minWidth: 280,
         flex: 1,
         wrapText: true,
@@ -768,7 +785,9 @@ export default function StudentDiscontinuePage() {
         sortable: false,
         autoHeight: true,
         cellRenderer: makeDiscontinueActionRenderer(openModal),
-        cellClass: "flex items-center",
+        headerClass: "text-center",
+        cellClass: "justify-center",
+        cellStyle: { display: "flex", justifyContent: "center" },
       },
     ],
     [],
@@ -778,134 +797,170 @@ export default function StudentDiscontinuePage() {
     () => [
       {
         headerName: "Photo",
-        width: 80,
+        width: 90,
         flex: 0,
         sortable: false,
         autoHeight: true,
         cellRenderer: photoRenderer,
-        cellClass: "flex items-center",
+        headerClass: "text-center",
+        cellClass: "justify-center",
+        cellStyle: { display: "flex", justifyContent: "center" },
       },
       {
-        headerName: "Student",
-        minWidth: 280,
-        flex: 1,
+        headerName: "Student Name",
+        minWidth: 300,
+        flex: 1.5,
         wrapText: true,
         autoHeight: true,
         valueGetter: (p) => studentSearchText(p.data ?? {}),
         cellRenderer: studentInfoRenderer,
       },
       {
-        headerName: "Reason",
+        headerName: "Status",
         minWidth: 160,
+        flex: 0.8,
         autoHeight: true,
         wrapText: true,
         valueGetter: (p) => pickText(p.data, ["reason"]) || "—",
         cellClass: "flex items-center py-2",
       },
+      {
+        headerName: "Reason",
+        width: 140,
+        flex: 0,
+        sortable: false,
+        cellRenderer: discontinuedBadgeRenderer,
+        headerClass: "text-center",
+        cellClass: "justify-center",
+        cellStyle: { display: "flex", justifyContent: "center" },
+      },
     ],
     [],
   );
 
-  const discontinuedListFilters = (
-    <GlobalFilterBarRow columns={3}>
-      <GlobalFilterField label="Organization">
-        <Select
-          required
-          value={organizationId ? String(organizationId) : null}
-          onChange={(v) => setOrganizationId(v ? Number(v) : null)}
-          options={orgOptions}
-          placeholder="Organization"
-          isLoading={loadingOrgs}
-          className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="College">
-        <Select
-          required
-          value={collegeId ? String(collegeId) : null}
-          onChange={(v) => setCollegeId(v ? Number(v) : null)}
-          options={collegeOptions}
-          placeholder="College"
-          isLoading={loadingColleges}
-          disabled={!organizationId}
-          className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-        />
-      </GlobalFilterField>
-      <GlobalFilterField label="Academic Year">
-        <Select
-          required
-          value={academicYearId ? String(academicYearId) : null}
-          onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-          options={ayOptions}
-          placeholder="Academic Year"
-          disabled={!collegeId}
-          className="[&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]"
-        />
-      </GlobalFilterField>
-    </GlobalFilterBarRow>
-  );
+  function onSearchModeChange(v: string) {
+    const mode = v as "student" | "section";
+    setSearchMode(mode);
+    if (mode === "section") {
+      setTableRows([]);
+    } else if (selectedStudentRow && selectedStudentId) {
+      setTableRows([
+        {
+          ...normalizeStudentRow(selectedStudentRow),
+          ...selectedStudentRow,
+        },
+      ]);
+    } else {
+      setTableRows([]);
+    }
+  }
+
+  const cardTitle =
+    mainTab === "discontinue"
+      ? "Student Discontinue"
+      : "Discontinued Students list";
 
   return (
     <PageContainer className="space-y-4">
-      <Tabs
+      {/* Angular radios above mat-card (.radio-btn / .r-btn) */}
+      <RadioGroup
         value={mainTab}
-        onValueChange={(v) => {
-          setMainTab(v as "discontinue" | "list");
-        }}
+        onValueChange={(v) => setMainTab(v as "discontinue" | "list")}
+        className="flex flex-wrap items-center px-1 py-1"
       >
-        <div className="app-card overflow-hidden" data-no-page-name>
-          <div className="overflow-x-auto border-b border-border bg-muted/20">
-            <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
-              <TabsTrigger value="discontinue" className={TAB_TRIGGER_CLASS}>
-                Discontinue
-              </TabsTrigger>
-              <TabsTrigger value="list" className={TAB_TRIGGER_CLASS}>
-                Discontinued List
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem
+            value="discontinue"
+            id="disc-main-discontinue"
+            className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+          />
+          <Label
+            htmlFor="disc-main-discontinue"
+            className="cursor-pointer text-[14px] font-normal text-foreground"
+          >
+            Student Discontinue
+          </Label>
+        </div>
+        <div className="ml-[35px] flex items-center gap-2">
+          <RadioGroupItem
+            value="list"
+            id="disc-main-list"
+            className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+          />
+          <Label
+            htmlFor="disc-main-list"
+            className="cursor-pointer text-[14px] font-normal text-foreground"
+          >
+            Discontinued List
+          </Label>
+        </div>
+      </RadioGroup>
 
-          <TabsContent value="discontinue" className="m-0 p-4 mt-4 space-y-4">
-            <Tabs
+      {/* Same AngularFilterCard chrome as Student Detain / Passout */}
+      <AngularFilterCard
+        title={cardTitle}
+        icon={false}
+        showFilterLabel={false}
+        collapsible={false}
+        pageFirstCard={false}
+      >
+        {mainTab === "discontinue" ? (
+          <>
+            <RadioGroup
               value={searchMode}
-              onValueChange={(v) => {
-                const mode = v as "student" | "section";
-                setSearchMode(mode);
-                if (mode === "student") {
-                  clearDiscontinue();
-                } else {
-                  setSelectedStudentId(null);
-                  setStudentOptions([]);
-                  setTableRows([]);
-                }
-              }}
+              onValueChange={onSearchModeChange}
+              className="mb-1 ml-[10px] mt-[7px] flex flex-wrap items-center"
             >
-              <TabsList className="mb-4 h-auto w-full justify-start rounded-none border-b border-border bg-transparent p-0">
-                <TabsTrigger value="student" className={TAB_TRIGGER_CLASS}>
-                  Search by Student
-                </TabsTrigger>
-                <TabsTrigger value="section" className={TAB_TRIGGER_CLASS}>
-                  Search by Section
-                </TabsTrigger>
-              </TabsList>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem
+                  value="student"
+                  id="disc-search-student"
+                  className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+                />
+                <Label
+                  htmlFor="disc-search-student"
+                  className="cursor-pointer text-[14px] font-normal text-foreground"
+                >
+                  Search By Student
+                </Label>
+              </div>
+              <div className="ml-[35px] flex items-center gap-2">
+                <RadioGroupItem
+                  value="section"
+                  id="disc-search-section"
+                  className="h-[18px] w-[18px] border-[#0c51a4] text-[#0c51a4]"
+                />
+                <Label
+                  htmlFor="disc-search-section"
+                  className="cursor-pointer text-[14px] font-normal text-foreground"
+                >
+                  Search By Section
+                </Label>
+              </div>
+            </RadioGroup>
 
-              <TabsContent value="student" className="mt-0">
+            {searchMode === "student" ? (
+              <div className="w-full min-w-[240px] pt-3 sm:w-[35%]">
                 <StudentSearchSelect
                   label="Student"
-                  placeholder="Search student"
+                  placeholder="Student"
                   value={selectedStudentId}
                   students={studentOptions}
-                  selectedStudent={tableRows[0] ?? null}
+                  selectedStudent={selectedStudentRow}
                   isLoading={loadingStudents}
                   onSearch={(term) => void onSearchStudents(term)}
                   onChange={onStudentSelect}
+                  fullWidth
+                  variant="standard"
                 />
-              </TabsContent>
-
-              <TabsContent value="section" className="mt-0">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              </div>
+            ) : (
+              <GlobalFilterBarRow className="pt-3">
+                <GlobalFilterField
+                  label="Organization"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="Organization"
                     required
                     value={organizationId ? String(organizationId) : null}
                     onChange={(v) => setOrganizationId(v ? Number(v) : null)}
@@ -914,8 +969,12 @@ export default function StudentDiscontinuePage() {
                     isLoading={loadingOrgs}
                     className={selectCls}
                   />
+                </GlobalFilterField>
+                <GlobalFilterField
+                  label="College"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="College"
                     required
                     value={collegeId ? String(collegeId) : null}
                     onChange={(v) => setCollegeId(v ? Number(v) : null)}
@@ -925,8 +984,12 @@ export default function StudentDiscontinuePage() {
                     disabled={!organizationId}
                     className={selectCls}
                   />
+                </GlobalFilterField>
+                <GlobalFilterField
+                  label="Academic Year"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="Academic Year"
                     required
                     value={academicYearId ? String(academicYearId) : null}
                     onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
@@ -935,8 +998,12 @@ export default function StudentDiscontinuePage() {
                     disabled={!collegeId}
                     className={selectCls}
                   />
+                </GlobalFilterField>
+                <GlobalFilterField
+                  label="Course"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="Course"
                     required
                     value={courseId ? String(courseId) : null}
                     onChange={(v) => setCourseId(v ? Number(v) : null)}
@@ -945,8 +1012,12 @@ export default function StudentDiscontinuePage() {
                     disabled={!academicYearId}
                     className={selectCls}
                   />
+                </GlobalFilterField>
+                <GlobalFilterField
+                  label="Course Group"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="Course Group"
                     required
                     value={courseGroupId ? String(courseGroupId) : null}
                     onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
@@ -955,8 +1026,12 @@ export default function StudentDiscontinuePage() {
                     disabled={!courseId}
                     className={selectCls}
                   />
+                </GlobalFilterField>
+                <GlobalFilterField
+                  label="Course Year"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="Course Year"
                     required
                     value={courseYearId ? String(courseYearId) : null}
                     onChange={(v) => setCourseYearId(v ? Number(v) : null)}
@@ -965,8 +1040,12 @@ export default function StudentDiscontinuePage() {
                     disabled={!courseGroupId}
                     className={selectCls}
                   />
+                </GlobalFilterField>
+                <GlobalFilterField
+                  label="Section"
+                  className="min-w-[140px] basis-[15%]"
+                >
                   <Select
-                    label="Section"
                     required
                     value={groupSectionId ? String(groupSectionId) : null}
                     onChange={(v) => setGroupSectionId(v ? Number(v) : null)}
@@ -976,39 +1055,72 @@ export default function StudentDiscontinuePage() {
                     disabled={!courseYearId || sections.length === 0}
                     className={selectCls}
                   />
-                </div>
-                {loadingSectionStudents ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Loading students…
-                  </p>
-                ) : null}
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
+                </GlobalFilterField>
+              </GlobalFilterBarRow>
+            )}
 
-          <TabsContent value="list" className="m-0 p-4">
-            <DataTable
-              title=""
-              filters={discontinuedListFilters}
-              filtersCollapsible={false}
-              rowData={discRows}
-              columnDefs={discListColumnDefs}
-              loading={loadingDisc}
-              pagination
-              toolbar={SEARCH_ONLY_TOOLBAR}
-            />
-          </TabsContent>
-        </div>
-
-        {mainTab === "discontinue" && tableRows.length > 0 && (
-          <DataTable
-            rowData={tableRows}
-            columnDefs={discontinueColumnDefs}
-            pagination
-            toolbar={SEARCH_ONLY_TOOLBAR}
-          />
+            {loadingSectionStudents ? (
+              <p className="pt-2 text-xs text-muted-foreground">
+                Loading students…
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <GlobalFilterBarRow className="pt-1">
+            <GlobalFilterField
+              label="College"
+              className="min-w-[140px] basis-[15%]"
+            >
+              <Select
+                required
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={collegeOptions}
+                placeholder="College"
+                isLoading={loadingColleges}
+                searchable
+                className={selectCls}
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Academic Year"
+              className="min-w-[140px] basis-[15%]"
+            >
+              <Select
+                required
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                options={ayOptions}
+                placeholder="Academic Year"
+                disabled={!collegeId}
+                searchable
+                className={selectCls}
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
         )}
-      </Tabs>
+      </AngularFilterCard>
+
+      {mainTab === "discontinue" && tableRows.length > 0 ? (
+        <DataTable
+          bordered={true}
+          rowData={tableRows}
+          columnDefs={discontinueColumnDefs}
+          pagination
+          toolbar={SEARCH_ONLY_TOOLBAR}
+        />
+      ) : null}
+
+      {mainTab === "list" && discRows?.length > 0 ? (
+        <DataTable
+          bordered={true}
+          rowData={discRows}
+          columnDefs={discListColumnDefs}
+          loading={loadingDisc}
+          pagination={true}
+          toolbar={SEARCH_ONLY_TOOLBAR}
+        />
+      ) : null}
 
       <FormModal
         open={modalOpen}

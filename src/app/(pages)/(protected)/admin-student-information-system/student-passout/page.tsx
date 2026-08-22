@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FilteredPage } from "@/components/layout";
+import type {
+  ColDef,
+  ICellRendererParams,
+  IHeaderParams,
+} from "ag-grid-community";
+import { FilteredListPage } from "@/components/layout";
 import { Select } from "@/common/components/select";
 import { DatePicker } from "@/common/components/date-picker";
 import { ConfirmDialog } from "@/common/components/feedback";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useSessionContext } from "@/context/SessionContext";
-import { toastError, toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { rowIndexGetter } from "@/lib/utils";
 import {
   buildStudentPassoutPayload,
   getPassoutCollegeFilters,
@@ -27,6 +31,15 @@ const AY = ["fk_academic_year_id", "academicYearId"];
 const CRS = ["fk_course_id", "courseId"];
 const GRP = ["fk_course_group_id", "courseGroupId"];
 const YR = ["fk_course_year_id", "courseYearId"];
+
+const SEARCH_TOOLBAR = {
+  search: true,
+  searchPlaceholder: "Search",
+  columnPicker: false,
+  exportPdf: false,
+  exportExcel: false,
+  columnFilters: false,
+} as const;
 
 function dedupeByKey<T>(rows: T[], keyFn: (r: T) => string | number): T[] {
   const seen = new Set<string | number>();
@@ -68,6 +81,12 @@ function statusUpper(row: AnyRow): string {
     .toUpperCase();
 }
 
+function rowStudentKey(row: AnyRow): string {
+  const id = pickNum(row, ["studentId", "fk_student_id"]);
+  const ht = pickText(row, ["hallticketNumber", "hallticket_number"]);
+  return id ? `id:${id}` : `ht:${ht}`;
+}
+
 function dedupeColleges(rows: AnyRow[]): AnyRow[] {
   const seen = new Set<number>();
   const out: AnyRow[] = [];
@@ -82,8 +101,46 @@ function dedupeColleges(rows: AnyRow[]): AnyRow[] {
   );
 }
 
-function selectClass() {
-  return "[&_label]:text-xs [&_label]:font-medium [&_button[role='combobox']]:h-8 [&_button[role='combobox']]:text-[12px]";
+type MarkAllHeaderParams = IHeaderParams & {
+  checked: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+};
+
+function MarkAllHeader(props: MarkAllHeaderParams) {
+  return (
+    <label className="flex h-full w-full cursor-pointer items-center gap-1.5 px-1 text-[12px] font-medium leading-none">
+      <input
+        type="checkbox"
+        checked={props.checked}
+        disabled={props.disabled}
+        onChange={() => props.onToggle()}
+      />
+      <span>{props.checked ? "UnMark All" : "Mark All"}</span>
+    </label>
+  );
+}
+
+function makeRowCheckRenderer(
+  onToggle: (studentKey: string, checked: boolean) => void,
+) {
+  return (p: ICellRendererParams<AnyRow>) => {
+    const row = p.data;
+    if (!row) return null;
+    if (statusUpper(row) === "PASSEDOUT") {
+      return <span className="text-muted-foreground">—</span>;
+    }
+    const key = rowStudentKey(row);
+    return (
+      <label className="inline-flex h-full cursor-pointer items-center px-1">
+        <input
+          type="checkbox"
+          checked={Boolean(row.checked)}
+          onChange={(e) => onToggle(key, e.target.checked)}
+        />
+      </label>
+    );
+  };
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity -- Cascade + table mirrors legacy Angular screen
@@ -104,7 +161,6 @@ export default function StudentPassoutPage() {
   const [courseYearId, setCourseYearId] = useState<number | null>(null);
 
   const [students, setStudents] = useState<AnyRow[]>([]);
-  const [tableFilter, setTableFilter] = useState("");
   const [markAllChecked, setMarkAllChecked] = useState(false);
 
   const [passoutDate, setPassoutDate] = useState<Date | null>(() => {
@@ -253,15 +309,16 @@ export default function StudentPassoutPage() {
           courseGroupId,
           courseYearId: yearId,
         });
-        setStudents(
-          rows.map((r) => ({
-            ...normalizeStudentRow(r),
-            ...r,
-            checked: false,
-            isPresent: false,
-          })),
-        );
+        const list = rows.map((r) => ({
+          ...normalizeStudentRow(r),
+          ...r,
+          __rowKey: rowStudentKey({ ...normalizeStudentRow(r), ...r }),
+          checked: false,
+          isPresent: false,
+        }));
+        setStudents(list);
         setMarkAllChecked(false);
+        if (!list.length) toastInfo("No records found.");
       } catch (e) {
         toastError(e, "Failed to load students");
         setStudents([]);
@@ -275,22 +332,6 @@ export default function StudentPassoutPage() {
   useEffect(() => {
     void loadStudentsForYear(courseYearId);
   }, [courseYearId, loadStudentsForYear]);
-
-  const filteredStudents = useMemo(() => {
-    const q = tableFilter.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter((row) => {
-      const parts = [
-        pickText(row, ["hallticketNumber", "hallticket_number"]),
-        pickText(row, ["firstName", "first_name"]),
-        pickText(row, ["studentStatusCode", "student_status_code"]),
-        pickText(row, ["section", "group_section_name"]),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return parts.includes(q);
-    });
-  }, [students, tableFilter]);
 
   const selectedCount = useMemo(
     () =>
@@ -314,33 +355,27 @@ export default function StudentPassoutPage() {
     setMarkAllChecked(elig.every((r) => r.isPresent));
   }, [students]);
 
-  function handleCheckRow(studentKey: string, checked: boolean) {
+  const handleCheckRow = useCallback((studentKey: string, checked: boolean) => {
     setStudents((prev) =>
       prev.map((row) => {
-        const key = rowStudentKey(row);
-        if (key !== studentKey) return row;
+        if (rowStudentKey(row) !== studentKey) return row;
         if (statusUpper(row) === "PASSEDOUT") return row;
         return { ...row, checked, isPresent: checked };
       }),
     );
-  }
+  }, []);
 
-  function rowStudentKey(row: AnyRow): string {
-    const id = pickNum(row, ["studentId", "fk_student_id"]);
-    const ht = pickText(row, ["hallticketNumber", "hallticket_number"]);
-    return id ? `id:${id}` : `ht:${ht}`;
-  }
-
-  function handleMarkAllToggle() {
-    const nextChecked = !markAllChecked;
-    setStudents((prev) =>
-      prev.map((row) =>
+  const handleMarkAllToggle = useCallback(() => {
+    setStudents((prev) => {
+      const elig = prev.filter((r) => statusUpper(r) !== "PASSEDOUT");
+      const nextChecked = !elig.every((r) => r.isPresent);
+      return prev.map((row) =>
         statusUpper(row) === "PASSEDOUT"
           ? row
           : { ...row, checked: nextChecked, isPresent: nextChecked },
-      ),
-    );
-  }
+      );
+    });
+  }, []);
 
   const headerLine = useMemo(() => {
     const c = colleges.find((x) => pickNum(x, COL) === collegeId);
@@ -372,6 +407,11 @@ export default function StudentPassoutPage() {
     courseYears,
     courseYearId,
   ]);
+
+  const studentsContextTitle = useMemo(() => {
+    if (!students.length) return "";
+    return `Students - ${headerLine.clg} / ${headerLine.ac} / ${headerLine.cr} / ${headerLine.grp} / ${headerLine.yr} (Total Students: ${students.length})`;
+  }, [students.length, headerLine]);
 
   function requestPassout() {
     if (!passedOutGdId) {
@@ -417,6 +457,66 @@ export default function StudentPassoutPage() {
     }
   }
 
+  const columnDefs = useMemo<ColDef<AnyRow>[]>(
+    () => [
+      {
+        headerName: "Sl.No",
+        valueGetter: rowIndexGetter,
+        width: 80,
+        flex: 0,
+      },
+      {
+        headerName: "Hallticket No.",
+        minWidth: 150,
+        flex: 1,
+        valueGetter: (p) =>
+          pickText(p.data, ["hallticketNumber", "hallticket_number"]) || "—",
+      },
+      {
+        headerName: "Student Name",
+        minWidth: 200,
+        flex: 1.4,
+        valueGetter: (p) =>
+          pickText(p.data, ["firstName", "first_name"]) || "—",
+      },
+      {
+        headerName: "Section",
+        minWidth: 100,
+        flex: 0.6,
+        valueGetter: (p) =>
+          pickText(p.data, ["section", "group_section_name"]) || "—",
+      },
+      {
+        headerName: "Status",
+        minWidth: 120,
+        flex: 0.8,
+        valueGetter: (p) =>
+          pickText(p.data, ["studentStatusCode", "student_status_code"]) || "—",
+      },
+      {
+        headerName: "Mark All",
+        minWidth: 140,
+        width: 150,
+        flex: 0,
+        sortable: false,
+        filter: false,
+        headerComponent: MarkAllHeader,
+        headerComponentParams: {
+          checked: markAllChecked,
+          disabled: !eligibleForMarkAll.length,
+          onToggle: handleMarkAllToggle,
+        },
+        cellRenderer: makeRowCheckRenderer(handleCheckRow),
+      },
+    ],
+    [
+      markAllChecked,
+      eligibleForMarkAll.length,
+      handleMarkAllToggle,
+      handleCheckRow,
+    ],
+  );
+
   const collegeOpts = colleges.map((r) => ({
     value: String(pickNum(r, COL)),
     label: pickText(r, ["college_code", "collegeCode"]) || "College",
@@ -441,240 +541,146 @@ export default function StudentPassoutPage() {
       "Year",
   }));
 
+  const showTable = students.length > 0;
+
   return (
-    <FilteredPage
+    <FilteredListPage
       title="Student Passout"
+      filterTitle="Student Passout"
+      showTable={showTable}
+      resultsVisible={showTable}
+      tableHeader={
+        showTable ? (
+          <div className="table-context-header">
+            <span
+              className="material-icons table-context-header__icon"
+              aria-hidden
+            >
+              person_add
+            </span>
+            <strong
+              className="table-context-header__title"
+              title={studentsContextTitle}
+            >
+              Students - {headerLine.clg} / {headerLine.ac} / {headerLine.cr} /{" "}
+              {headerLine.grp} / {headerLine.yr} (Total Students:{" "}
+              {students.length})
+            </strong>
+          </div>
+        ) : null
+      }
       filters={
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className={selectClass()}>
-            <Select
-              label="College"
-              placeholder="College"
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => {
-                const id = parseSelectNumber(v);
-                setCollegeId(id);
-                setCourseYearId(null);
-              }}
-              options={collegeOpts}
-              disabled={loadingFilters || !collegeOpts.length}
-              searchable
-            />
-          </div>
-          <div className={selectClass()}>
-            <Select
-              label="Academic year"
-              placeholder="Academic year"
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => {
-                setAcademicYearId(parseSelectNumber(v));
-                setCourseYearId(null);
-              }}
-              options={ayOpts}
-              disabled={loadingFilters || !ayOpts.length}
-              searchable
-            />
-          </div>
-          <div className={selectClass()}>
-            <Select
-              label="Course"
-              placeholder="Course"
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => {
-                setCourseId(parseSelectNumber(v));
-                setCourseYearId(null);
-              }}
-              options={courseOpts}
-              disabled={loadingFilters || !courseOpts.length}
-              searchable
-            />
-          </div>
-          <div className={selectClass()}>
-            <Select
-              label="Course group"
-              placeholder="Course group"
-              value={courseGroupId ? String(courseGroupId) : null}
-              onChange={(v) => {
-                setCourseGroupId(parseSelectNumber(v));
-                setCourseYearId(null);
-              }}
-              options={groupOpts}
-              disabled={loadingFilters || !groupOpts.length}
-              searchable
-            />
-          </div>
-          <div className={selectClass()}>
-            <Select
-              label="Course year"
-              placeholder="Course year"
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(parseSelectNumber(v))}
-              options={yearOpts}
-              disabled={loadingFilters || !yearOpts.length}
-              searchable
-            />
-          </div>
+          <Select
+            label="College"
+            required
+            placeholder="College"
+            value={collegeId ? String(collegeId) : null}
+            onChange={(v) => {
+              const id = parseSelectNumber(v);
+              setCollegeId(id);
+              setCourseYearId(null);
+              setStudents([]);
+            }}
+            options={collegeOpts}
+            disabled={loadingFilters || !collegeOpts.length}
+            searchable
+          />
+          <Select
+            label="Academic Year"
+            required
+            placeholder="Academic Year"
+            value={academicYearId ? String(academicYearId) : null}
+            onChange={(v) => {
+              setAcademicYearId(parseSelectNumber(v));
+              setCourseYearId(null);
+              setStudents([]);
+            }}
+            options={ayOpts}
+            disabled={loadingFilters || !ayOpts.length}
+            searchable
+          />
+          <Select
+            label="Course"
+            required
+            placeholder="Course"
+            value={courseId ? String(courseId) : null}
+            onChange={(v) => {
+              setCourseId(parseSelectNumber(v));
+              setCourseYearId(null);
+              setStudents([]);
+            }}
+            options={courseOpts}
+            disabled={loadingFilters || !courseOpts.length}
+            searchable
+          />
+          <Select
+            label="Course Group"
+            required
+            placeholder="Course Group"
+            value={courseGroupId ? String(courseGroupId) : null}
+            onChange={(v) => {
+              setCourseGroupId(parseSelectNumber(v));
+              setCourseYearId(null);
+              setStudents([]);
+            }}
+            options={groupOpts}
+            disabled={loadingFilters || !groupOpts.length}
+            searchable
+          />
+          <Select
+            label="Course Year"
+            required
+            placeholder="Course Year"
+            value={courseYearId ? String(courseYearId) : null}
+            onChange={(v) => setCourseYearId(parseSelectNumber(v))}
+            options={yearOpts}
+            disabled={loadingFilters || !yearOpts.length}
+            searchable
+          />
         </div>
       }
-    >
-      <div className="space-y-4 " data-no-page-name>
-        {students.length > 0 && (
-          <div
-            className="rounded-lg border bg-card shadow-sm"
-            data-no-page-name
-          >
-            <div className="border-b px-4 py-3">
-              <p className="text-sm font-medium">
-                Students — {headerLine.clg} / {headerLine.ac} / {headerLine.cr}{" "}
-                / {headerLine.grp} / {headerLine.yr}{" "}
-                <span className="text-muted-foreground">
-                  (Total: {students.length})
-                </span>
-              </p>
-            </div>
-            <div className="flex flex-col gap-4 p-4 lg:flex-row">
-              <div className="min-w-0 flex-1 space-y-3">
-                <Input
-                  placeholder="Search"
-                  value={tableFilter}
-                  onChange={(e) => setTableFilter(e.target.value)}
-                  className="max-w-xs"
-                />
-                <div className="overflow-x-auto rounded-md border">
-                  <table className="w-full min-w-[640px] text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50 text-left">
-                        <th className="px-3 py-2 font-medium">SI.No</th>
-                        <th className="px-3 py-2 font-medium">
-                          Hallticket No.
-                        </th>
-                        <th className="px-3 py-2 font-medium">Student name</th>
-                        <th className="px-3 py-2 font-medium">Section</th>
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={markAllChecked}
-                              onCheckedChange={() => handleMarkAllToggle()}
-                              disabled={!eligibleForMarkAll.length}
-                              aria-label="Mark all"
-                            />
-                            <span>
-                              {markAllChecked ? "Unmark All" : "Mark All"}
-                            </span>
-                          </div>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loadingStudents ? (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="px-3 py-6 text-center text-muted-foreground"
-                          >
-                            Loading students…
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredStudents.map((row, index) => {
-                          const disabled = statusUpper(row) === "PASSEDOUT";
-                          const rowKey = `${rowStudentKey(row)}-${index}`;
-                          const k = rowStudentKey(row);
-                          const globalIdx = students.findIndex(
-                            (s) => rowStudentKey(s) === k,
-                          );
-                          const siNo =
-                            globalIdx >= 0 ? globalIdx + 1 : index + 1;
-                          return (
-                            <tr key={rowKey} className="border-b last:border-0">
-                              <td className="px-3 py-2">{siNo}</td>
-                              <td className="px-3 py-2">
-                                {pickText(row, [
-                                  "hallticketNumber",
-                                  "hallticket_number",
-                                ]) || "—"}
-                              </td>
-                              <td className="px-3 py-2">
-                                {pickText(row, ["firstName", "first_name"]) ||
-                                  "—"}
-                              </td>
-                              <td className="px-3 py-2">
-                                {pickText(row, [
-                                  "section",
-                                  "group_section_name",
-                                ]) || "—"}
-                              </td>
-                              <td className="px-3 py-2">
-                                {pickText(row, [
-                                  "studentStatusCode",
-                                  "student_status_code",
-                                ]) || "—"}
-                              </td>
-                              <td className="px-3 py-2">
-                                {disabled ? (
-                                  "—"
-                                ) : (
-                                  <Checkbox
-                                    checked={Boolean(row.checked)}
-                                    onCheckedChange={(c) =>
-                                      handleCheckRow(
-                                        rowStudentKey(row),
-                                        c === true,
-                                      )
-                                    }
-                                  />
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="w-full shrink-0 rounded-md border bg-muted/20 p-4 lg:w-72">
-                <DatePicker
-                  label="Passed out on"
-                  value={passoutDate}
-                  onChange={setPassoutDate}
-                />
-                <Button
-                  className="mt-4 w-full"
-                  onClick={requestPassout}
-                  disabled={!selectedCount || submitting || loadingStudents}
-                >
-                  Pass out
-                </Button>
-                {selectedCount > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {selectedCount} student(s) selected
-                  </p>
-                )}
-              </div>
-            </div>
+      rowData={students}
+      columnDefs={columnDefs}
+      loading={loadingStudents}
+      pagination
+      toolbar={SEARCH_TOOLBAR}
+      getRowId={(p) => String(p.data?.__rowKey ?? rowStudentKey(p.data ?? {}))}
+      rightRail={
+        selectedCount > 0 ? (
+          <div className="rounded-sm border bg-card p-4">
+            <h3 className="mb-3 text-sm font-semibold text-[#042956]">
+              PassedOut From
+            </h3>
+            <DatePicker
+              label="Passed Out On"
+              value={passoutDate}
+              onChange={setPassoutDate}
+            />
+            <Button
+              className="mt-4 w-full"
+              onClick={requestPassout}
+              disabled={!selectedCount || submitting || loadingStudents}
+            >
+              Passout
+            </Button>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {selectedCount} student(s) selected
+            </p>
           </div>
-        )}
-
-        {!!courseYearId && !loadingStudents && students.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No students found for this selection.
-          </p>
-        )}
-
-        <ConfirmDialog
-          open={confirmOpen}
-          title="Confirm pass out"
-          description={`Mark ${selectedCount} student(s) as passed out on this date?`}
-          confirmLabel="Confirm pass out"
-          confirmVariant="default"
-          isLoading={submitting}
-          onConfirm={() => void confirmPassout()}
-          onCancel={() => setConfirmOpen(false)}
-        />
-      </div>
-    </FilteredPage>
+        ) : null
+      }
+    >
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Confirm pass out"
+        description={`Mark ${selectedCount} student(s) as passed out on this date?`}
+        confirmLabel="Confirm pass out"
+        confirmVariant="default"
+        isLoading={submitting}
+        onConfirm={() => void confirmPassout()}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </FilteredListPage>
   );
 }

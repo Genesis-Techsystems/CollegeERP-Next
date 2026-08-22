@@ -10,8 +10,7 @@ import {
   GlobalFilterField,
 } from "@/common/components/forms";
 import { Select } from "@/common/components/select";
-import { Badge } from "@/components/ui/badge";
-import { toastError } from "@/lib/toast";
+import { toastError, toastInfo } from "@/lib/toast";
 import {
   listActiveOrganizations,
   listCollegesByOrganization,
@@ -120,13 +119,16 @@ function studentInfoRenderer(p: ICellRendererParams<AnyRow>) {
   const studentName = pickText(row, ["firstName", "studentName"]) || "-";
   return (
     <div className="leading-snug py-2">
-      <div className="font-medium text-slate-900">
+      {/* Angular .clr + .font-align */}
+      <p className="m-0 text-[15px] font-medium text-[blue]">
         {admissionNo}, {studentName}
-      </div>
-      <div className="text-slate-600">{studentDetailsLine(row) || "-"}</div>
-      <div className="text-slate-600">
+      </p>
+      <p className="m-0 text-[13px] text-[rgba(0,0,0,0.7)]">
+        {studentDetailsLine(row) || "-"}
+      </p>
+      <span className="text-[13px] text-[rgba(0,0,0,0.7)]">
         {pickText(row, ["mobile", "mobileNumber"]) || "-"}
-      </div>
+      </span>
     </div>
   );
 }
@@ -138,19 +140,15 @@ function makeActionsRenderer(onOpen: (row: AnyRow) => void) {
     const studentName =
       pickText(row, ["firstName", "studentName"]) || "student";
     return (
-      <div className="py-2">
+      <div className="flex items-center py-2">
+        {/* Angular .assign-btn span — blue clickable action text */}
         <button
           type="button"
           onClick={() => onOpen(row)}
-          className="inline-flex"
           aria-label={`Open re-admission for ${studentName}`}
+          className="cursor-pointer border-0 bg-transparent p-0 text-[15px] font-medium text-[blue] hover:underline"
         >
-          <Badge
-            variant="outline"
-            className="cursor-pointer border-[hsl(var(--primary))]/40 bg-[hsl(var(--primary))]/5 px-2 py-0.5 text-[11px] font-medium text-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/10"
-          >
-            Re-Admission
-          </Badge>
+          Re-Admission
         </button>
       </div>
     );
@@ -192,16 +190,32 @@ export default function StudentReadmissionPage() {
 
   useEffect(() => {
     if (organizations.length === 0) return;
-    const qOrgId = Number(searchParams.get("organizationId") ?? 0);
-    const validOrgId =
-      qOrgId > 0 &&
-      organizations.some((row) => pickNum(row, ["organizationId"]) === qOrgId)
-        ? qOrgId
-        : pickNum(organizations[0], ["organizationId"]);
-    if (validOrgId > 0 && selectedOrganizationId !== validOrgId) {
-      setSelectedOrganizationId(validOrgId);
-    }
-  }, [organizations, searchParams, selectedOrganizationId]);
+    setSelectedOrganizationId((prev) => {
+      if (
+        prev &&
+        organizations.some(
+          (row) =>
+            pickNum(row, ["organizationId", "fk_organization_id"]) === prev,
+        )
+      ) {
+        return prev;
+      }
+      const qOrgId = Number(searchParams.get("organizationId") ?? 0);
+      if (
+        qOrgId > 0 &&
+        organizations.some(
+          (row) =>
+            pickNum(row, ["organizationId", "fk_organization_id"]) === qOrgId,
+        )
+      ) {
+        return qOrgId;
+      }
+      return (
+        pickNum(organizations[0], ["organizationId", "fk_organization_id"]) ||
+        null
+      );
+    });
+  }, [organizations, searchParams]);
 
   useEffect(() => {
     async function loadColleges() {
@@ -229,16 +243,28 @@ export default function StudentReadmissionPage() {
       setSelectedCollegeId(null);
       return;
     }
-    const qCollegeId = Number(searchParams.get("collegeId") ?? 0);
-    const validCollegeId =
-      qCollegeId > 0 &&
-      colleges.some((row) => pickNum(row, ["collegeId"]) === qCollegeId)
-        ? qCollegeId
-        : pickNum(colleges[0], ["collegeId"]);
-    if (validCollegeId > 0 && selectedCollegeId !== validCollegeId) {
-      setSelectedCollegeId(validCollegeId);
-    }
-  }, [colleges, searchParams, selectedCollegeId]);
+    // Keep the user's college choice; only fall back when empty / invalid / URL.
+    setSelectedCollegeId((prev) => {
+      if (
+        prev &&
+        colleges.some(
+          (row) => pickNum(row, ["collegeId", "fk_college_id"]) === prev,
+        )
+      ) {
+        return prev;
+      }
+      const qCollegeId = Number(searchParams.get("collegeId") ?? 0);
+      if (
+        qCollegeId > 0 &&
+        colleges.some(
+          (row) => pickNum(row, ["collegeId", "fk_college_id"]) === qCollegeId,
+        )
+      ) {
+        return qCollegeId;
+      }
+      return pickNum(colleges[0], ["collegeId", "fk_college_id"]) || null;
+    });
+  }, [colleges, searchParams]);
 
   useEffect(() => {
     async function loadStudents() {
@@ -250,7 +276,9 @@ export default function StudentReadmissionPage() {
       try {
         const rows =
           await listDetainedStudentsForReadmission(selectedCollegeId);
-        setStudents(Array.isArray(rows) ? rows : []);
+        const list = Array.isArray(rows) ? rows : [];
+        setStudents(list);
+        if (!list.length) toastInfo("No records found.");
       } catch (error) {
         setStudents([]);
         toastError(error, "Failed to load detained students");
@@ -291,7 +319,9 @@ export default function StudentReadmissionPage() {
         sortable: false,
         autoHeight: true,
         cellRenderer: photoRenderer,
-        cellClass: "flex items-center",
+        headerClass: "text-center",
+        cellClass: "justify-center",
+        cellStyle: { display: "flex", justifyContent: "center" },
       },
       {
         headerName: "Student",
@@ -309,7 +339,9 @@ export default function StudentReadmissionPage() {
         sortable: false,
         autoHeight: true,
         cellRenderer: makeActionsRenderer(openReadmission),
-        cellClass: "flex items-center",
+        headerClass: "text-center",
+        cellClass: "justify-center",
+        cellStyle: { display: "flex", justifyContent: "center" },
       },
     ],
     // openReadmission closes over selectedOrganizationId / selectedCollegeId
@@ -347,6 +379,7 @@ export default function StudentReadmissionPage() {
           </GlobalFilterField>
         </GlobalFilterBarRow>
       }
+      showTable={students?.length > 0}
       rowData={students}
       columnDefs={columnDefs}
       loading={loadingStudents}

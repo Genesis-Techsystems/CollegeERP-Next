@@ -7,7 +7,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormModal } from "@/common/components/feedback";
 import { Select } from "@/common/components/select";
-import { ActiveStatusField } from "@/common/components/forms";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -299,210 +298,248 @@ export function SubjectModal({
       onSubmit={handleSubmit}
       submitLabel="Save"
       isSubmitting={saving}
-      size="xl"
+      size="lg"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>
-            Subject Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            value={subjectName}
-            onChange={(e) => {
-              setSubjectName(e.target.value);
-              clearError("subjectName");
-            }}
-            placeholder="Subject Name"
-            disabled={saving}
-          />
-          {errors.subjectName ? (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.subjectName}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Subject Code <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            value={subjectCode}
-            onChange={(e) => {
-              setSubjectCode(e.target.value);
-              clearError("subjectCode");
-            }}
-            placeholder="Subject Code"
-            disabled={saving}
-          />
-          {errors.subjectCode ? (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.subjectCode}
-            </p>
-          ) : null}
-        </div>
-
-        <Select
-          label="Subject Type"
-          required
-          value={subjectTypeId}
-          onChange={(v) => {
-            setSubjectTypeId(v);
-            clearError("subjectTypeId");
-          }}
-          options={typeOptions}
-          placeholder="Subject Type"
-          error={errors.subjectTypeId}
-          isLoading={loadingLookups}
-          disabled={saving}
-        />
-        <Select
-          label="Subject Category"
-          required
-          value={subjectCategoryId}
-          onChange={(v) => {
-            setSubjectCategoryId(v);
-            clearError("subjectCategoryId");
-          }}
-          options={categoryOptions}
-          placeholder="Subject Category"
-          error={errors.subjectCategoryId}
-          isLoading={loadingLookups}
-          disabled={saving}
-        />
-        <div className="space-y-1.5">
-          <Label>Question Paper Code</Label>
-          <Input
-            value={questionpaperCode}
-            onChange={(e) => setQuestionpaperCode(e.target.value)}
-            placeholder="Question Paper Code"
-            disabled={saving}
-          />
+      <div className="flex flex-col gap-3">
+        {/* Row 1 — Angular ~74% / ~25% */}
+        <div className="grid grid-cols-1 items-end gap-x-4 gap-y-3 md:grid-cols-4">
+          <div className="space-y-1.5 md:col-span-3">
+            <Label>
+              Subject Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={subjectName}
+              onChange={(e) => {
+                setSubjectName(e.target.value);
+                clearError("subjectName");
+              }}
+              placeholder="Subject Name"
+              disabled={saving}
+            />
+            {errors.subjectName ? (
+              <p className="text-xs text-destructive" role="alert">
+                {errors.subjectName}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Subject Code <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={subjectCode}
+              onChange={(e) => {
+                setSubjectCode(e.target.value);
+                clearError("subjectCode");
+              }}
+              placeholder="Subject Code"
+              disabled={saving}
+            />
+            {errors.subjectCode ? (
+              <p className="text-xs text-destructive" role="alert">
+                {errors.subjectCode}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>
-            Credits <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            type="number"
-            step="any"
-            value={subCredits}
-            onChange={(e) => {
-              setSubCredits(e.target.value);
-              clearError("subCredits");
+        {/* Row 2 — three equal columns */}
+        <div className="grid grid-cols-1 items-end gap-x-4 gap-y-3 md:grid-cols-3">
+          <Select
+            label="Subject Type"
+            required
+            value={subjectTypeId}
+            onChange={(v) => {
+              setSubjectTypeId(v);
+              clearError("subjectTypeId");
             }}
-            placeholder="Credits"
+            options={typeOptions}
+            placeholder="Subject Type"
+            error={errors.subjectTypeId}
+            isLoading={loadingLookups}
             disabled={saving}
           />
-          {errors.subCredits ? (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.subCredits}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Credit Hours <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            type="number"
-            step="any"
-            value={subCreditHrs}
-            onChange={(e) => {
-              setSubCreditHrs(e.target.value);
-              clearError("subCreditHrs");
+          <Select
+            label="Subject Category"
+            required
+            value={subjectCategoryId}
+            onChange={(v) => {
+              setSubjectCategoryId(v);
+              clearError("subjectCategoryId");
             }}
-            placeholder="Credit Hours"
+            options={categoryOptions}
+            placeholder="Subject Category"
+            error={errors.subjectCategoryId}
+            isLoading={loadingLookups}
             disabled={saving}
           />
-          {errors.subCreditHrs ? (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.subCreditHrs}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Short Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            value={shortName}
-            onChange={(e) => {
-              setShortName(e.target.value);
-              clearError("shortName");
-            }}
-            placeholder="Short Name"
-            disabled={saving}
-          />
-          {errors.shortName ? (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.shortName}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Order No <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            type="number"
-            value={orderNo}
-            onChange={(e) => {
-              setOrderNo(e.target.value);
-              clearError("orderNo");
-            }}
-            placeholder="Order No"
-            disabled={saving}
-          />
-          {errors.orderNo ? (
-            <p className="text-xs text-destructive" role="alert">
-              {errors.orderNo}
-            </p>
-          ) : null}
+          <div className="space-y-1.5">
+            <Label>Question Paper Code</Label>
+            <Input
+              value={questionpaperCode}
+              onChange={(e) => setQuestionpaperCode(e.target.value)}
+              placeholder="Question Paper Code"
+              disabled={saving}
+            />
+          </div>
         </div>
 
-        <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-          <Label>Syllabus Document</Label>
-          <Input
-            ref={fileRef}
-            type="file"
-            accept=".png,.jpg,.jpeg,.pdf,.doc"
-            disabled={saving}
-            className="cursor-pointer"
-          />
+        {/* Row 3 — Credits | Credit Hours | Short Name | Order No (Angular 25% each) */}
+        <div className="grid grid-cols-1 items-end gap-x-4 gap-y-3 sm:grid-cols-2 md:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label>
+              Credits <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="number"
+              step="any"
+              value={subCredits}
+              onChange={(e) => {
+                setSubCredits(e.target.value);
+                clearError("subCredits");
+              }}
+              placeholder="Credits"
+              disabled={saving}
+            />
+            {errors.subCredits ? (
+              <p className="text-xs text-destructive" role="alert">
+                {errors.subCredits}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Credit Hours <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="number"
+              step="any"
+              value={subCreditHrs}
+              onChange={(e) => {
+                setSubCreditHrs(e.target.value);
+                clearError("subCreditHrs");
+              }}
+              placeholder="Credit Hours"
+              disabled={saving}
+            />
+            {errors.subCreditHrs ? (
+              <p className="text-xs text-destructive" role="alert">
+                {errors.subCreditHrs}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Short Name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={shortName}
+              onChange={(e) => {
+                setShortName(e.target.value);
+                clearError("shortName");
+              }}
+              placeholder="Short Name"
+              disabled={saving}
+            />
+            {errors.shortName ? (
+              <p className="text-xs text-destructive" role="alert">
+                {errors.shortName}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Order No <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="number"
+              value={orderNo}
+              onChange={(e) => {
+                setOrderNo(e.target.value);
+                clearError("orderNo");
+              }}
+              placeholder="Order No"
+              disabled={saving}
+            />
+            {errors.orderNo ? (
+              <p className="text-xs text-destructive" role="alert">
+                {errors.orderNo}
+              </p>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:col-span-1">
-          <Checkbox
-            checked={isLanguage}
-            onCheckedChange={(v) => setIsLanguage(v === true)}
-            disabled={saving}
-            id="subj-is-language"
-          />
-          <Label htmlFor="subj-is-language" className="font-normal">
-            Is Language
-          </Label>
-        </div>
+        {/* Row 4 — Angular: file ~40% | Is Language ~25% | Active ~25% */}
+        <div className="grid grid-cols-1 items-center gap-x-4 gap-y-3 md:grid-cols-12">
+          <div className="md:col-span-5">
+            {/* Angular `.choose` — blue Choose file button */}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".png,.jpg,.jpeg,.pdf,.doc"
+              disabled={saving}
+              className="w-full max-w-full cursor-pointer text-sm text-foreground file:mr-3 file:cursor-pointer file:rounded-[3px] file:border-0 file:bg-[#111F65] file:px-[15px] file:py-[7px] file:text-[10pt] file:font-bold file:text-white hover:file:bg-[#0d184f] disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </div>
 
-        <div className="sm:col-span-2 lg:col-span-3">
-          <ActiveStatusField
-            isActive={isActive}
-            reason={reason}
-            onActiveChange={(v) => {
-              const next = v === true;
-              setIsActive(next);
-              if (next) {
-                setReason("active");
-                clearError("reason");
-              }
-            }}
-            onReasonChange={(v) => {
-              setReason(v);
-              clearError("reason");
-            }}
-            reasonRequired={!isActive}
-            reasonError={errors.reason}
-          />
+          <div className="flex h-9 items-center gap-2 md:col-span-3">
+            <Checkbox
+              checked={isLanguage}
+              onCheckedChange={(v) => setIsLanguage(v === true)}
+              disabled={saving}
+              id="subj-is-language"
+            />
+            <Label
+              htmlFor="subj-is-language"
+              className="cursor-pointer font-normal"
+            >
+              Is Language
+            </Label>
+          </div>
+
+          <div className="flex h-9 items-center gap-2 md:col-span-4">
+            <Checkbox
+              id="subj-is-active"
+              checked={isActive}
+              onCheckedChange={(v) => {
+                const next = v === true;
+                setIsActive(next);
+                if (next) {
+                  setReason("active");
+                  clearError("reason");
+                }
+              }}
+              disabled={saving}
+            />
+            <Label
+              htmlFor="subj-is-active"
+              className="cursor-pointer font-normal"
+            >
+              Active
+            </Label>
+          </div>
+
+          {!isActive ? (
+            <div className="space-y-1.5 md:col-span-6">
+              <Label>
+                Reason <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={reason}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  clearError("reason");
+                }}
+                placeholder="Reason for deactivation"
+                disabled={saving}
+              />
+              {errors.reason ? (
+                <p className="text-xs text-destructive" role="alert">
+                  {errors.reason}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     </FormModal>

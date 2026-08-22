@@ -129,7 +129,7 @@
   --font-size-body: 0.9375rem; /* 15px — Angular campus density */
   --font-size-nav: 0.875rem; /* 14px nav items (Angular .nav-link-title) */
   --font-size-nav-section: 0.6875rem; /* 11px uppercase section label */
-  --app-control-height: 36px;
+  --app-control-height: 30px;
   --app-control-font-size: 14px;
   --app-label-font-size: 13px;
   --app-table-header-font-size: 15px;
@@ -1152,7 +1152,8 @@
   min-width: 0 !important;
 }
 
-.global-filter-bar__row--ear-r2 > .global-filter-field--action.global-filter-field--fx10 {
+.global-filter-bar__row--ear-r2
+  > .global-filter-field--action.global-filter-field--fx10 {
   flex: 0 0 auto !important;
   width: auto !important;
   max-width: none !important;
@@ -3138,7 +3139,7 @@ h4,
 }
 
 .app-card-title__icon {
-  font-size: 24px !important;
+  font-size: 21px !important;
   width: 22px;
   height: 22px;
   line-height: 22px !important;
@@ -3148,6 +3149,7 @@ h4,
 }
 
 .app-card-title__text {
+  font-size: medium;
   min-width: 0;
   font-weight: 500;
 }

@@ -19,6 +19,7 @@ import { BacklogsTab } from "./BacklogsTab";
 import { BooksTab } from "./BooksTab";
 import { CounselorMeetingsTab } from "./CounselorMeetingsTab";
 import { CurriculumTab } from "./CurriculumTab";
+import { AttendanceTab } from "./AttendanceTab";
 import { ExamResultsTab } from "./ExamResultsTab";
 import { FeeDetailsTab } from "./FeeDetailsTab";
 import { PlacementsTab } from "./PlacementsTab";
@@ -31,7 +32,7 @@ type AnyRow = Record<string, any>;
 type MainTab = "general" | "personal" | StudentProfileTab;
 
 const TAB_TRIGGER_CLASS =
-  "rounded-none border-b-2 border-transparent px-3 py-2 text-[12px] whitespace-nowrap text-[#333] data-[state=active]:border-[#ffc107] data-[state=active]:bg-[#ffc107] data-[state=active]:text-[#333] data-[state=active]:shadow-none";
+  "rounded-none border-b-2 border-transparent px-3 py-2 text-[12px] whitespace-nowrap text-[#333] data-[state=active]:border-[#ffcf46] data-[state=active]:bg-[#ffcf46] data-[state=active]:text-[#333] data-[state=active]:shadow-none";
 
 const MAIN_TABS: Array<{ id: MainTab; label: string }> = [
   { id: "general", label: "General Information" },
@@ -322,48 +323,7 @@ export function StudentProfileTabs({ student }: { readonly student: AnyRow }) {
         case "timetable":
           return <TimetableTab student={student} />;
         case "attendance":
-          return (
-            <DataTab
-              tab="attendance"
-              student={student}
-              emptyText="No attendance records found."
-              columns={[
-                {
-                  id: "subject",
-                  label: "Subject",
-                  keys: [
-                    "subjectCode",
-                    "subjectName",
-                    "subject_code",
-                    "subject_name",
-                  ],
-                },
-                {
-                  id: "conducted",
-                  label: "Conducted",
-                  keys: [
-                    "conductedClasses",
-                    "classesConducted",
-                    "totalClasses",
-                  ],
-                },
-                {
-                  id: "attended",
-                  label: "Attended",
-                  keys: ["attendedClasses", "classesAttended", "present"],
-                },
-                {
-                  id: "percent",
-                  label: "%",
-                  keys: [
-                    "attendancePercent",
-                    "attendance_percentage",
-                    "percentage",
-                  ],
-                },
-              ]}
-            />
-          );
+          return <AttendanceTab student={student} />;
         case "fee":
           return <FeeDetailsTab student={student} />;
         case "counselor":
@@ -384,7 +344,7 @@ export function StudentProfileTabs({ student }: { readonly student: AnyRow }) {
   );
 
   return (
-    <div className="app-card overflow-hidden">
+    <div className="overflow-hidden">
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MainTab)}>
         <div
           className="flex items-stretch border-b bg-white"
@@ -421,7 +381,7 @@ export function StudentProfileTabs({ student }: { readonly student: AnyRow }) {
           </button>
         </div>
         {MAIN_TABS.map((tab) => (
-          <TabsContent key={tab.id} value={tab.id} className="m-0 p-4">
+          <TabsContent key={tab.id} value={tab.id} className="m-0 p-3">
             {activeTab === tab.id ? renderTab(tab.id) : null}
           </TabsContent>
         ))}

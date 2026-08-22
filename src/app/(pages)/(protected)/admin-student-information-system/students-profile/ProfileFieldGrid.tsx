@@ -8,11 +8,8 @@ export function ProfileFieldGrid({
 }) {
   return (
     <div
-      className="rounded border-2 p-4 sm:p-5"
-      style={{
-        borderColor: STUDENT_PROFILE_VIEW.photoBoxBorder,
-        backgroundColor: `${STUDENT_PROFILE_VIEW.photoBoxBg}66`,
-      }}
+      className="rounded-[3px] border-2 p-4 sm:p-5"
+      style={{ borderColor: STUDENT_PROFILE_VIEW.photoBoxBorder }}
     >
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
         {fields.map((field) => (
@@ -25,9 +22,9 @@ export function ProfileFieldGrid({
             </p>
             <p
               className="mt-0.5 break-words text-[13px] font-normal leading-snug"
-              style={{ color: STUDENT_PROFILE_VIEW.linkBlue }}
+              style={{ color: "blue" }}
             >
-              {field.value}
+              {field.value === "—" || !field.value ? "-" : field.value}
             </p>
           </div>
         ))}

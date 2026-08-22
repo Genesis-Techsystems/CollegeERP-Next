@@ -1,70 +1,83 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
-import { Select } from '@/common/components/select'
-import { FilteredPage } from '@/components/layout'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { toastError, toastInfo, toastSuccess } from '@/lib/toast'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshCw, Search, UserPlus } from "lucide-react";
+import { Select } from "@/common/components/select";
+import { FilteredPage } from "@/components/layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 import {
   getDigitalOnlineSyncFilters,
   listStaffMappingSections,
   loadAssignStudentsToLabBatches,
   submitLabBatchStudentAssignments,
-} from '@/services'
+} from "@/services";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 
 type LabStudent = {
-  key: string
-  studentId: number
-  firstName: string
-  rollNumber: string
-  gender: 'M' | 'F' | ''
+  key: string;
+  studentId: number;
+  firstName: string;
+  rollNumber: string;
+  gender: "M" | "F" | "";
   /** null = unassigned pool; 0–3 = studentBatches index */
-  batchIndex: number | null
-  originalBatchIndex: number | null
-  raw: AnyRow
-}
+  batchIndex: number | null;
+  originalBatchIndex: number | null;
+  raw: AnyRow;
+};
 
-const n = (v: unknown) => Number(v) || 0
+const n = (v: unknown) => Number(v) || 0;
 const s = (v: unknown) => {
-  if (typeof v === 'string') return v
-  if (typeof v === 'number') return String(v)
-  return ''
-}
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  return "";
+};
 const uniq = (rows: AnyRow[], key: string) => {
-  const seen = new Set<number>()
+  const seen = new Set<number>();
   return rows.filter((r) => {
-    const id = n(r[key])
-    if (!id || seen.has(id)) return false
-    seen.add(id)
-    return true
-  })
+    const id = n(r[key]);
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
+
+function genderCode(raw: unknown): "M" | "F" | "" {
+  const g = s(raw).trim().toLowerCase();
+  if (g === "m" || g === "male") return "M";
+  if (g === "f" || g === "female") return "F";
+  return "";
 }
 
-function genderCode(raw: unknown): 'M' | 'F' | '' {
-  const g = s(raw).trim().toLowerCase()
-  if (g === 'm' || g === 'male') return 'M'
-  if (g === 'f' || g === 'female') return 'F'
-  return ''
+/** Angular matTooltip text: `Name(rollNumber)` */
+function studentTooltip(
+  st: Pick<LabStudent, "firstName" | "rollNumber">,
+): string {
+  const name = st.firstName.trim();
+  const roll = st.rollNumber.trim();
+  if (name && roll) return `${name}(${roll})`;
+  return name || roll || "";
 }
 
 /** Angular `genericFunctions.moment()` — presentDate from localStorage as DD-MM-YYYY → ISO. */
 function presentDateIso(): string {
-  const raw = String(localStorage.getItem('presentDate') ?? '').trim()
-  const m = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  const raw = String(localStorage.getItem("presentDate") ?? "").trim();
+  const m = raw.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (m) {
-    const [, dd, mm, yyyy] = m
-    return new Date(Date.UTC(+yyyy, +mm - 1, +dd)).toISOString()
+    const [, dd, mm, yyyy] = m;
+    return new Date(Date.UTC(+yyyy, +mm - 1, +dd)).toISOString();
   }
-  const d = new Date()
-  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString()
+  const d = new Date();
+  return new Date(
+    Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()),
+  ).toISOString();
 }
 
 function batchIdOf(row: AnyRow): number {
-  return n(row.studentbatchId ?? row.studentBatchId ?? row.fk_student_batch_id)
+  return n(row.studentbatchId ?? row.studentBatchId ?? row.fk_student_batch_id);
 }
 
 function distributeStudents(
@@ -72,24 +85,26 @@ function distributeStudents(
   studentBatches: AnyRow[],
   batchWiseStudents: AnyRow[],
 ): LabStudent[] {
-  const batchIds = studentBatches.slice(0, 4).map(batchIdOf)
-  const byStudent = new Map<number, AnyRow>()
+  const batchIds = studentBatches.slice(0, 4).map(batchIdOf);
+  const byStudent = new Map<number, AnyRow>();
   for (const b of batchWiseStudents) {
-    const sid = n(b.studentId ?? b.fk_student_id)
-    if (sid) byStudent.set(sid, b)
+    const sid = n(b.studentId ?? b.fk_student_id);
+    if (sid) byStudent.set(sid, b);
   }
 
   return students.map((row, idx) => {
-    const studentId = n(row.studentId ?? row.fk_student_id) || idx + 1
-    const firstName = s(row.firstName ?? row.studentName ?? row.student_name)
-    const rollNumber = s(row.rollNumber ?? row.hallticketNumber ?? row.registerNo)
-    const gender = genderCode(row.genderDisplayName ?? row.gender)
-    const bw = byStudent.get(studentId)
-    let batchIndex: number | null = null
+    const studentId = n(row.studentId ?? row.fk_student_id) || idx + 1;
+    const firstName = s(row.firstName ?? row.studentName ?? row.student_name);
+    const rollNumber = s(
+      row.rollNumber ?? row.hallticketNumber ?? row.registerNo,
+    );
+    const gender = genderCode(row.genderDisplayName ?? row.gender);
+    const bw = byStudent.get(studentId);
+    let batchIndex: number | null = null;
     if (bw) {
-      const bid = batchIdOf(bw)
-      const found = batchIds.findIndex((id) => id > 0 && id === bid)
-      if (found >= 0) batchIndex = found
+      const bid = batchIdOf(bw);
+      const found = batchIds.findIndex((id) => id > 0 && id === bid);
+      if (found >= 0) batchIndex = found;
     }
     return {
       key: String(studentId),
@@ -100,161 +115,201 @@ function distributeStudents(
       batchIndex,
       originalBatchIndex: batchIndex,
       raw: row,
-    }
-  })
+    };
+  });
 }
 
 export default function AssignStudentsToLabBatchesPage() {
-  const [filtersData, setFiltersData] = useState<AnyRow[]>([])
-  const [academicData, setAcademicData] = useState<AnyRow[]>([])
-  const [sections, setSections] = useState<AnyRow[]>([])
-  const [studentBatches, setStudentBatches] = useState<AnyRow[]>([])
-  const [batchWiseStudents, setBatchWiseStudents] = useState<AnyRow[]>([])
-  const [timetables, setTimetables] = useState<AnyRow[]>([])
-  const [labStudents, setLabStudents] = useState<LabStudent[]>([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [cardsEnabled, setCardsEnabled] = useState(false)
-  const [searchText, setSearchText] = useState('')
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
-  const [dragKey, setDragKey] = useState<string | null>(null)
+  const [filtersData, setFiltersData] = useState<AnyRow[]>([]);
+  const [academicData, setAcademicData] = useState<AnyRow[]>([]);
+  const [sections, setSections] = useState<AnyRow[]>([]);
+  const [studentBatches, setStudentBatches] = useState<AnyRow[]>([]);
+  const [batchWiseStudents, setBatchWiseStudents] = useState<AnyRow[]>([]);
+  const [timetables, setTimetables] = useState<AnyRow[]>([]);
+  const [labStudents, setLabStudents] = useState<LabStudent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [cardsEnabled, setCardsEnabled] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [dragKey, setDragKey] = useState<string | null>(null);
 
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [groupSectionId, setGroupSectionId] = useState<number | null>(null)
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
+  const [courseYearId, setCourseYearId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [groupSectionId, setGroupSectionId] = useState<number | null>(null);
 
   useEffect(() => {
-    const orgId = Number(localStorage.getItem('organizationId') ?? 0)
-    const empId = Number(localStorage.getItem('employeeId') ?? 0)
+    const orgId = Number(localStorage.getItem("organizationId") ?? 0);
+    const empId = Number(localStorage.getItem("employeeId") ?? 0);
     getDigitalOnlineSyncFilters(orgId, empId)
       .then((d) => {
-        setFiltersData(d.filtersData as AnyRow[])
-        setAcademicData(d.academicYearData as AnyRow[])
+        setFiltersData(d.filtersData as AnyRow[]);
+        setAcademicData(d.academicYearData as AnyRow[]);
       })
       .catch(() => {
-        setFiltersData([])
-        setAcademicData([])
-      })
-  }, [])
+        setFiltersData([]);
+        setAcademicData([]);
+      });
+  }, []);
 
   const colleges = useMemo(
-    () => uniq(filtersData, 'fk_college_id').sort((a, b) => n(a.clg_sort_order) - n(b.clg_sort_order)),
+    () =>
+      uniq(filtersData, "fk_college_id").sort(
+        (a, b) => n(a.clg_sort_order) - n(b.clg_sort_order),
+      ),
     [filtersData],
-  )
+  );
   const courses = useMemo(
-    () => uniq(filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0)), 'fk_course_id'),
+    () =>
+      uniq(
+        filtersData.filter((r) => n(r.fk_college_id) === (collegeId ?? 0)),
+        "fk_course_id",
+      ),
     [filtersData, collegeId],
-  )
+  );
   const courseGroups = useMemo(
     () =>
       uniq(
         filtersData.filter(
-          (r) => n(r.fk_college_id) === (collegeId ?? 0) && n(r.fk_course_id) === (courseId ?? 0),
+          (r) =>
+            n(r.fk_college_id) === (collegeId ?? 0) &&
+            n(r.fk_course_id) === (courseId ?? 0),
         ),
-        'fk_course_group_id',
+        "fk_course_group_id",
       ),
     [filtersData, collegeId, courseId],
-  )
+  );
   const courseYears = useMemo(
     () =>
       uniq(
         filtersData.filter(
           (r) =>
-            n(r.fk_college_id) === (collegeId ?? 0)
-            && n(r.fk_course_id) === (courseId ?? 0)
-            && n(r.fk_course_group_id) === (courseGroupId ?? 0),
+            n(r.fk_college_id) === (collegeId ?? 0) &&
+            n(r.fk_course_id) === (courseId ?? 0) &&
+            n(r.fk_course_group_id) === (courseGroupId ?? 0),
         ),
-        'fk_course_year_id',
+        "fk_course_year_id",
       ).sort((a, b) => n(a.year_order) - n(b.year_order)),
     [filtersData, collegeId, courseId, courseGroupId],
-  )
+  );
   const academicYears = useMemo(() => {
-    const univId = n(filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))?.fk_university_id)
-    return uniq(academicData.filter((r) => n(r.fk_university_id) === univId), 'fk_academic_year_id').sort(
-      (a, b) => String(b.academic_year ?? '').localeCompare(String(a.academic_year ?? '')),
-    )
-  }, [academicData, filtersData, collegeId])
+    const univId = n(
+      filtersData.find((x) => n(x.fk_college_id) === (collegeId ?? 0))
+        ?.fk_university_id,
+    );
+    return uniq(
+      academicData.filter((r) => n(r.fk_university_id) === univId),
+      "fk_academic_year_id",
+    ).sort((a, b) =>
+      String(b.academic_year ?? "").localeCompare(
+        String(a.academic_year ?? ""),
+      ),
+    );
+  }, [academicData, filtersData, collegeId]);
   const sectionOptions = useMemo(
     () =>
       sections.map((x) => ({
-        value: String(n(x.pk_group_section_id ?? x.fk_group_section_id ?? x.groupSectionId)),
+        value: String(
+          n(x.pk_group_section_id ?? x.fk_group_section_id ?? x.groupSectionId),
+        ),
         label: s(x.section) || s(x.sectionName),
       })),
     [sections],
-  )
+  );
 
   useEffect(() => {
-    if (!collegeId && colleges.length) setCollegeId(n(colleges[0].fk_college_id))
-  }, [colleges, collegeId])
+    if (!collegeId && colleges.length)
+      setCollegeId(n(colleges[0].fk_college_id));
+  }, [colleges, collegeId]);
   useEffect(() => {
-    setCourseId(null)
-    setCourseGroupId(null)
-    setCourseYearId(null)
-    setAcademicYearId(null)
-    setGroupSectionId(null)
-    setLabStudents([])
-    setCardsEnabled(false)
-  }, [collegeId])
+    setCourseId(null);
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setAcademicYearId(null);
+    setGroupSectionId(null);
+    setLabStudents([]);
+    setCardsEnabled(false);
+  }, [collegeId]);
   useEffect(() => {
-    if (!courseId && courses.length) setCourseId(n(courses[0].fk_course_id))
-  }, [courses, courseId])
+    if (!courseId && courses.length) setCourseId(n(courses[0].fk_course_id));
+  }, [courses, courseId]);
   useEffect(() => {
-    setCourseGroupId(null)
-    setCourseYearId(null)
-    setAcademicYearId(null)
-    setGroupSectionId(null)
-    setLabStudents([])
-    setCardsEnabled(false)
-  }, [courseId])
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setAcademicYearId(null);
+    setGroupSectionId(null);
+    setLabStudents([]);
+    setCardsEnabled(false);
+  }, [courseId]);
   useEffect(() => {
-    if (!courseGroupId && courseGroups.length) setCourseGroupId(n(courseGroups[0].fk_course_group_id))
-  }, [courseGroups, courseGroupId])
+    if (!courseGroupId && courseGroups.length)
+      setCourseGroupId(n(courseGroups[0].fk_course_group_id));
+  }, [courseGroups, courseGroupId]);
   useEffect(() => {
-    setCourseYearId(null)
-    setAcademicYearId(null)
-    setGroupSectionId(null)
-    setLabStudents([])
-    setCardsEnabled(false)
-  }, [courseGroupId])
+    setCourseYearId(null);
+    setAcademicYearId(null);
+    setGroupSectionId(null);
+    setLabStudents([]);
+    setCardsEnabled(false);
+  }, [courseGroupId]);
   useEffect(() => {
-    if (!courseYearId && courseYears.length) setCourseYearId(n(courseYears[0].fk_course_year_id))
-  }, [courseYears, courseYearId])
+    if (!courseYearId && courseYears.length)
+      setCourseYearId(n(courseYears[0].fk_course_year_id));
+  }, [courseYears, courseYearId]);
   useEffect(() => {
-    setAcademicYearId(null)
-    setGroupSectionId(null)
-    setLabStudents([])
-    setCardsEnabled(false)
-  }, [courseYearId])
+    setAcademicYearId(null);
+    setGroupSectionId(null);
+    setLabStudents([]);
+    setCardsEnabled(false);
+  }, [courseYearId]);
   useEffect(() => {
     if (!academicYearId && academicYears.length) {
       setAcademicYearId(
-        n([...academicYears].sort((a, b) => n(b.is_curr_ay) - n(a.is_curr_ay))[0]?.fk_academic_year_id),
-      )
+        n(
+          [...academicYears].sort(
+            (a, b) => n(b.is_curr_ay) - n(a.is_curr_ay),
+          )[0]?.fk_academic_year_id,
+        ),
+      );
     }
-  }, [academicYears, academicYearId])
+  }, [academicYears, academicYearId]);
   useEffect(() => {
-    setGroupSectionId(null)
-    setSections([])
-    setLabStudents([])
-    setCardsEnabled(false)
-  }, [academicYearId])
+    setGroupSectionId(null);
+    setSections([]);
+    setLabStudents([]);
+    setCardsEnabled(false);
+  }, [academicYearId]);
   useEffect(() => {
     if (!groupSectionId && sections.length) {
-      setGroupSectionId(n(sections[0].pk_group_section_id ?? sections[0].fk_group_section_id ?? sections[0].groupSectionId))
+      setGroupSectionId(
+        n(
+          sections[0].pk_group_section_id ??
+            sections[0].fk_group_section_id ??
+            sections[0].groupSectionId,
+        ),
+      );
     }
-  }, [sections, groupSectionId])
+  }, [sections, groupSectionId]);
 
   useEffect(() => {
     async function loadSections() {
-      if (!collegeId || !courseId || !courseGroupId || !courseYearId || !academicYearId) {
-        setSections([])
-        return
+      if (
+        !collegeId ||
+        !courseId ||
+        !courseGroupId ||
+        !courseYearId ||
+        !academicYearId
+      ) {
+        setSections([]);
+        return;
       }
-      const organizationId = Number(localStorage.getItem('organizationId') ?? 0)
-      const employeeId = Number(localStorage.getItem('employeeId') ?? 0)
+      const organizationId = Number(
+        localStorage.getItem("organizationId") ?? 0,
+      );
+      const employeeId = Number(localStorage.getItem("employeeId") ?? 0);
       const list = await listStaffMappingSections({
         organizationId,
         employeeId,
@@ -263,23 +318,29 @@ export default function AssignStudentsToLabBatchesPage() {
         courseGroupId,
         courseYearId,
         academicYearId,
-      }).catch(() => [])
-      setSections(list)
+      }).catch(() => []);
+      setSections(list);
     }
-    void loadSections()
-  }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId])
+    void loadSections();
+  }, [collegeId, courseId, courseGroupId, courseYearId, academicYearId]);
 
   const reloadAssignment = useCallback(async () => {
-    if (!collegeId || !courseId || !courseGroupId || !academicYearId || !groupSectionId) {
-      setLabStudents([])
-      setStudentBatches([])
-      setBatchWiseStudents([])
-      setTimetables([])
-      setCardsEnabled(false)
-      return
+    if (
+      !collegeId ||
+      !courseId ||
+      !courseGroupId ||
+      !academicYearId ||
+      !groupSectionId
+    ) {
+      setLabStudents([]);
+      setStudentBatches([]);
+      setBatchWiseStudents([]);
+      setTimetables([]);
+      setCardsEnabled(false);
+      return;
     }
-    setLoading(true)
-    setCardsEnabled(true)
+    setLoading(true);
+    setCardsEnabled(true);
     try {
       const data = await loadAssignStudentsToLabBatches({
         collegeId,
@@ -287,65 +348,117 @@ export default function AssignStudentsToLabBatchesPage() {
         courseGroupId,
         groupSectionId,
         academicYearId,
-      })
-      setStudentBatches(data.studentBatches)
-      setBatchWiseStudents(data.batchWiseStudents)
-      setTimetables(data.timetables)
-      setLabStudents(distributeStudents(data.students, data.studentBatches, data.batchWiseStudents))
-      setSelectedKeys(new Set())
-      setSearchText('')
+      });
+      setStudentBatches(data.studentBatches);
+      setBatchWiseStudents(data.batchWiseStudents);
+      setTimetables(data.timetables);
+      setLabStudents(
+        distributeStudents(
+          data.students,
+          data.studentBatches,
+          data.batchWiseStudents,
+        ),
+      );
+      setSelectedKeys(new Set());
+      setSearchText("");
     } catch {
-      setLabStudents([])
-      setStudentBatches([])
-      setBatchWiseStudents([])
-      setTimetables([])
-      toastError('Failed to load students for lab assignment')
+      setLabStudents([]);
+      setStudentBatches([]);
+      setBatchWiseStudents([]);
+      setTimetables([]);
+      toastError("Failed to load students for lab assignment");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [collegeId, courseId, courseGroupId, academicYearId, groupSectionId])
+  }, [collegeId, courseId, courseGroupId, academicYearId, groupSectionId]);
 
   useEffect(() => {
-    void reloadAssignment()
-  }, [reloadAssignment])
+    void reloadAssignment();
+  }, [reloadAssignment]);
 
   const selectedCollege = useMemo(
-    () => s(colleges.find((x) => n(x.fk_college_id) === (collegeId ?? 0))?.college_code),
+    () =>
+      s(
+        colleges.find((x) => n(x.fk_college_id) === (collegeId ?? 0))
+          ?.college_code,
+      ),
     [colleges, collegeId],
-  )
+  );
   const selectedCourse = useMemo(
-    () => s(courses.find((x) => n(x.fk_course_id) === (courseId ?? 0))?.course_code),
+    () =>
+      s(
+        courses.find((x) => n(x.fk_course_id) === (courseId ?? 0))?.course_code,
+      ),
     [courses, courseId],
-  )
+  );
   const selectedGroup = useMemo(
-    () => s(courseGroups.find((x) => n(x.fk_course_group_id) === (courseGroupId ?? 0))?.group_code),
+    () =>
+      s(
+        courseGroups.find(
+          (x) => n(x.fk_course_group_id) === (courseGroupId ?? 0),
+        )?.group_code,
+      ),
     [courseGroups, courseGroupId],
-  )
+  );
   const selectedYear = useMemo(
     () =>
       s(
-        courseYears.find((x) => n(x.fk_course_year_id) === (courseYearId ?? 0))?.course_year_code
-          ?? courseYears.find((x) => n(x.fk_course_year_id) === (courseYearId ?? 0))?.course_year_name,
+        courseYears.find((x) => n(x.fk_course_year_id) === (courseYearId ?? 0))
+          ?.course_year_code ??
+          courseYears.find(
+            (x) => n(x.fk_course_year_id) === (courseYearId ?? 0),
+          )?.course_year_name,
       ),
     [courseYears, courseYearId],
-  )
+  );
   const selectedAcademic = useMemo(
-    () => s(academicYears.find((x) => n(x.fk_academic_year_id) === (academicYearId ?? 0))?.academic_year),
+    () =>
+      s(
+        academicYears.find(
+          (x) => n(x.fk_academic_year_id) === (academicYearId ?? 0),
+        )?.academic_year,
+      ),
     [academicYears, academicYearId],
-  )
+  );
   const selectedSectionLabel = useMemo(
-    () => sectionOptions.find((x) => n(x.value) === (groupSectionId ?? 0))?.label ?? '-',
+    () =>
+      sectionOptions.find((x) => n(x.value) === (groupSectionId ?? 0))?.label ??
+      "",
     [sectionOptions, groupSectionId],
-  )
+  );
+
+  /** Angular: `Students - {{clg}} / {{course}} / {{group}} / {{year}} / section {{section}}({{ay}})` */
+  const studentsContextTitle = useMemo(() => {
+    if (
+      !selectedCollege ||
+      !selectedCourse ||
+      !selectedGroup ||
+      !selectedYear ||
+      !selectedAcademic
+    ) {
+      return "";
+    }
+    return `Students - ${selectedCollege} / ${selectedCourse} / ${selectedGroup} / ${selectedYear} / section ${selectedSectionLabel}(${selectedAcademic})`;
+  }, [
+    selectedCollege,
+    selectedCourse,
+    selectedGroup,
+    selectedYear,
+    selectedSectionLabel,
+    selectedAcademic,
+  ]);
 
   const unassigned = useMemo(() => {
-    const q = searchText.trim().toLowerCase()
+    const q = searchText.trim().toLowerCase();
     return labStudents.filter((st) => {
-      if (st.batchIndex != null) return false
-      if (!q) return true
-      return st.firstName.toLowerCase().includes(q) || st.rollNumber.toLowerCase().includes(q)
-    })
-  }, [labStudents, searchText])
+      if (st.batchIndex != null) return false;
+      if (!q) return true;
+      return (
+        st.firstName.toLowerCase().includes(q) ||
+        st.rollNumber.toLowerCase().includes(q)
+      );
+    });
+  }, [labStudents, searchText]);
 
   const labPanels = useMemo(() => {
     return studentBatches.slice(0, 4).map((batch, index) => ({
@@ -353,64 +466,73 @@ export default function AssignStudentsToLabBatchesPage() {
       batch,
       name: s(batch.batchName ?? batch.batch_name) || `Lab ${index + 1}`,
       students: labStudents.filter((st) => st.batchIndex === index),
-    }))
-  }, [studentBatches, labStudents])
+    }));
+  }, [studentBatches, labStudents]);
+
+  const showBoards = cardsEnabled && labStudents.length > 0;
 
   function toggleKey(key: string, checked: boolean) {
     setSelectedKeys((prev) => {
-      const next = new Set(prev)
-      if (checked) next.add(key)
-      else next.delete(key)
-      return next
-    })
+      const next = new Set(prev);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
   }
 
   function moveSelectedTo(targetIndex: number | null) {
-    if (selectedKeys.size === 0) return
+    if (selectedKeys.size === 0) return;
     setLabStudents((prev) =>
-      prev.map((st) => (selectedKeys.has(st.key) ? { ...st, batchIndex: targetIndex } : st)),
-    )
-    setSelectedKeys(new Set())
+      prev.map((st) =>
+        selectedKeys.has(st.key) ? { ...st, batchIndex: targetIndex } : st,
+      ),
+    );
+    setSelectedKeys(new Set());
   }
 
   function moveStudentTo(key: string, targetIndex: number | null) {
     setLabStudents((prev) =>
-      prev.map((st) => (st.key === key ? { ...st, batchIndex: targetIndex } : st)),
-    )
+      prev.map((st) =>
+        st.key === key ? { ...st, batchIndex: targetIndex } : st,
+      ),
+    );
   }
 
   function onDropPanel(targetIndex: number | null) {
-    if (!dragKey) return
-    moveStudentTo(dragKey, targetIndex)
-    setDragKey(null)
+    if (!dragKey) return;
+    moveStudentTo(dragKey, targetIndex);
+    setDragKey(null);
   }
 
   async function onSave() {
-    if (!collegeId || !courseYearId || !academicYearId) return
+    if (!collegeId || !courseYearId || !academicYearId) return;
     if (timetables.length === 0) {
-      toastInfo('First create timetable to assign students to lab batches.')
-      return
+      toastInfo("First create timetable to assign students to lab batches.");
+      return;
     }
     if (studentBatches.length === 0) {
-      toastError('No lab batches found for this course. Create lab batches first.')
-      return
+      toastError(
+        "No lab batches found for this course. Create lab batches first.",
+      );
+      return;
     }
 
-    const endDate = timetables[0]?.endDate ?? timetables[0]?.end_date
-    const fromDate = presentDateIso()
+    const endDate = timetables[0]?.endDate ?? timetables[0]?.end_date;
+    const fromDate = presentDateIso();
     const defaultSubtypeId = n(
-      studentBatches[0]?.subtypeId
-        ?? studentBatches[0]?.subjectType
-        ?? studentBatches[0]?.subjecttypeId,
-    )
+      studentBatches[0]?.subtypeId ??
+        studentBatches[0]?.subjectType ??
+        studentBatches[0]?.subjecttypeId,
+    );
 
-    const payload: AnyRow[] = []
+    const payload: AnyRow[] = [];
 
     for (const st of labStudents) {
       if (st.batchIndex == null) {
-        // Angular: unassigned students only posted when they already had a batch row (deactivate)
-        const existing = batchWiseStudents.find((b) => n(b.studentId ?? b.fk_student_id) === st.studentId)
-        if (!existing) continue
+        const existing = batchWiseStudents.find(
+          (b) => n(b.studentId ?? b.fk_student_id) === st.studentId,
+        );
+        if (!existing) continue;
         payload.push({
           ...st.raw,
           studentId: st.studentId,
@@ -421,82 +543,97 @@ export default function AssignStudentsToLabBatchesPage() {
           courseYearId,
           fromDate: existing.fromDate ?? fromDate,
           toDate: existing.toDate ?? endDate,
-          batchwiseStudentId: existing.batchwiseStudentId ?? existing.batchWiseStudentId,
+          batchwiseStudentId:
+            existing.batchwiseStudentId ?? existing.batchWiseStudentId,
           createdDt: existing.createdDt,
           createdUser: existing.createdUser,
           isActive: false,
-        })
-        continue
+        });
+        continue;
       }
 
-      const batch = studentBatches[st.batchIndex]
-      if (!batch) continue
-      const existing = batchWiseStudents.find((b) => n(b.studentId ?? b.fk_student_id) === st.studentId)
+      const batch = studentBatches[st.batchIndex];
+      if (!batch) continue;
+      const existing = batchWiseStudents.find(
+        (b) => n(b.studentId ?? b.fk_student_id) === st.studentId,
+      );
       const row: AnyRow = {
         ...st.raw,
         studentId: st.studentId,
         studentbatchId: batchIdOf(batch),
-        subjectType: n(batch.subtypeId ?? batch.subjectType ?? defaultSubtypeId),
+        subjectType: n(
+          batch.subtypeId ?? batch.subjectType ?? defaultSubtypeId,
+        ),
         academicYearId,
         collegeId,
         courseYearId,
         fromDate,
         toDate: endDate,
-      }
+      };
       if (existing) {
-        row.batchwiseStudentId = existing.batchwiseStudentId ?? existing.batchWiseStudentId
-        row.fromDate = existing.fromDate ?? fromDate
-        row.toDate = existing.toDate ?? endDate
-        row.createdDt = existing.createdDt
-        row.createdUser = existing.createdUser
+        row.batchwiseStudentId =
+          existing.batchwiseStudentId ?? existing.batchWiseStudentId;
+        row.fromDate = existing.fromDate ?? fromDate;
+        row.toDate = existing.toDate ?? endDate;
+        row.createdDt = existing.createdDt;
+        row.createdUser = existing.createdUser;
       }
-      payload.push(row)
+      payload.push(row);
     }
 
     if (payload.length === 0) {
-      toastError('No lab batch changes to save')
-      return
+      toastError("No lab batch changes to save");
+      return;
     }
 
-    setSaving(true)
+    setSaving(true);
     try {
-      await submitLabBatchStudentAssignments(payload)
-      toastSuccess('Students assigned to lab batches successfully')
-      await reloadAssignment()
+      await submitLabBatchStudentAssignments(payload);
+      toastSuccess("Students assigned to lab batches successfully");
+      await reloadAssignment();
     } catch {
-      toastError('Failed to assign students to lab batches')
+      toastError("Failed to assign students to lab batches");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   function renderStudentItem(st: LabStudent) {
+    const tip = studentTooltip(st);
     return (
       <div
         key={st.key}
         draggable
         onDragStart={() => setDragKey(st.key)}
         onDragEnd={() => setDragKey(null)}
-        className="px-3 py-2 text-xs border-b flex items-center gap-2 cursor-grab active:cursor-grabbing"
+        className="px-3 py-2 text-xs border-b flex items-center gap-2 active:cursor-grabbing"
+        title={tip}
       >
         <input
           type="checkbox"
           checked={selectedKeys.has(st.key)}
           onChange={(e) => toggleKey(st.key, e.target.checked)}
+          title={tip}
         />
         <span
-          className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
-            st.gender === 'F' ? 'bg-pink-100 text-pink-700' : st.gender === 'M' ? 'bg-sky-100 text-sky-700' : 'bg-slate-200 text-slate-600'
-          }`}
+          className={cn(
+            "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+            st.gender === "F"
+              ? "bg-pink-100 text-pink-700"
+              : st.gender === "M"
+                ? "bg-sky-100 text-sky-700"
+                : "bg-slate-200 text-slate-600",
+          )}
+          title={tip}
         >
-          {st.gender || '?'}
+          {st.gender || "?"}
         </span>
-        <span className="truncate">
+        <span className="truncate" title={tip}>
           {st.firstName}(
           <span className="text-blue-700 font-semibold">{st.rollNumber}</span>)
         </span>
       </div>
-    )
+    );
   }
 
   function renderPanel(
@@ -512,7 +649,7 @@ export default function AssignStudentsToLabBatchesPage() {
         onDragOver={(e) => e.preventDefault()}
         onDrop={() => onDropPanel(targetIndex)}
       >
-        <div className="bg-primary/10 border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
+        <div className="bg-[#c3d9ff] border-b px-3 py-1.5 flex items-center justify-between text-sm font-semibold">
           <span>{title}</span>
           <span>{count}</span>
         </div>
@@ -542,41 +679,87 @@ export default function AssignStudentsToLabBatchesPage() {
           </div>
           <div className="h-[320px] overflow-y-auto border rounded-sm">
             {loading ? (
-              <div className="p-3 text-sm text-muted-foreground">Loading students...</div>
+              <div className="p-3 text-sm text-muted-foreground">
+                Loading students...
+              </div>
             ) : list.length === 0 ? (
-              <div className="p-3 text-sm text-muted-foreground">No students</div>
+              <div className="p-3 text-sm text-muted-foreground">
+                No students
+              </div>
             ) : (
               list.map(renderStudentItem)
             )}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <FilteredPage
       title="Assign Students To Lab"
-      filters={(
+      filterTitle="Assign Students To Lab"
+      tableHeader={
+        showBoards && studentsContextTitle ? (
+          <div className="table-context-header relative !pr-12">
+            <UserPlus
+              className="table-context-header__icon h-5 w-5 shrink-0 text-[#042956]"
+              aria-hidden
+            />
+            <strong
+              className="table-context-header__title"
+              title={studentsContextTitle}
+            >
+              Students -{" "}
+              <span className="font-medium">
+                {selectedCollege} / {selectedCourse} / {selectedGroup} /{" "}
+                {selectedYear} / section {selectedSectionLabel}(
+                {selectedAcademic})
+              </span>
+            </strong>
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full text-[#042956] hover:bg-muted"
+              title="Refresh"
+              aria-label="Refresh"
+              onClick={() => {
+                void reloadAssignment();
+              }}
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </button>
+          </div>
+        ) : null
+      }
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <Select
-            label="College *"
+            label="College"
+            required
             value={collegeId ? String(collegeId) : null}
             onChange={(v) => setCollegeId(v ? Number(v) : null)}
-            options={colleges.map((x) => ({ value: String(n(x.fk_college_id)), label: s(x.college_code) }))}
+            options={colleges.map((x) => ({
+              value: String(n(x.fk_college_id)),
+              label: s(x.college_code),
+            }))}
             searchable
             className="md:col-span-2"
           />
           <Select
-            label="Course *"
+            label="Course"
+            required
             value={courseId ? String(courseId) : null}
             onChange={(v) => setCourseId(v ? Number(v) : null)}
-            options={courses.map((x) => ({ value: String(n(x.fk_course_id)), label: s(x.course_code) }))}
+            options={courses.map((x) => ({
+              value: String(n(x.fk_course_id)),
+              label: s(x.course_code),
+            }))}
             searchable
             className="md:col-span-2"
           />
           <Select
-            label="Course Group *"
+            label="Course Group"
+            required
             value={courseGroupId ? String(courseGroupId) : null}
             onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
             options={courseGroups.map((x) => ({
@@ -587,7 +770,8 @@ export default function AssignStudentsToLabBatchesPage() {
             className="md:col-span-2"
           />
           <Select
-            label="Course Year *"
+            label="Course Year"
+            required
             value={courseYearId ? String(courseYearId) : null}
             onChange={(v) => setCourseYearId(v ? Number(v) : null)}
             options={courseYears.map((x) => ({
@@ -598,7 +782,8 @@ export default function AssignStudentsToLabBatchesPage() {
             className="md:col-span-2"
           />
           <Select
-            label="Academic Year *"
+            label="Academic Year"
+            required
             value={academicYearId ? String(academicYearId) : null}
             onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
             options={academicYears.map((x) => ({
@@ -609,7 +794,8 @@ export default function AssignStudentsToLabBatchesPage() {
             className="md:col-span-2"
           />
           <Select
-            label="Section *"
+            label="Section"
+            required
             value={groupSectionId ? String(groupSectionId) : null}
             onChange={(v) => setGroupSectionId(v ? Number(v) : null)}
             options={sectionOptions}
@@ -617,65 +803,63 @@ export default function AssignStudentsToLabBatchesPage() {
             className="md:col-span-2"
           />
         </div>
-      )}
-    >
-      {cardsEnabled && loading && labStudents.length === 0 ? (
-        <div className="app-card p-4 text-sm text-muted-foreground" data-no-page-name>
-          Loading students...
-        </div>
-      ) : cardsEnabled && labStudents.length > 0 ? (
-        <div className="app-card p-3" data-no-page-name>
-          <div className="mb-2.5 px-1 flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold text-primary">
-              Students - {selectedCollege} / {selectedCourse} / {selectedGroup} / {selectedYear} / section{' '}
-              {selectedSectionLabel}({selectedAcademic})
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0"
-              title="Refresh"
-              onClick={() => { void reloadAssignment() }}
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
+      }
+      body={
+        cardsEnabled && loading && labStudents.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            Loading students...
           </div>
+        ) : showBoards ? (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+              <div className="md:col-span-4">
+                {renderPanel(
+                  "STUDENTS",
+                  unassigned.length,
+                  unassigned,
+                  null,
+                  true,
+                )}
+              </div>
+              <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {labPanels.length === 0 ? (
+                  <div className="col-span-full border rounded-sm p-4 text-sm text-muted-foreground">
+                    No lab batches found for this course (subject type LAB).
+                    Create lab batches under Academic Batches first.
+                  </div>
+                ) : (
+                  labPanels.map((panel) =>
+                    renderPanel(
+                      `Lab : ${panel.name}`,
+                      panel.students.length,
+                      panel.students,
+                      panel.index,
+                      false,
+                    ),
+                  )
+                )}
+              </div>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
-            <div className="md:col-span-4">
-              {renderPanel('STUDENTS', unassigned.length, unassigned, null, true)}
-            </div>
-            <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {labPanels.length === 0 ? (
-                <div className="col-span-full border rounded-sm p-4 text-sm text-muted-foreground">
-                  No lab batches found for this course (subject type LAB). Create lab batches under Academic Batches first.
-                </div>
-              ) : (
-                labPanels.map((panel) =>
-                  renderPanel(
-                    `Lab : ${panel.name}`,
-                    panel.students.length,
-                    panel.students,
-                    panel.index,
-                    false,
-                  ),
-                )
-              )}
+            <div className="mt-3 flex justify-end">
+              <Button
+                type="button"
+                className="h-9"
+                onClick={() => {
+                  void onSave();
+                }}
+                disabled={saving || loading}
+              >
+                {saving ? "Saving..." : "Save"}
+              </Button>
             </div>
           </div>
-
-          <div className="mt-3 flex justify-end">
-            <Button type="button" className="h-9" onClick={() => { void onSave() }} disabled={saving || loading}>
-              {saving ? 'Saving...' : 'Save'}
-            </Button>
+        ) : cardsEnabled && !loading ? (
+          <div className="text-sm text-muted-foreground">
+            No students found for the selected filters.
           </div>
-        </div>
-      ) : cardsEnabled && !loading ? (
-        <div className="app-card p-4 text-sm text-muted-foreground" data-no-page-name>
-          No students found for the selected filters.
-        </div>
-      ) : null}
-    </FilteredPage>
-  )
+        ) : null
+      }
+    />
+  );
 }
