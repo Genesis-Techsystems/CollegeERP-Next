@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +17,8 @@ import type {
   ValueFormatterParams,
 } from "ag-grid-community";
 import { StatusBadge } from "@/common/components/data-display";
-import { ActiveStatusField } from "@/common/components/forms";
+import { ActiveStatusField, FormField } from "@/common/components/forms";
+import { DatePicker } from "@/common/components/date-picker";
 import { Select, type SelectOption } from "@/common/components/select";
 import { ListPage } from "@/components/layout";
 import {
@@ -159,15 +159,14 @@ export default function InvigilatorRemunerationPage() {
   }, []);
 
   function openAdd() {
-    // Angular Add: college + designation start empty (not first option).
+    // Add starts blank — no college/designation/amount/dates pre-selected.
     setEditing(null);
     setFieldErrors({});
     setCollegeId(null);
     setInvgdesignationCatId(null);
     setAmount("");
-    const today = format(new Date(), "yyyy-MM-dd");
-    setFromDate(today);
-    setToDate(today);
+    setFromDate("");
+    setToDate("");
     setIsActive(true);
     setReason("active");
     setOpen(true);
@@ -233,8 +232,10 @@ export default function InvigilatorRemunerationPage() {
       nextErrors.invgdesignationCatId = "Invigilator Designation is required.";
     if (!cleanAmount) nextErrors.amount = "Amount is required.";
     setFieldErrors(nextErrors);
+    if (!fromDate) nextErrors.fromDate = "From Date is required.";
+    if (!toDate) nextErrors.toDate = "To Date is required.";
+    setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
-    if (!fromDate || !toDate) return;
     if (fromDate > toDate) {
       toast.error("From date should be less than To date.");
       return;
@@ -333,6 +334,7 @@ export default function InvigilatorRemunerationPage() {
         }}
       >
         <DialogContent
+          key={editing ? `edit-${getRemunerationId(editing)}` : "add"}
           className="max-w-2xl"
           closeOnOutsideClick={false}
           onEscapeKeyDown={(e) => e.preventDefault()}
@@ -344,57 +346,50 @@ export default function InvigilatorRemunerationPage() {
                 : "Add Invigilator Remuneration"}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Select
-                label="College"
-                required
-                searchable
-                placeholder="Select college"
-                options={collegeOptions}
-                value={collegeId ? String(collegeId) : null}
-                error={fieldErrors.collegeId}
-                onChange={(v) => {
-                  setCollegeId(v ? Number(v) : null);
-                  if (fieldErrors.collegeId) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.collegeId;
-                      return next;
-                    });
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <Select
-                label="Invigilator Designation"
-                required
-                searchable
-                placeholder="Select invigilator"
-                options={designationOptions}
-                value={
-                  invgdesignationCatId ? String(invgdesignationCatId) : null
+          <div className="grid grid-cols-1 items-start gap-x-4 gap-y-3 md:grid-cols-3">
+            <Select
+              label="College"
+              required
+              searchable
+              clearable
+              placeholder="Select college"
+              options={collegeOptions}
+              value={collegeId ? String(collegeId) : null}
+              error={fieldErrors.collegeId}
+              onChange={(v) => {
+                setCollegeId(v ? Number(v) : null);
+                if (fieldErrors.collegeId) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.collegeId;
+                    return next;
+                  });
                 }
-                error={fieldErrors.invgdesignationCatId}
-                onChange={(v) => {
-                  setInvgdesignationCatId(v ? Number(v) : null);
-                  if (fieldErrors.invgdesignationCatId) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.invgdesignationCatId;
-                      return next;
-                    });
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">
-                Amount <span className="text-red-500">*</span>
-              </Label>
+              }}
+            />
+            <Select
+              label="Invigilator Designation"
+              required
+              searchable
+              clearable
+              placeholder="Select invigilator"
+              options={designationOptions}
+              value={invgdesignationCatId ? String(invgdesignationCatId) : null}
+              error={fieldErrors.invgdesignationCatId}
+              onChange={(v) => {
+                setInvgdesignationCatId(v ? Number(v) : null);
+                if (fieldErrors.invgdesignationCatId) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.invgdesignationCatId;
+                    return next;
+                  });
+                }
+              }}
+            />
+            <FormField label="Amount" required error={fieldErrors.amount}>
               <Input
-                className="h-8 text-[12px]"
+                className="min-h-9 text-[13px]"
                 type="number"
                 placeholder="Enter amount"
                 value={amount}
@@ -410,32 +405,41 @@ export default function InvigilatorRemunerationPage() {
                   }
                 }}
               />
-              {fieldErrors.amount ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.amount}
-                </p>
-              ) : null}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">From Date</Label>
-              <Input
-                className="h-8 text-[12px]"
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+            </FormField>
+            <FormField label="From Date" error={fieldErrors.fromDate}>
+              <DatePicker
+                value={fromDate ? parseISO(fromDate) : null}
+                onChange={(d) => {
+                  setFromDate(d ? format(d, "yyyy-MM-dd") : "");
+                  if (fieldErrors.fromDate) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.fromDate;
+                      return next;
+                    });
+                  }
+                }}
+                placeholder="Select date"
               />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[12px]">To Date</Label>
-              <Input
-                className="h-8 text-[12px]"
-                type="date"
-                min={fromDate || undefined}
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+            </FormField>
+            <FormField label="To Date" error={fieldErrors.toDate}>
+              <DatePicker
+                value={toDate ? parseISO(toDate) : null}
+                minDate={fromDate ? parseISO(fromDate) : undefined}
+                onChange={(d) => {
+                  setToDate(d ? format(d, "yyyy-MM-dd") : "");
+                  if (fieldErrors.toDate) {
+                    setFieldErrors((prev) => {
+                      const next = { ...prev };
+                      delete next.toDate;
+                      return next;
+                    });
+                  }
+                }}
+                placeholder="Select date"
               />
-            </div>
-            <div className="md:col-span-3">
+            </FormField>
+            <div className="flex items-end pb-1 md:col-span-1">
               <ActiveStatusField
                 isActive={isActive}
                 reason={reason === "active" ? "" : reason}

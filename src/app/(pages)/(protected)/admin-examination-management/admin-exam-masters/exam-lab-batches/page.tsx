@@ -5,13 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -35,15 +28,9 @@ import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
-import {
-  Building2,
-  BookOpen,
-  Calendar,
-  GraduationCap,
-  PencilIcon,
-  Plus,
-  ScrollText,
-} from "lucide-react";
+import { Select } from "@/common/components/select";
+import { PencilIcon, Plus } from "lucide-react";
+import { format, parseISO } from "date-fns";
 
 type Row = Record<string, any>;
 
@@ -500,15 +487,6 @@ export default function ExamLabBatchesPage() {
     }
   }
 
-  const canManageBatches = Boolean(
-    collegeId &&
-    examId &&
-    courseYearId &&
-    courseGroupId &&
-    regulationId &&
-    subjectId,
-  );
-
   // ── Column assembly ─────────────────────────────────────────────────────────
   const columnDefs = useMemo<ColDef[]>(
     () => [
@@ -528,176 +506,140 @@ export default function ExamLabBatchesPage() {
       title="Exam Lab Batches"
       filters={
         <div className="space-y-2">
-          <GlobalFilterBarRow columns={3}>
-            <GlobalFilterField label="Course" icon={GraduationCap}>
+          {/* Angular: Course 20 / Exam Year 20 / Exam Master 60 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--ef-r1">
+            <GlobalFilterField
+              label="Course *"
+              className="global-filter-field--fx20"
+            >
               <Select
-                value={courseId ? String(courseId) : undefined}
-                onValueChange={(v) => setCourseId(Number(v))}
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                options={courses.map((c) => ({
+                  value: String(c.fk_course_id),
+                  label: String(c.course_code ?? ""),
+                }))}
+                placeholder="Course"
                 disabled={loading}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Course" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem
-                      key={c.fk_course_id}
-                      value={String(c.fk_course_id)}
-                    >
-                      {c.course_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-            <GlobalFilterField label="Exam Year" icon={Calendar}>
-              <Select
-                value={academicYearId ? String(academicYearId) : undefined}
-                onValueChange={(v) => setAcademicYearId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Exam Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicYears.map((a) => (
-                    <SelectItem
-                      key={a.fk_academic_year_id}
-                      value={String(a.fk_academic_year_id)}
-                    >
-                      {a.academic_year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-            <GlobalFilterField label="Exam Master" icon={ScrollText}>
-              <Select
-                value={examId ? String(examId) : undefined}
-                onValueChange={(v) => setExamId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Exam Master" />
-                </SelectTrigger>
-                <SelectContent>
-                  {exams.map((e) => (
-                    <SelectItem key={e.fk_exam_id} value={String(e.fk_exam_id)}>
-                      {e.exam_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
-          <GlobalFilterBarRow columns={3}>
-            <GlobalFilterField label="College" icon={Building2}>
-              <Select
-                value={collegeId ? String(collegeId) : undefined}
-                onValueChange={(v) => setCollegeId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="College" />
-                </SelectTrigger>
-                <SelectContent>
-                  {colleges.map((c) => (
-                    <SelectItem
-                      key={c.fk_college_id}
-                      value={String(c.fk_college_id)}
-                    >
-                      {c.college_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-            <GlobalFilterField label="Course Group" icon={BookOpen}>
-              <Select
-                value={courseGroupId ? String(courseGroupId) : undefined}
-                onValueChange={(v) => setCourseGroupId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Course Group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courseGroups.map((g) => (
-                    <SelectItem
-                      key={g.fk_course_group_id}
-                      value={String(g.fk_course_group_id)}
-                    >
-                      {g.group_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-            <GlobalFilterField label="Course Year" icon={GraduationCap}>
-              <Select
-                value={courseYearId ? String(courseYearId) : undefined}
-                onValueChange={(v) => setCourseYearId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Course Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {courseYears.map((y) => (
-                    <SelectItem
-                      key={y.fk_course_year_id}
-                      value={String(y.fk_course_year_id)}
-                    >
-                      {y.course_year_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-          </GlobalFilterBarRow>
-          <GlobalFilterBarRow columns={3}>
-            <GlobalFilterField label="Regulation" icon={ScrollText}>
-              <Select
-                value={regulationId ? String(regulationId) : undefined}
-                onValueChange={(v) => setRegulationId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Regulation" />
-                </SelectTrigger>
-                <SelectContent>
-                  {regulations.map((r) => (
-                    <SelectItem
-                      key={r.fk_regulation_id}
-                      value={String(r.fk_regulation_id)}
-                    >
-                      {r.regulation_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </GlobalFilterField>
-            <GlobalFilterField label="Subject" icon={BookOpen}>
-              <Select
-                value={subjectId ? String(subjectId) : undefined}
-                onValueChange={(v) => setSubjectId(Number(v))}
-              >
-                <SelectTrigger className="h-9 text-[13px]">
-                  <SelectValue placeholder="Subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem
-                      key={s.fk_subject_id}
-                      value={String(s.fk_subject_id)}
-                    >
-                      {s.subject_name} ({s.subject_code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                searchable
+              />
             </GlobalFilterField>
             <GlobalFilterField
-              label="Action"
-              className="global-filter-field--action"
+              label="Exam Year *"
+              className="global-filter-field--fx20"
+            >
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                options={academicYears.map((a) => ({
+                  value: String(a.fk_academic_year_id),
+                  label: String(a.academic_year ?? ""),
+                }))}
+                placeholder="Exam Year"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Exam Master *"
+              className="global-filter-field--fx60"
+            >
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : null)}
+                options={exams.map((e) => ({
+                  value: String(e.fk_exam_id),
+                  label: examMasterOptionLabel(e),
+                }))}
+                placeholder="Exam Master"
+                searchable
+              />
+            </GlobalFilterField>
+          </GlobalFilterBarRow>
+
+          {/* Angular: College 20 / Group 20 / Year 20 / Reg 20 / Subject 30 / Get List 10 */}
+          <GlobalFilterBarRow className="global-filter-bar__row--ef-r2">
+            <GlobalFilterField
+              label="College *"
+              className="global-filter-field--fx20"
+            >
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                options={colleges.map((c) => ({
+                  value: String(c.fk_college_id),
+                  label: String(c.college_code ?? ""),
+                }))}
+                placeholder="College"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Course Group *"
+              className="global-filter-field--fx20"
+            >
+              <Select
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                options={courseGroups.map((g) => ({
+                  value: String(g.fk_course_group_id),
+                  label: String(g.group_code ?? ""),
+                }))}
+                placeholder="Course Group"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Course Years *"
+              className="global-filter-field--fx20"
+            >
+              <Select
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                options={courseYears.map((y) => ({
+                  value: String(y.fk_course_year_id),
+                  label: String(y.course_year_code ?? ""),
+                }))}
+                placeholder="Course Years"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Regulation *"
+              className="global-filter-field--fx20"
+            >
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => setRegulationId(v ? Number(v) : null)}
+                options={regulations.map((r) => ({
+                  value: String(r.fk_regulation_id),
+                  label: String(r.regulation_code ?? ""),
+                }))}
+                placeholder="Regulation"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label="Subject *"
+              className="global-filter-field--fx30"
+            >
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                options={subjects.map((s) => ({
+                  value: String(s.fk_subject_id),
+                  label: `${s.subject_name ?? ""} (${s.subject_code ?? ""})`,
+                }))}
+                placeholder="Subject"
+                searchable
+              />
+            </GlobalFilterField>
+            <GlobalFilterField
+              label=" "
+              className="global-filter-field--action global-filter-field--fx10"
             >
               <Button
                 onClick={getList}
-                className="h-[30px] px-3 text-[12px] shrink-0"
+                className="h-[30px] w-full px-3 text-[12px] shrink-0"
               >
                 Get List
               </Button>
@@ -720,7 +662,6 @@ export default function ExamLabBatchesPage() {
         <Button
           size="sm"
           onClick={openAdd}
-          disabled={!canManageBatches}
           className="h-[30px] px-3 text-[12px]"
         >
           <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -745,46 +686,28 @@ export default function ExamLabBatchesPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-[12px]">
-                Exam Type <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={examTypeId ? String(examTypeId) : undefined}
-                onValueChange={(v) => {
-                  setExamTypeId(Number(v));
-                  if (fieldErrors.examTypeId) {
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.examTypeId;
-                      return next;
-                    });
-                  }
-                }}
-              >
-                <SelectTrigger
-                  className="h-8 text-[12px]"
-                  aria-invalid={Boolean(fieldErrors.examTypeId)}
-                >
-                  <SelectValue placeholder="Select exam type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableExamTypes.map((t) => (
-                    <SelectItem
-                      key={String(t.generalDetailId)}
-                      value={String(t.generalDetailId)}
-                    >
-                      {String(t.generalDetailCode ?? "")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {fieldErrors.examTypeId ? (
-                <p className="text-[11px] text-destructive">
-                  {fieldErrors.examTypeId}
-                </p>
-              ) : null}
-            </div>
+            <Select
+              label="Exam Type"
+              required
+              searchable
+              placeholder="Select exam type"
+              value={examTypeId ? String(examTypeId) : null}
+              options={availableExamTypes.map((t) => ({
+                value: String(t.generalDetailId),
+                label: String(t.generalDetailCode ?? ""),
+              }))}
+              error={fieldErrors.examTypeId}
+              onChange={(v) => {
+                setExamTypeId(v ? Number(v) : null);
+                if (fieldErrors.examTypeId) {
+                  setFieldErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.examTypeId;
+                    return next;
+                  });
+                }
+              }}
+            />
             <div className="space-y-1">
               <Label className="text-[12px]">
                 Batch Name <span className="text-red-500">*</span>
@@ -889,6 +812,21 @@ export default function ExamLabBatchesPage() {
       </Dialog>
     </FilteredListPage>
   );
+}
+
+function examMasterOptionLabel(e: Row): string {
+  const name = String(e.exam_name ?? "").trim();
+  const fromRaw = String(e.from_date ?? "").slice(0, 10);
+  const toRaw = String(e.to_date ?? "").slice(0, 10);
+  let range = "";
+  try {
+    if (fromRaw && toRaw) {
+      range = ` (${format(parseISO(fromRaw), "dd MMM yyyy")} - ${format(parseISO(toRaw), "dd MMM yyyy")})`;
+    }
+  } catch {
+    /* keep name only */
+  }
+  return `${name}${range}`;
 }
 
 function dedupeBy<T extends Record<string, any>>(arr: T[], key: string): T[] {
