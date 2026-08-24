@@ -198,6 +198,11 @@ export interface DataTableProps<T> {
   toolbarTrailing?: ReactNode;
   /** Optional right-side panel rendered beside the grid inside the same card. */
   rightRail?: ReactNode;
+  /**
+   * Grid columns (3 or 4 of 12) for `rightRail` at `lg`. Default 4.
+   * Pass 3 for a compact side card (e.g. absentees).
+   */
+  rightRailCols?: 3 | 4;
   /** @deprecated Use toolbar.exportExcel instead */
   exportCsv?: boolean;
   /** Override toolbar Excel export (e.g. custom HTML workbook). */
@@ -592,6 +597,7 @@ export function DataTable<T>({
   toolbarLeading,
   toolbarTrailing,
   rightRail,
+  rightRailCols = 4,
   exportCsv = false,
   onExportExcel: onExportExcelProp,
   onExportPdf: onExportPdfProp,
@@ -1085,7 +1091,13 @@ export function DataTable<T>({
                 "grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-start",
             )}
           >
-            <div className={cn("min-w-0", rightRail && "lg:col-span-8")}>
+            <div
+              className={cn(
+                "min-w-0",
+                rightRail &&
+                  (rightRailCols === 3 ? "lg:col-span-9" : "lg:col-span-8"),
+              )}
+            >
               {!suppressGrid ? (
                 <div className={cn(isWideTable && "app-data-table-hscroll")}>
                   <div
@@ -1138,7 +1150,14 @@ export function DataTable<T>({
               ) : null}
             </div>
             {rightRail ? (
-              <div className="min-w-0 lg:col-span-4">{rightRail}</div>
+              <div
+                className={cn(
+                  "min-w-0 self-start",
+                  rightRailCols === 3 ? "lg:col-span-3" : "lg:col-span-4",
+                )}
+              >
+                {rightRail}
+              </div>
             ) : null}
           </div>
 

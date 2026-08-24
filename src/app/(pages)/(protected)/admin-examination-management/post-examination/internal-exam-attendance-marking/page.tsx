@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Eye, GraduationCap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  ColDef,
+  ICellRendererParams,
+  IHeaderParams,
+} from "ag-grid-community";
+import { format } from "date-fns";
+import { GraduationCap } from "lucide-react";
 import { FilteredListPage, TableContextHeader } from "@/components/layout";
 import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MINIO_URL } from "@/config/constants/api";
 import {
   getInternalAttendanceFilters,
   getInternalAttendanceRestFilters,
@@ -19,7 +23,6 @@ import {
   listExamAllotmentInvigilators,
   listStaffExamAllotInvigilators,
   saveInternalAttendance,
-  uploadInvigilatorAttendanceSheet,
 } from "@/services";
 import { toastError, toastSuccess } from "@/lib/toast";
 
@@ -43,6 +46,76 @@ type AttendanceRow = {
   attendanceTakenEmpId: number;
   attendanceTakenDate: string;
 };
+
+/** Angular `date:'MMM d, y'` → e.g. Dec 1, 2023 */
+function formatExamDateLabel(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  const d = new Date(`${s.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+  return format(d, "MMM d, yyyy");
+}
+
+function examTypeTags(row: AnyRow): string[] {
+  const tags: string[] = [];
+  if (row.is_internal_exam) tags.push("Internal");
+  if (row.is_regular_exam) tags.push("Regular");
+  if (row.is_supply_exam) tags.push("Supple");
+  return tags;
+}
+
+/** Angular exam option: name (from - to)(Internal) */
+function formatExamOptionLabel(row: AnyRow): string {
+  const name = String(row.exam_name ?? row.examName ?? row.fk_exam_id ?? "Exam");
+  const from = formatExamDateLabel(row.from_date ?? row.fromDate);
+  const to = formatExamDateLabel(row.to_date ?? row.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(row)
+    .map((t) => `(${t})`)
+    .join("");
+  return `${name}${range}${tags}`;
+}
+
+function examOptionLabelNode(row: AnyRow) {
+  const name = String(row.exam_name ?? row.examName ?? row.fk_exam_id ?? "Exam");
+  const from = formatExamDateLabel(row.from_date ?? row.fromDate);
+  const to = formatExamDateLabel(row.to_date ?? row.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  return (
+    <span>
+      {name}
+      {range}
+      {examTypeTags(row).map((t) => (
+        <span key={t} className="font-medium text-[#0014ff]">
+          ({t})
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function ymdToDate(ymd: string): Date | null {
+  if (!ymd) return null;
+  const d = new Date(`${ymd.slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+type MarkAllHeaderParams = IHeaderParams & {
+  checked: boolean;
+  onToggle: (checked: boolean) => void;
+};
+
+function MarkAllHeader(props: MarkAllHeaderParams) {
+  return (
+    <label className="inline-flex h-full w-full cursor-pointer items-center gap-1.5 px-1 text-[12px] font-medium leading-none">
+      <Checkbox
+        checked={props.checked}
+        onCheckedChange={(v) => props.onToggle(Boolean(v))}
+      />
+      <span>{props.checked ? "UnMark All" : "Mark All"}</span>
+    </label>
+  );
+}
 
 type MarkRendererParams = ICellRendererParams<AttendanceRow> & {
   onTogglePresent: (examStdDetId: number, value: boolean) => void;
@@ -221,9 +294,7 @@ export default function InternalExamAttendanceMarkingPage() {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingAttendance, setUploadingAttendance] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const [examListDetails, setExamListDetails] = useState<AnyRow[]>([]);
   const [collegesListDetails, setCollegesListDetails] = useState<AnyRow[]>([]);
@@ -244,9 +315,6 @@ export default function InternalExamAttendanceMarkingPage() {
   const [examDate, setExamDate] = useState("");
   const [invigilatorEmpId, setInvigilatorEmpId] = useState<number>(0);
   const [roomId, setRoomId] = useState<number>(0);
-  const [selectedAttendanceFileName, setSelectedAttendanceFileName] =
-    useState("");
-  const attendanceFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const courses = useMemo(
     () => dedupeBy(examListDetails, "fk_course_id"),
@@ -375,11 +443,6 @@ export default function InternalExamAttendanceMarkingPage() {
         (x) => Number(x.invigilatorEmpId) === Number(invigilatorEmpId),
       ),
     [invigilatorRows, invigilatorEmpId],
-  );
-  const attendanceSheetPath =
-    invigilatorAllotForEmp[0]?.attendanceSheetFilePath;
-  const examTimetableIdForUpload = Number(
-    invigilatorAllotForEmp[0]?.examTimeTableId ?? 0,
   );
 
   const selectedExam = useMemo(
@@ -733,6 +796,10 @@ export default function InternalExamAttendanceMarkingPage() {
     );
   }, []);
 
+  const onMarkAll = useCallback((checked: boolean) => {
+    setRows((prev) => prev.map((r) => ({ ...r, isPresent: checked })));
+  }, []);
+
   async function onGetList() {
     if (
       !courseId ||
@@ -749,7 +816,6 @@ export default function InternalExamAttendanceMarkingPage() {
     }
     setLoadingList(true);
     setHasFetched(true);
-    setFiltersOpen(false);
     try {
       const data = await getInternalAttendanceStudents({
         collegeId,
@@ -800,55 +866,6 @@ export default function InternalExamAttendanceMarkingPage() {
     }
   }
 
-  function onUploadAttendanceClick() {
-    attendanceFileInputRef.current?.click();
-  }
-
-  async function onAttendanceFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setSelectedAttendanceFileName(file.name);
-
-    if (!examTimetableIdForUpload) {
-      toastError(
-        "Exam timetable not found for selected invigilator",
-        "Upload failed",
-      );
-      event.target.value = "";
-      return;
-    }
-
-    setUploadingAttendance(true);
-    try {
-      await uploadInvigilatorAttendanceSheet({
-        examInvEmployeeId: invigilatorEmpId,
-        examTimetableId: examTimetableIdForUpload,
-        studentAttendance: file,
-      });
-      toastSuccess("Attendance file uploaded successfully");
-      const data = isStaff
-        ? await listStaffExamAllotInvigilators(employeeId).catch(() => [])
-        : await listExamAllotmentInvigilators({
-            collegeId: collegeId ?? 0,
-            examId: examId ?? 0,
-          }).catch(() => []);
-      setInvigilatorRows(Array.isArray(data) ? data : []);
-      await onGetList();
-    } catch (error) {
-      toastError(error, "Failed to upload attendance file");
-    } finally {
-      setUploadingAttendance(false);
-      event.target.value = "";
-    }
-  }
-
-  function openAttendanceSheet(path: string) {
-    if (!path) return;
-    window.open(`${MINIO_URL}${path}`, "_blank", "width=700,height=600");
-  }
-
   const absentees = useMemo(() => rows.filter((r) => !r.isPresent), [rows]);
   const allPresent = useMemo(
     () => rows.length > 0 && rows.every((r) => r.isPresent),
@@ -875,7 +892,8 @@ export default function InternalExamAttendanceMarkingPage() {
     () =>
       exams.map((x) => ({
         value: String(x.fk_exam_id),
-        label: String(x.exam_name ?? x.fk_exam_id),
+        label: formatExamOptionLabel(x),
+        labelNode: examOptionLabelNode(x),
       })),
     [exams],
   );
@@ -894,10 +912,7 @@ export default function InternalExamAttendanceMarkingPage() {
       ...courseGroupRows.map((row) => {
         const id = Number(row.fk_course_group_id);
         const code = String(row.group_code ?? row.groupCode ?? "").trim();
-        const name = String(row.group_name ?? row.groupName ?? "").trim();
-        const label =
-          name && code ? `${name}(${code})` : code || name || `Group ${id}`;
-        return { value: String(id), label };
+        return { value: String(id), label: code || `Group ${id}` };
       }),
     ];
   }, [courseGroupRows]);
@@ -926,10 +941,17 @@ export default function InternalExamAttendanceMarkingPage() {
   );
   const subjectOptions = useMemo(
     () =>
-      subjects.map((x) => ({
-        value: String(x.fk_subject_id),
-        label: `${x.subject_name ?? "-"} (${x.subject_code ?? "-"})`,
-      })),
+      subjects.map((x) => {
+        const name = String(x.subject_name ?? "").trim();
+        const code = String(x.subject_code ?? "").trim();
+        const reg = String(x.regulation_code ?? "").trim();
+        const examType = String(x.ttd_exam_type ?? "").trim();
+        let label = name || "-";
+        if (code) label += ` - ${code}`;
+        if (reg) label += ` (${reg})`;
+        if (examType) label += ` (${examType})`;
+        return { value: String(x.fk_subject_id), label };
+      }),
     [subjects],
   );
   const labBatchOptions = useMemo(
@@ -1019,8 +1041,16 @@ export default function InternalExamAttendanceMarkingPage() {
       },
       {
         headerName: "Mark",
-        minWidth: 130,
+        minWidth: 150,
+        width: 160,
         flex: 0,
+        sortable: false,
+        filter: false,
+        headerComponent: MarkAllHeader,
+        headerComponentParams: {
+          checked: allPresent,
+          onToggle: onMarkAll,
+        },
         cellRenderer: MarkRenderer,
         cellRendererParams: { onTogglePresent },
       },
@@ -1034,7 +1064,7 @@ export default function InternalExamAttendanceMarkingPage() {
         cellRendererParams: { onToggleUfm },
       },
     ],
-    [onTogglePresent, onToggleUfm],
+    [allPresent, onMarkAll, onTogglePresent, onToggleUfm],
   );
 
   return (
@@ -1042,135 +1072,148 @@ export default function InternalExamAttendanceMarkingPage() {
       title="Internal Exam Attendance Marking"
       showTable={rows.length > 0}
       filters={
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course</Label>
-            <Select
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : null)}
-              options={courseOptions}
-              placeholder="Course"
-              disabled={loadingFilters}
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Year</Label>
-            <Select
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
-              options={academicYearOptions}
-              placeholder="Exam Year"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Exam</Label>
-            <Select
-              value={examId ? String(examId) : null}
-              onChange={(v) => setExamId(v ? Number(v) : null)}
-              options={examOptions}
-              placeholder="Exam"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>College</Label>
-            <Select
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => applyCollegeCascade(v ? Number(v) : null)}
-              options={collegeOptions}
-              placeholder="College"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group</Label>
-            <Select
-              value={courseGroupId == null ? "0" : String(courseGroupId)}
-              onChange={(v) => applyCourseGroupCascade(v ? Number(v) : 0)}
-              options={courseGroupOptions}
-              placeholder="Course Group"
-              wrapOptionLabels
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Year</Label>
-            <Select
-              value={courseYearId == null ? "0" : String(courseYearId)}
-              onChange={(v) => applyCourseYearCascade(v ? Number(v) : 0)}
-              options={courseYearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Regulation</Label>
-            <Select
-              value={regulationId ? String(regulationId) : null}
-              onChange={(v) => applyRegulationChange(v ? Number(v) : null)}
-              options={regulationOptions}
-              placeholder="Regulation"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-6">
-            <Label>Subject</Label>
-            <Select
-              value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(v ? Number(v) : null)}
-              options={subjectOptions}
-              placeholder="Subject"
-            />
-          </div>
-          {showLabBatch ? (
-            <div className="space-y-1 md:col-span-2">
-              <Label>Lab Batch</Label>
+        <div className="space-y-2">
+          {/* Angular row 1: Course 18% / Exam Year 18% / Exam 64% */}
+          <div className="flex flex-col gap-2 md:flex-row md:items-end">
+            <div className="space-y-1 md:w-[18%]">
+              <Label>Course</Label>
               <Select
-                value={String(labBatchId)}
-                onChange={(v) => setLabBatchId(v ? Number(v) : 0)}
-                options={labBatchOptions}
-                placeholder="Lab Batch"
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                options={courseOptions}
+                placeholder="Course"
+                disabled={loadingFilters}
               />
             </div>
-          ) : null}
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Date</Label>
-            <Input
-              className="h-8 text-[12px]"
-              type="date"
-              value={examDate}
-              disabled
-              readOnly
-            />
+            <div className="space-y-1 md:w-[18%]">
+              <Label>Exam Year</Label>
+              <Select
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                options={academicYearOptions}
+                placeholder="Exam Year"
+              />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label>Exam</Label>
+              <Select
+                value={examId ? String(examId) : null}
+                onChange={(v) => setExamId(v ? Number(v) : null)}
+                options={examOptions}
+                placeholder="Exam"
+                searchable
+                wrapOptionLabels
+              />
+            </div>
           </div>
-          <div className="space-y-1 md:col-span-4">
-            <Label>Invigilator Employee</Label>
-            <Select
-              value={String(invigilatorEmpId)}
-              onChange={(v) => setInvigilatorEmpId(v ? Number(v) : 0)}
-              options={invigilatorOptions}
-              placeholder="All"
-              searchable
-            />
+          {/* Angular row 2: College 16% / Group 16% / Year 16% / Regulation 15% / Subject 50% */}
+          <div className="flex flex-col gap-2 md:flex-row md:items-end">
+            <div className="space-y-1 md:w-[16%]">
+              <Label>College</Label>
+              <Select
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => applyCollegeCascade(v ? Number(v) : null)}
+                options={collegeOptions}
+                placeholder="College"
+              />
+            </div>
+            <div className="space-y-1 md:w-[16%]">
+              <Label>Course Group</Label>
+              <Select
+                value={courseGroupId == null ? "0" : String(courseGroupId)}
+                onChange={(v) => applyCourseGroupCascade(v ? Number(v) : 0)}
+                options={courseGroupOptions}
+                placeholder="Course Group"
+              />
+            </div>
+            <div className="space-y-1 md:w-[16%]">
+              <Label>Course Year</Label>
+              <Select
+                value={courseYearId == null ? "0" : String(courseYearId)}
+                onChange={(v) => applyCourseYearCascade(v ? Number(v) : 0)}
+                options={courseYearOptions}
+                placeholder="Course Year"
+              />
+            </div>
+            <div className="space-y-1 md:w-[15%]">
+              <Label>Regulation</Label>
+              <Select
+                value={regulationId ? String(regulationId) : null}
+                onChange={(v) => applyRegulationChange(v ? Number(v) : null)}
+                options={regulationOptions}
+                placeholder="Regulation"
+              />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <Label>
+                Subject <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={subjectId ? String(subjectId) : null}
+                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                options={subjectOptions}
+                placeholder="Subject"
+                searchable
+                wrapOptionLabels
+              />
+            </div>
+            {showLabBatch ? (
+              <div className="space-y-1 md:w-[15%]">
+                <Label>Lab Batch</Label>
+                <Select
+                  value={String(labBatchId)}
+                  onChange={(v) => setLabBatchId(v ? Number(v) : 0)}
+                  options={labBatchOptions}
+                  placeholder="Lab Batch"
+                />
+              </div>
+            ) : null}
           </div>
-          <div className="space-y-1 md:col-span-3">
-            <Label>Room</Label>
-            <Select
-              value={String(roomId)}
-              onChange={(v) => setRoomId(v ? Number(v) : 0)}
-              options={roomOptions}
-              placeholder="All"
-              searchable
-            />
-          </div>
-          <div className="md:col-span-1">
-            <Button
-              className="h-8 w-full text-[12px]"
-              onClick={onGetList}
-              disabled={loadingList}
-            >
-              {loadingList ? "Loading..." : "Get List"}
-            </Button>
+          {/* Angular row 3: Exam Date 10% / Invigilator 40% / Room 33% / Get List 13% */}
+          <div className="flex flex-col gap-2 md:flex-row md:items-end">
+            <div className="space-y-1 md:w-[12%]">
+              <DatePicker
+                label="Exam Date"
+                placeholder="dd/MM/yyyy"
+                displayFormat="dd/MM/yyyy"
+                value={ymdToDate(examDate)}
+                onChange={() => {}}
+                clearable={false}
+                disabled
+              />
+            </div>
+            <div className="min-w-0 space-y-1 md:w-[40%]">
+              <Label>Invigilator Employee</Label>
+              <Select
+                value={String(invigilatorEmpId)}
+                onChange={(v) => setInvigilatorEmpId(v ? Number(v) : 0)}
+                options={invigilatorOptions}
+                placeholder="All"
+                searchable
+              />
+            </div>
+            <div className="min-w-0 space-y-1 md:w-[33%]">
+              <Label>Room</Label>
+              <Select
+                value={String(roomId)}
+                onChange={(v) => setRoomId(v ? Number(v) : 0)}
+                options={roomOptions}
+                placeholder="All"
+                searchable
+              />
+            </div>
+            <div className="flex shrink-0 items-end md:w-[13%]">
+              <Button
+                className="h-8 w-full text-[12px]"
+                onClick={onGetList}
+                disabled={loadingList}
+              >
+                {loadingList ? "Loading..." : "Get List"}
+              </Button>
+            </div>
           </div>
         </div>
       }
-      filtersOpen={filtersOpen}
-      onFiltersOpenChange={setFiltersOpen}
       resultsVisible={hasFetched}
       tableHeader={
         hasFetched ? (
@@ -1239,43 +1282,27 @@ export default function InternalExamAttendanceMarkingPage() {
       hideEmptyGrid
       fitColumnsToWidth={false}
       pagination
+      rightRailCols={4}
       toolbar={
         hasFetched && rows.length > 0
           ? {
               search: true,
               searchPlaceholder: "Search…",
               pdfDocumentTitle: "Internal Exam Attendance",
-              exportExcel: false,
-              exportPdf: false,
             }
           : false
       }
-      toolbarTrailing={
-        hasFetched && rows.length > 0 ? (
-          <label className="inline-flex shrink-0 items-center gap-2 text-[12px]">
-            <Checkbox
-              checked={allPresent}
-              onCheckedChange={(v) =>
-                setRows((prev) =>
-                  prev.map((r) => ({ ...r, isPresent: Boolean(v) })),
-                )
-              }
-            />
-            <span>{allPresent ? "UnMark All" : "Mark All"}</span>
-          </label>
-        ) : undefined
-      }
       rightRail={
         hasFetched ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
-              <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
+              <h3 className="bg-[#ecf3ff] px-3 py-1.5 text-center text-[13px] font-semibold uppercase text-slate-700">
                 Absentees :{" "}
                 <span className="rounded-full bg-cyan-300 px-2 py-0.5">
                   {absentees.length}
                 </span>
               </h3>
-              <div className="max-h-[420px] overflow-auto p-3 text-[12px]">
+              <div className="max-h-[442px] overflow-auto p-2.5 text-[12px] leading-[1.6]">
                 {absentees.length === 0 ? (
                   <p className="text-muted-foreground">No absents found.</p>
                 ) : (
@@ -1291,32 +1318,7 @@ export default function InternalExamAttendanceMarkingPage() {
                 )}
               </div>
             </div>
-            <div className="flex flex-col items-center gap-2">
-              {attendanceSheetPath ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 text-[12px] text-blue-700 hover:underline"
-                  onClick={() =>
-                    openAttendanceSheet(String(attendanceSheetPath))
-                  }
-                >
-                  <Eye className="h-4 w-4" />
-                  View uploaded sheet
-                </button>
-              ) : null}
-              <Button
-                className="h-8 px-5 text-[12px] bg-blue-600 text-white hover:bg-blue-700"
-                onClick={onUploadAttendanceClick}
-                disabled={uploadingAttendance || rows.length === 0}
-              >
-                {uploadingAttendance ? "Uploading..." : "Upload Attendance"}
-              </Button>
-              <input
-                ref={attendanceFileInputRef}
-                type="file"
-                className="hidden"
-                onChange={onAttendanceFileChange}
-              />
+            <div className="flex justify-end">
               <Button
                 className="h-8 px-5 text-[12px]"
                 onClick={onSaveAttendance}
@@ -1324,11 +1326,6 @@ export default function InternalExamAttendanceMarkingPage() {
               >
                 {saving ? "Saving..." : "Save Attendance"}
               </Button>
-              {selectedAttendanceFileName ? (
-                <p className="text-center text-[11px] text-muted-foreground">
-                  Selected file: {selectedAttendanceFileName}
-                </p>
-              ) : null}
             </div>
           </div>
         ) : null
