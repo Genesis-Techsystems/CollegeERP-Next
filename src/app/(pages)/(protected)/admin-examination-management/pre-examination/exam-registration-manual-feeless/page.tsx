@@ -597,7 +597,7 @@ export default function ExamRegistrationManualFeelessPage() {
         </div>
 
         {/* Filters Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 bg-[#f8f9fa] p-3 rounded border border-[#e9ecef]">
+        <div className="grid grid-cols-1 md:grid-cols-12">
           <div className="md:col-span-5 space-y-1">
             <StudentSearchSelect
               label="Student"

@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
+import { DatePicker } from "@/common/components/date-picker";
 import {
   GlobalFilterBarRow,
   GlobalFilterField,
 } from "@/common/components/forms";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Trash2 } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import {
   resolveExamLoginEmpId,
   getClgExamSubjectFiltersBundle,
@@ -627,16 +629,17 @@ export default function CreateExamTimetablePage() {
               label="Exam Date"
               className="min-w-[9rem] flex-[0.9]"
             >
-              <input
-                type="date"
-                autoFocus
-                className="h-9 w-full rounded-md border border-border bg-card px-3 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-                value={slotDraft.date}
-                min={examFromDate || undefined}
-                max={examToDate || undefined}
-                onChange={(e) =>
-                  setSlotDraft((s) => ({ ...s, date: e.target.value }))
+              <DatePicker
+                value={slotDraft.date ? parseISO(slotDraft.date) : null}
+                minDate={examFromDate ? parseISO(examFromDate) : undefined}
+                maxDate={examToDate ? parseISO(examToDate) : undefined}
+                onChange={(d) =>
+                  setSlotDraft((s) => ({
+                    ...s,
+                    date: d ? format(d, "yyyy-MM-dd") : "",
+                  }))
                 }
+                placeholder="Select date"
               />
             </GlobalFilterField>
             <GlobalFilterField
