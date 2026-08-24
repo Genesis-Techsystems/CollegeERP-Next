@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { format, isValid, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/common/components/select";
 import {
@@ -8,7 +9,8 @@ import {
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTtBundle,
   getUnivExamSubjectUc,
-} from "@/services/pre-examination";
+} from "@/services";
+import { toastSuccess } from "@/lib/toast";
 import { FilteredListPage } from "@/components/layout";
 import {
   GlobalFilterBarRow,
@@ -41,7 +43,7 @@ const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
   const seen = new Set<string | number>();
   return rows.filter((r) => {
     const key = keyFn(r);
-    if (seen.has(key)) return false;
+    if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
@@ -60,10 +62,86 @@ const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
   if (!row) return "";
   for (const k of keys) {
     const v = row[k];
-    if (v != null && String(v).trim() !== "") return String(v);
+    if (v != null && String(v).trim() !== "" && String(v) !== "undefined") {
+      return String(v);
+    }
   }
   return "";
 };
+
+function asBool(v: unknown): boolean {
+  return v === true || v === 1 || v === "1" || v === "true";
+}
+
+function parseExamDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = parseISO(raw.length >= 10 ? raw.slice(0, 10) : raw);
+  if (isValid(iso)) return iso;
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+function formatExamDateLabel(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "MMM d, yyyy") : "";
+}
+
+function examTypeTags(row: AnyRow): string[] {
+  const tags: string[] = [];
+  if (asBool(row.is_internal_exam ?? row.isInternalExam)) tags.push("Internal");
+  if (asBool(row.is_regular_exam ?? row.isRegularExam)) tags.push("Regular");
+  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) tags.push("Supple");
+  return tags;
+}
+
+/** Label: Exam Name (Dec 22, 2025 - May 6, 2026)(Regular)(Supple) */
+function formatExamOptionLabel(row: AnyRow): string {
+  const name = pickText(row, ["exam_name", "examName"]) || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(row)
+    .map((t) => `(${t})`)
+    .join("");
+  return `${name}${range}${tags}`;
+}
+
+function examOptionLabelNode(row: AnyRow) {
+  const name = pickText(row, ["exam_name", "examName"]) || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  return (
+    <span>
+      {name}
+      {range}
+      {examTypeTags(row).map((t) => (
+        <span key={t} className="font-medium text-[#0014ff]">
+          ({t})
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function yearLabel(row: AnyRow): string {
+  // Prefer code (Angular mat-option); name is often missing → "undefined" in summary.
+  return (
+    pickText(row, [
+      "course_year_code",
+      "courseYearCode",
+      "course_year_name",
+      "courseYearName",
+    ]) || "-"
+  );
+}
 
 export default function ExamFormsPage() {
   const [isMounted, setIsMounted] = useState(false);
@@ -93,6 +171,17 @@ export default function ExamFormsPage() {
   const restoreRef = useRef<ExamFormsReturnState | null>(null);
   /** Skip college/group cascade defaults while applying restore. */
   const skipCascadeRef = useRef(false);
+  /** Latest filter ids for async cascade (avoid stale closures). */
+  const idsRef = useRef({
+    courseId: 0,
+    academicYearId: 0,
+    examId: 0,
+    collegeId: 0,
+    courseGroupId: 0,
+    courseYearId: 0,
+    regulationId: 0,
+    employeeId: 0,
+  });
 
   const courses = useMemo(
     () =>
@@ -128,7 +217,11 @@ export default function ExamFormsPage() {
     () =>
       dedupeBy(restRows, (r) =>
         pickNum(r, ["fk_college_id", "collegeId"]),
-      ).filter((r) => pickNum(r, ["fk_college_id", "collegeId"]) > 0),
+      ).filter((r) => {
+        const id = pickNum(r, ["fk_college_id", "collegeId"]);
+        const code = pickText(r, ["college_code", "collegeCode"]);
+        return id > 0 && !!code;
+      }),
     [restRows],
   );
   const groups = useMemo(
@@ -139,7 +232,11 @@ export default function ExamFormsPage() {
             pickNum(r, ["fk_college_id", "collegeId"]) === Number(collegeId),
         ),
         (r) => pickNum(r, ["fk_course_group_id", "courseGroupId"]),
-      ),
+      ).filter((r) => {
+        const id = pickNum(r, ["fk_course_group_id", "courseGroupId"]);
+        const code = pickText(r, ["group_code", "groupCode"]);
+        return id > 0 && !!code;
+      }),
     [restRows, collegeId],
   );
   const years = useMemo(
@@ -152,7 +249,16 @@ export default function ExamFormsPage() {
               Number(courseGroupId),
         ),
         (r) => pickNum(r, ["fk_course_year_id", "courseYearId"]),
-      ),
+      ).filter((r) => {
+        const id = pickNum(r, ["fk_course_year_id", "courseYearId"]);
+        const code = pickText(r, [
+          "course_year_code",
+          "courseYearCode",
+          "course_year_name",
+          "courseYearName",
+        ]);
+        return id > 0 && !!code;
+      }),
     [restRows, collegeId, courseGroupId],
   );
   const regulations = useMemo(
@@ -167,18 +273,23 @@ export default function ExamFormsPage() {
     [subRows],
   );
 
-  const printCourseYear = pickText(
+  idsRef.current = {
+    courseId: Number(courseId ?? 0),
+    academicYearId: Number(academicYearId ?? 0),
+    examId: Number(examId ?? 0),
+    collegeId: Number(collegeId ?? 0),
+    courseGroupId: Number(courseGroupId ?? 0),
+    courseYearId: Number(courseYearId ?? 0),
+    regulationId: Number(regulationId ?? 0),
+    employeeId,
+  };
+
+  const printCourseYear = yearLabel(
     years.find(
       (y) =>
         pickNum(y, ["fk_course_year_id", "courseYearId"]) ===
         Number(courseYearId),
-    ),
-    [
-      "course_year_name",
-      "courseYearName",
-      "course_year_code",
-      "courseYearCode",
-    ],
+    ) ?? {},
   );
   const printExamName = pickText(
     exams.find((e) => pickNum(e, ["fk_exam_id", "examId"]) === Number(examId)),
@@ -194,7 +305,7 @@ export default function ExamFormsPage() {
   );
   const collegeLogo = useCollegeLogo(collegeId);
   const { printButtons } = useExamFormsPrint(students, {
-    courseYear: printCourseYear,
+    courseYear: printCourseYear === "-" ? "" : printCourseYear,
     examName: printExamName,
     logoUrl: collegeLogo,
     groupName: printGroupName,
@@ -218,56 +329,13 @@ export default function ExamFormsPage() {
   useEffect(() => {
     if (!isMounted) return;
     void init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init once when employee ready
   }, [isMounted, employeeId]);
 
-  useEffect(() => {
-    if (skipCascadeRef.current) return;
-    setCourseGroupId(null);
-    setCourseYearId(null);
-    setSubRows([]);
-    setSubjectId(null);
-    const first = groups[0];
-    if (first)
-      setCourseGroupId(pickNum(first, ["fk_course_group_id", "courseGroupId"]));
-  }, [collegeId]);
-
-  useEffect(() => {
-    if (skipCascadeRef.current) return;
-    setCourseYearId(null);
-    setSubRows([]);
-    setSubjectId(null);
-    const first = years[0];
-    if (first)
-      setCourseYearId(pickNum(first, ["fk_course_year_id", "courseYearId"]));
-  }, [courseGroupId]);
-
-  useEffect(() => {
-    if (!regulations.length) return;
-    if (skipCascadeRef.current) return;
-    if (!regulationId) {
-      const first = regulations[0];
-      setRegulationId(pickNum(first, REG_ID_KEYS));
-      setSelectedBackendRegulationId(pickNum(first, REG_ID_KEYS));
-    }
-  }, [regulations, regulationId]);
-
-  useEffect(() => {
-    if (!regulationId) return;
-    if (skipCascadeRef.current) return;
-    void loadSubjects(regulationId);
-  }, [regulationId]);
-
-  function normalizeStudents(list: AnyRow[]) {
-    return list.map((r) => ({
-      ...r,
-      hallticket_number: r.hallticket_number ?? r.hallticketNumber,
-      StudentName: r.StudentName ?? r.student_name ?? r.studentName,
-      student_name: r.student_name ?? r.studentName ?? r.StudentName,
-      omr_serial_no: r.omr_serial_no ?? r.omrSerialNo,
-      is_present: r.is_present ?? r.isPresent ?? null,
-      isPresent: r.is_present ?? r.isPresent ?? null,
-      isUfm: r.isUfm ?? r.is_ufm ?? false,
-    }));
+  function clearResults() {
+    setStudents([]);
+    setListLoaded(false);
+    setSelectedData("");
   }
 
   function buildSelectedSummary(opts: {
@@ -282,8 +350,7 @@ export default function ExamFormsPage() {
     const course = dedupeBy(opts.base, (r) =>
       pickNum(r, ["fk_course_id", "courseId"]),
     ).find(
-      (x) =>
-        pickNum(x, ["fk_course_id", "courseId"]) === Number(opts.courseId),
+      (x) => pickNum(x, ["fk_course_id", "courseId"]) === Number(opts.courseId),
     );
     const ay = dedupeBy(
       opts.base.filter(
@@ -332,15 +399,379 @@ export default function ExamFormsPage() {
       pickText(ay, ["academic_year", "academicYear"]),
       pickText(course, ["course_code", "courseCode"]),
       pickText(grp, ["group_code", "groupCode"]),
-      pickText(yr, [
-        "course_year_name",
-        "courseYearName",
+      yearLabel(yr ?? {}),
+    ]
+      .filter((p) => p && p !== "-")
+      .join(" / ");
+  }
+
+  function normalizeStudents(list: AnyRow[]) {
+    return list.map((r) => ({
+      ...r,
+      hallticket_number: r.hallticket_number ?? r.hallticketNumber,
+      StudentName: r.StudentName ?? r.student_name ?? r.studentName,
+      student_name: r.student_name ?? r.studentName ?? r.StudentName,
+      omr_serial_no: r.omr_serial_no ?? r.omrSerialNo,
+      is_present: r.is_present ?? r.isPresent ?? null,
+      isPresent: r.is_present ?? r.isPresent ?? null,
+      isUfm: r.isUfm ?? r.is_ufm ?? false,
+    }));
+  }
+
+  /** Angular `selectedRegulation` — load subjects for univ_exam_subject_uc. */
+  async function loadSubjectsFor(
+    params: {
+      collegeId: number;
+      courseId: number;
+      courseGroupId: number;
+      courseYearId: number;
+      examId: number;
+      academicYearId: number;
+      regulationId: number;
+    },
+    opts?: { selectFirst?: boolean; restoreSubjectId?: number },
+  ) {
+    if (
+      !params.collegeId ||
+      !params.courseId ||
+      !params.courseGroupId ||
+      !params.courseYearId ||
+      !params.examId ||
+      !params.academicYearId
+    ) {
+      setSubRows([]);
+      setSubjectId(null);
+      return;
+    }
+    const rows = await getUnivExamSubjectUc({
+      collegeId: params.collegeId,
+      courseId: params.courseId,
+      courseGroupId: params.courseGroupId,
+      courseYearId: params.courseYearId,
+      examId: params.examId,
+      academicYearId: params.academicYearId,
+      regulationId: params.regulationId || 0,
+      employeeId: idsRef.current.employeeId,
+    }).catch(() => []);
+    const list = Array.isArray(rows) ? rows : [];
+    setSubRows(list);
+    if (skipCascadeRef.current && opts?.restoreSubjectId) {
+      setSubjectId(opts.restoreSubjectId);
+      return;
+    }
+    if (opts?.selectFirst === false) return;
+    if (list[0]) setSubjectId(pickNum(list[0], SUBJECT_ID_KEYS));
+    else setSubjectId(null);
+  }
+
+  /** Angular `selectedYear` — regulations from exam bundle, then subjects. */
+  async function applyCourseYear(
+    yearId: number,
+    rest: AnyRow[],
+    regs: AnyRow[],
+    ctx: {
+      collegeId: number;
+      courseId: number;
+      courseGroupId: number;
+      examId: number;
+      academicYearId: number;
+    },
+    restore?: ExamFormsReturnState | null,
+  ) {
+    setCourseYearId(yearId || null);
+    setSubjectId(null);
+    setSubRows([]);
+
+    const regList = dedupeBy(regs, (r) => pickNum(r, REG_ID_KEYS)).filter(
+      (r) => pickNum(r, REG_ID_KEYS) > 0,
+    );
+    setRegRows(regList);
+
+    const regId =
+      restore?.regulationId && restore.regulationId > 0
+        ? restore.regulationId
+        : pickNum(regList[0], REG_ID_KEYS);
+    setRegulationId(regId || null);
+    setSelectedBackendRegulationId(regId || 0);
+
+    if (regId > 0 || yearId > 0) {
+      await loadSubjectsFor(
+        {
+          collegeId: ctx.collegeId,
+          courseId: ctx.courseId,
+          courseGroupId: ctx.courseGroupId,
+          courseYearId: yearId,
+          examId: ctx.examId,
+          academicYearId: ctx.academicYearId,
+          regulationId: regId,
+        },
+        {
+          restoreSubjectId:
+            restore?.subjectId && restore.subjectId > 0
+              ? restore.subjectId
+              : undefined,
+        },
+      );
+    }
+
+    void rest;
+  }
+
+  /** Angular `selectedGroup`. */
+  async function applyCourseGroup(
+    groupId: number,
+    rest: AnyRow[],
+    regs: AnyRow[],
+    ctx: {
+      collegeId: number;
+      courseId: number;
+      examId: number;
+      academicYearId: number;
+    },
+    restore?: ExamFormsReturnState | null,
+  ) {
+    setCourseGroupId(groupId || null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setSubRows([]);
+
+    const yearList = dedupeBy(
+      rest.filter(
+        (r) =>
+          pickNum(r, ["fk_college_id", "collegeId"]) === ctx.collegeId &&
+          pickNum(r, ["fk_course_group_id", "courseGroupId"]) === groupId,
+      ),
+      (r) => pickNum(r, ["fk_course_year_id", "courseYearId"]),
+    ).filter((r) => {
+      const id = pickNum(r, ["fk_course_year_id", "courseYearId"]);
+      const code = pickText(r, [
         "course_year_code",
         "courseYearCode",
-      ]),
-    ]
-      .filter(Boolean)
-      .join(" / ");
+        "course_year_name",
+        "courseYearName",
+      ]);
+      return id > 0 && !!code;
+    });
+    const yearId =
+      restore?.courseYearId && restore.courseYearId > 0
+        ? restore.courseYearId
+        : pickNum(yearList[0], ["fk_course_year_id", "courseYearId"]);
+    if (yearId > 0) {
+      await applyCourseYear(
+        yearId,
+        rest,
+        regs,
+        { ...ctx, courseGroupId: groupId },
+        restore,
+      );
+    }
+  }
+
+  /** Angular `selectedCollege`. */
+  async function applyCollege(
+    clgId: number,
+    rest: AnyRow[],
+    regs: AnyRow[],
+    ctx: { courseId: number; examId: number; academicYearId: number },
+    restore?: ExamFormsReturnState | null,
+  ) {
+    setCollegeId(clgId || null);
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setSubRows([]);
+
+    const groupList = dedupeBy(
+      rest.filter((r) => pickNum(r, ["fk_college_id", "collegeId"]) === clgId),
+      (r) => pickNum(r, ["fk_course_group_id", "courseGroupId"]),
+    ).filter((r) => {
+      const id = pickNum(r, ["fk_course_group_id", "courseGroupId"]);
+      const code = pickText(r, ["group_code", "groupCode"]);
+      return id > 0 && !!code;
+    });
+    const groupId =
+      restore?.courseGroupId && restore.courseGroupId > 0
+        ? restore.courseGroupId
+        : pickNum(groupList[0], ["fk_course_group_id", "courseGroupId"]);
+    if (groupId > 0) {
+      await applyCourseGroup(
+        groupId,
+        rest,
+        regs,
+        { ...ctx, collegeId: clgId },
+        restore,
+      );
+    }
+  }
+
+  /** Angular `selectedExam` — univ_exam_rest_no_tt. */
+  async function onExamChange(
+    eid: number,
+    cidArg?: number,
+    ayArg?: number,
+    restore?: ExamFormsReturnState | null,
+    baseForSummary?: AnyRow[],
+  ) {
+    const cid = Number(cidArg ?? idsRef.current.courseId);
+    const ayid = Number(ayArg ?? idsRef.current.academicYearId);
+    if (!cid || !ayid || !eid) return;
+
+    setExamId(eid);
+    if (!restore) {
+      setCollegeId(null);
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setRegulationId(null);
+      setSelectedBackendRegulationId(0);
+      setSubjectId(null);
+      setSubRows([]);
+      setRestRows([]);
+      setRegRows([]);
+      clearResults();
+    }
+
+    const bundle = await getUnivExamRestNoTtBundle({
+      courseId: cid,
+      examId: eid,
+      academicYearId: ayid,
+      employeeId: idsRef.current.employeeId,
+    }).catch(() => ({ restFilters: [], regulations: [] }));
+    const rest = Array.isArray(bundle.restFilters) ? bundle.restFilters : [];
+    const regs = Array.isArray(bundle.regulations) ? bundle.regulations : [];
+    setRestRows(rest);
+    setRegRows(dedupeBy(regs, (r) => pickNum(r, REG_ID_KEYS)));
+
+    if (restore && restore.collegeId > 0) {
+      await applyCollege(
+        restore.collegeId,
+        rest,
+        regs,
+        { courseId: cid, examId: eid, academicYearId: ayid },
+        restore,
+      );
+      setSelectedData(
+        restore.selectedData ||
+          buildSelectedSummary({
+            courseId: cid,
+            academicYearId: ayid,
+            collegeId: restore.collegeId,
+            courseGroupId: restore.courseGroupId,
+            courseYearId: restore.courseYearId,
+            base: baseForSummary ?? baseRows,
+            rest,
+          }),
+      );
+      if (Array.isArray(restore.students) && restore.students.length > 0) {
+        setStudents(normalizeStudents(restore.students as AnyRow[]));
+      }
+      setListLoaded(true);
+      return;
+    }
+
+    const clgList = dedupeBy(rest, (r) =>
+      pickNum(r, ["fk_college_id", "collegeId"]),
+    ).filter((r) => {
+      const id = pickNum(r, ["fk_college_id", "collegeId"]);
+      const code = pickText(r, ["college_code", "collegeCode"]);
+      return id > 0 && !!code;
+    });
+    const clgId = pickNum(clgList[0], ["fk_college_id", "collegeId"]);
+    if (clgId > 0) {
+      await applyCollege(
+        clgId,
+        rest,
+        regs,
+        { courseId: cid, examId: eid, academicYearId: ayid },
+        null,
+      );
+    } else {
+      setCollegeId(null);
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubRows([]);
+    }
+  }
+
+  /** Angular `selectedAcademicYear`. */
+  async function onAcademicYearChange(
+    ayid: number,
+    cidArg?: number,
+    restore?: ExamFormsReturnState | null,
+    baseList?: AnyRow[],
+  ) {
+    const cid = Number(cidArg ?? idsRef.current.courseId);
+    const list = baseList ?? baseRows;
+    setAcademicYearId(ayid || null);
+    setExamId(null);
+    setCollegeId(null);
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setRestRows([]);
+    setRegRows([]);
+    setSubRows([]);
+    if (!restore) clearResults();
+
+    const examList = dedupeBy(
+      list.filter(
+        (r) =>
+          pickNum(r, ["fk_course_id", "courseId"]) === cid &&
+          pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ayid,
+      ),
+      (r) => pickNum(r, ["fk_exam_id", "examId"]),
+    );
+    const eid =
+      restore?.examId && restore.examId > 0
+        ? restore.examId
+        : pickNum(examList[0], ["fk_exam_id", "examId"]);
+    if (eid > 0) {
+      await onExamChange(eid, cid, ayid, restore, list);
+    }
+  }
+
+  /** Angular `selectedCourse`. */
+  async function onCourseChange(
+    cid: number,
+    restore?: ExamFormsReturnState | null,
+    baseList?: AnyRow[],
+  ) {
+    const list = baseList ?? baseRows;
+    setCourseId(cid || null);
+    setAcademicYearId(null);
+    setExamId(null);
+    setCollegeId(null);
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setRegulationId(null);
+    setSelectedBackendRegulationId(0);
+    setSubjectId(null);
+    setRestRows([]);
+    setRegRows([]);
+    setSubRows([]);
+    if (!restore) clearResults();
+
+    const ayList = dedupeBy(
+      list.filter((r) => pickNum(r, ["fk_course_id", "courseId"]) === cid),
+      (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
+    );
+    const sorted = [...ayList].sort(
+      (a, b) => Number(b.is_curr_ay ?? 0) - Number(a.is_curr_ay ?? 0),
+    );
+    const ayid =
+      restore?.academicYearId && restore.academicYearId > 0
+        ? restore.academicYearId
+        : pickNum(sorted[0], ["fk_academic_year_id", "academicYearId"]);
+    if (ayid > 0) {
+      await onAcademicYearChange(ayid, cid, restore, list);
+    }
   }
 
   async function init() {
@@ -360,40 +791,12 @@ export default function ExamFormsPage() {
           : pickNum(defaultCourse, ["fk_course_id", "courseId"])) || 0;
       if (!cid) return;
 
-      const defaultAy = dedupeBy(
-        list.filter((r) => pickNum(r, ["fk_course_id", "courseId"]) === cid),
-        (r) => pickNum(r, ["fk_academic_year_id", "academicYearId"]),
-      )[0];
-      const ayid =
-        (restore?.academicYearId && restore.academicYearId > 0
-          ? restore.academicYearId
-          : pickNum(defaultAy, ["fk_academic_year_id", "academicYearId"])) || 0;
-      if (!ayid) return;
-
-      const defaultEx = dedupeBy(
-        list.filter(
-          (r) =>
-            pickNum(r, ["fk_course_id", "courseId"]) === cid &&
-            pickNum(r, ["fk_academic_year_id", "academicYearId"]) === ayid,
-        ),
-        (r) => pickNum(r, ["fk_exam_id", "examId"]),
-      )[0];
-      const eid =
-        (restore?.examId && restore.examId > 0
-          ? restore.examId
-          : pickNum(defaultEx, ["fk_exam_id", "examId"])) || 0;
-      if (!eid) return;
-
       if (restore) skipCascadeRef.current = true;
-      setCourseId(cid);
-      setAcademicYearId(ayid);
-      setExamId(eid);
-      await onExamChange(eid, cid, ayid, restore, list);
+      await onCourseChange(cid, restore, list);
 
       if (restore) {
         clearExamFormsReturnState();
         restoreRef.current = null;
-        // Release cascade lock after state + effects flush.
         window.setTimeout(() => {
           skipCascadeRef.current = false;
         }, 0);
@@ -403,109 +806,83 @@ export default function ExamFormsPage() {
     }
   }
 
-  async function onExamChange(
-    eid: number,
-    cidArg?: number,
-    ayArg?: number,
-    restore?: ExamFormsReturnState | null,
-    baseForSummary?: AnyRow[],
-  ) {
-    const cid = Number(cidArg ?? courseId ?? 0);
-    const ayid = Number(ayArg ?? academicYearId ?? 0);
-    if (!cid || !ayid) return;
-    const bundle = await getUnivExamRestNoTtBundle({
-      courseId: cid,
-      examId: eid,
-      academicYearId: ayid,
-      employeeId,
-    }).catch(() => ({ restFilters: [], regulations: [] }));
-    const rest = Array.isArray(bundle.restFilters) ? bundle.restFilters : [];
-    const regs = Array.isArray(bundle.regulations) ? bundle.regulations : [];
-    setRestRows(rest);
-    setRegRows(dedupeBy([...regs, ...rest], (r) => pickNum(r, REG_ID_KEYS)));
-
-    if (restore && restore.collegeId > 0) {
-      const regId = restore.regulationId > 0 ? restore.regulationId : 0;
-      const groupId = restore.courseGroupId > 0 ? restore.courseGroupId : 0;
-      const yearId = restore.courseYearId > 0 ? restore.courseYearId : 0;
-      const subId = restore.subjectId > 0 ? restore.subjectId : 0;
-
-      setCollegeId(restore.collegeId);
-      setCourseGroupId(groupId || null);
-      setCourseYearId(yearId || null);
-      setRegulationId(regId || null);
-      setSelectedBackendRegulationId(regId);
-
-      if (restore.collegeId && cid && groupId && yearId && eid && ayid) {
-        const subList = await getUnivExamSubjectUc({
-          collegeId: restore.collegeId,
-          courseId: cid,
-          courseGroupId: groupId,
-          courseYearId: yearId,
-          examId: eid,
-          academicYearId: ayid,
-          regulationId: regId,
-          employeeId,
-        }).catch(() => []);
-        const subjects = Array.isArray(subList) ? subList : [];
-        setSubRows(subjects);
-        if (subId > 0) setSubjectId(subId);
-        else if (subjects[0])
-          setSubjectId(pickNum(subjects[0], SUBJECT_ID_KEYS));
-      }
-
-      setSelectedData(
-        restore.selectedData ||
-          buildSelectedSummary({
-            courseId: cid,
-            academicYearId: ayid,
-            collegeId: restore.collegeId,
-            courseGroupId: groupId,
-            courseYearId: yearId,
-            base: baseForSummary ?? baseRows,
-            rest,
-          }),
-      );
-      if (Array.isArray(restore.students) && restore.students.length > 0) {
-        setStudents(normalizeStudents(restore.students as AnyRow[]));
-      }
-      setListLoaded(true);
+  async function onCollegeUserChange(clgId: number | null) {
+    clearResults();
+    const rest = restRows;
+    const regs = regRows;
+    const ctx = {
+      courseId: idsRef.current.courseId,
+      examId: idsRef.current.examId,
+      academicYearId: idsRef.current.academicYearId,
+    };
+    if (!clgId) {
+      setCollegeId(null);
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubRows([]);
       return;
     }
-
-    const clg = dedupeBy(rest, (r) =>
-      pickNum(r, ["fk_college_id", "collegeId"]),
-    ).find((r) => pickNum(r, ["fk_college_id", "collegeId"]) > 0);
-    if (clg) setCollegeId(pickNum(clg, ["fk_college_id", "collegeId"]));
+    await applyCollege(clgId, rest, regs, ctx, null);
   }
 
-  async function loadSubjects(targetRegId?: number | null) {
-    if (
-      !collegeId ||
-      !courseId ||
-      !courseGroupId ||
-      !courseYearId ||
-      !examId ||
-      !academicYearId
-    )
+  async function onGroupUserChange(groupId: number | null) {
+    clearResults();
+    const rest = restRows;
+    const regs = regRows;
+    const ctx = {
+      collegeId: idsRef.current.collegeId,
+      courseId: idsRef.current.courseId,
+      examId: idsRef.current.examId,
+      academicYearId: idsRef.current.academicYearId,
+    };
+    if (!groupId) {
+      setCourseGroupId(null);
+      setCourseYearId(null);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubRows([]);
       return;
-    const backendReg = Number(
-      targetRegId ?? selectedBackendRegulationId ?? regulationId ?? 0,
-    );
-    const rows = await getUnivExamSubjectUc({
-      collegeId,
-      courseId,
-      courseGroupId,
-      courseYearId,
-      examId,
-      academicYearId,
-      regulationId: backendReg,
-      employeeId,
-    }).catch(() => []);
-    const list = Array.isArray(rows) ? rows : [];
-    setSubRows(list);
-    if (skipCascadeRef.current) return;
-    if (list[0]) setSubjectId(pickNum(list[0], SUBJECT_ID_KEYS));
+    }
+    await applyCourseGroup(groupId, rest, regs, ctx, null);
+  }
+
+  async function onYearUserChange(yearId: number | null) {
+    clearResults();
+    const rest = restRows;
+    const regs = regRows;
+    const ctx = {
+      collegeId: idsRef.current.collegeId,
+      courseId: idsRef.current.courseId,
+      courseGroupId: idsRef.current.courseGroupId,
+      examId: idsRef.current.examId,
+      academicYearId: idsRef.current.academicYearId,
+    };
+    if (!yearId) {
+      setCourseYearId(null);
+      setRegulationId(null);
+      setSubjectId(null);
+      setSubRows([]);
+      return;
+    }
+    await applyCourseYear(yearId, rest, regs, ctx, null);
+  }
+
+  async function onRegulationUserChange(regId: number | null) {
+    clearResults();
+    setRegulationId(regId);
+    setSelectedBackendRegulationId(regId ?? 0);
+    setSubjectId(null);
+    await loadSubjectsFor({
+      collegeId: idsRef.current.collegeId,
+      courseId: idsRef.current.courseId,
+      courseGroupId: idsRef.current.courseGroupId,
+      courseYearId: idsRef.current.courseYearId,
+      examId: idsRef.current.examId,
+      academicYearId: idsRef.current.academicYearId,
+      regulationId: regId ?? 0,
+    });
   }
 
   async function getList() {
@@ -513,6 +890,7 @@ export default function ExamFormsPage() {
       return;
     setLoading(true);
     try {
+      // Angular getDetails: build summary first, then load OMR students.
       setSelectedData(
         buildSelectedSummary({
           courseId: Number(courseId),
@@ -525,17 +903,20 @@ export default function ExamFormsPage() {
         }),
       );
 
+      // Angular listByFourteenIds always passes in_regulation_id = 0 for exam forms.
       const rows = await getExamOmrStudents({
         examId,
         collegeId,
         courseGroupId,
         courseYearId,
-        regulationId: selectedBackendRegulationId || regulationId || 0,
+        regulationId: 0,
         subjectId,
       }).catch(() => []);
       const list = Array.isArray(rows) ? rows : [];
       setStudents(normalizeStudents(list));
       setListLoaded(true);
+      // Angular: empty → success toast "No Records Found." (print buttons stay hidden)
+      if (list.length === 0) toastSuccess("No Records Found.");
     } finally {
       setLoading(false);
     }
@@ -544,13 +925,34 @@ export default function ExamFormsPage() {
   return (
     <FilteredListPage
       title="Exam Forms"
+      tableTitle={selectedData}
       filters={
         <>
           <GlobalFilterBarRow className="global-filter-bar__row--ef-r1">
-            <GlobalFilterField label="Course *" className="global-filter-field--fx20">
+            <GlobalFilterField
+              label="Course *"
+              className="global-filter-field--fx20"
+            >
               <Select
                 value={courseId ? String(courseId) : null}
-                onChange={(v) => setCourseId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  const cid = v ? Number(v) : null;
+                  if (cid) void onCourseChange(cid);
+                  else {
+                    setCourseId(null);
+                    setAcademicYearId(null);
+                    setExamId(null);
+                    setCollegeId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRegulationId(null);
+                    setSubjectId(null);
+                    setRestRows([]);
+                    setRegRows([]);
+                    setSubRows([]);
+                    clearResults();
+                  }
+                }}
                 options={courses.map((c) => ({
                   value: String(pickNum(c, ["fk_course_id", "courseId"])),
                   label:
@@ -570,7 +972,23 @@ export default function ExamFormsPage() {
             >
               <Select
                 value={academicYearId ? String(academicYearId) : null}
-                onChange={(v) => setAcademicYearId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  const ayid = v ? Number(v) : null;
+                  if (ayid) void onAcademicYearChange(ayid);
+                  else {
+                    setAcademicYearId(null);
+                    setExamId(null);
+                    setCollegeId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRegulationId(null);
+                    setSubjectId(null);
+                    setRestRows([]);
+                    setRegRows([]);
+                    setSubRows([]);
+                    clearResults();
+                  }
+                }}
                 options={academicYears.map((a) => ({
                   value: String(
                     pickNum(a, ["fk_academic_year_id", "academicYearId"]),
@@ -588,18 +1006,31 @@ export default function ExamFormsPage() {
                 value={examId ? String(examId) : null}
                 onChange={(v) => {
                   const eid = v ? Number(v) : null;
-                  setExamId(eid);
-                  if (eid)
-                    void onExamChange(
-                      eid,
-                      courseId ?? undefined,
-                      academicYearId ?? undefined,
-                    );
+                  if (eid) void onExamChange(eid);
+                  else {
+                    setExamId(null);
+                    setCollegeId(null);
+                    setCourseGroupId(null);
+                    setCourseYearId(null);
+                    setRegulationId(null);
+                    setSubjectId(null);
+                    setRestRows([]);
+                    setRegRows([]);
+                    setSubRows([]);
+                    clearResults();
+                  }
                 }}
-                options={exams.map((e) => ({
-                  value: String(pickNum(e, ["fk_exam_id", "examId"])),
-                  label: pickText(e, ["exam_name", "examName"]) || "-",
-                }))}
+                searchable
+                wrapOptionLabels
+                options={exams.map((e) => {
+                  const label = formatExamOptionLabel(e);
+                  return {
+                    value: String(pickNum(e, ["fk_exam_id", "examId"])),
+                    label,
+                    title: label,
+                    labelNode: examOptionLabelNode(e),
+                  };
+                })}
                 placeholder="Exam Master"
               />
             </GlobalFilterField>
@@ -612,7 +1043,7 @@ export default function ExamFormsPage() {
             >
               <Select
                 value={collegeId ? String(collegeId) : null}
-                onChange={(v) => setCollegeId(v ? Number(v) : null)}
+                onChange={(v) => void onCollegeUserChange(v ? Number(v) : null)}
                 options={colleges.map((c) => ({
                   value: String(pickNum(c, ["fk_college_id", "collegeId"])),
                   label:
@@ -632,7 +1063,7 @@ export default function ExamFormsPage() {
             >
               <Select
                 value={courseGroupId ? String(courseGroupId) : null}
-                onChange={(v) => setCourseGroupId(v ? Number(v) : null)}
+                onChange={(v) => void onGroupUserChange(v ? Number(v) : null)}
                 options={groups.map((g) => ({
                   value: String(
                     pickNum(g, ["fk_course_group_id", "courseGroupId"]),
@@ -648,18 +1079,12 @@ export default function ExamFormsPage() {
             >
               <Select
                 value={courseYearId ? String(courseYearId) : null}
-                onChange={(v) => setCourseYearId(v ? Number(v) : null)}
+                onChange={(v) => void onYearUserChange(v ? Number(v) : null)}
                 options={years.map((y) => ({
                   value: String(
                     pickNum(y, ["fk_course_year_id", "courseYearId"]),
                   ),
-                  label:
-                    pickText(y, [
-                      "course_year_code",
-                      "courseYearCode",
-                      "course_year_name",
-                      "courseYearName",
-                    ]) || "-",
+                  label: yearLabel(y),
                 }))}
                 placeholder="Course Year"
               />
@@ -670,12 +1095,9 @@ export default function ExamFormsPage() {
             >
               <Select
                 value={regulationId ? String(regulationId) : null}
-                onChange={(v) => {
-                  const id = v ? Number(v) : null;
-                  setRegulationId(id);
-                  setSelectedBackendRegulationId(id ?? 0);
-                  setSubjectId(null);
-                }}
+                onChange={(v) =>
+                  void onRegulationUserChange(v ? Number(v) : null)
+                }
                 options={regulations.map((r) => ({
                   value: String(pickNum(r, REG_ID_KEYS)),
                   label:
@@ -695,7 +1117,12 @@ export default function ExamFormsPage() {
             >
               <Select
                 value={subjectId ? String(subjectId) : null}
-                onChange={(v) => setSubjectId(v ? Number(v) : null)}
+                onChange={(v) => {
+                  clearResults();
+                  setSubjectId(v ? Number(v) : null);
+                }}
+                searchable
+                wrapOptionLabels
                 options={subjects.map((s) => ({
                   value: String(pickNum(s, SUBJECT_ID_KEYS)),
                   label:
@@ -725,14 +1152,12 @@ export default function ExamFormsPage() {
       }
       body={
         listLoaded ? (
-          <div className="flex min-h-[10rem] flex-col justify-between gap-4">
-            {selectedData ? (
-              <strong className="text-[14px] text-[hsl(var(--primary))]">
-                {selectedData}
-              </strong>
-            ) : null}
+          <div className="flex min-h-[4rem] flex-col gap-4">
+            {/* Angular: print buttons only when subjectModerationStudents.length > 0 */}
             {students.length > 0 ? (
-              <div className="flex justify-end">{printButtons}</div>
+              <div className="printbtn flex flex-wrap justify-end gap-3">
+                {printButtons}
+              </div>
             ) : null}
           </div>
         ) : null

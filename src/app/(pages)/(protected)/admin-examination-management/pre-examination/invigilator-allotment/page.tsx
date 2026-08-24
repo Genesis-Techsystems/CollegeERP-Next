@@ -641,7 +641,7 @@ export default function InvigilatorAllotmentPage() {
           placeholder="Course"
         />
       </GlobalFilterField>
-      <GlobalFilterField label="Exam">
+      <GlobalFilterField label="Exam" style={{ minWidth: "40%" }}>
         <Select
           value={examId ? String(examId) : null}
           onChange={(v) => setExamId(v ? Number(v) : null)}
@@ -656,7 +656,7 @@ export default function InvigilatorAllotmentPage() {
           searchable
         />
       </GlobalFilterField>
-      <GlobalFilterField label="Exam Timetable">
+      <GlobalFilterField label="Exam Timetable" style={{ maxWidth: "20%" }}>
         <Select
           value={examTimetableId ? String(examTimetableId) : null}
           onChange={(v) => setExamTimetableId(v ? Number(v) : null)}
@@ -675,22 +675,7 @@ export default function InvigilatorAllotmentPage() {
 
   const body = examTimetableId ? (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[13px] font-semibold tracking-tight">
-          Exam Allocated Rooms List (
-          {pickText(selectedCollege, ["collegeCode", "college_code"]) || "-"} /{" "}
-          {pickText(selectedCourse, ["courseCode", "course_code"]) || "-"} /{" "}
-          {pickText(selectedExam, ["examName", "exam_name"]) || "-"} /{" "}
-          {toDateStr(selectedTimetable?.examDate) || "-"})
-        </div>
-        <Button
-          className="h-8 text-[12px]"
-          onClick={onAutoAssign}
-          disabled={autoAssigning || loadingRooms}
-        >
-          {autoAssigning ? "Assigning..." : "Auto Assign Invigilators"}
-        </Button>
-      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2"></div>
 
       <div className="text-[12px]">
         <span className="font-medium text-blue-700">
@@ -825,6 +810,15 @@ export default function InvigilatorAllotmentPage() {
           )}
         </div>
       )}
+      <div className="flex justify-end">
+        <Button
+          className="h-8 text-[12px]"
+          onClick={onAutoAssign}
+          disabled={autoAssigning || loadingRooms}
+        >
+          {autoAssigning ? "Assigning..." : "Auto Assign Invigilators"}
+        </Button>
+      </div>
     </div>
   ) : (
     <div className="py-6 text-center text-[13px] text-muted-foreground">
@@ -835,6 +829,11 @@ export default function InvigilatorAllotmentPage() {
   return (
     <FilteredPage
       title="Exam Invigilator Allotment"
+      tableTitle={`Exam Allocated Rooms List (${
+        pickText(selectedCollege, ["collegeCode", "college_code"]) || "-"
+      } / ${pickText(selectedCourse, ["courseCode", "course_code"]) || "-"} / ${
+        pickText(selectedExam, ["examName", "exam_name"]) || "-"
+      } / ${toDateStr(selectedTimetable?.examDate) || "-"})`}
       filters={filters}
       body={body}
     >

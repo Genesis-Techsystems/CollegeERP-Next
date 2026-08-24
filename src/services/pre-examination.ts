@@ -20,6 +20,7 @@ import {
   NEXT_API,
   PAYMENT_GATEWAY_API,
   SETUP_API,
+  UNIV_EXAM_CENTER_API,
 } from "@/config/constants/api";
 import { GM_CODES } from "@/config/constants/ui";
 import {
@@ -716,6 +717,10 @@ export async function getExamHalltickets(params: {
   }
 }
 
+/**
+ * Angular exam-forms / hallticket / barcode `getFiltersList` —
+ * only the `univ_exam_filters` result group (not flatMap of all groups).
+ */
 export async function getUnivExamFiltersRegSup(
   employeeId: number,
 ): Promise<AnyRow[]> {
@@ -741,8 +746,7 @@ export async function getUnivExamFiltersRegSup(
     },
   );
   const groups = data?.result ?? [];
-  const flat = groups.flatMap((g) => g || []);
-  return flat;
+  return groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_filters") ?? [];
 }
 
 export async function getUnivExamFiltersByType(
@@ -771,8 +775,7 @@ export async function getUnivExamFiltersByType(
     },
   );
   const groups = data?.result ?? [];
-  const flat = groups.flatMap((g) => g || []);
-  return flat;
+  return groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_filters") ?? [];
 }
 
 export async function getUnivExamRestNoTt(params: {
@@ -841,6 +844,45 @@ export async function getUnivExamRestNoTtBundle(params: {
   const regulations =
     groups.find((g) => (g?.[0]?.flag ?? "") === "regulations") ?? [];
   return { restFilters, regulations };
+}
+
+/**
+ * Angular college-exam-timetable-view `selectedExam()` —
+ * `univ_exam_rest_in_tt` + `ALL`, group `univ_exam_rest_filters`.
+ * Used for College + Course Year cascade (years that already have timetable).
+ */
+export async function getUnivExamRestInTtFilters(params: {
+  courseId: number;
+  examId: number;
+  academicYearId: number;
+  employeeId: number;
+}): Promise<AnyRow[]> {
+  const data = await getAllRecords<{ result: AnyRow[][] }>(
+    "s_get_exam_filters_bycode",
+    {
+      in_flag: "univ_exam_rest_in_tt",
+      in_flag_type: "ALL",
+      in_university_id: 0,
+      in_univ_examcenter_id: 0,
+      in_college_id: 0,
+      in_course_id: params.courseId,
+      in_course_group_id: 0,
+      in_course_year_id: 0,
+      in_exam_id: params.examId,
+      in_academic_year_id: params.academicYearId,
+      in_regulation_id: 0,
+      in_subject_id: 0,
+      in_loginuser_empid: params.employeeId || 0,
+      in_loginuser_roleid: 0,
+      in_sub_flag_type: "",
+      in_param1: 0,
+      in_param2: 0,
+    },
+  );
+  const groups = data?.result ?? [];
+  return (
+    groups.find((g) => (g?.[0]?.flag ?? "") === "univ_exam_rest_filters") ?? []
+  );
 }
 
 /** Angular exam-timetable-report / gracemarks / moderation `selectedExam` — flag `univ_exam_rest_in_regexamstd`. */
@@ -1603,6 +1645,7 @@ export async function getExamOmrStudents(params: {
   collegeId: number;
   courseGroupId: number;
   courseYearId: number;
+  /** Angular exam-forms `getDetails` always sends `0` for regulation. */
   regulationId: number;
   subjectId: number;
 }): Promise<AnyRow[]> {
@@ -1631,9 +1674,8 @@ export async function getExamOmrStudents(params: {
 export async function generateBarcodesForExamStudents(
   examStdDetIds: number[],
 ): Promise<any> {
-  return fetchDetails<any>("generateBarCode", {
-    examStdDetIds: examStdDetIds.join(","),
-  });
+  // Angular: PUT generate-barcode/examstudents with body = number[] of examStdDetIds
+  return putDetails<any>(UNIV_EXAM_CENTER_API.GENERATE_BAR_CODE, examStdDetIds);
 }
 
 export async function listStudentExamFeeRegistrationPayments(params: {

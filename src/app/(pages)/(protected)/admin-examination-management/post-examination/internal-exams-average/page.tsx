@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, IHeaderParams } from "ag-grid-community";
-import { FilteredListPage, TableContextHeader } from "@/components/layout";
+import { format, isValid, parseISO } from "date-fns";
+import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,15 +42,59 @@ function strFrom(row: AnyRow, keys: string[]): string {
   return "";
 }
 
-function dateShort(value: string): string {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+function parseExamDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = parseISO(raw.length >= 10 ? raw.slice(0, 10) : raw);
+  if (isValid(iso)) return iso;
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+/** Angular mat-option date pipe: `MMM d, y` */
+function formatExamOptionDate(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "MMM d, yyyy") : "";
+}
+
+/** Angular CONSTANTS.dateFormate for table header: `d MMM, y` */
+function formatExamHeaderDate(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "d MMM, yyyy") : "";
+}
+
+function examDateRaw(row: AnyRow, which: "from" | "to"): string {
+  const master = (row?.examMaster ?? row?.exam_master ?? {}) as AnyRow;
+  if (which === "from") {
+    return (
+      strFrom(row, ["examFromDate", "from_date", "fromDate"]) ||
+      strFrom(master, ["fromDate", "from_date", "examFromDate"])
+    );
+  }
+  return (
+    strFrom(row, ["examToDate", "to_date", "toDate"]) ||
+    strFrom(master, ["toDate", "to_date", "examToDate"])
+  );
+}
+
+/** Angular option label: `examName (MMM d, y - MMM d, y)` */
+function examOptionLabel(row: AnyRow): string {
+  const name = strFrom(row, ["examName", "exam_name"]) || "Exam";
+  const from = formatExamOptionDate(examDateRaw(row, "from"));
+  const to = formatExamOptionDate(examDateRaw(row, "to"));
+  if (from && to) return `${name} (${from} - ${to})`;
+  return name;
+}
+
+/** Angular tempV element: `examName ( d MMM, y-d MMM, y ) ` */
+function examHeaderLabel(row: AnyRow): string {
+  const name = strFrom(row, ["examName", "exam_name"]) || "Exam";
+  const from = formatExamHeaderDate(examDateRaw(row, "from"));
+  const to = formatExamHeaderDate(examDateRaw(row, "to"));
+  if (from && to) return `${name} ( ${from}-${to} ) `;
+  return `${name} `;
 }
 
 /** Angular: M-1 | T / M-1 | M-2 | T / … based on examNames.length */
@@ -333,7 +378,9 @@ export default function InternalExamsAveragePage() {
   }
 
   async function onSelectExams(values: number[]) {
-    const uniqueIds = [...new Set(values.filter((id) => Number.isFinite(id) && id > 0))];
+    const uniqueIds = [
+      ...new Set(values.filter((id) => Number.isFinite(id) && id > 0)),
+    ];
     setSelectedExamIds(uniqueIds);
     setSelectedExams(
       exams.filter((e) =>
@@ -387,7 +434,7 @@ export default function InternalExamsAveragePage() {
       seen.add(value);
       opts.push({
         value,
-        label: `${strFrom(x, ["examName", "exam_name"])} (${dateShort(strFrom(x, ["examFromDate", "from_date"]))} - ${dateShort(strFrom(x, ["examToDate", "to_date"]))})`,
+        label: examOptionLabel(x),
       });
     }
     return opts;
@@ -530,16 +577,21 @@ export default function InternalExamsAveragePage() {
     }
   }
 
+  /** Angular `selectedData`: College / Exam Year / Course / Course Group / Course Year */
   const selectedFilterInfo = useMemo(() => {
     if (midExamMarks.length === 0) return "";
-    const college = collegeOptions.find((o) => o.value === String(collegeId))
-      ?.label;
-    const year = yearOptions.find((o) => o.value === String(academicYearId))
-      ?.label;
-    const course = courseOptions.find((o) => o.value === String(courseId))
-      ?.label;
-    const group = groupOptions.find((o) => o.value === String(courseGroupId))
-      ?.label;
+    const college = collegeOptions.find(
+      (o) => o.value === String(collegeId),
+    )?.label;
+    const year = yearOptions.find(
+      (o) => o.value === String(academicYearId),
+    )?.label;
+    const course = courseOptions.find(
+      (o) => o.value === String(courseId),
+    )?.label;
+    const group = groupOptions.find(
+      (o) => o.value === String(courseGroupId),
+    )?.label;
     const courseYear = courseYearOptions.find(
       (o) => o.value === String(courseYearId),
     )?.label;
@@ -560,6 +612,12 @@ export default function InternalExamsAveragePage() {
     courseYearId,
   ]);
 
+  /** Angular `tempV`: exam name(s) with `d MMM, y` dates, joined by ` && ` */
+  const selectedExamInfo = useMemo(() => {
+    if (midExamMarks.length === 0 || selectedExams.length === 0) return "";
+    return selectedExams.map(examHeaderLabel).join(" && ");
+  }, [midExamMarks.length, selectedExams]);
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
     if (!keys.length || !examNames.length) return [];
     const markBanner = markBannerForExamCount(examNames.length);
@@ -572,6 +630,8 @@ export default function InternalExamsAveragePage() {
         pinned: "left",
         valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
         cellStyle: { textAlign: "center" },
+        tooltipValueGetter: () => undefined,
+        headerTooltipValueGetter: () => undefined,
       },
       {
         colId: "student",
@@ -579,11 +639,21 @@ export default function InternalExamsAveragePage() {
         minWidth: 200,
         flex: 1,
         pinned: "left",
+        // Only student cells get a tooltip — suppress default header tooltip.
+        headerTooltipValueGetter: () => undefined,
+        tooltipValueGetter: (p) => {
+          const name = String(p.data?.firstName ?? "").trim();
+          const roll = String(p.data?.rollNumber ?? "").trim();
+          if (name && roll) return `${name}(${roll})`;
+          return name || roll || undefined;
+        },
         cellRenderer: (p: { data?: AnyRow }) => {
-          const name = String(p.data?.firstName ?? "");
-          const roll = String(p.data?.rollNumber ?? "");
+          const name = String(p.data?.firstName ?? "").trim();
+          const roll = String(p.data?.rollNumber ?? "").trim();
+          const tip =
+            name && roll ? `${name}(${roll})` : name || roll || undefined;
           return (
-            <span>
+            <span className="block truncate" title={tip}>
               {name}{" "}
               {roll ? (
                 <span className="font-medium text-blue-600">({roll})</span>
@@ -613,6 +683,8 @@ export default function InternalExamsAveragePage() {
           markBanner,
         },
         cellStyle: { textAlign: "center" as const },
+        tooltipValueGetter: () => undefined,
+        headerTooltipValueGetter: () => undefined,
         valueGetter: (p: { data?: AnyRow }) => {
           const marks = p.data?.studentMarksCount as AnyRow[] | undefined;
           const cell = marks?.find(
@@ -628,137 +700,136 @@ export default function InternalExamsAveragePage() {
   return (
     <FilteredListPage
       title="Internal Exam Average"
-      notice={
-        <>
+      filters={
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
+            <div className="space-y-1 md:col-span-2">
+              <Label>College</Label>
+              <CommonSelect
+                value={collegeId ? String(collegeId) : null}
+                onChange={(v) => void onSelectCollege(Number(v || 0))}
+                options={collegeOptions}
+                placeholder="College"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Exam Year</Label>
+              <CommonSelect
+                value={academicYearId ? String(academicYearId) : null}
+                onChange={(v) => {
+                  const id = v ? Number(v) : null;
+                  setAcademicYearId(id);
+                  setMarkCalTypeId(null);
+                  setExamIntMarkTypeId(null);
+                  setSelectedExamIds([]);
+                  setSelectedExams([]);
+                  setExams([]);
+                  setMidExamMarks([]);
+                  setFlag(false);
+                  if (
+                    id &&
+                    collegeId &&
+                    courseId &&
+                    courseGroupId &&
+                    courseYearId
+                  ) {
+                    void listInternalExamAverageExams({
+                      collegeId,
+                      courseId,
+                      academicYearId: id,
+                      courseGroupId,
+                      courseYearId,
+                    })
+                      .then((examRows) => {
+                        const map = new Map<number, AnyRow>();
+                        for (const row of examRows) {
+                          const eid = numFrom(row, ["examId", "fk_exam_id"]);
+                          if (eid > 0 && !map.has(eid)) map.set(eid, row);
+                        }
+                        setExams([...map.values()]);
+                      })
+                      .catch(() => setExams([]));
+                  }
+                }}
+                options={yearOptions}
+                placeholder="Exam Year"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course</Label>
+              <CommonSelect
+                value={courseId ? String(courseId) : null}
+                onChange={(v) => void onSelectCourse(Number(v || 0))}
+                options={courseOptions}
+                placeholder="Course"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course Group</Label>
+              <CommonSelect
+                value={courseGroupId ? String(courseGroupId) : null}
+                onChange={(v) => void onSelectGroup(Number(v || 0))}
+                options={groupOptions}
+                placeholder="Course Group"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label>Course Year</Label>
+              <CommonSelect
+                value={courseYearId ? String(courseYearId) : null}
+                onChange={(v) => void onSelectCourseYear(Number(v || 0))}
+                options={courseYearOptions}
+                placeholder="Course Year"
+              />
+            </div>
+            <div className="space-y-1 md:col-span-7">
+              <Label>Exam</Label>
+              <MultiSelect
+                value={selectedExamIds.map(String)}
+                onChange={(vals) => void onSelectExams(vals.map(Number))}
+                options={examOptions}
+                placeholder="Exam"
+                searchable
+                showSelectAll={false}
+                maxDisplay={99}
+                className="text-[12px]"
+              />
+            </div>
+            {selectedExamIds.length > 0 && (
+              <div className="space-y-1 md:col-span-2">
+                <Label>Marks Calculation Type</Label>
+                <CommonSelect
+                  value={markCalTypeId ? String(markCalTypeId) : null}
+                  onChange={() => undefined}
+                  options={markTypeOptions}
+                  placeholder="Marks Calculation Type"
+                  disabled
+                />
+              </div>
+            )}
+            {selectedExamIds.length > 0 && !!examIntMarkTypeId && (
+              <div className="md:col-span-1">
+                <Button
+                  className="h-8 text-[12px] w-full"
+                  onClick={() => void getList()}
+                  disabled={loading}
+                >
+                  {loading ? "Loading..." : "Get List"}
+                </Button>
+              </div>
+            )}
+          </div>
           {!examIntMarkTypeId && flag && (
-            <p className="text-[13px] font-semibold text-red-600 px-1">
+            <p className="px-1 text-[13px] font-semibold text-red-600">
               Note: Exam internal marks type is not updated in regulation
               master.
             </p>
           )}
           {!!examIntMarkTypeId && flag && (
-            <p className="text-[13px] font-semibold text-red-600 px-1">
+            <p className="px-1 text-[13px] font-semibold text-red-600">
               Note: For Regulation {regulationCode || "-"} the Exam internal
               marks type is {internalType || "-"}.
             </p>
-          )}
-        </>
-      }
-      filters={
-        <div className="grid grid-cols-1 md:grid-cols-10 gap-2 items-end">
-          <div className="space-y-1 md:col-span-2">
-            <Label>College</Label>
-            <CommonSelect
-              value={collegeId ? String(collegeId) : null}
-              onChange={(v) => void onSelectCollege(Number(v || 0))}
-              options={collegeOptions}
-              placeholder="College"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Exam Year</Label>
-            <CommonSelect
-              value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => {
-                const id = v ? Number(v) : null;
-                setAcademicYearId(id);
-                setMarkCalTypeId(null);
-                setExamIntMarkTypeId(null);
-                setSelectedExamIds([]);
-                setSelectedExams([]);
-                setExams([]);
-                setMidExamMarks([]);
-                setFlag(false);
-                if (
-                  id &&
-                  collegeId &&
-                  courseId &&
-                  courseGroupId &&
-                  courseYearId
-                ) {
-                  void listInternalExamAverageExams({
-                    collegeId,
-                    courseId,
-                    academicYearId: id,
-                    courseGroupId,
-                    courseYearId,
-                  })
-                    .then((examRows) => {
-                      const map = new Map<number, AnyRow>();
-                      for (const row of examRows) {
-                        const eid = numFrom(row, ["examId", "fk_exam_id"]);
-                        if (eid > 0 && !map.has(eid)) map.set(eid, row);
-                      }
-                      setExams([...map.values()]);
-                    })
-                    .catch(() => setExams([]));
-                }
-              }}
-              options={yearOptions}
-              placeholder="Exam Year"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course</Label>
-            <CommonSelect
-              value={courseId ? String(courseId) : null}
-              onChange={(v) => void onSelectCourse(Number(v || 0))}
-              options={courseOptions}
-              placeholder="Course"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Group</Label>
-            <CommonSelect
-              value={courseGroupId ? String(courseGroupId) : null}
-              onChange={(v) => void onSelectGroup(Number(v || 0))}
-              options={groupOptions}
-              placeholder="Course Group"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-2">
-            <Label>Course Year</Label>
-            <CommonSelect
-              value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => void onSelectCourseYear(Number(v || 0))}
-              options={courseYearOptions}
-              placeholder="Course Year"
-            />
-          </div>
-          <div className="space-y-1 md:col-span-7">
-            <Label>Exam</Label>
-            <MultiSelect
-              value={selectedExamIds.map(String)}
-              onChange={(vals) => void onSelectExams(vals.map(Number))}
-              options={examOptions}
-              placeholder="Select Exam(s)"
-              searchable
-              showSelectAll
-              className="text-[12px]"
-            />
-          </div>
-          {selectedExamIds.length > 0 && (
-            <div className="space-y-1 md:col-span-2">
-              <Label>Marks Calculation Type</Label>
-              <CommonSelect
-                value={markCalTypeId ? String(markCalTypeId) : null}
-                onChange={() => undefined}
-                options={markTypeOptions}
-                placeholder="Marks Calculation Type"
-                disabled
-              />
-            </div>
-          )}
-          {selectedExamIds.length > 0 && !!examIntMarkTypeId && (
-            <div className="md:col-span-1">
-              <Button
-                className="h-8 text-[12px] w-full"
-                onClick={() => void getList()}
-                disabled={loading}
-              >
-                {loading ? "Loading..." : "Get List"}
-              </Button>
-            </div>
           )}
         </div>
       }
@@ -774,10 +845,16 @@ export default function InternalExamsAveragePage() {
       paginationPageSize={50}
       tableHeader={
         midExamMarks.length > 0 ? (
-          <TableContextHeader
-            title="Internal Exam Average"
-            info={selectedFilterInfo || undefined}
-          />
+          <div className="table-context-header flex-wrap items-start gap-x-2 gap-y-1">
+            <strong className="table-context-header__title whitespace-normal break-words text-[14px] font-semibold">
+              {selectedFilterInfo}
+            </strong>
+            {selectedExamInfo ? (
+              <span className="min-w-0 whitespace-normal break-words text-[13px] font-normal text-[darkgray]">
+                ( {selectedExamInfo.trim()} )
+              </span>
+            ) : null}
+          </div>
         ) : null
       }
       toolbar={
@@ -786,6 +863,8 @@ export default function InternalExamsAveragePage() {
               search: true,
               searchPlaceholder: "Search…",
               pdfDocumentTitle: "Internal Exam Average",
+              exportExcel: false,
+              exportPdf: false,
               lockColumnIds: ["siNo", "student"],
             }
           : false

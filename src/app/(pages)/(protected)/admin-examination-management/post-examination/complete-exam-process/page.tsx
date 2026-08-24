@@ -211,7 +211,7 @@ function ActionCard({
         <p className="text-[12px] text-muted-foreground">{subtitle}</p>
       </div>
       <Button
-        className="h-8 shrink-0 text-[12px]"
+        className="h-8 shrink-0 text-[12px] w-[20%]"
         onClick={onClick}
         disabled={disabled}
       >
@@ -585,7 +585,7 @@ export default function CompleteExamProcessPage() {
         body={
           <div className="flex flex-wrap justify-end gap-2">
             <Button
-              className="h-8 text-[12px]"
+              className="h-8 text-[12px] w-[20%]"
               disabled={loading}
               onClick={() => {
                 if (!requireFilters(resultFilters.selection)) return;
@@ -601,7 +601,7 @@ export default function CompleteExamProcessPage() {
               Result Processing
             </Button>
             <Button
-              className="h-8 text-[12px]"
+              className="h-8 text-[12px] w-[20%]"
               disabled={loading}
               onClick={() => {
                 if (!requireFilters(resultFilters.selection)) return;

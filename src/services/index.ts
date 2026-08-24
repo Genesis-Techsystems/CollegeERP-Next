@@ -141,6 +141,7 @@ export {
   listCourseYears,
   listExamMasterDetails,
   getExamTimetableDetails,
+  getExamTimetableDetailsByCollege,
   getExamFiltersNoTimetable,
   getExamFiltersNoTimetableBundle,
   getUnivExamRestNoTtGroups,

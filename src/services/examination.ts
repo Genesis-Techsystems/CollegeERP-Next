@@ -595,6 +595,34 @@ export async function getExamTimetableDetails(
   return body;
 }
 
+/**
+ * Angular college-exam-timetable-view when college is selected —
+ * `getExamtimeTableDetails?courseYearId=&courseId=&examId=&collegeId=`
+ */
+export async function getExamTimetableDetailsByCollege(params: {
+  courseYearId: number;
+  courseId: number;
+  examId: number;
+  collegeId: number;
+}): Promise<any[]> {
+  const { EXAM_API, NEXT_API } = await import("@/config/constants/api");
+  const qs = new URLSearchParams({
+    courseYearId: String(params.courseYearId),
+    courseId: String(params.courseId),
+    examId: String(params.examId),
+    collegeId: String(params.collegeId),
+  });
+  const res = await fetch(
+    NEXT_API.PROXY(`${EXAM_API.GET_EXAMTIME_TABLE_DETAILS}?${qs.toString()}`),
+  );
+  const body = await res.json().catch(() => null);
+  if (body && typeof body === "object" && "data" in body) {
+    const data = (body as { data?: unknown }).data;
+    return Array.isArray(data) ? data : [];
+  }
+  return Array.isArray(body) ? body : [];
+}
+
 export type ExamFiltersNoTimetableBundle = {
   /** `univ_exam_rest_filters` — course years + branch/groups */
   restFilters: any[];

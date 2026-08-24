@@ -106,25 +106,79 @@ function MarksInputRenderer(
   params: ICellRendererParams<AnyRow> & {
     maxMarks?: number;
     onChange: (row: AnyRow, value: number) => void;
-    readOnly: boolean;
+    /** Angular: non-ADMIN also locks when `isExtenalpersonApprove`. */
+    lockWhenApproved?: boolean;
   },
 ) {
   const value = Number(params.data?.marks ?? 0);
-  const disabled = params.readOnly || params.data?.isPresent !== true;
+  const isPresent = params.data?.isPresent === true;
+  // Angular:
+  // ADMIN: disabled when !isPresent
+  // others: disabled when !isPresent || isExtenalpersonApprove
+  const approved = Boolean(params.data?.isExtenalpersonApprove);
+  const disabled = !isPresent || (Boolean(params.lockWhenApproved) && approved);
   const max =
     params.maxMarks && params.maxMarks > 0 ? params.maxMarks : undefined;
+  // Angular mat-form-field outline + text-align:right
   return (
-    <Input
-      type="number"
-      min={0}
-      max={max}
-      className="h-8 text-[12px]"
-      value={Number.isFinite(value) ? String(value) : "0"}
-      disabled={disabled}
-      onChange={(e) =>
-        params.data && params.onChange(params.data, Number(e.target.value || 0))
-      }
-    />
+    <div className="flex h-full w-full items-center py-1 pr-1">
+      <Input
+        type="number"
+        min={0}
+        max={max}
+        step="any"
+        className="h-9 w-full rounded-md border border-[#c3d9ff] bg-white px-2 text-left text-[13px] tabular-nums shadow-none focus-visible:border-[#0c51a4] focus-visible:ring-1 focus-visible:ring-[#0c51a4]/40 disabled:bg-[#f3f6fb] disabled:opacity-80"
+        value={Number.isFinite(value) ? String(value) : "0"}
+        disabled={disabled}
+        onChange={(e) =>
+          params.data &&
+          params.onChange(params.data, Number(e.target.value || 0))
+        }
+      />
+    </div>
+  );
+}
+
+function attendanceText(isPresent: unknown): string {
+  if (isPresent === true) return "Present";
+  if (isPresent === false) return "Absent";
+  return "Not Marked";
+}
+
+/** Angular `span.active` / `span.in-active` — Present plain; Absent/Not Marked orange badge. */
+function AttendanceStatusRenderer(params: ICellRendererParams<AnyRow>) {
+  const label = attendanceText(params.data?.isPresent);
+  if (params.data?.isPresent === true) {
+    return <span className="text-[14px] text-slate-800">{label}</span>;
+  }
+  return (
+    <span className="inline-block rounded-[3px] bg-[#ff6636] px-2 py-0.5 text-[14px] font-medium leading-tight">
+      {label}
+    </span>
+  );
+}
+
+/** Angular Result: P = active (green), F / Not Posted = in-active (orange). */
+function ResultStatusRenderer(params: ICellRendererParams<AnyRow>) {
+  const isPass = params.data?.isPass;
+  if (isPass === true) {
+    return (
+      <span className="inline-block min-w-[1.5rem] rounded-[3px] bg-[#4CAF50] px-2 py-0.5 text-center text-[14px] font-medium leading-tight text-white">
+        P
+      </span>
+    );
+  }
+  if (isPass === false) {
+    return (
+      <span className="inline-block min-w-[1.5rem] rounded-[3px] bg-[#ff6636] px-2 py-0.5 text-center text-[14px] font-medium leading-tight">
+        F
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block rounded-[3px] bg-[#ff6636] px-2 py-0.5 text-[14px] font-medium leading-tight text-white">
+      Not Posted
+    </span>
   );
 }
 
@@ -976,16 +1030,14 @@ export default function SecureExamMarksEntryPage() {
     subjectId,
   ]);
 
+  const isInternalExam = asBool(
+    selectedExam?.is_internal_exam ?? selectedExam?.isInternalExam,
+  );
+  const marksHeader = isInternalExam ? "Internal Marks" : "External Marks";
+
+  const isAdminRole = userRole.toUpperCase() === "ADMIN";
+
   const columnDefs = useMemo<ColDef<AnyRow>[]>(() => {
-    const toAttendanceText = (isPresent: unknown) => {
-      if (isPresent === true) return "Present";
-      if (isPresent === false) return "Absent";
-      return "Not Marked";
-    };
-    const toResultText = (isPass: unknown) => {
-      if (isPass == null) return "Not Posted";
-      return isPass ? "P" : "F";
-    };
     return [
       {
         headerName: "SI No",
@@ -1002,29 +1054,47 @@ export default function SecureExamMarksEntryPage() {
       { field: "firstName", headerName: "Student", minWidth: 240, flex: 2 },
       {
         headerName: "Attendance Status",
-        minWidth: 170,
+        minWidth: 150,
         flex: 1,
-        valueGetter: (p: any) => toAttendanceText(p.data?.isPresent),
+        sortable: true,
+        valueGetter: (p: any) => attendanceText(p.data?.isPresent),
+        cellRenderer: AttendanceStatusRenderer,
       },
       {
-        headerName: "Marks",
+        field: "marks",
+        headerName: marksHeader,
         minWidth: 170,
         flex: 1,
+        sortable: true,
+        comparator: (a, b) => {
+          const na =
+            a === "" || a == null || Number.isNaN(Number(a)) ? 0 : Number(a);
+          const nb =
+            b === "" || b == null || Number.isNaN(Number(b)) ? 0 : Number(b);
+          return na - nb;
+        },
         cellRenderer: MarksInputRenderer,
         cellRendererParams: {
           maxMarks,
           onChange: updateMarks,
-          readOnly: !saveUnlocked,
+          // Angular UserRole!='ADMIN' → also lock when isExtenalpersonApprove
+          lockWhenApproved: !isAdminRole,
         },
       },
       {
         headerName: "Result",
-        minWidth: 140,
-        flex: 1,
-        valueGetter: (p: any) => toResultText(p.data?.isPass),
+        minWidth: 120,
+        flex: 0,
+        width: 120,
+        sortable: true,
+        valueGetter: (p: any) => {
+          if (p.data?.isPass == null) return "Not Posted";
+          return p.data.isPass ? "P" : "F";
+        },
+        cellRenderer: ResultStatusRenderer,
       },
     ];
-  }, [saveUnlocked, maxMarks]);
+  }, [maxMarks, marksHeader, isAdminRole]);
 
   // While printing, replace the page with the marks sheet (AppShell @media
   // print rules hide the app chrome so only the sheet prints).
@@ -1033,6 +1103,7 @@ export default function SecureExamMarksEntryPage() {
   return (
     <FilteredListPage
       title="Secure Marks Entry"
+      tableTitle="Students List"
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-[repeat(16,minmax(0,1fr))] items-end">
@@ -1232,13 +1303,28 @@ export default function SecureExamMarksEntryPage() {
               </Button>
             </div>
           )}
-          {hasFetched ? (
+        </div>
+      }
+      tableHeader={
+        hasFetched && rows.length > 0 ? (
+          <div className="space-y-3">
+            <div className="table-context-header">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                book
+              </span>
+              <strong className="table-context-header__title">
+                Students List
+              </strong>
+            </div>
             <div className="overflow-hidden rounded-md border border-[#c3d9ff]">
               <div className="flex items-start gap-4 p-3">
                 <div className="flex h-20 w-24 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
                   <GraduationCap className="h-10 w-10" />
                 </div>
-                <div className="space-y-1 text-[13px]">
+                <div className="space-y-1 text-[13px] leading-snug">
                   <p className="text-slate-700">
                     {strFrom(selectedExam ?? {}, ["exam_name", "examName"]) ||
                       "-"}{" "}
@@ -1259,7 +1345,7 @@ export default function SecureExamMarksEntryPage() {
                       <span className="text-blue-700">({examDate})</span>
                     ) : null}
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="text-[#8c8c8c]">
                     /{" "}
                     {strFrom(selectedCollege ?? {}, [
                       "college_code",
@@ -1290,7 +1376,7 @@ export default function SecureExamMarksEntryPage() {
                       )
                     </span>
                   </p>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-semibold text-slate-900">
                     {strFrom(selectedSubject ?? {}, [
                       "subject_name",
                       "subjectName",
@@ -1301,33 +1387,26 @@ export default function SecureExamMarksEntryPage() {
                       "regulationCode",
                     ]) || "-"}
                     ) -{" "}
-                    <span className="text-blue-700">
+                    <span className="font-medium text-blue-700">
                       {strFrom(selectedSubject ?? {}, [
                         "subject_type",
                         "subjectType",
                       ]) || "-"}
                     </span>{" "}
-                    <span>
-                      (
-                      {asBool(
-                        selectedExam?.is_internal_exam ??
-                          selectedExam?.isInternalExam,
-                      )
-                        ? "Internal"
-                        : "Regular"}
-                      )
+                    <span className="font-normal">
+                      ({isInternalExam ? "Internal" : "Regular"})
                     </span>
                   </p>
                 </div>
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null
       }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
-      resultsVisible={hasFetched}
+      resultsVisible={hasFetched && rows.length > 0}
       hideEmptyGrid
       getRowId={(p) =>
         String(
@@ -1344,13 +1423,15 @@ export default function SecureExamMarksEntryPage() {
               search: true,
               searchPlaceholder: "Search…",
               pdfDocumentTitle: "Secure Exam Marks Entry",
+              exportExcel: false,
+              exportPdf: false,
             }
           : false
       }
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
-          <div className="order-first text-[12px] text-slate-600 whitespace-nowrap shrink-0">
-            Max Marks : <span className="font-semibold">{maxMarks || "-"}</span>
+          <div className="order-first shrink-0 whitespace-nowrap text-[12px] font-semibold text-slate-700">
+            Max Marks : <span className="text-red-600">{maxMarks || "-"}</span>
           </div>
         ) : undefined
       }

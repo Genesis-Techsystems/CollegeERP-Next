@@ -613,7 +613,7 @@ export default function InternalExamRegistrationMultiplePage() {
               placeholder="Exam Year"
             />
           </GlobalFilterField>
-          <GlobalFilterField label="Exam Master">
+          <GlobalFilterField label="Exam Master" style={{ minWidth: "45rem" }}>
             <Select
               value={examId ? String(examId) : null}
               onChange={(v) => setExamId(v ? Number(v) : null)}

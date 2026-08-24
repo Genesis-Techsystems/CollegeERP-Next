@@ -150,6 +150,7 @@ export function FilteredListPage<T>({
           subtitle=""
           bordered
           filters={undefined}
+          autoHeight
           filtersFooter={resolvedTableHeader}
           rowData={rowData ?? []}
           columnDefs={columnDefs ?? []}

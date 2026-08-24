@@ -969,90 +969,56 @@ async function fetchExamResultRows(
   ctx: StudentProfileContext,
   options?: { in_ispass?: string },
 ): Promise<AnyRow[]> {
-  if (!ctx.studentId) return [];
+  if (!ctx.studentId || !ctx.courseYearId) return [];
   const inIspass = options?.in_ispass ?? "-1";
 
-  if (ctx.collegeId && ctx.courseYearId) {
-    try {
-      const raw = await getAllRecords<unknown>(
-        procName(EXAM_API.GET_EXAM_STUDENT_RESULTS),
-        {
-          in_flag: "exam_std_result_detail",
-          in_exam_id: 0,
-          in_college_id: ctx.collegeId,
-          in_course_id: ctx.courseId || 0,
-          in_course_group_id: ctx.courseGroupId || 0,
-          in_course_year_id: ctx.courseYearId,
-          in_std_id: ctx.studentId,
-          in_regulation_id: 0,
-          in_ispass: inIspass,
-          in_subject_id: 0,
-          in_above_fail_subjects: "-1",
-          in_below_credits: "-1",
-        },
-      );
-      const rows = flattenRecordRows(raw);
-      if (rows.length > 0) return rows;
-    } catch {
-      // fall through
-    }
+  try {
+    // Angular exam-results `listByTwelveIds(examStudentResultsUrl, …)` —
+    // course_id / course_group_id are always 0; in_ispass defaults to -1 (all).
+    const raw = await getAllRecords<unknown>(
+      procName(EXAM_API.GET_EXAM_STUDENT_RESULTS),
+      {
+        in_flag: "exam_std_result_detail",
+        in_exam_id: 0,
+        in_college_id: ctx.collegeId || 0,
+        in_course_id: 0,
+        in_course_group_id: 0,
+        in_course_year_id: ctx.courseYearId,
+        in_std_id: ctx.studentId,
+        in_regulation_id: 0,
+        in_ispass: inIspass,
+        in_subject_id: 0,
+        in_above_fail_subjects: "-1",
+        in_below_credits: "-1",
+      },
+    );
+    return examStudentResultDetailRows(raw);
+  } catch {
+    return [];
   }
-
-  const procs = [
-    EXAM_API.GET_EXAM_STUDENT_RESULTS,
-    EXAM_API.GET_EXAMWISE_STUDENT_RESULT,
-  ];
-  const paramSets: Record<string, string | number>[] = [
-    { in_student_id: ctx.studentId },
-    { in_student_detail_id: ctx.studentId },
-    { studentId: ctx.studentId },
-    { studentDetailId: ctx.studentId },
-  ];
-  if (ctx.collegeId) {
-    paramSets.push({
-      in_student_id: ctx.studentId,
-      in_college_id: ctx.collegeId,
-    });
-    paramSets.push({ studentId: ctx.studentId, collegeId: ctx.collegeId });
-  }
-  if (ctx.courseYearId) {
-    paramSets.push({
-      in_std_id: ctx.studentId,
-      in_course_year_id: ctx.courseYearId,
-      in_college_id: ctx.collegeId || 0,
-    });
-  }
-  if (ctx.academicYearId) {
-    paramSets.push({
-      in_student_id: ctx.studentId,
-      in_academic_year_id: ctx.academicYearId,
-    });
-  }
-
-  for (const path of procs) {
-    for (const p of paramSets) {
-      try {
-        const raw = await getAllRecords<unknown>(procName(path), p);
-        const rows = flattenRecordRows(raw);
-        if (rows.length > 0) return rows;
-      } catch {
-        // try next
-      }
-    }
-  }
-  return [];
 }
 
-function filterExamResultsBySemester(
-  rows: AnyRow[],
-  courseYearId: number,
-): AnyRow[] {
-  if (!courseYearId) return rows;
-  const filtered = rows.filter((r) => {
-    const cy = rowCourseYearId(r);
-    return cy === 0 || cy === courseYearId;
-  });
-  return filtered.length > 0 ? filtered : rows;
+/** Angular binds only `result.data.result[0]` when that entry is an array with length > 0. */
+function examStudentResultDetailRows(data: unknown): AnyRow[] {
+  if (!data || typeof data !== "object") return [];
+  const root = data as AnyRow;
+  const nested =
+    root.result ??
+    (root.data && typeof root.data === "object"
+      ? (root.data as AnyRow).result
+      : undefined);
+
+  if (!Array.isArray(nested) || nested.length === 0) return [];
+
+  // Angular: `if (result.data.result[0].length > 0) examResults = result.data.result[0]`
+  // So result[0] must be a row-array. A flat list of row objects has no .length on [0] → empty.
+  const first = nested[0];
+  if (!Array.isArray(first) || first.length === 0) return [];
+
+  return first.filter(
+    (r): r is AnyRow =>
+      Boolean(r) && typeof r === "object" && !Array.isArray(r),
+  );
 }
 
 /** Semester-wise exam results for the profile Exam Results tab (Angular `s_get_exam_student_results`). */
@@ -1060,24 +1026,14 @@ export async function loadStudentExamResultsForSemester(
   student: AnyRow,
   courseYearId: number,
 ): Promise<AnyRow[]> {
+  if (!courseYearId) return [];
   const ctx = getStudentProfileContext(student);
-  const nested = mergeProfileArrays(
+  // Angular: one call only — no nested studentdetail shortcuts / alternate procs.
+  return fetchExamResultRows(
     student,
-    [
-      "examResults",
-      "examStudentResults",
-      "studentExamResults",
-      "examResultList",
-      "examWiseResults",
-      "marksMemoList",
-    ],
-    [/exam.*result/i, /result.*mark/i, /marks.*memo/i],
+    { ...ctx, courseYearId },
+    { in_ispass: "-1" },
   );
-  if (nested.length > 0)
-    return filterExamResultsBySemester(nested, courseYearId);
-
-  const rows = await fetchExamResultRows(student, { ...ctx, courseYearId });
-  return filterExamResultsBySemester(rows, courseYearId);
 }
 
 /** Angular exam-results tab: semester tabs up to the student's current `semNo`. */
@@ -1143,45 +1099,12 @@ export async function loadStudentProfileExaminationForSemester(
   student: AnyRow,
   courseYearId: number,
 ): Promise<AnyRow[]> {
+  if (!courseYearId) return [];
   const ctx = getStudentProfileContext(student);
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "examResults",
-      "examStudentResults",
-      "studentExamResults",
-      "examResultList",
-      "examWiseResults",
-      "marksMemoList",
-    ],
-    [/exam.*result/i, /result.*mark/i, /marks.*memo/i],
-  );
-  if (nested.length > 0) {
-    const passed = nested.filter((r) => {
-      const flag = text(r, ["isPass", "is_pass", "ispass", "passed"]);
-      return (
-        !flag ||
-        flag === "1" ||
-        flag.toLowerCase() === "true" ||
-        flag.toLowerCase() === "pass"
-      );
-    });
-    return filterExamResultsBySemester(
-      passed.length > 0 ? passed : nested,
-      courseYearId,
-    );
-  }
-
-  const rows = await fetchExamResultRows(
+  return fetchExamResultRows(
     student,
     { ...ctx, courseYearId },
     { in_ispass: "1" },
-  );
-  const filtered = filterExamResultsBySemester(rows, courseYearId);
-  if (filtered.length > 0) return filtered;
-  return filterExamResultsBySemester(
-    await fetchExamResultRows(student, { ...ctx, courseYearId }),
-    courseYearId,
   );
 }
 
@@ -1282,127 +1205,59 @@ async function loadExamResults(
   student: AnyRow,
   ctx: StudentProfileContext,
 ): Promise<AnyRow[]> {
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "examResults",
-      "examStudentResults",
-      "studentExamResults",
-      "examResultList",
-      "examWiseResults",
-      "marksMemoList",
-    ],
-    [/exam.*result/i, /result.*mark/i, /marks.*memo/i],
-  );
-  if (nested.length > 0) return nested;
-  return fetchExamResultRows(student, ctx);
+  if (!ctx.courseYearId) return [];
+  return fetchExamResultRows(student, ctx, { in_ispass: "-1" });
 }
 
+/**
+ * Angular exam-backlogs `listByTwelveIds(examStudentResultsUrl, …)` —
+ * same proc as exam results, but `in_ispass=0` (failed only). No fallback procs.
+ */
 async function fetchBacklogRows(
   student: AnyRow,
   ctx: StudentProfileContext,
 ): Promise<AnyRow[]> {
-  if (!ctx.studentId) return [];
+  if (!ctx.studentId || !ctx.courseYearId) return [];
 
-  if (ctx.collegeId && ctx.courseYearId) {
-    try {
-      const raw = await getAllRecords<unknown>(
-        procName(EXAM_API.GET_EXAM_STUDENT_RESULTS),
-        {
-          in_flag: "exam_std_result_detail",
-          in_exam_id: 0,
-          in_course_id: ctx.courseId || 0,
-          in_college_id: ctx.collegeId,
-          in_course_group_id: ctx.courseGroupId || 0,
-          in_course_year_id: ctx.courseYearId,
-          in_std_id: ctx.studentId,
-          in_regulation_id: 0,
-          in_ispass: "0",
-          in_subject_id: 0,
-          in_above_fail_subjects: "-1",
-          in_below_credits: "-1",
-        },
-      );
-      const rows = flattenRecordRows(raw);
-      if (rows.length > 0) return rows;
-    } catch {
-      // fall through
-    }
+  try {
+    const raw = await getAllRecords<unknown>(
+      procName(EXAM_API.GET_EXAM_STUDENT_RESULTS),
+      {
+        in_flag: "exam_std_result_detail",
+        in_exam_id: 0,
+        in_course_id: 0,
+        in_college_id: ctx.collegeId || 0,
+        in_course_group_id: 0,
+        in_course_year_id: ctx.courseYearId,
+        in_std_id: ctx.studentId,
+        in_regulation_id: 0,
+        in_ispass: "0",
+        in_subject_id: 0,
+        in_above_fail_subjects: "-1",
+        in_below_credits: "-1",
+      },
+    );
+    return examStudentResultDetailRows(raw);
+  } catch {
+    return [];
   }
-
-  const fallbackProcs = [
-    "getAllRecords/s_get_student_backlog_details",
-    "getAllRecords/s_get_std_backlog_subjects",
-  ];
-  const paramSets: Record<string, string | number>[] = [
-    { in_student_id: ctx.studentId },
-    { in_student_detail_id: ctx.studentId },
-    { studentId: ctx.studentId },
-  ];
-  if (ctx.courseYearId) {
-    paramSets.push({
-      in_std_id: ctx.studentId,
-      in_course_year_id: ctx.courseYearId,
-      in_college_id: ctx.collegeId || 0,
-    });
-  }
-
-  for (const path of fallbackProcs) {
-    for (const p of paramSets) {
-      try {
-        const raw = await getAllRecords<unknown>(procName(path), p);
-        const rows = flattenRecordRows(raw);
-        if (rows.length > 0) return rows;
-      } catch {
-        // try next
-      }
-    }
-  }
-  return [];
 }
 
-/** Semester-wise backlogs for the profile Back Logs tab (failed subjects via `s_get_exam_student_results`). */
+/** Semester-wise backlogs for the profile Backlogs tab (Angular `in_ispass=0`). */
 export async function loadStudentBacklogsForSemester(
   student: AnyRow,
   courseYearId: number,
 ): Promise<AnyRow[]> {
+  if (!courseYearId) return [];
   const ctx = getStudentProfileContext(student);
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "studentBacklogs",
-      "backlogSubjects",
-      "backlogList",
-      "failedSubjects",
-      "arrearSubjects",
-      "studentArrears",
-    ],
-    [/backlog/i, /arrear/i, /failed.*subject/i],
-  );
-  if (nested.length > 0)
-    return filterExamResultsBySemester(nested, courseYearId);
-
-  const rows = await fetchBacklogRows(student, { ...ctx, courseYearId });
-  return filterExamResultsBySemester(rows, courseYearId);
+  return fetchBacklogRows(student, { ...ctx, courseYearId });
 }
 
 async function loadBacklogs(
   student: AnyRow,
   ctx: StudentProfileContext,
 ): Promise<AnyRow[]> {
-  const nested = mergeProfileArrays(
-    student,
-    [
-      "studentBacklogs",
-      "backlogSubjects",
-      "backlogList",
-      "failedSubjects",
-      "arrearSubjects",
-      "studentArrears",
-    ],
-    [/backlog/i, /arrear/i, /failed.*subject/i],
-  );
-  if (nested.length > 0) return nested;
+  if (!ctx.courseYearId) return [];
   return fetchBacklogRows(student, ctx);
 }
 

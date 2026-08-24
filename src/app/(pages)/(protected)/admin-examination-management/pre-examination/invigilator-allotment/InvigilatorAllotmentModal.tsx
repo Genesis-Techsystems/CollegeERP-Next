@@ -324,7 +324,6 @@ export function InvigilatorAllotmentModal({
       <DialogContent className="max-w-[950px] max-h-[92vh] overflow-y-auto p-0 gap-0">
         <DialogHeader className="px-4 py-3 border-b border-[#B2EBF2] bg-muted/20">
           <DialogTitle className="flex items-center gap-2 text-[15px] font-semibold">
-            <ClipboardList className="h-4 w-4 text-primary" aria-hidden />
             Invigilator Room Allotment
           </DialogTitle>
         </DialogHeader>

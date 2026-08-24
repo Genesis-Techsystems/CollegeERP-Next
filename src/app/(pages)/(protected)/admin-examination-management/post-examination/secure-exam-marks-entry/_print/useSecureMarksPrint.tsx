@@ -95,7 +95,7 @@ export function useSecureMarksPrint(params: {
 
   const printButton = (
     <Button
-      className="h-8 bg-blue-600 text-[12px] text-white hover:bg-blue-700"
+      className="h-9 px-3 text-[12px] text-white"
       disabled={students.length === 0}
       onClick={() => setPrintMode("marks")}
     >

@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
-import { Download, GraduationCap, Upload } from "lucide-react";
+import { Download, GraduationCap, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -112,6 +112,69 @@ function ymdToDate(ymd: string): Date | null {
   }
 }
 
+function asBool(v: unknown): boolean {
+  return v === true || v === 1 || v === "1" || v === "true";
+}
+
+function parseExamDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = parseISO(raw.length >= 10 ? raw.slice(0, 10) : raw);
+  if (isValid(iso)) return iso;
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+/** Angular exam-marks-entry: `date:'MMM d, y'` */
+function formatExamDateLabel(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "MMM d, yyyy") : "";
+}
+
+function examTypeTags(row: AnyRow): string[] {
+  const tags: string[] = [];
+  if (asBool(row.is_internal_exam ?? row.isInternalExam)) tags.push("Internal");
+  if (asBool(row.is_regular_exam ?? row.isRegularExam)) tags.push("Regular");
+  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) tags.push("Supple");
+  return tags;
+}
+
+/** Label: Exam Name (Dec 22, 2025 - May 6, 2026)(Regular)(Supple) */
+function formatExamOptionLabel(row: AnyRow): string {
+  const name = String(row.exam_name ?? row.examName ?? "").trim() || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(row)
+    .map((t) => `(${t})`)
+    .join("");
+  return `${name}${range}${tags}`;
+}
+
+function examOptionLabelNode(row: AnyRow) {
+  const name = String(row.exam_name ?? row.examName ?? "").trim() || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  return (
+    <span>
+      {name}
+      {range}
+      {examTypeTags(row).map((t) => (
+        <span key={t} className="font-medium text-[#0014ff]">
+          ({t})
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function parseUserRoles(): string[] {
   try {
     const raw =
@@ -171,6 +234,19 @@ function attendanceText(row: AnyRow): string {
   if (row?.isPresent === true) return "Present";
   if (row?.isPresent === false) return "Absent";
   return "Not Marked";
+}
+
+/** Angular `span.active` / `span.in-active` — Present plain; Absent/Not Marked orange badge. */
+function AttendanceStatusRenderer(params: ICellRendererParams<AnyRow>) {
+  const label = attendanceText(params.data ?? {});
+  if (params.data?.isPresent === true) {
+    return <span className="text-[14px] text-slate-800">{label}</span>;
+  }
+  return (
+    <span className="inline-block rounded-[3px] bg-[#ff6636] px-2 py-0.5 text-[14px] font-medium leading-tight">
+      {label}
+    </span>
+  );
 }
 
 function findSubjectMarksRow(
@@ -291,20 +367,24 @@ function MarksInputRenderer(
       : Number.isFinite(Number(raw))
         ? String(Number(raw))
         : "";
+  // Angular mat-form-field outline + text-align:right in External Marks column
   return (
-    <Input
-      type="number"
-      min={0}
-      max={max}
-      className="h-8 text-[12px]"
-      value={display}
-      disabled={disabled}
-      onChange={(e) => {
-        if (!params.data) return;
-        const v = e.target.value;
-        params.onChange(params.data, v === "" ? "" : Number(v));
-      }}
-    />
+    <div className="flex h-full w-full items-center py-1 pr-1">
+      <Input
+        type="number"
+        min={0}
+        max={max}
+        step="any"
+        className="h-9 w-full rounded-md border border-[#c3d9ff] bg-white px-2 text-left text-[13px] tabular-nums shadow-none focus-visible:border-[#0c51a4] focus-visible:ring-1 focus-visible:ring-[#0c51a4]/40 disabled:bg-[#f3f6fb] disabled:opacity-80"
+        value={display}
+        disabled={disabled}
+        onChange={(e) => {
+          if (!params.data) return;
+          const v = e.target.value;
+          params.onChange(params.data, v === "" ? "" : Number(v));
+        }}
+      />
+    </div>
   );
 }
 
@@ -464,7 +544,11 @@ export default function ExamMarksEntryPage() {
   }, [exams, examId, allExamFeeTypes]);
 
   const colleges = useMemo(() => {
-    const list = dedupeBy(restFilters, "fk_college_id");
+    const list = dedupeBy(restFilters, "fk_college_id").filter((r) => {
+      const id = Number(r.fk_college_id);
+      const code = String(r.college_code ?? r.collegeCode ?? "").trim();
+      return id > 0 && !!code && code !== "undefined";
+    });
     return [...list].sort(
       (a, b) =>
         n(a.clg_sort_order ?? a.sort_order) -
@@ -479,7 +563,11 @@ export default function ExamMarksEntryPage() {
           (x) => Number(x.fk_college_id) === Number(collegeId),
         ),
         "fk_course_group_id",
-      ),
+      ).filter((r) => {
+        const id = Number(r.fk_course_group_id);
+        const code = String(r.group_code ?? r.groupCode ?? "").trim();
+        return id > 0 && !!code && code !== "undefined";
+      }),
     [restFilters, collegeId],
   );
   const courseYears = useMemo(
@@ -491,7 +579,13 @@ export default function ExamMarksEntryPage() {
             Number(x.fk_course_group_id) === Number(courseGroupId),
         ),
         "fk_course_year_id",
-      ),
+      ).filter((r) => {
+        const id = Number(r.fk_course_year_id);
+        const code = String(
+          r.course_year_code ?? r.courseYearCode ?? "",
+        ).trim();
+        return id > 0 && !!code && code !== "undefined";
+      }),
     [restFilters, collegeId, courseGroupId],
   );
   const regulationsFlex = useMemo(() => {
@@ -763,14 +857,20 @@ export default function ExamMarksEntryPage() {
   }, [courseId, examId, academicYearId, employeeId]);
 
   useEffect(() => {
-    if (!colleges.length) return;
+    if (!colleges.length) {
+      if (collegeId != null) setCollegeId(null);
+      return;
+    }
     if (!colleges.some((r) => Number(r.fk_college_id) === Number(collegeId))) {
       setCollegeId(Number(colleges[0].fk_college_id));
     }
   }, [colleges, collegeId]);
 
   useEffect(() => {
-    if (!courseGroups.length) return;
+    if (!courseGroups.length) {
+      if (courseGroupId != null) setCourseGroupId(null);
+      return;
+    }
     if (
       !courseGroups.some(
         (r) => Number(r.fk_course_group_id) === Number(courseGroupId),
@@ -781,7 +881,10 @@ export default function ExamMarksEntryPage() {
   }, [courseGroups, courseGroupId]);
 
   useEffect(() => {
-    if (!courseYears.length) return;
+    if (!courseYears.length) {
+      if (courseYearId != null) setCourseYearId(null);
+      return;
+    }
     if (
       !courseYears.some(
         (r) => Number(r.fk_course_year_id) === Number(courseYearId),
@@ -1353,10 +1456,15 @@ export default function ExamMarksEntryPage() {
   );
   const examOptions = useMemo(
     () =>
-      exams.map((x) => ({
-        value: String(x.fk_exam_id),
-        label: String(x.exam_name ?? ""),
-      })),
+      exams.map((x) => {
+        const label = formatExamOptionLabel(x);
+        return {
+          value: String(x.fk_exam_id),
+          label,
+          title: label,
+          labelNode: examOptionLabelNode(x),
+        };
+      }),
     [exams],
   );
   const examTypeOptions = useMemo(
@@ -1494,15 +1602,27 @@ export default function ExamMarksEntryPage() {
       },
       {
         headerName: "Attendance Status",
-        minWidth: 170,
+        minWidth: 150,
         flex: 1,
+        sortable: true,
         valueGetter: (p) => attendanceText(p.data ?? {}),
+        cellRenderer: AttendanceStatusRenderer,
         cellStyle: invalidRowStyle,
       },
       {
+        field: "marks",
         headerName: marksHeader,
         minWidth: 170,
         flex: 1,
+        sortable: true,
+        // Numeric sort — empty / non-numeric treated as 0 (Angular list order by marks)
+        comparator: (a, b) => {
+          const na =
+            a === "" || a == null || Number.isNaN(Number(a)) ? 0 : Number(a);
+          const nb =
+            b === "" || b == null || Number.isNaN(Number(b)) ? 0 : Number(b);
+          return na - nb;
+        },
         cellRenderer: MarksInputRenderer,
         cellRendererParams: { maxMarks: maxValue, onChange: onMarkChange },
         cellStyle: invalidRowStyle,
@@ -1524,9 +1644,21 @@ export default function ExamMarksEntryPage() {
               <CommonSelect
                 value={courseId ? String(courseId) : null}
                 onChange={(v) => {
+                  // Angular selectedCourse — clear everything below Course
                   setCourseId(v ? Number(v) : null);
                   setAcademicYearId(null);
                   setExamId(null);
+                  setExamTypeId(0);
+                  setCollegeId(null);
+                  setCourseGroupId(null);
+                  setCourseYearId(null);
+                  setRegulationId(null);
+                  setSubjectTypeId(null);
+                  setSubjectId(null);
+                  setLabBatchId(0);
+                  setRestFilters([]);
+                  setRegRows([]);
+                  setSubjectRows([]);
                   clearResults();
                 }}
                 options={courseOptions}
@@ -1539,8 +1671,20 @@ export default function ExamMarksEntryPage() {
               <CommonSelect
                 value={academicYearId ? String(academicYearId) : null}
                 onChange={(v) => {
+                  // Angular selectedAcademicYear — clear Exam and below
                   setAcademicYearId(v ? Number(v) : null);
                   setExamId(null);
+                  setExamTypeId(0);
+                  setCollegeId(null);
+                  setCourseGroupId(null);
+                  setCourseYearId(null);
+                  setRegulationId(null);
+                  setSubjectTypeId(null);
+                  setSubjectId(null);
+                  setLabBatchId(0);
+                  setRestFilters([]);
+                  setRegRows([]);
+                  setSubjectRows([]);
                   clearResults();
                 }}
                 options={academicYearOptions}
@@ -1553,7 +1697,19 @@ export default function ExamMarksEntryPage() {
               <CommonSelect
                 value={examId ? String(examId) : null}
                 onChange={(v) => {
+                  // Angular selectedExam — clear college cascade below Exam
                   setExamId(v ? Number(v) : null);
+                  setExamTypeId(0);
+                  setCollegeId(null);
+                  setCourseGroupId(null);
+                  setCourseYearId(null);
+                  setRegulationId(null);
+                  setSubjectTypeId(null);
+                  setSubjectId(null);
+                  setLabBatchId(0);
+                  setRestFilters([]);
+                  setRegRows([]);
+                  setSubjectRows([]);
                   clearResults();
                 }}
                 options={examOptions}
@@ -1583,6 +1739,11 @@ export default function ExamMarksEntryPage() {
                   setCollegeId(v ? Number(v) : null);
                   setCourseGroupId(null);
                   setCourseYearId(null);
+                  setRegulationId(null);
+                  setSubjectTypeId(null);
+                  setSubjectId(null);
+                  setLabBatchId(0);
+                  setSubjectRows([]);
                   clearResults();
                 }}
                 options={collegeOptions}
@@ -1597,6 +1758,11 @@ export default function ExamMarksEntryPage() {
                 onChange={(v) => {
                   setCourseGroupId(v ? Number(v) : null);
                   setCourseYearId(null);
+                  setRegulationId(null);
+                  setSubjectTypeId(null);
+                  setSubjectId(null);
+                  setLabBatchId(0);
+                  setSubjectRows([]);
                   clearResults();
                 }}
                 options={groupOptions}
@@ -1610,6 +1776,11 @@ export default function ExamMarksEntryPage() {
                 value={courseYearId ? String(courseYearId) : null}
                 onChange={(v) => {
                   setCourseYearId(v ? Number(v) : null);
+                  setRegulationId(null);
+                  setSubjectTypeId(null);
+                  setSubjectId(null);
+                  setLabBatchId(0);
+                  setSubjectRows([]);
                   clearResults();
                 }}
                 options={courseYearOptions}
@@ -1807,13 +1978,13 @@ export default function ExamMarksEntryPage() {
               </Button>
             </div>
           )}
-          {hasFetched ? (
+          {hasFetched && rows.length > 0 ? (
             <div className="overflow-hidden rounded-md border border-[#c3d9ff]">
               <div className="flex items-start gap-4 p-3">
                 <div className="flex h-20 w-24 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
                   <GraduationCap className="h-10 w-10" />
                 </div>
-                <div className="space-y-1 text-[13px]">
+                <div className="space-y-1 text-[13px] leading-snug">
                   <p className="text-slate-700">
                     {selectedExam?.exam_name ?? "-"}{" "}
                     <span className="text-muted-foreground">
@@ -1824,7 +1995,7 @@ export default function ExamMarksEntryPage() {
                       <span className="text-blue-700">({examDate})</span>
                     ) : null}
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="text-[#8c8c8c]">
                     / {selectedCollege?.college_code ?? "-"} /{" "}
                     {selectedCourse?.course_code ?? "-"} /{" "}
                     {selectedGroup?.group_code ?? "-"} /{" "}
@@ -1833,16 +2004,16 @@ export default function ExamMarksEntryPage() {
                       ({selectedAy?.academic_year ?? "-"})
                     </span>
                   </p>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-semibold text-slate-900">
                     {selectedSubject?.subject_name ?? "-"} (
                     {selectedRegulation?.regulation_code ??
                       selectedRegulation?.regulationCode ??
                       "-"}
                     ) -{" "}
-                    <span className="text-blue-700">
+                    <span className="font-medium text-blue-700">
                       {selectedSubject?.subject_type ?? "-"}
                     </span>{" "}
-                    <span>({examTypeLabel})</span>
+                    <span className="font-normal">({examTypeLabel})</span>
                   </p>
                 </div>
               </div>
@@ -1850,6 +2021,7 @@ export default function ExamMarksEntryPage() {
           ) : null}
         </div>
       }
+      tableTitle="Students List"
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={loading}
@@ -1877,24 +2049,23 @@ export default function ExamMarksEntryPage() {
       }
       toolbarTrailing={
         hasFetched && rows.length > 0 ? (
-          <div className="order-first shrink-0 whitespace-nowrap text-[12px] text-slate-600">
-            Max Marks : <span className="font-semibold">{maxValue || "-"}</span>
-          </div>
+          <>
+            <div className="order-first shrink-0 whitespace-nowrap text-[12px] font-semibold text-slate-700">
+              Max Marks :{" "}
+              <span className="text-red-600">{maxValue || "-"}</span>
+            </div>
+            <Button
+              className="h-9 px-3 text-[12px]"
+              onClick={() => void onSave()}
+              disabled={saving || rows.length === 0}
+            >
+              <Save className="mr-1.5 h-3.5 w-3.5" />
+              {saving ? "Saving..." : "Save Marks"}
+            </Button>
+            {printButton}
+          </>
         ) : undefined
       }
-    >
-      {hasFetched && rows.length > 0 ? (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            className="h-8 text-[12px]"
-            onClick={() => void onSave()}
-            disabled={saving || rows.length === 0}
-          >
-            {saving ? "Saving..." : "Save Marks"}
-          </Button>
-          {printButton}
-        </div>
-      ) : null}
-    </FilteredListPage>
+    />
   );
 }

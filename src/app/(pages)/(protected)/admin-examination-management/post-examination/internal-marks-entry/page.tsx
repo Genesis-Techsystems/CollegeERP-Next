@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState, useEffect } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { format, parseISO, isValid } from "date-fns";
 import { GraduationCap, Printer, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Select, type SelectOption } from "@/common/components/select";
@@ -9,6 +10,7 @@ import { FilteredListPage } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   getInternalMarksEntryFilters,
   getInternalMarksEntryRestFilters,
@@ -28,6 +30,55 @@ type MarkRow = Record<string, any>;
 
 const THEORY_SUBJECT_TYPE_ID = 3;
 const ELECTIVE_SUBJECT_TYPE_ID = 4;
+
+function parseExamDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = parseISO(raw.slice(0, 10));
+  if (isValid(iso)) return iso;
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+/** Angular date pipe `MMM d, y` for exam dropdown. */
+function formatExamDateDisplay(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "MMM d, yyyy") : "";
+}
+
+/** Angular `momentWithDateFormatYMD` for info card. */
+function formatExamDateYmd(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "yyyy-MM-dd") : "";
+}
+
+/** Angular mat-option: `Name (from - to) (Internal|Regular|Supple)`. */
+function examSelectLabel(exam: AnyRow): string {
+  const name = String(exam.exam_name ?? exam.examName ?? "").trim() || "Exam";
+  const from = formatExamDateDisplay(exam.from_date ?? exam.fromDate);
+  const to = formatExamDateDisplay(exam.to_date ?? exam.toDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  let kind = "";
+  if (exam.is_internal_exam === true || exam.isInternalExam === true)
+    kind = " (Internal)";
+  else if (exam.is_regular_exam === true || exam.isRegularExam === true)
+    kind = " (Regular)";
+  else if (exam.is_supply_exam === true || exam.isSupplyExam === true)
+    kind = " (Supple)";
+  return `${name}${range}${kind}`;
+}
+
+/** Angular `this.exam` for the student-list info card. */
+function examCardTitle(exam: AnyRow | null | undefined): string {
+  if (!exam) return "-";
+  const name = String(exam.exam_name ?? exam.examName ?? "").trim() || "-";
+  const from = formatExamDateYmd(exam.from_date ?? exam.fromDate);
+  const to = formatExamDateYmd(exam.to_date ?? exam.toDate);
+  if (from && to) return `${name}( ${from} - ${to})`;
+  return name;
+}
 
 function dedupeBy<T extends AnyRow>(arr: T[], key: string): T[] {
   const seen = new Set<string>();
@@ -77,6 +128,8 @@ function MarkInputRenderer(
     onChange: (row: MarkRow, field: string, value: number | "") => void;
     /** When true, Total Internal is auto-sum (Exam+Assignment+Quiz). */
     lockWhenBreakdown?: boolean;
+    /** Angular mat-form-field outline look for Total Internal. */
+    bordered?: boolean;
   },
 ) {
   const raw = params.data?.[params.field];
@@ -95,7 +148,11 @@ function MarkInputRenderer(
       type="number"
       min={0}
       max={max}
-      className="h-8 text-[12px]"
+      className={cn(
+        "h-8 text-[12px]",
+        params.bordered &&
+          "rounded-sm border-2 border-[#c3d9ff] bg-white shadow-none focus-visible:ring-1 focus-visible:ring-[#c3d9ff]",
+      )}
       value={display}
       disabled={disabled}
       onChange={(e) => {
@@ -1218,12 +1275,15 @@ export default function InternalMarksEntryPage() {
       headerName: "Total Internal",
       minWidth: 150,
       flex: 1,
+      headerClass: "ime-total-internal-header",
+      cellClass: "ime-total-internal-cell",
       cellRenderer: MarkInputRenderer,
       cellRendererParams: {
         field: "internal_total_marks",
         maxMarks: maxValue || displayMaxMarks,
         onChange: updateMarks,
         lockWhenBreakdown: totalField,
+        bordered: true,
       },
       cellStyle: invalidStyle,
     });
@@ -1497,7 +1557,9 @@ export default function InternalMarksEntryPage() {
 
   return (
     <FilteredListPage
+      className="internal-marks-entry-page"
       title="Internal Exam Marks Entry"
+      tableTitle="Students List"
       filters={
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-12 items-end">
@@ -1544,7 +1606,7 @@ export default function InternalMarksEntryPage() {
                 }}
                 options={exams.map((x) => ({
                   value: String(x.fk_exam_id),
-                  label: String(x.exam_name ?? ""),
+                  label: examSelectLabel(x),
                 }))}
                 placeholder="Exam"
               />
@@ -1743,34 +1805,41 @@ export default function InternalMarksEntryPage() {
                 </div>
                 <div className="space-y-1 text-[13px]">
                   <p className="text-slate-700">
-                    {selectedExam?.exam_name ?? "-"}{" "}
-                    <span className="text-muted-foreground">
-                      ({String(selectedExam?.from_date ?? "").slice(0, 10)} -{" "}
-                      {String(selectedExam?.to_date ?? "").slice(0, 10)})
-                    </span>{" "}
+                    {examCardTitle(selectedExam)}{" "}
                     {examDate ? (
-                      <span className="text-blue-700">({examDate})</span>
+                      <span className="text-[blue]">
+                        ({formatExamDateYmd(examDate) || examDate})
+                      </span>
                     ) : null}
                   </p>
-                  <p className="text-muted-foreground">
-                    / {selectedCollege?.college_code ?? "-"} /{" "}
+                  <p className="text-[#8c8c8c]">
+                    {selectedCollege?.college_code ?? "-"} /{" "}
                     {selectedCourse?.course_code ?? "-"} /{" "}
                     {selectedGroup?.group_code ?? "-"} /{" "}
-                    {selectedYear?.course_year_code ?? "-"} /{" "}
-                    <span className="text-blue-700">
-                      ({selectedAcademicYear?.academic_year ?? "-"})
-                    </span>
+                    {selectedYear?.course_year_code ?? "-"}
+                    {selectedAcademicYear?.academic_year ? (
+                      <span className="text-[blue]">
+                        {" "}
+                        ({selectedAcademicYear.academic_year})
+                      </span>
+                    ) : null}
                   </p>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-bold text-black">
                     {selectedSubject?.subject_name ?? "-"} (
-                    {selectedRegulation?.regulation_code ?? "-"}) -{" "}
-                    <span className="text-blue-700">
-                      {selectedSubject?.subject_type ?? "-"}
+                    {selectedRegulation?.regulation_code ?? "-"})
+                    <span className="font-normal text-blue-700">
+                      {" "}
+                      - {selectedSubject?.subject_type ?? "-"}
                     </span>{" "}
-                    <span>
-                      ({selectedExam?.is_internal_exam ? "Internal" : "Regular"}
-                      )
-                    </span>
+                    (
+                    {selectedExam?.is_internal_exam ||
+                    selectedExam?.isInternalExam
+                      ? "Internal"
+                      : selectedExam?.is_supply_exam ||
+                          selectedExam?.isSupplyExam
+                        ? "Supple"
+                        : "Regular"}
+                    )
                   </p>
                 </div>
               </div>
@@ -1798,6 +1867,7 @@ export default function InternalMarksEntryPage() {
           ? {
               search: true,
               searchPlaceholder: "Search…",
+              exportExcel: false,
               exportPdf: false,
               pdfDocumentTitle: "Internal Marks Entry",
             }
@@ -1813,7 +1883,6 @@ export default function InternalMarksEntryPage() {
 
             <Button
               type="button"
-              variant="outline"
               size="sm"
               className="app-data-table-toolbar-btn h-9 px-3 text-[12px]"
               onClick={() => setPrintMode("marks-sheet")}

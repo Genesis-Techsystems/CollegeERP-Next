@@ -3,18 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Select } from "@/common/components/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormFieldVariantContext } from "@/common/components/forms";
 import { loadStudentCounselorMappings, pickProfileCell } from "@/services";
 import { formatProfileDate } from "./profile-utils";
+import { PROFILE_TD, PROFILE_TH, ProfileEmptyRow } from "./profile-table";
 
 type AnyRow = Record<string, unknown>;
 
 const SEM_TAB_CLASS =
-  "rounded-none border-b-2 border-transparent px-3 py-2 text-[11px] whitespace-nowrap data-[state=active]:border-[#ffcf46] data-[state=active]:bg-[#ffcf46]/20 data-[state=active]:text-primary data-[state=active]:shadow-none";
-
-const TH_CLASS =
-  "border border-border bg-[#C3D9FF] px-2 py-1.5 text-left text-xs font-medium";
-const TD_CLASS =
-  "border border-border px-2 py-1.5 text-left text-xs font-medium";
+  "rounded-none border-b-2 border-transparent px-3 py-2 text-[12px] whitespace-nowrap text-[#333] data-[state=active]:border-[#ffcf46] data-[state=active]:bg-[#ffcf46] data-[state=active]:text-[#333] data-[state=active]:shadow-none";
 
 function meetingValue(row: AnyRow, keys: string[]): string {
   const value = pickProfileCell(row, keys);
@@ -60,7 +57,7 @@ function counselorOptionLabel(mapping: AnyRow): string {
   ]);
   const from = formatMeetingDate(mapping.fromDate ?? mapping.from_date);
   const to = formatMeetingDate(mapping.toDate ?? mapping.to_date);
-  const parts = [name];
+  const parts = [name !== "—" ? name : "Counselor"];
   if (empNo !== "—") parts.push(`(${empNo})`);
   if (from !== "—" || to !== "—") parts.push(`(${from} - ${to})`);
   return parts.join(" ");
@@ -72,23 +69,19 @@ function activityStatusCode(row: AnyRow): string {
   ).toUpperCase();
 }
 
+function dashCell(value: string): string {
+  return value && value !== "—" ? value : " - ";
+}
+
 function MeetingsTable({
   rows,
   dateKey,
   emptyMessage,
-  loading,
 }: {
   rows: AnyRow[];
   dateKey: "conducted" | "scheduled";
   emptyMessage: string;
-  loading?: boolean;
 }) {
-  if (loading) {
-    return (
-      <p className="py-6 text-center text-xs text-muted-foreground">Loading…</p>
-    );
-  }
-
   const dateKeys =
     dateKey === "scheduled"
       ? [
@@ -100,66 +93,66 @@ function MeetingsTable({
       : ["activityDate", "activity_date", "meetingDate", "counselingDate"];
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto p-2.5">
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr>
-            <th className={`${TH_CLASS} w-[3%]`}>SI.No</th>
-            <th className={TH_CLASS}>
+            <th className={`${PROFILE_TH} w-[3%]`}>SI.No</th>
+            <th className={PROFILE_TH}>
               {dateKey === "scheduled" ? "Schedule Date" : "Activity Date"}
             </th>
-            <th className={TH_CLASS}>Activity Type</th>
-            <th className={TH_CLASS}>Attendee</th>
-            <th className={TH_CLASS}>Relationship</th>
-            <th className={TH_CLASS}>Discussion Points</th>
-            <th className={TH_CLASS}>Summary</th>
+            <th className={PROFILE_TH}>Activity Type</th>
+            <th className={PROFILE_TH}>Attendee</th>
+            <th className={PROFILE_TH}>Relationship</th>
+            <th className={PROFILE_TH}>Discussion Points</th>
+            <th className={PROFILE_TH}>Summary</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr>
-              <td colSpan={7} className={`${TH_CLASS} text-center`}>
-                <span className="text-sm font-medium text-destructive">
-                  {emptyMessage}
-                </span>
-              </td>
-            </tr>
+            <ProfileEmptyRow colSpan={7} message={emptyMessage} />
           ) : (
             rows.map((row, index) => (
               <tr
                 key={`${meetingValue(row, ["activityTypeName", "activity_type_name"])}-${index}`}
-                className={index % 2 === 0 ? "bg-white" : "bg-[#f1f6ff]"}
+                className={index % 2 === 1 ? "bg-[#f1f6ff]" : "bg-white"}
               >
-                <td className={TD_CLASS}>{index + 1}</td>
-                <td className={TD_CLASS}>
+                <td className={PROFILE_TD}>{index + 1}</td>
+                <td className={PROFILE_TD}>
                   {formatMeetingDate(dateKeys.map((k) => row[k]).find(Boolean))}
                 </td>
-                <td className={TD_CLASS}>
+                <td className={PROFILE_TD}>
                   {meetingValue(row, [
                     "activityTypeName",
                     "activity_type_name",
                     "activityName",
                   ])}
                 </td>
-                <td className={TD_CLASS}>
-                  {meetingValue(row, [
-                    "attendeesName",
-                    "attendees_name",
-                    "attendeeName",
-                  ])}
+                <td className={PROFILE_TD}>
+                  {dashCell(
+                    meetingValue(row, [
+                      "attendeesName",
+                      "attendees_name",
+                      "attendeeName",
+                    ]),
+                  )}
                 </td>
-                <td className={TD_CLASS}>
-                  {meetingValue(row, ["relationship", "relation"])}
+                <td className={PROFILE_TD}>
+                  {dashCell(meetingValue(row, ["relationship", "relation"]))}
                 </td>
-                <td className={TD_CLASS}>
-                  {meetingValue(row, [
-                    "discussionPoints",
-                    "discussion_points",
-                    "remarks",
-                  ])}
+                <td className={PROFILE_TD}>
+                  {dashCell(
+                    meetingValue(row, [
+                      "discussionPoints",
+                      "discussion_points",
+                      "remarks",
+                    ]),
+                  )}
                 </td>
-                <td className={TD_CLASS}>
-                  {meetingValue(row, ["summary", "notes", "description"])}
+                <td className={PROFILE_TD}>
+                  {dashCell(
+                    meetingValue(row, ["summary", "notes", "description"]),
+                  )}
                 </td>
               </tr>
             ))
@@ -170,6 +163,7 @@ function MeetingsTable({
   );
 }
 
+/** Angular `student-counselor-meetings` — always show select + tabs + table. */
 export function CounselorMeetingsTab({
   student,
 }: {
@@ -193,6 +187,8 @@ export function CounselorMeetingsTab({
         if (rows[0]) {
           const id = counselorMappingId(rows[0]);
           setSelectedCounselorId(id > 0 ? String(id) : "0");
+        } else {
+          setSelectedCounselorId(null);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -242,38 +238,29 @@ export function CounselorMeetingsTab({
     );
   }
 
-  if (!counselors.length) {
-    return (
-      <div className="space-y-3 rounded-md border-2 border-[#B2EBF2] p-2">
-        <p className="text-base font-medium text-[#0c51a4]">
-          Student Counselor Meetings
-        </p>
-        <p className="py-6 text-center text-sm font-medium text-destructive">
-          No counselor meetings found.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-3 rounded-md border-2 border-[#B2EBF2] p-2">
+    <div className="space-y-3 rounded-sm border-2 border-[#B2EBF2] p-2.5">
       <p className="text-base font-medium text-[#0c51a4]">
         Student Counselor Meetings
       </p>
 
-      <Select
-        label="Counselor"
-        required
-        value={selectedCounselorId}
-        onChange={setSelectedCounselorId}
-        options={counselorOptions}
-        placeholder="Counselor"
-        searchable
-        className="max-w-[60%]"
-      />
+      <FormFieldVariantContext.Provider value="standard">
+        <div className="max-w-[60%]">
+          <Select
+            label="Counselor"
+            required
+            value={selectedCounselorId}
+            onChange={setSelectedCounselorId}
+            options={counselorOptions}
+            placeholder="Counselor"
+            searchable
+            clearable={false}
+          />
+        </div>
+      </FormFieldVariantContext.Provider>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto rounded-sm border border-[#ffcf46]">
+        <div className="overflow-x-auto border border-[#ffcf46]">
           <TabsList className="h-auto min-w-max justify-start rounded-none bg-transparent p-0">
             <TabsTrigger value="conducted" className={SEM_TAB_CLASS}>
               Meetings Conducted
@@ -282,21 +269,22 @@ export function CounselorMeetingsTab({
               Scheduled Meetings
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="conducted" className="mt-0">
+            <MeetingsTable
+              rows={conducted}
+              dateKey="conducted"
+              emptyMessage="No meetings are conducted."
+            />
+          </TabsContent>
+          <TabsContent value="scheduled" className="mt-0">
+            <MeetingsTable
+              rows={scheduled}
+              dateKey="scheduled"
+              emptyMessage="No meetings are scheduled."
+            />
+          </TabsContent>
         </div>
-        <TabsContent value="conducted" className="mt-3 p-2">
-          <MeetingsTable
-            rows={conducted}
-            dateKey="conducted"
-            emptyMessage="No meetings are conducted."
-          />
-        </TabsContent>
-        <TabsContent value="scheduled" className="mt-3 p-2">
-          <MeetingsTable
-            rows={scheduled}
-            dateKey="scheduled"
-            emptyMessage="No meetings are scheduled."
-          />
-        </TabsContent>
       </Tabs>
     </div>
   );

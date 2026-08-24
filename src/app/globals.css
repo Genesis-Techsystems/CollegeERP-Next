@@ -137,7 +137,7 @@
   --app-table-row-height: 35px;
   --app-table-header-color: #000000;
   /* Angular mat-table tokens (styles.scss) */
-  --mat-table-header-bg: #ecf3ff;
+  --mat-table-header-bg: #c3d9ff;
   --mat-table-border: #e3edf8;
   --mat-table-row-even: #f8fbff;
   --mat-table-row-odd: #ffffff;
@@ -3464,12 +3464,12 @@ h4,
   gap: 0.5rem;
   min-height: 48px;
   margin: 0;
-  padding: 0 16px;
+  padding: 16px;
   border: none;
   border-radius: 0;
   background: transparent;
   color: rgba(0, 0, 0, 0.87);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1.25;
   text-align: left;
@@ -3872,8 +3872,8 @@ button.app-control[data-app-back],
 a.app-control[data-app-back],
 button.back-btn,
 a.back-btn {
-  background-color: #fff !important;
-  color: #042956 !important;
+  background-color: #ffcf46 !important;
+  color: #000000 !important;
   border: 1px solid #cfcfcf !important;
 }
 
@@ -3881,8 +3881,8 @@ button.app-control[data-app-back]:hover,
 a.app-control[data-app-back]:hover,
 button.back-btn:hover,
 a.back-btn:hover {
-  background-color: #f5f5f5 !important;
-  color: #042956 !important;
+  background-color: #ffcf46 !important;
+  color: #000000 !important;
 }
 
 /* Angular report filter Back (`styles.scss` later `.back-btn { background: #ffcf46 }`) */
@@ -5207,4 +5207,32 @@ input.student-fee-pay-amt::-webkit-outer-spin-button {
   .print\:block {
     display: block !important;
   }
+}
+
+/* Internal Marks Entry — Angular outline Total Internal column */
+.internal-marks-entry-page
+  .app-data-table
+  .ag-theme-quartz
+  .ag-header-cell.ime-total-internal-header {
+  border-left: 2px solid #c3d9ff !important;
+  border-right: 2px solid #c3d9ff !important;
+  box-sizing: border-box;
+}
+.internal-marks-entry-page
+  .app-data-table
+  .ag-theme-quartz
+  .ag-cell.ime-total-internal-cell {
+  border-left: 2px solid #c3d9ff !important;
+  border-right: 2px solid #c3d9ff !important;
+  box-sizing: border-box;
+}
+.internal-marks-entry-page
+  .app-data-table
+  .ag-theme-quartz
+  .ag-cell.ime-total-internal-cell
+  input {
+  border: 2px solid #c3d9ff !important;
+  border-radius: 3px;
+  background: #fff;
+  padding: 0.5rem;
 }

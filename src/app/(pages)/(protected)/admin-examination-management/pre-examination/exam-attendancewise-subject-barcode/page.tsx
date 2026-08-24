@@ -1,344 +1,571 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Barcode, Eye, FileText } from 'lucide-react'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Select } from '@/common/components/select'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { format, isValid, parseISO } from "date-fns";
+import { Barcode, Eye, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/common/components/select";
 import {
   generateBarcodesForExamStudents,
   getExamOmrStudents,
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTtBundle,
   getUnivExamSubjectUc,
-} from '@/services/pre-examination'
-import { FilteredListPage } from '@/components/layout'
-import { useAttendanceStickerPrint } from './_print/useAttendanceStickerPrint'
-import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+} from "@/services/pre-examination";
+import { FilteredListPage } from "@/components/layout";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { useAttendanceStickerPrint } from "./_print/useAttendanceStickerPrint";
+import type { ColDef, ICellRendererParams } from "ag-grid-community";
 
-type AnyRow = Record<string, any>
+type AnyRow = Record<string, any>;
 const REG_ID_KEYS = [
-  'fk_regulation_id',
-  'regulationId',
-  'fk_regulationId',
-  'regulation_id',
-  'regulationCatId',
-  'fk_regulation_cat_id',
-  'regulation.regulationId',
-  'Regulation.regulationId',
-]
+  "fk_regulation_id",
+  "regulationId",
+  "fk_regulationId",
+  "regulation_id",
+  "regulationCatId",
+  "fk_regulation_cat_id",
+  "regulation.regulationId",
+  "Regulation.regulationId",
+];
 const REG_TEXT_KEYS = [
-  'regulation_code',
-  'regulationCode',
-  'regulation_name',
-  'regulationName',
-  'regulation',
-  'regulation.regulationCode',
-  'Regulation.regulationCode',
-  'regulation.regulationName',
-  'Regulation.regulationName',
-  'regulationCodeDisplayName',
-  'regulation_display_name',
-  'regulationdisplayname',
-  'regulationcode',
-]
-const SUBJECT_ID_KEYS = ['fk_subject_id', 'subjectId', 'fk_subjectId', 'subject_id']
+  "regulation_code",
+  "regulationCode",
+  "regulation_name",
+  "regulationName",
+  "regulation",
+  "regulation.regulationCode",
+  "Regulation.regulationCode",
+  "regulation.regulationName",
+  "Regulation.regulationName",
+  "regulationCodeDisplayName",
+  "regulation_display_name",
+  "regulationdisplayname",
+  "regulationcode",
+];
+const SUBJECT_ID_KEYS = [
+  "fk_subject_id",
+  "subjectId",
+  "fk_subjectId",
+  "subject_id",
+];
 
 const getByPath = (obj: AnyRow | null | undefined, path: string): any => {
-  if (!obj) return undefined
-  if (Object.prototype.hasOwnProperty.call(obj, path)) return obj[path]
-  const parts = path.split('.')
-  let cur: any = obj
+  if (!obj) return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, path)) return obj[path];
+  const parts = path.split(".");
+  let cur: any = obj;
   for (const p of parts) {
-    if (cur == null || typeof cur !== 'object' || !(p in cur)) return undefined
-    cur = cur[p]
+    if (cur == null || typeof cur !== "object" || !(p in cur)) return undefined;
+    cur = cur[p];
   }
-  return cur
-}
+  return cur;
+};
 
 const pickNum = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return 0
+  if (!row) return 0;
   for (const key of keys) {
-    const v = Number(getByPath(row, key))
-    if (v > 0) return v
+    const v = Number(getByPath(row, key));
+    if (v > 0) return v;
   }
-  return 0
-}
+  return 0;
+};
 
 const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
-  if (!row) return ''
+  if (!row) return "";
   for (const key of keys) {
-    const v = getByPath(row, key)
-    if (v != null && String(v).trim() !== '') return String(v)
+    const v = getByPath(row, key);
+    if (v != null && String(v).trim() !== "") return String(v);
   }
-  return ''
+  return "";
+};
+
+function asBool(v: unknown): boolean {
+  return v === true || v === 1 || v === "1" || v === "true";
+}
+
+function parseExamDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = parseISO(raw.length >= 10 ? raw.slice(0, 10) : raw);
+  if (isValid(iso)) return iso;
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+/** Angular option dates — screenshot / mat-option use `MMM d, y` style. */
+function formatExamDateLabel(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "MMM d, yyyy") : "";
+}
+
+function examTypeTags(row: AnyRow): string[] {
+  const tags: string[] = [];
+  if (asBool(row.is_internal_exam ?? row.isInternalExam)) tags.push("Internal");
+  if (asBool(row.is_regular_exam ?? row.isRegularExam)) tags.push("Regular");
+  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) tags.push("Supple");
+  return tags;
+}
+
+/** Angular: `exam_name (from - to)(Regular)(Supple)` */
+function formatExamOptionLabel(row: AnyRow): string {
+  const name = pickText(row, ["exam_name", "examName"]) || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(row)
+    .map((t) => `(${t})`)
+    .join("");
+  return `${name}${range}${tags}`;
+}
+
+function examOptionLabelNode(row: AnyRow) {
+  const name = pickText(row, ["exam_name", "examName"]) || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  return (
+    <span>
+      {name}
+      {range}
+      {examTypeTags(row).map((t) => (
+        <span key={t} className="font-medium text-[#0014ff]">
+          ({t})
+        </span>
+      ))}
+    </span>
+  );
 }
 
 const regSyntheticId = (row: AnyRow | null | undefined) => {
-  const txt = pickText(row, REG_TEXT_KEYS).trim().toLowerCase()
-  if (!txt) return 0
-  let h = 0
-  for (let i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) >>> 0
-  return h > 0 ? h : 0
-}
+  const txt = pickText(row, REG_TEXT_KEYS).trim().toLowerCase();
+  if (!txt) return 0;
+  let h = 0;
+  for (let i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) >>> 0;
+  return h > 0 ? h : 0;
+};
 const pickRegValue = (row: AnyRow | null | undefined) => {
-  const id = pickNum(row, REG_ID_KEYS)
-  if (id > 0) return id
-  return regSyntheticId(row)
-}
-const pickBackendRegId = (row: AnyRow | null | undefined) => pickNum(row, REG_ID_KEYS)
+  const id = pickNum(row, REG_ID_KEYS);
+  if (id > 0) return id;
+  return regSyntheticId(row);
+};
+const pickBackendRegId = (row: AnyRow | null | undefined) =>
+  pickNum(row, REG_ID_KEYS);
 
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {
-  const seen = new Set<string | number>()
+  const seen = new Set<string | number>();
   return rows.filter((r) => {
-    const key = keyFn(r)
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
+    const key = keyFn(r);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 function barcodeImgSrc(raw: unknown): string | null {
-  if (raw == null) return null
-  const s = String(raw).trim()
-  if (!s || s === '-') return null
-  if (s.startsWith('data:')) return s
-  return `data:image/jpeg;base64,${s}`
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s || s === "-") return null;
+  if (s.startsWith("data:")) return s;
+  return `data:image/jpeg;base64,${s}`;
 }
 
 function barcodeImageRenderer(p: ICellRendererParams<AnyRow>) {
-  const img = barcodeImgSrc(p.data?.omr_barcode)
-  if (!img) return <span className="text-muted-foreground">—</span>
-  return <img src={img} alt="" className="h-5 w-auto max-w-[120px] object-contain" />
+  const img = barcodeImgSrc(p.data?.omr_barcode);
+  if (!img) return <span className="text-muted-foreground">—</span>;
+  return (
+    <img src={img} alt="" className="h-5 w-auto max-w-[120px] object-contain" />
+  );
 }
 
 function makeOmrRenderer(onView: () => void) {
   return function omrCell(_p: ICellRendererParams<AnyRow>) {
     return (
       <div className="flex justify-center">
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="View OMR page" onClick={onView}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="View OMR page"
+          onClick={onView}
+        >
           <Eye className="h-4 w-4" />
         </Button>
       </div>
-    )
-  }
+    );
+  };
 }
 
 function makeAnswerRenderer(onView: () => void) {
   return function answerCell(_p: ICellRendererParams<AnyRow>) {
     return (
       <div className="flex justify-center">
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" aria-label="View answer sheet" onClick={onView}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          aria-label="View answer sheet"
+          onClick={onView}
+        >
           <FileText className="h-4 w-4" />
         </Button>
       </div>
-    )
-  }
+    );
+  };
 }
 
 const COL_DEFS = {
   slNo: {
-    colId: 'slNo',
-    headerName: 'S.No',
+    colId: "slNo",
+    headerName: "S.No",
     valueGetter: (p: any) => (p.node?.rowIndex ?? 0) + 1,
     width: 64,
     minWidth: 56,
     flex: 0,
   } as ColDef<AnyRow>,
   student: {
-    colId: 'student',
-    headerName: 'Student',
+    colId: "student",
+    headerName: "Student",
     minWidth: 200,
     flex: 1,
     valueGetter: (p) => {
-      const r = p.data
-      if (!r) return '—'
-      const name = r.student_name ?? r.studentName ?? r.firstName ?? '—'
-      const ht = r.hallticket_number ?? r.hallticketNumber ?? r.rollNumber ?? '—'
-      return `${name} (${ht})`
+      const r = p.data;
+      if (!r) return "—";
+      const name = r.student_name ?? r.studentName ?? r.firstName ?? "—";
+      const ht =
+        r.hallticket_number ?? r.hallticketNumber ?? r.rollNumber ?? "—";
+      return `${name} (${ht})`;
     },
   } as ColDef<AnyRow>,
   barcodeNo: {
-    colId: 'barcodeNo',
-    headerName: 'Barcode No',
+    colId: "barcodeNo",
+    headerName: "Barcode No",
     minWidth: 120,
-    valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? '—',
+    valueGetter: (p) => p.data?.omr_serial_no ?? p.data?.omrSerialNo ?? "—",
   } as ColDef<AnyRow>,
   barcode: {
-    colId: 'barcode',
-    headerName: 'Barcode',
+    colId: "barcode",
+    headerName: "Barcode",
     minWidth: 130,
     sortable: false,
   } as ColDef<AnyRow>,
   subject: {
-    colId: 'subject',
-    headerName: 'Subject',
+    colId: "subject",
+    headerName: "Subject",
     minWidth: 200,
     flex: 1,
     valueGetter: (p) => {
-      const r = p.data
-      if (!r) return '—'
-      const name = r.subject_name ?? r.subjectName ?? '—'
-      const code = r.subject_code ?? r.subjectCode ?? '—'
-      return `${name} (${code})`
+      const r = p.data;
+      if (!r) return "—";
+      const name = r.subject_name ?? r.subjectName ?? "—";
+      const code = r.subject_code ?? r.subjectCode ?? "—";
+      return `${name} (${code})`;
     },
   } as ColDef<AnyRow>,
   omr: {
-    colId: 'omr',
-    headerName: 'OMR',
+    colId: "omr",
+    headerName: "OMR",
     width: 72,
     minWidth: 72,
     flex: 0,
     sortable: false,
   } as ColDef<AnyRow>,
   answer: {
-    colId: 'answer',
-    headerName: 'Answer',
+    colId: "answer",
+    headerName: "Answer",
     width: 72,
     minWidth: 72,
     flex: 0,
     sortable: false,
   } as ColDef<AnyRow>,
-}
+};
 
 export default function ExamAttendancewiseSubjectBarcodePage() {
-  const [isMounted, setIsMounted] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [tableLoading, setTableLoading] = useState(false)
-  const [hasFetched, setHasFetched] = useState(false)
-  const [rows, setRows] = useState<AnyRow[]>([])
-  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([])
+  const [isMounted, setIsMounted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+  const [rows, setRows] = useState<AnyRow[]>([]);
+  const [subjectRows, setSubjectRows] = useState<AnyRow[]>([]);
 
-  const [baseRows, setBaseRows] = useState<AnyRow[]>([])
-  const [restRows, setRestRows] = useState<AnyRow[]>([])
-  const [regulationRows, setRegulationRows] = useState<AnyRow[]>([])
+  const [baseRows, setBaseRows] = useState<AnyRow[]>([]);
+  const [restRows, setRestRows] = useState<AnyRow[]>([]);
+  const [regulationRows, setRegulationRows] = useState<AnyRow[]>([]);
 
-  const [courseId, setCourseId] = useState<number | null>(null)
-  const [academicYearId, setAcademicYearId] = useState<number | null>(null)
-  const [examId, setExamId] = useState<number | null>(null)
-  const [collegeId, setCollegeId] = useState<number | null>(null)
-  const [courseGroupId, setCourseGroupId] = useState<number | null>(null)
-  const [courseYearId, setCourseYearId] = useState<number | null>(null)
-  const [regulationId, setRegulationId] = useState<number | null>(null)
-  const [selectedBackendRegulationId, setSelectedBackendRegulationId] = useState<number>(0)
-  const [subjectId, setSubjectId] = useState<number | null>(null)
+  const [courseId, setCourseId] = useState<number | null>(null);
+  const [academicYearId, setAcademicYearId] = useState<number | null>(null);
+  const [examId, setExamId] = useState<number | null>(null);
+  const [collegeId, setCollegeId] = useState<number | null>(null);
+  const [courseGroupId, setCourseGroupId] = useState<number | null>(null);
+  const [courseYearId, setCourseYearId] = useState<number | null>(null);
+  const [regulationId, setRegulationId] = useState<number | null>(null);
+  const [selectedBackendRegulationId, setSelectedBackendRegulationId] =
+    useState<number>(0);
+  const [subjectId, setSubjectId] = useState<number | null>(null);
 
-  const [employeeId, setEmployeeId] = useState(0)
+  const [employeeId, setEmployeeId] = useState(0);
 
   const courses = useMemo(
     () =>
-      dedupeBy(baseRows, (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId'])).filter(
-        (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) > 0,
+      dedupeBy(baseRows, (r) =>
+        pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]),
+      ).filter(
+        (r) => pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) > 0,
       ),
     [baseRows],
-  )
+  );
   const academicYears = useMemo(
     () =>
       dedupeBy(
         baseRows.filter(
-          (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === Number(courseId),
+          (r) =>
+            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) ===
+            Number(courseId),
         ),
-        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']),
+        (r) =>
+          pickNum(r, [
+            "fk_academic_year_id",
+            "academicYearId",
+            "fk_academicYearId",
+          ]),
       ),
     [baseRows, courseId],
-  )
+  );
   const exams = useMemo(
     () =>
       dedupeBy(
         baseRows.filter(
           (r) =>
-            pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === Number(courseId) &&
-            pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) === Number(academicYearId),
+            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) ===
+              Number(courseId) &&
+            pickNum(r, [
+              "fk_academic_year_id",
+              "academicYearId",
+              "fk_academicYearId",
+            ]) === Number(academicYearId),
         ),
-        (r) => pickNum(r, ['fk_exam_id', 'examId', 'fk_examId']),
+        (r) => pickNum(r, ["fk_exam_id", "examId", "fk_examId"]),
       ),
     [baseRows, courseId, academicYearId],
-  )
+  );
   const colleges = useMemo(
     () =>
-      dedupeBy(restRows, (r) => pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId'])).filter(
-        (r) => pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId']) > 0,
+      dedupeBy(restRows, (r) =>
+        pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]),
+      ).filter(
+        (r) => pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) > 0,
       ),
     [restRows],
-  )
+  );
   const groups = useMemo(
     () =>
       dedupeBy(
-        restRows.filter((r) => pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId']) === Number(collegeId)),
-        (r) => pickNum(r, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']),
+        restRows.filter(
+          (r) =>
+            pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) ===
+            Number(collegeId),
+        ),
+        (r) =>
+          pickNum(r, [
+            "fk_course_group_id",
+            "courseGroupId",
+            "fk_course_groupId",
+          ]),
       ),
     [restRows, collegeId],
-  )
+  );
   const years = useMemo(
     () =>
       dedupeBy(
         restRows.filter(
           (r) =>
-            pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId']) === Number(collegeId) &&
-            pickNum(r, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) === Number(courseGroupId),
+            pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) ===
+              Number(collegeId) &&
+            pickNum(r, [
+              "fk_course_group_id",
+              "courseGroupId",
+              "fk_course_groupId",
+            ]) === Number(courseGroupId),
         ),
-        (r) => pickNum(r, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']),
+        (r) =>
+          pickNum(r, ["fk_course_year_id", "courseYearId", "fk_course_yearId"]),
       ),
     [restRows, collegeId, courseGroupId],
-  )
+  );
   const regulations = useMemo(() => {
     const fromRest = restRows.filter((r) => {
-      const regId = pickRegValue(r)
-      if (!regId) return false
-      if (collegeId && pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId']) !== Number(collegeId)) return false
-      if (courseGroupId && pickNum(r, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) !== Number(courseGroupId)) return false
-      if (courseYearId && pickNum(r, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']) !== Number(courseYearId)) return false
-      return true
-    })
+      const regId = pickRegValue(r);
+      if (!regId) return false;
+      if (
+        collegeId &&
+        pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) !==
+          Number(collegeId)
+      )
+        return false;
+      if (
+        courseGroupId &&
+        pickNum(r, [
+          "fk_course_group_id",
+          "courseGroupId",
+          "fk_course_groupId",
+        ]) !== Number(courseGroupId)
+      )
+        return false;
+      if (
+        courseYearId &&
+        pickNum(r, [
+          "fk_course_year_id",
+          "courseYearId",
+          "fk_course_yearId",
+        ]) !== Number(courseYearId)
+      )
+        return false;
+      return true;
+    });
     const fromBase = baseRows.filter((r) => {
-      const regId = pickRegValue(r)
-      if (!regId) return false
-      if (courseId && pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) !== Number(courseId)) return false
-      if (academicYearId && pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) !== Number(academicYearId)) return false
-      if (examId && pickNum(r, ['fk_exam_id', 'examId', 'fk_examId']) !== Number(examId)) return false
-      return true
-    })
-    return dedupeBy(
-      [...fromRest, ...regulationRows, ...fromBase],
-      (r) => pickRegValue(r),
-    ).filter((r) => pickRegValue(r) > 0)
-  }, [restRows, regulationRows, baseRows, collegeId, courseGroupId, courseYearId, courseId, academicYearId, examId])
+      const regId = pickRegValue(r);
+      if (!regId) return false;
+      if (
+        courseId &&
+        pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) !==
+          Number(courseId)
+      )
+        return false;
+      if (
+        academicYearId &&
+        pickNum(r, [
+          "fk_academic_year_id",
+          "academicYearId",
+          "fk_academicYearId",
+        ]) !== Number(academicYearId)
+      )
+        return false;
+      if (
+        examId &&
+        pickNum(r, ["fk_exam_id", "examId", "fk_examId"]) !== Number(examId)
+      )
+        return false;
+      return true;
+    });
+    return dedupeBy([...fromRest, ...regulationRows, ...fromBase], (r) =>
+      pickRegValue(r),
+    ).filter((r) => pickRegValue(r) > 0);
+  }, [
+    restRows,
+    regulationRows,
+    baseRows,
+    collegeId,
+    courseGroupId,
+    courseYearId,
+    courseId,
+    academicYearId,
+    examId,
+  ]);
   const regulationBackendIdMap = useMemo(() => {
-    const map = new Map<number, number>()
+    const map = new Map<number, number>();
     for (const r of regulations) {
-      map.set(pickRegValue(r), pickBackendRegId(r))
+      map.set(pickRegValue(r), pickBackendRegId(r));
     }
-    return map
-  }, [regulations])
+    return map;
+  }, [regulations]);
   const subjects = useMemo(() => {
-    const hasRegInRows = subjectRows.some((r) => pickRegValue(r) > 0)
+    const hasRegInRows = subjectRows.some((r) => pickRegValue(r) > 0);
     const scoped =
       regulationId && Number(regulationId) > 0 && hasRegInRows
         ? subjectRows.filter((r) => pickRegValue(r) === Number(regulationId))
-        : subjectRows
-    return dedupeBy(scoped, (r) => pickNum(r, SUBJECT_ID_KEYS))
-  }, [subjectRows, regulationId])
+        : subjectRows;
+    return dedupeBy(scoped, (r) => pickNum(r, SUBJECT_ID_KEYS));
+  }, [subjectRows, regulationId]);
   const tableSummaryText = useMemo(() => {
-    const college = colleges.find((c) => pickNum(c, ['fk_college_id', 'collegeId', 'fk_collegeId']) === Number(collegeId))
-    const ay = academicYears.find((a) => pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) === Number(academicYearId))
-    const course = courses.find((c) => pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId']) === Number(courseId))
-    const group = groups.find((g) => pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) === Number(courseGroupId))
-    const year = years.find((y) => pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']) === Number(courseYearId))
-    const subject = subjects.find((s) => pickNum(s, SUBJECT_ID_KEYS) === Number(subjectId))
+    const college = colleges.find(
+      (c) =>
+        pickNum(c, ["fk_college_id", "collegeId", "fk_collegeId"]) ===
+        Number(collegeId),
+    );
+    const ay = academicYears.find(
+      (a) =>
+        pickNum(a, [
+          "fk_academic_year_id",
+          "academicYearId",
+          "fk_academicYearId",
+        ]) === Number(academicYearId),
+    );
+    const course = courses.find(
+      (c) =>
+        pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) ===
+        Number(courseId),
+    );
+    const group = groups.find(
+      (g) =>
+        pickNum(g, [
+          "fk_course_group_id",
+          "courseGroupId",
+          "fk_course_groupId",
+        ]) === Number(courseGroupId),
+    );
+    const year = years.find(
+      (y) =>
+        pickNum(y, [
+          "fk_course_year_id",
+          "courseYearId",
+          "fk_course_yearId",
+        ]) === Number(courseYearId),
+    );
+    const subject = subjects.find(
+      (s) => pickNum(s, SUBJECT_ID_KEYS) === Number(subjectId),
+    );
     return [
-      pickText(college, ['college_code', 'collegeCode', 'college_name', 'collegeName']) || '-',
-      pickText(ay, ['academic_year', 'academicYear']) || '-',
-      pickText(course, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-',
-      pickText(group, ['group_code', 'groupCode']) || '-',
-      pickText(year, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-',
-      pickText(subject, ['subject_name', 'subjectName']) || '-',
-    ].join(' / ')
-  }, [colleges, academicYears, courses, groups, years, subjects, collegeId, academicYearId, courseId, courseGroupId, courseYearId, subjectId])
+      pickText(college, [
+        "college_code",
+        "collegeCode",
+        "college_name",
+        "collegeName",
+      ]) || "-",
+      pickText(ay, ["academic_year", "academicYear"]) || "-",
+      pickText(course, [
+        "course_code",
+        "courseCode",
+        "course_name",
+        "courseName",
+      ]) || "-",
+      pickText(group, ["group_code", "groupCode"]) || "-",
+      pickText(year, [
+        "course_year_code",
+        "courseYearCode",
+        "course_year_name",
+        "courseYearName",
+      ]) || "-",
+      pickText(subject, ["subject_name", "subjectName"]) || "-",
+    ].join(" / ");
+  }, [
+    colleges,
+    academicYears,
+    courses,
+    groups,
+    years,
+    subjects,
+    collegeId,
+    academicYearId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    subjectId,
+  ]);
 
   const printStickersNotReady = useCallback((kind: string) => {
-    toast.info(`${kind} is not available in Next.js yet (legacy print route not migrated).`)
-  }, [])
+    toastInfo(
+      `${kind} is not available in Next.js yet (legacy print route not migrated).`,
+    );
+  }, []);
 
   const columnDefs = useMemo<ColDef<AnyRow>[]>(
     () => [
@@ -347,96 +574,167 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
       COL_DEFS.barcodeNo,
       { ...COL_DEFS.barcode, cellRenderer: barcodeImageRenderer },
       COL_DEFS.subject,
-      { ...COL_DEFS.omr, cellRenderer: makeOmrRenderer(() => printStickersNotReady('OMR sheet view')) },
-      { ...COL_DEFS.answer, cellRenderer: makeAnswerRenderer(() => printStickersNotReady('Answer sheet view')) },
+      {
+        ...COL_DEFS.omr,
+        cellRenderer: makeOmrRenderer(() =>
+          printStickersNotReady("OMR sheet view"),
+        ),
+      },
+      {
+        ...COL_DEFS.answer,
+        cellRenderer: makeAnswerRenderer(() =>
+          printStickersNotReady("Answer sheet view"),
+        ),
+      },
     ],
     [printStickersNotReady],
-  )
+  );
 
   const getRowId = useCallback((p: { data?: AnyRow }) => {
-    const d = p.data
-    if (!d) return ''
-    const det = Number(d.fk_exam_std_det_id ?? d.examStdDetId ?? d.exam_std_det_id ?? 0)
-    if (det > 0) return String(det)
-    const sid = Number(d.student_id ?? d.studentId ?? d.fk_student_id ?? 0)
-    const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0)
-    return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? '')}`
-  }, [])
+    const d = p.data;
+    if (!d) return "";
+    const det = Number(
+      d.fk_exam_std_det_id ?? d.examStdDetId ?? d.exam_std_det_id ?? 0,
+    );
+    if (det > 0) return String(det);
+    const sid = Number(d.student_id ?? d.studentId ?? d.fk_student_id ?? 0);
+    const sub = Number(d.fk_subject_id ?? d.subjectId ?? 0);
+    return `row-${sid}-${sub}-${String(d.omr_serial_no ?? d.hallticket_number ?? "")}`;
+  }, []);
 
   const printExamName = pickText(
-    exams.find((e) => pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) === Number(examId)),
-    ['exam_name', 'examName'],
-  )
-  const { printMode, printButtons, printView } = useAttendanceStickerPrint(rows, printExamName)
+    exams.find(
+      (e) =>
+        pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) === Number(examId),
+    ),
+    ["exam_name", "examName"],
+  );
+  const { printMode, printButtons, printView } = useAttendanceStickerPrint(
+    rows,
+    printExamName,
+  );
 
   async function init() {
-    setLoading(true)
+    setLoading(true);
     try {
-      const rows = await getUnivExamFiltersRegSup(employeeId).catch(() => [])
-      setBaseRows(Array.isArray(rows) ? rows : [])
-      const c = dedupeBy(rows, (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId'])).find(
-        (r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) > 0,
-      )
-      if (!c) return
-      const cid = pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId'])
-      setCourseId(cid)
+      const loaded = await getUnivExamFiltersRegSup(employeeId);
+      const rows = Array.isArray(loaded) ? loaded : [];
+      setBaseRows(rows);
+      const c = dedupeBy(rows, (r) =>
+        pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]),
+      ).find(
+        (r) => pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) > 0,
+      );
+      if (!c) {
+        toastSuccess("No Records Found.");
+        return;
+      }
+      const cid = pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]);
+      setCourseId(cid);
       const ay = dedupeBy(
-        rows.filter((r) => pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === cid),
-        (r) => pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']),
-      )[0]
-      if (!ay) return
-      const ayid = pickNum(ay, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId'])
-      setAcademicYearId(ayid)
+        rows.filter(
+          (r) =>
+            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid,
+        ),
+        (r) =>
+          pickNum(r, [
+            "fk_academic_year_id",
+            "academicYearId",
+            "fk_academicYearId",
+          ]),
+      )[0];
+      if (!ay) return;
+      const ayid = pickNum(ay, [
+        "fk_academic_year_id",
+        "academicYearId",
+        "fk_academicYearId",
+      ]);
+      setAcademicYearId(ayid);
       const ex = dedupeBy(
         rows.filter(
           (r) =>
-            pickNum(r, ['fk_course_id', 'courseId', 'fk_courseId']) === cid &&
-            pickNum(r, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) === ayid,
+            pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid &&
+            pickNum(r, [
+              "fk_academic_year_id",
+              "academicYearId",
+              "fk_academicYearId",
+            ]) === ayid,
         ),
-        (r) => pickNum(r, ['fk_exam_id', 'examId', 'fk_examId']),
-      )[0]
-      if (!ex) return
-      const eid = pickNum(ex, ['fk_exam_id', 'examId', 'fk_examId'])
-      setExamId(eid)
-      await onExamLoad(cid, ayid, eid)
+        (r) => pickNum(r, ["fk_exam_id", "examId", "fk_examId"]),
+      )[0];
+      if (!ex) return;
+      const eid = pickNum(ex, ["fk_exam_id", "examId", "fk_examId"]);
+      setExamId(eid);
+      await onExamLoad(cid, ayid, eid);
+    } catch (e) {
+      toastError(e);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   async function onExamLoad(cid: number, ayid: number, eid: number) {
-    const bundle = await getUnivExamRestNoTtBundle({
-      courseId: cid,
-      examId: eid,
-      academicYearId: ayid,
-      employeeId,
-    }).catch(() => ({ restFilters: [], regulations: [] }))
-    const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : []
-    const regsFromFlag = Array.isArray(bundle?.regulations) ? bundle.regulations : []
-    setRestRows(rest)
-    const regs = dedupeBy(
-      [...regsFromFlag, ...rest].filter((r) => pickRegValue(r) > 0),
-      (r) => pickRegValue(r),
-    )
-    setRegulationRows(regs)
-    const firstReg = regs[0]
-    if (firstReg) {
-      const ui = pickRegValue(firstReg)
-      setRegulationId(ui)
-      setSelectedBackendRegulationId(pickBackendRegId(firstReg))
+    try {
+      const bundle = await getUnivExamRestNoTtBundle({
+        courseId: cid,
+        examId: eid,
+        academicYearId: ayid,
+        employeeId,
+      });
+      const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : [];
+      const regsFromFlag = Array.isArray(bundle?.regulations)
+        ? bundle.regulations
+        : [];
+      setRestRows(rest);
+      const regs = dedupeBy(
+        [...regsFromFlag, ...rest].filter((r) => pickRegValue(r) > 0),
+        (r) => pickRegValue(r),
+      );
+      setRegulationRows(regs);
+      const firstReg = regs[0];
+      if (firstReg) {
+        const ui = pickRegValue(firstReg);
+        setRegulationId(ui);
+        setSelectedBackendRegulationId(pickBackendRegId(firstReg));
+      }
+      const clg = dedupeBy(rest, (r) =>
+        pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]),
+      ).find(
+        (r) => pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) > 0,
+      );
+      if (clg)
+        setCollegeId(
+          pickNum(clg, ["fk_college_id", "collegeId", "fk_collegeId"]),
+        );
+      if (rest.length === 0 && regs.length === 0) {
+        toastSuccess("No Records Found.");
+      }
+    } catch (e) {
+      setRestRows([]);
+      setRegulationRows([]);
+      toastError(e);
     }
-    const clg = dedupeBy(rest, (r) => pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId'])).find(
-      (r) => pickNum(r, ['fk_college_id', 'collegeId', 'fk_collegeId']) > 0,
-    )
-    if (clg) setCollegeId(pickNum(clg, ['fk_college_id', 'collegeId', 'fk_collegeId']))
   }
 
   async function loadSubjects(targetRegulationId?: number | null) {
-    if (!collegeId || !courseId || !courseGroupId || !courseYearId || !examId || !academicYearId) return
-    const uiRegId = Number(targetRegulationId ?? regulationId ?? 0)
-    const mappedBackendId = regulationBackendIdMap.get(uiRegId) ?? 0
-    const selectedReg = regulations.find((r) => pickRegValue(r) === uiRegId)
-    const regId = Number(mappedBackendId || pickNum(selectedReg, REG_ID_KEYS) || selectedBackendRegulationId || 0)
+    if (
+      !collegeId ||
+      !courseId ||
+      !courseGroupId ||
+      !courseYearId ||
+      !examId ||
+      !academicYearId
+    )
+      return;
+    const uiRegId = Number(targetRegulationId ?? regulationId ?? 0);
+    const mappedBackendId = regulationBackendIdMap.get(uiRegId) ?? 0;
+    const selectedReg = regulations.find((r) => pickRegValue(r) === uiRegId);
+    const regId = Number(
+      mappedBackendId ||
+        pickNum(selectedReg, REG_ID_KEYS) ||
+        selectedBackendRegulationId ||
+        0,
+    );
     const subRes = await getUnivExamSubjectUc({
       collegeId,
       courseId,
@@ -446,98 +744,146 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
       academicYearId,
       regulationId: regId,
       employeeId,
-    }).catch(() => [])
-    const list = Array.isArray(subRes) ? subRes : []
-    setSubjectRows(list)
+    }).catch((e) => {
+      toastError(e);
+      return [];
+    });
+    const list = Array.isArray(subRes) ? subRes : [];
+    setSubjectRows(list);
 
-    const regFromSubject = dedupeBy(list.filter((r) => pickRegValue(r) > 0), (r) => pickRegValue(r))
+    const regFromSubject = dedupeBy(
+      list.filter((r) => pickRegValue(r) > 0),
+      (r) => pickRegValue(r),
+    );
     if (regFromSubject.length > 0) {
-      setRegulationRows(regFromSubject)
-      if (!regulationId || !regFromSubject.some((r) => pickRegValue(r) === Number(regulationId))) {
-        setRegulationId(pickRegValue(regFromSubject[0]))
+      setRegulationRows(regFromSubject);
+      if (
+        !regulationId ||
+        !regFromSubject.some((r) => pickRegValue(r) === Number(regulationId))
+      ) {
+        setRegulationId(pickRegValue(regFromSubject[0]));
       }
     }
 
     if (list.length > 0) {
-      const activeRegId = Number(targetRegulationId ?? regulationId ?? pickRegValue(regFromSubject[0]) ?? 0)
+      const activeRegId = Number(
+        targetRegulationId ??
+          regulationId ??
+          pickRegValue(regFromSubject[0]) ??
+          0,
+      );
       const firstSubject =
         activeRegId > 0
           ? list.find((r) => pickRegValue(r) === activeRegId)
-          : list[0]
+          : list[0];
       if (firstSubject) {
-        setSubjectId(pickNum(firstSubject, SUBJECT_ID_KEYS))
+        setSubjectId(pickNum(firstSubject, SUBJECT_ID_KEYS));
       }
     } else {
-      setSubjectId(null)
+      setSubjectId(null);
     }
   }
 
   useEffect(() => {
-    setIsMounted(true)
-    const id = Number(globalThis?.localStorage?.getItem('employeeId') ?? 0)
-    setEmployeeId(Number.isFinite(id) ? id : 0)
-  }, [])
+    setIsMounted(true);
+    const id = Number(globalThis?.localStorage?.getItem("employeeId") ?? 0);
+    setEmployeeId(Number.isFinite(id) ? id : 0);
+  }, []);
 
   useEffect(() => {
-    if (!isMounted) return
-    void init()
-  }, [isMounted, employeeId])
+    if (!isMounted) return;
+    void init();
+  }, [isMounted, employeeId]);
 
   useEffect(() => {
-    setCourseGroupId(null)
-    setCourseYearId(null)
-    setSubjectRows([])
-    setSubjectId(null)
-    const first = groups[0]
-    if (first) setCourseGroupId(pickNum(first, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']))
-  }, [collegeId])
+    setCourseGroupId(null);
+    setCourseYearId(null);
+    setSubjectRows([]);
+    setSubjectId(null);
+    clearResults();
+    const first = groups[0];
+    if (first)
+      setCourseGroupId(
+        pickNum(first, [
+          "fk_course_group_id",
+          "courseGroupId",
+          "fk_course_groupId",
+        ]),
+      );
+  }, [collegeId]);
 
   useEffect(() => {
-    setCourseYearId(null)
-    setSubjectRows([])
-    setSubjectId(null)
-    const first = years[0]
-    if (first) setCourseYearId(pickNum(first, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']))
-  }, [courseGroupId])
+    setCourseYearId(null);
+    setSubjectRows([]);
+    setSubjectId(null);
+    clearResults();
+    const first = years[0];
+    if (first)
+      setCourseYearId(
+        pickNum(first, [
+          "fk_course_year_id",
+          "courseYearId",
+          "fk_course_yearId",
+        ]),
+      );
+  }, [courseGroupId]);
 
   useEffect(() => {
-    if (collegeId && courseId && courseGroupId && courseYearId && examId && academicYearId) {
-      void loadSubjects(0)
+    if (
+      collegeId &&
+      courseId &&
+      courseGroupId &&
+      courseYearId &&
+      examId &&
+      academicYearId
+    ) {
+      void loadSubjects(0);
     }
-  }, [collegeId, courseId, courseGroupId, courseYearId, examId, academicYearId])
+  }, [
+    collegeId,
+    courseId,
+    courseGroupId,
+    courseYearId,
+    examId,
+    academicYearId,
+  ]);
 
   useEffect(() => {
-    if (!regulationId) return
-    void loadSubjects(regulationId)
-  }, [regulationId])
+    if (!regulationId) return;
+    void loadSubjects(regulationId);
+  }, [regulationId]);
 
   useEffect(() => {
     if (!regulations.length) {
-      setRegulationId(null)
-      setSubjectRows([])
-      setSubjectId(null)
-      return
+      setRegulationId(null);
+      setSubjectRows([]);
+      setSubjectId(null);
+      return;
     }
     const exists = regulations.some(
       (r) => pickRegValue(r) === Number(regulationId),
-    )
+    );
     if (!exists) {
-      const firstUi = pickRegValue(regulations[0])
-      setRegulationId(firstUi)
-      setSelectedBackendRegulationId(pickBackendRegId(regulations[0]))
-      setSubjectRows([])
-      setSubjectId(null)
+      const firstUi = pickRegValue(regulations[0]);
+      setRegulationId(firstUi);
+      setSelectedBackendRegulationId(pickBackendRegId(regulations[0]));
+      setSubjectRows([]);
+      setSubjectId(null);
     }
-  }, [regulations, regulationId])
+  }, [regulations, regulationId]);
 
   function isPresentRow(r: AnyRow) {
-    return Boolean(r.is_present ?? r.isPresent)
+    return Boolean(r.is_present ?? r.isPresent);
   }
 
-  async function fetchPresentOmrRows() {
-    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
-    const selectedRegRow = regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ?? null
-    const backendRegulationId = selectedBackendRegulationId || pickBackendRegId(selectedRegRow)
+  async function fetchPresentOmrRows(): Promise<AnyRow[]> {
+    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId)
+      return [];
+    const selectedRegRow =
+      regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ??
+      null;
+    const backendRegulationId =
+      selectedBackendRegulationId || pickBackendRegId(selectedRegRow);
     const res = await getExamOmrStudents({
       examId,
       collegeId,
@@ -545,49 +891,89 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
       courseYearId,
       regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
       subjectId,
-    }).catch(() => [])
-    const all = Array.isArray(res) ? res : []
-    setRows(all.filter(isPresentRow))
+    });
+    const all = Array.isArray(res) ? res : [];
+    const present = all.filter(isPresentRow);
+    setRows(present);
+    return present;
   }
 
   async function getList() {
-    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId) return
-    setTableLoading(true)
-    setHasFetched(true)
+    if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId)
+      return;
+    setTableLoading(true);
+    setHasFetched(true);
     try {
-      await fetchPresentOmrRows()
+      const list = await fetchPresentOmrRows();
+      // Angular: empty → success toast "No Records Found."
+      if (list.length === 0) toastSuccess("No Records Found.");
+    } catch (e) {
+      setRows([]);
+      toastError(e);
     } finally {
-      setTableLoading(false)
+      setTableLoading(false);
     }
   }
 
+  function clearResults() {
+    setRows([]);
+    setHasFetched(false);
+  }
+
   async function generateBarcode() {
-    const ids = rows.map((r) => Number(r.fk_exam_std_det_id ?? 0)).filter((x) => x > 0)
-    if (ids.length === 0) return
-    setTableLoading(true)
+    const ids = rows
+      .map((r) => Number(r.fk_exam_std_det_id ?? 0))
+      .filter((x) => x > 0);
+    if (ids.length === 0) {
+      toastError("No students available to generate barcodes.");
+      return;
+    }
+    setTableLoading(true);
     try {
-      await generateBarcodesForExamStudents(ids).catch(() => null)
-      await fetchPresentOmrRows()
+      const result = await generateBarcodesForExamStudents(ids);
+      // Angular: truthy → "Barcode Generated"; falsy → "Subject data Mismatch"
+      if (result === false || result === null) {
+        toastError("Subject data Mismatch");
+        return;
+      }
+      toastSuccess("Barcode Generated");
+      await fetchPresentOmrRows();
+    } catch (e) {
+      toastError(e);
     } finally {
-      setTableLoading(false)
+      setTableLoading(false);
     }
   }
 
   // When a sticker print is active, replace the page with the print layout
   // (the AppShell @media print rules hide nav/aside so only stickers print).
-  if (printMode) return <>{printView}</>
+  if (printMode) return <>{printView}</>;
 
   return (
     <FilteredListPage
       title="Exam Attendance-wise Subject Barcode"
-      filters={(
+      filters={
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-2 space-y-1">
             <Label>Course</Label>
             <Select
               value={courseId ? String(courseId) : null}
-              onChange={(v) => setCourseId(v ? Number(v) : 0)}
-              options={courses.map((c, i) => ({ value: String(pickNum(c, ['fk_course_id', 'courseId', 'fk_courseId']) || i), label: pickText(c, ['course_code', 'courseCode', 'course_name', 'courseName']) || '-' }))}
+              onChange={(v) => {
+                clearResults();
+                setCourseId(v ? Number(v) : 0);
+              }}
+              options={courses.map((c, i) => ({
+                value: String(
+                  pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]) || i,
+                ),
+                label:
+                  pickText(c, [
+                    "course_code",
+                    "courseCode",
+                    "course_name",
+                    "courseName",
+                  ]) || "-",
+              }))}
               placeholder="Course"
             />
           </div>
@@ -595,22 +981,46 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             <Label>Exam Year</Label>
             <Select
               value={academicYearId ? String(academicYearId) : null}
-              onChange={(v) => setAcademicYearId(v ? Number(v) : 0)}
-              options={academicYears.map((a, i) => ({ value: String(pickNum(a, ['fk_academic_year_id', 'academicYearId', 'fk_academicYearId']) || i), label: pickText(a, ['academic_year', 'academicYear']) || '-' }))}
+              onChange={(v) => {
+                clearResults();
+                setAcademicYearId(v ? Number(v) : 0);
+              }}
+              options={academicYears.map((a, i) => ({
+                value: String(
+                  pickNum(a, [
+                    "fk_academic_year_id",
+                    "academicYearId",
+                    "fk_academicYearId",
+                  ]) || i,
+                ),
+                label: pickText(a, ["academic_year", "academicYear"]) || "-",
+              }))}
               placeholder="Exam Year"
             />
           </div>
-          <div className="md:col-span-4 space-y-1">
+          <div className="md:col-span-8 space-y-1">
             <Label>Exam Master</Label>
             <Select
               value={examId ? String(examId) : null}
               onChange={async (v) => {
-                const eid = v ? Number(v) : 0
-                setExamId(eid)
-                if (courseId && academicYearId) await onExamLoad(courseId, academicYearId, eid)
+                clearResults();
+                const eid = v ? Number(v) : 0;
+                setExamId(eid);
+                if (courseId && academicYearId)
+                  await onExamLoad(courseId, academicYearId, eid);
               }}
-              options={exams.map((e, i) => ({ value: String(pickNum(e, ['fk_exam_id', 'examId', 'fk_examId']) || i), label: pickText(e, ['exam_name', 'examName']) || '-' }))}
+              options={exams.map((e, i) => {
+                const id = pickNum(e, ["fk_exam_id", "examId", "fk_examId"]);
+                const label = formatExamOptionLabel(e);
+                return {
+                  value: String(id || i),
+                  label,
+                  title: label,
+                  labelNode: examOptionLabelNode(e),
+                };
+              })}
               placeholder="Exam Master"
+              searchable
             />
           </div>
 
@@ -618,8 +1028,23 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             <Label>College</Label>
             <Select
               value={collegeId ? String(collegeId) : null}
-              onChange={(v) => setCollegeId(v ? Number(v) : 0)}
-              options={colleges.map((c, i) => ({ value: String(pickNum(c, ['fk_college_id', 'collegeId', 'fk_collegeId']) || i), label: pickText(c, ['college_code', 'collegeCode', 'college_name', 'collegeName']) || '-' }))}
+              onChange={(v) => {
+                clearResults();
+                setCollegeId(v ? Number(v) : 0);
+              }}
+              options={colleges.map((c, i) => ({
+                value: String(
+                  pickNum(c, ["fk_college_id", "collegeId", "fk_collegeId"]) ||
+                    i,
+                ),
+                label:
+                  pickText(c, [
+                    "college_code",
+                    "collegeCode",
+                    "college_name",
+                    "collegeName",
+                  ]) || "-",
+              }))}
               placeholder="College"
             />
           </div>
@@ -627,8 +1052,26 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             <Label>Course Group</Label>
             <Select
               value={courseGroupId ? String(courseGroupId) : null}
-              onChange={(v) => setCourseGroupId(v ? Number(v) : 0)}
-              options={groups.map((g, i) => ({ value: String(pickNum(g, ['fk_course_group_id', 'courseGroupId', 'fk_course_groupId']) || i), label: pickText(g, ['group_code', 'groupCode', 'course_group_code', 'courseGroupCode']) || '-' }))}
+              onChange={(v) => {
+                clearResults();
+                setCourseGroupId(v ? Number(v) : 0);
+              }}
+              options={groups.map((g, i) => ({
+                value: String(
+                  pickNum(g, [
+                    "fk_course_group_id",
+                    "courseGroupId",
+                    "fk_course_groupId",
+                  ]) || i,
+                ),
+                label:
+                  pickText(g, [
+                    "group_code",
+                    "groupCode",
+                    "course_group_code",
+                    "courseGroupCode",
+                  ]) || "-",
+              }))}
               placeholder="Group"
             />
           </div>
@@ -636,8 +1079,26 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             <Label>Course Year</Label>
             <Select
               value={courseYearId ? String(courseYearId) : null}
-              onChange={(v) => setCourseYearId(v ? Number(v) : 0)}
-              options={years.map((y, i) => ({ value: String(pickNum(y, ['fk_course_year_id', 'courseYearId', 'fk_course_yearId']) || i), label: pickText(y, ['course_year_code', 'courseYearCode', 'course_year_name', 'courseYearName']) || '-' }))}
+              onChange={(v) => {
+                clearResults();
+                setCourseYearId(v ? Number(v) : 0);
+              }}
+              options={years.map((y, i) => ({
+                value: String(
+                  pickNum(y, [
+                    "fk_course_year_id",
+                    "courseYearId",
+                    "fk_course_yearId",
+                  ]) || i,
+                ),
+                label:
+                  pickText(y, [
+                    "course_year_code",
+                    "courseYearCode",
+                    "course_year_name",
+                    "courseYearName",
+                  ]) || "-",
+              }))}
               placeholder="Course Year"
             />
           </div>
@@ -646,12 +1107,19 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             <Select
               value={regulationId ? String(regulationId) : null}
               onChange={(v) => {
-                const uiRegId = v ? Number(v) : 0
-                setRegulationId(uiRegId)
-                setSelectedBackendRegulationId(regulationBackendIdMap.get(uiRegId) ?? 0)
-                setSubjectId(null)
+                clearResults();
+                const uiRegId = v ? Number(v) : 0;
+                setRegulationId(uiRegId);
+                setSelectedBackendRegulationId(
+                  regulationBackendIdMap.get(uiRegId) ?? 0,
+                );
+                setSubjectId(null);
               }}
-              options={regulations.map((r, i) => ({ value: String(pickRegValue(r) || i), label: pickText(r, REG_TEXT_KEYS) || `Regulation ${pickRegValue(r)}` }))}
+              options={regulations.map((r, i) => ({
+                value: String(pickRegValue(r) || i),
+                label:
+                  pickText(r, REG_TEXT_KEYS) || `Regulation ${pickRegValue(r)}`,
+              }))}
               placeholder="Regulation"
             />
           </div>
@@ -659,50 +1127,77 @@ export default function ExamAttendancewiseSubjectBarcodePage() {
             <Label>Subject</Label>
             <Select
               value={subjectId ? String(subjectId) : null}
-              onChange={(v) => setSubjectId(v ? Number(v) : 0)}
-              options={subjects.map((s, i) => ({ value: String(pickNum(s, SUBJECT_ID_KEYS) || i), label: (pickText(s, ['subject_name', 'subjectName']) || '-') + ' (' + (pickText(s, ['subject_code', 'subjectCode']) || '-') + ')' }))}
+              onChange={(v) => {
+                clearResults();
+                setSubjectId(v ? Number(v) : 0);
+              }}
+              options={subjects.map((s, i) => ({
+                value: String(pickNum(s, SUBJECT_ID_KEYS) || i),
+                label:
+                  (pickText(s, ["subject_name", "subjectName"]) || "-") +
+                  " (" +
+                  (pickText(s, ["subject_code", "subjectCode"]) || "-") +
+                  ")",
+              }))}
               placeholder="Subject"
             />
           </div>
-          <div className="md:col-span-2">
-            <Button type="button" onClick={getList} disabled={loading || tableLoading} className="h-8 px-3 text-[12px] w-full">Get List</Button>
+          <div className="md:col-span-1">
+            <Button
+              type="button"
+              onClick={getList}
+              disabled={loading || tableLoading}
+              className="h-8 px-3 text-[12px] w-full"
+            >
+              Get List
+            </Button>
           </div>
         </div>
-      )}
+      }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
       loading={tableLoading}
+      resultsVisible={hasFetched && rows.length > 0}
+      hideEmptyGrid
       pagination
       paginationPageSize={10}
       getRowId={getRowId}
-      toolbar={{
-        search: true,
-        searchPlaceholder: 'Search students…',
-        pdfDocumentTitle: 'Exam Attendance-wise Subject Barcode',
-      }}
-      toolbarLeading={(
-        <span className="max-w-[min(100%,20rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]" title={tableSummaryText}>
-          {tableSummaryText}
-        </span>
-      )}
-      toolbarTrailing={(
-        <>
-          {printButtons}
-          <Button
-            type="button"
-            size="sm"
-            onClick={generateBarcode}
-            disabled={tableLoading || rows.length === 0}
-            className="h-[30px] px-3 text-[12px]"
+      toolbar={
+        hasFetched && rows.length > 0
+          ? {
+              search: true,
+              searchPlaceholder: "Search students…",
+              pdfDocumentTitle: "Exam Attendance-wise Subject Barcode",
+            }
+          : false
+      }
+      toolbarLeading={
+        hasFetched && rows.length > 0 ? (
+          <span
+            className="max-w-[min(100%,20rem)] truncate text-[12px] font-medium text-[hsl(var(--primary))]"
+            title={tableSummaryText}
           >
-            <Barcode className="mr-1.5 h-3.5 w-3.5" />
-            Generate Barcode
-          </Button>
-        </>
-      )}
+            {tableSummaryText}
+          </span>
+        ) : undefined
+      }
+      toolbarTrailing={
+        hasFetched && rows.length > 0 ? (
+          <>
+            {printButtons}
+            <Button
+              type="button"
+              size="sm"
+              onClick={generateBarcode}
+              disabled={tableLoading || rows.length === 0}
+              className="h-[30px] px-3 text-[12px]"
+            >
+              <Barcode className="mr-1.5 h-3.5 w-3.5" />
+              Generate Barcode
+            </Button>
+          </>
+        ) : undefined
+      }
     />
-  )
+  );
 }
-
-
-

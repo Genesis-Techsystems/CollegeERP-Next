@@ -16,7 +16,6 @@ import { FilteredListPage } from "@/components/layout";
 import {
   getUnivExamFiltersRegSup,
   getUnivExamRestNoTt,
-  listActiveColleges,
   listStudentExamFeeRegistrationPayments,
 } from "@/services/pre-examination";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
@@ -137,8 +136,8 @@ export default function OnlineExamFeeRegistrationPage() {
   const [loading, setLoading] = useState(false);
   const [tableLoading, setTableLoading] = useState(false);
   const [filterRows, setFilterRows] = useState<AnyRow[]>([]);
+  /** Angular `CollegesListDetails` from `univ_exam_rest_no_tt` → `univ_exam_rest_filters`. */
   const [restRows, setRestRows] = useState<AnyRow[]>([]);
-  const [fallbackColleges, setFallbackColleges] = useState<AnyRow[]>([]);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -183,30 +182,13 @@ export default function OnlineExamFeeRegistrationPage() {
       ).filter((r) => Number(r.fk_exam_id) > 0),
     [filterRows, courseId, academicYearId],
   );
-  const derivedColleges = useMemo(
-    () =>
-      dedupeBy(
-        [...filterRows, ...restRows].filter(
-          (r) =>
-            Number(r.fk_course_id ?? r.courseId ?? 0) === Number(courseId) &&
-            Number(r.fk_academic_year_id ?? r.academicYearId ?? 0) ===
-              Number(academicYearId) &&
-            Number(r.fk_exam_id ?? r.examId ?? 0) === Number(examId),
-        ),
-        (r) => Number(r.fk_college_id ?? r.collegeId ?? 0),
-      ).filter((r) => Number(r.fk_college_id ?? r.collegeId ?? 0) > 0),
-    [filterRows, restRows, courseId, academicYearId, examId],
-  );
-
+  // Angular: colleges only from selectedExam → univ_exam_rest_filters (not all colleges).
   const colleges = useMemo(
     () =>
-      dedupeBy(
-        [...derivedColleges, ...fallbackColleges].filter(
-          (c) => Number(c.fk_college_id ?? c.collegeId ?? 0) > 0,
-        ),
-        (c) => Number(c.fk_college_id ?? c.collegeId ?? 0),
-      ),
-    [derivedColleges, fallbackColleges],
+      dedupeBy(restRows, (r) =>
+        Number(r.fk_college_id ?? r.collegeId ?? 0),
+      ).filter((r) => Number(r.fk_college_id ?? r.collegeId ?? 0) > 0),
+    [restRows],
   );
 
   const onViewSubjects = useCallback((row: AnyRow) => {
@@ -258,8 +240,7 @@ export default function OnlineExamFeeRegistrationPage() {
         const list = await getUnivExamFiltersRegSup(employeeId).catch(() => []);
         const normalized = Array.isArray(list) ? list : [];
         setFilterRows(normalized);
-        const all = await listActiveColleges().catch(() => []);
-        setFallbackColleges(Array.isArray(all) ? all : []);
+        setRestRows([]);
         const firstCourse = dedupeBy(normalized, (r) =>
           Number(r.fk_course_id),
         ).find((r) => Number(r.fk_course_id) > 0);
@@ -276,6 +257,7 @@ export default function OnlineExamFeeRegistrationPage() {
     setAcademicYearId(null);
     setExamId(null);
     setCollegeId(null);
+    setRestRows([]);
     setRows([]);
     setHasFetched(false);
   }
@@ -284,6 +266,7 @@ export default function OnlineExamFeeRegistrationPage() {
     setAcademicYearId(Number(v));
     setExamId(null);
     setCollegeId(null);
+    setRestRows([]);
     setRows([]);
     setHasFetched(false);
   }
@@ -302,6 +285,7 @@ export default function OnlineExamFeeRegistrationPage() {
       setRestRows([]);
       return;
     }
+    // Angular selectedExam → univ_exam_rest_no_tt / ALL → univ_exam_rest_filters
     const data = await getUnivExamRestNoTt({
       courseId: Number(courseId),
       examId: Number(eid),

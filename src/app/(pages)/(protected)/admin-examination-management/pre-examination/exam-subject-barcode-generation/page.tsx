@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { format, isValid, parseISO } from "date-fns";
 import { Barcode, Eye, FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ import {
   getUnivExamSubjectUc,
 } from "@/services/pre-examination";
 import { FilteredListPage, TableContextHeader } from "@/components/layout";
-import { toastError } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useBarcodeStickerPrint } from "./_print/useBarcodeStickerPrint";
 import type { ColDef } from "ag-grid-community";
@@ -104,6 +105,67 @@ const pickText = (row: AnyRow | null | undefined, keys: string[]) => {
   }
   return "";
 };
+
+function asBool(v: unknown): boolean {
+  return v === true || v === 1 || v === "1" || v === "true";
+}
+
+function parseExamDate(value: unknown): Date | null {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) return isValid(value) ? value : null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  const iso = parseISO(raw.length >= 10 ? raw.slice(0, 10) : raw);
+  if (isValid(iso)) return iso;
+  const d = new Date(raw);
+  return isValid(d) ? d : null;
+}
+
+function formatExamDateLabel(value: unknown): string {
+  const d = parseExamDate(value);
+  return d ? format(d, "MMM d, yyyy") : "";
+}
+
+function examTypeTags(row: AnyRow): string[] {
+  const tags: string[] = [];
+  if (asBool(row.is_internal_exam ?? row.isInternalExam)) tags.push("Internal");
+  if (asBool(row.is_regular_exam ?? row.isRegularExam)) tags.push("Regular");
+  if (asBool(row.is_supply_exam ?? row.isSupplyExam)) tags.push("Supple");
+  return tags;
+}
+
+function formatExamOptionLabel(row: AnyRow): string {
+  const name = pickText(row, ["exam_name", "examName"]) || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  const tags = examTypeTags(row)
+    .map((t) => `(${t})`)
+    .join("");
+  return `${name}${range}${tags}`;
+}
+
+function examOptionLabelNode(row: AnyRow) {
+  const name = pickText(row, ["exam_name", "examName"]) || "Exam";
+  const from = formatExamDateLabel(
+    row.from_date ?? row.fromDate ?? row.examFromDate,
+  );
+  const to = formatExamDateLabel(row.to_date ?? row.toDate ?? row.examToDate);
+  const range = from && to ? ` (${from} - ${to})` : "";
+  return (
+    <span>
+      {name}
+      {range}
+      {examTypeTags(row).map((t) => (
+        <span key={t} className="font-medium text-[#0014ff]">
+          ({t})
+        </span>
+      ))}
+    </span>
+  );
+}
 
 const COL_DEFS = {
   slNo: {
@@ -654,8 +716,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
     if (!cid) return;
     const yearsForCourse = dedupeBy(
       data.filter(
-        (r) =>
-          pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid,
+        (r) => pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) === cid,
       ),
       (r) =>
         pickNum(r, [
@@ -725,16 +786,21 @@ export default function ExamSubjectBarcodeGenerationPage() {
   async function init() {
     setLoading(true);
     try {
-      const loaded = await getUnivExamFiltersRegSup(employeeId).catch(() => []);
+      const loaded = await getUnivExamFiltersRegSup(employeeId);
       setBaseRows(loaded);
       const c = dedupeBy(loaded, (r) =>
         pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]),
       ).find(
         (r) => pickNum(r, ["fk_course_id", "courseId", "fk_courseId"]) > 0,
       );
-      if (!c) return;
+      if (!c) {
+        toastSuccess("No Records Found.");
+        return;
+      }
       const cid = pickNum(c, ["fk_course_id", "courseId", "fk_courseId"]);
       await onCourseChange(cid, loaded);
+    } catch (e) {
+      toastError(e);
     } finally {
       setLoading(false);
     }
@@ -750,37 +816,46 @@ export default function ExamSubjectBarcodeGenerationPage() {
   }
 
   async function onExamLoad(cid: number, ayid: number, eid: number) {
-    const bundle = await getUnivExamRestNoTtBundle({
-      courseId: cid,
-      examId: eid,
-      academicYearId: ayid,
-      employeeId,
-    }).catch(() => ({ restFilters: [], regulations: [] }));
-    const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : [];
-    const regsFromFlag = Array.isArray(bundle?.regulations)
-      ? bundle.regulations
-      : [];
-    setRestRows(rest);
-    const regs = dedupeBy(
-      [...regsFromFlag, ...rest].filter((r) => pickRegValue(r) > 0),
-      (r) => pickRegValue(r),
-    );
-    setRegulationRows(regs);
-    const firstReg = regs[0];
-    if (firstReg) {
-      const rid = pickRegValue(firstReg);
-      setRegulationId(rid);
-      setSelectedBackendRegulationId(pickBackendRegId(firstReg));
-    }
-    const clg = dedupeBy(rest, (r) =>
-      pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]),
-    ).find(
-      (r) => pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) > 0,
-    );
-    if (clg) {
-      setCollegeId(
-        pickNum(clg, ["fk_college_id", "collegeId", "fk_collegeId"]),
+    try {
+      const bundle = await getUnivExamRestNoTtBundle({
+        courseId: cid,
+        examId: eid,
+        academicYearId: ayid,
+        employeeId,
+      });
+      const rest = Array.isArray(bundle?.restFilters) ? bundle.restFilters : [];
+      const regsFromFlag = Array.isArray(bundle?.regulations)
+        ? bundle.regulations
+        : [];
+      setRestRows(rest);
+      const regs = dedupeBy(
+        [...regsFromFlag, ...rest].filter((r) => pickRegValue(r) > 0),
+        (r) => pickRegValue(r),
       );
+      setRegulationRows(regs);
+      const firstReg = regs[0];
+      if (firstReg) {
+        const rid = pickRegValue(firstReg);
+        setRegulationId(rid);
+        setSelectedBackendRegulationId(pickBackendRegId(firstReg));
+      }
+      const clg = dedupeBy(rest, (r) =>
+        pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]),
+      ).find(
+        (r) => pickNum(r, ["fk_college_id", "collegeId", "fk_collegeId"]) > 0,
+      );
+      if (clg) {
+        setCollegeId(
+          pickNum(clg, ["fk_college_id", "collegeId", "fk_collegeId"]),
+        );
+      }
+      if (rest.length === 0 && regs.length === 0) {
+        toastSuccess("No Records Found.");
+      }
+    } catch (e) {
+      setRestRows([]);
+      setRegulationRows([]);
+      toastError(e);
     }
   }
 
@@ -812,7 +887,10 @@ export default function ExamSubjectBarcodeGenerationPage() {
       academicYearId,
       regulationId: regId,
       employeeId,
-    }).catch(() => []);
+    }).catch((e) => {
+      toastError(e);
+      return [];
+    });
     const list = Array.isArray(rows) ? rows : [];
     setSubjectRows(list);
 
@@ -937,9 +1015,9 @@ export default function ExamSubjectBarcodeGenerationPage() {
     }
   }, [regulations, regulationId]);
 
-  async function fetchOmrStudentRows() {
+  async function fetchOmrStudentRows(): Promise<AnyRow[]> {
     if (!examId || !collegeId || !courseGroupId || !courseYearId || !subjectId)
-      return;
+      return [];
     const selectedRegRow =
       regulations.find((r) => pickRegValue(r) === Number(regulationId ?? 0)) ??
       null;
@@ -952,8 +1030,10 @@ export default function ExamSubjectBarcodeGenerationPage() {
       courseYearId,
       regulationId: backendRegulationId > 0 ? backendRegulationId : 0,
       subjectId,
-    }).catch(() => []);
-    setRows(Array.isArray(res) ? res : []);
+    });
+    const list = Array.isArray(res) ? res : [];
+    setRows(list);
+    return list;
   }
 
   async function getList() {
@@ -962,7 +1042,12 @@ export default function ExamSubjectBarcodeGenerationPage() {
     setTableLoading(true);
     setHasFetched(true);
     try {
-      await fetchOmrStudentRows();
+      const list = await fetchOmrStudentRows();
+      // Angular: empty → success toast "No Records Found." (no toast when rows exist)
+      if (list.length === 0) toastSuccess("No Records Found.");
+    } catch (e) {
+      setRows([]);
+      toastError(e);
     } finally {
       setTableLoading(false);
     }
@@ -978,8 +1063,16 @@ export default function ExamSubjectBarcodeGenerationPage() {
     }
     setTableLoading(true);
     try {
-      await generateBarcodesForExamStudents(ids).catch(() => null);
+      const result = await generateBarcodesForExamStudents(ids);
+      // Angular: truthy → "Barcode Generated"; falsy → "Subject data Mismatch"
+      if (result === false || result === null) {
+        toastError("Subject data Mismatch");
+        return;
+      }
+      toastSuccess("Barcode Generated");
       await fetchOmrStudentRows();
+    } catch (e) {
+      toastError(e);
     } finally {
       setTableLoading(false);
     }
@@ -1035,7 +1128,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
               disabled={loading || !courseId}
             />
           </div>
-          <div className="md:col-span-4 space-y-1">
+          <div className="md:col-span-8 space-y-1">
             <Label>Exam Master</Label>
             <Select
               value={examId ? String(examId) : null}
@@ -1046,13 +1139,18 @@ export default function ExamSubjectBarcodeGenerationPage() {
                   v ? Number(v) : null,
                 )
               }
-              options={exams.map((e, i) => ({
-                value: String(
-                  pickNum(e, ["fk_exam_id", "examId", "fk_examId"]) || i,
-                ),
-                label: pickText(e, ["exam_name", "examName"]) || "-",
-              }))}
+              options={exams.map((e, i) => {
+                const id = pickNum(e, ["fk_exam_id", "examId", "fk_examId"]);
+                const label = formatExamOptionLabel(e);
+                return {
+                  value: String(id || i),
+                  label,
+                  title: label,
+                  labelNode: examOptionLabelNode(e),
+                };
+              })}
               placeholder="Exam Master"
+              searchable
               disabled={loading || !courseId || !academicYearId}
             />
           </div>
@@ -1160,7 +1258,7 @@ export default function ExamSubjectBarcodeGenerationPage() {
               disabled={loading || !regulationId}
             />
           </div>
-          <div className="md:col-span-2 flex items-end gap-2">
+          <div className="md:col-span-1 flex items-end gap-2">
             <Button
               type="button"
               onClick={getList}
@@ -1168,19 +1266,6 @@ export default function ExamSubjectBarcodeGenerationPage() {
               className="h-8 flex-1 px-3 text-[12px]"
             >
               Get List
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              title="Refresh filters"
-              onClick={() => void refreshFilters()}
-              disabled={loading || tableLoading}
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", loading && "animate-spin")}
-              />
             </Button>
           </div>
         </div>

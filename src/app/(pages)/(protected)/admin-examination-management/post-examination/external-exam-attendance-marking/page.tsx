@@ -824,6 +824,7 @@ export default function ExternalExamAttendanceMarkingPage() {
   return (
     <FilteredListPage
       title="External Exam Attendance Marking"
+      tableTitle="Mark Exam Attendance"
       filters={
         <div className="grid grid-cols-1 gap-2 md:grid-cols-12 md:items-end">
           <div className="space-y-1 md:col-span-2">
@@ -931,10 +932,25 @@ export default function ExternalExamAttendanceMarkingPage() {
               {loadingList ? "Loading..." : "Get List"}
             </Button>
           </div>
-          {hasFetched && rows.length > 0 ? (
-            <div className="app-card overflow-hidden border-2 border-[#c3d9ff] bg-card p-2 md:col-span-12">
+        </div>
+      }
+      tableHeader={
+        hasFetched && rows.length > 0 ? (
+          <div className="space-y-3">
+            <div className="table-context-header">
+              <span
+                className="material-icons table-context-header__icon"
+                aria-hidden
+              >
+                book
+              </span>
+              <strong className="table-context-header__title">
+                Mark Exam Attendance
+              </strong>
+            </div>
+            <div className="overflow-hidden rounded border-2 border-[#c3d9ff] bg-card p-2">
               <div className="flex items-start gap-4">
-                <div className="flex h-20 w-20 items-center justify-center bg-[#c3d9ff] text-slate-700">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-[#c3d9ff] text-slate-700">
                   <GraduationCap className="h-10 w-10" />
                 </div>
                 <div className="space-y-1 text-[13px] text-slate-600">
@@ -959,8 +975,8 @@ export default function ExternalExamAttendanceMarkingPage() {
                 </div>
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null
       }
       rowData={hasFetched ? rows : []}
       columnDefs={columnDefs}
@@ -968,12 +984,15 @@ export default function ExternalExamAttendanceMarkingPage() {
       resultsVisible={hasFetched && rows.length > 0}
       hideEmptyGrid
       fitColumnsToWidth={false}
+      // autoHeight
       pagination
       toolbar={
         hasFetched && rows.length > 0
           ? {
               search: true,
               searchPlaceholder: "Search…",
+              exportExcel: false,
+              exportPdf: false,
               pdfDocumentTitle: "External Exam Attendance",
             }
           : false
@@ -998,7 +1017,7 @@ export default function ExternalExamAttendanceMarkingPage() {
         hasFetched && rows.length > 0 ? (
           <div className="space-y-3">
             <div className="overflow-hidden rounded border border-[#c3d9ff] bg-card">
-              <h3 className="bg-[#ecf3ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
+              <h3 className="bg-[#c3d9ff] px-3 py-2 text-center text-[14px] font-semibold uppercase text-slate-700">
                 Absentees :{" "}
                 <span className="rounded-full bg-cyan-300 px-2 py-0.5">
                   {absentees.length}
@@ -1024,7 +1043,6 @@ export default function ExternalExamAttendanceMarkingPage() {
             <div className="flex flex-col items-center gap-2">
               <Button
                 className="h-8 px-5 text-[12px]"
-                variant="outline"
                 onClick={onUploadAttendanceClick}
                 disabled={uploadingAttendance || rows.length === 0}
               >

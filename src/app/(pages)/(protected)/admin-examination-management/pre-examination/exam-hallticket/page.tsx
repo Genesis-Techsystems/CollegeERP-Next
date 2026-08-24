@@ -102,6 +102,12 @@ const STUDENT_HALLTICKET_COL_DEFS: ColDef[] = [
   },
   { field: "subject_code", headerName: "Subject Code", minWidth: 130 },
   { field: "subject_name", headerName: "Subject Name", flex: 1, minWidth: 160 },
+  {
+    headerName: "Subject Type",
+    minWidth: 120,
+    valueGetter: (p: any) =>
+      pick(p.data, ["subjecttype", "subjectType", "subject_type"]) || "—",
+  },
 ];
 
 const dedupeBy = <T,>(rows: T[], keyFn: (r: T) => string | number) => {

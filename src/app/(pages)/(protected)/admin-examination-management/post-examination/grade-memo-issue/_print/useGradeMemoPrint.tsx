@@ -133,7 +133,7 @@ function sgpaToWords(num: unknown): string {
   ];
   const parts = String(num).split(".");
   const whole = parseInt(parts[0], 10);
-  let words = Number.isNaN(whole) ? "" : ones[whole] ?? "";
+  let words = Number.isNaN(whole) ? "" : (ones[whole] ?? "");
   if (parts.length > 1 && parts[1]) {
     const decimalPart = parts[1]
       .split("")
@@ -1050,7 +1050,9 @@ function SemesterGradeReportPage({
               background: "#000",
             }}
           />
-          <p style={{ ...semesterTitle, marginTop: 10 }}>SEMESTER GRADE REPORT</p>
+          <p style={{ ...semesterTitle, marginTop: 10 }}>
+            SEMESTER GRADE REPORT
+          </p>
           <p style={semesterSubTitle}>{txt(head.exam_name)}</p>
           <br />
         </>
@@ -1275,14 +1277,14 @@ function SamplePreviewChrome({
         <Button
           type="button"
           variant="outline"
-          className="h-8 min-w-24"
+          className="h-8 min-w-24 bg-[#ffcf46]"
           onClick={onBack}
         >
           Back
         </Button>
         <Button
           type="button"
-          className="h-8 min-w-24 bg-blue-600 text-white hover:bg-blue-700"
+          className="h-8 min-w-24 text-white"
           onClick={onPrint}
         >
           Print
@@ -1328,8 +1330,9 @@ export function useGradeMemoPrint(params: {
     isSupply,
     dataFlag,
   } = params;
-  const [autoPrintMode, setAutoPrintMode] =
-    useState<GradeMemoPrintMode | null>(null);
+  const [autoPrintMode, setAutoPrintMode] = useState<GradeMemoPrintMode | null>(
+    null,
+  );
   // Angular SampleFormat / printBulkSampleGradeCard → grade-card-modal (preview, not auto-print)
   const [previewMode, setPreviewMode] = useState<
     "sample" | "bulkSample" | null
